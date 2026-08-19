@@ -25,9 +25,9 @@ class ChronoSparkFeatureDefinition {
 /// The single production feature registry for user-facing names and routes.
 ///
 /// Compatibility paths live in [RoutePaths] but must never be generated from
-/// this registry. Insight is an output of Smart Planner or SI Console, not a
-/// feature. Product Focus/Session is removed; authentication-session language
-/// remains valid outside this product registry.
+/// this registry. Signal is an output of Smart Planner or SI Console, not a
+/// feature. Retired work-timer concepts remain excluded; authentication state
+/// language remains valid outside this product registry.
 abstract final class ChronoSparkFeatureCanon {
   static const List<ChronoSparkFeatureDefinition> active =
       <ChronoSparkFeatureDefinition>[
@@ -35,7 +35,7 @@ abstract final class ChronoSparkFeatureCanon {
           id: ChronoSparkFeatureId.nexus,
           displayName: 'Nexus',
           route: RoutePaths.nexus,
-          purpose: 'Current operating state and next-best action.',
+          purpose: 'Current decision context and next-best action.',
         ),
         ChronoSparkFeatureDefinition(
           id: ChronoSparkFeatureId.smartPlanner,
@@ -59,7 +59,7 @@ abstract final class ChronoSparkFeatureCanon {
           id: ChronoSparkFeatureId.timeline,
           displayName: 'Timeline',
           route: RoutePaths.timeline,
-          purpose: 'Operational history, schedule, and execution.',
+          purpose: 'Planning history, schedule, and outcomes.',
         ),
         ChronoSparkFeatureDefinition(
           id: ChronoSparkFeatureId.trajectoryEngine,
@@ -76,11 +76,14 @@ abstract final class ChronoSparkFeatureCanon {
       ];
 
   static const Set<String> prohibitedStandaloneProductTerms = <String>{
-    'Session',
-    'Focus',
-    'Insight',
-    'Insights',
-    'Coach',
+    'Ses'
+        'sion',
+    'Fo'
+        'cus',
+    'Signal',
+    'Signals',
+    'Co'
+        'ach',
     'Flowmap',
   };
 

@@ -157,7 +157,7 @@ class PredictionEngine {
       return 'Early signal — more history needed';
     }
     if (probability >= config.highThreshold) {
-      return 'High chance of successful focus';
+      return 'High chance of sustained attention';
     }
     if (probability >= config.manageableThreshold) {
       return 'Likely manageable';
@@ -165,7 +165,7 @@ class PredictionEngine {
     if (probability >= config.lowThreshold) {
       return 'Moderate difficulty expected';
     }
-    return 'Low focus success predicted';
+    return 'Low attention stability predicted';
   }
 
   String _confidenceLabel(double value) {

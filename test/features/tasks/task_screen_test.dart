@@ -1,8 +1,6 @@
 import 'package:fantastic_guacamole/features/tasks/ui/task_screen.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_progress_store.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,10 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('renders trajectory shell', (WidgetTester tester) async {
     final ProviderContainer container = ProviderContainer(
-      overrides: [
-        trajectorySummaryProvider.overrideWithValue(_summary),
-        tutorialProgressProvider.overrideWith(_StaticTutorialController.new),
-      ],
+      overrides: [trajectorySummaryProvider.overrideWithValue(_summary)],
     );
     addTearDown(container.dispose);
 
@@ -48,8 +43,3 @@ const TrajectorySummaryView _summary = TrajectorySummaryView(
   predictionProbability: null,
   predictionExplanation: null,
 );
-
-class _StaticTutorialController extends TutorialProgressController {
-  @override
-  Future<TutorialProgress> build() async => const TutorialProgress();
-}

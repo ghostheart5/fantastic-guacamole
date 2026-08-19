@@ -51,7 +51,7 @@ void main() {
   // every real tap fell through to the default surface.
   for (final (String payload, AppView expected) in <(String, AppView)>[
     ('goal_reminder_abc123', AppView.goals),
-    ('daily_planning_reminder', AppView.plan),
+    ('daily_planning_reminder', AppView.timeline),
     ('habit_reminder_daily', AppView.creator),
     ('reflection_reminder', AppView.timeline),
     ('streak_break_recovery_xyz', AppView.progression),

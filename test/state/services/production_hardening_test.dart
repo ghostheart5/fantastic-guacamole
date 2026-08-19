@@ -118,7 +118,7 @@ void main() {
     test('passes ordinary planning-guidance text', () {
       expect(
         SiPolicy.containsUnsupportedClaim(
-          'Focus on the spec for 25 minutes, then take a break.',
+          'Work on the spec for 25 minutes, then take a break.',
         ),
         isFalse,
       );

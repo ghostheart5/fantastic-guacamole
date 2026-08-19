@@ -142,7 +142,7 @@ class CloudSyncPreferenceNotifier extends AsyncNotifier<bool> {
   Future<bool> build() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     // Cloud transfer is opt-in. A build flag only makes the capability
-    // available; it must not silently authorize data transfer.
+    // available; it must not silently allow data transfer.
     return prefs.getBool(_cloudSyncPreferenceKey) ?? false;
   }
 

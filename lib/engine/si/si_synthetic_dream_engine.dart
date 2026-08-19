@@ -28,7 +28,7 @@ class SISyntheticDreamEngine {
     final safe = !instinct.safetyFirst && !instinct.avoidOverwhelm;
     final symbol = intent.primary.label == 'reflect'
         ? 'mirror'
-        : intent.primary.label == 'insight_request'
+        : intent.primary.label == 'signal_request'
         ? 'constellation'
         : intent.primary.label == 'start_execution'
         ? 'lens'

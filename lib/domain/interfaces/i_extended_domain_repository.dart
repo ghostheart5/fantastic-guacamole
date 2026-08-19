@@ -10,7 +10,7 @@ abstract class IExtendedDomainRepository {
   List<PlannerMessage> getPlannerMessages();
   List<SiQuery> getSiQueries();
   List<UserIntent> getUserIntents();
-  List<JournalEntry> getJournalEntries();
+  List<ReflectionEntry> getReflectionEntries();
   List<AnalyticsMetric> getAnalyticsMetrics();
   List<AppNotification> getAppNotifications();
   List<Reward> getRewards();
@@ -27,7 +27,7 @@ abstract class IExtendedDomainRepository {
   Future<void> savePlannerMessage(PlannerMessage entity);
   Future<void> saveSiQuery(SiQuery entity);
   Future<void> saveUserIntent(UserIntent entity);
-  Future<void> saveJournalEntry(JournalEntry entity);
+  Future<void> saveReflectionEntry(ReflectionEntry entity);
   Future<void> saveAnalyticsMetric(AnalyticsMetric entity);
   Future<void> saveAppNotification(AppNotification entity);
   Future<void> saveReward(Reward entity);

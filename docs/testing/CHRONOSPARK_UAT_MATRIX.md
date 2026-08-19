@@ -11,7 +11,7 @@ screenshots or video, and sanitized logs.
 - Prerequisites: fresh install, new test account, network available.
 - Test data: a Unicode display name and one planning priority.
 - Action: interrupt setup halfway, kill/reopen, resume, complete, and reopen again.
-- Expected: the correct step resumes; Nexus is home; no Session or standalone Insight surface appears.
+- Expected: the correct step resumes; Nexus is home; no Session or standalone Signal surface appears.
 - Failure indicators: reset progress, blank route, duplicate setup step, retired terminology, or lost personalization.
 - Severity: P0.
 - Evidence: full recording plus final Nexus and persisted-profile screenshots.

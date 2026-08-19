@@ -10,7 +10,7 @@ void main() {
           candidates: const <SIResponseCandidate>[
             SIResponseCandidate(
               message:
-                  'Focus on task alpha by completing the first draft today.',
+                  'Work on task alpha by completing the first draft today.',
               reasoning: 'candidate_a',
               emotion: 'balanced',
               confidence: 0.9,
@@ -27,7 +27,7 @@ void main() {
           ],
           recentResponseHashes: const <String>[],
           recentResponseSummaries: const <String>[
-            'focus on task alpha by completing first draft',
+            'work on task alpha by completing first draft',
           ],
           previousTaskId: null,
           userRecentlySkipping: false,
@@ -116,7 +116,7 @@ void main() {
 
     test('final response repetition and confidence use system evidence', () {
       final String repeated =
-          'Focus on task alpha by completing the first draft today.';
+          'Work on task alpha by completing the first draft today.';
       final bool isRepeated = isSubstantiallyRepeatedResponse(
         message: repeated,
         recentResponseHashes: <String>[responseHashFor(repeated)],

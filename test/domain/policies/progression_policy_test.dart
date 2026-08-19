@@ -50,11 +50,11 @@ void main() {
       final high = ProgressionPolicy.levelProfile(8);
 
       expect(low.tone, 'supportive');
-      expect(low.minSessionMinutes, 5);
+      expect(low.minEffortMinutes, 5);
       expect(mid.tone, 'structured');
       expect(mid.maxDifficulty, 4);
       expect(high.tone, 'minimal');
-      expect(high.maxSessionMinutes, 60);
+      expect(high.maxEffortMinutes, 60);
     });
   });
 }

@@ -26,7 +26,7 @@ void main() {
               testerFullAccess: false,
             ),
             auth: AuthStateSnapshot(
-              hasMockSession: false,
+              hasMockSignIn: false,
               hasAuthenticatedUser: false,
             ),
             mockLogin: MockLoginConfigState(

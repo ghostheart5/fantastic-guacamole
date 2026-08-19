@@ -110,7 +110,7 @@ class AboutPage extends StatelessWidget {
           Text('ChronoSpark', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 8),
           Text(
-            'An adaptive planner built for focus, momentum, and reflective execution.',
+            'An adaptive planner built for clarity, momentum, and reflective execution.',
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 18),
@@ -122,7 +122,7 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Core Surfaces',
             body:
-                'Nexus for command, Trajectory for tasks, Ledger for logs, and Profile for identity and progression. Advanced modules (Plan, Creator, SI, Goals, Memories, Personal Alignment, Timeline) expand depth when needed.',
+                'Nexus for decisions, Trajectory Engine for possible paths, Timeline for history, and Profile for identity and progression. Smart Planner, Creator, SI Console, and Progression add depth when needed.',
           ),
           const _Section(
             title: 'Guiding Principle',

@@ -6,12 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ExtendedDomainService implements IExtendedDomainRepository {
   ExtendedDomainService();
 
-  // Keep the original key so saved guidance history survives the rename.
-  static const String _legacyPlannerMessagesKey =
-      'extended_domain.coach_messages';
+  static const String _keyPlannerMessages = 'extended_domain.planner_messages';
   static const String _keySiQueries = 'extended_domain.si_queries';
   static const String _keyUserIntents = 'extended_domain.user_intents';
-  static const String _keyJournalEntries = 'extended_domain.journal_entries';
+  static const String _keyReflectionEntries =
+      'extended_domain.reflection_entries';
   static const String _keyAnalyticsMetrics =
       'extended_domain.analytics_metrics';
   static const String _keyAppNotifications =
@@ -34,7 +33,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   final List<PlannerMessage> _plannerMessages = [];
   final List<SiQuery> _siQueries = [];
   final List<UserIntent> _userIntents = [];
-  final List<JournalEntry> _journalEntries = [];
+  final List<ReflectionEntry> _reflectionEntries = [];
   final List<AnalyticsMetric> _analyticsMetrics = [];
   final List<AppNotification> _appNotifications = [];
   final List<Reward> _rewards = [];
@@ -65,7 +64,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<PlannerMessage>(
-          prefs.getString(_legacyPlannerMessagesKey),
+          prefs.getString(_keyPlannerMessages),
           (Map<String, dynamic> json) => PlannerMessage(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -94,12 +93,12 @@ class ExtendedDomainService implements IExtendedDomainRepository {
           ),
         ),
       );
-    _journalEntries
+    _reflectionEntries
       ..clear()
       ..addAll(
-        _decodeEntities<JournalEntry>(
-          prefs.getString(_keyJournalEntries),
-          (Map<String, dynamic> json) => JournalEntry(
+        _decodeEntities<ReflectionEntry>(
+          prefs.getString(_keyReflectionEntries),
+          (Map<String, dynamic> json) => ReflectionEntry(
             id: json['id'] as String,
             label: json['label'] as String?,
           ),
@@ -289,7 +288,8 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   List<UserIntent> getUserIntents() => List.unmodifiable(_userIntents);
 
   @override
-  List<JournalEntry> getJournalEntries() => List.unmodifiable(_journalEntries);
+  List<ReflectionEntry> getReflectionEntries() =>
+      List.unmodifiable(_reflectionEntries);
 
   @override
   List<AnalyticsMetric> getAnalyticsMetrics() =>
@@ -334,7 +334,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   @override
   Future<void> savePlannerMessage(PlannerMessage entity) async {
     _plannerMessages.add(entity);
-    await _persistList(_legacyPlannerMessagesKey, _plannerMessages);
+    await _persistList(_keyPlannerMessages, _plannerMessages);
   }
 
   @override
@@ -350,9 +350,9 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   }
 
   @override
-  Future<void> saveJournalEntry(JournalEntry entity) async {
-    _journalEntries.add(entity);
-    await _persistList(_keyJournalEntries, _journalEntries);
+  Future<void> saveReflectionEntry(ReflectionEntry entity) async {
+    _reflectionEntries.add(entity);
+    await _persistList(_keyReflectionEntries, _reflectionEntries);
   }
 
   @override

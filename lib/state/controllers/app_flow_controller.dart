@@ -9,12 +9,10 @@ enum AppView {
   console,
   settings,
   progression,
-  plan,
   creator,
   goals,
   milestones,
   memories,
-  personalAlignment,
   timeline,
   trajectoryEngine,
 }
@@ -28,6 +26,9 @@ AppView? appViewFromName(String? value) {
     return AppView.creator;
   }
   if (target == 'logs') {
+    return AppView.timeline;
+  }
+  if (target == 'plan') {
     return AppView.timeline;
   }
   for (final AppView view in AppView.values) {
@@ -59,12 +60,10 @@ class AppFlowController extends Notifier<AppView> {
   void toTrajectoryEngine() => state = AppView.trajectoryEngine;
   void toSettings() => state = AppView.settings;
   void toProgression() => state = AppView.progression;
-  void toPlan() => state = AppView.plan;
   void toCreator() => state = AppView.creator;
   void toGoals() => state = AppView.goals;
   void toMilestones() => state = AppView.milestones;
   void toMemories() => state = AppView.memories;
-  void toPersonalAlignment() => state = AppView.personalAlignment;
   void toTimeline() => state = AppView.timeline;
   void show(AppView view) => state = view;
 }

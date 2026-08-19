@@ -9,7 +9,7 @@ class ProductAdvisorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final insightsAsync = ref.watch(productInsightsProvider);
+    final recommendationsAsync = ref.watch(productRecommendationsProvider);
     final configAsync = ref.watch(optimizationConfigProvider);
 
     return Scaffold(
@@ -45,14 +45,14 @@ class ProductAdvisorScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            insightsAsync.when(
-              data: (insights) => _InsightsList(
-                insights: insights
+            recommendationsAsync.when(
+              data: (recommendations) => _RecommendationsList(
+                recommendations: recommendations
                     .map(
-                      (insight) => _InsightView(
-                        issue: insight.issue,
-                        cause: insight.cause,
-                        recommendation: insight.recommendation,
+                      (recommendation) => _RecommendationView(
+                        issue: recommendation.issue,
+                        cause: recommendation.cause,
+                        recommendation: recommendation.recommendation,
                       ),
                     )
                     .toList(growable: false),
@@ -71,7 +71,8 @@ class ProductAdvisorScreen extends ConsumerWidget {
             configAsync.when(
               data: (config) => _OptimizerStateCard(
                 config: _OptimizationView(
-                  focusDurationMultiplier: config.focusDurationMultiplier,
+                  executionDurationMultiplier:
+                      config.executionDurationMultiplier,
                   taskDifficultyScale: config.taskDifficultyScale,
                   nextActionAggressiveness: config.nextActionAggressiveness,
                 ),
@@ -82,7 +83,7 @@ class ProductAdvisorScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _RefreshButton(
               onRefresh: () {
-                ref.invalidate(productInsightsProvider);
+                ref.invalidate(productRecommendationsProvider);
                 ref.invalidate(optimizationConfigProvider);
               },
             ),
@@ -93,13 +94,13 @@ class ProductAdvisorScreen extends ConsumerWidget {
   }
 }
 
-class _InsightsList extends StatelessWidget {
-  const _InsightsList({required this.insights});
-  final List<_InsightView> insights;
+class _RecommendationsList extends StatelessWidget {
+  const _RecommendationsList({required this.recommendations});
+  final List<_RecommendationView> recommendations;
 
   @override
   Widget build(BuildContext context) {
-    if (insights.isEmpty) {
+    if (recommendations.isEmpty) {
       return const _EmptyState();
     }
     return Column(
@@ -107,17 +108,17 @@ class _InsightsList extends StatelessWidget {
       children: [
         const _SectionHeader(label: 'TOP RECOMMENDATION'),
         const SizedBox(height: 8),
-        _InsightCard(insight: insights.first, isTop: true),
-        if (insights.length > 1) ...[
+        _RecommendationCard(recommendation: recommendations.first, isTop: true),
+        if (recommendations.length > 1) ...[
           const SizedBox(height: 20),
-          const _SectionHeader(label: 'ALL INSIGHTS'),
+          const _SectionHeader(label: 'ALL RECOMMENDATIONS'),
           const SizedBox(height: 8),
-          ...insights
+          ...recommendations
               .skip(1)
               .map(
                 (i) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _InsightCard(insight: i, isTop: false),
+                  child: _RecommendationCard(recommendation: i, isTop: false),
                 ),
               ),
         ],
@@ -126,9 +127,12 @@ class _InsightsList extends StatelessWidget {
   }
 }
 
-class _InsightCard extends StatelessWidget {
-  const _InsightCard({required this.insight, required this.isTop});
-  final _InsightView insight;
+class _RecommendationCard extends StatelessWidget {
+  const _RecommendationCard({
+    required this.recommendation,
+    required this.isTop,
+  });
+  final _RecommendationView recommendation;
   final bool isTop;
 
   @override
@@ -165,7 +169,7 @@ class _InsightCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  insight.issue,
+                  recommendation.issue,
                   style: TextStyle(
                     color: accent,
                     fontSize: 13,
@@ -177,9 +181,9 @@ class _InsightCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _Label(label: 'Cause', value: insight.cause),
+          _Label(label: 'Cause', value: recommendation.cause),
           const SizedBox(height: 6),
-          _Label(label: 'Recommendation', value: insight.recommendation),
+          _Label(label: 'Recommendation', value: recommendation.recommendation),
         ],
       ),
     );
@@ -230,8 +234,8 @@ class _OptimizerStateCard extends StatelessWidget {
       child: Column(
         children: [
           _StatRow(
-            label: 'Focus Duration Multiplier',
-            value: config.focusDurationMultiplier.toStringAsFixed(2),
+            label: 'Execution Duration Multiplier',
+            value: config.executionDurationMultiplier.toStringAsFixed(2),
           ),
           const SizedBox(height: 8),
           _StatRow(
@@ -303,7 +307,7 @@ class _EmptyState extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Text(
-          'Not enough data yet.\nKeep using the app to generate insights.',
+          'Not enough data yet.\nKeep using the app to build recommendations.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
         ),
@@ -328,8 +332,8 @@ class _ErrorTile extends StatelessWidget {
   }
 }
 
-class _InsightView {
-  const _InsightView({
+class _RecommendationView {
+  const _RecommendationView({
     required this.issue,
     required this.cause,
     required this.recommendation,
@@ -342,12 +346,12 @@ class _InsightView {
 
 class _OptimizationView {
   const _OptimizationView({
-    required this.focusDurationMultiplier,
+    required this.executionDurationMultiplier,
     required this.taskDifficultyScale,
     required this.nextActionAggressiveness,
   });
 
-  final double focusDurationMultiplier;
+  final double executionDurationMultiplier;
   final double taskDifficultyScale;
   final double nextActionAggressiveness;
 }

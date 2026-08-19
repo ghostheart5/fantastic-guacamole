@@ -120,8 +120,8 @@ void main() {
   });
 
   testWidgets(
-    'a crisis phrase prefixed with a slash command still triggers the '
-    'crisis dialog instead of being handled as a local command',
+    'a crisis phrase prefixed with a slash shortcut still triggers the '
+    'crisis dialog instead of being handled as a local shortcut',
     (WidgetTester tester) async {
       final ProviderContainer container = ProviderContainer(
         overrides: [
@@ -156,7 +156,7 @@ void main() {
       final _RecordingAiController controller =
           container.read(aiControllerProvider) as _RecordingAiController;
       expect(controller.calls, 0);
-      expect(find.textContaining('SI COMMAND GUIDE'), findsNothing);
+      expect(find.textContaining('SI QUERY SHORTCUTS'), findsNothing);
     },
   );
 }
@@ -176,7 +176,7 @@ const IntelligenceState _intelligence = IntelligenceState(
     paywallDisabled: true,
     testerFullAccess: true,
   ),
-  auth: AuthStateSnapshot(hasMockSession: true, hasAuthenticatedUser: false),
+  auth: AuthStateSnapshot(hasMockSignIn: true, hasAuthenticatedUser: false),
   mockLogin: MockLoginConfigState(email: '', password: ''),
 );
 

@@ -11,10 +11,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
-    'SI console responds, avoids duplicate output, and handles malformed command safely',
+    'SI console responds, avoids duplicate output, and handles malformed requests safely',
     (WidgetTester tester) async {
       const String firstReply =
-          'Start with your highest-priority unfinished task for 15 focused minutes.';
+          'Start with your highest-priority unfinished task for 15 deliberate minutes.';
       const String secondReply =
           'Pick one frictionless win first, then escalate to your hardest task.';
 
@@ -58,7 +58,10 @@ void main() {
         '/malformed ???',
       );
       expect(malformed, isNotNull);
-      expect(malformed!.message.toLowerCase(), contains('malformed'));
+      expect(
+        malformed!.message.toLowerCase(),
+        contains('request not understood'),
+      );
       expect(find.byType(SIConsoleScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -102,7 +105,7 @@ const IntelligenceState _intelligence = IntelligenceState(
     paywallDisabled: true,
     testerFullAccess: true,
   ),
-  auth: AuthStateSnapshot(hasMockSession: true, hasAuthenticatedUser: true),
+  auth: AuthStateSnapshot(hasMockSignIn: true, hasAuthenticatedUser: true),
   mockLogin: MockLoginConfigState(email: '', password: ''),
 );
 
@@ -112,7 +115,7 @@ class _ScriptedAiController extends AIController {
   int _calls = 0;
 
   static const String malformedReply =
-      'Malformed command detected. Use a plain request or supported command like /tasks, /goals, or /plan.';
+      'Request not understood. Use plain language or a shortcut like /tasks, /goals, or /plan.';
 
   @override
   Future<AIRecommendation?> sendMessage(String text) async {
@@ -129,9 +132,9 @@ class _ScriptedAiController extends AIController {
     if (_calls == 1) {
       return const AIRecommendation(
         message:
-            'Start with your highest-priority unfinished task for 15 focused minutes.',
+            'Start with your highest-priority unfinished task for 15 deliberate minutes.',
         reasoning: 'first-pass',
-        emotion: 'focused',
+        emotion: 'engaged',
         confidence: 0.8,
       );
     }

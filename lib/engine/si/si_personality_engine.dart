@@ -77,7 +77,7 @@ class SIPersonalityEngine {
       case SIPersona.assistant:
         return 'clear_assistant';
       case SIPersona.planner:
-        return 'focused_planner';
+        return 'direct_planner';
       case SIPersona.companion:
         return 'warm_companion';
       case SIPersona.analyst:

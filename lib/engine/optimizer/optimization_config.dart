@@ -1,25 +1,25 @@
 class OptimizationConfig {
   const OptimizationConfig({
-    required this.focusDurationMultiplier,
+    required this.executionDurationMultiplier,
     required this.taskDifficultyScale,
     required this.nextActionAggressiveness,
   });
 
-  final double focusDurationMultiplier;
+  final double executionDurationMultiplier;
   final double taskDifficultyScale;
   final double nextActionAggressiveness;
 
   factory OptimizationConfig.neutral() => const OptimizationConfig(
-    focusDurationMultiplier: 1.0,
+    executionDurationMultiplier: 1.0,
     taskDifficultyScale: 1.0,
     nextActionAggressiveness: 1.0,
   );
 
   OptimizationConfig lerp(OptimizationConfig other, double t) {
     return OptimizationConfig(
-      focusDurationMultiplier: _lerp(
-        focusDurationMultiplier,
-        other.focusDurationMultiplier,
+      executionDurationMultiplier: _lerp(
+        executionDurationMultiplier,
+        other.executionDurationMultiplier,
         t,
       ),
       taskDifficultyScale: _lerp(

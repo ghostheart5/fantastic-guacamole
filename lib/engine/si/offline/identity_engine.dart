@@ -1,25 +1,25 @@
 // Identity Engine — language-based identity reinforcement
-// Tracks discipline, focus, and growth identity dimensions (0.0–1.0).
+// Tracks discipline, attention, and growth identity dimensions (0.0–1.0).
 // Wraps SI responses with identity-affirming language when thresholds are met.
 
 class IdentityState {
   const IdentityState({
     required this.disciplineIdentity,
-    required this.focusIdentity,
+    required this.executionIdentity,
     required this.growthIdentity,
   });
 
   final double disciplineIdentity; // 0.0–1.0
-  final double focusIdentity;
+  final double executionIdentity;
   final double growthIdentity;
 
   IdentityState copyWith({
     double? disciplineIdentity,
-    double? focusIdentity,
+    double? executionIdentity,
     double? growthIdentity,
   }) => IdentityState(
     disciplineIdentity: disciplineIdentity ?? this.disciplineIdentity,
-    focusIdentity: focusIdentity ?? this.focusIdentity,
+    executionIdentity: executionIdentity ?? this.executionIdentity,
     growthIdentity: growthIdentity ?? this.growthIdentity,
   );
 }
@@ -39,11 +39,9 @@ class IdentityEngine {
             0.0,
             1.0,
           ),
-      focusIdentity:
-          (current.focusIdentity + (completionRecorded ? 0.03 : -0.01)).clamp(
-            0.0,
-            1.0,
-          ),
+      executionIdentity:
+          (current.executionIdentity + (completionRecorded ? 0.03 : -0.01))
+              .clamp(0.0, 1.0),
       growthIdentity: (current.growthIdentity + (streakMaintained ? 0.02 : 0.0))
           .clamp(0.0, 1.0),
     );
@@ -53,8 +51,8 @@ class IdentityEngine {
     if (state.disciplineIdentity > 0.7) {
       return 'You are someone who follows through. $baseMessage';
     }
-    if (state.focusIdentity > 0.7) {
-      return 'Deep focus is becoming your default. $baseMessage';
+    if (state.executionIdentity > 0.7) {
+      return 'Sustained attention is becoming your default. $baseMessage';
     }
     if (state.growthIdentity > 0.7) {
       return 'You are building something real. $baseMessage';

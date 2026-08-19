@@ -31,8 +31,8 @@ class GoalLifecycleEvent extends DomainEvent {
   final String action;
 }
 
-class InsightLifecycleEvent extends DomainEvent {
-  InsightLifecycleEvent({
+class SignalLifecycleEvent extends DomainEvent {
+  SignalLifecycleEvent({
     required this.summary,
     required this.titles,
     super.occurredAt,

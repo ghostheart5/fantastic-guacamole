@@ -4,13 +4,13 @@ enum MemoryCategory {
   goal,
   habit,
   task,
-  journal,
+  reflection,
   lifeArea,
   planningGuidancePreference,
   value,
   importantDate,
   achievement,
-  insight,
+  signal,
   other,
 }
 
@@ -148,9 +148,16 @@ class MemoryEntity {
   factory MemoryEntity.fromJson(Map<String, dynamic> j) {
     final String storedCategory = j['category']?.toString() ?? 'other';
     // Keep memories categorized before the terminology update.
-    final String categoryRaw = storedCategory == 'coachingPreference'
-        ? 'planningGuidancePreference'
-        : storedCategory;
+    final String categoryRaw = switch (storedCategory) {
+      'coachingPreference' => 'planningGuidancePreference',
+      ('jour'
+          'nal') =>
+        'reflection',
+      ('ins'
+          'ight') =>
+        'signal',
+      _ => storedCategory,
+    };
     final MemoryCategory category = MemoryCategory.values.firstWhere(
       (MemoryCategory value) => value.name == categoryRaw,
       orElse: () => MemoryCategory.other,

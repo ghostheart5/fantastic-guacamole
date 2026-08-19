@@ -9,7 +9,7 @@ SiSignals _extract({
   bool hasGoals = false,
   int skippedTaskCount = 0,
   String emotion = 'neutral',
-  String insightsSummary = '',
+  String signalsSummary = '',
 }) {
   return const ExtractSiSignals()(
     pressureIndex: pressureIndex,
@@ -19,7 +19,7 @@ SiSignals _extract({
     hasGoals: hasGoals,
     skippedTaskCount: skippedTaskCount,
     emotion: emotion,
-    insightsSummary: insightsSummary,
+    signalsSummary: signalsSummary,
   );
 }
 
@@ -101,13 +101,13 @@ void main() {
   });
 
   group('pattern detection', () {
-    test('detects overload from the insights summary, case-insensitively', () {
+    test('detects overload from the signals summary, case-insensitively', () {
       expect(
-        _extract(insightsSummary: 'Heavy OVERLOAD detected').emotionalPatterns,
+        _extract(signalsSummary: 'Heavy OVERLOAD detected').emotionalPatterns,
         contains('overload_pattern'),
       );
       expect(
-        _extract(insightsSummary: 'all clear').emotionalPatterns,
+        _extract(signalsSummary: 'all clear').emotionalPatterns,
         isNot(contains('overload_pattern')),
       );
     });

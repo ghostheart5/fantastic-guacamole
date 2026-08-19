@@ -38,7 +38,7 @@ class SICognitiveMetaPersonaEngine {
     final String mood = siNormalizeMood(context.userState.emotion);
     final bool safety = instinct.safetyFirst || instinct.avoidOverwhelm;
     final bool confused = instinct.reduceConfusion || mood == 'confused';
-    final bool insight = intent.primary.label == 'insight_request';
+    final bool signal = intent.primary.label == 'signal_request';
     final bool action =
         intent.primary.label == 'get_task' ||
         intent.primary.label == 'start_execution';
@@ -55,14 +55,14 @@ class SICognitiveMetaPersonaEngine {
       primary = SIPersona.assistant;
       secondary = SIPersona.mentor;
       reason = 'Confusion requires clarity and gentle support.';
-    } else if (insight) {
+    } else if (signal) {
       primary = SIPersona.analyst;
       secondary = SIPersona.mentor;
-      reason = 'Insight requests need practical analysis with warmth.';
+      reason = 'Signal requests need practical analysis with warmth.';
     } else if (action) {
       primary = SIPersona.planner;
       secondary = mood == 'stressed' ? SIPersona.mentor : null;
-      reason = 'Action intent benefits from focused planning guidance.';
+      reason = 'Action intent benefits from direct planning guidance.';
     } else {
       primary = SIPersona.companion;
       secondary = SIPersona.assistant;

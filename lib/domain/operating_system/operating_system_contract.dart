@@ -34,7 +34,7 @@ enum OperatingActionType {
   createTimelineBlock,
   rescheduleCommitment,
   reprioritizeGoal,
-  acknowledgeBriefing,
+  acknowledgeDecision,
   none,
 }
 
@@ -223,7 +223,7 @@ class OperatingSnapshot {
   factory OperatingSnapshot.fromJson(Map<String, dynamic> json) {
     final int version = (json['schemaVersion'] as num?)?.toInt() ?? 0;
     if (version != currentSchemaVersion) {
-      throw FormatException('Unsupported operating snapshot version $version.');
+      throw FormatException('Unsupported decision snapshot version $version.');
     }
     return OperatingSnapshot(
       schemaVersion: version,
@@ -311,6 +311,7 @@ class OperatingDecisionReceipt {
     required this.generatedAt,
     required this.expiresAt,
     required this.confidence,
+    double? recommendationConfidence,
     required this.evidence,
     required this.actionIntent,
     required this.sourceRevisions,
@@ -318,7 +319,12 @@ class OperatingDecisionReceipt {
     this.assumptions = const <String>[],
     this.warnings = const <String>[],
     String? decisionId,
-  }) : decisionId =
+  }) : recommendationConfidence =
+           (recommendationConfidence ?? _defaultConfidence(confidence)).clamp(
+             0.0,
+             .99,
+           ).toDouble(),
+       decisionId =
            decisionId ??
            stableId(<String, dynamic>{
              'subjectId': subjectId,
@@ -337,6 +343,7 @@ class OperatingDecisionReceipt {
   final DateTime generatedAt;
   final DateTime expiresAt;
   final OperatingConfidence confidence;
+  final double recommendationConfidence;
   final List<OperatingEvidence> evidence;
   final OperatingActionIntent actionIntent;
   final Map<String, String> sourceRevisions;
@@ -348,12 +355,10 @@ class OperatingDecisionReceipt {
 
   void validate() {
     if (recommendedAction.trim().isEmpty || rationale.trim().isEmpty) {
-      throw StateError(
-        'An operating decision needs one action and its reason.',
-      );
+      throw StateError('A decision needs one action and its reason.');
     }
     if (!expiresAt.isAfter(generatedAt)) {
-      throw StateError('An operating decision must expire after generation.');
+      throw StateError('A decision must expire after generation.');
     }
     if (actionIntent.targetEntityId != null &&
         subjectId != null &&
@@ -363,8 +368,16 @@ class OperatingDecisionReceipt {
   }
 }
 
-class OperatingBriefing {
-  const OperatingBriefing({
+double _defaultConfidence(OperatingConfidence confidence) =>
+    switch (confidence) {
+      OperatingConfidence.high => .82,
+      OperatingConfidence.moderate => .64,
+      OperatingConfidence.low => .38,
+      OperatingConfidence.insufficientEvidence => .15,
+    };
+
+class DecisionIntelligence {
+  const DecisionIntelligence({
     required this.snapshot,
     required this.delta,
     required this.decision,
@@ -397,7 +410,7 @@ class OperatingDeltaEngine {
         comparedAt: now,
         changes: const <OperatingChange>[],
         summary:
-            'Baseline established. Future briefings will show material changes.',
+            'Baseline established. Future updates will show material changes.',
         isBaseline: true,
       );
     }
@@ -407,7 +420,7 @@ class OperatingDeltaEngine {
         currentSnapshotId: current.snapshotId,
         comparedAt: now,
         changes: const <OperatingChange>[],
-        summary: 'No material operating changes since the last checkpoint.',
+        summary: 'No material decision changes since the last checkpoint.',
         isBaseline: false,
       );
     }
@@ -485,7 +498,7 @@ class OperatingDeltaEngine {
 
     final int materialCount = changes.where((item) => item.material).length;
     final String summary = materialCount == 0
-        ? 'Inputs changed, but no material operating change was detected.'
+        ? 'Inputs changed, but no material decision change was detected.'
         : '$materialCount material change${materialCount == 1 ? '' : 's'} detected since the last checkpoint.';
     return OperatingDelta(
       previousSnapshotId: previous.snapshotId,

@@ -18,10 +18,10 @@ tags:
     timeout: 5000
 - scrollUntilVisible:
     element:
-      text: "Settings"
+      text: "Open settings"
     direction: DOWN
     timeout: 15000
-- tapOn: "Settings"
+- tapOn: "Open settings"
 
 - scrollUntilVisible:
     element:
@@ -34,9 +34,12 @@ tags:
 - assertVisible:
     text: ".*cannot be undone.*"
 
+- tapOn: "Continue"
+- assertVisible: "Account password"
+- tapOn: "Account password"
 - inputText: "${MAESTRO_TEST_PASSWORD}"
 - hideKeyboard
-- tapOn: "Purge Account"
+- tapOn: "Delete Account"
 
 # Deletion must end the session, not just close the dialog.
 - extendedWaitUntil:

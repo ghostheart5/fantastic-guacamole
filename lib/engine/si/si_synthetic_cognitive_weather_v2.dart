@@ -1,7 +1,7 @@
 // lib/engine/si/si_synthetic_cognitive_weather_v2.dart
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
-enum SyntheticWeatherV2 { clear, focused, foggy, storm, recovery }
+enum SyntheticWeatherV2 { clear, engaged, foggy, storm, recovery }
 
 class SyntheticWeatherReportV2 {
   const SyntheticWeatherReportV2({
@@ -37,7 +37,7 @@ class SISyntheticCognitiveWeatherV2 {
         : context.userState.fatigue >= .68
         ? SyntheticWeatherV2.recovery
         : context.userState.engagement >= .68
-        ? SyntheticWeatherV2.focused
+        ? SyntheticWeatherV2.engaged
         : context.userState.cognitiveLoad >= .6
         ? SyntheticWeatherV2.foggy
         : SyntheticWeatherV2.clear;
@@ -51,7 +51,7 @@ class SISyntheticCognitiveWeatherV2 {
             relevance: 1 - pressure,
             confidence: .72,
             emotionalWeight: pressure,
-            reinforcement: w == SyntheticWeatherV2.focused ? 1 : 0,
+            reinforcement: w == SyntheticWeatherV2.engaged ? 1 : 0,
           ),
         )
         .dedupe()
@@ -67,7 +67,7 @@ class SISyntheticCognitiveWeatherV2 {
   String _g(SyntheticWeatherV2 w) => switch (w) {
     SyntheticWeatherV2.storm => 'stabilize_and_shorten',
     SyntheticWeatherV2.recovery => 'protect_capacity',
-    SyntheticWeatherV2.focused => 'protect_focus',
+    SyntheticWeatherV2.engaged => 'protect_attention',
     SyntheticWeatherV2.foggy => 'clarify_one_detail',
     _ => 'continue_steady',
   };

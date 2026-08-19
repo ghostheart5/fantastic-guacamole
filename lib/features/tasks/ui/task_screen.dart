@@ -1,9 +1,5 @@
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -47,8 +43,6 @@ class TaskScreen extends ConsumerWidget {
                 onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
               ),
               const SizedBox(height: 12),
-              const _TrajectoryTutorialPanel(),
-              const SizedBox(height: 14),
               _TrajectorySummaryCard(summary: summary),
               const SizedBox(height: 14),
               _PredictiveSiReportCard(summary: summary),
@@ -106,49 +100,6 @@ class _CreatorTaskRedirectPanel extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _TrajectoryTutorialPanel extends ConsumerWidget {
-  const _TrajectoryTutorialPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final progressAsync = ref.watch(tutorialProgressProvider);
-    final TutorialStepContent step = TutorialContent.steps.firstWhere(
-      (TutorialStepContent content) => content.id == 'trajectory_overview',
-      orElse: () => TutorialContent.steps.first,
-    );
-
-    return progressAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (progress) {
-        if (progress.isStepCompleted(step.id)) {
-          return const SizedBox.shrink();
-        }
-
-        if (progress.isStepDismissed(step.id)) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(
-              stepId: step.id,
-              label: 'Re-Arm Trajectory Tutorial',
-            ),
-          );
-        }
-
-        return MicroTutorialCard(
-          step: step,
-          onComplete: () {
-            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
-          },
-          onDismiss: () {
-            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
-          },
-        );
-      },
     );
   }
 }

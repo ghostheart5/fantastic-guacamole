@@ -54,7 +54,7 @@ final _backupServiceProvider = Provider<BackupService?>((ref) {
   );
 });
 
-/// Build-time capability gate kept injectable so command behavior can be
+/// Build-time capability gate kept injectable so synchronization behavior can be
 /// verified without changing production environment variables.
 final cloudSyncCapabilityProvider = Provider<bool>(
   (Ref ref) => Env.enableCloudSync,
@@ -103,10 +103,10 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
 });
 
 final syncToCloudProvider = FutureProvider<bool>((ref) async {
-  // Yield once before publishing command status. Riverpod forbids one
+  // Yield once before publishing synchronization status. Riverpod forbids one
   // provider from mutating another while the first provider is synchronously
   // initializing, but the user-facing sync status must still be reset for
-  // every new command.
+  // every new synchronization request.
   await Future<void>.value();
   ref.read(syncErrorMessageProvider.notifier).clear();
   if (!ref.read(cloudSyncCapabilityProvider) ||

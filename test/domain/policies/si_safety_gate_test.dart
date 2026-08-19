@@ -21,7 +21,7 @@ void main() {
     for (final String phrase in _unsafePhrases) {
       test('withholds a decision whose rationale contains "$phrase"', () {
         final SiDecisionEntity decision = SiDecisionEntity(
-          rationale: 'This will $phrase your focus problem.',
+          rationale: 'This will $phrase your attention problem.',
         );
 
         final SiDecisionEntity gated = SiPolicy.sanitize(decision);
@@ -76,13 +76,13 @@ void main() {
       const SiDecisionEntity decision = SiDecisionEntity(
         selectedTaskId: 'task-1',
         rationale: 'Highest priority task selected.',
-        action: 'Focus on: Write the spec',
+        action: 'Work on: Write the spec',
       );
 
       final SiDecisionEntity gated = SiPolicy.sanitize(decision);
 
       expect(gated.selectedTaskId, 'task-1');
-      expect(gated.action, 'Focus on: Write the spec');
+      expect(gated.action, 'Work on: Write the spec');
       expect(gated.rationale, 'Highest priority task selected.');
     });
 
@@ -90,12 +90,12 @@ void main() {
       const SiDecisionEntity decision = SiDecisionEntity(
         rationale: 'Simplify',
         shouldSimplify: true,
-        recommendedFocusMinutes: 45,
+        recommendedExecutionMinutes: 45,
       );
 
       final SiDecisionEntity gated = SiPolicy.sanitize(decision);
 
-      expect(gated.recommendedFocusMinutes, 15);
+      expect(gated.recommendedExecutionMinutes, 15);
       expect(gated.tone, 'calm');
     });
   });
@@ -111,7 +111,7 @@ void main() {
         ),
       ]);
       final _FakeSiRepository siRepo = _FakeSiRepository(
-        SiStateEntity(energy: 0.8, focus: 0.7, fatigue: 0.2),
+        SiStateEntity(energy: 0.8, attention: 0.7, fatigue: 0.2),
       );
 
       final SiDecisionEntity decision = await GenerateSiDecision(
@@ -134,7 +134,7 @@ void main() {
         ),
       ]);
       final _FakeSiRepository siRepo = _FakeSiRepository(
-        SiStateEntity(energy: 0.8, focus: 0.7, fatigue: 0.2),
+        SiStateEntity(energy: 0.8, attention: 0.7, fatigue: 0.2),
       );
 
       final SiDecisionEntity decision = await GenerateSiDecision(
@@ -143,7 +143,7 @@ void main() {
       ).call();
 
       expect(decision.selectedTaskId, 'task-1');
-      expect(decision.action, 'Focus on: Write the spec');
+      expect(decision.action, 'Work on: Write the spec');
     });
 
     test('missing required context yields the no-state decision', () async {
@@ -171,7 +171,7 @@ void main() {
         ),
       ]);
       final _FakeSiRepository siRepo = _FakeSiRepository(
-        SiStateEntity(energy: 0.8, focus: 0.7, fatigue: 0.2),
+        SiStateEntity(energy: 0.8, attention: 0.7, fatigue: 0.2),
       );
 
       final SiDecisionEntity decision = await GenerateSiDecision(

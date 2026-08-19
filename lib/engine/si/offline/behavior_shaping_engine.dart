@@ -27,11 +27,11 @@ class BehaviorState {
 class BehaviorTarget {
   const BehaviorTarget({
     required this.targetDifficulty,
-    required this.targetSessionLength,
+    required this.targetWorkBlockMinutes,
   });
 
   final double targetDifficulty; // 1.0–5.0
-  final int targetSessionLength; // minutes
+  final int targetWorkBlockMinutes; // minutes
 }
 
 class BehaviorShapingEngine {
@@ -66,12 +66,12 @@ class BehaviorShapingEngine {
     );
     return BehaviorTarget(
       targetDifficulty: (avg * 4.0 + 1.0).clamp(1.0, 5.0),
-      targetSessionLength: _ladder[index],
+      targetWorkBlockMinutes: _ladder[index],
     );
   }
 
-  int adjustSession(int current, BehaviorState state) {
-    final int target = generateTarget(state).targetSessionLength;
+  int adjustWorkBlock(int current, BehaviorState state) {
+    final int target = generateTarget(state).targetWorkBlockMinutes;
     return current < target ? target : current.clamp(target, 60);
   }
 }

@@ -8,21 +8,21 @@ class AdaptiveLearningWeights {
     this.momentum = 0.5,
     this.resistance = 0.5,
     this.fatigueSensitivity = 0.5,
-    this.focusReadiness = 0.5,
+    this.attentionReadiness = 0.5,
     this.outputLoadModifier = 0.5,
   });
 
   final double momentum;
   final double resistance;
   final double fatigueSensitivity;
-  final double focusReadiness;
+  final double attentionReadiness;
   final double outputLoadModifier;
 
   AdaptiveLearningWeights copyWith({
     double? momentum,
     double? resistance,
     double? fatigueSensitivity,
-    double? focusReadiness,
+    double? attentionReadiness,
     double? outputLoadModifier,
   }) {
     return AdaptiveLearningWeights(
@@ -31,7 +31,9 @@ class AdaptiveLearningWeights {
       fatigueSensitivity: siClamp01(
         fatigueSensitivity ?? this.fatigueSensitivity,
       ),
-      focusReadiness: siClamp01(focusReadiness ?? this.focusReadiness),
+      attentionReadiness: siClamp01(
+        attentionReadiness ?? this.attentionReadiness,
+      ),
       outputLoadModifier: siClamp01(
         outputLoadModifier ?? this.outputLoadModifier,
       ),
@@ -42,7 +44,7 @@ class AdaptiveLearningWeights {
     'momentum_bias': siClamp01(momentum),
     'resistance_bias': siClamp01(resistance),
     'fatigue_bias': siClamp01(fatigueSensitivity),
-    'focus_bias': siClamp01(focusReadiness),
+    'attention_bias': siClamp01(attentionReadiness),
     'output_load_modifier': siClamp01(outputLoadModifier),
   };
 }
@@ -78,7 +80,7 @@ class SIAdaptiveLearning {
     double momentum = previous.momentum;
     double resistance = previous.resistance;
     double fatigue = previous.fatigueSensitivity;
-    double focus = previous.focusReadiness;
+    double attention = previous.attentionReadiness;
     double loadModifier = previous.outputLoadModifier;
 
     for (final MicroPattern p in patterns.patterns) {
@@ -94,8 +96,8 @@ class SIAdaptiveLearning {
           fatigue = _blend(fatigue, p.strength, 0.35);
           loadModifier = _blend(loadModifier, 1 - p.strength, 0.3);
           break;
-        case MicroPatternType.stableFocus:
-          focus = _blend(focus, p.strength, 0.35);
+        case MicroPatternType.stableAttention:
+          attention = _blend(attention, p.strength, 0.35);
           loadModifier = _blend(loadModifier, p.strength, 0.2);
           break;
         case MicroPatternType.taskAffinity:
@@ -116,7 +118,7 @@ class SIAdaptiveLearning {
       momentum: momentum,
       resistance: resistance,
       fatigueSensitivity: fatigue,
-      focusReadiness: focus,
+      attentionReadiness: attention,
       outputLoadModifier: loadModifier,
     );
 
@@ -127,7 +129,7 @@ class SIAdaptiveLearning {
           MemoryTier.midTerm,
           MemoryRecord(
             content:
-                'adaptive_learning|momentum=${next.momentum.toStringAsFixed(2)}|resistance=${next.resistance.toStringAsFixed(2)}|fatigue=${next.fatigueSensitivity.toStringAsFixed(2)}|focus=${next.focusReadiness.toStringAsFixed(2)}',
+                'adaptive_learning|momentum=${next.momentum.toStringAsFixed(2)}|resistance=${next.resistance.toStringAsFixed(2)}|fatigue=${next.fatigueSensitivity.toStringAsFixed(2)}|attention=${next.attentionReadiness.toStringAsFixed(2)}',
             timestamp: timestamp,
             relevance: 0.75,
             recency: 1.0,
@@ -160,7 +162,7 @@ class SIAdaptiveLearning {
     final String key = siClean(taskKey).toLowerCase();
     final double affinity = patterns.predictionSignals['task:$key'] ?? 0.5;
     final double bias =
-        (weights.focusReadiness * 0.35) +
+        (weights.attentionReadiness * 0.35) +
         (weights.momentum * 0.25) +
         ((1 - weights.resistance) * 0.2) +
         (affinity * 0.2);
@@ -175,12 +177,12 @@ class SIAdaptiveLearning {
     final List<String> out = <String>[];
 
     if (w.fatigueSensitivity >= 0.65 || context.userState.fatigue >= 0.65) {
-      out.add('Reduce output load and recommend smaller focus blocks.');
+      out.add('Reduce output load and recommend smaller execution blocks.');
     }
     if (w.resistance >= 0.65) {
       out.add('Reframe skipped work as a smaller next action.');
     }
-    if (w.momentum >= 0.65 && w.focusReadiness >= 0.6) {
+    if (w.momentum >= 0.65 && w.attentionReadiness >= 0.6) {
       out.add('Prioritize action-oriented recommendations.');
     }
     if (out.isEmpty) {

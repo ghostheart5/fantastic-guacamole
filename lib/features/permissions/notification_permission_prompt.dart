@@ -48,7 +48,7 @@ class NotificationPermissionPrompt extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Enable notifications to receive scheduled focus and reflection reminders.',
+            'Enable notifications to receive scheduled execution and reflection reminders.',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 12.5,

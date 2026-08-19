@@ -89,7 +89,12 @@ void main() {
 
     test('a success nudges SI confidence upward', () async {
       final _FakeSiRepository siRepo = _FakeSiRepository(
-        SiStateEntity(energy: 0.6, focus: 0.5, fatigue: 0.3, confidence: 0.5),
+        SiStateEntity(
+          energy: 0.6,
+          attention: 0.5,
+          fatigue: 0.3,
+          confidence: 0.5,
+        ),
       );
 
       await ApplyLearningFeedback(

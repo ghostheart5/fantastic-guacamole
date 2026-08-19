@@ -3,7 +3,7 @@ import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
-import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
+import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
@@ -55,12 +55,12 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: corruptedRun,
-        child: const MaterialApp(home: PlanScreen()),
+        child: const MaterialApp(home: SmartPlannerScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 450));
 
-    expect(find.byType(PlanScreen), findsOneWidget);
+    expect(find.byType(SmartPlannerScreen), findsOneWidget);
     expect(find.byType(Scaffold), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

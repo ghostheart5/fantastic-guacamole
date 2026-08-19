@@ -2,7 +2,7 @@
 
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
-enum CognitiveRhythm { calm, steady, focused, overloaded, recovering }
+enum CognitiveRhythm { calm, steady, engaged, overloaded, recovering }
 
 class RhythmReport {
   const RhythmReport({
@@ -43,7 +43,7 @@ class SICognitiveRhythmEngine {
             relevance: cadence,
             confidence: memory.snapshots.length >= 4 ? 0.72 : 0.45,
             emotionalWeight: siClamp01(context.userState.stress),
-            reinforcement: rhythm == CognitiveRhythm.focused ? 2 : 1,
+            reinforcement: rhythm == CognitiveRhythm.engaged ? 2 : 1,
           ),
         )
         .dedupe()
@@ -89,7 +89,7 @@ class SICognitiveRhythmEngine {
     }
     if (context.userState.fatigue >= 0.68) return CognitiveRhythm.recovering;
     if (cadence >= 0.68 && context.userState.engagement >= 0.65) {
-      return CognitiveRhythm.focused;
+      return CognitiveRhythm.engaged;
     }
     if (cadence >= 0.48) return CognitiveRhythm.steady;
     return CognitiveRhythm.calm;
@@ -101,8 +101,8 @@ class SICognitiveRhythmEngine {
         return 'Reduce output and choose one small step.';
       case CognitiveRhythm.recovering:
         return 'Use lighter pacing and shorter work blocks.';
-      case CognitiveRhythm.focused:
-        return 'Protect the focus window.';
+      case CognitiveRhythm.engaged:
+        return 'Protect the attention window.';
       case CognitiveRhythm.steady:
         return 'Keep the next action clear and consistent.';
       case CognitiveRhythm.calm:

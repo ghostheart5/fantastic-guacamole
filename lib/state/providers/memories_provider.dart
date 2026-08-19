@@ -2,7 +2,6 @@ import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class MemorySummary {
@@ -127,7 +126,7 @@ class MemoriesActions {
   Future<void> saveMirroredMemory(String text) {
     return _ref
         .read(memoriesProvider.notifier)
-        .capture(text, refreshPlanner: false, syncPersonalAlignment: false);
+        .capture(text, refreshPlanner: false);
   }
 }
 
@@ -146,7 +145,6 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
     Map<String, String> metadata = const <String, String>{},
     String source = 'manual',
     bool refreshPlanner = true,
-    bool syncPersonalAlignment = true,
   }) async {
     final String normalizedText = text.trim();
     if (normalizedText.isEmpty) {
@@ -192,9 +190,6 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
       }
     }
 
-    if (syncPersonalAlignment) {
-      ref.invalidate(soulStateProvider);
-    }
     if (refreshPlanner) {
       await _refreshPlannerDecision();
     }
@@ -295,7 +290,7 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
     if (type.contains('goal')) return MemoryCategory.goal;
     if (type.contains('habit')) return MemoryCategory.habit;
     if (type.contains('task')) return MemoryCategory.task;
-    if (type.contains('journal')) return MemoryCategory.journal;
+    if (type.contains('reflection')) return MemoryCategory.reflection;
     if (type.contains('preference')) return MemoryCategory.userPreference;
     if (type.contains('date')) return MemoryCategory.importantDate;
     if (type.contains('value')) return MemoryCategory.value;
@@ -308,8 +303,8 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
     if (lowered.contains('task') || lowered.contains('todo')) {
       return MemoryCategory.task;
     }
-    if (lowered.contains('journal') || lowered.contains('reflection')) {
-      return MemoryCategory.journal;
+    if (lowered.contains('reflection')) {
+      return MemoryCategory.reflection;
     }
     if (lowered.contains('prefer') || lowered.contains('like to')) {
       return MemoryCategory.userPreference;

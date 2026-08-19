@@ -797,7 +797,7 @@ class _LoginFormCard extends StatelessWidget {
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'TESTER ACCESS  ·  COMMAND LOGIN',
+                        'TESTER ACCESS  ·  TEST LOGIN',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,

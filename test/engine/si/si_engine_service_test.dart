@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/insight_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/signal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
@@ -10,7 +10,7 @@ import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_signal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
@@ -32,7 +32,7 @@ void main() {
       );
 
       final bool accepted = service.validateOutput(
-        message: 'Start with one focused block on your top priority task.',
+        message: 'Start with one deliberate block on your top priority task.',
         confidence: 0.82,
         deduped: false,
       );
@@ -70,7 +70,7 @@ SiEngineDependencies _fakeDependencies() {
   return SiEngineDependencies(
     tasks: _FakeTaskRepository(),
     goals: _FakeGoalRepository(),
-    insights: _FakeInsightRepository(),
+    signals: _FakeSignalRepository(),
     logs: _FakeLogRepository(),
     timeline: _FakeTimelineRepository(),
     progression: _FakeProgressionRepository(),
@@ -109,22 +109,22 @@ class _FakeGoalRepository implements IGoalRepository {
   Future<void> saveGoals(List<GoalEntity> goals) async {}
 }
 
-class _FakeInsightRepository implements IInsightRepository {
+class _FakeSignalRepository implements ISignalRepository {
   @override
   Future<bool> exists(String id) async => false;
 
   @override
-  Future<List<InsightEntity>> getInsights() async => const <InsightEntity>[];
+  Future<List<SignalEntity>> getSignals() async => const <SignalEntity>[];
 
   @override
-  Future<void> removeInsight(String id) async {}
+  Future<void> removeSignal(String id) async {}
 
   @override
-  Future<void> saveInsight(InsightEntity insight) async {}
+  Future<void> saveSignal(SignalEntity signal) async {}
 
   @override
-  Future<List<InsightEntity>> searchInsights(String query) async =>
-      const <InsightEntity>[];
+  Future<List<SignalEntity>> searchSignals(String query) async =>
+      const <SignalEntity>[];
 }
 
 class _FakeLogRepository implements ILogRepository {

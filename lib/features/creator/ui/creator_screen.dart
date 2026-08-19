@@ -2,10 +2,7 @@ import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -105,21 +102,28 @@ class CreatorScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-                const _CreatorTutorialPanel(),
-                const SizedBox(height: 16),
                 const _CreatorPurposeCard(),
                 const SizedBox(height: 16),
                 DynamicForm(
                   onSubmit: (data) async {
                     await ref.read(creatorActionsProvider).createTask(data);
+                    try {
+                      final AdaptiveGuidanceNotifier guidance = ref.read(
+                        adaptiveGuidanceProvider.notifier,
+                      );
+                      await guidance.record(GuidanceMilestone.firstItem);
+                      if (data.scheduledFor != null) {
+                        await guidance.record(GuidanceMilestone.firstSchedule);
+                      }
+                    } catch (_) {
+                      // Guidance persistence must never turn a successful save
+                      // into a failed Creator action.
+                    }
                     await ref
                         .read(localMetricsAccumulatorProvider)
                         .recordTaskCreated();
                     ref.invalidate(tasksProvider);
                     ref.invalidate(goalProgressProvider);
-                    ref
-                        .read(tutorialControllerProvider)
-                        .updateState('has_created_task', true);
                     if (context.mounted) {
                       final ScaffoldMessengerState messenger =
                           ScaffoldMessenger.of(context);
@@ -134,7 +138,7 @@ class CreatorScreen extends ConsumerWidget {
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
-                      ref.read(appFlowProvider.notifier).toPlan();
+                      ref.read(appFlowProvider.notifier).toTimeline();
                     }
                   },
                 ),
@@ -143,49 +147,6 @@ class CreatorScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _CreatorTutorialPanel extends ConsumerWidget {
-  const _CreatorTutorialPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final progressAsync = ref.watch(tutorialProgressProvider);
-    final TutorialStepContent step = TutorialContent.steps.firstWhere(
-      (TutorialStepContent content) => content.id == 'creator_workbench',
-      orElse: () => TutorialContent.steps.first,
-    );
-
-    return progressAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (progress) {
-        if (progress.isStepCompleted(step.id)) {
-          return const SizedBox.shrink();
-        }
-
-        if (progress.isStepDismissed(step.id)) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(
-              stepId: step.id,
-              label: 'Show Creator Tutorial Again',
-            ),
-          );
-        }
-
-        return MicroTutorialCard(
-          step: step,
-          onComplete: () {
-            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
-          },
-          onDismiss: () {
-            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
-          },
-        );
-      },
     );
   }
 }

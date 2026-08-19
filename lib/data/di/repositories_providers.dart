@@ -8,7 +8,7 @@ import 'package:fantastic_guacamole/data/repositories/goal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/identity_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/insight_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/signal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/learning_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/log_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/memory_repository.dart';
@@ -24,11 +24,13 @@ import 'package:fantastic_guacamole/data/repositories/settings_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/subtask_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/workspace_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,6 +46,22 @@ TaskRepository taskRepository(Ref ref) {
 
 final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
 
+final taskOccurrenceRepositoryProvider = Provider<TaskOccurrenceRepository>((
+  Ref ref,
+) {
+  final scope = ref.watch(accountStorageScopeProvider);
+  final TaskOccurrenceRepository repository = scope.isWritable
+      ? TaskOccurrenceRepository(
+          HiveStorage<String>(
+            HiveBoxes.accountScoped(HiveBoxes.taskOccurrences, scope),
+            hive: ref.read(hiveStoreProvider),
+          ),
+        )
+      : TaskOccurrenceRepository.unavailable();
+  ref.onDispose(repository.dispose);
+  return repository;
+});
+
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
   return GoalRepository(
     HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)),
@@ -56,8 +74,8 @@ final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
   );
 });
 
-final insightRepositoryProvider = Provider<InsightRepository>((Ref ref) {
-  return InsightRepository(ref.read(sharedPrefsStoreProvider));
+final signalRepositoryProvider = Provider<SignalRepository>((Ref ref) {
+  return SignalRepository(ref.read(sharedPrefsStoreProvider));
 });
 
 final identityRepositoryProvider = Provider<IdentityRepository>((Ref ref) {

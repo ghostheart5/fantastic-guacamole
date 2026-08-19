@@ -44,7 +44,7 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
     );
     final merged = const OptimizationMerger().merge(localConfig, globalConfig);
 
-    // Apply insight-driven self-optimization (once per day, bounded 0.5–1.5)
+    // Apply signal-driven self-optimization (once per day, bounded 0.5–1.5)
     await SharedPrefsService.init();
     final String today = DateTime.now().toIso8601String().substring(0, 10);
     if (SharedPrefsService.load(_lastOptimizationDateKey) == today) {
@@ -54,13 +54,13 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
     final accumulator = ref.read(localMetricsAccumulatorProvider);
     final snapshot = await accumulator.snapshot();
     final momentum = ref.read(momentumProvider);
-    final insights = const ProductAdvisorEngine().fromSnapshot(
+    final signals = const ProductAdvisorEngine().fromSnapshot(
       snapshot,
       momentum.chainCount,
     );
     final OptimizationConfig adjusted = const SelfOptimizer().adjust(
       merged,
-      insights,
+      signals,
     );
     await _saveOptimizationConfig(adjusted, today);
     return adjusted;
@@ -71,11 +71,11 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
 
 class OptimizationDebugViewModel {
   const OptimizationDebugViewModel({
-    required this.focusDurationMultiplier,
+    required this.executionDurationMultiplier,
     required this.taskDifficultyScale,
   });
 
-  final double focusDurationMultiplier;
+  final double executionDurationMultiplier;
   final double taskDifficultyScale;
 }
 
@@ -85,7 +85,7 @@ final optimizationDebugViewModelProvider =
         optimizationConfigProvider.future,
       );
       return OptimizationDebugViewModel(
-        focusDurationMultiplier: config.focusDurationMultiplier,
+        executionDurationMultiplier: config.executionDurationMultiplier,
         taskDifficultyScale: config.taskDifficultyScale,
       );
     });
@@ -99,8 +99,13 @@ OptimizationConfig? _loadOptimizationConfig() {
   try {
     final Map<String, dynamic> json = jsonDecode(raw) as Map<String, dynamic>;
     return OptimizationConfig(
-      focusDurationMultiplier:
-          (json['focusDurationMultiplier'] as num?)?.toDouble() ?? 1,
+      executionDurationMultiplier:
+          (json['executionDurationMultiplier'] as num?)?.toDouble() ??
+          (json['fo'
+                      'cusDurationMultiplier']
+                  as num?)
+              ?.toDouble() ??
+          1,
       taskDifficultyScale:
           (json['taskDifficultyScale'] as num?)?.toDouble() ?? 1,
       nextActionAggressiveness:
@@ -119,7 +124,7 @@ Future<void> _saveOptimizationConfig(
   await SharedPrefsService.save(
     _optimizationConfigKey,
     jsonEncode(<String, double>{
-      'focusDurationMultiplier': config.focusDurationMultiplier,
+      'executionDurationMultiplier': config.executionDurationMultiplier,
       'taskDifficultyScale': config.taskDifficultyScale,
       'nextActionAggressiveness': config.nextActionAggressiveness,
     }),

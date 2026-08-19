@@ -8,6 +8,12 @@ appId: com.ghostheart5.chronospark
 
 - runFlow:
     when:
+      visible: "TESTER ACCESS  ·  TEST LOGIN"
+    commands:
+      - tapOn: "TESTER ACCESS  ·  TEST LOGIN"
+
+- runFlow:
+    when:
       visible: "ENTER SYSTEM"
     commands:
       - tapOn:

@@ -2,10 +2,10 @@
 
 Status: authoritative product-language and route contract.
 
-ChronoSpark is an evidence-aware personal operating system: it turns what
+ChronoSpark is an evidence-aware decision intelligence system: it turns what
 matters into one explainable next decision, records the outcome, adapts the
 plan, and shows how each choice changes the user's trajectory. Feature copy
-must reinforce that operating loop instead of presenting a generic planner,
+must reinforce that decision loop instead of presenting a generic planner,
 habit tracker, dashboard, or chat wrapper.
 
 | Canonical surface | Purpose | Canonical route |
@@ -23,7 +23,7 @@ habit tracker, dashboard, or chat wrapper.
 - Use canonical names in all new UI copy, routes, documentation, analytics labels, and support material.
 - Calendar, tasks, habits, goals, and notes are Creator-owned inputs. Timeline is their scheduling projection, not a second authoring surface.
 - Product `Session` and `Focus` are removed. Authentication-session terminology remains valid only for account lifecycle code.
-- `Insight` is not a product surface. It may appear only as an output from Smart Planner or SI Console.
+- `Signal` is not a product surface. It may appear only as an output from Smart Planner or SI Console.
 - `Flowmap` is not a product surface.
 - Use `Reflection` for reflective records. Deprecated storage spelling may be
   decoded only inside a compatibility adapter and must never become an active

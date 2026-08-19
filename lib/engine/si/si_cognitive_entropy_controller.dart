@@ -30,7 +30,7 @@ class SICognitiveEntropyController {
 
     double variation = 0.35;
 
-    if (intent.primary.label == 'insight_request') variation += 0.15;
+    if (intent.primary.label == 'signal_request') variation += 0.15;
     if (intent.primary.label == 'start_execution') variation -= 0.08;
     if (safety) variation -= 0.2;
     if (repeated) variation += 0.12;

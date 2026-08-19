@@ -199,7 +199,7 @@ void main() {
         );
         siRepository.state = SiStateEntity(
           energy: 0.8,
-          focus: 0.8,
+          attention: 0.8,
           fatigue: 0.2,
         );
 
@@ -210,7 +210,7 @@ void main() {
 
         expect(decision.selectedTaskId, 'high');
         expect(decision.orderedTaskIds, <String>['high', 'low']);
-        expect(decision.action, 'Focus on: High');
+        expect(decision.action, 'Work on: High');
 
         await CreateTask(
           taskRepository,
@@ -241,7 +241,11 @@ void main() {
     );
 
     test('generate SI decision handles break and empty-task paths', () async {
-      siRepository.state = SiStateEntity(energy: 0.2, focus: 0.6, fatigue: 0.9);
+      siRepository.state = SiStateEntity(
+        energy: 0.2,
+        attention: 0.6,
+        fatigue: 0.9,
+      );
 
       final SiDecisionEntity breakDecision = await GenerateSiDecision(
         taskRepository,
@@ -249,7 +253,11 @@ void main() {
       ).call();
       expect(breakDecision.shouldTakeBreak, isTrue);
 
-      siRepository.state = SiStateEntity(energy: 0.9, focus: 0.8, fatigue: 0.1);
+      siRepository.state = SiStateEntity(
+        energy: 0.9,
+        attention: 0.8,
+        fatigue: 0.1,
+      );
       final SiDecisionEntity emptyDecision = await GenerateSiDecision(
         taskRepository,
         siRepository,
@@ -262,7 +270,7 @@ void main() {
       () async {
         siRepository.state = SiStateEntity(
           energy: 0.5,
-          focus: 0.5,
+          attention: 0.5,
           fatigue: 0.5,
           confidence: 0.4,
         );
@@ -284,6 +292,26 @@ void main() {
           taskRepository,
           siRepo: siRepository,
           progressionRepo: progressionRepository,
+          durableMutation: (String id) async {
+            final TaskEntity source = (await taskRepository.getTaskById(id))!;
+            final DateTime completedAt = DateTime.utc(2026, 7, 5, 12);
+            await taskRepository.saveTask(
+              source.copyWith(
+                isCompleted: true,
+                completedAt: completedAt,
+                updatedAt: completedAt,
+              ),
+            );
+            await taskRepository.saveTask(
+              TaskEntity(
+                id: 'repeat::next::stable-occurrence',
+                title: source.title,
+                createdAt: DateTime.utc(2026, 7, 6),
+                recurrenceRule: source.recurrenceRule,
+              ),
+            );
+            return true;
+          },
         ).call('repeat');
 
         final TaskEntity? completed = await taskRepository.getTaskById(
@@ -363,14 +391,14 @@ void main() {
           generateSiDecision: _StubGenerateSiDecision(
             const SiDecisionEntity(
               rationale: 'Use adaptive message.',
-              action: 'Take the next focused step.',
+              action: 'Take the next deliberate step.',
             ),
           ),
         ).call(notification);
 
         expect(
           repository.scheduled.single.message,
-          'Take the next focused step.',
+          'Take the next deliberate step.',
         );
       },
     );

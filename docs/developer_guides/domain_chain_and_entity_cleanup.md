@@ -29,7 +29,7 @@ Separation of concerns in this repo should follow that path consistently for per
 | Duplicate naming | task.dart + task_entity.dart; calendar_entry.dart + calendar_entry_entity.dart | Keep one active convention and treat the other as explicit legacy only. |
 | Wide entity layer but uneven flows | goal_entity.dart, memory_entity.dart, timeline_event_entity.dart, flowmap_node.dart | Each persisted or user-editable entity needs an interface, a repository owner, and a usecase path. |
 | Binder concepts larger than current domain | Projects, plans, routines, templates, rules, automations, notes, categories, tags, alerts | Do not add domain entities unless they are real v1 concepts with UI and lifecycle. |
-| Derived view concepts mixed with core entities | timeline_event_entity.dart, progression_entity.dart, insight_entity.dart | If derived, prefer query/generation usecases over full CRUD repositories. |
+| Derived view concepts mixed with core entities | timeline_event_entity.dart, progression_entity.dart, signal_entity.dart | If derived, prefer query/generation usecases over full CRUD repositories. |
 
 Entity completeness test:
 Can you explain identity, lifecycle, owner repository, mutations, and UI consumers? If not, the entity is still under-specified.
@@ -52,4 +52,4 @@ The following provider chains now route through domain usecases instead of Share
 
 - task/task_entity and calendar_entry/calendar_entry_entity still need convention cleanup.
 - identity_provider.dart still contains direct SharedPrefs persistence for identity-state modeling; keep separate from identity_repository.dart unless that state becomes shared domain data.
-- Derived entities like insight/progression/timeline should avoid full CRUD unless they become user-authored records.
+- Derived entities like signal/progression/timeline should avoid full CRUD unless they become user-authored records.

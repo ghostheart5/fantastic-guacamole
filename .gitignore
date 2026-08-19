@@ -37,6 +37,7 @@ node_modules/
 /build/
 /coverage/
 /artifacts/dependency-audit/
+/artifacts/maestro/
 
 # Symbolication related
 app.*.symbols

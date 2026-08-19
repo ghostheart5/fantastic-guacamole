@@ -75,7 +75,7 @@ class SICognitiveDreamspaceEngine {
       _artifact(
         symbol: 'compass',
         metaphor: 'a compass choosing the next useful direction',
-        reframe: 'Focus on the next true direction, not the whole map.',
+        reframe: 'Choose the next true direction, not the whole map.',
         creativity: creativity * 0.85,
         safe: true,
       ),
@@ -138,7 +138,7 @@ class SICognitiveDreamspaceEngine {
     if (intent.primary.label == 'start_execution') return 'lens';
     if (intent.primary.label == 'get_task') return 'compass';
     if (intent.primary.label == 'reflect') return 'mirror';
-    if (intent.primary.label == 'insight_request') return 'constellation';
+    if (intent.primary.label == 'signal_request') return 'constellation';
     if (context.userState.stress >= 0.65) return 'anchor';
     return 'spark';
   }
@@ -152,7 +152,7 @@ class SICognitiveDreamspaceEngine {
         return 'a compass pointing toward the next useful move';
       case 'reflect':
         return 'a mirror showing the pattern without judgment';
-      case 'insight_request':
+      case 'signal_request':
         return 'a constellation connecting separate signals';
       default:
         return context.userState.motivation >= 0.65

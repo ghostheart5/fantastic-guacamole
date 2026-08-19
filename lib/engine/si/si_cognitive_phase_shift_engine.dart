@@ -52,9 +52,9 @@ class SICognitivePhaseShiftEngine {
       next = SIPhase.reflect;
       reason = 'Reflection intent detected.';
       intensity = 0.55;
-    } else if (intent.primary.label == 'insight_request') {
+    } else if (intent.primary.label == 'signal_request') {
       next = SIPhase.analyze;
-      reason = 'Insight request detected.';
+      reason = 'Signal request detected.';
       intensity = 0.6;
     } else if (load >= 0.75) {
       next = SIPhase.recover;

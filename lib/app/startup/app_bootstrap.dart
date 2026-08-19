@@ -21,13 +21,15 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart'
         onboardingContentVersionStorageKey;
 import 'package:fantastic_guacamole/state/core/state_bootstrap.dart'
     show stateBootstrapProvider;
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show identityServiceProvider;
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_boot.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
+import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -247,7 +249,19 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
 
     String? stateBootstrapIssue;
     try {
-      stateBootstrapIssue = await _runStateBootstrapSafe(ref);
+      await ref
+          .read(authSessionBoundaryCoordinatorProvider)
+          .initialize()
+          .timeout(const Duration(seconds: 8));
+      final boundary = ref.read(authSessionBoundaryProvider);
+      if (boundary.isStorageReady) {
+        stateBootstrapIssue = await _runStateBootstrapSafe(ref);
+      } else if (boundary.blockingIssue != null) {
+        stateBootstrapIssue = boundary.blockingIssue;
+      }
+    } on TimeoutException {
+      stateBootstrapIssue =
+          'Account storage verification timed out. Account data remains locked.';
     } on Object catch (error, stackTrace) {
       Logger.errorCategory(
         'Startup',
@@ -686,7 +700,8 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
         storedOnboardingVersion,
       );
     }
-    final int currentOnboardingVersion = TutorialContent.contentVersion;
+    final int currentOnboardingVersion =
+        OnboardingContentContract.currentVersion;
 
     if (storedOnboardingVersion < currentOnboardingVersion) {
       hasOnboarded = false;

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/time_slot.dart';
 import 'package:flutter/material.dart';
 
@@ -12,6 +13,8 @@ class TimeBlockWidget extends StatelessWidget {
     this.completed = false,
     this.isCompleting = false,
     this.isNext = false,
+    this.supportingText,
+    this.onReviewPlan,
     this.onCompleteTask,
   });
 
@@ -25,10 +28,13 @@ class TimeBlockWidget extends StatelessWidget {
 
   /// Marks the block the planner recommends working on now.
   final bool isNext;
+  final String? supportingText;
+  final VoidCallback? onReviewPlan;
   final Future<void> Function(String taskId)? onCompleteTask;
 
   @override
   Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -76,7 +82,7 @@ class TimeBlockWidget extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'UP NEXT',
+                      l10n.text(ChronoSparkString.upNext).toUpperCase(),
                       style: TextStyle(
                         fontSize: 9,
                         letterSpacing: 1.2,
@@ -97,6 +103,42 @@ class TimeBlockWidget extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (supportingText != null &&
+                    supportingText!.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.text(ChronoSparkString.whyThisIsNext).toUpperCase(),
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 9,
+                      letterSpacing: 1.1,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    supportingText!,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                  ),
+                  if (onReviewPlan != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: onReviewPlan,
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                          padding: EdgeInsets.zero,
+                        ),
+                        child: Text(
+                          l10n.text(ChronoSparkString.reviewOrCorrectPlan),
+                        ),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),
@@ -122,24 +164,37 @@ class TimeBlockWidget extends StatelessWidget {
                             valueColor: AlwaysStoppedAnimation<Color>(accent),
                           ),
                         )
-                      : GestureDetector(
+                      : Semantics(
                           key: const ValueKey<String>('idle'),
-                          onTap: () => onCompleteTask!(taskId),
-                          child: Text(
-                            'COMPLETE',
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 1.3,
-                              color: accent,
-                              fontWeight: FontWeight.w700,
+                          button: true,
+                          label: l10n.completeTaskLabel(title),
+                          child: TextButton(
+                            onPressed: () => onCompleteTask!(taskId),
+                            style: TextButton.styleFrom(
+                              foregroundColor: accent,
+                              minimumSize: const Size(48, 48),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.padded,
+                            ),
+                            child: Text(
+                              l10n
+                                  .text(ChronoSparkString.complete)
+                                  .toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                letterSpacing: 1.3,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),
                 )
               else if (completed)
-                const Text(
-                  'DONE',
-                  style: TextStyle(
+                Text(
+                  l10n.text(ChronoSparkString.done).toUpperCase(),
+                  style: const TextStyle(
                     fontSize: 10,
                     letterSpacing: 1.3,
                     color: Colors.white54,

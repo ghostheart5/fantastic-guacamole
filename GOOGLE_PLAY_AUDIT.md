@@ -279,7 +279,7 @@ Every permission in `AndroidManifest.xml` maps to a declared, used capability.
 | `com.android.vending.BILLING` | 14 | `in_app_purchase` | ✅ |
 | `POST_NOTIFICATIONS` | 15 | `flutter_local_notifications`, FCM | ✅ Runtime request required on API 33+ |
 | `RECORD_AUDIO` | 17 | `speech_to_text` (1 import site) | ✅ Commented as post-action request |
-| `WAKE_LOCK` | 18 | Notification delivery, focus sessions | ✅ |
+| `WAKE_LOCK` | 18 | Notification delivery and scheduled work | ✅ |
 | `RECEIVE_BOOT_COMPLETED` | 19 | Reschedules notifications after reboot | ✅ Paired with the boot receiver, line 91-100 |
 | `AD_ID` + 2 AdServices | 4-12 | **Removed** via `tools:node="remove"` | ✅ Privacy-positive |
 

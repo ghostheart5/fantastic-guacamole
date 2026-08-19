@@ -2,11 +2,11 @@ import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
 
 /// CHRONOSPARK-CLASS: PLANNED | Feature: Smart Planner
 ///
-/// Planned/alternate planner path. Not currently used by production UI.
+/// Persisted planning contract used for schedule durability work.
 ///
-/// The shipping Smart Planner builds its day view in-memory from tasks via
-/// `lib/engine/planning/calendar_service.dart` (see `PlanScreen`). This
-/// persisted plan path is complete and DI-wired but has no consumer yet.
+/// Current decision surfaces build their schedule projection from the
+/// canonical decision engine; this repository is not a separate product
+/// surface.
 ///
 /// Before it can ship it needs: a date-range/list query and a delete. Those are
 /// deliberately NOT added yet — adding unused interface methods would force

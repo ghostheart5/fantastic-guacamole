@@ -40,13 +40,13 @@ void main() {
     );
 
     test(
-      'system-console response returns bounded action bundle with signal and insight',
+      'system-console response returns bounded action bundle with signal and signal',
       () async {
         final ChatAgent agent = const ChatAgent();
 
         final Map<String, dynamic> payload = await agent.execute(
           <String, dynamic>{
-            'prompt': 'Give me a task module briefing',
+            'prompt': 'Give me a task module intelligence',
             'si': const SIState(energy: 0.6),
             'learning': const LearningState(completed: 1),
             'context': const <String, dynamic>{

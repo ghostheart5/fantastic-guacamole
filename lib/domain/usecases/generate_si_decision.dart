@@ -64,9 +64,9 @@ class GenerateSiDecision {
       SiDecisionEntity(
         selectedTaskId: top.id,
         rationale: 'Highest priority task selected.',
-        action: 'Focus on: ${top.title}',
+        action: 'Work on: ${top.title}',
         orderedTaskIds: sorted.map((t) => t.id).toList(),
-        recommendedFocusMinutes: 25,
+        recommendedExecutionMinutes: 25,
       ),
     );
   }

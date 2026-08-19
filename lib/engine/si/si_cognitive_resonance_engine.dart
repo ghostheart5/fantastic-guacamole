@@ -95,7 +95,7 @@ class SICognitiveResonanceEngine {
     if (user.cognitiveLoad >= 0.7) {
       return 'Reduce complexity and give one step.';
     }
-    if (intent.primary.label == 'insight_request') {
+    if (intent.primary.label == 'signal_request') {
       return 'Explain the pattern briefly.';
     }
     if (intent.primary.label == 'get_task') {

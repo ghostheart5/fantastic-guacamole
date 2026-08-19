@@ -7,6 +7,15 @@ on:
         description: 'Flow or directory to execute (for example .maestro/flows)'
         required: false
         default: '.maestro/flows'
+      allow_destructive:
+        description: 'Allow flows tagged destructive (requires the exact confirmation below)'
+        required: false
+        type: boolean
+        default: false
+      destructive_confirmation:
+        description: 'For destructive execution only, type: DELETE DISPOSABLE ACCOUNT'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -33,9 +42,24 @@ jobs:
         shell: bash
         env:
           FLOW_GLOB: ${{ inputs.flow_glob }}
+          ALLOW_DESTRUCTIVE: ${{ inputs.allow_destructive }}
+          DESTRUCTIVE_CONFIRMATION: ${{ inputs.destructive_confirmation }}
+          MAESTRO_TEST_EMAIL: ${{ secrets.MAESTRO_TEST_EMAIL }}
+          MAESTRO_TEST_PASSWORD: ${{ secrets.MAESTRO_TEST_PASSWORD }}
+          MAESTRO_SIGNUP_EMAIL: ${{ secrets.MAESTRO_SIGNUP_EMAIL }}
+          MAESTRO_SIGNUP_PASSWORD: ${{ secrets.MAESTRO_SIGNUP_PASSWORD }}
         run: |
           mkdir -p artifacts/maestro
-          maestro test "$FLOW_GLOB" --format junit --output artifacts/maestro/results.xml
+          args=(test "$FLOW_GLOB" --format junit --output artifacts/maestro/results.xml)
+          if [[ "$ALLOW_DESTRUCTIVE" == "true" ]]; then
+            if [[ "$DESTRUCTIVE_CONFIRMATION" != "DELETE DISPOSABLE ACCOUNT" ]]; then
+              echo "::error::Destructive execution requires the exact disposable-account confirmation."
+              exit 1
+            fi
+          else
+            args+=(--exclude-tags destructive)
+          fi
+          maestro "${args[@]}"
 
       - name: Upload Maestro evidence
         if: always()

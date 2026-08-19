@@ -30,7 +30,7 @@ class SISelfModelEngine {
     final DateTime t = now ?? DateTime.now();
     final String mode = context.userState.stress >= .7
         ? 'guardian'
-        : intent.primary.label == 'insight_request'
+        : intent.primary.label == 'signal_request'
         ? 'analyst'
         : intent.primary.label == 'get_task' ||
               intent.primary.label == 'start_execution'

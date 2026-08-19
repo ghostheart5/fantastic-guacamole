@@ -17,12 +17,7 @@ import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_reset_service.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -51,13 +46,10 @@ class SettingsScreen extends ConsumerWidget {
     final themeAsync = ref.watch(currentThemeProvider);
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
-    final hasMockSession = ref.watch(mockAuthSessionProvider);
+    final hasMockSignIn = ref.watch(mockSignInProvider);
     final intelligence = ref.watch(intelligenceStateProvider);
     final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(
       Env.accountDeleteEndpoint,
-    );
-    final bool reflectionTutorialEnabled = ref.watch(
-      featureFlagEnabledProvider('daily_reflection_tutorial_enabled'),
     );
     final bool? voicePermissionGranted = ref.watch(
       voicePermissionStatusProvider,
@@ -128,7 +120,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ),
                         const Text(
-                          'COMMAND MATRIX',
+                          'SYSTEM STATUS',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -297,12 +289,8 @@ class SettingsScreen extends ConsumerWidget {
               const _ReminderAutomationSection(),
               const SizedBox(height: 16),
               const _PersonalizationSection(),
-              if (reflectionTutorialEnabled) ...[
-                const SizedBox(height: 12),
-                const _DailyReflectionTutorialPanel(),
-              ],
               const SizedBox(height: 16),
-              const _ChronoSparkAcademySection(),
+              const _AdaptiveGuidanceSection(),
               const SizedBox(height: 16),
 
               _Section(
@@ -316,14 +304,12 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => context.go(routes.paywall),
                     ),
                     _NeonNavTile(
-                      title: hasMockSession
-                          ? 'Sign out Mock Session'
-                          : 'Log Out',
-                      subtitle: hasMockSession
-                          ? 'Return to login and disable the current tester mock auth session.'
-                          : 'End the current session and return to login.',
+                      title: hasMockSignIn ? 'Exit Tester Mode' : 'Log Out',
+                      subtitle: hasMockSignIn
+                          ? 'Return to login and disable the current tester sign-in state.'
+                          : 'Sign out and return to login.',
                       onTap: () => unawaited(
-                        _signOut(context, ref, hasMockSession: hasMockSession),
+                        _signOut(context, ref, hasMockSignIn: hasMockSignIn),
                       ),
                     ),
                     _NeonNavTile(
@@ -341,7 +327,7 @@ class SettingsScreen extends ConsumerWidget {
                         onTap: () =>
                             unawaited(_confirmTesterReset(context, ref)),
                       ),
-                    if (!hasMockSession)
+                    if (!hasMockSignIn)
                       _NeonNavTile(
                         title: 'Delete Account',
                         subtitle: accountDeletionConfigured
@@ -403,7 +389,7 @@ class SettingsScreen extends ConsumerWidget {
               ],
 
               _Section(
-                label: 'LEGAL PROTOCOLS',
+                label: 'LEGAL & SUPPORT',
                 accentColor: AppColors.memoryAmber,
                 child: Column(
                   children: [
@@ -490,14 +476,14 @@ class SettingsScreen extends ConsumerWidget {
                   accentColor: AppColors.memoryAmber,
                   child: _NeonNavTile(
                     title: 'Open Advisor',
-                    subtitle: 'Insights, recommendations, and optimizer state',
+                    subtitle: 'Recommendations and optimizer state',
                     onTap: () => context.push(routes.advisor),
                   ),
                 ),
                 const SizedBox(height: 16),
                 const _GlobalMetricsDebugSection(),
                 const SizedBox(height: 16),
-                const _TutorialLifecycleDebugSection(),
+                const _AdaptiveGuidanceDebugSection(),
               ],
             ],
           ),
@@ -509,12 +495,12 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _signOut(
     BuildContext context,
     WidgetRef ref, {
-    required bool hasMockSession,
+    required bool hasMockSignIn,
   }) async {
     final routes = ref.read(routeSurfaceProvider);
     try {
-      if (hasMockSession) {
-        ref.read(mockAuthSessionProvider.notifier).set(false);
+      if (hasMockSignIn) {
+        ref.read(mockSignInProvider.notifier).set(false);
         await ref
             .read(localUserDataCleanupServiceProvider)
             .clearForAccountSwitch();
@@ -542,20 +528,20 @@ class SettingsScreen extends ConsumerWidget {
           context: context,
           builder: (BuildContext dialogContext) {
             return AlertDialog(
-              title: const Text('Purge tester runtime data?'),
+              title: const Text('Clear tester data?'),
               content: const Text(
                 'This permanently removes local tasks, goals, memories, '
-                'timeline history, profile progress, focus recovery, logs, '
+                'timeline history, profile progress, recovery data, logs, '
                 'SI state, and tester settings on this device.',
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Abort'),
+                  child: const Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Purge Data'),
+                  child: const Text('Clear Data'),
                 ),
               ],
             );
@@ -580,7 +566,7 @@ class SettingsScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Tester data purge did not complete. Restart and retry.',
+              'Tester data could not be cleared. Restart and retry.',
             ),
           ),
         );
@@ -642,14 +628,14 @@ class SettingsScreen extends ConsumerWidget {
           context: context,
           builder: (BuildContext dialogContext) {
             return AlertDialog(
-              title: const Text('Initiate permanent account purge?'),
+              title: const Text('Delete account permanently?'),
               content: const Text(
                 'This action cannot be undone. Your account and synced data will be permanently removed.',
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Abort'),
+                  child: const Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -673,7 +659,7 @@ class SettingsScreen extends ConsumerWidget {
         return StatefulBuilder(
           builder: (BuildContext _, StateSetter setState) {
             return AlertDialog(
-              title: const Text('Authorize account purge'),
+              title: const Text('Confirm account deletion'),
               content: TextField(
                 controller: passwordController,
                 obscureText: obscurePassword,
@@ -699,13 +685,13 @@ class SettingsScreen extends ConsumerWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Abort'),
+                  child: const Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(
                     dialogContext,
                   ).pop(passwordController.text.trim()),
-                  child: const Text('Purge Account'),
+                  child: const Text('Delete Account'),
                 ),
               ],
             );
@@ -722,7 +708,7 @@ class SettingsScreen extends ConsumerWidget {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Executing account purge...')));
+    ).showSnackBar(const SnackBar(content: Text('Deleting account...')));
 
     try {
       await ref
@@ -733,7 +719,7 @@ class SettingsScreen extends ConsumerWidget {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Account purge complete.')));
+      ).showSnackBar(const SnackBar(content: Text('Account deleted.')));
       context.go(routes.login);
     } on FirebaseAuthException catch (error) {
       if (!context.mounted) {
@@ -747,7 +733,7 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account purge failed. Retry.')),
+        const SnackBar(content: Text('Account deletion failed. Retry.')),
       );
     }
   }
@@ -764,9 +750,9 @@ class SettingsScreen extends ConsumerWidget {
       case 'network-request-failed':
         return 'Account deletion could not be completed. Retry or use the support request path.';
       case 'no-current-user':
-        return 'Session expired. Sign in again before deleting the account.';
+        return 'Sign-in expired. Sign in again before deleting the account.';
       default:
-        return 'Account purge failed. Retry.';
+        return 'Account deletion failed. Retry.';
     }
   }
 

@@ -275,7 +275,9 @@ class SIUserGrowthEngine {
     if (learning == null) return base;
 
     return siClamp01(
-      base * 0.65 + learning.focusReadiness * 0.18 + learning.momentum * 0.17,
+      base * 0.65 +
+          learning.attentionReadiness * 0.18 +
+          learning.momentum * 0.17,
     );
   }
 
@@ -388,7 +390,7 @@ class SIUserGrowthEngine {
     }
 
     if (trajectory == UserGrowthTrajectory.improving) {
-      return 'Use momentum for one focused action.';
+      return 'Use momentum for one targeted action.';
     }
 
     if (trajectory == UserGrowthTrajectory.declining) {

@@ -52,7 +52,7 @@ Legacy boolean fields are still accepted during deserialization where applicable
 
 - Profile: `lib/domain/entities/profile_entity.dart`
 - Progression: `lib/domain/entities/progression_entity.dart`
-- Insight: `lib/domain/entities/insight_entity.dart`
+- Signal: `lib/domain/entities/signal_entity.dart`
 - Learning: `lib/domain/entities/learning_entity.dart`
 - Memory: `lib/domain/entities/memory_entity.dart`
 - Notification: `lib/domain/entities/notification_entity.dart`

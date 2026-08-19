@@ -44,6 +44,48 @@ maestro test --include-tags critical .maestro/flows      # release gate
 maestro test .maestro/flows/01-login.yaml                # one flow
 ```
 
+## Source-paired Android evidence runner (Windows)
+
+For a device result that can be traced to the exact checkout and APK, use the
+PowerShell evidence runner instead of invoking Maestro directly. Its default
+`qa-smoke` suite builds a QA-configured debug APK, installs it on one explicitly resolved
+Android device, uses the tester-access login, captures Logcat during Maestro,
+and writes a manifest containing the Git commit, dirty-tree count, APK SHA-256,
+installed package version, device/API, flow list, timings, and exit status.
+
+```powershell
+# Confirm tools, device, flow contracts, and output location. No build/install/run.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_maestro_android_evidence.ps1 -PreflightOnly
+
+# Build, install, and run the current non-destructive QA smoke journeys.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_maestro_android_evidence.ps1
+
+# Real-account safe suite. Set the four MAESTRO_* variables shown above first.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_maestro_android_evidence.ps1 -Suite safe -BuildProfile debug
+
+# Run selected QA-compatible flows.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_maestro_android_evidence.ps1 -Suite custom -BuildProfile qa -Flow .maestro/flows/04-smart-planner.yaml,.maestro/flows/07-timeline.yaml
+```
+
+Evidence is written beneath `artifacts/maestro/`, which is Git-ignored. Logcat
+is sanitized for known test credentials, email addresses, bearer tokens, JWTs,
+and credential-shaped fields; the raw capture is deleted unless
+`-KeepRawLogcat` is explicitly supplied. Credential values are never written
+to the manifest.
+
+Account deletion is rejected from every normal/custom suite. It requires the
+dedicated suite, a non-QA build, real disposable-account credentials, and the
+exact confirmation phrase:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_maestro_android_evidence.ps1 `
+  -Suite destructive -BuildProfile debug `
+  -DestructiveConfirmation 'DELETE DISPOSABLE ACCOUNT'
+```
+
+That command permanently deletes the selected account. Do not use a personal,
+shared, historical, or otherwise non-disposable account.
+
 ## Recommended execution order
 
 The numbering is the order. It runs cheapest-and-most-depended-upon first, so

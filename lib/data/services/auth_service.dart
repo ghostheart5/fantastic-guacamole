@@ -219,7 +219,7 @@ class AuthService implements AuthServiceContract {
     } on Object {
       throw FirebaseAuthException(
         code: 'auth-unavailable',
-        message: 'Unable to refresh the current session.',
+        message: 'Unable to refresh sign-in.',
       );
     }
   }
@@ -304,7 +304,7 @@ class AuthService implements AuthServiceContract {
       if (accessToken == null || accessToken.trim().isEmpty) {
         throw FirebaseAuthException(
           code: 'auth-unavailable',
-          message: 'Session token missing after re-authentication.',
+          message: 'Sign-in token missing after re-authentication.',
         );
       }
 

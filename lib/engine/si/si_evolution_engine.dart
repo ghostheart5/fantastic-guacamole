@@ -79,7 +79,7 @@ class SIEvolutionEngine {
   String _recommend(String stage) {
     switch (stage) {
       case 'growth':
-        return 'Use momentum for one focused action.';
+        return 'Use momentum for one targeted action.';
       case 'recovery':
         return 'Reduce scope and protect capacity.';
       case 'stabilizing':

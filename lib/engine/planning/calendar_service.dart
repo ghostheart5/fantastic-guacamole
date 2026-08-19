@@ -4,13 +4,11 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 
-/// SHIPPING Smart Planner path. `PlanScreen` renders the `TimeBlock` list this
-/// produces. Plans are built in-memory per render and are NOT persisted.
+/// Compatibility planning helper. Production decision surfaces consume the
+/// canonical `DecisionEngine` plan instead of an alternate planning screen.
 ///
-/// The alternate persisted path — `IPlanRepository` plus the
-/// `CreatePlan`/`GetPlan`/`UpdatePlan` use cases — is wired but has no consumer.
-/// Keep the two in mind together: a change to planning rules here does not
-/// affect that path, and vice versa.
+/// The persisted path remains a schedule-storage mechanism, not a second
+/// recommendation authority.
 class CalendarService {
   final Map<String, CalendarEntry> _entries = <String, CalendarEntry>{};
   final Map<String, List<TimeBlock>> _timeBlocksByDay =

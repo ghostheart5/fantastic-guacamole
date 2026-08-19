@@ -92,7 +92,7 @@ class SICognitiveMythologyLayer {
         return SIArchetype.builder;
       case 'reflect':
         return SIArchetype.seeker;
-      case 'insight_request':
+      case 'signal_request':
         return SIArchetype.analyst;
       default:
         return SIArchetype.guide;

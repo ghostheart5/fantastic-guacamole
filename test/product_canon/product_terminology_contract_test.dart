@@ -2,13 +2,30 @@ import 'dart:io';
 
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_progress_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('retired standalone product surfaces stay removed', () {
+    for (final String path in <String>[
+      'lib/features/personal_alignment',
+      'lib/features/plan/ui/plan_screen.dart',
+      'lib/state/providers/personal_alignment_provider.dart',
+      'lib/state/providers/core_values_provider.dart',
+      'lib/state/providers/profile_values_provider.dart',
+      'lib/state/providers/insights_provider.dart',
+      'lib/state/controllers/insight_controller.dart',
+      'lib/data/repositories/insight_repository.dart',
+      'lib/engine/insights',
+      'lib/ui/system/focus_start_overlay.dart',
+    ]) {
+      expect(
+        FileSystemEntity.typeSync(path),
+        FileSystemEntityType.notFound,
+        reason: 'Retired product path returned: $path',
+      );
+    }
     expect(
-      File('lib/features/insights/ui/insight_screen.dart').existsSync(),
+      File('lib/features/signals/ui/signal_screen.dart').existsSync(),
       isFalse,
     );
     expect(
@@ -29,21 +46,43 @@ void main() {
     );
   });
 
+  test('product UI and tutorial contain none of the forbidden names', () {
+    final RegExp forbidden = RegExp(
+      r'\b(?:personal[ _-]?alignment|planner[ _-]?analysis|insights?|journals?|focus|sessions?)\b',
+      caseSensitive: false,
+    );
+    final List<String> violations = <String>[];
+    for (final String root in <String>[
+      'lib/features',
+      'lib/app',
+      'lib/tutorial',
+      'assets',
+    ]) {
+      final Directory directory = Directory(root);
+      if (!directory.existsSync()) continue;
+      for (final File file
+          in directory
+              .listSync(recursive: true)
+              .whereType<File>()
+              .where(_isTextSurface)) {
+        final RegExpMatch? match = forbidden.firstMatch(
+          file.readAsStringSync(),
+        );
+        if (match != null) {
+          violations.add(
+            '${file.path.replaceAll('\\', '/')}: ${match.group(0)}',
+          );
+        }
+      }
+    }
+
+    expect(violations, isEmpty, reason: violations.join('\n'));
+  });
+
   test('legacy navigation names resolve into current canon', () {
     expect(appViewFromName('coach'), isNull);
     expect(appViewFromName('smartCoach'), isNull);
-    expect(appViewFromName('insight'), isNull);
-  });
-
-  test('legacy tutorial step progress migrates to Smart Planner', () {
-    final TutorialProgress progress = TutorialProgress.fromJson(
-      <String, Object?>{
-        'completed': <String>['coach_quick_prompt'],
-      },
-    );
-
-    expect(progress.completedStepIds, contains('smart_planner_quick_prompt'));
-    expect(progress.completedStepIds, isNot(contains('coach_quick_prompt')));
+    expect(appViewFromName('signal'), isNull);
   });
 
   test('legacy guidance preference memories retain their category', () {
@@ -59,7 +98,7 @@ void main() {
 
   test('active product surfaces contain no retired terminology', () {
     final RegExp retired = RegExp(
-      r'\b(?:smart[ _-]?coach|chrono[ _-]?creator|chrono[ _-]?logs|soul[ _-]?maps?|mission|command[ _-]?cent(?:er|re)|control[ _-]?room|tactical|directive|ops|intel|session[ _-]?(?:score|scoring|complete)|last[ _-]?session)\b',
+      r'\b(?:smart[ _-]?coach|chrono[ _-]?creator|chrono[ _-]?logs|soul[ _-]?maps?|missions?|military|commands?|briefings?|command[ _-]?cent(?:er|re)|control[ _-]?room|tactical|directive|ops|intel|session[ _-]?(?:score|scoring|complete)|last[ _-]?session)\b',
       caseSensitive: false,
     );
     final List<String> violations = <String>[];
@@ -82,14 +121,6 @@ void main() {
         final String path = file.path.replaceAll('\\', '/');
         String content = file.readAsStringSync();
 
-        // Persisted profile key and historical Timeline event discriminator
-        // remain readable so existing users do not lose saved state.
-        if (path.endsWith('personal_alignment_provider.dart')) {
-          content = content.replaceAll('soul_map_profile_v1', 'legacy_key');
-        }
-        if (path.endsWith('logs_screen.dart')) {
-          content = content.replaceAll("case 'mission':", "case 'legacy':");
-        }
         if (path.endsWith('app_flow_controller.dart')) {
           content = content.replaceAll('smartCoach', 'legacy_view');
         }

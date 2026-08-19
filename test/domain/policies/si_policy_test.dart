@@ -6,38 +6,53 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('SiPolicy', () {
     test('shouldSuggestBreak triggers on high fatigue or low energy', () {
-      final highFatigue = SiStateEntity(energy: 0.8, focus: 0.5, fatigue: 0.71);
-      final lowEnergy = SiStateEntity(energy: 0.29, focus: 0.5, fatigue: 0.2);
-      final balanced = SiStateEntity(energy: 0.5, focus: 0.5, fatigue: 0.5);
+      final highFatigue = SiStateEntity(
+        energy: 0.8,
+        attention: 0.5,
+        fatigue: 0.71,
+      );
+      final lowEnergy = SiStateEntity(
+        energy: 0.29,
+        attention: 0.5,
+        fatigue: 0.2,
+      );
+      final balanced = SiStateEntity(energy: 0.5, attention: 0.5, fatigue: 0.5);
 
       expect(SiPolicy.shouldSuggestBreak(highFatigue), isTrue);
       expect(SiPolicy.shouldSuggestBreak(lowEnergy), isTrue);
       expect(SiPolicy.shouldSuggestBreak(balanced), isFalse);
     });
 
-    test('shouldPushFocus only when energy/focus high and fatigue low', () {
-      final focused = SiStateEntity(energy: 0.7, focus: 0.6, fatigue: 0.4);
-      final tired = SiStateEntity(energy: 0.7, focus: 0.6, fatigue: 0.6);
+    test(
+      'shouldPushAttention only when energy/attention high and fatigue low',
+      () {
+        final attentive = SiStateEntity(
+          energy: 0.7,
+          attention: 0.6,
+          fatigue: 0.4,
+        );
+        final tired = SiStateEntity(energy: 0.7, attention: 0.6, fatigue: 0.6);
 
-      expect(SiPolicy.shouldPushFocus(focused), isTrue);
-      expect(SiPolicy.shouldPushFocus(tired), isFalse);
-    });
+        expect(SiPolicy.shouldPushAttention(attentive), isTrue);
+        expect(SiPolicy.shouldPushAttention(tired), isFalse);
+      },
+    );
 
     test(
-      'enforce simplifies action, caps focus minutes, and sets calm tone',
+      'enforce simplifies action, caps attention minutes, and sets calm tone',
       () {
         const decision = SiDecisionEntity(
           rationale: 'Need simplification',
           action: 'First step. Second step. Third step.',
           shouldSimplify: true,
-          recommendedFocusMinutes: 30,
+          recommendedExecutionMinutes: 30,
         );
 
         final enforced = SiPolicy.enforce(decision);
 
         expect(enforced.action, 'First step. Second step.');
         expect(enforced.tone, 'calm');
-        expect(enforced.recommendedFocusMinutes, 15);
+        expect(enforced.recommendedExecutionMinutes, 15);
       },
     );
 
@@ -46,7 +61,7 @@ void main() {
         rationale: 'No simplification',
         action: 'Keep it',
         shouldSimplify: false,
-        recommendedFocusMinutes: 25,
+        recommendedExecutionMinutes: 25,
         tone: 'adaptive',
       );
 
@@ -54,7 +69,7 @@ void main() {
 
       expect(enforced.action, 'Keep it');
       expect(enforced.tone, 'adaptive');
-      expect(enforced.recommendedFocusMinutes, 25);
+      expect(enforced.recommendedExecutionMinutes, 25);
     });
 
     test('enforce keeps empty action empty when simplifying', () {
@@ -83,18 +98,18 @@ void main() {
     });
 
     test(
-      'enforce keeps focus minutes unchanged when already at or below cap',
+      'enforce keeps attention minutes unchanged when already at or below cap',
       () {
         const decision = SiDecisionEntity(
-          rationale: 'Focus minute cap false branch',
+          rationale: 'Attention minute cap false branch',
           action: 'Simple action',
           shouldSimplify: true,
-          recommendedFocusMinutes: 10,
+          recommendedExecutionMinutes: 10,
         );
 
         final enforced = SiPolicy.enforce(decision);
 
-        expect(enforced.recommendedFocusMinutes, 10);
+        expect(enforced.recommendedExecutionMinutes, 10);
       },
     );
 
@@ -133,7 +148,7 @@ void main() {
         rationale: 'Many options',
         action: 'Pick one next step.',
         orderedTaskIds: <String>['t1', 't2', 't3', 't4'],
-        recommendedFocusMinutes: 25,
+        recommendedExecutionMinutes: 25,
       );
 
       final throttled = SiPolicy.reduceSuggestionVolume(
@@ -143,7 +158,7 @@ void main() {
       );
 
       expect(throttled.orderedTaskIds, <String>['t1', 't2']);
-      expect(throttled.recommendedFocusMinutes, 10);
+      expect(throttled.recommendedExecutionMinutes, 10);
       expect(throttled.shouldSimplify, isTrue);
       expect(throttled.tone, 'calm');
     });

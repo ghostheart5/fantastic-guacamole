@@ -173,7 +173,7 @@ class SITemporalAwarenessEngine {
       return 'Use shorter work blocks and protect recovery.';
     }
     if (trend == TemporalTrend.improving && momentum >= 0.65) {
-      return 'Use current momentum for one focused action.';
+      return 'Use current momentum for one targeted action.';
     }
     if (trend == TemporalTrend.declining) {
       return 'Reduce scope and rebuild consistency.';

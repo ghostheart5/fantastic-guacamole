@@ -27,7 +27,7 @@ class TestDataGenerator {
     'Learn new framework feature',
     'Create mind map for goals',
     'Refactor legacy module',
-    'Capture ideas in journal',
+    'Capture ideas in a reflection',
   ];
 
   static Future<void> generate(WidgetRef ref, BuildContext context) async {

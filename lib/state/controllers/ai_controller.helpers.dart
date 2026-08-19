@@ -70,7 +70,7 @@ String _leastRepeatedSafeFallback({
               'Rather than repeat the same nudge, tell me whether urgency, energy, or ease should drive the next choice.',
             ],
     'energy_check' => <String>[
-      'I do not have a materially new energy insight yet. Update your check-in or ask for a concrete recovery action.',
+      'I do not have a materially new energy signal yet. Update your check-in or ask for a concrete recovery action.',
       'Your available energy evidence has not changed enough for a different conclusion. Add a fresh check-in for a new assessment.',
       'Rather than repeat the same energy guidance, tell me what changed since the last check-in.',
     ],
@@ -105,7 +105,7 @@ String _classifyMemoryType({
     return 'task_recommendation';
   }
   if (intent.label == 'energy_check') {
-    return 'energy_insight';
+    return 'energy_signal';
   }
   if (intent.label == 'status') {
     return 'status_summary';
@@ -358,7 +358,7 @@ AIPersonalityProfile _profileFor(
           empathy: 0.68,
         ),
         style: AIStyleGuidance(
-          tone: mood == 'stressed' ? 'calm_supportive' : 'focused_motivating',
+          tone: mood == 'stressed' ? 'calm_supportive' : 'direct_motivating',
           maxWords: 60,
           useSteps: true,
           allowHumor: false,

@@ -79,7 +79,7 @@ class VoiceController extends Notifier<VoiceState> {
 
   /// Required flow: request permission, listen, populate the caller's input
   /// box with the transcript. Recognized text is never auto-sent or routed as
-  /// a command — the caller reads [VoiceState.recognizedText] and the user
+  /// an action — the caller reads [VoiceState.recognizedText] and the user
   /// must explicitly tap send.
   Future<void> startListening() async {
     if (state.isListening) {

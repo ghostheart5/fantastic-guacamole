@@ -3,28 +3,28 @@
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
 
-class FractalInsight {
-  const FractalInsight({
+class FractalSignal {
+  const FractalSignal({
     required this.scale,
-    required this.insight,
+    required this.signal,
     required this.action,
     required this.confidence,
   });
 
   final String scale;
-  final String insight;
+  final String signal;
   final String action;
   final double confidence;
 }
 
 class FractalRefinement {
   const FractalRefinement({
-    required this.insights,
+    required this.signals,
     required this.primaryAction,
     required this.memory,
   });
 
-  final List<FractalInsight> insights;
+  final List<FractalSignal> signals;
   final String primaryAction;
   final SIMemoryStore memory;
 }
@@ -43,40 +43,40 @@ class SICognitiveFractalLayer {
     final DateTime timestamp = now ?? DateTime.now();
     final bool simple = instinct.safetyFirst || instinct.avoidOverwhelm;
 
-    final List<FractalInsight> insights = <FractalInsight>[
-      FractalInsight(
+    final List<FractalSignal> signals = <FractalSignal>[
+      FractalSignal(
         scale: 'micro',
-        insight: _micro(context, intent),
+        signal: _micro(context, intent),
         action: 'Choose one immediate action.',
         confidence: intent.confidence,
       ),
       if (!simple)
-        FractalInsight(
+        FractalSignal(
           scale: 'meso',
-          insight: _meso(patterns),
+          signal: _meso(patterns),
           action: 'Shape the next short block around the strongest pattern.',
           confidence: _patternConfidence(patterns),
         ),
       if (!simple)
-        FractalInsight(
+        FractalSignal(
           scale: 'macro',
-          insight: _macro(context),
+          signal: _macro(context),
           action:
               'Protect the broader planning loop without overloading today.',
           confidence: 0.55,
         ),
     ];
 
-    final String primary = insights.first.action;
+    final String primary = signals.first.action;
 
     final SIMemoryStore nextMemory = memory
         .pushRecord(
           MemoryTier.midTerm,
           MemoryRecord(
             content:
-                'fractal|${insights.map((FractalInsight i) => '${i.scale}:${i.insight}').join('|')}',
+                'fractal|${signals.map((FractalSignal i) => '${i.scale}:${i.signal}').join('|')}',
             timestamp: timestamp,
-            relevance: insights.first.confidence,
+            relevance: signals.first.confidence,
             confidence: 0.68,
             emotionalWeight: simple ? 0.6 : 0.35,
             reinforcement: simple ? 0 : 1,
@@ -86,7 +86,7 @@ class SICognitiveFractalLayer {
         .decay(timestamp);
 
     return FractalRefinement(
-      insights: List<FractalInsight>.unmodifiable(insights),
+      signals: List<FractalSignal>.unmodifiable(signals),
       primaryAction: primary,
       memory: nextMemory,
     );
@@ -97,7 +97,7 @@ class SICognitiveFractalLayer {
       return 'The immediate need is task selection.';
     }
     if (intent.primary.label == 'start_execution') {
-      return 'The immediate need is focus protection.';
+      return 'The immediate need is attention protection.';
     }
     if (context.userState.cognitiveLoad >= 0.7) {
       return 'The immediate need is simplification.';

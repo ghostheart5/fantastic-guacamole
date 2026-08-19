@@ -7,11 +7,9 @@ import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
-import 'package:fantastic_guacamole/state/models/insight_model.dart';
-import 'package:fantastic_guacamole/state/models/insights_models.dart';
+import 'package:fantastic_guacamole/state/models/signal_model.dart';
+import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
@@ -70,10 +68,6 @@ void main() {
         textWidgetContaining(tester, 'LVL 10').style?.fontSize,
         AppSizes.fontMicro,
       );
-      expect(
-        textWidgetContaining(tester, 'STREAK 21d').style?.fontSize,
-        AppSizes.fontXs,
-      );
     });
 
     testWidgets('uses compact values from 340px up to 389px', (
@@ -84,10 +78,6 @@ void main() {
       expect(
         textWidgetContaining(tester, 'LVL 10').style?.fontSize,
         AppSizes.fontXs,
-      );
-      expect(
-        textWidgetContaining(tester, 'STREAK 21d').style?.fontSize,
-        AppSizes.fontSm,
       );
     });
 
@@ -100,10 +90,6 @@ void main() {
       // same font size; this matches the production widget logic.
       expect(
         textWidgetContaining(tester, 'LVL 10').style?.fontSize,
-        AppSizes.fontSm,
-      );
-      expect(
-        textWidgetContaining(tester, 'STREAK 21d').style?.fontSize,
         AppSizes.fontSm,
       );
     });
@@ -129,8 +115,8 @@ final NexusScreenModel _populatedNexusModel = NexusScreenModel(
         createdAt: DateTime.utc(2026, 7, 1),
       ),
     ],
-    insights: const InsightsBundle(
-      items: <Insight>[],
+    signals: const SignalsBundle(
+      items: <Signal>[],
       summary: 'Stable',
       healthScore: 0.76,
     ),
@@ -142,38 +128,23 @@ final NexusScreenModel _populatedNexusModel = NexusScreenModel(
     profile: _PopulatedProfileController().build(),
     siState: const SIState(energy: 0.78, fatigue: 0.24, completedToday: 4),
     trajectory: _activeTrajectory,
-    signals: const SISignalExtraction(
+    planningEvidence: const SIPlanningEvidence(
       friction: false,
       overwhelm: false,
       streakHealth: 'High',
       goalDrift: false,
       taskAvoidance: false,
-      emotion: 'focused',
+      emotion: 'engaged',
       emotionalStrain: false,
       emotionalStability: true,
       emotionalPatterns: <String>['steady'],
     ),
-    coreValues: const CoreValuesAlignment(
-      scores: <CoreValueType, CoreValueScore>{},
-      overall: 70,
-      strongest: CoreValueType.discipline,
-      mostNeglected: CoreValueType.connection,
-      recommendations: <String>[],
-      selectedValues: <String>{'Discipline', 'Purpose'},
-    ),
-    personalAlignment: const PersonalAlignmentAlignment(
-      scores: <PersonalAlignmentDimension, PersonalAlignmentDimensionScore>{},
-      overall: 72,
-      strongest: PersonalAlignmentDimension.purpose,
-      weakest: PersonalAlignmentDimension.growthJourney,
-      recommendations: <String>[],
-    ),
   ),
   decision: const SIDecisionOutput(
     nextAction: 'Lock sprint scope',
-    plannerMessage: 'Stay with the current sprint focus.',
+    plannerMessage: 'Stay with the current sprint attention.',
     suggestedPlanAdjustments: <String>['Hold one high-priority lane'],
-    insightPrompts: <String>['What can be simplified?'],
+    signalPrompts: <String>['What can be simplified?'],
     progressionFeedback: 'Momentum is compounding.',
     warnings: <String>[],
   ),

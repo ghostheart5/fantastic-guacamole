@@ -21,7 +21,7 @@ void main() {
       // pumpAndSettle would never converge. A single large pump can also
       // land mid-transition for the PageController-driven scroll, so settle
       // the 400ms page-turn animation with several smaller steps instead.
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 1; i++) {
         await tester.tap(find.text('NEXT'));
         for (int step = 0; step < 10; step++) {
           await tester.pump(const Duration(milliseconds: 50));

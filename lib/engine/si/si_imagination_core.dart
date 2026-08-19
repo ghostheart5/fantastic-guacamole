@@ -145,13 +145,13 @@ class SIImaginationCore {
       return 'Reframe it as: choose the next smallest useful task.';
     }
     if (intent.primary.label == 'start_execution') {
-      return 'Reframe it as: protect one short focus block.';
+      return 'Reframe it as: protect one short execution block.';
     }
     return 'Reframe it as: turn the idea into one clear next action.';
   }
 
   String _metaphoric(String base, SIIntent intent) {
-    if (intent.primary.label == 'insight_request') {
+    if (intent.primary.label == 'signal_request') {
       return 'Creative frame: connect the signals like a small constellation.';
     }
     if (intent.primary.label == 'reflect') {

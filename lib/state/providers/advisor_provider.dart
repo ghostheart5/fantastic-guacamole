@@ -9,32 +9,33 @@ import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final productInsightsProvider = FutureProvider<List<ProductInsight>>((
-  ref,
-) async {
-  try {
-    final accumulator = ref.read(localMetricsAccumulatorProvider);
-    final snapshot = await accumulator.snapshot();
-    final momentum = ref.watch(momentumProvider);
-    return const ProductAdvisorEngine().fromSnapshot(
-      snapshot,
-      momentum.chainCount,
-    );
-  } catch (_) {
-    return const ProductAdvisorEngine().analyze(
-      nextSeen: 0,
-      started: 0,
-      completed: 0,
-      momentumPeak: 0,
-    );
-  }
-});
+final productRecommendationsProvider =
+    FutureProvider<List<ProductRecommendation>>((ref) async {
+      try {
+        final accumulator = ref.read(localMetricsAccumulatorProvider);
+        final snapshot = await accumulator.snapshot();
+        final momentum = ref.watch(momentumProvider);
+        return const ProductAdvisorEngine().fromSnapshot(
+          snapshot,
+          momentum.chainCount,
+        );
+      } catch (_) {
+        return const ProductAdvisorEngine().analyze(
+          nextSeen: 0,
+          started: 0,
+          completed: 0,
+          momentumPeak: 0,
+        );
+      }
+    });
 
 final weeklySummaryProvider = FutureProvider<String>((ref) async {
   try {
     final snapshot = await ref.read(localMetricsAccumulatorProvider).snapshot();
-    final insights = await ref.watch(productInsightsProvider.future);
-    final String baseline = const WeeklyAdvisor().summarize(insights);
+    final recommendations = await ref.watch(
+      productRecommendationsProvider.future,
+    );
+    final String baseline = const WeeklyAdvisor().summarize(recommendations);
 
     final trajectory = ref.watch(trajectorySummaryProvider);
     final int timelineHealth = ref.watch(timelineHealthScoreProvider);
@@ -89,6 +90,6 @@ final weeklySummaryProvider = FutureProvider<String>((ref) async {
         'Recommendation: $oneAction\n\n'
         'Advisor baseline: $baseline';
   } catch (_) {
-    return 'Not enough data yet. Keep using the app to generate insights.';
+    return 'Not enough data yet. Keep using the app to build recommendations.';
   }
 });

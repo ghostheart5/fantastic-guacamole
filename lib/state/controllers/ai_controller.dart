@@ -34,17 +34,13 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
-import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
-import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
+import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/learning_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
@@ -56,7 +52,6 @@ import 'package:fantastic_guacamole/state/providers/personalization_provider.dar
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
-import 'package:fantastic_guacamole/state/providers/personal_alignment_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
@@ -75,7 +70,7 @@ final nextActionTextProvider = Provider<String>((ref) {
   if (tasks == null || tasks.isEmpty) {
     return 'Create your first task to get started.';
   }
-  return 'Focus on: ${tasks.first.title}';
+  return 'Work on: ${tasks.first.title}';
 });
 
 class AIController {
@@ -131,7 +126,7 @@ class AIController {
     final personalization = _ref.read(personalizationProfileProvider);
     final emotion = _ref.read(emotionProvider);
     final goals = _ref.read(goalsProvider);
-    final insightsBundle = _ref.read(insightsBundleProvider);
+    final signalsBundle = _ref.read(signalsBundleProvider);
     final logsState = _ref.read(logsProvider);
     final memories = _ref.read(memoriesProvider);
     final notifications = _ref.read(notificationProvider);
@@ -166,20 +161,8 @@ class AIController {
     final List<MilestoneEntity> milestoneOverdue = _ref.read(
       milestoneOverdueProvider,
     );
-    final CoreValuesAlignment coreValuesAlignment = _ref.read(
-      coreValuesAlignmentProvider,
-    );
-    final PersonalAlignmentAlignment personalAlignmentAlignment = _ref.read(
-      personalAlignmentAlignmentProvider,
-    );
-    final PersonalAlignmentFutureSelfComparison personalAlignmentComparison =
-        _ref.read(personalAlignmentFutureSelfComparisonProvider);
     final progression = _ref.read(progressionProvider).progress;
-    final soulState = _ref.read(soulStateProvider);
     final trajectory = _ref.read(trajectorySummaryProvider);
-    final List<String> coreValues = coreValuesAlignment.selectedValues.toList(
-      growable: false,
-    )..sort();
 
     final List<Map<String, String>> history = <Map<String, String>>[];
     final dynamic rawHistory = previousState?['historySummary'];
@@ -266,29 +249,6 @@ class AIController {
     if (milestoneDeterministic != null) {
       return milestoneDeterministic;
     }
-    final AIRecommendation? personalAlignmentDeterministic =
-        _tryDeterministicPersonalAlignmentResponse(
-          input: input,
-          forcedSurface: forcedSurface,
-          matchedSurfaces: matchedSurfaces,
-          category: siIntentCategory,
-          alignment: personalAlignmentAlignment,
-          comparison: personalAlignmentComparison,
-        );
-    if (personalAlignmentDeterministic != null) {
-      return personalAlignmentDeterministic;
-    }
-    final AIRecommendation? coreValuesDeterministic =
-        _tryDeterministicCoreValuesResponse(
-          input: input,
-          forcedSurface: forcedSurface,
-          matchedSurfaces: matchedSurfaces,
-          category: siIntentCategory,
-          alignment: coreValuesAlignment,
-        );
-    if (coreValuesDeterministic != null) {
-      return coreValuesDeterministic;
-    }
     final AssistantIntent assistantIntent =
         const DefaultAssistantIntentDetector().detect(
           input: input,
@@ -334,13 +294,12 @@ class AIController {
         'tasks',
         'progression',
         'goals',
-        'insights',
+        'signals',
         'logs',
         'memories',
         'notifications',
         'plan',
         'emotions',
-        'personal_alignment',
         'timeline',
         'milestones',
         'values',
@@ -367,10 +326,10 @@ class AIController {
           'count': goals.length,
           'top': goals.take(5).map((g) => g.title).toList(growable: false),
         },
-        'insights': <String, dynamic>{
-          'count': insightsBundle.items.length,
-          'summary': insightsBundle.summary,
-          'top': insightsBundle.items
+        'signals': <String, dynamic>{
+          'count': signalsBundle.items.length,
+          'summary': signalsBundle.summary,
+          'top': signalsBundle.items
               .take(5)
               .map((item) => item.title)
               .toList(growable: false),
@@ -402,7 +361,6 @@ class AIController {
           'current': emotion.name,
           'fatigue': si.fatigue,
         },
-        'personal_alignment': soulState.toJson(),
         'timeline': <String, dynamic>{
           'count': timelineEvents.length,
           'healthScore': timelineHealthScore,
@@ -437,45 +395,6 @@ class AIController {
           'pressure': trajectory.pressureIndex,
           'momentum': trajectory.momentum,
           'prediction': trajectory.predictionOutcome,
-        },
-        'personalAlignmentAlignment': <String, dynamic>{
-          'overall': personalAlignmentAlignment.overall,
-          'strongest': personalAlignmentDimensionTitle(
-            personalAlignmentAlignment.strongest,
-          ),
-          'weakest': personalAlignmentDimensionTitle(
-            personalAlignmentAlignment.weakest,
-          ),
-          'scores': personalAlignmentAlignment.scores.map(
-            (
-              PersonalAlignmentDimension key,
-              PersonalAlignmentDimensionScore value,
-            ) => MapEntry<String, int>(
-              personalAlignmentDimensionTitle(key),
-              value.score,
-            ),
-          ),
-          'recommendations': personalAlignmentAlignment.recommendations,
-        },
-        'personalAlignmentComparison': <String, dynamic>{
-          'currentSelfAlignment':
-              personalAlignmentComparison.currentSelfAlignment,
-          'futureSelfReadiness':
-              personalAlignmentComparison.futureSelfReadiness,
-          'gap': personalAlignmentComparison.gap,
-          'stance': personalAlignmentComparison.stance,
-          'recommendation': personalAlignmentComparison.recommendation,
-        },
-        'coreValues': coreValues,
-        'coreValuesAlignment': <String, dynamic>{
-          'overall': coreValuesAlignment.overall,
-          'strongest': coreValueTitle(coreValuesAlignment.strongest),
-          'mostNeglected': coreValueTitle(coreValuesAlignment.mostNeglected),
-          'scores': coreValuesAlignment.scores.map(
-            (CoreValueType key, CoreValueScore value) =>
-                MapEntry<String, int>(coreValueTitle(key), value.score),
-          ),
-          'recommendations': coreValuesAlignment.recommendations,
         },
       },
     };
@@ -578,7 +497,7 @@ class AIController {
       'tasks': <String>[
         'task',
         'todo',
-        'focus',
+        'attention',
         'next action',
         'priority',
         'create',
@@ -589,7 +508,7 @@ class AIController {
       ],
       'progression': <String>['xp', 'level', 'streak', 'progress', 'rank'],
       'goals': <String>['goal', 'target', 'objective', 'purpose'],
-      'insights': <String>['insight', 'signal', 'pattern', 'analysis'],
+      'signals': <String>['signal', 'signal', 'pattern', 'analysis'],
       'logs': <String>[
         'log',
         'ledger',
@@ -603,27 +522,12 @@ class AIController {
       'notifications': <String>['notification', 'alert', 'reminder', 'prompt'],
       'plan': <String>['plan', 'schedule', 'calendar', 'time block'],
       'emotions': <String>['emotion', 'mood', 'energy', 'fatigue', 'feel'],
-      'personal_alignment': <String>[
-        'personal alignment',
-        'personal_alignment',
-        'analyze my life',
-        'who am i becoming',
-        'future self',
-        'life direction',
-        'legacy',
-        'identity',
-      ],
       'timeline': <String>['timeline', 'milestone', 'event', 'chronology'],
       'milestones': <String>[
         'milestones',
         'checkpoint',
         'milestone health',
         'milestone risk',
-      ],
-      'values': <String>[
-        'core values',
-        'values alignment',
-        'most neglected value',
       ],
       'trajectory': <String>[
         'trajectory',
@@ -663,14 +567,10 @@ class AIController {
       '/memories': 'memories',
       '/memory': 'memories',
       '/plan': 'plan',
-      '/coach': 'plan',
       '/emotions': 'emotions',
       '/emotion': 'emotions',
-      '/personal_alignment': 'personal_alignment',
-      '/soul': 'personal_alignment',
       '/timeline': 'timeline',
       '/milestones': 'milestones',
-      '/values': 'values',
       '/trajectory': 'trajectory',
     };
     return aliases[token];
@@ -723,24 +623,6 @@ class AIController {
     if (hasAny(<String>['milestone', 'milestones', 'checkpoint'])) {
       return 'Milestone Query';
     }
-    if (hasAny(<String>[
-      'personal alignment',
-      'personal_alignment',
-      'analyze my life',
-      'who am i becoming',
-      'future self',
-      'life direction',
-      'legacy',
-    ])) {
-      return 'Life Query';
-    }
-    if (hasAny(<String>[
-      'core values',
-      'values alignment',
-      'most neglected value',
-    ])) {
-      return 'Core Values Query';
-    }
     if (hasAny(<String>['goal', 'goals', 'target', 'objective', 'milestone'])) {
       return 'Goal Query';
     }
@@ -772,7 +654,7 @@ class AIController {
       'analytics',
       'analyze',
       'trend',
-      'insight',
+      'signal',
       'metrics',
     ])) {
       return 'Analytics Query';
@@ -796,14 +678,8 @@ class AIController {
     if (matchedSurfaces.contains('milestones')) {
       return 'Milestone Query';
     }
-    if (matchedSurfaces.contains('personal_alignment')) {
-      return 'Life Query';
-    }
-    if (matchedSurfaces.contains('values')) {
-      return 'Core Values Query';
-    }
     if (matchedSurfaces.contains('trajectory') ||
-        matchedSurfaces.contains('insights')) {
+        matchedSurfaces.contains('signals')) {
       return 'Analytics Query';
     }
     if (matchedSurfaces.contains('memories')) {
@@ -907,7 +783,7 @@ class AIController {
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_timeline_deterministic',
-      emotion: 'focused',
+      emotion: 'engaged',
       confidence: 0.6,
     );
   }
@@ -988,7 +864,7 @@ class AIController {
         : 'Reinforce alignment by completing one goal-linked task now.';
     final String nextAction3 = momentum <= 0.45
         ? 'Trigger momentum recovery with one fast, definitive completion in the next hour.'
-        : 'Maintain momentum with a second focused completion before context switching.';
+        : 'Maintain momentum with a second deliberate completion before context switching.';
 
     final String output =
         'SI ANALYSIS\n\n'
@@ -1012,7 +888,7 @@ class AIController {
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_trajectory_deterministic',
-      emotion: 'focused',
+      emotion: 'engaged',
       confidence: 0.6,
     );
   }
@@ -1119,7 +995,7 @@ class AIController {
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_milestone_deterministic',
-      emotion: 'focused',
+      emotion: 'engaged',
       confidence: 0.6,
     );
   }
@@ -1152,199 +1028,6 @@ class AIController {
     return forcedMilestones ||
         surfaceMilestones ||
         (categoryMilestones && asksMilestoneOps);
-  }
-
-  AIRecommendation? _tryDeterministicCoreValuesResponse({
-    required String input,
-    required String? forcedSurface,
-    required List<String> matchedSurfaces,
-    required String category,
-    required CoreValuesAlignment alignment,
-  }) {
-    if (!_isDeterministicCoreValuesQuery(
-      input: input,
-      forcedSurface: forcedSurface,
-      matchedSurfaces: matchedSurfaces,
-      category: category,
-    )) {
-      return null;
-    }
-
-    final List<String> rows = CoreValueType.values
-        .map(
-          (CoreValueType value) =>
-              '- ${coreValueTitle(value)}: ${alignment.scores[value]?.score ?? 0}%',
-        )
-        .toList(growable: false);
-    final String strongest = coreValueTitle(alignment.strongest);
-    final String neglected = coreValueTitle(alignment.mostNeglected);
-
-    final String output =
-        'SI ANALYSIS\n\n'
-        'Query: Core Values Alignment\n\n'
-        'Current State:\n'
-        '${rows.join('\n')}\n\n'
-        '- Overall alignment: ${alignment.overall}%\n'
-        '- Strongest value: $strongest\n'
-        '- Most neglected value: $neglected\n\n'
-        'Priority Task: Execute one action that increases $neglected this week.\n'
-        'Impact: ${alignment.overall >= 70 ? 'Medium' : 'High'}\n'
-        'Timeline Effect: Core values alignment acts as your internal compass for decision quality.\n\n'
-        'Next Actions:\n'
-        '1. ${alignment.recommendations.firstWhere((String item) => item.toLowerCase().contains('schedule one action'), orElse: () => 'Schedule one action this week aligned to the neglected value.')}\n'
-        '2. Use the guiding question for $neglected before your next major decision.\n'
-        '3. Preserve momentum in $strongest while reducing the gap in $neglected.\n\n'
-        'Signal strength: deterministic core-value rules and current data.';
-
-    return AIRecommendation(
-      message: output,
-      reasoning: 'si_console_core_values_deterministic',
-      emotion: 'focused',
-      confidence: 0.6,
-    );
-  }
-
-  bool _isDeterministicCoreValuesQuery({
-    required String input,
-    required String? forcedSurface,
-    required List<String> matchedSurfaces,
-    required String category,
-  }) {
-    final String lowered = input.toLowerCase();
-    bool hasAny(List<String> values) => values.any(lowered.contains);
-
-    final bool forced = forcedSurface == 'values';
-    final bool surface = matchedSurfaces.contains('values');
-    final bool categoryMatch =
-        category == 'Core Values Query' || category == 'Life Query';
-    final bool asks = hasAny(<String>[
-      'core values',
-      'values alignment',
-      'most neglected value',
-    ]);
-
-    return forced || surface || (categoryMatch && asks);
-  }
-
-  AIRecommendation? _tryDeterministicPersonalAlignmentResponse({
-    required String input,
-    required String? forcedSurface,
-    required List<String> matchedSurfaces,
-    required String category,
-    required PersonalAlignmentAlignment alignment,
-    required PersonalAlignmentFutureSelfComparison comparison,
-  }) {
-    if (!_isDeterministicPersonalAlignmentQuery(
-      input: input,
-      forcedSurface: forcedSurface,
-      matchedSurfaces: matchedSurfaces,
-      category: category,
-    )) {
-      return null;
-    }
-
-    final int purpose =
-        alignment.scores[PersonalAlignmentDimension.purpose]?.score ?? 0;
-    final int identity =
-        alignment.scores[PersonalAlignmentDimension.identity]?.score ?? 0;
-    final int values =
-        alignment.scores[PersonalAlignmentDimension.coreValues]?.score ?? 0;
-    final int futureSelf =
-        alignment.scores[PersonalAlignmentDimension.futureSelf]?.score ?? 0;
-    final String strongest = personalAlignmentDimensionTitle(
-      alignment.strongest,
-    );
-    final String weakest = personalAlignmentDimensionTitle(alignment.weakest);
-    final String recommendation = alignment.recommendations.firstWhere(
-      (String item) =>
-          item.toLowerCase().contains('schedule one concrete action'),
-      orElse: () =>
-          'Schedule one concrete action this week to strengthen $weakest.',
-    );
-    final String lowered = input.toLowerCase();
-    final bool compareMode =
-        lowered.contains('compare') || lowered.contains('current self');
-
-    if (compareMode) {
-      final String compareOutput =
-          'SI ANALYSIS\n\n'
-          'Query: PersonalAlignment Current vs Future Self\n\n'
-          'Current State:\n'
-          '- Current Self Alignment: ${comparison.currentSelfAlignment}%\n'
-          '- Future Self Readiness: ${comparison.futureSelfReadiness}%\n'
-          '- Gap: ${comparison.gap}%\n'
-          '- Stance: ${comparison.stance}\n\n'
-          'Priority Task: Execute one action today that directly reduces the future-self gap.\n'
-          'Impact: ${comparison.gap > 20 ? 'High' : 'Medium'}\n'
-          'Timeline Effect: Gap reduction compounds identity consistency over 1/5/10 year horizons.\n\n'
-          'Next Actions:\n'
-          '1. ${comparison.recommendation}\n'
-          '2. Define one 1-year and one 5-year future-self outcome in PersonalAlignment profile.\n'
-          '3. Audit your current top goal for alignment before quitting or recommitting.\n\n'
-          'Signal strength: deterministic alignment rules and current data.';
-
-      return AIRecommendation(
-        message: compareOutput,
-        reasoning: 'si_console_personal_alignment_compare_deterministic',
-        emotion: 'focused',
-        confidence: 0.6,
-      );
-    }
-
-    final String output =
-        'SI ANALYSIS\n\n'
-        'Query: PersonalAlignment Analysis\n\n'
-        'Current State:\n'
-        '- Purpose Alignment: $purpose%\n'
-        '- Identity Alignment: $identity%\n'
-        '- Values Alignment: $values%\n'
-        '- Future Self Progress: $futureSelf%\n'
-        '- Overall PersonalAlignment: ${alignment.overall}%\n'
-        '- Strongest Area: $strongest\n'
-        '- Weakest Area: $weakest\n\n'
-        'Priority Task: Execute one decision today that strengthens $weakest.\n'
-        'Impact: ${alignment.overall >= 70 ? 'Medium' : 'High'}\n'
-        'Timeline Effect: PersonalAlignment aligns goals, values, and identity into one life direction compass.\n\n'
-        'Next Actions:\n'
-        '1. $recommendation\n'
-        '2. Test one active goal against your Future Self before committing or quitting.\n'
-        '3. Protect your strongest area ($strongest) while repairing $weakest.\n\n'
-        'Signal strength: deterministic alignment rules and current data.';
-
-    return AIRecommendation(
-      message: output,
-      reasoning: 'si_console_personal_alignment_deterministic',
-      emotion: 'focused',
-      confidence: 0.6,
-    );
-  }
-
-  bool _isDeterministicPersonalAlignmentQuery({
-    required String input,
-    required String? forcedSurface,
-    required List<String> matchedSurfaces,
-    required String category,
-  }) {
-    final String lowered = input.toLowerCase();
-    bool hasAny(List<String> values) => values.any(lowered.contains);
-
-    final bool forced = forcedSurface == 'personal_alignment';
-    final bool surface = matchedSurfaces.contains('personal_alignment');
-    final bool categoryMatch = category == 'Life Query';
-    final bool asks = hasAny(<String>[
-      'analyze my life',
-      'compare current self to future self',
-      'current self vs future self',
-      'personal alignment',
-      'personal_alignment',
-      'who am i becoming',
-      'future self',
-      'life direction',
-      'legacy',
-      'what kind of life',
-    ]);
-
-    return forced || surface || (categoryMatch && asks);
   }
 
   AIRecommendation _buildStructuredSIFallback({
@@ -1402,8 +1085,6 @@ class AIController {
       'Goal Query' => 'Keeps core goals on measurable milestones.',
       'Milestone Query' =>
         'Improves checkpoint clarity with milestone health $timelineHealthScore% and risk $timelineRiskScore% context.',
-      'Core Values Query' =>
-        'Aligns execution decisions with your personal operating system and neglected value recovery.',
       'Timeline Query' =>
         overdue > 0
             ? 'Reduces delay risk by addressing overdue work first (health $timelineHealthScore%, risk $timelineRiskScore%).'
@@ -1436,7 +1117,7 @@ class AIController {
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_structured_fallback',
-      emotion: 'focused',
+      emotion: 'engaged',
       confidence: confidence / 100,
     );
   }

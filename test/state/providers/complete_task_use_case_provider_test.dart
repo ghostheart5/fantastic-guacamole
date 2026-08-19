@@ -1,3 +1,10 @@
+import 'dart:io';
+
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -5,8 +12,10 @@ import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.d
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
 
 void main() {
   test(
@@ -27,13 +36,42 @@ void main() {
         ),
       );
       progressionRepository.progression = const ProgressionEntity(xp: 0);
-      siRepository.state = SiStateEntity(energy: 0.7, focus: 0.7, fatigue: 0.3);
+      siRepository.state = SiStateEntity(
+        energy: 0.7,
+        attention: 0.7,
+        fatigue: 0.3,
+      );
+
+      final Directory tempDir = await Directory.systemTemp.createTemp(
+        'complete-task-provider-',
+      );
+      await Hive.close();
+      Hive.init(tempDir.path);
+      final TaskOccurrenceRepository occurrenceRepository =
+          TaskOccurrenceRepository(
+            HiveStorage<String>(
+              'complete_task_provider_occurrences',
+              hive: _DirectHiveStore(),
+            ),
+          );
+      addTearDown(() async {
+        await Hive.close();
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
 
       final ProviderContainer container = ProviderContainer(
         // riverpod 3.3.2 omits Override from its public barrel export; the
         // override pattern is standard Riverpod API — the code is correct.
         // ignore: non_type_as_type_argument
         overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('provider-test-user'),
+          ),
+          taskOccurrenceRepositoryProvider.overrideWithValue(
+            occurrenceRepository,
+          ),
           domainTaskRepositoryProvider.overrideWithValue(taskRepository),
           domainProgressionRepositoryProvider.overrideWithValue(
             progressionRepository,
@@ -66,6 +104,36 @@ void main() {
       expect(siRepository.savedStates.single.confidence, closeTo(0.55, 0.0001));
     },
   );
+}
+
+class _DirectHiveStore implements HiveStore {
+  @override
+  Future<void> init() async {}
+
+  @override
+  bool isBoxOpen(String key) => Hive.isBoxOpen(key);
+
+  @override
+  Future<Box<T>> openBox<T>(String key) async {
+    if (Hive.isBoxOpen(key)) return Hive.box<T>(key);
+    return Hive.openBox<T>(key);
+  }
+
+  @override
+  Box<T> box<T>(String key) => Hive.box<T>(key);
+
+  @override
+  Future<void> clearBox(String key) async {
+    final Box<dynamic> target = Hive.isBoxOpen(key)
+        ? Hive.box<dynamic>(key)
+        : await Hive.openBox<dynamic>(key);
+    await target.clear();
+  }
+
+  @override
+  Future<void> closeBox(String key) async {
+    if (Hive.isBoxOpen(key)) await Hive.box<dynamic>(key).close();
+  }
 }
 
 class _FakeTaskRepository implements ITaskRepository {

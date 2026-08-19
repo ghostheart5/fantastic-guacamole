@@ -31,7 +31,7 @@ class SISyntheticArchetypeSystem {
         ? 'guardian'
         : context.userState.fatigue >= .68
         ? 'restorer'
-        : intent.primary.label == 'insight_request'
+        : intent.primary.label == 'signal_request'
         ? 'analyst'
         : intent.primary.label == 'reflect'
         ? 'seeker'

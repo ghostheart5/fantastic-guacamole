@@ -69,7 +69,7 @@ class SISyntheticMemoryWeatherSystem {
     );
 
     final double attentionBias = siClamp01(
-      (attention?.focusScore ?? 0.5) + (usage * 0.15) - (decay * 0.12),
+      (attention?.attentionScore ?? 0.5) + (usage * 0.15) - (decay * 0.12),
     );
 
     final double intuitionBias = siClamp01(

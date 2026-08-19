@@ -26,7 +26,7 @@ class SISyntheticParacosmGenerator {
   }) {
     final t = now ?? DateTime.now();
     final safe = !instinct.safetyFirst && !instinct.avoidOverwhelm;
-    final mode = safe && intent.primary.label == 'insight_request'
+    final mode = safe && intent.primary.label == 'signal_request'
         ? 'constellation_room'
         : safe
         ? 'planning_hub'

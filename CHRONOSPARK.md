@@ -62,7 +62,7 @@ These records can support one another, but they do not automatically become a sc
 ## Product boundaries
 
 - Nexus is the home surface.
-- Insight is an output from Smart Planner or SI Console, not a standalone feature.
+- Signal is an output from Smart Planner or SI Console, not a standalone feature.
 - Daily Rhythms is the current public term for recurring behaviors.
 - Reflection is the current public term for reviewing and retaining useful experience.
 - Smart Planner and SI Console provide guidance, not automatic authority.

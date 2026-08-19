@@ -16,7 +16,7 @@ class IntelligenceFusionState {
   const IntelligenceFusionState({
     required this.mode,
     required this.nextAction,
-    required this.primaryThreat,
+    required this.primaryConstraint,
     required this.rationale,
     required this.evidence,
     required this.confidence,
@@ -24,7 +24,7 @@ class IntelligenceFusionState {
 
   final IntelligenceOperatingMode mode;
   final String nextAction;
-  final String primaryThreat;
+  final String primaryConstraint;
   final String rationale;
   final List<String> evidence;
   final double confidence;
@@ -43,10 +43,10 @@ class IntelligenceFusionState {
 final intelligenceFusionProvider = Provider<IntelligenceFusionState>((Ref ref) {
   final trajectory = ref.watch(trajectorySummaryProvider);
   final ExecutionSignals execution = ref.watch(executionSignalsProvider);
-  final AsyncValue<OperatingBriefing> briefingAsync = ref.watch(
-    operatingBriefingProvider,
+  final AsyncValue<DecisionIntelligence> decisionAsync = ref.watch(
+    decisionIntelligenceProvider,
   );
-  final OperatingBriefing? briefing = briefingAsync.asData?.value;
+  final DecisionIntelligence? intelligence = decisionAsync.asData?.value;
 
   final IntelligenceOperatingMode mode =
       trajectory.energy <= .3 || trajectory.pressureIndex >= 85
@@ -58,20 +58,21 @@ final intelligenceFusionProvider = Provider<IntelligenceFusionState>((Ref ref) {
       : IntelligenceOperatingMode.execution;
 
   final String nextAction =
-      briefing?.decision.recommendedAction ??
+      intelligence?.decision.recommendedAction ??
       (trajectory.pendingTasks == 0
           ? 'Capture one accountable action in Creator.'
           : 'Open Smart Planner to rank the next feasible action.');
-  final String primaryThreat = briefing?.snapshot.activeRisks.isNotEmpty == true
-      ? briefing!.snapshot.activeRisks.first
+  final String primaryConstraint =
+      intelligence?.snapshot.activeRisks.isNotEmpty == true
+      ? intelligence!.snapshot.activeRisks.first
       : trajectory.pressureIndex >= 70
       ? 'Current load is compressing schedule flexibility.'
       : execution.hasDeferralPressure
       ? 'Repeated deferral is weakening execution stability.'
-      : 'No material threat is supported by current local evidence.';
+      : 'No material constraint is supported by current local evidence.';
   final int observedOutcomes = execution.actioned7d;
   final double coverage =
-      briefing?.snapshot.evidenceCoverage ??
+      intelligence?.snapshot.evidenceCoverage ??
       (trajectory.sourceState == TrajectorySourceState.ready ? .65 : .3);
   final double confidence =
       (coverage * .7 + (observedOutcomes.clamp(0, 7) / 7) * .3).clamp(0.0, 1.0);
@@ -79,9 +80,9 @@ final intelligenceFusionProvider = Provider<IntelligenceFusionState>((Ref ref) {
   return IntelligenceFusionState(
     mode: mode,
     nextAction: nextAction,
-    primaryThreat: primaryThreat,
+    primaryConstraint: primaryConstraint,
     rationale:
-        briefing?.decision.rationale ??
+        intelligence?.decision.rationale ??
         'The recommendation uses local load, momentum, and recent execution evidence.',
     evidence: <String>[
       'pressure=${trajectory.pressureIndex}',

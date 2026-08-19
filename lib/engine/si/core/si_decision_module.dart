@@ -102,7 +102,7 @@ class SIDecisionModule {
 
     if (ethics.flags.contains('wellbeing_risk')) {
       result =
-          'Take a balanced approach. Focus matters, but rest and basic needs come first.';
+          'Take a balanced approach. Attention matters, but rest and basic needs come first.';
     }
     if (ethics.flags.contains('emotional_pressure_risk')) {
       result = result
@@ -131,8 +131,8 @@ class SIDecisionModule {
         return 'present_task_recommendation';
       case 'reflect':
         return 'open_reflection_flow';
-      case 'insight_request':
-        return 'show_insight_summary';
+      case 'signal_request':
+        return 'show_signal_summary';
       default:
         return 'respond_conversationally';
     }

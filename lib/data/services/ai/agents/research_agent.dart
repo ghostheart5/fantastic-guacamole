@@ -40,7 +40,7 @@ class ResearchAgent extends AiAgent {
           : 'Local task analysis complete. Top candidate: $topTitle',
       'reasoning':
           'Analyzed only the tasks currently supplied by the app, ranked by priority and energy requirement.',
-      'emotion': 'focused',
+      'emotion': 'engaged',
       'confidence': rows.isEmpty ? 0.38 : 0.77,
       'findings': findings,
       'status': 'ready',

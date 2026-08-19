@@ -1,4 +1,4 @@
-enum PlanningStyle { flexible, timeBlocked, energyMatched, singleFocus }
+enum PlanningStyle { flexible, timeBlocked, energyMatched, singleTask }
 
 enum PriorityStrategy {
   balanced,

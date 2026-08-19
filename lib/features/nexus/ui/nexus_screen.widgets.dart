@@ -1182,17 +1182,9 @@ class _DependencyMesh extends ConsumerWidget {
         .where((GoalEntity goal) => goal.targetDate != null)
         .length;
 
-    final insights = aggregation?.insights;
-    final String insightsHeadline = (insights == null || insights.items.isEmpty)
-        ? 'No insight bundle published'
-        : insights.items.first.title;
+    
 
-    final int recentMemories = memories
-        .where((MemoryEntity memory) => memory.isRecent)
-        .length;
-    final String memoryHeadline = memories.isEmpty
-        ? 'No recent memory capture'
-        : memories.first.text;
+   
 
     // Sync copy is read by people: describe what happened
     // rather than exposing the service state (LIVE/DEGRADED/SYNCING).
@@ -1270,27 +1262,7 @@ class _DependencyMesh extends ConsumerWidget {
               headline: goalHeadline,
               detail: '$goalsWithTarget with target dates.',
             ),
-            _DependencyCard(
-              label: 'Insights',
-              accent: AppColors.neonViolet,
-              value: '${insights?.items.length ?? 0} signals',
-              headline: insightsHeadline,
-              detail:
-                  'Health ${(((insights?.healthScore ?? 0) * 100).round())}%.',
-            ),
-            _DependencyCard(
-              label: 'Memories',
-              accent: const Color(0xFFFFB86B),
-              value: '${memories.length} stored',
-              headline: _truncate(memoryHeadline),
-              detail: '$recentMemories recent memory traces.',
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
+            
 
 class _SignalPill extends StatelessWidget {
   const _SignalPill({required this.label, required this.value});
@@ -1672,7 +1644,7 @@ class _ActionGrid extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             HoloButton(
-              label: 'Planner Analysis',
+              label: 'Smart Planner',
               color: AppColors.neonViolet,
               onTap: () => ref.read(appFlowProvider.notifier).toSmartPlanner(),
             ),
@@ -1726,7 +1698,7 @@ class _ActionGrid extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: HoloButton(
-                    label: 'Planner Analysis',
+                    label: 'Smart Planner',
                     color: AppColors.neonViolet,
                     onTap: () =>
                         ref.read(appFlowProvider.notifier).toSmartPlanner(),

@@ -13,16 +13,15 @@ final latestCreatorReceiptProvider =
 
 class LatestCreatorReceiptNotifier
     extends AsyncNotifier<CreatorCreationReceipt?> {
-  String _storageKey = 'creator_latest_receipt_v1:local';
-
   @override
   Future<CreatorCreationReceipt?> build() async {
-    final String account =
-        ref.watch(accountStorageScopeProvider).v2Namespace ?? 'local';
-    _storageKey = 'creator_latest_receipt_v1:$account';
+    final scope = ref.watch(accountStorageScopeProvider);
+    final String? account = scope.v2Namespace;
+    if (!scope.isWritable || account == null) return null;
+    final String storageKey = 'creator_latest_receipt_v1:$account';
     final String? raw = await ref
         .read(secureStoreProvider)
-        .readString(_storageKey);
+        .readString(storageKey);
     if (raw == null || raw.trim().isEmpty) return null;
     try {
       return CreatorCreationReceipt.fromJson(jsonDecode(raw));
@@ -32,14 +31,30 @@ class LatestCreatorReceiptNotifier
   }
 
   Future<void> record(CreatorCreationReceipt receipt) async {
+    final scope = ref.read(accountStorageScopeProvider);
+    final String? account = scope.v2Namespace;
+    if (!scope.isWritable || account == null) {
+      throw StateError(
+        'Creator receipts require a verified account storage boundary.',
+      );
+    }
     await ref
         .read(secureStoreProvider)
-        .writeString(_storageKey, jsonEncode(receipt.toJson()));
+        .writeString(
+          'creator_latest_receipt_v1:$account',
+          jsonEncode(receipt.toJson()),
+        );
     state = AsyncData<CreatorCreationReceipt?>(receipt);
   }
 
   Future<void> clear() async {
-    await ref.read(secureStoreProvider).delete(_storageKey);
+    final scope = ref.read(accountStorageScopeProvider);
+    final String? account = scope.v2Namespace;
+    if (scope.isWritable && account != null) {
+      await ref
+          .read(secureStoreProvider)
+          .delete('creator_latest_receipt_v1:$account');
+    }
     state = const AsyncData<CreatorCreationReceipt?>(null);
   }
 }

@@ -130,8 +130,8 @@ class SIMultiverseBridgeV2 {
         return 'present_task_recommendation';
       case 'reflect':
         return 'open_reflection_flow';
-      case 'insight_request':
-        return 'show_insight_summary';
+      case 'signal_request':
+        return 'show_signal_summary';
       default:
         return 'respond_conversationally';
     }

@@ -25,7 +25,11 @@ void main() {
         createdAt: DateTime.utc(2026, 8, 1),
       ),
     );
-    siRepository.state = SiStateEntity(energy: 0.8, focus: 0.8, fatigue: 0.1);
+    siRepository.state = SiStateEntity(
+      energy: 0.8,
+      attention: 0.8,
+      fatigue: 0.1,
+    );
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
@@ -51,7 +55,7 @@ void main() {
 
     expect(
       notificationRepository.scheduled.single.message,
-      'Focus on: Ship report',
+      'Work on: Ship report',
       reason:
           'scheduleNotificationUseCaseProvider must supply generateSiDecision '
           'so ScheduleNotification actually adapts the notification message '

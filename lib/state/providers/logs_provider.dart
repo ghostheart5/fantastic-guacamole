@@ -6,8 +6,7 @@ import 'package:fantastic_guacamole/domain/usecases/add_log_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_logs.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
+import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/logs_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,8 +37,7 @@ class LogsActions {
     required String message,
     String? id,
     DateTime? timestamp,
-    bool updateInsights = false,
-    bool syncPersonalAlignment = false,
+    bool updateSignals = false,
   }) {
     return _ref
         .read(logsProvider.notifier)
@@ -48,8 +46,7 @@ class LogsActions {
           message: message,
           id: id,
           timestamp: timestamp,
-          updateInsights: updateInsights,
-          syncPersonalAlignment: syncPersonalAlignment,
+          updateSignals: updateSignals,
         );
   }
 
@@ -82,16 +79,14 @@ class LogsActions {
           timestamp: timestamp,
           syncTimeline: false,
           refreshPlanner: false,
-          updateInsights: false,
-          syncPersonalAlignment: false,
+          updateSignals: false,
         );
   }
 
   Future<void> addCompletedTask({
     required String task,
     bool mirrored = false,
-    bool updateInsights = false,
-    bool syncPersonalAlignment = false,
+    bool updateSignals = false,
   }) {
     if (mirrored) {
       return _ref
@@ -100,17 +95,12 @@ class LogsActions {
             task,
             syncTimeline: false,
             refreshPlanner: false,
-            updateInsights: false,
-            syncPersonalAlignment: false,
+            updateSignals: false,
           );
     }
     return _ref
         .read(logsProvider.notifier)
-        .addCompletedTask(
-          task,
-          updateInsights: updateInsights,
-          syncPersonalAlignment: syncPersonalAlignment,
-        );
+        .addCompletedTask(task, updateSignals: updateSignals);
   }
 }
 
@@ -141,8 +131,7 @@ class LogsController extends Notifier<LogsState> {
     DateTime? timestamp,
     bool syncTimeline = true,
     bool refreshPlanner = true,
-    bool updateInsights = false,
-    bool syncPersonalAlignment = false,
+    bool updateSignals = false,
   }) async {
     final String normalizedMessage = message.trim();
     if (normalizedMessage.isEmpty) {
@@ -180,11 +169,8 @@ class LogsController extends Notifier<LogsState> {
             ),
           );
     }
-    if (updateInsights) {
-      ref.invalidate(insightsBundleProvider);
-    }
-    if (syncPersonalAlignment) {
-      ref.invalidate(soulStateProvider);
+    if (updateSignals) {
+      ref.invalidate(signalsBundleProvider);
     }
     if (refreshPlanner) {
       await _refreshPlannerDecision();
@@ -205,16 +191,14 @@ class LogsController extends Notifier<LogsState> {
     String task, {
     bool syncTimeline = true,
     bool refreshPlanner = true,
-    bool updateInsights = false,
-    bool syncPersonalAlignment = false,
+    bool updateSignals = false,
   }) {
     return add(
       source: 'completed_task',
       message: task,
       syncTimeline: syncTimeline,
       refreshPlanner: refreshPlanner,
-      updateInsights: updateInsights,
-      syncPersonalAlignment: syncPersonalAlignment,
+      updateSignals: updateSignals,
     );
   }
 

@@ -30,7 +30,7 @@ class SISyntheticIdentityGradient {
               intent.primary.label == 'start_execution'
           ? .8
           : .35,
-      'analyst': intent.primary.label == 'insight_request' ? .85 : .3,
+      'analyst': intent.primary.label == 'signal_request' ? .85 : .3,
       'restorer': context.userState.fatigue >= .68 ? .8 : .25,
       'guide': .55,
     }.map((k, v) => MapEntry(k, siClamp01(v)));

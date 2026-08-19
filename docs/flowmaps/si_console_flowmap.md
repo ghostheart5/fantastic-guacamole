@@ -27,7 +27,7 @@ User submits a natural-language system query in SI Console.
 ## Failure/Fallback
 - If inference path fails, return constrained deterministic summary.
 - If one source fails, continue with available sources and mark degraded state.
-- If all context fails, prompt for narrower command and record fault.
+- If all context fails, prompt for a narrower request and record the fault.
 
 ## Analytics Events
 - si_console_query_submitted

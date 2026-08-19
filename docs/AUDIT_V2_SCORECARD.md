@@ -144,10 +144,9 @@ All 29 expected feature folders are present.
 | tasks | Present | ✅ |
 | timeline | Present | ✅ |
 | milestones | Present | ✅ |
-| insights | Present | ✅ |
+| signals | Present | ✅ |
 | progression | Present | ✅ |
 | memories | Present | ✅ |
-| personal_alignment | Present | ✅ |
 | si_console | Present | ✅ |
 | planner | Present | ✅ |
 | paywall | Present | ✅ |
@@ -163,7 +162,6 @@ All 29 expected feature folders are present.
 | plan | Present | ✅ |
 | admin | 1 | ✅ |
 | creator | Present | ✅ |
-| focus | Present | ✅ |
 | help | Present | ✅ |
 | permissions | Present | ✅ |
 | support | Present | ✅ |

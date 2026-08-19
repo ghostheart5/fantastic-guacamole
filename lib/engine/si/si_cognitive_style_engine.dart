@@ -63,7 +63,7 @@ class SICognitiveStyleEngine {
       );
     }
 
-    if (intent.primary.label == 'insight_request') {
+    if (intent.primary.label == 'signal_request') {
       return const CognitiveStylePlan(
         tone: 'precise_practical',
         format: 'short_explanation',
@@ -75,7 +75,7 @@ class SICognitiveStyleEngine {
     }
 
     return const CognitiveStylePlan(
-      tone: 'focused_supportive',
+      tone: 'direct_supportive',
       format: 'action_first',
       maxChars: 340,
       prefix: '',

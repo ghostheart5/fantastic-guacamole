@@ -6,7 +6,7 @@ class SiDecisionDraft {
     required this.nextAction,
     required this.plannerMessage,
     required this.suggestedPlanAdjustments,
-    required this.insightPrompts,
+    required this.signalPrompts,
     required this.progressionFeedback,
     required this.warnings,
   });
@@ -14,7 +14,7 @@ class SiDecisionDraft {
   final String nextAction;
   final String plannerMessage;
   final List<String> suggestedPlanAdjustments;
-  final List<String> insightPrompts;
+  final List<String> signalPrompts;
   final String progressionFeedback;
   final List<String> warnings;
 }
@@ -22,7 +22,7 @@ class SiDecisionDraft {
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
 ///
 /// Builds the SI Console decision output: warnings, next action, plan
-/// adjustments, insight prompts, progression feedback and the planner message.
+/// adjustments, signal prompts, progression feedback and the planner message.
 ///
 /// This previously lived inline in `si_pipeline_provider`, which made the
 /// provider the owner of the decision rules rather than an orchestrator. Inputs
@@ -32,9 +32,6 @@ class AssembleSiDecisionOutput {
 
   /// Timeline health below this is called out as a warning.
   static const int healthWarningThreshold = 70;
-
-  /// Core-value score below this is treated as drift.
-  static const int valueDriftThreshold = 60;
 
   /// Task count above this suggests deferring work.
   static const int taskOverflowThreshold = 5;
@@ -53,9 +50,6 @@ class AssembleSiDecisionOutput {
     required int timelineUpcomingCount,
     required int timelineRiskEventsCount,
     required int timelineRecommendationCount,
-    required String neglectedValueLabel,
-    required String strongestValueLabel,
-    required int neglectedValueScore,
     required String? nextTaskTitle,
     required String? firstTaskTitle,
     required int taskCount,
@@ -76,8 +70,6 @@ class AssembleSiDecisionOutput {
         'Timeline risk signals active ($timelineRiskEventsCount).',
       if (timelineHealthScore < healthWarningThreshold)
         'Timeline health is $timelineHealthScore% with elevated risk $timelineRiskScore%.',
-      if (neglectedValueScore < valueDriftThreshold)
-        'Core value drift detected in $neglectedValueLabel ($neglectedValueScore%).',
     ];
 
     final String nextAction =
@@ -97,10 +89,9 @@ class AssembleSiDecisionOutput {
         'Pre-plan upcoming deadlines now to prevent rollover pressure.',
       if (activeHabitCount > 0)
         'Protect $activeHabitCount active habit${activeHabitCount == 1 ? '' : 's'} alongside your task blocks.',
-      'Schedule one action that strengthens $neglectedValueLabel.',
     ];
 
-    final List<String> insightPrompts = <String>[
+    final List<String> signalPrompts = <String>[
       if (friction) 'What is creating the most friction right now?',
       if (goalDrift) 'Which goal has drifted and why?',
       if (emotionalStrain) 'What would reduce emotional load in the next hour?',
@@ -113,7 +104,6 @@ class AssembleSiDecisionOutput {
         'What is the next timeline deadline this week?',
       if (timelineRecommendationCount > 0)
         'What timeline recommendation should be applied now?',
-      'How do we strengthen $neglectedValueLabel this week?',
     ];
 
     final String progressionFeedback = streak >= 7
@@ -123,14 +113,14 @@ class AssembleSiDecisionOutput {
         : 'Rebuild momentum with one immediate win.';
 
     final String plannerMessage = warnings.isEmpty
-        ? 'Trajectory is stable (timeline health $timelineHealthScore%). Strongest value is $strongestValueLabel. Execute the next action and keep momentum. $memoryHint'
-        : 'Signals show pressure (timeline risk $timelineRiskScore%). Reinforce $neglectedValueLabel with one focused action now.';
+        ? 'Timeline is stable (health $timelineHealthScore%). Execute the ranked next action and use the result to update the plan. $memoryHint'
+        : 'Current evidence shows pressure (timeline risk $timelineRiskScore%). Reduce load or resolve the highest-ranked constraint before adding work.';
 
     return SiDecisionDraft(
       nextAction: nextAction,
       plannerMessage: plannerMessage,
       suggestedPlanAdjustments: planAdjustments,
-      insightPrompts: insightPrompts,
+      signalPrompts: signalPrompts,
       progressionFeedback: progressionFeedback,
       warnings: warnings,
     );

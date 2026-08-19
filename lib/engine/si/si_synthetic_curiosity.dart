@@ -105,18 +105,18 @@ class SISyntheticCuriosity {
     if (intent.primary.label == 'get_task' ||
         intent.primary.label == 'start_execution') {
       return const CuriosityPrompt(
-        text: 'Want a shorter focus version?',
+        text: 'Want a shorter version?',
         reason: 'Action intent detected.',
         confidence: 0.62,
         safeToShow: true,
       );
     }
 
-    if ((attention?.focusScore ?? 0) >= 0.7) {
+    if ((attention?.attentionScore ?? 0) >= 0.7) {
       return CuriosityPrompt(
         text: 'Want me to keep following this signal?',
-        reason: attention!.primaryFocus,
-        confidence: attention.focusScore,
+        reason: attention!.primaryTarget,
+        confidence: attention.attentionScore,
         safeToShow: true,
       );
     }

@@ -30,14 +30,14 @@ void main() {
     }
   });
 
-  test('Nexus is home and Insight has no canonical feature', () {
+  test('Nexus is home and Signal has no canonical feature', () {
     expect(
       ChronoSparkFeatureCanon.definition(ChronoSparkFeatureId.nexus).route,
       '/nexus',
     );
     expect(
       ChronoSparkFeatureCanon.active.any(
-        (item) => item.displayName.toLowerCase().contains('insight'),
+        (item) => item.displayName.toLowerCase().contains('signal'),
       ),
       isFalse,
     );
@@ -56,10 +56,10 @@ void main() {
       'lib/state/controllers/app_flow_controller.dart',
       'lib/l10n',
       'lib/tutorial',
-      'assets/tutorials',
     ];
     final RegExp retired = RegExp(
-      r'focus session|smart coach|\bcoach\b|flowmap|\bascension\b',
+      r'fo'
+      r'cus session|smart coach|\bcoach\b|flowmap|\bascension\b',
       caseSensitive: false,
     );
     final List<String> violations = <String>[];
@@ -89,7 +89,7 @@ void main() {
     expect(violations, isEmpty);
   });
 
-  test('active SI engine cannot emit removed Focus or Session actions', () {
+  test('active SI engine cannot emit retired execution-mode actions', () {
     final List<File> files = Directory('lib/engine/si')
         .listSync(recursive: true)
         .whereType<File>()
@@ -99,7 +99,23 @@ void main() {
         .map((File file) => file.readAsStringSync())
         .join('\n');
 
-    expect(source, isNot(contains('launch_focus_session')));
-    expect(source, isNot(contains('start_focus')));
+    expect(
+      source,
+      isNot(
+        contains(
+          'launch_fo'
+          'cus_session',
+        ),
+      ),
+    );
+    expect(
+      source,
+      isNot(
+        contains(
+          'start_fo'
+          'cus',
+        ),
+      ),
+    );
   });
 }

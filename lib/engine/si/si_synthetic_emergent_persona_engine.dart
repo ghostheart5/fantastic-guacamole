@@ -27,7 +27,7 @@ class SISyntheticEmergentPersonaEngine {
     final t = now ?? DateTime.now();
     final p = instinct.safetyFirst
         ? SIPersona.mentor
-        : intent.primary.label == 'insight_request'
+        : intent.primary.label == 'signal_request'
         ? SIPersona.analyst
         : (intent.primary.label == 'get_task' ||
               intent.primary.label == 'start_execution')

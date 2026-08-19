@@ -144,7 +144,7 @@ One incidental artifact: the failed `flutter test` invocation generated a crash 
 **Phase 5 — optional premium polish**
 - Nexus density/hierarchy, standardized headers/banners, tablet `NavigationRail`, reduced overdraw/always-on motion
 
-**Also outstanding (non-UI, separate pass):** dev/diagnostic UI gating, fabricated data in Logs/Insights/Progression, paywall purchase-in-progress state — all flagged **outside this scope**.
+**Also outstanding (non-UI, separate pass):** dev/diagnostic UI gating, fabricated data in Logs/Signals/Progression, paywall purchase-in-progress state — all flagged **outside this scope**.
 
 ---
 

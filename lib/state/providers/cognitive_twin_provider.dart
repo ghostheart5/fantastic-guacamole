@@ -37,7 +37,7 @@ final cognitiveTwinProvider = Provider<CognitiveTwinState>((ref) {
     identityStatement:
         'The future version of you succeeds by executing the next clear action.',
     bestAction: fusion.nextAction,
-    warning: fusion.primaryThreat,
+    warning: fusion.primaryConstraint,
     plannerMessage:
         'Stay aligned with the future state you are actively building.',
   );

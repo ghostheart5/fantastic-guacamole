@@ -5,19 +5,14 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
-import 'package:fantastic_guacamole/engine/si/si_synthetic_soul_layer.dart';
 import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
-import 'package:fantastic_guacamole/features/personal_alignment/ui/personal_alignment_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
-import 'package:fantastic_guacamole/state/models/insight_model.dart';
-import 'package:fantastic_guacamole/state/models/insights_models.dart';
+import 'package:fantastic_guacamole/state/models/signal_model.dart';
+import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
@@ -68,39 +63,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('MEMORIES'), findsOneWidget);
-    expect(find.text('Saved the best insight from today'), findsOneWidget);
-  });
-
-  testWidgets('PersonalAlignmentScreen renders strongest dimensions summary', (
-    WidgetTester tester,
-  ) async {
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        goalsProvider.overrideWith(_StaticGoalsNotifier.new),
-        soulStateProvider.overrideWithValue(
-          const SoulState(
-            continuity: 0.88,
-            identityStrength: 0.81,
-            emotionalEvolution: 0.44,
-            personalityGrowth: 0.52,
-            narrativePresence: 0.77,
-            userConnection: 0.63,
-          ),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: PersonalAlignmentScreen()),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.text('PERSONAL ALIGNMENT'), findsOneWidget);
-    expect(find.text('PERSONAL ALIGNMENT ANALYSIS'), findsOneWidget);
+    expect(find.text('Saved the best signal from today'), findsOneWidget);
   });
 
   testWidgets('NexusScreen renders with a supplied screen model', (
@@ -154,7 +117,7 @@ class _StaticMemoriesNotifier extends MemoriesNotifier {
   List<MemoryEntity> build() => <MemoryEntity>[
     MemoryEntity(
       id: 'memory-1',
-      text: 'Saved the best insight from today',
+      text: 'Saved the best signal from today',
       date: DateTime.utc(2026, 7, 7),
       starred: true,
     ),
@@ -201,8 +164,8 @@ final NexusScreenModel _nexusModel = NexusScreenModel(
   aggregation: SIStateAggregation(
     tasks: const <Task>[],
     goals: const <GoalEntity>[],
-    insights: const InsightsBundle(
-      items: <Insight>[],
+    signals: const SignalsBundle(
+      items: <Signal>[],
       summary: 'Stable',
       healthScore: 0.76,
     ),
@@ -214,38 +177,23 @@ final NexusScreenModel _nexusModel = NexusScreenModel(
     profile: _StaticProfileController().build(),
     siState: const SIState(energy: 0.78, fatigue: 0.24, completedToday: 4),
     trajectory: _trajectory,
-    signals: const SISignalExtraction(
+    planningEvidence: const SIPlanningEvidence(
       friction: false,
       overwhelm: false,
       streakHealth: 'High',
       goalDrift: false,
       taskAvoidance: false,
-      emotion: 'focused',
+      emotion: 'engaged',
       emotionalStrain: false,
       emotionalStability: true,
       emotionalPatterns: <String>['steady'],
     ),
-    coreValues: const CoreValuesAlignment(
-      scores: <CoreValueType, CoreValueScore>{},
-      overall: 70,
-      strongest: CoreValueType.discipline,
-      mostNeglected: CoreValueType.connection,
-      recommendations: <String>[],
-      selectedValues: <String>{'Discipline', 'Purpose'},
-    ),
-    personalAlignment: const PersonalAlignmentAlignment(
-      scores: <PersonalAlignmentDimension, PersonalAlignmentDimensionScore>{},
-      overall: 72,
-      strongest: PersonalAlignmentDimension.purpose,
-      weakest: PersonalAlignmentDimension.growthJourney,
-      recommendations: <String>[],
-    ),
   ),
   decision: const SIDecisionOutput(
     nextAction: 'Lock sprint scope',
-    plannerMessage: 'Stay with the current sprint focus.',
+    plannerMessage: 'Stay with the current sprint attention.',
     suggestedPlanAdjustments: <String>['Hold one high-priority lane'],
-    insightPrompts: <String>['What can be simplified?'],
+    signalPrompts: <String>['What can be simplified?'],
     progressionFeedback: 'Momentum is compounding.',
     warnings: <String>[],
   ),

@@ -11,13 +11,11 @@ import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
-import 'package:fantastic_guacamole/state/models/insights_models.dart';
-import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
+import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 
-class SISignalExtraction {
-  const SISignalExtraction({
+class SIPlanningEvidence {
+  const SIPlanningEvidence({
     required this.friction,
     required this.overwhelm,
     required this.streakHealth,
@@ -53,22 +51,41 @@ class SISourceHealth {
     required this.tasks,
     required this.goals,
     required this.memories,
+    required this.habits,
+    required this.logs,
+    required this.timeline,
+    required this.learning,
+    required this.availability,
     required this.observedAt,
   });
 
   final SISourceStatus tasks;
   final SISourceStatus goals;
   final SISourceStatus memories;
+  final SISourceStatus habits;
+  final SISourceStatus logs;
+  final SISourceStatus timeline;
+  final SISourceStatus learning;
+  final SISourceStatus availability;
   final DateTime observedAt;
 
-  double get readyFraction {
+  double get availableFraction {
     final List<SISourceStatus> sources = <SISourceStatus>[
       tasks,
       goals,
       memories,
+      habits,
+      logs,
+      timeline,
+      learning,
+      availability,
     ];
     return sources
-            .where((SISourceStatus status) => status == SISourceStatus.ready)
+            .where(
+              (SISourceStatus status) =>
+                  status == SISourceStatus.ready ||
+                  status == SISourceStatus.empty,
+            )
             .length /
         sources.length;
   }
@@ -78,7 +95,7 @@ class SIStateAggregation {
   SIStateAggregation({
     required this.tasks,
     required this.goals,
-    required this.insights,
+    required this.planningEvidence,
     required this.logs,
     required this.timeline,
     required this.memories,
@@ -88,8 +105,6 @@ class SIStateAggregation {
     required this.siState,
     required this.trajectory,
     required this.signals,
-    required this.coreValues,
-    required this.personalAlignment,
     DecisionRecommendation? planningDecision,
     SISourceHealth? sourceHealth,
     this.habits = const <HabitRecord>[],
@@ -103,12 +118,19 @@ class SIStateAggregation {
              memories: memories.isEmpty
                  ? SISourceStatus.empty
                  : SISourceStatus.ready,
+             habits: SISourceStatus.empty,
+             logs: logs.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+             timeline: timeline.isEmpty
+                 ? SISourceStatus.empty
+                 : SISourceStatus.ready,
+             learning: SISourceStatus.empty,
+             availability: SISourceStatus.unavailable,
              observedAt: DateTime.now(),
            );
 
   final List<Task> tasks;
   final List<GoalEntity> goals;
-  final InsightsBundle insights;
+  final SignalsBundle signals;
   final List<LogEntryEntity> logs;
   final List<TimelineEventEntity> timeline;
   final List<MemoryEntity> memories;
@@ -117,9 +139,7 @@ class SIStateAggregation {
   final ProfileState profile;
   final SIState siState;
   final TrajectorySummaryView trajectory;
-  final SISignalExtraction signals;
-  final CoreValuesAlignment coreValues;
-  final PersonalAlignmentAlignment personalAlignment;
+  final SIPlanningEvidence planningEvidence;
   final DecisionRecommendation planningDecision;
   final SISourceHealth sourceHealth;
 
@@ -137,7 +157,7 @@ class SIStateAggregation {
     inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
     state: SiStateEntity(
       energy: siState.energy,
-      focus: 1 - siState.fatigue,
+      attention: 1 - siState.fatigue,
       fatigue: siState.fatigue,
       lastUpdated: null,
     ),
@@ -150,7 +170,7 @@ class SIDecisionOutput {
     required this.nextAction,
     required this.plannerMessage,
     required this.suggestedPlanAdjustments,
-    required this.insightPrompts,
+    required this.signalPrompts,
     required this.progressionFeedback,
     required this.warnings,
   });
@@ -158,7 +178,7 @@ class SIDecisionOutput {
   final String nextAction;
   final String plannerMessage;
   final List<String> suggestedPlanAdjustments;
-  final List<String> insightPrompts;
+  final List<String> signalPrompts;
   final String progressionFeedback;
   final List<String> warnings;
 }

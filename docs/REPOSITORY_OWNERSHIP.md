@@ -24,7 +24,7 @@ Policy:
 
 | Interface | Owner | Notes |
 |---|---|---|
-| `IInsightRepository` | `lib/data/repositories/insight_repository.dart` | Stores Smart Planner and SI-generated insight outputs; it does not define a standalone feature. |
+| `ISignalRepository` | `lib/data/repositories/signal_repository.dart` | Stores Smart Planner and SI-generated signal outputs; it does not define a standalone feature. |
 | `ILearningRepository` | `lib/state/services/intelligence_service.dart` | Learning logic currently sits in state orchestration. |
 | `IProgressionRepository` | `lib/state/services/progression_service.dart` | Progression transformation is service-owned today. |
 | `IThemeRepository` | `lib/state/services/theme_service.dart` | Theme orchestration depends on `IThemeRepository` contract. |

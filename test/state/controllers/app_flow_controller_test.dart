@@ -15,8 +15,8 @@ void main() {
     addTearDown(container.dispose);
 
     final controller = container.read(appFlowProvider.notifier);
-    controller.toPlan();
-    expect(container.read(appFlowProvider), AppView.plan);
+    controller.toSmartPlanner();
+    expect(container.read(appFlowProvider), AppView.smartPlanner);
 
     controller.toTimeline();
     expect(container.read(appFlowProvider), AppView.timeline);
@@ -31,7 +31,7 @@ void main() {
   test('appViewFromName resolves valid names and rejects unknown values', () {
     expect(appViewFromName('coach'), isNull);
     expect(appViewFromName('smartCoach'), isNull);
-    expect(appViewFromName('insight'), isNull);
+    expect(appViewFromName('signal'), isNull);
     expect(appViewFromName('timeline'), AppView.timeline);
     expect(appViewFromName('tasks'), AppView.creator);
     expect(appViewFromName('logs'), AppView.timeline);

@@ -17,7 +17,7 @@ class IdentityNotifier extends Notifier<IdentityState> {
     _hydration ??= Future<void>.microtask(_hydrate);
     return const IdentityState(
       disciplineIdentity: 0.1,
-      focusIdentity: 0.1,
+      executionIdentity: 0.1,
       growthIdentity: 0.1,
     );
   }
@@ -32,7 +32,7 @@ class IdentityNotifier extends Notifier<IdentityState> {
       }
       state = IdentityState(
         disciplineIdentity: profile.disciplineIdentity,
-        focusIdentity: profile.focusIdentity,
+        executionIdentity: profile.executionIdentity,
         growthIdentity: profile.growthIdentity,
       );
     } catch (error, stackTrace) {
@@ -45,7 +45,7 @@ class IdentityNotifier extends Notifier<IdentityState> {
     }
   }
 
-  Future<void> onFocusComplete({
+  Future<void> onExecutionComplete({
     required bool completionRecorded,
     required bool taskCompleted,
     required bool streakMaintained,
@@ -64,11 +64,13 @@ class IdentityNotifier extends Notifier<IdentityState> {
   String get reinforcementMessage => _engine.reinforceIdentity(state, '');
 
   String get archetype {
-    if (state.disciplineIdentity >= state.focusIdentity &&
+    if (state.disciplineIdentity >= state.executionIdentity &&
         state.disciplineIdentity >= state.growthIdentity) {
       return 'The Executor';
     }
-    if (state.focusIdentity >= state.growthIdentity) return 'The Strategist';
+    if (state.executionIdentity >= state.growthIdentity) {
+      return 'The Strategist';
+    }
     return 'The Seeker';
   }
 
@@ -78,7 +80,7 @@ class IdentityNotifier extends Notifier<IdentityState> {
         .call(
           IdentityProfileEntity(
             disciplineIdentity: state.disciplineIdentity,
-            focusIdentity: state.focusIdentity,
+            executionIdentity: state.executionIdentity,
             growthIdentity: state.growthIdentity,
           ),
         );

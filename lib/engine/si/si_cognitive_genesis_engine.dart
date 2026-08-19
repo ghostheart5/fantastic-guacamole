@@ -30,7 +30,7 @@ class SICognitiveGenesisEngine {
     final DateTime t = now ?? DateTime.now();
     final String mode = context.userState.stress >= 0.7
         ? 'stabilize'
-        : intent.primary.label == 'insight_request'
+        : intent.primary.label == 'signal_request'
         ? 'analyze'
         : intent.primary.label == 'reflect'
         ? 'reflect'

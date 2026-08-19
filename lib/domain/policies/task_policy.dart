@@ -11,6 +11,6 @@ class TaskPolicy {
   }
 
   static bool canComplete(TaskEntity task) {
-    return !task.isCompleted;
+    return !task.isCompleted && !task.isSkipped && !task.isCanceled;
   }
 }

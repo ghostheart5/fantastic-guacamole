@@ -89,7 +89,7 @@ class AudioService {
   }
 
   static Future<void> playMilestone(bool enabled) {
-    return play(AppAssets.audioFocusStart, enabled);
+    return play(AppAssets.audioMilestoneLift, enabled);
   }
 
   static Future<void> dispose() async {

@@ -19,7 +19,6 @@ Scope: required major system FlowMaps
 | 10 | Smart Planner FlowMap | PASS | docs/flowmaps/smart_planner_flowmap.md |
 | 11 | SI Console FlowMap | PASS | docs/flowmaps/si_console_flowmap.md |
 | 12 | Memory Engine FlowMap | PASS | docs/flowmaps/memory_engine_flowmap.md |
-| 13 | PersonalAlignment FlowMap | PASS | docs/flowmaps/personal_alignment_flowmap.md |
 | 14 | Offline Sync FlowMap | PASS | docs/flowmaps/offline_sync_flowmap.md |
 | 15 | Analytics FlowMap | PASS | docs/flowmaps/analytics_flowmap.md |
 | 16 | Error Handling FlowMap | PASS | docs/flowmaps/error_handling_flowmap.md |
@@ -32,10 +31,9 @@ Scope: required major system FlowMaps
 - Missing: 0
 - Added in this audit:
   - milestones_flowmap.md
-  - personal_alignment_flowmap.md
   - streaks_flowmap.md
 
 ## Notes
 
 - Streaks are represented by both a dedicated streaks flow and detailed habit-streak operational flow.
-- Milestones and PersonalAlignment flows are now explicitly documented to match existing provider-level implementations.
+- Milestones are explicitly documented to match the provider-level implementation.

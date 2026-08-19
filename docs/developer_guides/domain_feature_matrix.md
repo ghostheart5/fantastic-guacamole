@@ -29,7 +29,7 @@ Entity -> Interface -> Use cases -> Data implementation -> Provider -> UI screen
 | Workspace | workspace_entity.dart | i_workspace_repository.dart | get/switch workspace | workspace_repository.dart | workspace/service wiring exists | app shell uses it | Not verified here |
 | Theme | app_theme_entity.dart | i_theme_repository.dart | get/save/get-all/switch theme | theme_repository.dart | theme_provider.dart | app_root.dart | Usecase tests added |
 | Identity/Auth | identity_profile_entity.dart + identity id | i_identity_repository.dart | get/save identity profile | identity_repository.dart | identity_provider.dart + identity_service.dart | profile + startup identity bootstrap | Usecase tests added |
-| Insight outputs | insight_entity.dart | i_insight_repository.dart | generate/get/save derived outputs | insight_repository.dart | insights_provider.dart | Smart Planner, SI Console, and Nexus consume outputs; no standalone screen | Output pipeline, not a feature |
+| Signal outputs | signal_entity.dart | i_signal_repository.dart | generate/get/save derived outputs | signal_repository.dart | signals_provider.dart | Smart Planner, SI Console, and Nexus consume outputs; no standalone screen | Output pipeline, not a feature |
 | Learning | learning_entity.dart | i_learning_repository.dart | policy/usecases exist, data repo not added here | service-owned today | learning_controller.dart | indirect | Gap / explicit owner |
 | Progression | progression_entity.dart | i_progression_repository.dart | get progression and task completion integration exist | service-owned today | progression_provider.dart | progression/timeline surfaces | Gap / explicit owner |
 

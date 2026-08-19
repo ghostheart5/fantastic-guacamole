@@ -23,7 +23,7 @@ class PermissionExplainers {
   static const PermissionExplainer notification = PermissionExplainer(
     title: 'Enable Notifications',
     whyItMatters:
-        'Notifications help you keep momentum by surfacing reflection and focus reminders at the right time.',
+        'Notifications help you keep momentum by surfacing reflection and execution reminders at the right time.',
     whenUsed:
         'Used only for reminders you configure in app settings. You can disable them any time.',
     primaryActionLabel: 'Allow Notifications',

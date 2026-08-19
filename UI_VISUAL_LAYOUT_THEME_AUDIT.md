@@ -2,7 +2,7 @@
 
 **Scope:** UI, visual polish, layout/responsiveness, theming, accessibility, visual states, navigation shell, forms. **Audit only — no code was modified, nothing deleted, no renames performed.**
 **Excluded by design:** auth/Supabase/Firebase/DB/RLS/monetization/SI/Smart Planner/domain logic (see §14). Domain/SI/Smart Planner naming work already audited separately is **not** repeated here.
-**Canon respected:** Session and Insight are treated as **dead/output-only**, not active features. No old naming reintroduced.
+**Canon respected:** Session and Signal are treated as **dead/output-only**, not active features. No old naming reintroduced.
 **Tooling:** `flutter analyze --no-pub` → **"No issues found" (0 diagnostics)**. All findings below are visual/runtime, not static-analysis detectable.
 
 ---
@@ -46,7 +46,7 @@ Grouped by feature area (UI files only; 38 screen/page files + shared widget/the
 - Plan: `features/plan/ui/plan_screen.dart` (+ `widgets/timeline_view.dart`, `time_block_widget.dart`, `time_slot.dart`, `day_selector.dart`, `plan_header.dart`)
 - Profile: `features/profile/ui/profile_screen.dart` (+ `widgets/profile_header.dart`)
 - Settings: `features/settings/ui/settings_screen.dart`, `settings_screen.sections.dart`
-- Milestones/Goals/Memories/Personal Alignment/Flowmap: respective `ui/*_screen.dart`
+- Milestones/Goals/Memories: respective `ui/*_screen.dart`
 - Logs: `features/logs/ui/logs_screen.dart` (+ widgets)
 - Onboarding: `features/onboarding/ui/onboarding_screen.dart`
 - Tutorial: `lib/tutorial/tutorial_overlay.dart`, `widgets/micro_tutorial_card.dart`, `show_me_again_button.dart`
@@ -58,7 +58,7 @@ Grouped by feature area (UI files only; 38 screen/page files + shared widget/the
 
 **Shared widgets**
 - `lib/ui/widgets/`: `app_button`, `app_card`, `app_text`, `app_layout`, `app_screen`, `section_header`, `holo_button`, `smart_pressable`, `loading_overlay`, `offline_banner`, `success_banner`, `error_view`, `error_boundary_widget`, `typing_text`
-- `lib/ui/system/`: `glass_panel`, `crisis_dialog`, `level_up_overlay`, `focus_start_overlay`, `premium_feature_gate`
+- `lib/ui/system/`: `glass_panel`, `crisis_dialog`, `level_up_overlay`, `premium_feature_gate`
 - `lib/ui/layout/animated_system_background.dart`
 
 **Theme system**
@@ -88,7 +88,7 @@ Grouped by feature area (UI files only; 38 screen/page files + shared widget/the
 - **H1 — Systemic sub-48dp touch targets.** Back buttons are 34–36px (`profile_header.dart:132`, `settings_screen.dart:74`, `paywall_page.dart:253`, `notification_screen.dart:68`, timeline/goals/memories/soul-map headers); "COMPLETE" is a 10px `Text` (`time_block_widget.dart:125`); priority bars are 6px tall (`dynamic_form.dart:306`); value/emotion chips ~26-28px. Below Material's 48×48 minimum.
 - **H2 — Icon-only controls lack `Semantics`/`Tooltip`.** Notification bell, voice/mic/speak/summary chips, chevrons, star toggle, delete-node all use bare `GestureDetector`/`SmartPressable`. Only `HoloButton` and a couple of `IconButton`s are labelled.
 - **H3 — Text-scaling fragility.** Dozens of fixed 7–11px fonts + `FittedBox` scale-down; `0` uses of `MediaQuery.textScaler`. Large-font accessibility users get clipped/misaligned layouts.
-- **H4 — Weak visual-state coverage on core surfaces.** Tasks, Profile, Timeline, Personal Alignment, Progression read synchronous providers or `.asData?.value` and render failures as empty (`timeline_screen.dart:41`, `nexus_screen.widgets.dart:725`, `profile_screen.dart:25`). No skeleton/error/retry.
+- **H4 — Weak visual-state coverage on core surfaces.** Tasks, Profile, Timeline, and Progression read synchronous providers or `.asData?.value` and render failures as empty (`timeline_screen.dart:41`, `nexus_screen.widgets.dart:725`, `profile_screen.dart:25`). No skeleton/error/retry.
 - **H5 — Duplicate/competing components** (visual inconsistency): 4 buttons (`app_button` r-hardcoded, `neon_button`, `holo_button`, `smart_pressable` used in 20 files) and 4 card/panel looks with 4 radii (`app_card` r14, `neon_card` r24, `neon_panel` r32, `glass_panel` r20). Screens don't look like one product.
 - **H6 — "SMART PLANNER" appears in visible UI** (naming mismatch, report-only per scope): screen header `smart_planner_screen.dart:456`, onboarding tag `onboarding_screen.dart:45`, tutorial title `tutorial_content.dart:56` — while the same screens elsewhere say "Smart Planner". User sees two names for one feature.
 - **H7 — Contrast.** Pervasive `Colors.white24/38/54` text at 9–11px on translucent dark cards — below WCAG AA for small text.
@@ -161,7 +161,7 @@ Grouped by feature area (UI files only; 38 screen/page files + shared widget/the
 ## 10. Accessibility Findings
 
 - **Touch targets:** systemic <48dp (H1) — back buttons 34–36px, complete/priority/chip controls far smaller.
-- **Semantics:** only 6 `Semantics` in 3 files; icon-only buttons unlabeled (H2); charts (`CustomPaint` XP line/ring, Insights bars, Progression) invisible to screen readers.
+- **Semantics:** only 6 `Semantics` in 3 files; icon-only buttons unlabeled (H2); charts (`CustomPaint` XP line/ring, Signals bars, Progression) invisible to screen readers.
 - **Text scale:** `0` `textScaler` handling; fixed 7–11px fonts + `FittedBox` (H3).
 - **Contrast:** `white24/38/54` small text on dark/translucent surfaces (H7).
 - **Forms:** Login email/password are **hint-only, no labels/`Semantics`** (`login_screen.dart:829-896`); Settings toggle labels not linked to their `Switch` (tap-label doesn't toggle); metadata/ID fields expose raw syntax.
@@ -187,7 +187,7 @@ Grouped by feature area (UI files only; 38 screen/page files + shared widget/the
 | Paywall | ✅ | ⚠ (empty plans silent) | ✅ (restore) | ✅ | no purchase-in-progress state |
 | Login/Auth | ✅ | — | ✅ (mapped+timeout) | ✅ | best-in-app |
 | Logs | ✅ | ✅ | ✅ | ✅ | good |
-| Profile/Goals/Memories/Personal Alignment | ❌ | ✅ (some) | ❌ | ✅ | sync providers mask failures |
+| Profile/Goals/Memories | ❌ | ✅ (some) | ❌ | ✅ | sync providers mask failures |
 
 Legend: ✅ complete · ⚠ partial/weak · ❌ missing. **Offline** and **skeleton** states are essentially absent app-wide (only `OfflineBanner` exists as a global affordance).
 

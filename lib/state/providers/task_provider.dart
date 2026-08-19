@@ -27,6 +27,9 @@ import 'package:fantastic_guacamole/state/providers/personalization_provider.dar
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
+import 'package:fantastic_guacamole/state/services/task_occurrence_coordinator.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -40,7 +43,7 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   final personalization = ref.watch(personalizationProfileProvider);
   final SiStateEntity siState = SiStateEntity(
     energy: si.energy,
-    focus: (si.energy * (1 - si.fatigue)).clamp(0.0, 1.0),
+    attention: (si.energy * (1 - si.fatigue)).clamp(0.0, 1.0),
     fatigue: si.fatigue,
     avoidOverwhelm: si.fatigue >= 0.75,
     primaryInstinct: si.fatigue >= 0.75 ? 'safety_first' : 'progress_first',
@@ -142,6 +145,7 @@ class TaskActions {
         : _taskFromRepository(id);
 
     await _ref.read(completeTaskUseCaseProvider).call(id);
+    unawaited(_recordGuidance(GuidanceMilestone.firstCompletion));
     selectedTask ??= await selectedTaskFuture;
 
     if (selectedTask != null) {
@@ -251,6 +255,13 @@ class TaskActions {
     }
 
     final DateTime now = DateTime.now();
+    final TaskOccurrenceResult occurrence = await _ref
+        .read(taskOccurrenceCoordinatorProvider)
+        .skip(selectedTask.id);
+    if (occurrence.mutation != TaskOccurrenceMutation.applied) {
+      _ref.invalidate(tasksProvider);
+      return;
+    }
     await _ref
         .read(learningProvider.notifier)
         .update(success: false, difficulty: selectedTask.difficulty);
@@ -260,6 +271,7 @@ class TaskActions {
           .call(taskId: selectedTask!.id, difficulty: selectedTask.difficulty),
     );
     await _ref.read(observedPlanningPatternsProvider.notifier).recordSkip();
+    unawaited(_recordGuidance(GuidanceMilestone.firstTaskDeferral));
     _ref.read(siStateProvider.notifier).taskSkipped();
     await _ref
         .read(logsActionsProvider)
@@ -325,6 +337,14 @@ class TaskActions {
           .pushMirroredDecision(selectedTitle);
     } catch (_) {
       // Skip planner refresh errors to avoid blocking task mutations.
+    }
+  }
+
+  Future<void> _recordGuidance(GuidanceMilestone milestone) async {
+    try {
+      await _ref.read(adaptiveGuidanceProvider.notifier).record(milestone);
+    } catch (_) {
+      // A persisted task outcome must not fail because guide state is absent.
     }
   }
 

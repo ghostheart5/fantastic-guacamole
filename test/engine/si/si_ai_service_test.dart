@@ -18,12 +18,12 @@ void main() {
 
   test('uses task and check-in context for a concrete response', () async {
     final response = await service.handleInput(
-      'What should I focus on next?',
+      'What should I attention on next?',
       tasks: tasks,
       energy: 0.72,
       learning: const LearningState(completed: 4, skipped: 1),
       personality: AIPersonality.planner,
-      context: const <String, dynamic>{'emotion': 'focused'},
+      context: const <String, dynamic>{'emotion': 'engaged'},
     );
 
     expect(response.message.trim(), isNotEmpty);

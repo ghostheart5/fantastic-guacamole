@@ -69,18 +69,18 @@ class MockLoginConfigState {
 
 class AuthStateSnapshot {
   const AuthStateSnapshot({
-    required this.hasMockSession,
+    required this.hasMockSignIn,
     required this.hasAuthenticatedUser,
   });
 
-  final bool hasMockSession;
+  final bool hasMockSignIn;
   final bool hasAuthenticatedUser;
 
-  bool get isAuthenticated => hasMockSession || hasAuthenticatedUser;
+  bool get isAuthenticated => hasMockSignIn || hasAuthenticatedUser;
 
   Map<String, Object?> toMap() {
     return <String, Object?>{
-      'hasMockSession': hasMockSession,
+      'hasMockSignIn': hasMockSignIn,
       'hasAuthenticatedUser': hasAuthenticatedUser,
       'isAuthenticated': isAuthenticated,
     };

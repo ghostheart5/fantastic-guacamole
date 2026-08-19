@@ -51,9 +51,9 @@ class SIRitualMemoryEngine {
     if (completed >= 3 && completed > skipped) {
       rituals.add(
         RitualMemory(
-          name: 'focus_start_ritual',
+          name: 'execution_start_ritual',
           trigger: 'momentum_available',
-          action: 'start_one_short_focus_block',
+          action: 'start_one_short_execution_block',
           strength: siClamp01(completed / (completed + skipped + 1)),
           evidence: <String>['completed=$completed', 'skipped=$skipped'],
         ),

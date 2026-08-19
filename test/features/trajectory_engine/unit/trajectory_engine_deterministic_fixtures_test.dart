@@ -15,7 +15,7 @@ import '../../../helpers/trajectory_test_fixture.dart';
 
 void main() {
   group('trajectory engine deterministic fixtures', () {
-    test('high pressure returns overload-focused replans', () {
+    test('high pressure returns overload-aware replans', () {
       final ProviderContainer container = _container(
         momentum: _momentum(score: 58, pressure: 82, energy: 61),
       );
@@ -268,7 +268,7 @@ TrajectorySummaryView _trajectory({required String alert}) {
     pressureIndex: 52,
     behaviorDivergence: 21,
     alert: alert,
-    predictionTitle: 'focus',
+    predictionTitle: 'attention',
     predictionOutcome: 'Stable path.',
     predictionProbability: 0.67,
     predictionExplanation: 'Steady signal.',

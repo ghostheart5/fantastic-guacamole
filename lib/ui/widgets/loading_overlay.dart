@@ -28,7 +28,7 @@ class LoadingOverlay extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Lottie.asset(
-                    AppAssets.animFocusPulse,
+                    AppAssets.animSignalPulse,
                     width: 120,
                     height: 120,
                     repeat: true,

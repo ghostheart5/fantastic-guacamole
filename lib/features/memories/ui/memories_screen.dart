@@ -631,7 +631,7 @@ class _MemoryEditorSheetState extends State<_MemoryEditorSheet> {
                 labelText: 'Memory text',
                 labelStyle: TextStyle(color: Colors.white70),
                 hintText:
-                    'Capture preference, lesson, goal context, or insight...',
+                    'Capture a preference, lesson, goal context, signal, or reflection...',
                 hintStyle: TextStyle(color: Colors.white38),
               ),
             ),
@@ -889,8 +889,8 @@ String _categoryLabel(MemoryCategory category) {
       return 'Habit';
     case MemoryCategory.task:
       return 'Task';
-    case MemoryCategory.journal:
-      return 'Journal';
+    case MemoryCategory.reflection:
+      return 'Reflection';
     case MemoryCategory.lifeArea:
       return 'Life Area';
     case MemoryCategory.planningGuidancePreference:
@@ -901,8 +901,8 @@ String _categoryLabel(MemoryCategory category) {
       return 'Important Date';
     case MemoryCategory.achievement:
       return 'Achievement';
-    case MemoryCategory.insight:
-      return 'Insight';
+    case MemoryCategory.signal:
+      return 'Signal';
     case MemoryCategory.other:
       return 'Other';
   }
@@ -916,7 +916,7 @@ Color _categoryColor(MemoryCategory category) {
       return const Color(0xFF7AF7C4);
     case MemoryCategory.task:
       return AppColors.memoryAmber;
-    case MemoryCategory.journal:
+    case MemoryCategory.reflection:
       return AppColors.neonViolet;
     case MemoryCategory.planningGuidancePreference:
       return const Color(0xFF9AD5FF);
@@ -926,7 +926,7 @@ Color _categoryColor(MemoryCategory category) {
       return const Color(0xFFFF8FA3);
     case MemoryCategory.achievement:
       return const Color(0xFF4BE6B0);
-    case MemoryCategory.insight:
+    case MemoryCategory.signal:
       return const Color(0xFF8CA0FF);
     case MemoryCategory.userPreference:
       return const Color(0xFFFFB86B);

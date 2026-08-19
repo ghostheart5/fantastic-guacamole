@@ -261,20 +261,19 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - lib\domain\logic\decision
 - lib\domain\logic\energy
 - lib\domain\logic\fatigue
-- lib\domain\logic\insights
+- lib\domain\logic\signals
 - lib\domain\logic\planning
 - lib\domain\logic\scoring
 - lib\domain\models
 - lib\domain\usecases
 - lib\domain\usecases\ai
-- lib\domain\usecases\focus
-- lib\domain\usecases\insights
+- lib\domain\usecases\signals
 - lib\domain\usecases\planning
 - lib\domain\usecases\tasks
 - lib\domain\usecases\user
 - lib\domain\value_objects
 - lib\engine
-- lib\engine\insights
+- lib\engine\signals
 - lib\engine\learning
 - lib\engine\scoring
 - lib\engine\si
@@ -291,21 +290,14 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - lib\features\console\widgets
 - lib\features\creator
 - lib\features\creator\widgets
-- lib\features\focus
-- lib\features\focus\logic
-- lib\features\focus\models
-- lib\features\focus\services
-- lib\features\focus\state
-- lib\features\focus\ui
-- lib\features\focus\widgets
 - lib\features\home
 - lib\features\home\widgets
-- lib\features\insights
-- lib\features\insights\logic
-- lib\features\insights\models
-- lib\features\insights\services
-- lib\features\insights\state
-- lib\features\insights\ui
+- lib\features\signals
+- lib\features\signals\logic
+- lib\features\signals\models
+- lib\features\signals\services
+- lib\features\signals\state
+- lib\features\signals\ui
 - lib\features\logs
 - lib\features\logs\logic
 - lib\features\logs\models
@@ -456,11 +448,10 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - ios\Flutter\ephemeral\Packages\.packages
 - lib\core\widgets
 - lib\features\planner\services
-- lib\features\focus\services
-- lib\features\insights\logic
-- lib\features\insights\models
-- lib\features\insights\services
-- lib\features\insights\state
+- lib\features\signals\logic
+- lib\features\signals\models
+- lib\features\signals\services
+- lib\features\signals\state
 - lib\features\logs\services
 - lib\features\profile\logic
 - lib\features\profile\models
@@ -481,7 +472,6 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - android\.gradle\vcs-1\gc.properties
 - lib\app\app_root.dart
 - lib\app\providers.dart
-- lib\features\focus\focus_screen.dart
 - lib\features\home\_screen.dart
 - lib\features\home\home_screen.dart
 - lib\features\profile\profile_screen.dart
@@ -504,7 +494,7 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - assets\backgrounds\bg_main.png:4873 (marker: tbD)
 - assets\backgrounds\bg_surface.png:5819 (marker: tbd)
 - assets\backgrounds\bg_system.png:3260 (marker: TBD)
-- assets\empty\no_insights.png:3830 (marker: TBd)
+- assets\empty\no_signals.png:3830 (marker: TBd)
 - assets\empty\no_logs.png:5439 (marker: TBd)
 - assets\empty\no_tasks.png:3038 (marker: TBD)
 - assets\fonts\Inter_18pt-Black.ttf:2019 (marker: tbd)
@@ -538,8 +528,8 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - lib\data\paywall\entitlement_service.dart:43 (marker: mock)
 - lib\data\repositories\log_repository.dart:10 (marker: placeholder)
 - lib\data\services\workspace_store_service.dart:141 (marker: toDo)
-- lib\domain\usecases\insights\generate_insight.dart:4 (marker: No data yet)
-- lib\engine\insights\insight_engine.dart:14 (marker: No data yet)
+- lib\domain\usecases\signals\generate_signal.dart:4 (marker: No data yet)
+- lib\engine\signals\signal_engine.dart:14 (marker: No data yet)
 - lib\engine\learning\adaptive_learning.dart:40 (marker: toDo)
 - lib\engine\learning\behavior_entities.dart:49 (marker: toDo)
 - lib\engine\scoring\scoring_weights.dart:39 (marker: toDo)

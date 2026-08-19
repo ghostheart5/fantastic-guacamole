@@ -36,11 +36,11 @@ void main() {
       expect(result.message, '');
     });
 
-    test('malformed command returns safe normalized result', () async {
+    test('malformed request returns safe normalized result', () async {
       const AgentOrchestrator orchestrator = AgentOrchestrator();
 
       final AgentResult result = await orchestrator.execute(
-        prompt: '%%% malformed /// command ???',
+        prompt: '%%% malformed /// request ???',
       );
 
       expect(result.selectedAgent, isNotEmpty);

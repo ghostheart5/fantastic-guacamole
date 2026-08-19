@@ -26,7 +26,11 @@ void main() {
     });
 
     test('suggests break when fatigue high or energy low', () async {
-      siRepository.state = SiStateEntity(energy: 0.2, focus: 0.5, fatigue: 0.8);
+      siRepository.state = SiStateEntity(
+        energy: 0.2,
+        attention: 0.5,
+        fatigue: 0.8,
+      );
 
       final decision = await GenerateSiDecision(
         taskRepository,
@@ -38,7 +42,11 @@ void main() {
     });
 
     test('returns no tasks rationale when task list empty', () async {
-      siRepository.state = SiStateEntity(energy: 0.8, focus: 0.8, fatigue: 0.2);
+      siRepository.state = SiStateEntity(
+        energy: 0.8,
+        attention: 0.8,
+        fatigue: 0.2,
+      );
 
       final decision = await GenerateSiDecision(
         taskRepository,
@@ -53,7 +61,7 @@ void main() {
       () async {
         siRepository.state = SiStateEntity(
           energy: 0.8,
-          focus: 0.8,
+          attention: 0.8,
           fatigue: 0.2,
         );
         await taskRepository.saveTask(
@@ -80,8 +88,8 @@ void main() {
 
         expect(decision.selectedTaskId, 'high');
         expect(decision.orderedTaskIds, <String>['high', 'low']);
-        expect(decision.action, 'Focus on: High');
-        expect(decision.recommendedFocusMinutes, 25);
+        expect(decision.action, 'Work on: High');
+        expect(decision.recommendedExecutionMinutes, 25);
       },
     );
   });

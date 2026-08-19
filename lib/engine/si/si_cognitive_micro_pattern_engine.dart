@@ -7,7 +7,7 @@ enum MicroPatternType {
   skipResistance,
   fatigueDrift,
   highLoadLoop,
-  stableFocus,
+  stableAttention,
   repeatedTopic,
   taskAffinity,
 }
@@ -188,7 +188,7 @@ class SICognitiveMicroPatternEngine {
         out.add(
           MicroPattern(
             type: MicroPatternType.taskAffinity,
-            label: 'Repeated task focus detected',
+            label: 'Repeated task attention detected',
             strength: siClamp01(entry.value / snapshots.length),
             confidence: _sampleConfidence(entry.value),
             evidence: <String>['task=${entry.key}', 'hits=${entry.value}'],
@@ -252,8 +252,8 @@ class SICognitiveMicroPatternEngine {
     if (u.engagement >= 0.65 && u.fatigue <= 0.45 && u.stress <= 0.45) {
       out.add(
         MicroPattern(
-          type: MicroPatternType.stableFocus,
-          label: 'Stable focus window',
+          type: MicroPatternType.stableAttention,
+          label: 'Stable attention window',
           strength: siClamp01(
             (u.engagement + (1 - u.fatigue) + (1 - u.stress)) / 3,
           ),
@@ -296,8 +296,8 @@ class SICognitiveMicroPatternEngine {
         case MicroPatternType.fatigueDrift:
           signals['fatigue_bias'] = siClamp01(p.strength);
           break;
-        case MicroPatternType.stableFocus:
-          signals['focus_bias'] = siClamp01(p.strength);
+        case MicroPatternType.stableAttention:
+          signals['attention_bias'] = siClamp01(p.strength);
           break;
         case MicroPatternType.taskAffinity:
           if (p.taskKey != null) {

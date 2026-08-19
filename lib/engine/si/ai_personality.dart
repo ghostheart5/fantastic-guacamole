@@ -124,7 +124,7 @@ class AIPersonalityProfile {
       case SIPersona.assistant:
         return 'clear_direct';
       case SIPersona.planner:
-        return 'focused_motivating';
+        return 'direct_motivating';
       case SIPersona.companion:
         return 'warm_grounded';
       case SIPersona.analyst:

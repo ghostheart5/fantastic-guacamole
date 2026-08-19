@@ -73,7 +73,7 @@ void main() {
 
       const IdentityProfileEntity profile = IdentityProfileEntity(
         disciplineIdentity: 0.4,
-        focusIdentity: 0.6,
+        executionIdentity: 0.6,
         growthIdentity: 0.8,
       );
       await SaveIdentityProfile(repository).call(profile);
@@ -83,7 +83,7 @@ void main() {
       ).call();
       expect(restored, isNotNull);
       expect(restored!.disciplineIdentity, 0.4);
-      expect(restored.focusIdentity, 0.6);
+      expect(restored.executionIdentity, 0.6);
       expect(restored.growthIdentity, 0.8);
     });
   });

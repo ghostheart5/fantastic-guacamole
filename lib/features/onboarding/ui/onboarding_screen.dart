@@ -2,9 +2,10 @@ import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -27,55 +28,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   final _nameCtrl = TextEditingController();
   String? _selectedGoalType;
 
-  static const _totalPages = 6; // 5 info slides + 1 personalization
-
-  static const _slides = [
-    _Slide(
-      icon: Icons.bolt_rounded,
-      iconColor: Color(0xFF00E5FF),
-      tag: 'WELCOME',
-      title: 'CHRONOSPARK',
-      subtitle: 'A living decision system',
-      body:
-          'Bring an intention, shape a path, act, and learn what your choices are changing. ChronoSpark keeps the context beside the decision.',
-    ),
-    _Slide(
-      icon: Icons.psychology_rounded,
-      iconColor: Color(0xFF9B8AFB),
-      tag: 'SMART PLANNER',
-      title: 'LIFE GUIDANCE',
-      subtitle: 'Adaptive personal planning',
-      body:
-          'Smart Planner reconciles your current tasks, time, energy, goals, and history into an explainable next move you can accept or change.',
-    ),
-    _Slide(
-      icon: Icons.timer_rounded,
-      iconColor: Color(0xFF00E5FF),
-      tag: 'TRAJECTORY ENGINE',
-      title: 'COMPARE POSSIBLE PATHS',
-      subtitle: 'Own your next move',
-      body:
-          'Trajectory Engine compares explicit scenarios and tradeoffs. It helps you choose a direction without pretending the future is guaranteed.',
-    ),
-    _Slide(
-      icon: Icons.trending_up_rounded,
-      iconColor: Color(0xFF00E5FF),
-      tag: 'TIMELINE MEMORY',
-      title: 'VERIFIED HISTORY',
-      subtitle: 'Review what actually happened',
-      body:
-          'Timeline remembers actions, decisions, milestones, and consequences so each new choice has more context than the last.',
-    ),
-    _Slide(
-      icon: Icons.touch_app_rounded,
-      iconColor: Color(0xFF00E5FF),
-      tag: 'THE CHRONOSPARK LOOP',
-      title: 'SEE THE SYSTEM CONNECT',
-      subtitle: 'From intention to capability',
-      body:
-          'Creator shapes the intention. Timeline keeps the memory. Nexus synthesizes the present. Smart Planner explains the next move. Trajectory compares paths. Progression shows what became more reliable.',
-    ),
-  ];
+  static const _totalPages = OnboardingContentContract.pageCount;
 
   @override
   void initState() {
@@ -107,7 +60,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       await prefs.setBool(onboardingCompleteStorageKey, true);
       await prefs.setInt(
         onboardingContentVersionStorageKey,
-        TutorialContent.contentVersion,
+        OnboardingContentContract.currentVersion,
       );
       AppAnalytics.track(
         'onboarding_completed',
@@ -140,8 +93,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to finish onboarding. Please try again.'),
+        SnackBar(
+          content: Text(
+            ChronoSparkLocalizations.of(
+              context,
+            ).text(ChronoSparkString.onboardingFinishError),
+          ),
         ),
       );
     }
@@ -162,6 +119,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     }
   }
 
+  void _skip() {
+    AppAnalytics.track(
+      'onboarding_skipped',
+      params: <String, Object?>{'step_index': _current},
+    );
+    _complete();
+  }
+
   @override
   void dispose() {
     _page.dispose();
@@ -171,6 +136,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final List<_Slide> slides = <_Slide>[
+      _Slide(
+        icon: Icons.bolt_rounded,
+        iconColor: const Color(0xFF00E5FF),
+        tag: l10n.text(ChronoSparkString.welcome),
+        title: 'CHRONOSPARK',
+        subtitle: l10n.text(ChronoSparkString.livingDecisionSystem),
+        body: l10n.text(ChronoSparkString.onboardingWelcomeBody),
+      ),
+    ];
     final media = MediaQuery.sizeOf(context);
     final bool landscape = media.width > media.height;
     return Scaffold(
@@ -186,7 +162,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             onPageChanged: (i) => setState(() => _current = i),
             itemCount: _totalPages,
             itemBuilder: (context, i) {
-              if (i < _slides.length) return _SlideView(slide: _slides[i]);
+              if (i < slides.length) return _SlideView(slide: slides[i]);
               return _PersonalizationSlide(
                 nameCtrl: _nameCtrl,
                 selectedGoalType: _selectedGoalType,
@@ -243,41 +219,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             width: 180,
                             child: _GradientButton(
                               label: _current == _totalPages - 1
-                                  ? 'INITIALIZE'
-                                  : 'NEXT',
+                                  ? l10n
+                                        .text(ChronoSparkString.initialize)
+                                        .toUpperCase()
+                                  : l10n
+                                        .text(ChronoSparkString.next)
+                                        .toUpperCase(),
                               onTap: _next,
                             ),
                           ),
                           const SizedBox(width: 16),
                           if (_current < _totalPages - 1)
-                            GestureDetector(
-                              onTap: () {
-                                AppAnalytics.track(
-                                  'onboarding_skipped',
-                                  params: <String, Object?>{
-                                    'step_index': _current,
-                                  },
-                                );
-                                _complete();
-                              },
-                              behavior: HitTestBehavior.opaque,
-                              child: Semantics(
-                                button: true,
-                                label: 'Skip onboarding',
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 14,
-                                  ),
-                                  child: Text(
-                                    'SKIP',
-                                    style: TextStyle(
-                                      color: Colors.white38,
-                                      fontSize: 12,
-                                      letterSpacing: 2,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                            SizedBox(
+                              height: 48,
+                              child: TextButton(
+                                onPressed: _skip,
+                                child: Text(
+                                  l10n
+                                      .text(ChronoSparkString.skip)
+                                      .toUpperCase(),
                                 ),
                               ),
                             )
@@ -323,42 +283,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                           // Primary action button
                           _GradientButton(
                             label: _current == _totalPages - 1
-                                ? 'INITIALIZE SYSTEM'
-                                : 'NEXT',
+                                ? l10n
+                                      .text(ChronoSparkString.initializeSystem)
+                                      .toUpperCase()
+                                : l10n
+                                      .text(ChronoSparkString.next)
+                                      .toUpperCase(),
                             onTap: _next,
                           ),
                           const SizedBox(height: 14),
 
                           // Skip link
                           if (_current < _totalPages - 1)
-                            GestureDetector(
-                              onTap: () {
-                                AppAnalytics.track(
-                                  'onboarding_skipped',
-                                  params: <String, Object?>{
-                                    'step_index': _current,
-                                  },
-                                );
-                                _complete();
-                              },
-                              behavior: HitTestBehavior.opaque,
-                              child: Semantics(
-                                button: true,
-                                label: 'Skip onboarding',
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 14,
-                                  ),
-                                  child: Text(
-                                    'SKIP',
-                                    style: TextStyle(
-                                      color: Colors.white38,
-                                      fontSize: 12,
-                                      letterSpacing: 2,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                            SizedBox(
+                              height: 48,
+                              child: TextButton(
+                                onPressed: _skip,
+                                child: Text(
+                                  l10n
+                                      .text(ChronoSparkString.skip)
+                                      .toUpperCase(),
                                 ),
                               ),
                             )
@@ -400,7 +344,7 @@ class _SlideView extends StatelessWidget {
 
   Widget _buildPulseAura({required double width, required double height}) {
     return Lottie.asset(
-      AppAssets.animFocusPulse,
+      AppAssets.animSignalPulse,
       width: width,
       height: height,
       repeat: true,
@@ -681,14 +625,21 @@ class _PersonalizationSlide extends StatelessWidget {
   final ValueChanged<String> onGoalTypeSelected;
 
   static const _goalTypes = [
-    ('Focus & Productivity', Icons.bolt_rounded, Color(0xFF00E5FF)),
-    ('Personal Growth', Icons.trending_up_rounded, Color(0xFF9B8AFB)),
-    ('Mental Wellness', Icons.self_improvement_rounded, Color(0xFF00E5FF)),
-    ('Just exploring', Icons.explore_rounded, Color(0xFFFFC857)),
+    ('execution', Icons.bolt_rounded, Color(0xFF00E5FF)),
+    ('growth', Icons.trending_up_rounded, Color(0xFF9B8AFB)),
+    ('wellness', Icons.self_improvement_rounded, Color(0xFF00E5FF)),
+    ('exploring', Icons.explore_rounded, Color(0xFFFFC857)),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    String goalLabel(String id) => switch (id) {
+      'execution' => l10n.text(ChronoSparkString.goalExecution),
+      'growth' => l10n.text(ChronoSparkString.goalGrowth),
+      'wellness' => l10n.text(ChronoSparkString.goalWellness),
+      _ => l10n.text(ChronoSparkString.goalExplore),
+    };
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool wideLayout = constraints.maxWidth >= 820;
@@ -718,9 +669,9 @@ class _PersonalizationSlide extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'WHAT SHOULD I CALL YOU?',
-                style: TextStyle(
+              Text(
+                l10n.text(ChronoSparkString.nameQuestion).toUpperCase(),
+                style: const TextStyle(
                   color: Colors.white38,
                   fontSize: 10,
                   letterSpacing: 2,
@@ -740,10 +691,11 @@ class _PersonalizationSlide extends StatelessWidget {
                   controller: nameCtrl,
                   style: const TextStyle(color: Colors.white, fontSize: 15),
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    hintText: 'Enter your name...',
-                    hintStyle: TextStyle(color: Colors.white24),
-                    contentPadding: EdgeInsets.symmetric(
+                  decoration: InputDecoration(
+                    labelText: l10n.text(ChronoSparkString.name),
+                    hintText: l10n.text(ChronoSparkString.nameHint),
+                    hintStyle: const TextStyle(color: Colors.white24),
+                    contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 14,
                     ),
@@ -752,9 +704,9 @@ class _PersonalizationSlide extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'PRIMARY GOAL',
-                style: TextStyle(
+              Text(
+                l10n.text(ChronoSparkString.primaryGoal).toUpperCase(),
+                style: const TextStyle(
                   color: Colors.white38,
                   fontSize: 10,
                   letterSpacing: 2,
@@ -772,56 +724,36 @@ class _PersonalizationSlide extends StatelessWidget {
                 mainAxisSpacing: 8,
                 crossAxisSpacing: 8,
                 children: _goalTypes.map((entry) {
-                  final (label, icon, color) = entry;
-                  final selected = selectedGoalType == label;
-                  return GestureDetector(
-                    onTap: () => onGoalTypeSelected(label),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? color.withValues(alpha: 0.15)
-                            : Colors.white.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: selected
-                              ? color.withValues(alpha: 0.7)
-                              : Colors.white.withValues(alpha: 0.1),
-                          width: selected ? 1.5 : 1,
-                        ),
+                  final (id, icon, color) = entry;
+                  final String label = goalLabel(id);
+                  final selected = selectedGoalType == id;
+                  return Semantics(
+                    selected: selected,
+                    label: label,
+                    child: ChoiceChip(
+                      selected: selected,
+                      onSelected: (_) => onGoalTypeSelected(id),
+                      avatar: Icon(icon, color: color, size: 18),
+                      label: SizedBox(
+                        width: double.infinity,
+                        child: Text(label, overflow: TextOverflow.ellipsis),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        children: [
-                          Icon(
-                            icon,
-                            color: selected ? color : Colors.white38,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              label,
-                              style: TextStyle(
-                                color: selected ? color : Colors.white54,
-                                fontSize: 11,
-                                fontWeight: selected
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                      showCheckmark: true,
+                      selectedColor: color.withValues(alpha: 0.2),
+                      backgroundColor: Colors.white.withValues(alpha: 0.04),
+                      side: BorderSide(
+                        color: selected
+                            ? color.withValues(alpha: 0.8)
+                            : Colors.white.withValues(alpha: 0.12),
                       ),
                     ),
                   );
                 }).toList(),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Your name and goal stay on this device unless you choose cloud backup. Smart Planner and SI Console use saved planning context; external AI processing is opt-in and explained in Settings.',
-                style: TextStyle(
+              Text(
+                l10n.text(ChronoSparkString.onboardingPrivacy),
+                style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 11,
                   height: 1.5,
@@ -847,9 +779,11 @@ class _PersonalizationSlide extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
-                                'PERSONALIZE',
-                                style: TextStyle(
+                              Text(
+                                l10n
+                                    .text(ChronoSparkString.personalize)
+                                    .toUpperCase(),
+                                style: const TextStyle(
                                   color: AppColors.neonCyan,
                                   fontSize: 10,
                                   letterSpacing: 2.5,
@@ -865,9 +799,11 @@ class _PersonalizationSlide extends StatelessWidget {
                                         AppColors.neonCyan,
                                       ],
                                     ).createShader(bounds),
-                                child: const Text(
-                                  'YOUR LIFE DIRECTION',
-                                  style: TextStyle(
+                                child: Text(
+                                  l10n
+                                      .text(ChronoSparkString.lifeDirection)
+                                      .toUpperCase(),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 42,
                                     fontWeight: FontWeight.w900,
@@ -877,9 +813,11 @@ class _PersonalizationSlide extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              const Text(
-                                'Help us calibrate your experience',
-                                style: TextStyle(
+                              Text(
+                                l10n.text(
+                                  ChronoSparkString.calibrateExperience,
+                                ),
+                                style: const TextStyle(
                                   color: AppColors.neonCyan,
                                   fontSize: 14,
                                   letterSpacing: 0.5,
@@ -895,9 +833,9 @@ class _PersonalizationSlide extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              const Text(
-                                'A clean profile makes the first setup feel anchored. Pick a name and goal, then we tune the rest.',
-                                style: TextStyle(
+                              Text(
+                                l10n.text(ChronoSparkString.onboardingWideBody),
+                                style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 16,
                                   height: 1.7,
@@ -928,9 +866,9 @@ class _PersonalizationSlide extends StatelessWidget {
                         color: AppColors.neonCyan.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: const Text(
-                      'PERSONALIZE',
-                      style: TextStyle(
+                    child: Text(
+                      l10n.text(ChronoSparkString.personalize).toUpperCase(),
+                      style: const TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 10,
                         letterSpacing: 2.5,
@@ -943,9 +881,9 @@ class _PersonalizationSlide extends StatelessWidget {
                     shaderCallback: (bounds) => const LinearGradient(
                       colors: [Colors.white, AppColors.neonCyan],
                     ).createShader(bounds),
-                    child: const Text(
-                      'YOUR LIFE DIRECTION',
-                      style: TextStyle(
+                    child: Text(
+                      l10n.text(ChronoSparkString.lifeDirection).toUpperCase(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 36,
                         fontWeight: FontWeight.w900,
@@ -955,9 +893,9 @@ class _PersonalizationSlide extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Help us calibrate your experience',
-                    style: TextStyle(
+                  Text(
+                    l10n.text(ChronoSparkString.calibrateExperience),
+                    style: const TextStyle(
                       color: AppColors.neonCyan,
                       fontSize: 13,
                       letterSpacing: 0.5,
@@ -974,9 +912,9 @@ class _PersonalizationSlide extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'This takes under a minute. The goal is just to make the first launch feel like it already knows your shape.',
-                    style: TextStyle(
+                  Text(
+                    l10n.text(ChronoSparkString.onboardingCompactBody),
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 15,
                       height: 1.65,
@@ -1010,33 +948,24 @@ class _GradientButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
+    return SizedBox(
+      height: 52,
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: onTap,
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF00E5FF),
+          foregroundColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.black,
+          textStyle: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w900,
             letterSpacing: 2.5,
           ),
         ),
+        child: Text(label),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 
 class ChronoSparkLocalizations {
   const ChronoSparkLocalizations(this.locale);
@@ -26,6 +27,88 @@ class ChronoSparkLocalizations {
   String text(ChronoSparkString key) =>
       (isSpanish ? _es : _en)[key] ?? _en[key] ?? key.name;
 
+  String moreInTimeline(int count) => isSpanish
+      ? '+$count más en la Línea de Tiempo'
+      : '+$count more in Timeline';
+
+  String completeTaskLabel(String title) =>
+      isSpanish ? 'Completar $title' : 'Complete $title';
+
+  String guideTitle(String id, String fallback) {
+    if (!isSpanish) return fallback;
+    return switch (id) {
+      'createFirstItem' => 'Captura el primer compromiso real',
+      'scheduleFirstItem' => 'Asigna una hora real al compromiso',
+      'reviewTimeline' => 'Verifica dónde quedó el trabajo',
+      'nexus' => 'Revisa por qué este bloque sigue',
+      'smartPlanner' => 'Examina el plan activo',
+      'timelineExecution' => 'Crea un resultado del que el sistema aprenda',
+      'siConsole' => 'Cuestiona la evidencia débil o incompleta',
+      'trajectoryEngine' => 'Compara una alternativa real',
+      'progression' => 'Verifica qué se volvió confiable',
+      _ => fallback,
+    };
+  }
+
+  String guideBody(String id, String fallback) {
+    if (!isSpanish) return fallback;
+    return switch (id) {
+      'createFirstItem' =>
+        'Crea una tarea con un resultado concreto. La guía avanza solo después de guardarla.',
+      'scheduleFirstItem' =>
+        'Añade una fecha y una hora para conectar Creador, Planificador Inteligente y Línea de Tiempo con evidencia real.',
+      'reviewTimeline' =>
+        'Revisa el resultado guardado en Línea de Tiempo. Abrir el aviso no cuenta como completarlo.',
+      'nexus' =>
+        'Revisa la razón y la incertidumbre mostradas junto al bloque antes de actuar.',
+      'smartPlanner' =>
+        'Haz una pregunta específica sobre la tarea elegida, sus límites o qué debería moverse.',
+      'timelineExecution' =>
+        'Completa, aplaza o corrige un bloque. Solo el resultado guardado hace avanzar esta guía.',
+      'siConsole' =>
+        'Pregunta qué evidencia falta y qué dato podría cambiar la recomendación.',
+      'trajectoryEngine' =>
+        'Cambia tiempo, alcance o prioridad y compara las consecuencias y supuestos.',
+      'progression' =>
+        'Revisa los resultados detrás de la progresión. La revisión real completa esta guía.',
+      _ => fallback,
+    };
+  }
+
+  String guideAction(String id, String fallback) {
+    if (!isSpanish) return fallback;
+    return switch (id) {
+      'createFirstItem' => 'Abrir Creador',
+      'scheduleFirstItem' => 'Programar en Creador',
+      'reviewTimeline' => 'Abrir Línea de Tiempo',
+      'nexus' => 'Revisar en Nexus',
+      'smartPlanner' => 'Preguntar al Planificador',
+      'timelineExecution' => 'Abrir trabajo ejecutable',
+      'siConsole' => 'Revisar evidencia',
+      'trajectoryEngine' => 'Comparar caminos',
+      'progression' => 'Revisar resultados',
+      _ => fallback,
+    };
+  }
+
+  String decisionConfidenceLabel(OperatingConfidence confidence) {
+    final String label = isSpanish
+        ? switch (confidence) {
+            OperatingConfidence.high => 'alta',
+            OperatingConfidence.moderate => 'moderada',
+            OperatingConfidence.low => 'baja',
+            OperatingConfidence.insufficientEvidence =>
+              'evidencia insuficiente',
+          }
+        : switch (confidence) {
+            OperatingConfidence.high => 'high',
+            OperatingConfidence.moderate => 'moderate',
+            OperatingConfidence.low => 'low',
+            OperatingConfidence.insufficientEvidence => 'insufficient evidence',
+          };
+    return isSpanish ? 'Confianza: $label.' : 'Confidence: $label.';
+  }
+
   static const Map<ChronoSparkString, String> _en = <ChronoSparkString, String>{
     ChronoSparkString.nexus: 'Nexus',
     ChronoSparkString.smartPlanner: 'Smart Planner',
@@ -41,6 +124,61 @@ class ChronoSparkLocalizations {
     ChronoSparkString.whatChanged: 'What changed',
     ChronoSparkString.openCreator: 'Open Creator',
     ChronoSparkString.startInCreator: 'Start in Creator',
+    ChronoSparkString.todayTimeBlocks: "Today's time blocks",
+    ChronoSparkString.openTimeline: 'Open Timeline',
+    ChronoSparkString.timeBlocksUnavailable:
+        'Time blocks are unavailable right now.',
+    ChronoSparkString.retry: 'Retry',
+    ChronoSparkString.noTimeBlocks:
+        'No time blocks yet. Add a task to build today’s plan.',
+    ChronoSparkString.createTask: 'Create task',
+    ChronoSparkString.upNext: 'Up next',
+    ChronoSparkString.complete: 'Complete',
+    ChronoSparkString.done: 'Done',
+    ChronoSparkString.timeBlockCompleted: 'Time block completed.',
+    ChronoSparkString.timeBlockCompletionFailed:
+        'Could not complete that time block. Please retry.',
+    ChronoSparkString.whyThisIsNext: 'Why this is next',
+    ChronoSparkString.reviewOrCorrectPlan: 'Review or correct plan',
+    ChronoSparkString.welcome: 'Welcome',
+    ChronoSparkString.livingDecisionSystem: 'A living decision system',
+    ChronoSparkString.onboardingWelcomeBody:
+        'Plan with purpose. Act. Learn. ChronoSpark keeps the context behind your decisions.',
+    ChronoSparkString.next: 'Next',
+    ChronoSparkString.initialize: 'Initialize',
+    ChronoSparkString.initializeSystem: 'Initialize system',
+    ChronoSparkString.skip: 'Skip',
+    ChronoSparkString.nameQuestion: 'What should I call you?',
+    ChronoSparkString.name: 'Name',
+    ChronoSparkString.nameHint: 'Enter your name…',
+    ChronoSparkString.primaryGoal: 'Primary goal',
+    ChronoSparkString.goalExecution: 'Execution & Productivity',
+    ChronoSparkString.goalGrowth: 'Personal Growth',
+    ChronoSparkString.goalWellness: 'Mental Wellness',
+    ChronoSparkString.goalExplore: 'Just exploring',
+    ChronoSparkString.personalize: 'Personalize',
+    ChronoSparkString.lifeDirection: 'Your life direction',
+    ChronoSparkString.calibrateExperience: 'Help us calibrate your experience',
+    ChronoSparkString.contextualGuidance: 'Contextual guidance',
+    ChronoSparkString.openContextualGuidance: 'Open contextual guidance',
+    ChronoSparkString.collapseGuidance: 'Collapse guidance',
+    ChronoSparkString.useThisScreen: 'Use this screen',
+    ChronoSparkString.notNow: 'Not now',
+    ChronoSparkString.securingAccountData: 'Securing account data',
+    ChronoSparkString.onboardingPrivacy:
+        'Your name and goal stay on this device unless you choose cloud backup. Smart Planner and SI Console use saved planning context; external AI processing is opt-in and explained in Settings.',
+    ChronoSparkString.onboardingWideBody:
+        'A clean profile anchors the first setup. Choose a name and goal, then ChronoSpark tunes the rest from real outcomes.',
+    ChronoSparkString.onboardingCompactBody:
+        'This takes under a minute. Choose only the context needed to shape the first plan.',
+    ChronoSparkString.onboardingFinishError:
+        'Unable to finish onboarding. Please try again.',
+    ChronoSparkString.preservedDataIssue:
+        'Preserved device data was found, but its account owner cannot be verified.',
+    ChronoSparkString.preservedDataBody:
+        'Continue only if this preserved device data belongs to the signed-in account.',
+    ChronoSparkString.claimPreservedData:
+        'Use preserved data with this account',
   };
 
   static const Map<ChronoSparkString, String> _es = <ChronoSparkString, String>{
@@ -58,6 +196,61 @@ class ChronoSparkLocalizations {
     ChronoSparkString.whatChanged: 'Qué cambió',
     ChronoSparkString.openCreator: 'Abrir Creador',
     ChronoSparkString.startInCreator: 'Comienza en Creador',
+    ChronoSparkString.todayTimeBlocks: 'Bloques de tiempo de hoy',
+    ChronoSparkString.openTimeline: 'Abrir Línea de Tiempo',
+    ChronoSparkString.timeBlocksUnavailable:
+        'Los bloques de tiempo no están disponibles ahora.',
+    ChronoSparkString.retry: 'Reintentar',
+    ChronoSparkString.noTimeBlocks:
+        'Aún no hay bloques de tiempo. Añade una tarea para crear el plan de hoy.',
+    ChronoSparkString.createTask: 'Crear tarea',
+    ChronoSparkString.upNext: 'Siguiente',
+    ChronoSparkString.complete: 'Completar',
+    ChronoSparkString.done: 'Hecho',
+    ChronoSparkString.timeBlockCompleted: 'Bloque de tiempo completado.',
+    ChronoSparkString.timeBlockCompletionFailed:
+        'No se pudo completar ese bloque de tiempo. Inténtalo de nuevo.',
+    ChronoSparkString.whyThisIsNext: 'Por qué sigue esto',
+    ChronoSparkString.reviewOrCorrectPlan: 'Revisar o corregir el plan',
+    ChronoSparkString.welcome: 'Bienvenido',
+    ChronoSparkString.livingDecisionSystem: 'Un sistema vivo de decisiones',
+    ChronoSparkString.onboardingWelcomeBody:
+        'Planifica con propósito. Actúa. Aprende. ChronoSpark conserva el contexto detrás de tus decisiones.',
+    ChronoSparkString.next: 'Siguiente',
+    ChronoSparkString.initialize: 'Iniciar',
+    ChronoSparkString.initializeSystem: 'Iniciar sistema',
+    ChronoSparkString.skip: 'Omitir',
+    ChronoSparkString.nameQuestion: '¿Cómo debo llamarte?',
+    ChronoSparkString.name: 'Nombre',
+    ChronoSparkString.nameHint: 'Escribe tu nombre…',
+    ChronoSparkString.primaryGoal: 'Objetivo principal',
+    ChronoSparkString.goalExecution: 'Ejecución y productividad',
+    ChronoSparkString.goalGrowth: 'Crecimiento personal',
+    ChronoSparkString.goalWellness: 'Bienestar mental',
+    ChronoSparkString.goalExplore: 'Solo explorando',
+    ChronoSparkString.personalize: 'Personaliza',
+    ChronoSparkString.lifeDirection: 'La dirección de tu vida',
+    ChronoSparkString.calibrateExperience: 'Ayúdanos a calibrar tu experiencia',
+    ChronoSparkString.contextualGuidance: 'Guía contextual',
+    ChronoSparkString.openContextualGuidance: 'Abrir guía contextual',
+    ChronoSparkString.collapseGuidance: 'Contraer guía',
+    ChronoSparkString.useThisScreen: 'Usar esta pantalla',
+    ChronoSparkString.notNow: 'Ahora no',
+    ChronoSparkString.securingAccountData: 'Protegiendo datos de la cuenta',
+    ChronoSparkString.onboardingPrivacy:
+        'Tu nombre y objetivo permanecen en este dispositivo salvo que actives la copia en la nube. Planificador Inteligente y Consola SI usan el contexto guardado; el procesamiento externo con IA es opcional y se explica en Ajustes.',
+    ChronoSparkString.onboardingWideBody:
+        'Un perfil claro fija la primera configuración. Elige un nombre y un objetivo; ChronoSpark ajustará el resto con resultados reales.',
+    ChronoSparkString.onboardingCompactBody:
+        'Esto tarda menos de un minuto. Elige solo el contexto necesario para formar el primer plan.',
+    ChronoSparkString.onboardingFinishError:
+        'No se pudo terminar la introducción. Inténtalo de nuevo.',
+    ChronoSparkString.preservedDataIssue:
+        'Se encontraron datos conservados en el dispositivo, pero no se puede verificar su cuenta propietaria.',
+    ChronoSparkString.preservedDataBody:
+        'Continúa solo si estos datos conservados pertenecen a la cuenta iniciada.',
+    ChronoSparkString.claimPreservedData:
+        'Usar datos conservados con esta cuenta',
   };
 }
 
@@ -76,6 +269,50 @@ enum ChronoSparkString {
   whatChanged,
   openCreator,
   startInCreator,
+  todayTimeBlocks,
+  openTimeline,
+  timeBlocksUnavailable,
+  retry,
+  noTimeBlocks,
+  createTask,
+  upNext,
+  complete,
+  done,
+  timeBlockCompleted,
+  timeBlockCompletionFailed,
+  whyThisIsNext,
+  reviewOrCorrectPlan,
+  welcome,
+  livingDecisionSystem,
+  onboardingWelcomeBody,
+  next,
+  initialize,
+  initializeSystem,
+  skip,
+  nameQuestion,
+  name,
+  nameHint,
+  primaryGoal,
+  goalExecution,
+  goalGrowth,
+  goalWellness,
+  goalExplore,
+  personalize,
+  lifeDirection,
+  calibrateExperience,
+  contextualGuidance,
+  openContextualGuidance,
+  collapseGuidance,
+  useThisScreen,
+  notNow,
+  securingAccountData,
+  onboardingPrivacy,
+  onboardingWideBody,
+  onboardingCompactBody,
+  onboardingFinishError,
+  preservedDataIssue,
+  preservedDataBody,
+  claimPreservedData,
 }
 
 class _ChronoSparkLocalizationsDelegate

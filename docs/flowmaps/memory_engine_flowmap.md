@@ -4,7 +4,7 @@
 User creates/updates/completes actions that should become memory context.
 
 ## Flow
-1. Feature event occurs (goal update, task completion, journal note, user preference).
+1. Feature event occurs (goal update, task completion, reflection, user preference).
 2. Memory capture pipeline creates structured memory:
    - category
    - tags

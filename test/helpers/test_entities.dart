@@ -23,14 +23,14 @@ TaskEntity testTask({
 
 SiStateEntity testSiState({
   double energy = 0.6,
-  double focus = 0.6,
+  double attention = 0.6,
   double fatigue = 0.3,
   String mood = 'neutral',
   double confidence = 0.5,
 }) {
   return SiStateEntity(
     energy: energy,
-    focus: focus,
+    attention: attention,
     fatigue: fatigue,
     mood: mood,
     confidence: confidence,

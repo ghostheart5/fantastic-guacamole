@@ -1,6 +1,5 @@
 class AppAssets {
   // Animations
-  static const animFocusPulse = animSignalPulse;
   static const animLevelUp = 'assets/animations/level_up.json';
   static const animCompletionBurst = animSignalPulse;
   static const animSignalPulse = 'assets/animations/signal_pulse.json';
@@ -8,7 +7,6 @@ class AppAssets {
   // Audio
   static const audioAiDecision = audioActionTick;
   static const audioErrorSoft = 'assets/audio/error_soft.wav';
-  static const audioFocusStart = audioActionTick;
   static const audioTaskComplete = audioMilestoneLift;
   static const audioActionTick = 'assets/audio/action_tick.wav';
   static const audioSignalPing = 'assets/audio/signal_ping.wav';
@@ -16,13 +14,12 @@ class AppAssets {
 
   // Backgrounds
   static const bgCreator = bgCreatorIntent;
-  static const bgFocus = bgTemporalFocus;
   static const bgHome = bgHomeOrbit;
   static const bgLogin = bgArrival;
   static const bgLogs = bgActivityArchive;
   static const bgNexus = bgTimelineThreads;
   static const bgOnboarding = bgFirstSignal;
-  static const bgPlan = bgTemporalFocus;
+  static const bgPlan = bgTemporalPlan;
   static const bgProfile = bgIdentity;
   static const bgProgression = bgProgressionAscension;
   static const bgReflect = bgReflectionPool;
@@ -43,8 +40,8 @@ class AppAssets {
       'assets/backgrounds/settings_control_plane_v1.jpg';
   static const bgTemporalCalm =
       'assets/backgrounds/temporal_atmosphere_calm_v1.jpg';
-  static const bgTemporalFocus =
-      'assets/backgrounds/temporal_atmosphere_focus_v1.jpg';
+  static const bgTemporalPlan =
+      'assets/backgrounds/temporal_atmosphere_plan_v1.jpg';
   static const bgTemporalRecovery =
       'assets/backgrounds/temporal_atmosphere_recovery_v1.jpg';
   static const bgTimelineThreads = 'assets/backgrounds/timeline_threads_v1.jpg';
@@ -68,7 +65,6 @@ class AppAssets {
 
   // Icons
   static const iconAddTask = 'assets/icons/add_task.svg';
-  static const iconFocus = 'assets/icons/focus.svg';
   static const iconHome = 'assets/icons/home.svg';
   static const iconLevel = 'assets/icons/level.svg';
   static const iconLogs = 'assets/icons/logs.svg';
@@ -85,8 +81,6 @@ class AppAssets {
   static const iconStop = 'assets/icons/stop.svg';
   static const iconStreak = 'assets/icons/streak.svg';
   static const iconTasks = 'assets/icons/tasks.svg';
-  static const iconCoach = 'assets/icons/coach.svg';
-  static const iconInsights = 'assets/icons/insights.svg';
   static const iconApp = 'assets/icons/app_icon.png';
 
   // Atmosphere

@@ -88,12 +88,12 @@ class DefaultAssistantIntentDetector implements AssistantIntentDetector {
     ])) {
       result = _intent('stress_support', 0.86, 'mental', text);
     } else if (_hasAny(text, <String>[
-      'focus',
+      'attention',
       'attention',
       'concentration',
       'distracted',
     ])) {
-      result = _intent('focus', 0.86, 'productivity', text);
+      result = _intent('attention', 0.86, 'productivity', text);
     } else if (_hasAny(text, <String>[
       'procrastination',
       'procrastinate',
@@ -150,7 +150,7 @@ class DefaultAssistantIntentDetector implements AssistantIntentDetector {
     if (_hasAny(text, <String>['progress', 'on track', 'how am i doing'])) {
       return _intent('progress_query', 0.8, 'si_console', text);
     }
-    if (_hasAny(text, <String>['analyze', 'insight', 'trend', 'metrics'])) {
+    if (_hasAny(text, <String>['analyze', 'signal', 'trend', 'metrics'])) {
       return _intent('analytics_query', 0.8, 'si_console', text);
     }
     if (_hasAny(text, <String>[

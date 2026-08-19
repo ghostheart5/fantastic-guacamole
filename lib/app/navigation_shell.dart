@@ -9,12 +9,10 @@ import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
 import 'package:fantastic_guacamole/features/milestones/ui/milestones_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
-import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
 import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
-import 'package:fantastic_guacamole/features/personal_alignment/ui/personal_alignment_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
@@ -168,7 +166,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       return;
     }
     if (payload.startsWith('daily_planning_reminder')) {
-      flow.toPlan();
+      flow.toTimeline();
       return;
     }
     if (payload.startsWith('habit_reminder')) {
@@ -187,6 +185,15 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   }
 
   Future<void> _restoreLastOpenedTab(AppView fallbackView) async {
+    // A deep link or an explicit guide destination is authoritative. Restoring
+    // a saved top-level tab here used to replace the requested screen while the
+    // URL continued to advertise the original route.
+    if (fallbackView != AppView.nexus) {
+      if (mounted) {
+        ref.read(appFlowProvider.notifier).show(fallbackView);
+      }
+      return;
+    }
     final int? restoredTab = _preferenceService.getLastOpenedTab();
     if (!mounted) {
       return;
@@ -270,7 +277,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       // Never let a TTS engine failure interfere with lifecycle handling.
     }
     try {
-      // An open mic session must not survive the app being backgrounded.
+      // An open mic capture must not survive the app being backgrounded.
       await ref.read(voiceControllerProvider.notifier).stopListening();
     } on Object {
       // Never let an STT engine failure interfere with lifecycle handling.
@@ -437,7 +444,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
               ),
               navItem('Profile', 'Identity and progression', AppView.profile),
               const Divider(),
-              navItem('Plan', 'Adaptive schedule', AppView.plan),
               navItem(
                 'Creator',
                 'Turn intention into connected action',
@@ -511,12 +517,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.console => const SIConsoleScreen(),
       AppView.settings => const SettingsScreen(),
       AppView.progression => const ProgressionScreen(),
-      AppView.plan => const PlanScreen(),
       AppView.creator => const CreatorScreen(),
       AppView.goals => const GoalsScreen(),
       AppView.milestones => const MilestonesScreen(),
       AppView.memories => const MemoriesScreen(),
-      AppView.personalAlignment => const PersonalAlignmentScreen(),
     };
 
     return PopScope(

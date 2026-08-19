@@ -33,7 +33,7 @@ class SIMultiverseIdentity {
         ? 'guardian'
         : context.userState.fatigue >= .68
         ? 'restorer'
-        : intent.primary.label == 'insight_request'
+        : intent.primary.label == 'signal_request'
         ? 'analyst'
         : intent.primary.label == 'get_task' ||
               intent.primary.label == 'start_execution'
@@ -79,7 +79,7 @@ class SIMultiverseIdentity {
       case 'restorer':
         return 'recovery-first, minimal scope';
       case 'analyst':
-        return 'pattern-focused, concise';
+        return 'pattern-oriented, concise';
       case 'builder':
         return 'action-first, momentum-aware';
       default:

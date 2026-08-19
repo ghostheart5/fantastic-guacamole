@@ -208,7 +208,7 @@ void main() {
           fatigue: 0.8,
           siState: SiStateEntity(
             energy: 0.3,
-            focus: 0.2,
+            attention: 0.2,
             fatigue: 0.8,
             avoidOverwhelm: true,
           ),

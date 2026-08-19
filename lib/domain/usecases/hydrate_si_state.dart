@@ -12,6 +12,6 @@ class HydrateSiState {
 
   Future<SiStateEntity> call() async {
     return await repository.getCurrentState() ??
-        SiStateEntity(energy: 0.7, focus: 0.5, fatigue: 0.3);
+        SiStateEntity(energy: 0.7, attention: 0.5, fatigue: 0.3);
   }
 }

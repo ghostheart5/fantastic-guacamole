@@ -25,8 +25,7 @@ void main() {
             fatigue: 0.2,
             completed: 5,
             skipped: 2,
-            responseSummary:
-                'Focus on task alpha and complete the first block.',
+            responseSummary: 'Work on task alpha and complete the first block.',
           ),
         ];
 

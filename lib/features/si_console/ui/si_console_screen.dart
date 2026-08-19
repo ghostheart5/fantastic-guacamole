@@ -11,17 +11,14 @@ import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
-import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
-import 'package:fantastic_guacamole/state/providers/personal_alignment_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -123,7 +120,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
               _Msg(
                 text: 'GOAL SYNC: ${event.action.toUpperCase()} ${event.title}',
                 isUser: false,
-                emotion: 'focused',
+                emotion: 'engaged',
               ),
             );
           });
@@ -137,8 +134,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     // Greeting after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addSI(
-        'Strategic Intelligence is ready. I will use only the sources available in this session, such as tasks, goals, Timeline, Progression, and saved preferences. '
-        'Responses may be limited when a source is missing, stale, or offline. Type "help" to see available commands.',
+        'Strategic Intelligence is ready. I will use only the sources currently available, such as tasks, goals, Timeline, Progression, and saved preferences. '
+        'Responses may be limited when a source is missing, stale, or offline. Type "help" to see available shortcuts.',
         emotion: 'confident',
       );
     });
@@ -358,7 +355,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return;
     }
 
-    if (_handleLocalCommand(text)) {
+    unawaited(
+      ref
+          .read(adaptiveGuidanceProvider.notifier)
+          .record(GuidanceMilestone.firstSiQuery),
+    );
+
+    if (_handleLocalShortcut(text)) {
       _input.clear();
       return;
     }
@@ -371,9 +374,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _dispatchQuery(text);
   }
 
-  bool _handleLocalCommand(String text) {
+  bool _handleLocalShortcut(String text) {
     final String normalized = text.trim().toLowerCase();
-    final String command = normalized.split(RegExp(r'\s+')).first;
+    final String shortcut = normalized.split(RegExp(r'\s+')).first;
     final SIConsoleScreenModel? consoleModel = ref
         .read(siConsoleScreenModelProvider)
         .asData
@@ -386,14 +389,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           const _Msg(
             text:
-                'SI COMMAND GUIDE\n\n'
-                'Quick commands:\n'
+                'SI QUERY SHORTCUTS\n\n'
+                'Quick shortcuts:\n'
                 '- /tasks: inspect active tasks and next actions\n'
                 '- /goals: summarize goals and drift\n'
                 '- /milestones: summarize checkpoint health, risk, and next target\n'
-                '- /values: show core values alignment and neglected value\n'
-                '- /personal_alignment: analyze identity, purpose, and life direction\n'
-                '- /personal_alignment compare: compare current self to future self\n'
                 '- /plan: summarize schedule and next blocks\n'
                 '- /timeline: summarize recent milestones/events\n'
                 '- /trajectory: summarize momentum, pressure, and prediction\n\n'
@@ -407,9 +407,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- "Show plan risks for today and 3 next actions."\n'
                 '- "Summarize goals at risk and what to do next."\n'
                 '- "Compare current self to future self."\n\n'
-                'Tip: use a command first, then add intent. Example: /tasks what should I execute now?',
+                'Tip: use a shortcut first, then add intent. Example: /tasks what should I execute now?',
             isUser: false,
-            emotion: 'focused',
+            emotion: 'engaged',
           ),
         );
       });
@@ -431,46 +431,31 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- notifications: ${aggregation.notifications.length}\n'
                 '- timeline: ${aggregation.timeline.length}\n'
                 '- milestones: ${ref.read(milestonesProvider).asData?.value.length ?? 0}\n'
-                '- core values overall: ${ref.read(coreValuesAlignmentProvider).overall}%\n'
-                '- personal_alignment overall: ${ref.read(personalAlignmentAlignmentProvider).overall}%\n'
                 '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
                 'Trajectory:\n'
                 '- pressure: ${aggregation.trajectory.pressureIndex}\n'
                 '- momentum: ${(aggregation.trajectory.momentum * 100).round()}%\n'
                 '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
-                'Use /tasks, /goals, /milestones, /values, /personal_alignment, /personal_alignment compare, /plan, /timeline, /trajectory for module-specific responses.';
+                'Use /tasks, /goals, /milestones, /plan, /timeline, and /trajectory for module-specific responses.';
 
       _safeSetState(() {
         _messages.add(_Msg(text: text, isUser: true));
-        _messages.add(_Msg(text: status, isUser: false, emotion: 'focused'));
+        _messages.add(_Msg(text: status, isUser: false, emotion: 'engaged'));
       });
       _scrollToBottom();
       return true;
     }
 
-    if (command == '/tasks' ||
-        command == '/goals' ||
-        command == '/milestones' ||
-        command == '/values' ||
-        command == '/personal_alignment' ||
-        command == '/plan' ||
-        command == '/timeline' ||
-        command == '/trajectory') {
-      final bool comparePersonalAlignment = normalized.startsWith(
-        '/personal_alignment compare',
-      );
-      final String response = _localSurfaceSummary(command, aggregation);
+    if (shortcut == '/tasks' ||
+        shortcut == '/goals' ||
+        shortcut == '/milestones' ||
+        shortcut == '/plan' ||
+        shortcut == '/timeline' ||
+        shortcut == '/trajectory') {
+      final String response = _localSurfaceSummary(shortcut, aggregation);
       _safeSetState(() {
         _messages.add(_Msg(text: text, isUser: true));
-        _messages.add(
-          _Msg(
-            text: comparePersonalAlignment
-                ? _localPersonalAlignmentCompareSummary(aggregation)
-                : response,
-            isUser: false,
-            emotion: 'focused',
-          ),
-        );
+        _messages.add(_Msg(text: response, isUser: false, emotion: 'engaged'));
       });
       _scrollToBottom();
       return true;
@@ -479,12 +464,15 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     return false;
   }
 
-  String _localSurfaceSummary(String command, SIStateAggregation? aggregation) {
+  String _localSurfaceSummary(
+    String shortcut,
+    SIStateAggregation? aggregation,
+  ) {
     if (aggregation == null) {
-      return 'SI is still loading module data. Retry the command in a second.';
+      return 'SI is still loading module data. Retry the shortcut in a second.';
     }
 
-    switch (command) {
+    switch (shortcut) {
       case '/tasks':
         final List<String> top = aggregation.tasks
             .take(3)
@@ -546,70 +534,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Top risk: ${risks.isEmpty ? 'None' : '${risks.first.milestone.title} - ${risks.first.reason}'}\n\n'
             'Top milestones:\n$topText\n\n'
             'Prompt: "what milestone is next, what is overdue, and am I on track?"';
-      case '/values':
-        final CoreValuesAlignment values = ref.read(
-          coreValuesAlignmentProvider,
-        );
-        final List<String> rows = CoreValueType.values
-            .map(
-              (CoreValueType value) =>
-                  '${coreValueTitle(value)}: ${values.scores[value]?.score ?? 0}%',
-            )
-            .toList(growable: false);
-        return 'CORE VALUES ALIGNMENT\n\n'
-            '${rows.join('\n')}\n\n'
-            'Strongest: ${coreValueTitle(values.strongest)}\n'
-            'Most Neglected: ${coreValueTitle(values.mostNeglected)}\n'
-            'Overall: ${values.overall}%\n\n'
-            'Recommended Action:\n'
-            '${values.recommendations.firstWhere((String line) => line.toLowerCase().contains('schedule one action'), orElse: () => 'Schedule one action this week aligned to your neglected value.')}\n\n'
-            'Prompt: "analyze my life by core values alignment"';
-      case '/personal_alignment':
-        final PersonalAlignmentAlignment personalAlignment = ref.read(
-          personalAlignmentAlignmentProvider,
-        );
-        final int purpose =
-            personalAlignment
-                .scores[PersonalAlignmentDimension.purpose]
-                ?.score ??
-            0;
-        final int identity =
-            personalAlignment
-                .scores[PersonalAlignmentDimension.identity]
-                ?.score ??
-            0;
-        final int values =
-            personalAlignment
-                .scores[PersonalAlignmentDimension.coreValues]
-                ?.score ??
-            0;
-        final int futureSelf =
-            personalAlignment
-                .scores[PersonalAlignmentDimension.futureSelf]
-                ?.score ??
-            0;
-        final String strongest = personalAlignmentDimensionTitle(
-          personalAlignment.strongest,
-        );
-        final String weakest = personalAlignmentDimensionTitle(
-          personalAlignment.weakest,
-        );
-        final String action = personalAlignment.recommendations.firstWhere(
-          (String line) =>
-              line.toLowerCase().contains('schedule one concrete action'),
-          orElse: () =>
-              'Schedule one concrete action this week to strengthen $weakest.',
-        );
-        return 'PERSONAL ALIGNMENT ANALYSIS\n\n'
-            'Purpose Alignment: $purpose%\n'
-            'Identity Alignment: $identity%\n'
-            'Values Alignment: $values%\n'
-            'Future Self Progress: $futureSelf%\n\n'
-            'Strongest Area:\n$strongest\n\n'
-            'Weakest Area:\n$weakest\n\n'
-            'Recommendation:\n$action\n\n'
-            'Tip: run /personal_alignment compare to compare current self vs future self.\n\n'
-            'Prompt: "analyze my life"';
       case '/timeline':
         final int healthScore = ref.read(timelineHealthScoreProvider);
         final int riskScore = ref.read(timelineRiskScoreProvider);
@@ -651,27 +575,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       case '/trajectory':
         return 'TRAJECTORY SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\nPrompt: "give me one action to improve momentum today."';
       default:
-        return 'Module command not recognized.';
+        return 'Module shortcut not recognized.';
     }
-  }
-
-  String _localPersonalAlignmentCompareSummary(
-    SIStateAggregation? aggregation,
-  ) {
-    if (aggregation == null) {
-      return 'SI is still loading module data. Retry the command in a second.';
-    }
-
-    final PersonalAlignmentFutureSelfComparison compare = ref.read(
-      personalAlignmentFutureSelfComparisonProvider,
-    );
-    return 'PERSONAL ALIGNMENT CURRENT VS FUTURE SELF\n\n'
-        'Current Self Alignment: ${compare.currentSelfAlignment}%\n'
-        'Future Self Readiness: ${compare.futureSelfReadiness}%\n'
-        'Gap: ${compare.gap}%\n'
-        'Stance: ${compare.stance}\n\n'
-        'Recommendation:\n${compare.recommendation}\n\n'
-        'Prompt: "compare current self to future self"';
   }
 
   Future<void> _dispatchQuery(String text) async {
@@ -716,7 +621,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           const _Msg(
             text:
-                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, personal alignment, or milestones.',
+                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, or milestones.',
             isUser: false,
             emotion: 'cautious',
           ),
@@ -1225,7 +1130,7 @@ class _SIAvatar extends StatelessWidget {
 
   Color get _color {
     switch (emotion) {
-      case 'focused':
+      case 'engaged':
         return Colors.blueAccent;
       case 'confident':
         return Colors.cyanAccent;
@@ -1274,7 +1179,7 @@ class _EmotionTag extends StatelessWidget {
 
   Color get _color {
     switch (emotion) {
-      case 'focused':
+      case 'engaged':
         return Colors.blueAccent;
       case 'confident':
         return Colors.cyanAccent;
@@ -1403,10 +1308,10 @@ class _InputBar extends ConsumerWidget {
     '/trajectory',
   ];
 
-  void _insertCommand(String command) {
+  void _insertShortcut(String shortcut) {
     controller
-      ..text = '$command '
-      ..selection = TextSelection.collapsed(offset: command.length + 1);
+      ..text = '$shortcut '
+      ..selection = TextSelection.collapsed(offset: shortcut.length + 1);
   }
 
   @override
@@ -1415,7 +1320,7 @@ class _InputBar extends ConsumerWidget {
     final bool listening = voice.isListening;
 
     // Recognized speech populates the query box for explicit review and
-    // send - it is never auto-sent or routed as a command.
+    // send - it is never auto-sent or routed as a shortcut.
     ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
       final bool stoppedListening =
           (previous?.isListening ?? false) && !next.isListening;
@@ -1449,7 +1354,7 @@ class _InputBar extends ConsumerWidget {
               children: [
                 if (!effectiveCompact) ...[
                   const Text(
-                    'Quick commands',
+                    'Quick shortcuts',
                     style: TextStyle(
                       color: Colors.white38,
                       fontSize: 10,
@@ -1463,11 +1368,11 @@ class _InputBar extends ConsumerWidget {
                     child: Row(
                       children: _commands
                           .map(
-                            (command) => Padding(
+                            (shortcut) => Padding(
                               padding: const EdgeInsets.only(right: 6),
                               child: GestureDetector(
                                 onTap: () {
-                                  _insertCommand(command);
+                                  _insertShortcut(shortcut);
                                   onSend();
                                 },
                                 behavior: HitTestBehavior.opaque,
@@ -1488,7 +1393,7 @@ class _InputBar extends ConsumerWidget {
                                     ),
                                   ),
                                   child: Text(
-                                    command,
+                                    shortcut,
                                     style: const TextStyle(
                                       color: AppColors.neonCyan,
                                       fontSize: 11,

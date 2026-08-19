@@ -3,14 +3,14 @@
   "timelineItems": [
     {
       "time": "08:30",
-      "title": "Choose today's focus block",
+      "title": "Choose today's execution block",
       "kind": "Starter",
       "colorHex": "0xFF00F0FF"
     },
     {
       "time": "10:00",
       "title": "Protect the next important step",
-      "kind": "Focus Block",
+      "kind": "Execution Block",
       "colorHex": "0xFFFF4D6D"
     },
     {

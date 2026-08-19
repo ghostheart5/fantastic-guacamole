@@ -49,7 +49,7 @@ class StrategicDecisionRequest {
 enum StrategicDecisionSignalKind {
   userIntent,
   energy,
-  focus,
+  attention,
   fatigue,
   friction,
   schedule,

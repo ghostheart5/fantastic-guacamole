@@ -46,7 +46,7 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
       return 'Account access disabled. Contact support.';
     case 'user-token-expired':
     case 'invalid-user-token':
-      return 'Session expired. Local work is safe and cloud sync is paused. Sign in again to resume.';
+      return 'Sign-in expired. Local work is safe and cloud sync is paused. Sign in again to resume.';
     case 'requires-recent-login':
       return 'Re-authenticate to continue securely.';
     case 'google-sign-in-cancelled':
@@ -55,7 +55,7 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
     case 'github-sign-in-cancelled':
       return 'GitHub sign-in canceled.';
     case 'no-current-user':
-      return 'Session ended. Local work remains on this device; sign in again to resume account features.';
+      return 'You were signed out. Local work remains on this device; sign in again to resume account features.';
     case 'auth-unavailable':
       return 'Sign-in services are temporarily unavailable. Your local work is safe; retry when connected.';
     case 'operation-failed':
@@ -99,7 +99,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   late final Future<void> _authReadyFuture;
   AuthServiceContract? _authService;
   String? _authInitError;
-  bool _mockSessionActive = false;
+  bool _mockSignInActive = false;
   bool _authReadyTimedOut = false;
 
   @override
@@ -123,7 +123,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     final AuthServiceContract fallbackAuthService =
         _authService ?? const _UnavailableAuthService();
 
-    if (_mockSessionActive) {
+    if (_mockSignInActive) {
       return widget.child;
     }
 
@@ -139,7 +139,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               enableMockLogin: true,
               mockLoginEmail: widget.mockLoginEmail,
               mockLoginPassword: widget.mockLoginPassword,
-              onMockSignIn: _activateMockSession,
+              onMockSignIn: _activateMockSignIn,
             );
           }
           return const Scaffold(
@@ -166,7 +166,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               enableMockLogin: true,
               mockLoginEmail: widget.mockLoginEmail,
               mockLoginPassword: widget.mockLoginPassword,
-              onMockSignIn: _activateMockSession,
+              onMockSignIn: _activateMockSignIn,
             );
           }
           return _AuthStatusMessage(
@@ -185,7 +185,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             enableMockLogin: allowMockAccess,
             mockLoginEmail: widget.mockLoginEmail,
             mockLoginPassword: widget.mockLoginPassword,
-            onMockSignIn: _activateMockSession,
+            onMockSignIn: _activateMockSignIn,
           );
         }
 
@@ -201,7 +201,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                   enableMockLogin: true,
                   mockLoginEmail: widget.mockLoginEmail,
                   mockLoginPassword: widget.mockLoginPassword,
-                  onMockSignIn: _activateMockSession,
+                  onMockSignIn: _activateMockSignIn,
                 );
               }
               return const Scaffold(
@@ -226,7 +226,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 enableMockLogin: allowMockAccess,
                 mockLoginEmail: widget.mockLoginEmail,
                 mockLoginPassword: widget.mockLoginPassword,
-                onMockSignIn: _activateMockSession,
+                onMockSignIn: _activateMockSignIn,
               );
             }
             if (user == null) {
@@ -237,7 +237,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 enableMockLogin: allowMockAccess,
                 mockLoginEmail: widget.mockLoginEmail,
                 mockLoginPassword: widget.mockLoginPassword,
-                onMockSignIn: _activateMockSession,
+                onMockSignIn: _activateMockSignIn,
               );
             }
             if (!user.emailVerified) {
@@ -339,12 +339,12 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     return issues.join('\n');
   }
 
-  void _activateMockSession() {
-    if (_mockSessionActive || !mounted) {
+  void _activateMockSignIn() {
+    if (_mockSignInActive || !mounted) {
       return;
     }
-    ref.read(mockAuthSessionProvider.notifier).set(true);
-    setState(() => _mockSessionActive = true);
+    ref.read(mockSignInProvider.notifier).set(true);
+    setState(() => _mockSignInActive = true);
   }
 }
 
@@ -860,7 +860,7 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
           (e.code == 'user-token-expired' ||
               e.code == 'invalid-user-token' ||
               e.code == 'requires-recent-login')
-          ? 'Session expired. Sign in again.'
+          ? 'Sign-in expired. Sign in again.'
           : 'Could not refresh account state.';
       ScaffoldMessenger.of(
         context,

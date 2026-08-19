@@ -54,7 +54,7 @@ class PaywallRepository implements IPaywallRepository {
           '7-day free trial for eligible new subscribers',
           '300 $creditLabel every month',
           responseLabel,
-          'Advanced memory and insights',
+          'Advanced memory and signals',
         ],
         isFeatured: true,
       ),

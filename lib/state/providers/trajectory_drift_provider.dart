@@ -44,7 +44,7 @@ final trajectoryDriftProvider = Provider<TrajectoryDriftState>((ref) {
   final String correction = level == TrajectoryDriftLevel.high
       ? 'Reduce pressure and complete one high-value action immediately.'
       : level == TrajectoryDriftLevel.medium
-      ? 'Prioritize focus and protect momentum.'
+      ? 'Prioritize attention and protect momentum.'
       : 'Continue the current course.';
 
   return TrajectoryDriftState(

@@ -41,16 +41,11 @@ Generated: 2026-06-27
 - features/home/services/placeholder_service.dart
 - features/auth/logic/placeholder_logic.dart
 - features/nexus/services/placeholder_service.dart
-- features/focus/services/placeholder_service.dart
 - features/nexus/models/placeholder_model.dart
-- features/focus/models/placeholder_model.dart
-- features/insights/logic/placeholder_logic.dart
-- features/insights/models/placeholder_model.dart
-- features/insights/services/placeholder_service.dart
-- features/focus/logic/placeholder_logic.dart
-- lib/features/focus/state/focus_state_placeholder.dart
+- features/signals/logic/placeholder_logic.dart
+- features/signals/models/placeholder_model.dart
+- features/signals/services/placeholder_service.dart
 - lib/features/logs/state/logs_state_placeholder.dart
-- lib/features/focus/services/focus_services_placeholder.dart
 - lib/features/logs/services/logs_services_placeholder.dart
 - features/reflect/services/placeholder_service.dart
 - features/profile/services/placeholder_service.dart
@@ -65,7 +60,7 @@ Generated: 2026-06-27
 - features/progression/models/placeholder_model.dart
 - features/si_console/models/placeholder_model.dart
 - lib/features/profile/state/profile_state_placeholder.dart
-- lib/features/insights/ui/insights_ui_placeholder.dart
+- lib/features/signals/ui/signals_ui_placeholder.dart
 - features/plan/services/placeholder_service.dart
 - features/plan/logic/placeholder_logic.dart
 - features/settings/logic/placeholder_logic.dart
@@ -73,12 +68,12 @@ Generated: 2026-06-27
 - features/settings/models/placeholder_model.dart
 - features/si_console/services/placeholder_service.dart
 - features/plan/models/placeholder_model.dart
-- lib/features/insights/state/insights_state_placeholder.dart
-- lib/features/insights/services/insights_services_placeholder.dart
+- lib/features/signals/state/signals_state_placeholder.dart
+- lib/features/signals/services/signals_services_placeholder.dart
 - features/notifications/models/placeholder_model.dart
 - features/notifications/services/placeholder_service.dart
-- lib/features/insights/models/insights_models_placeholder.dart
-- lib/features/insights/logic/insights_logic_placeholder.dart
+- lib/features/signals/models/signals_models_placeholder.dart
+- lib/features/signals/logic/signals_logic_placeholder.dart
 - features/notifications/logic/placeholder_logic.dart
 - docs/EMPTY_PLACEHOLDER_FOLDER_AUDIT.md
 - docs/audit_empty_placeholder_report.md
@@ -92,7 +87,4 @@ Generated: 2026-06-27
 - macos/Flutter/ephemeral/Packages/.packages
 
 ## Notes
-- Placeholder classes were specifically confirmed in focus state/services:
-	- lib/features/focus/state/focus_state_placeholder.dart
-	- lib/features/focus/services/focus_services_placeholder.dart
-- If you want, next step can be a grouped replacement plan by feature (focus, insights, logs, tasks, etc.) without changing runtime logic.
+- Retired feature placeholders have been removed from the active structure.

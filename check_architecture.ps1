@@ -115,7 +115,7 @@ foreach ($file in $featureServiceFiles) {
 # Rule 6: each domain repository interface must have a concrete data repository
 # implementation or an explicit non-data owner.
 $explicitOwners = @{
-  'IInsightRepository' = 'lib/state/services/insights_service.dart'
+  'ISignalRepository' = 'lib/state/services/signals_service.dart'
   'ILearningRepository' = 'lib/state/services/intelligence_service.dart'
   'IProgressionRepository' = 'lib/state/services/progression_service.dart'
   'IThemeRepository' = 'lib/state/services/theme_service.dart'

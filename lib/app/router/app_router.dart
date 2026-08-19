@@ -133,7 +133,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       );
     },
     routes: <RouteBase>[
-      // Primary surfaces: Now, Plan, Add, Reflect, Settings.
+      // Primary surfaces: Nexus, Timeline, Creator, and Settings.
       GoRoute(
         path: RoutePaths.onboarding,
         builder: (BuildContext context, GoRouterState state) =>
@@ -144,11 +144,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (BuildContext context, GoRouterState state) =>
             const NavigationShell(),
       ),
-      GoRoute(
-        path: RoutePaths.plan,
-        builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.plan),
-      ),
+      GoRoute(path: RoutePaths.plan, redirect: (_, _) => RoutePaths.timeline),
       GoRoute(
         path: RoutePaths.creator,
         builder: (BuildContext context, GoRouterState state) =>
@@ -197,6 +193,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const NavigationShell(initialView: AppView.timeline),
       ),
       GoRoute(
+        path: RoutePaths.smartPlanner,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.smartPlanner),
+      ),
+      GoRoute(
         path: RoutePaths.trajectoryEngine,
         builder: (BuildContext context, GoRouterState state) =>
             const NavigationShell(initialView: AppView.trajectoryEngine),
@@ -209,14 +210,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Legacy top-level routes redirect into the secondary hierarchy.
       // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
-      GoRoute(
-        path: RoutePaths.legacyPlanningRoute,
-        redirect: (_, _) => RoutePaths.nexus,
-      ),
-      GoRoute(
-        path: RoutePaths.legacyInsights,
-        redirect: (_, _) => RoutePaths.plan,
-      ),
       GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
       GoRoute(
         path: RoutePaths.legacyNotifications,

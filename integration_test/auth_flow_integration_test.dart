@@ -111,10 +111,10 @@ void main() {
     () async {
       const AgentOrchestrator orchestrator = AgentOrchestrator();
       final AgentResult result = await orchestrator.execute(
-        prompt: 'I keep losing focus after lunch. What should I do next?',
+        prompt: 'I keep losing attention after lunch. What should I do next?',
         preferredAgent: AgentKind.chat,
         request: const AgentRequest(
-          prompt: 'I keep losing focus after lunch. What should I do next?',
+          prompt: 'I keep losing attention after lunch. What should I do next?',
           context: <String, dynamic>{
             'surface': 'smart_planner',
             'energy': 0.45,
@@ -157,7 +157,7 @@ void main() {
         .createTask(
           const CreatorFormData(
             title: 'Ship tester journey',
-            description: 'Verify the connected task and focus pipeline.',
+            description: 'Verify the connected task and execution pipeline.',
             type: 'Task',
             priority: 5,
           ),
@@ -223,7 +223,7 @@ void main() {
     await tester.tap(forgeControl);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
-    expect(container.read(appFlowProvider), AppView.plan);
+    expect(container.read(appFlowProvider), AppView.timeline);
     final tasks = await container.read(tasksProvider.future);
     expect(tasks.where((task) => task.title == 'UI journey task'), isNotEmpty);
 
@@ -257,9 +257,6 @@ class _SilentAudioFeedbackController extends AudioFeedbackController {
 
   @override
   void playDecision() {}
-
-  @override
-  void playFocusStart() {}
 
   @override
   void playTaskComplete() {}
@@ -327,7 +324,7 @@ class _IntegrationAIResponseController extends AIResponseController {
       task: null,
       message: 'Task complete. Continue with the next ranked action.',
       reasoning: 'Integration response',
-      emotion: 'focused',
+      emotion: 'engaged',
       confidence: 0.9,
     );
     state = const AsyncData<AIRecommendation?>(recommendation);

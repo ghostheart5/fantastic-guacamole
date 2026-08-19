@@ -5,14 +5,14 @@ import 'dart:math' as math;
 /// The single source of truth for the XP -> level curve.
 class LevelProfile {
   const LevelProfile({
-    required this.minSessionMinutes,
-    required this.maxSessionMinutes,
+    required this.minEffortMinutes,
+    required this.maxEffortMinutes,
     required this.maxDifficulty,
     required this.tone,
   });
 
-  final int minSessionMinutes;
-  final int maxSessionMinutes;
+  final int minEffortMinutes;
+  final int maxEffortMinutes;
   final int maxDifficulty;
   final String tone; // 'supportive' | 'structured' | 'minimal'
 }
@@ -57,23 +57,23 @@ class ProgressionPolicy {
   static LevelProfile levelProfile(int level) {
     if (level >= 8) {
       return const LevelProfile(
-        minSessionMinutes: 30,
-        maxSessionMinutes: 60,
+        minEffortMinutes: 30,
+        maxEffortMinutes: 60,
         maxDifficulty: 5,
         tone: 'minimal',
       );
     }
     if (level >= 4) {
       return const LevelProfile(
-        minSessionMinutes: 15,
-        maxSessionMinutes: 30,
+        minEffortMinutes: 15,
+        maxEffortMinutes: 30,
         maxDifficulty: 4,
         tone: 'structured',
       );
     }
     return const LevelProfile(
-      minSessionMinutes: 5,
-      maxSessionMinutes: 10,
+      minEffortMinutes: 5,
+      maxEffortMinutes: 10,
       maxDifficulty: 2,
       tone: 'supportive',
     );

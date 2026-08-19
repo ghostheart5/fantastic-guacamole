@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 class NotificationSettings {
   const NotificationSettings({
     this.enabled = true,
-    this.focusReminders = true,
+    this.executionReminders = true,
     this.taskReminders = true,
     this.streakAlerts = true,
     this.dailySummary = false,
@@ -13,7 +13,7 @@ class NotificationSettings {
   });
 
   final bool enabled;
-  final bool focusReminders;
+  final bool executionReminders;
   final bool taskReminders;
   final bool streakAlerts;
   final bool dailySummary;
@@ -30,7 +30,7 @@ class NotificationSettings {
 
   NotificationSettings copyWith({
     bool? enabled,
-    bool? focusReminders,
+    bool? executionReminders,
     bool? taskReminders,
     bool? streakAlerts,
     bool? dailySummary,
@@ -39,7 +39,7 @@ class NotificationSettings {
   }) {
     return NotificationSettings(
       enabled: enabled ?? this.enabled,
-      focusReminders: focusReminders ?? this.focusReminders,
+      executionReminders: executionReminders ?? this.executionReminders,
       taskReminders: taskReminders ?? this.taskReminders,
       streakAlerts: streakAlerts ?? this.streakAlerts,
       dailySummary: dailySummary ?? this.dailySummary,
@@ -50,7 +50,7 @@ class NotificationSettings {
 
   Map<String, dynamic> toJson() => {
     'enabled': enabled,
-    'focusReminders': focusReminders,
+    'executionReminders': executionReminders,
     'taskReminders': taskReminders,
     'streakAlerts': streakAlerts,
     'dailySummary': dailySummary,
@@ -61,7 +61,12 @@ class NotificationSettings {
   factory NotificationSettings.fromJson(Map<String, dynamic> json) =>
       NotificationSettings(
         enabled: json['enabled'] as bool? ?? true,
-        focusReminders: json['focusReminders'] as bool? ?? true,
+        executionReminders:
+            json['executionReminders'] as bool? ??
+            json['fo'
+                    'cusReminders']
+                as bool? ??
+            true,
         taskReminders: json['taskReminders'] as bool? ?? true,
         streakAlerts: json['streakAlerts'] as bool? ?? true,
         dailySummary: json['dailySummary'] as bool? ?? false,

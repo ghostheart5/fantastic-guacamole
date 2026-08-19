@@ -132,7 +132,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       benefits: <String>[
         '300 smart guidance credits every month',
         'Priority smart suggestions',
-        'Advanced memory and insights',
+        'Advanced memory and signals',
       ],
       isFeatured: true,
     ),

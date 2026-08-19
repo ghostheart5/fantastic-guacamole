@@ -39,7 +39,7 @@ class SISyntheticInstinctSystem {
     final double load = siClamp01(context.userState.cognitiveLoad);
     final double intentConfidence = siClamp01(intent.confidence);
     final double attentionScore = siClamp01(
-      attention?.focusScore ?? intentConfidence,
+      attention?.attentionScore ?? intentConfidence,
     );
 
     final bool safety = instinct.safetyFirst || stress >= 0.72 || load >= 0.78;
@@ -101,7 +101,9 @@ class SISyntheticInstinctSystem {
     if (safety) return 'Synthetic instinct recommends safety-first pacing.';
     if (clarify) return 'Synthetic instinct recommends clarification.';
     if (reduce) return 'Synthetic instinct recommends reduced output load.';
-    if (progress) return 'Synthetic instinct supports action-focused progress.';
+    if (progress) {
+      return 'Synthetic instinct supports action-oriented progress.';
+    }
     return 'Synthetic instinct recommends steady neutral guidance.';
   }
 }

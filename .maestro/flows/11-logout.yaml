@@ -12,10 +12,10 @@ tags:
     timeout: 5000
 - scrollUntilVisible:
     element:
-      text: "Settings"
+      text: "Open settings"
     direction: DOWN
     timeout: 15000
-- tapOn: "Settings"
+- tapOn: "Open settings"
 
 - scrollUntilVisible:
     element:

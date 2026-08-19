@@ -37,7 +37,7 @@ When you report a generated response, the safety report includes only that respo
 Information is used to:
 
 - Provide Creator, Smart Planner, Timeline, Trajectory Engine, Progression, Nexus, notification, and SI Console features.
-- Preserve continuity between app sessions.
+- Preserve continuity between app visits.
 - Generate and improve recommendations and conversational responses.
 - Authenticate accounts and restore enabled purchases.
 - Diagnose crashes, measure reliability, and understand aggregate feature usage.
@@ -48,7 +48,7 @@ ChronoSpark does not sell personal information. Information is disclosed to conf
 
 6. Closed-test builds
 
-Closed-test builds may provide Tester Access, bypass premium restrictions, use local AI fallback responses, or disable unfinished cloud-sync functionality. Tester Access creates a local test session and should not be treated as a production account.
+Closed-test builds may provide Tester Access, bypass premium restrictions, use local AI fallback responses, or disable unfinished cloud-sync functionality. Tester Access creates a local test sign-in state and should not be treated as a production account.
 
 7. Retention and deletion
 

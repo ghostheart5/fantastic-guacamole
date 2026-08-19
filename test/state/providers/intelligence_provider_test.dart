@@ -55,7 +55,7 @@ void main() {
     await populatedContainer.read(tasksProvider.future);
     expect(
       populatedContainer.read(nextActionTextProvider),
-      'Focus on: Move launch checklist',
+      'Work on: Move launch checklist',
     );
   });
 
@@ -65,7 +65,7 @@ void main() {
       final ProviderContainer container = ProviderContainer();
       addTearDown(container.dispose);
 
-      container.read(mockAuthSessionProvider.notifier).set(true);
+      container.read(mockSignInProvider.notifier).set(true);
 
       expect(container.read(authenticatedGuardProvider), isTrue);
 
@@ -106,7 +106,7 @@ void main() {
                 testerFullAccess: true,
               ),
               auth: AuthStateSnapshot(
-                hasMockSession: false,
+                hasMockSignIn: false,
                 hasAuthenticatedUser: true,
               ),
               mockLogin: MockLoginConfigState(email: '', password: ''),

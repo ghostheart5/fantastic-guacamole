@@ -111,6 +111,11 @@ class SharedPrefsService {
     await prefs.clear();
   }
 
+  static Future<bool> contains(String key) async {
+    await init();
+    return _prefs?.containsKey(key) ?? false;
+  }
+
   static bool _looksSensitiveKey(String key) {
     final String lowered = key.toLowerCase();
     for (final String marker in _sensitiveKeyMarkers) {

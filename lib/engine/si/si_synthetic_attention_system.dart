@@ -34,21 +34,21 @@ class AttentionSignal {
 class AttentionProfile {
   const AttentionProfile({
     required this.signals,
-    required this.primaryFocus,
-    required this.focusScore,
+    required this.primaryTarget,
+    required this.attentionScore,
     required this.memory,
   });
 
   final List<AttentionSignal> signals;
-  final String primaryFocus;
-  final double focusScore;
+  final String primaryTarget;
+  final double attentionScore;
   final SIMemoryStore memory;
 }
 
 class SISyntheticAttentionSystem {
   const SISyntheticAttentionSystem();
 
-  AttentionProfile focus({
+  AttentionProfile attention({
     required SIContext context,
     required SIIntent intent,
     required InstinctGuidance instinct,
@@ -115,9 +115,9 @@ class SISyntheticAttentionSystem {
         ),
         AttentionSignal(
           source: AttentionSource.learning,
-          key: 'focus_readiness',
-          weight: learning.focusReadiness,
-          reason: 'Focus readiness.',
+          key: 'attention_readiness',
+          weight: learning.attentionReadiness,
+          reason: 'Attention readiness.',
         ),
       ]);
     }
@@ -179,8 +179,8 @@ class SISyntheticAttentionSystem {
 
     return AttentionProfile(
       signals: List<AttentionSignal>.unmodifiable(sorted),
-      primaryFocus: '${primary.source.name}:${primary.key}',
-      focusScore: primary.weight,
+      primaryTarget: '${primary.source.name}:${primary.key}',
+      attentionScore: primary.weight,
       memory: nextMemory,
     );
   }

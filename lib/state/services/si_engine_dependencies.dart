@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_signal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
@@ -13,7 +13,7 @@ class SiEngineDependencies {
   const SiEngineDependencies({
     required this.tasks,
     required this.goals,
-    required this.insights,
+    required this.signals,
     required this.logs,
     required this.timeline,
     required this.progression,
@@ -25,7 +25,7 @@ class SiEngineDependencies {
 
   final ITaskRepository tasks;
   final IGoalRepository goals;
-  final IInsightRepository insights;
+  final ISignalRepository signals;
   final ILogRepository logs;
   final ITimelineRepository timeline;
   final IProgressionRepository progression;

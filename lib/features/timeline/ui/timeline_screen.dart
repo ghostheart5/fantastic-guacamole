@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -14,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum _TimelineWindow { today, week, month, year, all }
 
-enum _TimelineFocus {
+enum _TimelineFilter {
   all,
   overdue,
   upcoming,
@@ -32,11 +34,31 @@ class TimelineScreen extends ConsumerStatefulWidget {
 
 class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   _TimelineWindow _window = _TimelineWindow.week;
-  _TimelineFocus _focus = _TimelineFocus.all;
+  _TimelineFilter _filter = _TimelineFilter.all;
   String _query = '';
   List<TimelineEventEntity>? _cachedCombined;
   int? _cachedCombinedKey;
   DateTime? _cachedCombinedDay;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_recordTimelineReview());
+      }
+    });
+  }
+
+  Future<void> _recordTimelineReview() async {
+    try {
+      await ref
+          .read(adaptiveGuidanceProvider.notifier)
+          .record(GuidanceMilestone.firstTimelineReview);
+    } catch (_) {
+      // Timeline remains usable if local guide persistence is unavailable.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,15 +109,15 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           if (!inWindow) {
             return false;
           }
-          final bool inFocus = switch (_focus) {
-            _TimelineFocus.all => true,
-            _TimelineFocus.overdue => event.isOverdue,
-            _TimelineFocus.upcoming => event.isUpcoming,
-            _TimelineFocus.milestones => event.isMilestone,
-            _TimelineFocus.risks => event.isRisk,
-            _TimelineFocus.recommendations => event.isRecommendation,
+          final bool matchesFilter = switch (_filter) {
+            _TimelineFilter.all => true,
+            _TimelineFilter.overdue => event.isOverdue,
+            _TimelineFilter.upcoming => event.isUpcoming,
+            _TimelineFilter.milestones => event.isMilestone,
+            _TimelineFilter.risks => event.isRisk,
+            _TimelineFilter.recommendations => event.isRecommendation,
           };
-          if (!inFocus) {
+          if (!matchesFilter) {
             return false;
           }
           final String q = _query.trim().toLowerCase();
@@ -214,18 +236,15 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: TutorialTarget(
-                    id: 'timeline.intelligence_strip',
-                    child: _TimelineIntelligenceStrip(
-                      healthScore: healthScore,
-                      riskScore: riskScore,
-                      overdueCount: overdueCount,
-                      upcomingCount: upcomingCount,
-                      milestoneCount: milestoneCount,
-                      riskCount: riskCount,
-                      recommendationCount: recommendationCount,
-                      nextDeadline: nextDeadline,
-                    ),
+                  child: _TimelineIntelligenceStrip(
+                    healthScore: healthScore,
+                    riskScore: riskScore,
+                    overdueCount: overdueCount,
+                    upcomingCount: upcomingCount,
+                    milestoneCount: milestoneCount,
+                    riskCount: riskCount,
+                    recommendationCount: recommendationCount,
+                    nextDeadline: nextDeadline,
                   ),
                 ),
               ),
@@ -274,10 +293,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _FocusChips(
-                    selected: _focus,
-                    onSelect: (_TimelineFocus value) =>
-                        setState(() => _focus = value),
+                  child: _FilterChips(
+                    selected: _filter,
+                    onSelect: (_TimelineFilter value) =>
+                        setState(() => _filter = value),
                   ),
                 ),
               ),
@@ -401,7 +420,7 @@ class _TimelineEventTile extends StatelessWidget {
       case TimelineEventType.deadline:
         return Icons.schedule_rounded;
       case TimelineEventType.forecast:
-        return Icons.insights_rounded;
+        return Icons.query_stats_rounded;
       case TimelineEventType.snapshot:
         return Icons.camera_alt_outlined;
       case TimelineEventType.risk:
@@ -639,23 +658,23 @@ class _WindowChips extends StatelessWidget {
   }
 }
 
-class _FocusChips extends StatelessWidget {
-  const _FocusChips({required this.selected, required this.onSelect});
+class _FilterChips extends StatelessWidget {
+  const _FilterChips({required this.selected, required this.onSelect});
 
-  final _TimelineFocus selected;
-  final ValueChanged<_TimelineFocus> onSelect;
+  final _TimelineFilter selected;
+  final ValueChanged<_TimelineFilter> onSelect;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: _TimelineFocus.values
+        children: _TimelineFilter.values
             .map(
-              (_TimelineFocus value) => Padding(
+              (_TimelineFilter value) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: _Chip(
-                  label: _focusLabel(value),
+                  label: _filterLabel(value),
                   selected: selected == value,
                   onTap: () => onSelect(value),
                 ),
@@ -749,14 +768,14 @@ String _windowLabel(_TimelineWindow value) {
   };
 }
 
-String _focusLabel(_TimelineFocus value) {
+String _filterLabel(_TimelineFilter value) {
   return switch (value) {
-    _TimelineFocus.all => 'All',
-    _TimelineFocus.overdue => 'Overdue',
-    _TimelineFocus.upcoming => 'Upcoming',
-    _TimelineFocus.milestones => 'Milestones',
-    _TimelineFocus.risks => 'Risks',
-    _TimelineFocus.recommendations => 'Recommendations',
+    _TimelineFilter.all => 'All',
+    _TimelineFilter.overdue => 'Overdue',
+    _TimelineFilter.upcoming => 'Upcoming',
+    _TimelineFilter.milestones => 'Milestones',
+    _TimelineFilter.risks => 'Risks',
+    _TimelineFilter.recommendations => 'Recommendations',
   };
 }
 

@@ -17,7 +17,11 @@ void main() {
       taskRepository = _FakeTaskRepository();
       learningRepository = _FakeLearningRepository();
       siRepository = _FakeSiRepository();
-      siRepository.state = SiStateEntity(energy: 0.6, focus: 0.6, fatigue: 0.4);
+      siRepository.state = SiStateEntity(
+        energy: 0.6,
+        attention: 0.6,
+        fatigue: 0.4,
+      );
     });
 
     test(

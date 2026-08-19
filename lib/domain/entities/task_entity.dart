@@ -16,7 +16,10 @@ class TaskEntity {
     this.energyRequired = 3,
     this.estimatedDuration,
     this.completedAt,
+    this.isSkipped = false,
+    this.skippedAt,
     this.scheduledFor,
+    this.occurrenceKey,
     this.dueDate,
     this.goalId,
     this.isCanceled = false,
@@ -35,12 +38,20 @@ class TaskEntity {
   final int energyRequired;
   final Duration? estimatedDuration;
   final DateTime? completedAt;
+  final bool isSkipped;
+  final DateTime? skippedAt;
   final DateTime? scheduledFor;
+  final String? occurrenceKey;
   final DateTime? dueDate;
   final String? goalId;
   final bool isCanceled;
   final List<String> subtasks;
   final RecurrenceRule recurrenceRule;
+
+  static String deriveOccurrenceKey({
+    required String taskId,
+    required DateTime createdAt,
+  }) => 'v1:$taskId:${createdAt.toUtc().toIso8601String()}';
 
   TaskEntity copyWith({
     String? id,
@@ -54,7 +65,12 @@ class TaskEntity {
     int? energyRequired,
     Duration? estimatedDuration,
     DateTime? completedAt,
+    bool? isSkipped,
+    DateTime? skippedAt,
+    bool clearCompletedAt = false,
+    bool clearSkippedAt = false,
     DateTime? scheduledFor,
+    String? occurrenceKey,
     DateTime? dueDate,
     String? goalId,
     bool? isCanceled,
@@ -72,8 +88,11 @@ class TaskEntity {
       difficulty: difficulty ?? this.difficulty,
       energyRequired: energyRequired ?? this.energyRequired,
       estimatedDuration: estimatedDuration ?? this.estimatedDuration,
-      completedAt: completedAt ?? this.completedAt,
+      completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
+      isSkipped: isSkipped ?? this.isSkipped,
+      skippedAt: clearSkippedAt ? null : skippedAt ?? this.skippedAt,
       scheduledFor: scheduledFor ?? this.scheduledFor,
+      occurrenceKey: occurrenceKey ?? this.occurrenceKey,
       dueDate: dueDate ?? this.dueDate,
       goalId: goalId ?? this.goalId,
       isCanceled: isCanceled ?? this.isCanceled,
@@ -94,7 +113,7 @@ class TaskEntity {
 
   bool get isOverdue {
     if (dueDate == null) return false;
-    return !isCompleted && DateTime.now().isAfter(dueDate!);
+    return !isCompleted && !isSkipped && DateTime.now().isAfter(dueDate!);
   }
 
   bool get hasSubtasks => subtasks.isNotEmpty;
@@ -126,6 +145,9 @@ class TaskEntity {
   void validate() {
     if (isCompleted && completedAt == null) {
       throw StateError('Completed tasks must have a completedAt timestamp');
+    }
+    if (isSkipped && skippedAt == null) {
+      throw StateError('Skipped tasks must have a skippedAt timestamp');
     }
   }
 }

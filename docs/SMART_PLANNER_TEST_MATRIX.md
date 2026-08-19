@@ -9,7 +9,7 @@ Purpose: regression guardrail for Smart Planner intent routing, response shape, 
 2. Confirm detected topic/intent aligns with expected routing.
 3. Confirm response includes the required structure:
    - Goal Detected
-   - Insight
+   - Signal
    - Actions
    - Next Step
    - Planner Question
@@ -25,11 +25,11 @@ Purpose: regression guardrail for Smart Planner intent routing, response shape, 
 | Stress | Work pressure is crushing me and I feel overwhelmed. | Stress | stress_support |
 | Sleep | I keep waking up at 3am and my sleep is bad. | Sleep | sleep |
 | Motivation | I cannot start my task and have zero motivation. | Motivation | mindset or productivity |
-| Focus | I keep getting distracted and cannot focus for 20 minutes. | Focus | focus |
+| Attention | I keep getting distracted and cannot stay with one task for 20 minutes. | Attention | attention |
 | Procrastination | I am procrastinating on this one important project. | Procrastination | procrastination |
 | Confidence | I do not feel confident presenting to my team. | Confidence | mindset |
 | Discipline | I keep breaking my routine and my discipline is weak. | Discipline | mindset |
-| Habits | Help me build a habit to journal every morning. | Habits | habit_building |
+| Habits | Help me build a habit to reflect every morning. | Habits | habit_building |
 | Nutrition | My diet is chaotic, I skip protein, and overeat later. | Nutrition | nutrition |
 | Exercise | Build me a workout plan I can do today. | Exercise | exercise |
 | Burnout | I am burned out and cannot keep pushing like this. | Burnout | stress_support |
@@ -53,7 +53,7 @@ Purpose: regression guardrail for Smart Planner intent routing, response shape, 
 | --- | --- | --- |
 | Follow-up after weight loss advice | Current weight is 220 and target is 195. | Follow-up acknowledges numbers and gives a concrete immediate move. |
 | Follow-up after stress advice | Main stressor is deadline pressure from work. | Follow-up reflects stress source and narrows to one next step. |
-| Follow-up after focus advice | I can only focus for 10 minutes before switching. | Follow-up gives a focus sprint strategy and one commitment question. |
+| Follow-up after attention advice | I can only stay with one task for 10 minutes before switching. | Follow-up gives a short execution-block strategy and one commitment question. |
 | Follow-up after purpose advice | I do not know what goal to prioritize. | Follow-up provides values-aligned triage and one purpose-defining question. |
 
 ## Fallback Cases

@@ -86,9 +86,9 @@ class SIContextualGravity {
           reason: 'Adaptive resistance.',
         ),
         GravitySignal(
-          key: 'learning:focus',
-          weight: learning.focusReadiness,
-          reason: 'Focus readiness.',
+          key: 'learning:attention',
+          weight: learning.attentionReadiness,
+          reason: 'Attention readiness.',
         ),
       ]);
     }
@@ -165,7 +165,7 @@ class SIContextualGravity {
       return 'Reduce scope and reframe the next action.';
     }
     if (context.userState.motivation >= 0.7) {
-      return 'Use momentum for one focused action.';
+      return 'Use momentum for one targeted action.';
     }
     return 'Keep guidance grounded in the strongest current signal.';
   }

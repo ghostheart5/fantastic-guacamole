@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 enum SupabaseHealthBadge {
   healthy,
   connectivityIssue,
-  sessionMissing,
+  signInMissing,
   policyRestricted,
 }
 
@@ -41,8 +41,8 @@ class SupabaseBackendHealth {
         return 'Healthy';
       case SupabaseHealthBadge.connectivityIssue:
         return 'Connectivity Issue';
-      case SupabaseHealthBadge.sessionMissing:
-        return 'Session Missing';
+      case SupabaseHealthBadge.signInMissing:
+        return 'Sign-in Missing';
       case SupabaseHealthBadge.policyRestricted:
         return 'Policy Restricted';
     }
@@ -127,14 +127,14 @@ final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
   final bool realtimeConfigured = client.realtime.accessToken != null;
   final bool policyRestricted =
       databasePermissionDenied || storagePermissionDenied;
-  final bool sessionMissing = !authenticated;
+  final bool signInMissing = !authenticated;
   final bool connectivityIssue = !databaseReachable || !storageReachable;
 
   final SupabaseHealthBadge badge;
   if (policyRestricted) {
     badge = SupabaseHealthBadge.policyRestricted;
-  } else if (sessionMissing) {
-    badge = SupabaseHealthBadge.sessionMissing;
+  } else if (signInMissing) {
+    badge = SupabaseHealthBadge.signInMissing;
   } else if (connectivityIssue) {
     badge = SupabaseHealthBadge.connectivityIssue;
   } else {

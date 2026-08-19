@@ -18,14 +18,14 @@ class TrajectoryEngineModel {
     required this.statusDetail,
     required this.isOnline,
     this.comparison,
-    this.operatingBriefing,
+    this.decisionIntelligence,
   });
 
   final TrajectoryEngineStatus status;
   final TrajectorySummaryView summary;
   final MomentumEngineState momentum;
   final TrajectoryComparison? comparison;
-  final OperatingBriefing? operatingBriefing;
+  final DecisionIntelligence? decisionIntelligence;
   final String statusDetail;
   final bool isOnline;
 
@@ -41,16 +41,16 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
   final AsyncValue<TrajectoryComparison> comparisonAsync = ref.watch(
     trajectoryConsequenceProvider,
   );
-  final AsyncValue<OperatingBriefing> briefingAsync = ref.watch(
-    operatingBriefingProvider,
+  final AsyncValue<DecisionIntelligence> decisionAsync = ref.watch(
+    decisionIntelligenceProvider,
   );
   final bool isOnline = ref.watch(isOnlineProvider);
   final TrajectoryComparison? comparison = comparisonAsync.isLoading
       ? null
       : comparisonAsync.asData?.value;
-  final OperatingBriefing? briefing = briefingAsync.isLoading
+  final DecisionIntelligence? intelligence = decisionAsync.isLoading
       ? null
-      : briefingAsync.asData?.value;
+      : decisionAsync.asData?.value;
 
   final TrajectoryEngineStatus status;
   final String detail;
@@ -73,8 +73,8 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
     detail =
         'Add a task with an estimate and, when relevant, a goal or deadline before simulating consequences.';
   } else if (summary.sourceState == TrajectorySourceState.partial ||
-      briefingAsync.hasError ||
-      briefingAsync.isLoading) {
+      decisionAsync.hasError ||
+      decisionAsync.isLoading) {
     status = TrajectoryEngineStatus.partial;
     detail =
         'The scenario comparison is available, but one supporting intelligence source is incomplete.';
@@ -89,7 +89,7 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
     summary: summary,
     momentum: momentum,
     comparison: comparison,
-    operatingBriefing: briefing,
+    decisionIntelligence: intelligence,
     statusDetail: detail,
     isOnline: isOnline,
   );
@@ -108,7 +108,7 @@ class TrajectoryEngineActions {
     _ref
       ..invalidate(trajectorySummaryProvider)
       ..invalidate(trajectoryConsequenceProvider)
-      ..invalidate(operatingBriefingProvider)
+      ..invalidate(decisionIntelligenceProvider)
       ..invalidate(trajectoryEngineModelProvider);
   }
 }

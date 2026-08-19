@@ -61,7 +61,6 @@ UI Screen
 10. Smart Planner
 11. SI Console
 12. Memory Engine
-13. PersonalAlignment
 14. Offline Sync
 15. Analytics
 16. Error Handling
@@ -82,7 +81,6 @@ UI Screen
 - onboarding_flowmap.md
 - si_console_flowmap.md
 - smart_planner_flowmap.md
-- personal_alignment_flowmap.md
 - streaks_flowmap.md
 - subscription_flowmap.md
 - tasks_flowmap.md

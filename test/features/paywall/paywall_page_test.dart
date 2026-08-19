@@ -177,7 +177,7 @@ const IntelligenceState _baseIntelligence = IntelligenceState(
     paywallDisabled: false,
     testerFullAccess: false,
   ),
-  auth: AuthStateSnapshot(hasMockSession: true, hasAuthenticatedUser: true),
+  auth: AuthStateSnapshot(hasMockSignIn: true, hasAuthenticatedUser: true),
   mockLogin: MockLoginConfigState(email: '', password: ''),
 );
 

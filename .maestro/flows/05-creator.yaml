@@ -12,7 +12,7 @@ tags:
     when:
       visible: "Start here"
     commands:
-      - tapOn: "Create your first task"
+      - tapOn: "Turn an intention into a path"
 
 - runFlow:
     when:

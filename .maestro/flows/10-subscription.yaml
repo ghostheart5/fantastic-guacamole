@@ -8,12 +8,19 @@ tags:
     clearState: true
 - runFlow: ../subflows/sign-in.yaml
 
+- tapOn: "Profile"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Open settings"
+- waitForAnimationToEnd:
+    timeout: 5000
+
 - scrollUntilVisible:
     element:
-      text: "Premium"
+      text: "Subscription & Paywall"
     direction: DOWN
     timeout: 15000
-- tapOn: "Premium"
+- tapOn: "Subscription & Paywall"
 - waitForAnimationToEnd:
     timeout: 5000
 

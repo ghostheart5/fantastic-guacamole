@@ -10,39 +10,41 @@ import 'package:fantastic_guacamole/domain/usecases/award_xp.dart';
 ///
 /// Resolved by taskActionsProvider. Gated by TaskPolicy.canComplete; awards XP
 /// via AwardXp.
+typedef DurableCompleteMutation = Future<bool> Function(String taskId);
+
 class CompleteTask {
-  CompleteTask(this.repository, {this.siRepo, this.progressionRepo});
+  CompleteTask(
+    this.repository, {
+    this.siRepo,
+    this.progressionRepo,
+    this.durableMutation,
+  });
 
   final ITaskRepository repository;
   final ISiRepository? siRepo;
   final IProgressionRepository? progressionRepo;
+  final DurableCompleteMutation? durableMutation;
 
   Future<void> call(String id) async {
-    final task = await repository.getTaskById(id);
-    if (task == null) throw StateError('Task not found');
-    if (!TaskPolicy.canComplete(task)) {
-      throw StateError('Task already completed');
-    }
-
-    final now = DateTime.now();
-    await repository.saveTask(
-      task.copyWith(isCompleted: true, completedAt: now, updatedAt: now),
-    );
-
-    // If recurring, create the next occurrence
-    if (task.recurrenceRule != RecurrenceRule.none) {
-      final Duration offset = task.recurrenceRule == RecurrenceRule.daily
-          ? const Duration(days: 1)
-          : const Duration(days: 7);
-      final next = task.copyWith(
-        id: '${task.id}_${now.millisecondsSinceEpoch}',
-        isCompleted: false,
-        completedAt: null,
-        createdAt: now,
-        updatedAt: now,
-        scheduledFor: now.add(offset),
+    final DurableCompleteMutation? mutation = durableMutation;
+    if (mutation != null) {
+      final bool applied = await mutation(id);
+      if (!applied) return;
+    } else {
+      final task = await repository.getTaskById(id);
+      if (task == null) throw StateError('Task not found');
+      if (!TaskPolicy.canComplete(task)) {
+        throw StateError('Task already completed');
+      }
+      if (task.recurrenceRule != RecurrenceRule.none) {
+        throw StateError(
+          'Recurring completion requires the durable occurrence authority.',
+        );
+      }
+      final DateTime now = DateTime.now();
+      await repository.saveTask(
+        task.copyWith(isCompleted: true, completedAt: now, updatedAt: now),
       );
-      await repository.saveTask(next);
     }
 
     // Award flat XP through the single canonical path so level stays in sync.

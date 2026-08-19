@@ -8,49 +8,6 @@ class _ReflectionReminderSection extends ConsumerStatefulWidget {
       _ReflectionReminderSectionState();
 }
 
-class _DailyReflectionTutorialPanel extends ConsumerWidget {
-  const _DailyReflectionTutorialPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final progressAsync = ref.watch(tutorialProgressProvider);
-    final TutorialStepContent step = TutorialContent.steps.firstWhere(
-      (TutorialStepContent content) => content.id == 'daily_reflection',
-      orElse: () => TutorialContent.steps.first,
-    );
-
-    return progressAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (progress) {
-        if (progress.isStepCompleted(step.id)) {
-          return const SizedBox.shrink();
-        }
-
-        if (progress.isStepDismissed(step.id)) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(
-              stepId: step.id,
-              label: 'Show Reflection Tutorial Again',
-            ),
-          );
-        }
-
-        return MicroTutorialCard(
-          step: step,
-          onComplete: () {
-            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
-          },
-          onDismiss: () {
-            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
-          },
-        );
-      },
-    );
-  }
-}
-
 class _ReflectionReminderSectionState
     extends ConsumerState<_ReflectionReminderSection> {
   bool _enabled = false;
@@ -268,13 +225,10 @@ class _ReminderAutomationSectionState
             title: 'Goal Reminder Rule',
             subtitle: 'Schedules around target date (prefers 1 day before).',
           ),
-          TutorialTarget(
-            id: 'settings.habit_toggle',
-            child: _NeonToggleTile(
-              title: 'Habit Reminders',
-              value: _habitEnabled,
-              onChanged: _toggleHabit,
-            ),
+          _NeonToggleTile(
+            title: 'Habit Reminders',
+            value: _habitEnabled,
+            onChanged: _toggleHabit,
           ),
           const _NeonStatusTile(
             title: 'Habit Reminder Rule',
@@ -390,7 +344,7 @@ class _PersonalizationSection extends ConsumerWidget {
               'flexible',
               'timeBlocked',
               'energyMatched',
-              'singleFocus',
+              'singleTask',
             ],
             onChanged: (String value) => _save(
               context,
@@ -522,57 +476,92 @@ class _PreferenceDropdown<T> extends StatelessWidget {
   }
 }
 
-class _ChronoSparkAcademySection extends StatelessWidget {
-  const _ChronoSparkAcademySection();
+class _AdaptiveGuidanceSection extends ConsumerWidget {
+  const _AdaptiveGuidanceSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<AdaptiveGuidanceState> guidance = ref.watch(
+      adaptiveGuidanceProvider,
+    );
     return _Section(
-      label: 'CHRONOSPARK ACADEMY',
+      label: 'ADAPTIVE GUIDE',
       accentColor: AppColors.memoryAmber,
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 10, 16, 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Interactive lessons are always available here.',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+      child: guidance.when(
+        loading: () => const _NeonStatusTile(
+          title: 'Loading guide',
+          subtitle: 'Reading account-scoped progress...',
+        ),
+        error: (Object error, StackTrace _) => _NeonStatusTile(
+          title: 'Guide unavailable',
+          subtitle: error.toString(),
+        ),
+        data: (AdaptiveGuidanceState state) {
+          return Column(
+            children: <Widget>[
+              _NeonStatusTile(
+                title: state.coreComplete
+                    ? 'Contextual guidance active'
+                    : 'Learning the core workflow',
+                subtitle:
+                    '${state.milestones.length} real outcomes observed · '
+                    '${state.skippedLessons.length} prompts muted',
               ),
-            ),
-          ),
-          ...TutorialContent.academyTracks.map(
-            (AcademyTrack track) => _NeonStatusTile(
-              title: track.title,
-              subtitle: track.lessons
-                  .map((AcademyLesson lesson) => lesson.title)
-                  .join(' · '),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 2),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'FIRST WEEK GUIDED JOURNEY',
-                style: TextStyle(
-                  color: AppColors.memoryAmber,
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w700,
-                ),
+              _NeonNavTile(
+                title: 'Restart Adaptive Guide',
+                subtitle:
+                    'Keeps real outcomes and reopens the next relevant contextual intervention.',
+                onTap: () => unawaited(_restartGuide(context, ref)),
               ),
-            ),
-          ),
-          ...TutorialContent.firstWeekJourney.map(
-            (FirstWeekJourneyDay day) =>
-                _NeonStatusTile(title: day.day, subtitle: day.goal),
-          ),
-        ],
+              _NeonNavTile(
+                title: 'Replay Two-Slide Onboarding',
+                subtitle:
+                    'Reopens the welcome and personalization slides only.',
+                onTap: () => unawaited(_replayOnboarding(context, ref)),
+              ),
+            ],
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _restartGuide(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(adaptiveGuidanceProvider.notifier).restartLessons();
+      if (!context.mounted) {
+        return;
+      }
+      context.go(ref.read(routeSurfaceProvider).nexus);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Adaptive guide restarted.')),
+      );
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Adaptive guide could not restart.')),
+      );
+    }
+  }
+
+  Future<void> _replayOnboarding(BuildContext context, WidgetRef ref) async {
+    try {
+      final routes = ref.read(routeSurfaceProvider);
+      await ref.read(adaptiveGuidanceProvider.notifier).replayOnboarding();
+      if (!context.mounted) {
+        return;
+      }
+      context.go(routes.onboarding);
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Onboarding could not be replayed.')),
+      );
+    }
   }
 }
 
@@ -671,8 +660,10 @@ class _GlobalMetricsDebugSectionState
             data: (config) => Column(
               children: [
                 _NeonStatusTile(
-                  title: 'Focus Duration Multiplier',
-                  subtitle: config.focusDurationMultiplier.toStringAsFixed(2),
+                  title: 'Execution Duration Multiplier',
+                  subtitle: config.executionDurationMultiplier.toStringAsFixed(
+                    2,
+                  ),
                 ),
                 _NeonStatusTile(
                   title: 'Task Difficulty Scale',
@@ -838,168 +829,30 @@ class _CloudDataControlSection extends ConsumerWidget {
   }
 }
 
-class _TutorialLifecycleDebugSection extends ConsumerWidget {
-  const _TutorialLifecycleDebugSection();
-
-  static const List<String> _tutorialAssets = <String>[
-    'assets/tutorials/home.json',
-  ];
+class _AdaptiveGuidanceDebugSection extends ConsumerWidget {
+  const _AdaptiveGuidanceDebugSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progressAsync = ref.watch(tutorialProgressProvider);
-
-    return _Section(
-      label: 'TUTORIAL LIFECYCLE',
-      accentColor: AppColors.neonViolet,
-      child: Column(
-        children: [
-          progressAsync.when(
-            data: (progress) => _NeonStatusTile(
-              title: 'Status',
-              subtitle:
-                  'started=${progress.started} · introSeen=${progress.hasSeenIntro} · '
-                  'version=${progress.contentVersion} · completed=${progress.completedStepIds.length} · '
-                  'skipped=${progress.dismissedStepIds.length} · forever=${progress.skippedForeverStepIds.length}',
-            ),
-            loading: () => const _NeonStatusTile(
-              title: 'Status',
-              subtitle: 'Loading tutorial state...',
-            ),
-            error: (e, _) =>
-                _NeonStatusTile(title: 'Status Error', subtitle: e.toString()),
-          ),
-          _NeonNavTile(
-            title: 'Start Tutorial',
-            subtitle: 'Launches the in-app overlay tutorial flow from Home',
-            onTap: () => unawaited(_startTutorial(context, ref)),
-          ),
-          _NeonNavTile(
-            title: 'Update Content Version',
-            subtitle:
-                'Applies version migration/reset semantics for tutorial state',
-            onTap: () => unawaited(
-              ref
-                  .read(tutorialProgressProvider.notifier)
-                  .updateTutorialContentVersion(),
-            ),
-          ),
-          _NeonNavTile(
-            title: 'Show First Step Again',
-            subtitle:
-                'Reveals ${TutorialContent.steps.first.id} if hidden or skipped forever',
-            onTap: () => unawaited(_showFirstStepAgain(context, ref)),
-          ),
-          _NeonNavTile(
-            title: 'Reset Tutorial Progress',
-            subtitle:
-                'Clears completion, skip, and start state for tutorial lifecycle',
-            onTap: () => unawaited(_resetTutorialProgress(context, ref)),
-          ),
-          _NeonNavTile(
-            title: 'Replay Onboarding',
-            subtitle:
-                'Marks onboarding incomplete so onboarding flow can be replayed',
-            onTap: () => unawaited(_replayOnboarding(context, ref)),
-          ),
-        ],
-      ),
+    final AsyncValue<AdaptiveGuidanceState> guidance = ref.watch(
+      adaptiveGuidanceProvider,
     );
-  }
-
-  Future<void> _showFirstStepAgain(BuildContext context, WidgetRef ref) async {
-    try {
-      await ref
-          .read(tutorialResetServiceProvider)
-          .showAgain(TutorialContent.steps.first.id);
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'First tutorial step is visible again: ${TutorialContent.steps.first.id}.',
-          ),
+    return _Section(
+      label: 'ADAPTIVE GUIDE DIAGNOSTICS',
+      accentColor: AppColors.neonViolet,
+      child: guidance.when(
+        loading: () => const _NeonStatusTile(
+          title: 'State',
+          subtitle: 'Loading account-scoped milestones...',
         ),
-      );
-    } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not reveal first tutorial step.')),
-      );
-    }
-  }
-
-  Future<void> _resetTutorialProgress(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    try {
-      await ref.read(tutorialResetServiceProvider).resetAll();
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Tutorial progress reset.')));
-    } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Tutorial reset failed.')));
-    }
-  }
-
-  Future<void> _replayOnboarding(BuildContext context, WidgetRef ref) async {
-    try {
-      final routes = ref.read(routeSurfaceProvider);
-      await ref.read(tutorialResetServiceProvider).replayOnboarding();
-      if (!context.mounted) {
-        return;
-      }
-      context.go(routes.onboarding);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Onboarding replay started.')),
-      );
-    } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Replay onboarding failed.')),
-      );
-    }
-  }
-
-  Future<void> _startTutorial(BuildContext context, WidgetRef ref) async {
-    final progress = ref.read(tutorialProgressProvider).asData?.value;
-    final tutorialController = ref.read(tutorialControllerProvider);
-
-    // Ensure definitions are loaded in case this action runs before AppRoot did.
-    await tutorialController.loadAssets(_tutorialAssets);
-    await ref.read(tutorialProgressProvider.notifier).startTutorial();
-    ref.read(appFlowProvider.notifier).toNexus();
-
-    // Start after navigation settles so target widgets are mounted.
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-    await tutorialController.start('home_onboarding', restart: true);
-
-    if (!context.mounted) {
-      return;
-    }
-    final int completedCount = progress?.completedStepIds.length ?? 0;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          completedCount > 0
-              ? 'Tutorial restarted on Smart Planner.'
-              : 'Tutorial started on Smart Planner.',
+        error: (Object error, StackTrace _) =>
+            _NeonStatusTile(title: 'State Error', subtitle: error.toString()),
+        data: (AdaptiveGuidanceState state) => _NeonStatusTile(
+          title: 'Observed progress',
+          subtitle:
+              'coreComplete=${state.coreComplete} · outcomes=${state.milestones.length} · '
+              'skipped=${state.skippedLessons.length} · repeatedDeferral=${state.hasDeferralFriction}',
         ),
-        duration: const Duration(seconds: 2),
       ),
     );
   }

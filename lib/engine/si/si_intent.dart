@@ -5,7 +5,7 @@ class SIIntentLabels {
   static const String startExecution = 'start_execution';
   static const String getTask = 'get_task';
   static const String reflect = 'reflect';
-  static const String insightRequest = 'insight_request';
+  static const String signalRequest = 'signal_request';
   static const String productivityOptimization = 'productivity_optimization';
   static const String decisionSupport = 'decision_support';
 }
@@ -21,8 +21,8 @@ class SIIntentUtils {
         return 'present_task_recommendation';
       case SIIntentLabels.reflect:
         return 'open_reflection_flow';
-      case SIIntentLabels.insightRequest:
-        return 'show_insight_summary';
+      case SIIntentLabels.signalRequest:
+        return 'show_signal_summary';
       default:
         return 'respond_conversationally';
     }

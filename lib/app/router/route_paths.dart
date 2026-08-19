@@ -8,6 +8,7 @@ class RoutePaths {
   // Primary navigation surfaces.
   static const home = '/home';
   static const nexus = '/nexus';
+  // Compatibility-only path. It redirects to Timeline and is never generated.
   static const plan = '/plan';
   static const creator = '/creator';
   static const settings = '/settings';
@@ -24,7 +25,7 @@ class RoutePaths {
 
   // Canonical aliases used by the operating-system contracts. Keeping these
   // aliases here preserves one route registry while older screens migrate.
-  static const smartPlanner = plan;
+  static const smartPlanner = '/smart-planner';
   static const siConsole = si;
   static const timeline = '/timeline';
   static const trajectoryEngine = '/trajectory';
@@ -42,8 +43,6 @@ class RoutePaths {
   static const about = '/about';
 
   // Legacy aliases for compatibility redirects.
-  static const legacyPlanningRoute = '/coach';
-  static const legacyInsights = '/insights';
   static const legacyLogs = '/logs';
   static const legacyNotifications = '/notifications';
   static const legacyProgression = '/progression';

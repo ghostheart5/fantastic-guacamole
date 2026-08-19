@@ -92,9 +92,9 @@ class SISyntheticIntuition {
     if (learning != null) {
       signals.add(
         IntuitionSignal(
-          label: 'adaptive_focus',
-          score: learning.focusReadiness,
-          reason: 'Adaptive learning focus readiness.',
+          label: 'adaptive_attention',
+          score: learning.attentionReadiness,
+          reason: 'Adaptive learning attention readiness.',
         ),
       );
     }
@@ -102,9 +102,9 @@ class SISyntheticIntuition {
     if (attention != null) {
       signals.add(
         IntuitionSignal(
-          label: 'attention_focus',
-          score: attention.focusScore,
-          reason: attention.primaryFocus,
+          label: 'attention_target',
+          score: attention.attentionScore,
+          reason: attention.primaryTarget,
         ),
       );
     }

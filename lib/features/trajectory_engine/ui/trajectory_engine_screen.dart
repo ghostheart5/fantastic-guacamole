@@ -1,14 +1,17 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
-import 'package:fantastic_guacamole/features/nexus/domain/nexus_briefing_model.dart';
+import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
-import 'package:fantastic_guacamole/ui/widgets/operating_briefing_card.dart';
+import 'package:fantastic_guacamole/ui/widgets/decision_intelligence_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,6 +26,19 @@ class TrajectoryEngineScreen extends ConsumerStatefulWidget {
 class _TrajectoryEngineScreenState
     extends ConsumerState<TrajectoryEngineScreen> {
   String? _selectedScenarioId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref
+            .read(adaptiveGuidanceProvider.notifier)
+            .record(GuidanceMilestone.firstTrajectoryReview),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,15 +101,15 @@ class _TrajectoryEngineScreenState
                 ),
               ),
             if (!blocksContent) ...<Widget>[
-              if (model.operatingBriefing
-                  case final OperatingBriefing briefing) ...<Widget>[
+              if (model.decisionIntelligence
+                  case final DecisionIntelligence intelligence) ...<Widget>[
                 const SizedBox(height: 8),
-                OperatingBriefingCard(
-                  briefing: briefing,
+                DecisionIntelligenceCard(
+                  intelligence: intelligence,
                   title: 'Trajectory decision context',
                   compact: true,
                   onAction: () =>
-                      _executeOperatingAction(briefing.decision.actionIntent),
+                      _openDecisionAction(intelligence.decision.actionIntent),
                 ),
               ],
               if (comparison case final TrajectoryComparison value) ...<Widget>[
@@ -161,7 +177,7 @@ class _TrajectoryEngineScreenState
     );
   }
 
-  void _executeOperatingAction(OperatingActionIntent intent) {
+  void _openDecisionAction(OperatingActionIntent intent) {
     final AppFlowController flow = ref.read(appFlowProvider.notifier);
     switch (NexusActionResolver.resolve(intent)) {
       case NexusActionDestination.creator:
@@ -181,9 +197,7 @@ class _TrajectoryEngineScreenState
         break;
       case NexusActionDestination.unsupported:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('This operating action is not available.'),
-          ),
+          const SnackBar(content: Text('This action is not available.')),
         );
     }
   }

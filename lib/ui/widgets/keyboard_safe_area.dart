@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 /// Formalizes the keyboard-inset pattern already used correctly by the
-/// Goals/Memories/Milestones/Personal Alignment bottom-sheet editors (each hand-derives
+/// Goals, Memories, and Milestones bottom-sheet editors (each hand-derives
 /// `MediaQuery.of(ctx).viewInsets.bottom` itself) so new call sites read the
 /// inset and visibility together instead of re-deriving both.
 class KeyboardSafeArea extends StatelessWidget {

@@ -6,8 +6,7 @@ import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.da
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -118,7 +117,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _gettingPlanningGuidance = false;
         _planningGuidancePrompt = notes.isEmpty ? 'quick check-in' : notes;
         _planningGuidanceMessage =
-            'Insight request timed out. Tap GET INSIGHT again or shorten your input for a faster response.';
+            'Guidance request timed out. Tap GET GUIDANCE again or shorten your input for a faster response.';
       });
       return;
     }
@@ -131,6 +130,11 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       _saved = true;
       _gettingPlanningGuidance = false;
     });
+    unawaited(
+      ref
+          .read(adaptiveGuidanceProvider.notifier)
+          .record(GuidanceMilestone.firstPlannerQuestion),
+    );
 
     AppAnalytics.track(
       'smart_planner_response_rendered',
@@ -190,6 +194,11 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _followUps.add(_Exchange(question: text, answer: reply));
         _sendingFollowUp = false;
       });
+      unawaited(
+        ref
+            .read(adaptiveGuidanceProvider.notifier)
+            .record(GuidanceMilestone.firstPlannerQuestion),
+      );
       AppAnalytics.track(
         'smart_planner_followup_response_rendered',
         params: <String, Object?>{'reply_length': reply.length},
@@ -256,7 +265,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         ? _planningGuidanceMessage!
         : (modelPlannerMessage.trim().isNotEmpty
               ? modelPlannerMessage
-              : 'Stabilize scope and execute one focused action now.');
+              : 'Stabilize scope and execute one specific action now.');
     final bool hasPlannerMessage = effectivePlannerMessage.trim().isNotEmpty;
     final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedSystemBackground(
@@ -317,7 +326,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                     ),
                     const SizedBox(height: 14),
                     _PlannerPanel(
-                      label: 'FOCUS CONTEXT',
+                      label: 'PLANNING CONTEXT',
                       accentColor: AppColors.neonViolet,
                       child: TextField(
                         controller: _notesController,
@@ -343,29 +352,21 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const _InsightCheatSheet(),
+                    const _GuidanceCheatSheet(),
                     const SizedBox(height: 20),
-                    TutorialTarget(
-                      id: 'home.start_focus_button',
-                      child: HoloButton(
-                        label: _gettingPlanningGuidance
-                            ? 'THINKING...'
-                            : (_saved ? 'REFRESH INSIGHT' : 'GET INSIGHT'),
-                        color: AppColors.neonCyan,
-                        onTap: _gettingPlanningGuidance
-                            ? () {}
-                            : () {
-                                ref
-                                    .read(tutorialControllerProvider)
-                                    .reportEvent('tap:home.start_focus_button');
-                                _getPlanningGuidance();
-                              },
-                      ),
+                    HoloButton(
+                      label: _gettingPlanningGuidance
+                          ? 'THINKING...'
+                          : (_saved ? 'REFRESH GUIDANCE' : 'GET GUIDANCE'),
+                      color: AppColors.neonCyan,
+                      onTap: _gettingPlanningGuidance
+                          ? () {}
+                          : _getPlanningGuidance,
                     ),
                     if (hasPlannerMessage) ...[
                       const SizedBox(height: 20),
                       _PlannerPanel(
-                        label: 'SMART INSIGHT',
+                        label: 'PLANNING GUIDANCE',
                         accentColor: AppColors.memoryAmber,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -522,8 +523,8 @@ class _Exchange {
   final String answer;
 }
 
-class _InsightCheatSheet extends StatelessWidget {
-  const _InsightCheatSheet();
+class _GuidanceCheatSheet extends StatelessWidget {
+  const _GuidanceCheatSheet();
 
   @override
   Widget build(BuildContext context) {
@@ -536,7 +537,7 @@ class _InsightCheatSheet extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: const Text(
-        'Get Insight cheat sheet:\n'
+        'Get Guidance cheat sheet:\n'
         '• One topic: lose weight, tired, stressed, sleep, nutrition, exercise, productivity, goals\n'
         '• One feeling: drained, anxious, stuck, unmotivated\n'
         '• One detail: sleep, food, deadlines, workouts, or what keeps failing\n\n'
@@ -916,8 +917,8 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
                 controls: const <String>[
                   'Adjust energy slider to set intensity',
                   'Select emotional state to tune guidance',
-                  'Use get insight to generate planning guidance',
-                  'Use speak button to read the latest insight aloud',
+                  'Use Get Guidance to generate a planning response',
+                  'Use the speak button to read the latest guidance aloud',
                   'Use summary button for condensed voice recap',
                   'Use microphone button for voice interactions',
                 ],
@@ -967,7 +968,7 @@ class _MicButton extends ConsumerWidget {
     final bool listening = voice.isListening;
 
     // Recognized speech populates the follow-up box for explicit review and
-    // send - it is never auto-sent or routed as a command.
+    // send - it is never auto-sent or routed as an action.
     ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
       final bool stoppedListening =
           (previous?.isListening ?? false) && !next.isListening;
@@ -1158,13 +1159,6 @@ class _QuickNavRow extends ConsumerWidget {
           icon: Icons.auto_awesome_rounded,
           color: AppColors.neonViolet,
           onTap: () => ref.read(appFlowProvider.notifier).toMemories(),
-        ),
-        const SizedBox(width: 8),
-        _QuickNavCard(
-          label: 'PERSONAL ALIGNMENT',
-          icon: Icons.hub_rounded,
-          color: AppColors.neonCyan,
-          onTap: () => ref.read(appFlowProvider.notifier).toPersonalAlignment(),
         ),
       ],
     );

@@ -28,7 +28,7 @@ class TesterDataResetController {
   Future<void> reset() async {
     await _service.reset();
 
-    _ref.read(mockAuthSessionProvider.notifier).set(false);
+    _ref.read(mockSignInProvider.notifier).set(false);
     _ref.read(onboardingCompleteProvider.notifier).set(false);
     _ref.read(aiInputProvider.notifier).set(null);
     _ref.read(notificationProvider.notifier).clear();

@@ -36,7 +36,7 @@ class DecisionRecommendation {
     required this.selectedTask,
     required this.orderedTasks,
     required this.shouldTakeBreak,
-    required this.focusMinutes,
+    required this.executionMinutes,
     required this.rationale,
     required this.evidence,
     required this.confidence,
@@ -49,7 +49,7 @@ class DecisionRecommendation {
   final TaskEntity? selectedTask;
   final List<TaskEntity> orderedTasks;
   final bool shouldTakeBreak;
-  final int focusMinutes;
+  final int executionMinutes;
   final String rationale;
   final List<DecisionEvidence> evidence;
   final DecisionConfidence confidence;
@@ -132,7 +132,7 @@ class DecisionEngine {
         selectedTask: null,
         orderedTasks: const [],
         shouldTakeBreak: recovery,
-        focusMinutes: 10,
+        executionMinutes: 10,
         rationale: recovery
             ? 'Recovery is recommended because energy is low or fatigue is high.'
             : 'No active tasks are available to schedule.',
@@ -192,7 +192,7 @@ class DecisionEngine {
         selectedTask: null,
         orderedTasks: const <TaskEntity>[],
         shouldTakeBreak: false,
-        focusMinutes: 10,
+        executionMinutes: 10,
         rationale:
             issue?.message ??
             'No task can be scheduled without violating the current constraints.',
@@ -261,7 +261,7 @@ class DecisionEngine {
       selectedTask: selected,
       orderedTasks: ordered,
       shouldTakeBreak: false,
-      focusMinutes: selected.estimateOrDefault.inMinutes,
+      executionMinutes: selected.estimateOrDefault.inMinutes,
       rationale:
           'Selected ${selected.title} using urgency, energy fit, learned effort tolerance, and schedule feasibility.',
       evidence: <DecisionEvidence>[

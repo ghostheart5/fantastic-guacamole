@@ -7,7 +7,7 @@ class SiDecisionEntity {
     required this.rationale,
     this.shouldTakeBreak = false,
     this.orderedTaskIds = const <String>[],
-    this.recommendedFocusMinutes = 25,
+    this.recommendedExecutionMinutes = 25,
     this.action = '',
     this.tone = 'adaptive',
     this.shouldSimplify = false,
@@ -18,7 +18,7 @@ class SiDecisionEntity {
   final String rationale;
   final bool shouldTakeBreak;
   final List<String> orderedTaskIds;
-  final int recommendedFocusMinutes;
+  final int recommendedExecutionMinutes;
 
   // Pipeline-aligned fields
   final String action;
@@ -31,7 +31,7 @@ class SiDecisionEntity {
     String? rationale,
     bool? shouldTakeBreak,
     List<String>? orderedTaskIds,
-    int? recommendedFocusMinutes,
+    int? recommendedExecutionMinutes,
     String? action,
     String? tone,
     bool? shouldSimplify,
@@ -42,8 +42,8 @@ class SiDecisionEntity {
       rationale: rationale ?? this.rationale,
       shouldTakeBreak: shouldTakeBreak ?? this.shouldTakeBreak,
       orderedTaskIds: orderedTaskIds ?? this.orderedTaskIds,
-      recommendedFocusMinutes:
-          recommendedFocusMinutes ?? this.recommendedFocusMinutes,
+      recommendedExecutionMinutes:
+          recommendedExecutionMinutes ?? this.recommendedExecutionMinutes,
       action: action ?? this.action,
       tone: tone ?? this.tone,
       shouldSimplify: shouldSimplify ?? this.shouldSimplify,
@@ -64,10 +64,11 @@ class SiDecisionEntity {
   List<String> get remainingTasks =>
       orderedTaskIds.length <= 1 ? [] : orderedTaskIds.sublist(1);
 
-  Duration get focusDuration => Duration(minutes: recommendedFocusMinutes);
+  Duration get executionDuration =>
+      Duration(minutes: recommendedExecutionMinutes);
 
-  bool get isShortFocus => recommendedFocusMinutes <= 15;
-  bool get isLongFocus => recommendedFocusMinutes >= 45;
+  bool get isShortExecution => recommendedExecutionMinutes <= 15;
+  bool get isLongExecution => recommendedExecutionMinutes >= 45;
 
   bool get hasReasoningTrace => reasoningTrace.trim().isNotEmpty;
 
@@ -78,8 +79,8 @@ class SiDecisionEntity {
       );
     }
 
-    if (recommendedFocusMinutes <= 0) {
-      throw StateError('Focus minutes must be positive');
+    if (recommendedExecutionMinutes <= 0) {
+      throw StateError('Execution minutes must be positive');
     }
   }
 }

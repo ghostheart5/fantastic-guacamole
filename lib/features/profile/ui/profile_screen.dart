@@ -2,12 +2,10 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/stats_card.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/profile_view_state.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
-import 'package:fantastic_guacamole/state/providers/profile_values_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
@@ -43,7 +41,7 @@ class _ProfileBody extends ConsumerWidget {
     ProfileViewState state,
   ) async {
     final String text =
-        'I am using ChronoSpark to run my goals, progression, and focus system.\n'
+        'I am using ChronoSpark to run my goals, progression, and execution system.\n'
         'Join me: ${AppUrls.website}\n'
         'Current streak: ${state.profile.streak}d | Level ${state.profile.level}';
     try {
@@ -128,8 +126,6 @@ class _ProfileBody extends ConsumerWidget {
         const SizedBox(height: 16),
         const _IdentityCard(),
         const SizedBox(height: 16),
-        const _ValuesCard(),
-        const SizedBox(height: 16),
         _NavButtons(
           onTimeline: () => ref.read(appFlowProvider.notifier).toTimeline(),
           onProgression: actions.openProgression,
@@ -199,8 +195,8 @@ class _IdentityCard extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           _IdentityBar(
-            label: 'Focus',
-            value: identity.focusIdentity,
+            label: 'Execution',
+            value: identity.executionIdentity,
             color: AppColors.neonCyan,
           ),
           const SizedBox(height: 8),
@@ -283,161 +279,6 @@ class _IdentityBar extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ValuesCard extends ConsumerWidget {
-  const _ValuesCard();
-
-  Future<void> _toggle(WidgetRef ref, String value) {
-    return ref.read(profileValuesProvider.notifier).toggle(value);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final Set<String> selected = ref.watch(profileValuesProvider);
-    final CoreValuesAlignment alignment = ref.watch(
-      coreValuesAlignmentProvider,
-    );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 2,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.neonCyan,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'CORE VALUES',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2.5,
-                  color: AppColors.neonCyan,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Alignment ${alignment.overall}% · Strongest ${coreValueTitle(alignment.strongest)} · Needs focus ${coreValueTitle(alignment.mostNeglected)}',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: CoreValueType.values.map((CoreValueType value) {
-              final String title = coreValueTitle(value);
-              final bool sel = selected.contains(title);
-              final int score = alignment.scores[value]?.score ?? 0;
-              return GestureDetector(
-                onTap: () => _toggle(ref, title),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 11,
-                  ),
-                  decoration: BoxDecoration(
-                    color: sel
-                        ? AppColors.neonCyan.withValues(alpha: 0.15)
-                        : Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: sel
-                          ? AppColors.neonCyan.withValues(alpha: 0.7)
-                          : Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: Text(
-                    '$title $score%',
-                    style: TextStyle(
-                      color: sel ? AppColors.neonCyan : Colors.white54,
-                      fontSize: 12,
-                      fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 12),
-          ...CoreValueType.values
-              .where((CoreValueType value) {
-                return selected.contains(coreValueTitle(value));
-              })
-              .map((CoreValueType value) {
-                final CoreValueDefinition definition =
-                    coreValueDefinitions[value]!;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.03),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          definition.title,
-                          style: const TextStyle(
-                            color: AppColors.neonCyan,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          definition.definition,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Guiding question: ${definition.guidingQuestion}',
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-        ],
-      ),
     );
   }
 }

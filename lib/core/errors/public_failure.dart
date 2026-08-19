@@ -32,7 +32,7 @@ class PublicFailure implements Exception {
     if (type.contains('auth')) {
       return const PublicFailure(
         code: 'auth',
-        message: 'Your session needs attention. Sign in again and retry.',
+        message: 'Your sign-in needs attention. Sign in again and retry.',
       );
     }
     if (type.contains('storage') || type.contains('network')) {

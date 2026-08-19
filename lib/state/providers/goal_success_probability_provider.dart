@@ -72,7 +72,7 @@ final goalSuccessProbabilityProvider = Provider<GoalSuccessForecast>((ref) {
       : 'Goal is at risk without intervention.';
 
   final String recommendation = probability >= 75
-      ? 'Maintain focus and avoid adding new commitments.'
+      ? 'Protect attention and avoid adding new commitments.'
       : probability >= 50
       ? 'Finish one high-impact action daily.'
       : 'Reduce pressure and rebuild momentum before expanding scope.';

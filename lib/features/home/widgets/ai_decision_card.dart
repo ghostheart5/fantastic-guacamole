@@ -129,7 +129,7 @@ class _EmotionChip extends StatelessWidget {
 
   Color get _color {
     switch (emotion) {
-      case 'focused':
+      case 'engaged':
         return Colors.blueAccent;
       case 'confident':
         return Colors.greenAccent;

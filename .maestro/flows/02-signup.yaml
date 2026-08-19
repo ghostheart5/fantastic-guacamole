@@ -22,7 +22,7 @@ tags:
 - inputText: "${MAESTRO_SIGNUP_PASSWORD}"
 
 - hideKeyboard
-- tapOn: "CREATE ACCOUNT"
+- tapOn: "INITIALIZE PROFILE"
 
 - extendedWaitUntil:
     visible: "NEXUS"

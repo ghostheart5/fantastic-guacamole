@@ -45,7 +45,7 @@ class ExtractSiSignals {
   /// Emotions that count as stability.
   static const Set<String> stabilityEmotions = <String>{
     'calm',
-    'focused',
+    'engaged',
     'positive',
   };
 
@@ -57,7 +57,7 @@ class ExtractSiSignals {
     required bool hasGoals,
     required int skippedTaskCount,
     required String emotion,
-    required String insightsSummary,
+    required String signalsSummary,
   }) {
     final bool friction = pressureIndex >= 60 || energy < 0.35;
     final bool overwhelm = pressureIndex >= 75 || behaviorDivergence >= 50;
@@ -72,7 +72,7 @@ class ExtractSiSignals {
     final bool emotionalStability = stabilityEmotions.contains(emotion);
 
     final Set<String> patterns = <String>{};
-    if (insightsSummary.toLowerCase().contains('overload')) {
+    if (signalsSummary.toLowerCase().contains('overload')) {
       patterns.add('overload_pattern');
     }
     if (emotionalStrain) {

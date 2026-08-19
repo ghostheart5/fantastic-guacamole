@@ -43,7 +43,7 @@ class SupabaseClientService {
       return PublicFailure.from(
         error,
         fallback:
-            'Cloud services are unavailable in this session. Local work remains available.',
+            'Cloud services are currently unavailable. Local work remains available.',
       ).message;
     }
   }

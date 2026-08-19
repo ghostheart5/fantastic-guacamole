@@ -51,6 +51,7 @@ final localUserDataCleanupServiceProvider =
       return LocalUserDataCleanupService(
         hive: ref.read(hiveStoreProvider),
         secureStore: ref.read(secureStoreProvider),
+        preferences: ref.read(sharedPrefsStoreProvider),
         sensitivePreferences: ref.read(sensitivePrefsStoreProvider),
         notifications: ref.read(notificationSchedulerProvider),
       );
@@ -69,7 +70,7 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
   return SiEngineDependencies(
     tasks: ref.read(taskRepositoryProvider),
     goals: ref.read(goalRepositoryProvider),
-    insights: ref.read(insightRepositoryProvider),
+    signals: ref.read(signalRepositoryProvider),
     logs: ref.read(logRepositoryProvider),
     timeline: ref.read(timelineRepositoryProvider),
     progression: ref.read(progressionRepositoryProvider),

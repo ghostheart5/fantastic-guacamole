@@ -8,6 +8,7 @@ class FirebaseSupabaseBridgeRepository {
   static const String _cachedFirebaseMessagingTokenKey =
       'bridge.firebase_messaging_token';
   static const Duration _minSyncInterval = Duration(minutes: 2);
+  static String? _lastSyncedUserId;
   static String? _lastSyncedToken;
   static DateTime? _lastSyncedAt;
 
@@ -64,7 +65,9 @@ class FirebaseSupabaseBridgeRepository {
     }
 
     final DateTime now = DateTime.now().toUtc();
-    if (_lastSyncedToken == trimmed && _lastSyncedAt != null) {
+    if (_lastSyncedUserId == user.id &&
+        _lastSyncedToken == trimmed &&
+        _lastSyncedAt != null) {
       final Duration elapsed = now.difference(_lastSyncedAt!);
       if (elapsed < _minSyncInterval) {
         Logger.log(
@@ -82,6 +85,7 @@ class FirebaseSupabaseBridgeRepository {
         'source': source,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }, onConflict: 'user_id,token');
+      _lastSyncedUserId = user.id;
       _lastSyncedToken = trimmed;
       _lastSyncedAt = now;
       Logger.log(

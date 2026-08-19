@@ -59,7 +59,7 @@ final soulStateProvider = Provider<SoulState>((ref) {
   final si = ref.watch(siStateProvider);
   final traj = ref.watch(trajectorySummaryProvider);
   final emotion = ref.watch(emotionProvider);
-  final insightsBundle = ref.watch(insightsBundleProvider);
+  final signalsBundle = ref.watch(signalsBundleProvider);
   final logsState = ref.watch(logsProvider);
   final List<MemoryEntity> memories = ref.watch(memoriesProvider);
   final List<TimelineEventEntity> timelineEvents = ref.watch(timelineProvider);
@@ -77,7 +77,7 @@ final soulStateProvider = Provider<SoulState>((ref) {
   final int starredMemoryCount = memories
       .where((MemoryEntity memory) => memory.starred)
       .length;
-  final int insightCount = insightsBundle.items.length;
+  final int signalCount = signalsBundle.items.length;
   final int recentLogCount = logsState.entries
       .where((LogEntryEntity entry) => entry.isRecent)
       .length;
@@ -102,17 +102,17 @@ final soulStateProvider = Provider<SoulState>((ref) {
       );
   final bool hasMemoryNarrative =
       recentMemoryCount > 0 || starredMemoryCount > 0;
-  final double insightPresenceBoost =
-      ((insightCount * 0.015) + (insightsBundle.healthScore * 0.04)).clamp(
+  final double signalPresenceBoost =
+      ((signalCount * 0.015) + (signalsBundle.healthScore * 0.04)).clamp(
         0.0,
         0.12,
       );
-  final double insightEmergenceBoost =
-      ((insightCount * 0.02) + (insightsBundle.healthScore * 0.05)).clamp(
+  final double signalEmergenceBoost =
+      ((signalCount * 0.02) + (signalsBundle.healthScore * 0.05)).clamp(
         0.0,
         0.16,
       );
-  final bool hasInsightNarrative = insightCount > 0;
+  final bool hasSignalNarrative = signalCount > 0;
   final double timelinePresenceBoost = (recentTimelineCount * 0.015).clamp(
     0.0,
     0.10,
@@ -133,14 +133,14 @@ final soulStateProvider = Provider<SoulState>((ref) {
     presence:
         (si.energy +
                 memoryPresenceBoost +
-                insightPresenceBoost +
+                signalPresenceBoost +
                 timelinePresenceBoost +
                 logPresenceBoost)
             .clamp(0.0, 1.0),
     emergence:
         (traj.momentum +
                 memoryEmergenceBoost +
-                insightEmergenceBoost +
+                signalEmergenceBoost +
                 timelineEmergenceBoost +
                 logEmergenceBoost)
             .clamp(0.0, 1.0),
@@ -148,7 +148,7 @@ final soulStateProvider = Provider<SoulState>((ref) {
     hasNarrative:
         traj.completedTasks > 0 ||
         hasMemoryNarrative ||
-        hasInsightNarrative ||
+        hasSignalNarrative ||
         hasTimelineNarrative ||
         hasLogNarrative,
   );

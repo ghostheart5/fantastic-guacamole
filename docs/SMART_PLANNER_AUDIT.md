@@ -12,7 +12,7 @@ Scope: Smart Planner intent coverage, response quality, context grounding, follo
 | 3 | Stress | PASS | _detectTopic + _buildStructuredResponse cases in state/controllers/smart_planner_query_controller.dart |
 | 4 | Sleep | PASS | _detectTopic + _buildStructuredResponse cases in state/controllers/smart_planner_query_controller.dart |
 | 5 | Motivation | PASS | _detectTopic + _buildStructuredResponse cases in state/controllers/smart_planner_query_controller.dart |
-| 6 | Focus | PASS | explicit _PlannerTopic.focus detection + response templates in state/controllers/smart_planner_query_controller.dart |
+| 6 | Attention | PASS | explicit _PlannerTopic.attention detection + response templates in state/controllers/smart_planner_query_controller.dart |
 | 7 | Procrastination | PASS | explicit _PlannerTopic.procrastination detection + response templates in state/controllers/smart_planner_query_controller.dart |
 | 8 | Confidence | PASS | _detectTopic + _buildStructuredResponse cases in state/controllers/smart_planner_query_controller.dart |
 | 9 | Discipline | PASS | _detectTopic + _buildStructuredResponse cases in state/controllers/smart_planner_query_controller.dart |
@@ -29,8 +29,8 @@ Scope: Smart Planner intent coverage, response quality, context grounding, follo
 | Question | Status | Evidence |
 | --- | --- | --- |
 | Does it detect user intent? | PASS | keyword intent detection in engine/assistant/assistant_detection_service.dart and topic routing in state/controllers/smart_planner_query_controller.dart |
-| Does it avoid generic responses? | PASS | structured response contract with Goal Detected / Insight / Actions / Next Step / Planner Question and fallback structure checks in state/controllers/smart_planner_query_controller.dart |
-| Does it load user context? | PASS | knowledge and module snapshots include goals, memories, timeline, tasks, progression, core values, personal alignment in state/controllers/smart_planner_query_controller.dart |
+| Does it avoid generic responses? | PASS | structured response contract with Goal Detected / Signal / Actions / Next Step / Planner Question and fallback structure checks in state/controllers/smart_planner_query_controller.dart |
+| Does it load user context? | PASS | knowledge and module snapshots include goals, memories, timeline, tasks, progression, and core values in state/controllers/smart_planner_query_controller.dart |
 | Does it ask useful follow-up questions? | PASS | topic-specific Planner Question and smart follow-up templates in state/controllers/smart_planner_query_controller.dart and engine/assistant/assistant_response_templates.dart |
 | Does it give action steps? | PASS | per-topic action arrays and next-step guidance in state/controllers/smart_planner_query_controller.dart |
 | Does it save conversation history? | PASS | persisted planner and follow-up turns via savePlannerMessageUseCaseProvider in state/controllers/smart_planner_query_controller.dart |
@@ -48,7 +48,7 @@ Scope: Smart Planner intent coverage, response quality, context grounding, follo
 
 - Crisis detection remains active through CrisisDetectionPolicy checks before planning guidance or follow-up processing.
 - Follow-up and initial planning-guidance exchanges are now persisted as PlannerMessage entities for history continuity.
-- Assistant intent detector now includes explicit routing labels for focus, procrastination, habits, goal recovery, future self, and purpose.
+- Assistant intent detector now includes explicit routing labels for attention, procrastination, habits, goal recovery, future self, and purpose.
 
 ## Regression Guardrail
 

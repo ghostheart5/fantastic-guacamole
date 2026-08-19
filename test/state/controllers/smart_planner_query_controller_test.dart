@@ -297,7 +297,7 @@ void main() {
     final SmartPlannerResult result = await Logger.withMutedErrors(
       () => controller.requestPlanningGuidance(
         energy: 0.52,
-        emotion: EmotionalState.focused,
+        emotion: EmotionalState.engaged,
         notes: '',
         history: const <Map<String, String>>[],
         previousSavedNotes: null,

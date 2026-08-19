@@ -42,7 +42,7 @@ class SIRitualSystem {
     final DateTime t = now ?? DateTime.now();
     final bool recovery =
         context.userState.fatigue >= .68 || context.userState.stress >= .7;
-    final String name = recovery ? 'recovery_reset' : 'focus_start';
+    final String name = recovery ? 'recovery_reset' : 'execution_start';
     final List<SIRitualStep> steps = recovery
         ? const <SIRitualStep>[
             SIRitualStep(
@@ -64,7 +64,7 @@ class SIRitualSystem {
             ),
             SIRitualStep(
               title: 'Start block',
-              action: 'Work for one short focus block.',
+              action: 'Work through one short execution block.',
               minutes: 10,
             ),
           ];
@@ -78,7 +78,7 @@ class SIRitualSystem {
           MemoryTier.longTerm,
           MemoryRecord(
             content:
-                'ritual_plan|$name|trigger=${recovery ? 'fatigue_or_stress' : 'focus_ready'}|goal=${siClean(goal)}',
+                'ritual_plan|$name|trigger=${recovery ? 'fatigue_or_stress' : 'attention_ready'}|goal=${siClean(goal)}',
             timestamp: t,
             relevance: confidence,
             confidence: .72,
@@ -91,7 +91,7 @@ class SIRitualSystem {
 
     return SIRitualPlan(
       name: name,
-      trigger: recovery ? 'fatigue_or_stress' : 'focus_ready',
+      trigger: recovery ? 'fatigue_or_stress' : 'attention_ready',
       steps: List<SIRitualStep>.unmodifiable(steps),
       confidence: confidence,
       memory: next,

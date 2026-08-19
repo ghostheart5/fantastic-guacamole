@@ -29,7 +29,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    container.read(mockAuthSessionProvider.notifier).set(true);
+    container.read(mockSignInProvider.notifier).set(true);
     container.read(onboardingCompleteProvider.notifier).set(true);
     container.read(aiInputProvider.notifier).set('draft prompt');
     await container.read(notificationProvider.notifier).pushDecision('Task A');
@@ -39,7 +39,7 @@ void main() {
     await container.read(testerDataResetControllerProvider).reset();
 
     expect(fakeService.resetCalled, isTrue);
-    expect(container.read(mockAuthSessionProvider), isFalse);
+    expect(container.read(mockSignInProvider), isFalse);
     expect(container.read(onboardingCompleteProvider), isFalse);
     expect(container.read(aiInputProvider), isNull);
     expect(container.read(notificationProvider), isEmpty);

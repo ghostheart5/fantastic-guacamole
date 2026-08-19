@@ -112,7 +112,7 @@ class ProfileState {
       level: levelFor(xp: storedXp, floor: floor),
       streak: (json['streak'] as num?)?.toInt() ?? 0,
       longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
-      // Migrate the retired built-in military-style default without changing
+      // Migrate the retired built-in default without changing
       // any real custom profile name.
       name: storedName == 'Operative' ? 'ChronoSpark User' : storedName,
       soundEnabled: json['soundEnabled'] as bool? ?? true,
@@ -363,7 +363,7 @@ class ProfileController extends Notifier<ProfileState> {
             id: id,
             title: 'Rebuild your streak today',
             body:
-                'Your streak chain broke. Complete one focused action now to restart momentum.',
+                'Your streak chain broke. Complete one targeted action now to restart momentum.',
             at: reminderAt,
           );
     } catch (_) {

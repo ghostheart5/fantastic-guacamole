@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
@@ -7,6 +8,7 @@ import 'package:fantastic_guacamole/features/progression/widgets/weekly_summary_
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
@@ -17,8 +19,27 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
-class ProgressionScreen extends ConsumerWidget {
+class ProgressionScreen extends ConsumerStatefulWidget {
   const ProgressionScreen({super.key});
+
+  @override
+  ConsumerState<ProgressionScreen> createState() =>
+      _ProgressionScreenState();
+}
+
+class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref
+            .read(adaptiveGuidanceProvider.notifier)
+            .record(GuidanceMilestone.firstProgressionReview),
+      );
+    });
+  }
 
   Future<bool> _confirmShare(
     BuildContext context, {
@@ -150,7 +171,7 @@ class ProgressionScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final progression = ref.watch(progressionProvider);
     final progress = progression.progress;
 

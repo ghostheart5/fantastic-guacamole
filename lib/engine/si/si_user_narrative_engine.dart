@@ -383,7 +383,7 @@ class UserNarrativeEngine {
     final String label = intent?.primary.label ?? 'general_query';
 
     if (label == 'reflect') return 'reflection';
-    if (label == 'insight_request') return 'pattern_reading';
+    if (label == 'signal_request') return 'pattern_reading';
     if (context.userState.stress >= 0.68 ||
         context.userState.cognitiveLoad >= 0.72) {
       return 'stabilization';
@@ -410,7 +410,7 @@ class UserNarrativeEngine {
 
     if (arc == 'recovery_arc' || theme == 'recovery') return 'restorer';
     if (theme == 'reflection' || label == 'reflect') return 'seeker';
-    if (label == 'insight_request' || theme == 'pattern_reading') {
+    if (label == 'signal_request' || theme == 'pattern_reading') {
       return 'analyst';
     }
     if (label == 'get_task' ||
@@ -560,7 +560,7 @@ class UserNarrativeEngine {
     }
 
     if (phase == 'consolidation') {
-      return 'You are turning repeated effort into a steadier operating rhythm.';
+      return 'You are turning repeated effort into a steadier rhythm.';
     }
 
     if (archetype == 'builder') {

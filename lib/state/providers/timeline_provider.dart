@@ -5,7 +5,6 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show soundEnabledProvider;
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -91,12 +90,7 @@ class TimelineActions {
   Future<void> addMirroredEvent(TimelineEventEntity event) {
     return _ref
         .read(timelineProvider.notifier)
-        .record(
-          event,
-          refreshPlanner: false,
-          syncPersonalAlignment: false,
-          awardProgression: false,
-        );
+        .record(event, refreshPlanner: false, awardProgression: false);
   }
 }
 
@@ -111,7 +105,6 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
   Future<void> record(
     TimelineEventEntity event, {
     bool refreshPlanner = true,
-    bool syncPersonalAlignment = true,
     bool awardProgression = false,
   }) async {
     await ref.read(addTimelineEventUseCaseProvider).call(event);
@@ -126,9 +119,6 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
         ? updated.sublist(0, _maxEvents)
         : updated;
 
-    if (syncPersonalAlignment) {
-      ref.invalidate(soulStateProvider);
-    }
     if (awardProgression) {
       await ref
           .read(profileProvider.notifier)

@@ -18,7 +18,7 @@ flowchart TD
 ```
 
 ## Flow
-1. Milestone action starts from milestones UI or related command surface.
+1. Milestone action starts from milestones UI or a related planning surface.
 2. Milestones provider validates fields and lifecycle constraints.
 3. Milestones notifier computes status transitions and timestamps.
 4. Milestone set is persisted to storage.

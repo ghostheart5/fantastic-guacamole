@@ -14,8 +14,8 @@ Status legend:
 - [x] Authenticated user is redirected away from login route.
 - [x] Paywall remains bypassable/unlockable in testing mode.
 - [x] Restore purchases path works in testing mode without blocking access.
-- [x] Focus complete flow updates score, XP, SI state, and memory.
-- [x] Focus skip flow updates SI/learning state and notifications.
+- [x] Task completion updates score, XP, SI state, and memory.
+- [x] Task deferral updates SI/learning state and notifications.
 - [x] Notification scheduling is skipped when permission is denied.
 - [ ] Notification permission state is visible in Settings.
 
@@ -25,7 +25,7 @@ Status legend:
 - [x] Runtime diagnostics captures notification permission outcome.
 - [x] Analytics event instrumented for mock login success.
 - [x] Analytics event instrumented for paywall viewed/unlock/restore.
-- [x] Analytics event instrumented for focus completed/skipped.
+- [x] Analytics events instrumented for task completion/deferral.
 
 ## Verification Commands
 

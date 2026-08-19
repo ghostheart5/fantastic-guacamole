@@ -30,7 +30,6 @@ String? _followToStableLocation({
 }
 
 const List<String> _legacyPaths = <String>[
-  RoutePaths.legacyPlanningRoute,
   RoutePaths.legacyLogs,
   RoutePaths.legacyNotifications,
   RoutePaths.legacyProgression,
@@ -47,7 +46,6 @@ const List<String> _allLocations = <String>[
   RoutePaths.nexus,
   RoutePaths.plan,
   RoutePaths.creator,
-  RoutePaths.legacyInsights,
   RoutePaths.settings,
   RoutePaths.notifications,
   RoutePaths.logs,

@@ -1,5 +1,5 @@
-class ProductInsight {
-  const ProductInsight({
+class ProductRecommendation {
+  const ProductRecommendation({
     required this.issue,
     required this.cause,
     required this.recommendation,
@@ -14,24 +14,24 @@ class ProductAdvisorEngine {
   const ProductAdvisorEngine();
 
   static const _fallback = [
-    ProductInsight(
+    ProductRecommendation(
       issue: 'Not enough data yet',
-      cause: 'Keep using the app to generate insights',
-      recommendation: 'Complete tasks to unlock insights',
+      cause: 'More execution history is required',
+      recommendation: 'Complete tasks to unlock recommendations',
     ),
   ];
 
-  List<ProductInsight> analyze({
+  List<ProductRecommendation> analyze({
     required int nextSeen,
     required int started,
     required int completed,
     required int momentumPeak,
   }) {
-    final insights = <ProductInsight>[];
+    final recommendations = <ProductRecommendation>[];
 
     if (nextSeen > 10 && started < 2) {
-      insights.add(
-        const ProductInsight(
+      recommendations.add(
+        const ProductRecommendation(
           issue: "Users see next step but don't start",
           cause: 'Next step not compelling',
           recommendation: 'Simplify next step or reduce task size',
@@ -40,8 +40,8 @@ class ProductAdvisorEngine {
     }
 
     if (momentumPeak < 2 && completed > 0) {
-      insights.add(
-        const ProductInsight(
+      recommendations.add(
+        const ProductRecommendation(
           issue: 'Low momentum',
           cause: 'Users not chaining actions',
           recommendation: 'Make next step easier and faster',
@@ -50,8 +50,8 @@ class ProductAdvisorEngine {
     }
 
     if (started > 5 && completed < started ~/ 2) {
-      insights.add(
-        const ProductInsight(
+      recommendations.add(
+        const ProductRecommendation(
           issue: 'Tasks started but not completed',
           cause: 'Tasks may be too complex or scope is unclear',
           recommendation: 'Break tasks into smaller subtasks',
@@ -59,13 +59,13 @@ class ProductAdvisorEngine {
       );
     }
 
-    if (insights.isEmpty && completed == 0) {
+    if (recommendations.isEmpty && completed == 0) {
       return _fallback;
     }
 
-    if (insights.isEmpty) {
-      insights.add(
-        const ProductInsight(
+    if (recommendations.isEmpty) {
+      recommendations.add(
+        const ProductRecommendation(
           issue: 'No major issues detected',
           cause: 'System performing well',
           recommendation: 'Maintain current behavior',
@@ -73,10 +73,10 @@ class ProductAdvisorEngine {
       );
     }
 
-    return insights;
+    return recommendations;
   }
 
-  List<ProductInsight> fromSnapshot(
+  List<ProductRecommendation> fromSnapshot(
     Map<String, dynamic> snapshot,
     int momentumChainCount,
   ) {

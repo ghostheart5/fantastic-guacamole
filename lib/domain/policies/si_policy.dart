@@ -17,8 +17,8 @@ class SiPolicy {
     return state.fatigue > 0.7 || state.energy < 0.3;
   }
 
-  static bool shouldPushFocus(SiStateEntity state) {
-    return state.energy > 0.6 && state.focus > 0.5 && state.fatigue < 0.5;
+  static bool shouldPushAttention(SiStateEntity state) {
+    return state.energy > 0.6 && state.attention > 0.5 && state.fatigue < 0.5;
   }
 
   static SiDecisionEntity enforce(SiDecisionEntity decision) {
@@ -27,9 +27,9 @@ class SiPolicy {
       return decision.copyWith(
         action: simplified,
         tone: 'calm',
-        recommendedFocusMinutes: decision.recommendedFocusMinutes > 15
+        recommendedExecutionMinutes: decision.recommendedExecutionMinutes > 15
             ? 15
-            : decision.recommendedFocusMinutes,
+            : decision.recommendedExecutionMinutes,
       );
     }
     return decision;
@@ -75,7 +75,7 @@ class SiPolicy {
     return SiDecisionEntity(
       rationale: withheldRationale,
       tone: 'calm',
-      recommendedFocusMinutes: enforced.recommendedFocusMinutes,
+      recommendedExecutionMinutes: enforced.recommendedExecutionMinutes,
     );
   }
 
@@ -101,9 +101,9 @@ class SiPolicy {
       orderedTaskIds: decision.orderedTaskIds
           .take(maxSuggestionsWhenOverloaded)
           .toList(),
-      recommendedFocusMinutes: decision.recommendedFocusMinutes > 10
+      recommendedExecutionMinutes: decision.recommendedExecutionMinutes > 10
           ? 10
-          : decision.recommendedFocusMinutes,
+          : decision.recommendedExecutionMinutes,
       shouldSimplify: true,
       tone: 'calm',
     );

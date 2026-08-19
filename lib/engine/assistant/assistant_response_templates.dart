@@ -2,7 +2,7 @@ class AssistantResponseTemplates {
   const AssistantResponseTemplates._();
 
   static String smartPlannerBlock({
-    required String insight,
+    required String signal,
     required List<String> actions,
     required String nextStep,
     required String followUp,
@@ -12,7 +12,7 @@ class AssistantResponseTemplates {
         .map((String item) => '• $item')
         .join('\n');
     final int pct = (energy * 100).round();
-    return '$insight\n\n'
+    return '$signal\n\n'
         '$actionLines\n\n'
         'Next step: $nextStep\n\n'
         'Momentum score: +5 if completed today\n\n'

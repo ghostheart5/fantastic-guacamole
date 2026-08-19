@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
@@ -22,30 +24,14 @@ final operatingSnapshotProvider = FutureProvider<OperatingSnapshot>((
   final SIStateAggregation aggregation = await ref.watch(
     siStateAggregationProvider.future,
   );
-  final SIDecisionOutput decision = await ref.watch(
+  final SIDecisionOutput supportingOutput = await ref.watch(
     siDecisionOutputProvider.future,
   );
   final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
   final String accountScope = scope.v2Namespace ?? 'ephemeral';
   final String? subjectId = aggregation.planningDecision.selectedTask?.id;
-  final int readySources = <SISourceStatus>[
-    aggregation.sourceHealth.tasks,
-    aggregation.sourceHealth.goals,
-    aggregation.sourceHealth.memories,
-  ].where((SISourceStatus item) => item == SISourceStatus.ready).length;
-  final Map<String, String> revisions = <String, String>{
-    'tasks': '${aggregation.tasks.length}',
-    'goals': '${aggregation.goals.length}',
-    'timeline': '${aggregation.timeline.length}',
-    'completedToday': '${aggregation.signals.executionCompletedToday}',
-    'skippedToday': '${aggregation.signals.executionSkippedToday}',
-    'delayedToday': '${aggregation.signals.executionDelayedToday}',
-    'plan':
-        '${aggregation.planPreview.length}:${aggregation.planningDecision.modelVersion}',
-    'trajectory':
-        '${aggregation.trajectory.momentum}:${aggregation.trajectory.pressureIndex}',
-    'progression': '${aggregation.profile.level}:${aggregation.profile.streak}',
-  };
+  final String recommendedAction = _canonicalRecommendedAction(aggregation);
+  final Map<String, String> revisions = operatingSourceRevisions(aggregation);
   return OperatingSnapshot(
     accountScope: accountScope,
     observedAt: DateTime.now().toUtc(),
@@ -53,15 +39,15 @@ final operatingSnapshotProvider = FutureProvider<OperatingSnapshot>((
     activeGoalCount: aggregation.goals.length,
     actionableCount: aggregation.tasks.length,
     overdueCount: aggregation.timeline.where((item) => item.isOverdue).length,
-    completedToday: aggregation.signals.executionCompletedToday,
+    completedToday: aggregation.planningEvidence.executionCompletedToday,
     energy: aggregation.siState.energy,
     fatigue: aggregation.siState.fatigue,
     momentum: (aggregation.trajectory.momentum * 100).round().clamp(0, 100),
     pressure: aggregation.trajectory.pressureIndex.clamp(0, 100),
     topActionId: subjectId,
-    topActionLabel: decision.nextAction,
-    activeRisks: decision.warnings,
-    evidenceCoverage: readySources / 3,
+    topActionLabel: recommendedAction,
+    activeRisks: supportingOutput.warnings,
+    evidenceCoverage: aggregation.sourceHealth.availableFraction,
   );
 });
 
@@ -71,7 +57,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
   final SIStateAggregation aggregation = await ref.watch(
     siStateAggregationProvider.future,
   );
-  final SIDecisionOutput decision = await ref.watch(
+  final SIDecisionOutput supportingOutput = await ref.watch(
     siDecisionOutputProvider.future,
   );
   final OperatingSnapshot snapshot = await ref.watch(
@@ -79,12 +65,13 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
   );
   final DateTime now = DateTime.now().toUtc();
   final String? subjectId = snapshot.topActionId;
+  final String recommendedAction = _canonicalRecommendedAction(aggregation);
   final bool isCaptureAction = subjectId == null;
   final List<OperatingEvidence> evidence = <OperatingEvidence>[
     OperatingEvidence(
       code: 'ranked_action',
       description: subjectId == null
-          ? 'No active task was available, so Creator is the next operating step.'
+          ? 'No active task was available, so Creator is the next planning step.'
           : 'The action was selected from current task, schedule, energy, and friction signals.',
       kind: OperatingEvidenceKind.derived,
       recordedAt: now,
@@ -104,7 +91,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     OperatingEvidence(
       code: 'evidence_coverage',
       description:
-          '${(snapshot.evidenceCoverage * 100).round()}% of core operating sources are currently ready.',
+          '${(snapshot.evidenceCoverage * 100).round()}% of core evidence sources are currently ready.',
       kind: OperatingEvidenceKind.derived,
       recordedAt: now,
       source: 'source_health',
@@ -143,8 +130,9 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
   evidence.add(
     OperatingEvidence(
       code: 'capacity_assessment',
-      description:
-          '${capacity.requiredMinutes} required minutes against ${capacity.freeMinutes} currently free minutes; ${capacity.unscheduledMinutes} minutes unscheduled.',
+      description: capacity.windowOrigin == PredictiveEvidenceOrigin.observed
+          ? '${capacity.requiredMinutes} required minutes against ${capacity.freeMinutes} available minutes; ${capacity.unscheduledMinutes} minutes unscheduled.'
+          : 'Estimated capacity uses an assumed planning window: ${capacity.requiredMinutes} required minutes, ${capacity.freeMinutes} modeled minutes available, and ${capacity.unscheduledMinutes} minutes unscheduled. This is not current calendar availability.',
       kind: capacity.windowOrigin == PredictiveEvidenceOrigin.observed
           ? OperatingEvidenceKind.observed
           : OperatingEvidenceKind.estimated,
@@ -204,7 +192,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
   final OperatingActionIntent intent = OperatingActionIntent(
     id: stableId(<String, dynamic>{
       'subject': subjectId,
-      'action': decision.nextAction,
+      'action': recommendedAction,
       'snapshot': snapshot.snapshotId,
     }),
     type: intentType,
@@ -214,13 +202,15 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
   );
   final OperatingDecisionReceipt receipt = OperatingDecisionReceipt(
     subjectId: subjectId,
-    recommendedAction: decision.nextAction,
+    recommendedAction: recommendedAction,
     rationale: rationale,
     whyItMatters: whyItMatters,
     consequenceOfDelay: consequence,
     generatedAt: now,
     expiresAt: now.add(const Duration(minutes: 20)),
     confidence: confidence,
+    recommendationConfidence:
+        aggregation.planningDecision.confidenceProfile.recommendationConfidence,
     evidence: evidence,
     actionIntent: intent,
     sourceRevisions: snapshot.sourceRevisions,
@@ -230,13 +220,21 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
       'Current local records represent the user intent available to ChronoSpark.',
       'Deterministic ranking is decision support, not a guaranteed outcome.',
     ],
-    warnings: decision.warnings,
+    warnings: supportingOutput.warnings,
   );
   receipt.validate();
+  final Duration untilExpiry = receipt.expiresAt.difference(
+    DateTime.now().toUtc(),
+  );
+  final Timer expiryTimer = Timer(
+    untilExpiry.isNegative ? Duration.zero : untilExpiry,
+    ref.invalidateSelf,
+  );
+  ref.onDispose(expiryTimer.cancel);
   return receipt;
 });
 
-final operatingBriefingProvider = FutureProvider<OperatingBriefing>((
+final decisionIntelligenceProvider = FutureProvider<DecisionIntelligence>((
   Ref ref,
 ) async {
   final OperatingSnapshot snapshot = await ref.watch(
@@ -247,7 +245,7 @@ final operatingBriefingProvider = FutureProvider<OperatingBriefing>((
   );
   final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
   if (!scope.isWritable || scope.v2Namespace == null) {
-    return OperatingBriefing(
+    return DecisionIntelligence(
       snapshot: snapshot,
       delta: const OperatingDeltaEngine().compare(
         previous: null,
@@ -278,7 +276,7 @@ final operatingBriefingProvider = FutureProvider<OperatingBriefing>((
   }
   previous ??= history.isEmpty ? null : history.last;
   await repository.saveSnapshot(accountScope, snapshot);
-  return OperatingBriefing(
+  return DecisionIntelligence(
     snapshot: snapshot,
     delta: const OperatingDeltaEngine().compare(
       previous: previous,
@@ -298,18 +296,120 @@ class OperatingContinuityActions {
 
   final Ref _ref;
 
-  Future<void> acknowledgeCurrentBriefing() async {
+  Future<void> acknowledgeCurrentDecision() async {
     final AccountStorageScope scope = _ref.read(accountStorageScopeProvider);
     final String? accountScope = scope.v2Namespace;
     if (!scope.isWritable || accountScope == null) return;
-    final OperatingBriefing briefing = await _ref.read(
-      operatingBriefingProvider.future,
+    final DecisionIntelligence intelligence = await _ref.read(
+      decisionIntelligenceProvider.future,
     );
     await _ref
         .read(operatingContinuityRepositoryProvider)
-        .acknowledge(accountScope, briefing.snapshot.snapshotId);
-    _ref.invalidate(operatingBriefingProvider);
+        .acknowledge(accountScope, intelligence.snapshot.snapshotId);
+    _ref.invalidate(decisionIntelligenceProvider);
   }
+}
+
+/// Semantic hashes ensure continuity changes when decision-relevant content
+/// changes, even when list counts remain identical.
+Map<String, String> operatingSourceRevisions(SIStateAggregation aggregation) {
+  final List<Map<String, dynamic>> tasks =
+      aggregation.tasks.map((task) => task.toJson()).toList(growable: false)
+        ..sort(
+          (first, second) => '${first['id']}'.compareTo('${second['id']}'),
+        );
+  final List<Map<String, dynamic>> goals =
+      aggregation.goals.map((goal) => goal.toJson()).toList(growable: false)
+        ..sort(
+          (first, second) => '${first['id']}'.compareTo('${second['id']}'),
+        );
+  final List<Map<String, dynamic>> timeline =
+      aggregation.timeline
+          .map((event) => event.toJson())
+          .toList(growable: false)
+        ..sort(
+          (first, second) => '${first['id']}'.compareTo('${second['id']}'),
+        );
+  final List<Map<String, dynamic>> blocks =
+      aggregation.planningDecision.plan.blocks
+          .map(
+            (block) => <String, dynamic>{
+              'id': block.id,
+              'taskId': block.taskId,
+              'title': block.title,
+              'start': block.start.toUtc().toIso8601String(),
+              'end': block.end.toUtc().toIso8601String(),
+              'completed': block.completed,
+            },
+          )
+          .toList(growable: false)
+        ..sort(
+          (first, second) => '${first['id']}'.compareTo('${second['id']}'),
+        );
+  return <String, String>{
+    'tasks': stableId(<String, dynamic>{'items': tasks}),
+    'goals': stableId(<String, dynamic>{'items': goals}),
+    'timeline': stableId(<String, dynamic>{'items': timeline}),
+    'execution': stableId(<String, dynamic>{
+      'completedToday': aggregation.planningEvidence.executionCompletedToday,
+      'skippedToday': aggregation.planningEvidence.executionSkippedToday,
+      'delayedToday': aggregation.planningEvidence.executionDelayedToday,
+    }),
+    'plan': stableId(<String, dynamic>{
+      'modelVersion': aggregation.planningDecision.modelVersion,
+      'selectedTaskId': aggregation.planningDecision.selectedTask?.id,
+      'blocks': blocks,
+      'capacity': <String, dynamic>{
+        'required': aggregation.planningDecision.plan.capacity.requiredMinutes,
+        'free': aggregation.planningDecision.plan.capacity.freeMinutes,
+        'unscheduled':
+            aggregation.planningDecision.plan.capacity.unscheduledMinutes,
+        'windowOrigin':
+            aggregation.planningDecision.plan.capacity.windowOrigin.name,
+      },
+    }),
+    'trajectory': stableId(<String, dynamic>{
+      'momentum': aggregation.trajectory.momentum,
+      'pressure': aggregation.trajectory.pressureIndex,
+      'divergence': aggregation.trajectory.behaviorDivergence,
+      'pending': aggregation.trajectory.pendingTasks,
+      'completed': aggregation.trajectory.completedTasks,
+    }),
+    'progression': stableId(<String, dynamic>{
+      'level': aggregation.profile.level,
+      'xp': aggregation.profile.xp,
+      'streak': aggregation.profile.streak,
+    }),
+    'state': stableId(<String, dynamic>{
+      'energy': aggregation.siState.energy,
+      'fatigue': aggregation.siState.fatigue,
+      'sourceHealth': <String, String>{
+        'tasks': aggregation.sourceHealth.tasks.name,
+        'goals': aggregation.sourceHealth.goals.name,
+        'memories': aggregation.sourceHealth.memories.name,
+        'habits': aggregation.sourceHealth.habits.name,
+        'logs': aggregation.sourceHealth.logs.name,
+        'timeline': aggregation.sourceHealth.timeline.name,
+        'learning': aggregation.sourceHealth.learning.name,
+        'availability': aggregation.sourceHealth.availability.name,
+      },
+    }),
+  };
+}
+
+String _canonicalRecommendedAction(SIStateAggregation aggregation) {
+  final planningDecision = aggregation.planningDecision;
+  if (planningDecision.shouldTakeBreak) {
+    return 'Take a short recovery break before choosing more work.';
+  }
+  final selected = planningDecision.selectedTask;
+  if (selected != null) {
+    return 'Work on: ${selected.title}';
+  }
+  if (aggregation.tasks.isEmpty) {
+    return 'Capture one actionable task in Creator.';
+  }
+  return 'Reconcile unscheduled work in Smart Planner.';
 }
 
 TaskScoreBreakdown? _scoreFor(List<RankedTask> ranked, String? subjectId) {

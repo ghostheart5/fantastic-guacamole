@@ -33,7 +33,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('SETTINGS'), findsOneWidget);
-    expect(find.text('COMMAND MATRIX'), findsOneWidget);
+    expect(find.text('SYSTEM STATUS'), findsOneWidget);
     expect(find.text('SYSTEM TUNING'), findsOneWidget);
   });
 }

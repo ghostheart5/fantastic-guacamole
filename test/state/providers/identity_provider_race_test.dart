@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'focus completion waits for identity hydration before applying deltas',
+    'attention completion waits for identity hydration before applying deltas',
     () async {
       final _DelayedIdentityRepository repository =
           _DelayedIdentityRepository();
@@ -23,7 +23,7 @@ void main() {
       expect(container.read(identityStateProvider).disciplineIdentity, 0.1);
       final Future<void> completion = container
           .read(identityStateProvider.notifier)
-          .onFocusComplete(
+          .onExecutionComplete(
             completionRecorded: true,
             taskCompleted: true,
             streakMaintained: true,
@@ -34,7 +34,7 @@ void main() {
       repository.completeHydration(
         const IdentityProfileEntity(
           disciplineIdentity: 0.8,
-          focusIdentity: 0.6,
+          executionIdentity: 0.6,
           growthIdentity: 0.4,
         ),
       );
@@ -45,7 +45,7 @@ void main() {
         closeTo(0.82, 0.0001),
       );
       expect(
-        container.read(identityStateProvider).focusIdentity,
+        container.read(identityStateProvider).executionIdentity,
         closeTo(0.63, 0.0001),
       );
       expect(

@@ -41,7 +41,7 @@ void main() {
     await container.read(tasksProvider.future);
     expect(
       container.read(nextActionTextProvider),
-      'Focus on: Lock release scope',
+      'Work on: Lock release scope',
     );
   });
 

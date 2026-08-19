@@ -47,7 +47,7 @@ class SICognitiveTemperatureController {
       intensity += 0.08;
     }
 
-    if (intent.primary.label == 'insight_request') {
+    if (intent.primary.label == 'signal_request') {
       variation += 0.1;
       directness -= 0.05;
     }

@@ -73,16 +73,16 @@ void main() {
       expect(container.read(voiceControllerProvider).isListening, isTrue);
       expect(container.read(voiceControllerProvider).error, isNull);
 
-      speech.emitResult('turn on focus mode', isFinal: true);
+      speech.emitResult('start execution mode', isFinal: true);
       expect(
         container.read(voiceControllerProvider).recognizedText,
-        'turn on focus mode',
+        'start execution mode',
       );
 
       await controller.stopListening();
       final VoiceState afterStop = container.read(voiceControllerProvider);
       expect(afterStop.isListening, isFalse);
-      expect(afterStop.recognizedText, 'turn on focus mode');
+      expect(afterStop.recognizedText, 'start execution mode');
 
       controller.clearRecognizedText();
       expect(container.read(voiceControllerProvider).recognizedText, isEmpty);

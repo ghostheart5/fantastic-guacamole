@@ -5,7 +5,7 @@ import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Progression
 ///
 /// The single persisted XP-award path. Used directly by CompleteTask and
-/// EndSession.
+/// Completion handling.
 /// The single persisted XP-award path.
 ///
 /// Every gameplay XP award must go through this use case. It rejects negative

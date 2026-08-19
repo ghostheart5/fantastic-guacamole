@@ -23,20 +23,20 @@ class SIIntentEngine {
     IntentCandidate? hidden;
 
     if (_any(text, const <String>[
-      'start focus',
-      'focus now',
+      'start work',
+      'begin execution',
       'deep work',
-      'focus block',
+      'work block',
     ])) {
       primary = const IntentCandidate(
         label: SIIntentLabels.startExecution,
         score: .86,
-        why: 'Focus wording detected.',
+        why: 'Execution wording detected.',
       );
       secondary = const IntentCandidate(
         label: SIIntentLabels.productivityOptimization,
         score: .64,
-        why: 'Focus implies optimization.',
+        why: 'Execution request implies optimization.',
       );
     } else if (_any(text, const <String>[
       'what should i do',
@@ -67,15 +67,15 @@ class SIIntentEngine {
         why: 'Reflection wording detected.',
       );
     } else if (_any(text, const <String>[
-      'insight',
+      'signal',
       'pattern',
       'analyze',
       'why',
     ])) {
       primary = const IntentCandidate(
-        label: SIIntentLabels.insightRequest,
+        label: SIIntentLabels.signalRequest,
         score: .78,
-        why: 'Insight wording detected.',
+        why: 'Signal wording detected.',
       );
     }
 
@@ -100,8 +100,8 @@ class SIIntentEngine {
         return SIIntentLabels.startExecution;
       case SIIntentLabels.startExecution:
       case SIIntentLabels.reflect:
-        return SIIntentLabels.insightRequest;
-      case SIIntentLabels.insightRequest:
+        return SIIntentLabels.signalRequest;
+      case SIIntentLabels.signalRequest:
         return SIIntentLabels.startExecution;
       default:
         return SIIntentLabels.getTask;

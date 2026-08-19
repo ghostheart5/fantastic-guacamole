@@ -35,7 +35,6 @@ class WorkspaceEntity {
   // Semantic helpers
   bool get isCreator => activeModule == 'creator';
   bool get isPlanner => activeModule == 'planner';
-  bool get isFocus => activeModule == 'focus';
   bool get isReview => activeModule == 'review';
 
   // Freshness logic

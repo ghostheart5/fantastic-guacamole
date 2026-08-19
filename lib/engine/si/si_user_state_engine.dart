@@ -61,10 +61,10 @@ class SIUserStateEngine {
           motivation = _lower(motivation, p.strength, 0.12);
           adjustments.add('resistance_pattern_applied');
           break;
-        case MicroPatternType.stableFocus:
+        case MicroPatternType.stableAttention:
           engagement = _raise(engagement, p.strength, 0.18);
           stress = _lower(stress, p.strength, 0.12);
-          adjustments.add('stable_focus_pattern_applied');
+          adjustments.add('stable_attention_pattern_applied');
           break;
         case MicroPatternType.repeatedTopic:
         case MicroPatternType.taskAffinity:
@@ -75,7 +75,7 @@ class SIUserStateEngine {
     if (learningWeights != null) {
       motivation = _raise(motivation, learningWeights.momentum, 0.12);
       fatigue = _raise(fatigue, learningWeights.fatigueSensitivity, 0.1);
-      engagement = _raise(engagement, learningWeights.focusReadiness, 0.12);
+      engagement = _raise(engagement, learningWeights.attentionReadiness, 0.12);
 
       if (learningWeights.resistance >= 0.65) {
         frustration = _raise(frustration, learningWeights.resistance, 0.12);

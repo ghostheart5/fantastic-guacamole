@@ -828,7 +828,7 @@ class _ComparisonGrid extends StatelessWidget {
           subtitle: 'Keep the habit alive',
           color: Colors.white54,
           bullets: <String>[
-            'Basic focus and planning',
+            'Basic planning and execution',
             'Starter ${aiProxyConfigured ? 'AI' : 'smart'} credits',
             'Limited voice and memory',
           ],
@@ -842,7 +842,7 @@ class _ComparisonGrid extends StatelessWidget {
           color: AppColors.neonCyan,
           bullets: <String>[
             'Monthly ${aiProxyConfigured ? 'AI' : 'smart'} credit bundle',
-            'Deeper memory and insights',
+            'Deeper memory and signals',
             'Voice and advanced agents',
           ],
           badge: wallet?.tier == 'premium' ? 'Active' : 'Upgrade',
@@ -1085,7 +1085,7 @@ class _SoftGatePreviewCard extends StatelessWidget {
           Text(
             aiProxyConfigured
                 ? 'Example premium output: Prioritize a 40-minute deep work block now, then queue a low-energy admin sweep later.'
-                : 'Example premium output: Prioritize a 40-minute focus block now, then queue a low-energy admin sweep later.',
+                : 'Example premium output: Prioritize a 40-minute execution block now, then queue a low-energy admin sweep later.',
             style: const TextStyle(
               color: AppColors.neonCyan,
               fontSize: 11,

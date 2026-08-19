@@ -68,7 +68,7 @@ class SICognitiveTerrainMapper {
       case TerrainZone.friction:
         return 'Reduce scope and make the task easier.';
       case TerrainZone.momentum:
-        return 'Use the focus window for one action.';
+        return 'Use the attention window for one action.';
       case TerrainZone.clear:
         return 'Proceed with concise guidance.';
     }

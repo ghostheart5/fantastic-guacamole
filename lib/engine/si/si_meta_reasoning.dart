@@ -104,7 +104,7 @@ class SIMetaReasoningEngine {
       strategy: MetaStrategy.act,
       confidence: siClamp01(intent.confidence),
       reasons: List<String>.unmodifiable(reasons),
-      instruction: 'Proceed with concise action-focused guidance.',
+      instruction: 'Proceed with concise action-oriented guidance.',
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
+import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,12 +30,12 @@ void main() {
     expect(prefs.getBool(onboardingCompleteStorageKey), isTrue);
     expect(
       prefs.getInt(onboardingContentVersionStorageKey),
-      TutorialContent.contentVersion,
+      OnboardingContentContract.currentVersion,
     );
     expect(container.read(onboardingCompleteProvider), isTrue);
   });
 
-  testWidgets('next progresses onboarding slides', (WidgetTester tester) async {
+  testWidgets('second slide is personalization', (WidgetTester tester) async {
     _setLargeTestSurface(tester);
     SharedPreferences.setMockInitialValues(<String, Object>{});
 
@@ -51,8 +51,8 @@ void main() {
     await _tapPrimaryButton(tester, 'NEXT');
     await tester.pump(const Duration(milliseconds: 500));
 
-    // The onboarding tag and body use the same canonical feature name.
-    expect(find.text('SMART PLANNER'), findsOneWidget);
+    expect(find.text('PERSONALIZE'), findsOneWidget);
+    expect(find.text('YOUR LIFE DIRECTION'), findsOneWidget);
   });
 
   testWidgets('personalization completion persists name and goal type', (
@@ -73,21 +73,12 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    for (int i = 0; i < 5; i++) {
-      await _tapPrimaryButton(tester, 'NEXT');
-      await tester.pump(const Duration(milliseconds: 500));
-    }
+    await _tapPrimaryButton(tester, 'NEXT');
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('YOUR LIFE DIRECTION'), findsOneWidget);
 
-    await tester.enterText(
-      find.byWidgetPredicate(
-        (Widget widget) =>
-            widget is TextField &&
-            widget.decoration?.hintText == 'Enter your name...',
-      ),
-      'Keegan',
-    );
+    await tester.enterText(find.byType(TextField), 'Keegan');
     await tester.tap(find.text('Personal Growth'));
     await tester.pump(const Duration(milliseconds: 200));
 
@@ -98,9 +89,9 @@ void main() {
     expect(prefs.getBool(onboardingCompleteStorageKey), isTrue);
     expect(
       prefs.getInt(onboardingContentVersionStorageKey),
-      TutorialContent.contentVersion,
+      OnboardingContentContract.currentVersion,
     );
-    expect(prefs.getString('primary_goal_type'), 'Personal Growth');
+    expect(prefs.getString('primary_goal_type'), 'growth');
     expect(container.read(profileProvider).name, 'Keegan');
     expect(container.read(onboardingCompleteProvider), isTrue);
   });
@@ -122,9 +113,8 @@ class _TestProfileController extends ProfileController {
 Future<void> _tapPrimaryButton(WidgetTester tester, String label) async {
   final Finder labelFinder = find.text(label);
   expect(labelFinder, findsOneWidget);
-  final Finder buttonFinder = find
-      .ancestor(of: labelFinder, matching: find.byType(GestureDetector))
-      .first;
+  final Finder buttonFinder = find.widgetWithText(FilledButton, label);
+  expect(buttonFinder, findsOneWidget);
   await tester.tap(buttonFinder);
   await tester.pump();
 }

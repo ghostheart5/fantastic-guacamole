@@ -2,8 +2,6 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
@@ -28,15 +26,9 @@ class GoalsScreen extends ConsumerWidget {
           backgroundColor: AppColors.memoryAmber,
           foregroundColor: Colors.black,
           onPressed: () async {
-            ref
-                .read(tutorialControllerProvider)
-                .reportEvent('tap:goals.add_button');
             await _showAddSheet(context, ref);
           },
-          child: const TutorialTarget(
-            id: 'goals.add_button',
-            child: Icon(Icons.add, size: 22),
-          ),
+          child: const Icon(Icons.add, size: 22),
         ),
         body: SafeArea(
           child: Column(

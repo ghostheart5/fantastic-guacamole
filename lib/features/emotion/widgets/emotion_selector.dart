@@ -24,7 +24,7 @@ class EmotionSelector extends StatelessWidget {
       case EmotionalState.fatigued:
       case EmotionalState.scattered:
         return AppColors.memoryAmber;
-      case EmotionalState.focused:
+      case EmotionalState.engaged:
         return AppColors.neonViolet;
       case EmotionalState.calm:
       case EmotionalState.neutral:

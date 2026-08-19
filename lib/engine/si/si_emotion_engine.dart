@@ -67,7 +67,7 @@ class SIEmotionEngine {
       if (p.type == MicroPatternType.highLoadLoop) {
         stress = _raise(stress, p.strength, .16);
       }
-      if (p.type == MicroPatternType.stableFocus) {
+      if (p.type == MicroPatternType.stableAttention) {
         excitement = _raise(excitement, p.strength, .1);
       }
     }

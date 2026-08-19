@@ -4,7 +4,6 @@ import 'package:fantastic_guacamole/state/controllers/smart_planner_query_contro
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -301,7 +300,7 @@ class _CrisisFollowUpSmartPlannerQueryController
 }
 
 Future<void> _tapPrimaryPlannerButton(WidgetTester tester) async {
-  final Finder cta = find.byType(TutorialTarget);
+  final Finder cta = find.text('GET GUIDANCE');
   await tester.scrollUntilVisible(
     cta,
     250,

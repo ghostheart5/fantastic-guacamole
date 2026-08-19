@@ -13,10 +13,6 @@ class AudioFeedbackController {
     AudioService.play(AppAssets.audioActionTick, true);
   }
 
-  void playFocusStart() {
-    AudioService.play(AppAssets.audioSignalPing, true);
-  }
-
   void playTaskComplete() {
     AudioService.play(AppAssets.audioMilestoneLift, true);
   }

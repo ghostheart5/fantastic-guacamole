@@ -13,10 +13,10 @@ tags:
 
 - scrollUntilVisible:
     element:
-      text: "Settings"
+      text: "Open settings"
     direction: DOWN
     timeout: 15000
-- tapOn: "Settings"
+- tapOn: "Open settings"
 
 # Both destructive controls must be present and clearly labelled, but neither
 # is tapped here.

@@ -92,7 +92,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 60));
 
-      // /help is a synchronous local command (no AI dispatch) whose long
+      // /help is a synchronous local shortcut (no AI dispatch) whose long
       // guide text is enough, repeated a few times, to overflow the
       // transcript viewport and make it scrollable.
       for (int i = 0; i < 6; i++) {
@@ -186,7 +186,7 @@ const IntelligenceState _intelligence = IntelligenceState(
     paywallDisabled: true,
     testerFullAccess: true,
   ),
-  auth: AuthStateSnapshot(hasMockSession: true, hasAuthenticatedUser: false),
+  auth: AuthStateSnapshot(hasMockSignIn: true, hasAuthenticatedUser: false),
   mockLogin: MockLoginConfigState(email: '', password: ''),
 );
 

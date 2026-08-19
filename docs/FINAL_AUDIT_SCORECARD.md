@@ -59,11 +59,10 @@ Use this as your master checklist:
 - [ ] Timeline analysis works
 - [ ] Next best action works
 
-## MEMORY AND PERSONAL ALIGNMENT
+## MEMORY AND CORE VALUES
 - [ ] Memories save
 - [ ] Memories recall
 - [ ] Core values exist
-- [ ] PersonalAlignment exists
 - [ ] Future self data exists
 
 ## OFFLINE AND SYNC

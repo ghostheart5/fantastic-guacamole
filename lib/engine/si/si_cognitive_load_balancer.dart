@@ -71,14 +71,14 @@ class SICognitiveLoadBalancer {
       );
     }
 
-    if (intent.primary.label == 'insight_request' && !safety) {
+    if (intent.primary.label == 'signal_request' && !safety) {
       return const CognitiveLoadPlan(
         detailLevel: CognitiveDetailLevel.expanded,
         maxWords: 110,
         maxActions: 2,
         useSteps: false,
         allowSecondarySuggestions: true,
-        reason: 'Insight request can tolerate more explanation.',
+        reason: 'Signal request can tolerate more explanation.',
       );
     }
 

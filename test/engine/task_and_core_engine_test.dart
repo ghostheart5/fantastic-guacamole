@@ -41,7 +41,7 @@ void main() {
   test('task filter and ranker select an active task for the user state', () {
     final SiStateEntity state = SiStateEntity(
       energy: 0.8,
-      focus: 0.7,
+      attention: 0.7,
       fatigue: 0.2,
     );
     final List<TaskEntity> candidates = TaskFilter.bySiState(tasks, state);
@@ -63,7 +63,7 @@ void main() {
   test('safety-first task filtering avoids overwhelming work', () {
     final SiStateEntity state = SiStateEntity(
       energy: 0.2,
-      focus: 0.2,
+      attention: 0.2,
       fatigue: 0.9,
       primaryInstinct: 'safety_first',
       avoidOverwhelm: true,
@@ -77,7 +77,7 @@ void main() {
   test('modular SI core produces a response and retains pipeline memory', () {
     final SICore core = SICore();
     const Task task = Task(
-      id: 'focus',
+      id: 'attention',
       title: 'Write the project outline',
       priority: 5,
       difficulty: 3,
@@ -85,7 +85,7 @@ void main() {
     );
 
     final SIPipelineResult first = core.run(
-      input: const SIInputPacket(text: 'Help me start a focus block'),
+      input: const SIInputPacket(text: 'Help me start an execution block'),
       task: task,
     );
     final SIPipelineResult second = core.run(

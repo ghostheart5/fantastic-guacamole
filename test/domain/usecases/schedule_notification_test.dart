@@ -20,7 +20,7 @@ void main() {
     test('schedules valid notification', () async {
       final NotificationEntity notification = NotificationEntity(
         id: 'notif-1',
-        title: 'Focus',
+        title: 'Priority work',
         message: 'Start now',
         scheduledAt: DateTime.now().add(const Duration(minutes: 3)),
       );
@@ -43,14 +43,14 @@ void main() {
         generateSiDecision: _StubGenerateSiDecision(
           const SiDecisionEntity(
             rationale: 'Adaptive',
-            action: 'Execute one focused step now.',
+            action: 'Execute one deliberate step now.',
           ),
         ),
       ).call(notification);
 
       expect(
         repository.scheduled.single.message,
-        'Execute one focused step now.',
+        'Execute one deliberate step now.',
       );
     });
 

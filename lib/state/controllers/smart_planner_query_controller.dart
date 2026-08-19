@@ -12,21 +12,16 @@ import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
-import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
-import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
+import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
-import 'package:fantastic_guacamole/state/providers/personal_alignment_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
@@ -363,11 +358,11 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         'Identify the user\'s intent category before generating planning guidance. '
         'Never respond with generic encouragement alone. '
         'Detect topics automatically: health usecases like weight loss, weight gain, nutrition, hydration, exercise, running, strength training, energy, fatigue, sleep, and recovery; '
-        'mental usecases like stress, anxiety, burnout, focus, confidence, motivation, discipline, and emotional support; '
+        'mental usecases like stress, anxiety, burnout, attention, confidence, motivation, discipline, and emotional support; '
         'productivity usecases like procrastination, deep work, time management, task planning, goal recovery, and habit building; '
         'life usecases like relationships, career, learning, personal growth, purpose, future self, and decision making; '
         'plus general chat. '
-        'Respond with this structure: Goal Detected, Insight (cause analysis), Actions, Next Step, Momentum Score, Planner Question. '
+        'Respond with this structure: Goal Detected, Reasoning, Actions, Next Step, Momentum Score, Planner Question. '
         'Always provide practical actions first and follow-up questions second.';
   }
 
@@ -377,7 +372,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     }
     final String lower = message.toLowerCase();
     return lower.contains('goal detected') &&
-        lower.contains('insight') &&
+        lower.contains('reasoning') &&
         lower.contains('actions') &&
         lower.contains('next step') &&
         lower.contains('planner question');
@@ -386,12 +381,6 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
   String _knowledgeContext() {
     final goals = _ref.read(goalsProvider);
     final memories = _ref.read(memoriesProvider);
-    final CoreValuesAlignment coreValues = _ref.read(
-      coreValuesAlignmentProvider,
-    );
-    final PersonalAlignmentAlignment personalAlignment = _ref.read(
-      personalAlignmentAlignmentProvider,
-    );
 
     final List<String> topGoals = goals
         .take(3)
@@ -418,12 +407,6 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     if (recentMemories.isNotEmpty) {
       chunks.add('Recent memories: ${recentMemories.join(' | ')}');
     }
-    chunks.add(
-      'Core values alignment: overall ${coreValues.overall}% | strongest ${coreValueTitle(coreValues.strongest)} | neglected ${coreValueTitle(coreValues.mostNeglected)}',
-    );
-    chunks.add(
-      'PersonalAlignment alignment: overall ${personalAlignment.overall}% | strongest ${personalAlignmentDimensionTitle(personalAlignment.strongest)} | weakest ${personalAlignmentDimensionTitle(personalAlignment.weakest)}',
-    );
     final patterns = _ref.read(observedPlanningPatternsProvider);
     chunks.add(
       'Planning preferences: style=${personalization.planningStyle.name}, priority=${personalization.priorityStrategy.name}, recovery=${personalization.recoveryPolicy.name}, recommendations=${personalization.recommendationMode.name}',
@@ -444,19 +427,12 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         PlannerInputAdapter.fromLegacyTasks(tasks);
     final profile = _ref.read(profileProvider);
     final goals = _ref.read(goalsProvider);
-    final insightsBundle = _ref.read(insightsBundleProvider);
+    final signalsBundle = _ref.read(signalsBundleProvider);
     final logsState = _ref.read(logsProvider);
     final memories = _ref.read(memoriesProvider);
     final notifications = _ref.read(notificationProvider);
     final timelineEvents = _ref.read(timelineProvider);
     final progression = _ref.read(progressionProvider).progress;
-    final soulState = _ref.read(soulStateProvider);
-    final CoreValuesAlignment coreValues = _ref.read(
-      coreValuesAlignmentProvider,
-    );
-    final PersonalAlignmentAlignment personalAlignment = _ref.read(
-      personalAlignmentAlignmentProvider,
-    );
     final personalization = _ref.read(personalizationProfileProvider);
     final patterns = _ref.read(observedPlanningPatternsProvider);
     final planPreview = _ref
@@ -500,10 +476,10 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
               .map((goal) => goal.title)
               .toList(growable: false),
         },
-        'insights': <String, dynamic>{
-          'count': insightsBundle.items.length,
-          'summary': insightsBundle.summary,
-          'top': insightsBundle.items
+        'signals': <String, dynamic>{
+          'count': signalsBundle.items.length,
+          'summary': signalsBundle.summary,
+          'top': signalsBundle.items
               .take(5)
               .map((item) => item.title)
               .toList(growable: false),
@@ -556,33 +532,6 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
           'xp': profile.xp,
           'streak': profile.streak,
         },
-        'coreValues': <String, dynamic>{
-          'overall': coreValues.overall,
-          'strongest': coreValueTitle(coreValues.strongest),
-          'neglected': coreValueTitle(coreValues.mostNeglected),
-          'scores': coreValues.scores.map(
-            (CoreValueType key, CoreValueScore value) =>
-                MapEntry<String, int>(coreValueTitle(key), value.score),
-          ),
-        },
-        'personalAlignmentAlignment': <String, dynamic>{
-          'overall': personalAlignment.overall,
-          'strongest': personalAlignmentDimensionTitle(
-            personalAlignment.strongest,
-          ),
-          'weakest': personalAlignmentDimensionTitle(personalAlignment.weakest),
-          'scores': personalAlignment.scores.map(
-            (
-              PersonalAlignmentDimension key,
-              PersonalAlignmentDimensionScore value,
-            ) => MapEntry<String, int>(
-              personalAlignmentDimensionTitle(key),
-              value.score,
-            ),
-          ),
-          'recommendations': personalAlignment.recommendations,
-        },
-        'personal_alignment': soulState.toJson(),
       },
     };
   }
@@ -647,7 +596,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         return 0.25;
       case EmotionalState.positive:
         return 0.30;
-      case EmotionalState.focused:
+      case EmotionalState.engaged:
         return 0.20;
       case EmotionalState.energized:
         return 0.15;
@@ -693,8 +642,8 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         question = 'What is your current weight and target weight?';
       case _PlannerTopic.weightGain:
         move = answerSummary.isEmpty
-            ? 'Eat a calorie-dense meal with protein, then add a short resistance session.'
-            : '$answerSummary Eat a calorie-dense meal with protein, then add a short resistance session.';
+            ? 'Eat a calorie-dense meal with protein, then add a short resistance workout.'
+            : '$answerSummary Eat a calorie-dense meal with protein, then add a short resistance workout.';
         question = 'What is your current weight and goal weight?';
       case _PlannerTopic.hydration:
         move = answerSummary.isEmpty
@@ -737,10 +686,10 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
             'Any dietary restrictions, and what foods do you already have available today?';
       case _PlannerTopic.exercise:
         move = answerSummary.isEmpty
-            ? 'Warm up, then do one full-body session and finish with a short cooldown.'
-            : '$answerSummary Warm up, then do one full-body session and finish with a short cooldown.';
+            ? 'Warm up, then do one full-body workout and finish with a short cooldown.'
+            : '$answerSummary Warm up, then do one full-body workout and finish with a short cooldown.';
         question =
-            'Do you want a beginner, intermediate, or advanced session for today?';
+            'Do you want a beginner, intermediate, or advanced workout for today?';
       case _PlannerTopic.confidence:
         move = answerSummary.isEmpty
             ? 'Pick one situation, practice the response once, and prove it with action.'
@@ -751,12 +700,12 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
             ? 'Choose one rule you can keep today and remove one easy excuse.'
             : '$answerSummary Choose one rule you can keep today and remove one easy excuse.';
         question = 'What is the one rule you want to follow today?';
-      case _PlannerTopic.focus:
+      case _PlannerTopic.attention:
         move = answerSummary.isEmpty
             ? 'Protect one deep-work block, remove two distractions, and start with the hardest task first.'
             : '$answerSummary Protect one deep-work block, remove two distractions, and start with the hardest task first.';
         question =
-            'What is the one task you will focus on for the next 25 minutes?';
+            'What is the one task you will work on for the next 25 minutes?';
       case _PlannerTopic.procrastination:
         move = answerSummary.isEmpty
             ? 'Shrink the task to a 5-minute starter and begin before motivation catches up.'
@@ -802,8 +751,8 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
             'What outcome matters most right now, and what is the next step?';
       case _PlannerTopic.generalChat:
         move = answerSummary.isEmpty
-            ? 'Pick one outcome, choose one action, and run a focused 10-minute sprint.'
-            : '$answerSummary Pick one outcome, choose one action, and run a focused 10-minute sprint.';
+            ? 'Pick one outcome, choose one action, and run a direct 10-minute sprint.'
+            : '$answerSummary Pick one outcome, choose one action, and run a direct 10-minute sprint.';
         question = 'What result do you want to achieve today?';
     }
 
@@ -1039,8 +988,8 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     if (hasAny(<String>['discipline', 'self control', 'self-control'])) {
       return _PlannerTopic.discipline;
     }
-    if (hasAny(<String>['focus', 'distract', 'attention', 'concentration'])) {
-      return _PlannerTopic.focus;
+    if (hasAny(<String>['attention', 'distract', 'concentration'])) {
+      return _PlannerTopic.attention;
     }
     if (hasAny(<String>[
       'procrastin',
@@ -1132,7 +1081,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     }
     if (hasAny(<String>[
       'productivity',
-      'focus',
+      'attention',
       'distract',
       'attention',
       'concentration',
@@ -1215,8 +1164,8 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         return 'Confidence';
       case _PlannerTopic.discipline:
         return 'Discipline';
-      case _PlannerTopic.focus:
-        return 'Focus';
+      case _PlannerTopic.attention:
+        return 'Attention';
       case _PlannerTopic.procrastination:
         return 'Procrastination';
       case _PlannerTopic.habits:
@@ -1262,14 +1211,14 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     required String input,
   }) {
     final int pct = (energy * 100).round();
-    late final String insight;
+    late final String signal;
     late final List<String> actions;
     late final String nextStep;
     late final String followUp;
 
     switch (topic) {
       case _PlannerTopic.weightLoss:
-        insight =
+        signal =
             'You’re probably getting slowed down by calorie drift and not enough daily movement.';
         actions = <String>[
           'Drink 16 oz water now.',
@@ -1280,18 +1229,18 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
             'Track your next meal before eating it, then take a 10-minute walk within 30 minutes after that meal.';
         followUp = 'What is your current weight and target weight?';
       case _PlannerTopic.weightGain:
-        insight =
+        signal =
             'You’re probably not getting enough calories, protein, or resistance work to move weight up consistently.';
         actions = <String>[
           'Add one calorie-dense meal or snack today.',
           'Include protein in every meal.',
-          'Do a short strength session to signal growth.',
+          'Do a short strength workout to signal growth.',
         ];
         nextStep =
-            'Plan your next meal and one strength session before the day gets away from you.';
+            'Plan your next meal and one strength workout before the day gets away from you.';
         followUp = 'What is your current weight and goal weight?';
       case _PlannerTopic.hydration:
-        insight =
+        signal =
             'Hydration usually drops when water intake is not visible and electrolytes are not kept up.';
         actions = <String>[
           'Drink a full glass of water now.',
@@ -1301,7 +1250,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         nextStep = 'Finish one glass of water in the next 5 minutes.';
         followUp = 'How much water have you had so far today?';
       case _PlannerTopic.fatigue:
-        insight =
+        signal =
             'This kind of tiredness usually comes from sleep debt, dehydration, under-fueling, or too much mental load stacking up.';
         actions = <String>[
           'Get 10 minutes of sunlight and light movement now.',
@@ -1309,11 +1258,11 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
           'Eat protein plus complex carbs in the next 60 minutes.',
         ];
         nextStep =
-            'Run one 25-minute focused work block, then take a 5-minute movement break.';
+            'Run one 25-minute work block, then take a 5-minute movement break.';
         followUp =
             'How many hours did you sleep last night, and when was your last full meal?';
       case _PlannerTopic.sleep:
-        insight =
+        signal =
             'Poor sleep is usually tied to inconsistent timing, evening screens, or caffeine too late in the day.';
         actions = <String>[
           'Set a fixed bedtime and wake time for tonight and tomorrow.',
@@ -1324,11 +1273,11 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
             'Set a bedtime alarm right now and prep your wind-down routine.';
         followUp = 'What time do you need to wake up tomorrow?';
       case _PlannerTopic.recovery:
-        insight =
+        signal =
             'Recovery slips when training, stress, and sleep are all pulling in the same direction without enough downtime.';
         actions = <String>[
           'Reduce today\'s training load.',
-          'Hydrate and eat a recovery-focused meal.',
+          'Hydrate and eat a recovery-supporting meal.',
           'Protect a longer sleep window tonight.',
         ];
         nextStep =
@@ -1336,7 +1285,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         followUp =
             'What needs the most recovery right now: sleep, training, or stress?';
       case _PlannerTopic.stress:
-        insight =
+        signal =
             'Stress spikes when too many open loops and unresolved decisions stay active at once.';
         actions = <String>[
           'Do 2 minutes of box breathing (4-4-4-4).',
@@ -1348,7 +1297,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         followUp =
             'Which stressor needs action today, and which one can wait 24 hours?';
       case _PlannerTopic.burnout:
-        insight =
+        signal =
             'Burnout shows up when effort stays high for too long and the recovery window stays too small.';
         actions = <String>[
           'Cut one nonessential commitment today.',
@@ -1359,7 +1308,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
             'Remove one load-bearing task from today before you add anything else.';
         followUp = 'What is draining you the fastest right now?';
       case _PlannerTopic.nutrition:
-        insight =
+        signal =
             'Nutrition usually improves fastest when meal quality and protein consistency improve together.';
         actions = <String>[
           'Build your next meal around protein first.',
@@ -1371,19 +1320,19 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         followUp =
             'Any dietary restrictions, and what foods do you already have available today?';
       case _PlannerTopic.exercise:
-        insight =
-            'Exercise progress comes from consistency and gradual overload, not random hard sessions.';
+        signal =
+            'Exercise progress comes from consistency and gradual overload, not random hard workouts.';
         actions = <String>[
           'Warm up for 5 minutes before training.',
-          'Do one full-body session today (squat/push/pull/core).',
+          'Do one full-body workout today (squat/push/pull/core).',
           'Finish with 5 minutes of easy cooldown and stretching.',
         ];
         nextStep =
             'Start your first set within the next 15 minutes at moderate effort.';
         followUp =
-            'Do you want a beginner, intermediate, or advanced session for today?';
+            'Do you want a beginner, intermediate, or advanced workout for today?';
       case _PlannerTopic.confidence:
-        insight =
+        signal =
             'Confidence grows from proof, repetition, and surviving small reps of the hard thing.';
         actions = <String>[
           'Pick one situation that feels intimidating.',
@@ -1393,7 +1342,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         nextStep = 'Rehearse the hardest part once before the day ends.';
         followUp = 'What situation is testing your confidence most right now?';
       case _PlannerTopic.discipline:
-        insight =
+        signal =
             'Discipline gets easier when the rule is obvious and the excuse path is closed off.';
         actions = <String>[
           'Choose one rule for today only.',
@@ -1403,20 +1352,20 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         nextStep =
             'Write the rule down and follow it once before you negotiate again.';
         followUp = 'What is the one rule you want to follow today?';
-      case _PlannerTopic.focus:
-        insight =
-            'Focus breaks when attention gets fragmented by notifications, context switching, and unclear task boundaries.';
+      case _PlannerTopic.attention:
+        signal =
+            'Attention breaks when notifications, context switching, and unclear task boundaries fragment the work.';
         actions = <String>[
           'Choose one priority outcome for this block.',
           'Silence nonessential notifications and close extra tabs.',
-          'Run one 25-minute deep-focus cycle with a single task.',
+          'Run one 25-minute single-task cycle.',
         ];
         nextStep =
             'Start a 25-minute timer and commit to one task until it ends.';
         followUp =
-            'What is the one task you will focus on for the next 25 minutes?';
+            'What is the one task you will work on for the next 25 minutes?';
       case _PlannerTopic.procrastination:
-        insight =
+        signal =
             'Procrastination often signals hidden friction, fear of imperfect output, or unclear first steps.';
         actions = <String>[
           'Define a 5-minute starter action only.',
@@ -1427,7 +1376,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
             'Complete one 5-minute starter action now and log it as a win.';
         followUp = 'What 5-minute starter action can you do right now?';
       case _PlannerTopic.habits:
-        insight =
+        signal =
             'Habits stick when they are small, anchored to existing routines, and tracked consistently.';
         actions = <String>[
           'Pick one tiny habit with a clear trigger.',
@@ -1441,18 +1390,18 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
       case _PlannerTopic.timeManagement:
       case _PlannerTopic.taskPlanning:
       case _PlannerTopic.habitBuilding:
-        insight =
+        signal =
             'Productivity drops when the task is vague and context switching keeps pulling you around.';
         actions = <String>[
           'Pick one priority task only.',
           'Break it into a 10-minute starter action.',
-          'Silence notifications for one focused block.',
+          'Silence notifications for one dedicated block.',
         ];
         nextStep =
             'Run a 25-minute timer and finish your first defined subtask.';
         followUp = 'What single task will move your day forward the most?';
       case _PlannerTopic.mentalHealth:
-        insight =
+        signal =
             'Mental strain often builds when hard thoughts stay unspoken and routines start slipping.';
         actions = <String>[
           'Name the feeling clearly in one sentence.',
@@ -1464,7 +1413,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         followUp =
             'Would you like a 5-minute grounding exercise you can do immediately?';
       case _PlannerTopic.motivation:
-        insight = 'Motivation usually shows up after you start, not before.';
+        signal = 'Motivation usually shows up after you start, not before.';
         actions = <String>[
           'Choose one task tied to your main goal.',
           'Shrink it to a 10-minute first step.',
@@ -1473,7 +1422,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         nextStep = 'Complete that 10-minute step before doing anything else.';
         followUp = 'What exact 10-minute step are you committing to right now?';
       case _PlannerTopic.goalRecovery:
-        insight =
+        signal =
             'Goal recovery works best when you diagnose drift quickly and restart with a narrowed, realistic checkpoint.';
         actions = <String>[
           'Identify why momentum broke (time, scope, energy, or clarity).',
@@ -1485,34 +1434,33 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         followUp =
             'What caused the drift, and what is the first recovery milestone?';
       case _PlannerTopic.futureSelf:
-        insight =
-            'Future-self alignment strengthens when today\'s actions are explicitly tied to the person you want to become.';
+        signal =
+            'Long-range goals become actionable when today\'s work produces evidence toward a named outcome.';
         actions = <String>[
-          'Name one future-self trait you want to embody.',
-          'Choose one action today that proves that trait.',
-          'Review tonight whether your behavior matched your future identity.',
+          'Name one long-range outcome you want to create.',
+          'Choose one action today that measurably advances it.',
+          'Review tonight whether the action changed the expected path.',
         ];
-        nextStep = 'Complete one identity-proof action before the day ends.';
-        followUp = 'What future-self trait are you proving today?';
+        nextStep = 'Complete one measurable action before the day ends.';
+        followUp = 'What long-range outcome will this action advance?';
       case _PlannerTopic.purpose:
-        insight =
-            'Purpose feels clearer when daily work maps to core values and long-term direction instead of short-term urgency alone.';
+        signal =
+            'Direction becomes clearer when daily work maps to explicit outcomes instead of short-term urgency alone.';
         actions = <String>[
           'Write one sentence for why this goal matters to your life direction.',
-          'Choose one action that reflects your top value today.',
-          'Cut one low-value task that does not serve your purpose.',
+          'Choose one action that advances that outcome today.',
+          'Cut one task that does not serve the stated outcome.',
         ];
         nextStep =
             'Do the highest-purpose action first in your next work block.';
-        followUp =
-            'What value or purpose are you serving with your next action?';
+        followUp = 'What outcome are you serving with your next action?';
       case _PlannerTopic.relationships:
       case _PlannerTopic.career:
       case _PlannerTopic.learning:
       case _PlannerTopic.personalGrowth:
       case _PlannerTopic.decisionMaking:
       case _PlannerTopic.goals:
-        insight =
+        signal =
             'Goals slip when they never turn into weekly actions and measurable checkpoints.';
         actions = <String>[
           'Pick one outcome that matters most right now.',
@@ -1524,12 +1472,12 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         followUp =
             'What outcome matters most right now, and what is the next step?';
       case _PlannerTopic.generalChat:
-        insight =
+        signal =
             'When priorities are unclear, progress slows because effort gets spread too thin.';
         actions = <String>[
           'Pick one outcome you want by end of day.',
           'Choose one action that directly drives it.',
-          'Do that action in a focused 10-minute sprint.',
+          'Do that action in a direct 10-minute sprint.',
         ];
         nextStep =
             'Start the first 10-minute sprint now at your current energy ($pct%).';
@@ -1537,7 +1485,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     }
 
     return AssistantResponseTemplates.smartPlannerBlock(
-      insight: insight,
+      signal: signal,
       actions: actions,
       nextStep: nextStep,
       followUp: followUp,
@@ -1559,7 +1507,7 @@ enum _PlannerTopic {
   exercise,
   confidence,
   discipline,
-  focus,
+  attention,
   procrastination,
   habits,
   productivity,

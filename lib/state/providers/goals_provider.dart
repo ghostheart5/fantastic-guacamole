@@ -7,7 +7,7 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
+import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -156,7 +156,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     await ref
         .read(profileProvider.notifier)
         .awardXP(progressionXp, source: 'goal_$actionName');
-    ref.invalidate(insightsBundleProvider);
+    ref.invalidate(signalsBundleProvider);
     await _refreshPlannerDecision();
     ref
         .read(eventBusProvider)

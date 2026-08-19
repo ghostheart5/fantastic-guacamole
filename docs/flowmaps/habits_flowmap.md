@@ -8,7 +8,7 @@ User logs habit progress, updates habit, or checks streak.
 2. Habit provider validates and updates record.
 3. Habit repository persists latest state.
 4. Streak/consistency calculations update.
-5. Related insight/progression providers refresh.
+5. Related signal/progression providers refresh.
 6. UI reflects latest streak and status.
 7. Analytics logs habit interaction.
 

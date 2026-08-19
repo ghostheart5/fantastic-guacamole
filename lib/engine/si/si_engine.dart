@@ -362,7 +362,7 @@ class SIEngine {
         memory: memory,
       );
 
-      final AttentionProfile attention = attentionSystem.focus(
+      final AttentionProfile attention = attentionSystem.attention(
         context: context,
         intent: intent,
         instinct: instinct,
@@ -657,7 +657,7 @@ class SIEngine {
         metadata: <String, dynamic>{
           'intent': intent.primary.label,
           'phase': phase.phase.name,
-          'attention': attention.primaryFocus,
+          'attention': attention.primaryTarget,
           'trajectory': narrative.narrative.trajectory,
           'temporal_trend': temporal.trend.name,
           'memory_weather': weather.condition.name,
@@ -888,8 +888,8 @@ class SIEngine {
       narrative: emptyNarrative,
       attention: AttentionProfile(
         signals: const <AttentionSignal>[],
-        primaryFocus: 'fallback',
-        focusScore: 0.5,
+        primaryTarget: 'fallback',
+        attentionScore: 0.5,
         memory: memoryUpdate.store,
       ),
       intuition: SyntheticIntuitionResult(

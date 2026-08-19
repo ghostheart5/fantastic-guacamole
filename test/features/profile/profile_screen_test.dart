@@ -3,7 +3,6 @@ import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/providers/profile_values_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,7 +29,6 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         profileProvider.overrideWith(() => _StaticProfile(state)),
-        // Profile reaches goals through coreValuesAlignmentProvider, and
         // GoalsNotifier.build schedules a timer that outlives the test frame.
         goalsProvider.overrideWith(_StaticGoals.new),
         // ProfileController.updateName() persists via the real SecureStore by
@@ -125,43 +123,6 @@ void main() {
 
       expect(container.read(profileProvider).name, 'Nova');
     });
-  });
-
-  testWidgets('tapping a core value chip toggles its selection', (
-    WidgetTester tester,
-  ) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    final ProviderContainer container = await pumpProfile(
-      tester,
-      ProfileState(),
-    );
-
-    // "Discipline" also appears as an _IdentityCard bar label and (once
-    // selected) as a description-card title, so the chip — the only widget
-    // whose text is "Discipline <score>%" — needs a precise predicate match.
-    final Finder disciplineChip = find.byWidgetPredicate(
-      (Widget widget) =>
-          widget is Text &&
-          (widget.data?.startsWith('Discipline ') ?? false) &&
-          (widget.data?.endsWith('%') ?? false),
-    );
-
-    // ProfileValuesStore defaults to every core value selected, so the first
-    // tap on an already-selected chip exercises the deselect branch.
-    expect(container.read(profileValuesProvider), contains('Discipline'));
-
-    await tester.tap(disciplineChip);
-    await tester.pump();
-
-    expect(
-      container.read(profileValuesProvider),
-      isNot(contains('Discipline')),
-    );
-
-    await tester.tap(disciplineChip);
-    await tester.pump();
-
-    expect(container.read(profileValuesProvider), contains('Discipline'));
   });
 
   testWidgets(

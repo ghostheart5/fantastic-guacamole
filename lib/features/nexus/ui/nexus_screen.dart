@@ -1,23 +1,23 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/task.dart';
-import 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
-import 'package:fantastic_guacamole/features/nexus/domain/nexus_briefing_model.dart';
+import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
+import 'package:fantastic_guacamole/features/plan/widgets/time_block_widget.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
-import 'package:fantastic_guacamole/state/providers/nexus_briefing_provider.dart';
+import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
-import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +36,8 @@ class NexusScreen extends ConsumerStatefulWidget {
 class _NexusScreenState extends ConsumerState<NexusScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
+  final Set<String> _completingTaskIds = <String>{};
+  String? _shownDecisionId;
 
   @override
   void initState() {
@@ -43,7 +45,20 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final MediaQueryData media = MediaQuery.of(context);
+    if (media.disableAnimations || media.accessibleNavigation) {
+      _pulse
+        ..stop()
+        ..value = .5;
+    } else if (!_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    }
   }
 
   @override
@@ -58,47 +73,12 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     final siState = ref.watch(siStateProvider);
     final double energy = siState.energy;
     final double fatigue = siState.fatigue;
-    final int completedToday = siState.completedToday;
-    final trajectory = ref.watch(trajectorySummaryProvider);
-    final double momentum = trajectory.momentum;
-    final int completedTasks = trajectory.completedTasks;
-    final NexusBriefingModel briefingModel = ref.watch(nexusBriefingProvider);
-
-    // A brand-new user lands on a dashboard where every metric reads zero and
-    // nothing indicates what to do first. When there is genuinely nothing to
-    // summarise, lead with a single concrete action instead of empty gauges.
-    final bool hasNothingYet =
-        completedTasks == 0 && trajectory.pendingTasks == 0;
-
-    final String consistencySignal = momentum >= 0.65
-        ? 'High'
-        : momentum >= 0.4
-        ? 'Medium'
-        : 'Low';
-    final String loadSignal = fatigue >= 0.75
-        ? 'Heavy'
-        : fatigue >= 0.45
-        ? 'Moderate'
-        : 'Light';
-    final String growthTitle = profile.streak >= 21
-        ? 'Strong completion streak'
-        : profile.streak >= 7
-        ? 'Consistent completion streak'
-        : completedTasks > 0
-        ? 'Early completion signal'
-        : 'No completion history yet';
-    final String narrativeSummary = completedTasks > 0
-        ? 'Momentum is active. Keep the next action small and immediate.'
-        : 'No completed actions yet. Start with one clear task to establish a baseline.';
-    final int energyMomentumPct =
-        ((((1 - fatigue) * 0.55) + (momentum * 0.45)).clamp(0.0, 1.0) * 100)
-            .round();
-    final double activityPresence =
-        ((completedTasks > 0 ? 0.5 : 0.28) +
-                (profile.streak.clamp(0, 14) / 14) * 0.5)
-            .clamp(0.0, 1.0);
-    final int activityPresencePct = (activityPresence * 100).round();
-
+    final NexusDecisionModel decisionModel = ref.watch(nexusDecisionProvider);
+    _recordDecisionShown(decisionModel.intelligence?.decision);
+    final AsyncValue<List<TimeBlock>> todayBlocks = ref.watch(
+      todayTimeBlocksProvider,
+    );
+    final TimeBlock? nextBlock = ref.watch(nextTodayTimeBlockProvider);
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgTimelineThreads,
       child: Scaffold(
@@ -110,25 +90,21 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: NexusCommandSection(
-                    model: briefingModel,
-                    onRetry: ref.read(nexusBriefingActionsProvider).refresh,
-                    onAction: _openBriefingAction,
-                    onAcknowledge: () => unawaited(
-                      ref
-                          .read(operatingContinuityActionsProvider)
-                          .acknowledgeCurrentBriefing(),
-                    ),
+                  child: _NexusTimeBlockSchedule(
+                    blocks: todayBlocks,
+                    nextBlockId: nextBlock?.id,
+                    decisionModel: decisionModel,
+                    completingTaskIds: _completingTaskIds,
+                    onCompleteTask: _completeTimeBlockTask,
+                    onRetry: () => ref.invalidate(tasksProvider),
+                    onCreateTask: () =>
+                        ref.read(appFlowProvider.notifier).toCreator(),
+                    onOpenTimeline: () =>
+                        ref.read(appFlowProvider.notifier).toTimeline(),
+                    onReviewPlan: _reviewNextDecision,
                   ),
                 ),
               ),
-              if (hasNothingYet)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: _FirstRunCta(),
-                  ),
-                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -145,41 +121,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
               SliverToBoxAdapter(
                 child: _RingLabels(energy: energy, fatigue: fatigue),
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                  child: _NexusBridgeCard(
-                    profile: profile,
-                    energy: energy,
-                    completedToday: completedToday,
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _CoreSignalsStrip(
-                    growthTitle: growthTitle,
-                    narrativeSummary: narrativeSummary,
-                    consistencySignal: consistencySignal,
-                    loadSignal: loadSignal,
-                    energyMomentumPct: energyMomentumPct,
-                    activityPresencePct: activityPresencePct,
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _DependencyMesh(),
-                ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 10, 16, 24),
-                  child: _ActionGrid(),
-                ),
-              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
             ],
           ),
         ),
@@ -187,39 +129,110 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     );
   }
 
-  void _openBriefingAction(OperatingActionIntent intent) {
-    final NexusActionDestination destination = NexusActionResolver.resolve(
-      intent,
-    );
-    if (destination == NexusActionDestination.acknowledge) {
-      unawaited(
-        ref
-            .read(operatingContinuityActionsProvider)
-            .acknowledgeCurrentBriefing(),
-      );
+  Future<void> _completeTimeBlockTask(String taskId) async {
+    if (_completingTaskIds.contains(taskId)) {
       return;
     }
-    if (destination == NexusActionDestination.none) return;
-    if (destination == NexusActionDestination.unsupported) {
+    final OperatingDecisionReceipt? activeDecision = ref
+        .read(nexusDecisionProvider)
+        .intelligence
+        ?.decision;
+    setState(() => _completingTaskIds.add(taskId));
+    try {
+      await ref.read(taskActionsProvider).completeTask(taskId, notify: false);
+      if (activeDecision?.subjectId == taskId) {
+        await ref
+            .read(decisionOutcomeActionsProvider)
+            .record(
+              receipt: activeDecision!,
+              kind: DecisionOutcomeKind.completed,
+              surface: 'nexus',
+            );
+      }
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This action is not available from Nexus yet.'),
+        SnackBar(
+          content: Text(
+            ChronoSparkLocalizations.of(
+              context,
+            ).text(ChronoSparkString.timeBlockCompleted),
+          ),
+          behavior: SnackBarBehavior.floating,
         ),
       );
+    } catch (error, stackTrace) {
+      Logger.errorCategory(
+        'NexusTimeBlocks',
+        'Time-block completion failed.',
+        error,
+        stackTrace,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ChronoSparkLocalizations.of(
+              context,
+            ).text(ChronoSparkString.timeBlockCompletionFailed),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      ref.invalidate(tasksProvider);
+    } finally {
+      if (mounted) {
+        setState(() => _completingTaskIds.remove(taskId));
+      }
+    }
+  }
+
+  void _reviewNextDecision() {
+    final OperatingDecisionReceipt? decision = ref
+        .read(nexusDecisionProvider)
+        .intelligence
+        ?.decision;
+    if (decision != null) {
+      unawaited(
+        ref
+            .read(decisionOutcomeActionsProvider)
+            .record(
+              receipt: decision,
+              kind: DecisionOutcomeKind.accepted,
+              surface: 'nexus',
+              detail: 'Opened Smart Planner from the selected time block.',
+            ),
+      );
+    }
+    unawaited(
+      ref
+          .read(adaptiveGuidanceProvider.notifier)
+          .record(GuidanceMilestone.firstNexusReview),
+    );
+    ref.read(appFlowProvider.notifier).toSmartPlanner();
+  }
+
+  void _recordDecisionShown(OperatingDecisionReceipt? decision) {
+    if (decision == null ||
+        decision.isExpired ||
+        _shownDecisionId == decision.decisionId) {
       return;
     }
-    final RouteSurface routes = ref.read(routeSurfaceProvider);
-    final String route = switch (destination) {
-      NexusActionDestination.creator => routes.creator,
-      NexusActionDestination.timeline => routes.timeline,
-      NexusActionDestination.smartPlanner => routes.smartPlanner,
-      NexusActionDestination.siConsole => routes.siConsole,
-      NexusActionDestination.trajectoryEngine => routes.trajectoryEngine,
-      NexusActionDestination.progression => routes.progression,
-      NexusActionDestination.acknowledge ||
-      NexusActionDestination.none ||
-      NexusActionDestination.unsupported => routes.nexus,
-    };
-    context.push(route);
+    _shownDecisionId = decision.decisionId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _shownDecisionId != decision.decisionId) return;
+      unawaited(
+        ref
+            .read(decisionOutcomeActionsProvider)
+            .record(
+              receipt: decision,
+              kind: DecisionOutcomeKind.shown,
+              surface: 'nexus',
+            ),
+      );
+    });
   }
 }

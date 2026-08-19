@@ -14,7 +14,7 @@ Secondary/advanced surfaces should be nested under settings paths:
 
 Legacy compatibility:
 
-Old top-level routes (including `/coach`, `/insights`, `/logs`, `/si`, and `/tasks`) are maintained only as compatibility redirects and must not be used for new links. `/insights` redirects to Smart Planner; Insight is an output, not a standalone surface.
+Old top-level routes (including `/coach`, `/signals`, `/logs`, `/si`, and `/tasks`) are maintained only as compatibility redirects and must not be used for new links. `/signals` redirects to Smart Planner; Signal is an output, not a standalone surface.
 
 Implementation reference:
 

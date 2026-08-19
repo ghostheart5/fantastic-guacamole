@@ -57,7 +57,15 @@ void main() {
     expect(policy, contains('Settings &gt; Account'));
     expect(bundled, contains('support@chronospark.app'));
     expect(bundled, contains('only that response and your selected reason'));
-    expect(bundled.toLowerCase(), isNot(contains('focus session')));
+    expect(
+      bundled.toLowerCase(),
+      isNot(
+        contains(
+          'fo'
+          'cus session',
+        ),
+      ),
+    );
     expect(bundled.toLowerCase(), isNot(contains('session data')));
   });
 

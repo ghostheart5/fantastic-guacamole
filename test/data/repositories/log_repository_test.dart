@@ -26,8 +26,8 @@ void main() {
     await repository.addLog(
       LogEntryEntity(
         id: 'earlier',
-        message: 'First focus block',
-        source: 'focus_block',
+        message: 'First execution block',
+        source: 'execution_block',
         timestamp: earlier,
       ),
     );

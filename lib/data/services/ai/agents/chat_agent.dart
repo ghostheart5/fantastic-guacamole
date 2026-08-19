@@ -257,7 +257,7 @@ class ChatAgent extends AiAgent {
     return 'You are ChronoSpark Smart Planner. Be concise, practical, and '
         'specific to the user context. Answer the newest message directly. '
         'Use recent conversation history, but do not repeat earlier wording '
-        'or generic motivational slogans. Give one useful insight and one '
+        'or generic motivational slogans. Give one useful signal and one '
         'clear next action. Never claim to be a therapist or diagnose. '
         'Personality: ${personality.name}. Context: ${jsonEncode(context)}';
   }

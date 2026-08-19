@@ -168,7 +168,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     return pushInApp(
       _inAppNotification(
         title: 'Decision Alert',
-        message: 'Selected $taskTitle as the current focus target.',
+        message: 'Selected $taskTitle as the current execution target.',
       ),
       refreshPlanner: refreshPlanner,
       refreshPlan: refreshPlan,

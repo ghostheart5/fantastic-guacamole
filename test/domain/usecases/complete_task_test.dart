@@ -33,7 +33,7 @@ void main() {
         progressionRepository.progression = const ProgressionEntity(xp: 0);
         siRepository.state = SiStateEntity(
           energy: 0.7,
-          focus: 0.7,
+          attention: 0.7,
           fatigue: 0.3,
         );
 
@@ -56,22 +56,70 @@ void main() {
       },
     );
 
-    test('creates next recurring occurrence', () async {
+    test(
+      'delegates recurring completion to durable occurrence authority',
+      () async {
+        await taskRepository.saveTask(
+          TaskEntity(
+            id: 'task-recur',
+            title: 'Daily sync',
+            createdAt: DateTime.utc(2026, 7, 5),
+            recurrenceRule: RecurrenceRule.daily,
+          ),
+        );
+
+        var durableCalls = 0;
+        await CompleteTask(
+          taskRepository,
+          durableMutation: (String id) async {
+            durableCalls += 1;
+            expect(id, 'task-recur');
+            final TaskEntity source = (await taskRepository.getTaskById(id))!;
+            await taskRepository.saveTask(source.copyWith(isCompleted: true));
+            await taskRepository.saveTask(
+              TaskEntity(
+                id: 'task-recur::next::stable-occurrence',
+                title: source.title,
+                createdAt: DateTime.utc(2026, 7, 6),
+                recurrenceRule: source.recurrenceRule,
+              ),
+            );
+            return true;
+          },
+        ).call('task-recur');
+
+        final List<TaskEntity> tasks = await taskRepository.getAllTasks();
+        expect(durableCalls, 1);
+        expect(tasks, hasLength(2));
+        expect(
+          tasks
+              .where((TaskEntity t) => t.id != 'task-recur')
+              .single
+              .isCompleted,
+          isFalse,
+        );
+      },
+    );
+
+    test('rejects recurring fallback before mutating the task', () async {
       await taskRepository.saveTask(
         TaskEntity(
-          id: 'task-recur',
+          id: 'task-recur-no-authority',
           title: 'Daily sync',
           createdAt: DateTime.utc(2026, 7, 5),
           recurrenceRule: RecurrenceRule.daily,
         ),
       );
 
-      await CompleteTask(taskRepository).call('task-recur');
+      await expectLater(
+        () => CompleteTask(taskRepository).call('task-recur-no-authority'),
+        throwsStateError,
+      );
 
-      final List<TaskEntity> tasks = await taskRepository.getAllTasks();
-      expect(tasks, hasLength(2));
       expect(
-        tasks.where((TaskEntity t) => t.id != 'task-recur').single.isCompleted,
+        (await taskRepository.getTaskById(
+          'task-recur-no-authority',
+        ))?.isCompleted,
         isFalse,
       );
     });

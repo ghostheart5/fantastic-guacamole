@@ -52,8 +52,8 @@ class PlannerRecommendation extends LightweightEntity {
   const PlannerRecommendation({required super.id, super.label});
 }
 
-class PlannerInsight extends LightweightEntity {
-  const PlannerInsight({required super.id, super.label});
+class PlannerSignal extends LightweightEntity {
+  const PlannerSignal({required super.id, super.label});
 }
 
 class PlannerTone extends LightweightEntity {
@@ -113,8 +113,8 @@ class MotivationPlanningGuidanceUseCase extends LightweightEntity {
   const MotivationPlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class FocusPlanningGuidanceUseCase extends LightweightEntity {
-  const FocusPlanningGuidanceUseCase({required super.id, super.label});
+class TargetedPlanningGuidanceUseCase extends LightweightEntity {
+  const TargetedPlanningGuidanceUseCase({required super.id, super.label});
 }
 
 class SleepPlanningGuidanceUseCase extends LightweightEntity {
@@ -142,8 +142,8 @@ class SiAnalysis extends LightweightEntity {
   const SiAnalysis({required super.id, super.label});
 }
 
-class SiInsight extends LightweightEntity {
-  const SiInsight({required super.id, super.label});
+class SiSignal extends LightweightEntity {
+  const SiSignal({required super.id, super.label});
 }
 
 class SiRecommendation extends LightweightEntity {
@@ -357,8 +357,8 @@ class MemorySummary extends LightweightEntity {
   const MemorySummary({required super.id, super.label});
 }
 
-class MemoryInsight extends LightweightEntity {
-  const MemoryInsight({required super.id, super.label});
+class MemorySignal extends LightweightEntity {
+  const MemorySignal({required super.id, super.label});
 }
 
 class MemoryImportance extends LightweightEntity {
@@ -369,40 +369,40 @@ class MemoryRecallResult extends LightweightEntity {
   const MemoryRecallResult({required super.id, super.label});
 }
 
-class JournalEntry extends LightweightEntity {
-  const JournalEntry({required super.id, super.label});
+class ReflectionEntry extends LightweightEntity {
+  const ReflectionEntry({required super.id, super.label});
 }
 
-class JournalPrompt extends LightweightEntity {
-  const JournalPrompt({required super.id, super.label});
+class ReflectionPrompt extends LightweightEntity {
+  const ReflectionPrompt({required super.id, super.label});
 }
 
-class JournalMood extends LightweightEntity {
-  const JournalMood({required super.id, super.label});
+class ReflectionMood extends LightweightEntity {
+  const ReflectionMood({required super.id, super.label});
 }
 
-class JournalTag extends LightweightEntity {
-  const JournalTag({required super.id, super.label});
+class ReflectionTag extends LightweightEntity {
+  const ReflectionTag({required super.id, super.label});
 }
 
-class JournalReflection extends LightweightEntity {
-  const JournalReflection({required super.id, super.label});
+class ReflectionResponse extends LightweightEntity {
+  const ReflectionResponse({required super.id, super.label});
 }
 
-class JournalInsight extends LightweightEntity {
-  const JournalInsight({required super.id, super.label});
+class ReflectionSignal extends LightweightEntity {
+  const ReflectionSignal({required super.id, super.label});
 }
 
-class JournalSentiment extends LightweightEntity {
-  const JournalSentiment({required super.id, super.label});
+class ReflectionSentiment extends LightweightEntity {
+  const ReflectionSentiment({required super.id, super.label});
 }
 
-class JournalSummary extends LightweightEntity {
-  const JournalSummary({required super.id, super.label});
+class ReflectionSummary extends LightweightEntity {
+  const ReflectionSummary({required super.id, super.label});
 }
 
-class JournalAttachment extends LightweightEntity {
-  const JournalAttachment({required super.id, super.label});
+class ReflectionAttachment extends LightweightEntity {
+  const ReflectionAttachment({required super.id, super.label});
 }
 
 class AnalyticsEvent extends LightweightEntity {
@@ -477,8 +477,8 @@ class LifeBalanceScore extends LightweightEntity {
   const LifeBalanceScore({required super.id, super.label});
 }
 
-class FocusScore extends LightweightEntity {
-  const FocusScore({required super.id, super.label});
+class AttentionScore extends LightweightEntity {
+  const AttentionScore({required super.id, super.label});
 }
 
 class RiskScore extends LightweightEntity {

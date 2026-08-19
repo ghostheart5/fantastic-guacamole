@@ -103,7 +103,7 @@ $layerThresholds = @(
     Prefixes = @('lib/features/')
     IncludeRegex = '/(ui|widgets|screens?)/'
     Min = 50.0
-    Target = '50-70% focused'
+    Target = '50-70% concentrated'
   }
 )
 
@@ -128,9 +128,7 @@ $criticalTestFiles = @{
   )
 }
 
-$ignoredCoveragePaths = @(
-  'lib/state/controllers/focus_session_controller.dart'
-)
+$ignoredCoveragePaths = @()
 
 if (-not (Test-Path $CoverageFile)) {
   Write-Host "Coverage file not found: $CoverageFile" -ForegroundColor Red

@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
-import 'package:fantastic_guacamole/features/logs/widgets/logs_insight_card.dart';
+import 'package:fantastic_guacamole/features/logs/widgets/logs_signal_card.dart';
 import 'package:fantastic_guacamole/features/logs/widgets/logs_timeline.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -18,7 +18,6 @@ class LogsScreen extends ConsumerWidget {
     final _LogBuckets buckets = _partitionLogMessages(logsAsync.entries);
     final List<String> dailyLogs = buckets.dailyLogs;
     final List<String> completedTasks = buckets.completedTasks;
-    final List<String> pastMissions = buckets.pastMissions;
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgActivityArchive,
@@ -39,14 +38,14 @@ class LogsScreen extends ConsumerWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: LogsInsightCard(
+                      child: LogsSignalCard(
                         title: 'Longest Streak',
                         value: '${profile.longestStreak}d',
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: LogsInsightCard(
+                      child: LogsSignalCard(
                         title: 'XP Snapshot',
                         value: '${profile.xp}',
                       ),
@@ -128,21 +127,7 @@ class LogsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      if (pastMissions.isNotEmpty) ...[
-                        _NeonPanel(
-                          label: 'TIMELINE HISTORY',
-                          accentColor: AppColors.neonViolet,
-                          child: _LogList(
-                            entries: pastMissions,
-                            icon: Icons.flag_outlined,
-                            color: AppColors.neonViolet,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      if (dailyLogs.isEmpty &&
-                          completedTasks.isEmpty &&
-                          pastMissions.isEmpty)
+                      if (dailyLogs.isEmpty && completedTasks.isEmpty)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 32),
                           child: Text(
@@ -212,21 +197,14 @@ class _LogList extends StatelessWidget {
 _LogBuckets _partitionLogMessages(List<LogEntryEntity> entries) {
   final List<String> dailyLogs = <String>[];
   final List<String> completedTasks = <String>[];
-  final List<String> pastMissions = <String>[];
 
   for (final LogEntryEntity entry in entries) {
     switch (entry.source) {
-      case 'focus_session':
       case 'daily_log':
         dailyLogs.add(entry.message);
         break;
       case 'completed_task':
         completedTasks.add(entry.message);
-        break;
-      // Compatibility for historical records written before the terminology
-      // migration. New records must use current Timeline event types.
-      case 'mission':
-        pastMissions.add(entry.message);
         break;
       default:
         break;
@@ -236,20 +214,14 @@ _LogBuckets _partitionLogMessages(List<LogEntryEntity> entries) {
   return _LogBuckets(
     dailyLogs: List<String>.unmodifiable(dailyLogs),
     completedTasks: List<String>.unmodifiable(completedTasks),
-    pastMissions: List<String>.unmodifiable(pastMissions),
   );
 }
 
 class _LogBuckets {
-  const _LogBuckets({
-    required this.dailyLogs,
-    required this.completedTasks,
-    required this.pastMissions,
-  });
+  const _LogBuckets({required this.dailyLogs, required this.completedTasks});
 
   final List<String> dailyLogs;
   final List<String> completedTasks;
-  final List<String> pastMissions;
 }
 
 class _ScreenHeader extends StatelessWidget {

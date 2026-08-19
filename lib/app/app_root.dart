@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
@@ -7,14 +5,16 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_overlay.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,84 +28,36 @@ class AppRoot extends ConsumerStatefulWidget {
 }
 
 class _AppRootState extends ConsumerState<AppRoot> {
-  static const List<String> _tutorialAssets = <String>[
-    'assets/tutorials/home.json',
-  ];
-
   GoRouter? _router;
-  VoidCallback? _routerListener;
-  bool _tutorialAssetsLoaded = false;
   final Set<String> _handledDeepLinks = <String>{};
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      unawaited(_loadTutorialAssetsIfNeeded());
-    });
-  }
-
-  Future<void> _loadTutorialAssetsIfNeeded() async {
-    if (_tutorialAssetsLoaded) {
-      return;
-    }
-    final controller = ref.read(tutorialControllerProvider);
-    await controller.loadAssets(_tutorialAssets);
-    if (!mounted) {
-      return;
-    }
-    _tutorialAssetsLoaded = true;
-  }
-
-  void _attachRouterListener(GoRouter router) {
-    if (identical(_router, router)) {
-      return;
-    }
-    final GoRouter? previousRouter = _router;
-    final VoidCallback? previousListener = _routerListener;
-    if (previousRouter != null && previousListener != null) {
-      previousRouter.routerDelegate.removeListener(previousListener);
-    }
-    _router = router;
-    _routerListener = () {
-      final GoRouter? activeRouter = _router;
-      if (!mounted || activeRouter == null) {
-        return;
-      }
-      final controller = ref.read(tutorialControllerProvider);
-      final String route = activeRouter.routeInformationProvider.value.uri
-          .toString();
-      controller.updateRoute(route);
-    };
-    final VoidCallback? listener = _routerListener;
-    if (listener == null) {
-      return;
-    }
-    router.routerDelegate.addListener(listener);
-    listener();
-  }
-
-  @override
-  void dispose() {
-    final GoRouter? router = _router;
-    final VoidCallback? listener = _routerListener;
-    if (router != null && listener != null) {
-      router.routerDelegate.removeListener(listener);
-    }
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
+    final AuthSessionBoundary accountBoundary = ref.watch(
+      authSessionBoundaryProvider,
+    );
     final String startupMessage = widget.startupError?.trim() ?? '';
     final bool showQaDiagnostics = ref
         .watch(intelligenceStateProvider)
         .flags
         .testerFullAccess;
+    if (accountBoundary.isTransitioning ||
+        accountBoundary.blockingIssue != null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: AppConfig.fromEnv().appName,
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
+        home: _AccountDataLock(boundary: accountBoundary),
+      );
+    }
     final RemoteAnnouncement? remoteAnnouncement = ref
         .watch(remoteAnnouncementProvider)
         .asData
@@ -116,7 +68,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
       showQaDiagnostics: showQaDiagnostics,
     );
     final GoRouter router = ref.watch(appRouterProvider);
-    final tutorialController = ref.watch(tutorialControllerProvider);
+    _router = router;
 
     ref.listen<AsyncValue<DeepLinkState>>(deepLinkStateProvider, (
       AsyncValue<DeepLinkState>? _,
@@ -129,24 +81,26 @@ class _AppRootState extends ConsumerState<AppRoot> {
       _handleDeepLink(uri, router);
     });
 
-    _attachRouterListener(router);
-
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: AppConfig.fromEnv().appName,
       supportedLocales: ChronoSparkLocalizations.supportedLocales,
       localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
         ChronoSparkLocalizations.delegate,
-        DefaultWidgetsLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
       ],
       theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
       routerConfig: router,
       builder: (context, child) {
-        final Widget appChild = ErrorBoundary(
-          child: TutorialHost(
-            controller: tutorialController,
-            child: child ?? const SizedBox.shrink(),
-          ),
+        final Widget appChild = Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
+            ),
+            const AdaptiveGuideOverlay(),
+          ],
         );
 
         if (startupBannerMessage.isEmpty &&
@@ -321,9 +275,8 @@ class _AppRootState extends ConsumerState<AppRoot> {
     final String leaf = appPath.substring('/app/'.length);
     return switch (leaf) {
       'home' || 'nexus' => RoutePaths.nexus,
-      'plan' => RoutePaths.plan,
+      'plan' => RoutePaths.timeline,
       'creator' => RoutePaths.creator,
-      'insights' => RoutePaths.plan,
       'settings' => RoutePaths.settings,
       'notifications' => RoutePaths.notifications,
       'support' => RoutePaths.support,
@@ -441,6 +394,76 @@ class _AppRootState extends ConsumerState<AppRoot> {
           ),
         );
       },
+    );
+  }
+}
+
+class _AccountDataLock extends ConsumerWidget {
+  const _AccountDataLock({required this.boundary});
+
+  final AuthSessionBoundary boundary;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final String? issue = boundary.canClaimPreservedData
+        ? l10n.text(ChronoSparkString.preservedDataIssue)
+        : boundary.blockingIssue;
+    return Scaffold(
+      backgroundColor: const Color(0xFF050D1A),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Semantics(
+              liveRegion: true,
+              label: issue ?? l10n.text(ChronoSparkString.securingAccountData),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (issue == null) ...<Widget>[
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 20),
+                    Text(l10n.text(ChronoSparkString.securingAccountData)),
+                  ] else ...<Widget>[
+                    const Icon(
+                      Icons.lock_person_outlined,
+                      size: 48,
+                      color: Color(0xFF00E5FF),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      issue,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (boundary.canClaimPreservedData) ...<Widget>[
+                      const SizedBox(height: 24),
+                      Text(
+                        l10n.text(ChronoSparkString.preservedDataBody),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 48,
+                        child: FilledButton(
+                          onPressed: () => ref
+                              .read(authSessionBoundaryCoordinatorProvider)
+                              .claimPreservedDataForCurrentAccount(),
+                          child: Text(
+                            l10n.text(ChronoSparkString.claimPreservedData),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
