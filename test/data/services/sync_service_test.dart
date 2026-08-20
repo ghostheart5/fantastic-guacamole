@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,6 +68,39 @@ void main() {
     expect(success, isTrue);
     expect(uploadedTask['id'], 'task-1');
   });
+
+  test(
+    'encrypted cloud backup round-trips only with the retained device key',
+    () async {
+      final SecureStore secureStore = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final SyncService encryptedService = SyncService(
+        backup: backupService,
+        gateway: gateway,
+        secureStore: secureStore,
+      );
+      await repository.saveTask(
+        TaskEntity(
+          id: 'encrypted-task',
+          title: 'Protect this payload',
+          createdAt: DateTime.utc(2026, 8, 19),
+        ),
+      );
+
+      expect(await encryptedService.syncToCloud(), isTrue);
+      expect(
+        gateway.fullBackup,
+        containsPair('format', 'chronospark_backup_aes256_gcm_v2'),
+      );
+      expect(gateway.fullBackup?['ciphertext'], isA<String>());
+      expect(gateway.fullBackup, isNot(contains('tasks')));
+
+      repository.tasks.clear();
+      expect(await encryptedService.restoreFromCloud(), isTrue);
+      expect((await repository.getAllTasks()).single.id, 'encrypted-task');
+    },
+  );
 
   test('restoreFromCloud returns false when cloud backup is empty', () async {
     final bool restored = await syncService.restoreFromCloud();

@@ -162,5 +162,36 @@ void main() {
       expect(throttled.shouldSimplify, isTrue);
       expect(throttled.tone, 'calm');
     });
+
+    test('preserves suggestion volume when load is supported', () {
+      const decision = SiDecisionEntity(
+        rationale: 'Current load supports the options.',
+        action: 'Choose the best supported option.',
+        orderedTaskIds: <String>['t1', 't2', 't3'],
+        recommendedExecutionMinutes: 25,
+      );
+
+      expect(
+        SiPolicy.reduceSuggestionVolume(decision, overloaded: false),
+        same(decision),
+      );
+    });
+
+    test('overload keeps an already-short execution window', () {
+      const decision = SiDecisionEntity(
+        rationale: 'Keep the existing short window.',
+        action: 'Take one small step.',
+        orderedTaskIds: <String>['t1', 't2'],
+        recommendedExecutionMinutes: 8,
+      );
+
+      final SiDecisionEntity result = SiPolicy.reduceSuggestionVolume(
+        decision,
+        overloaded: true,
+      );
+
+      expect(result.recommendedExecutionMinutes, 8);
+      expect(result.orderedTaskIds, <String>['t1', 't2']);
+    });
   });
 }

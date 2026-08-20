@@ -22,6 +22,15 @@ void main() {
         );
       }
       expect(decision.shouldInvalidateReadModels, isTrue);
+      final bool expected = outcome == CompletionMutationOutcome.applied;
+      expect(decision.shouldRunReward, expected);
+      expect(decision.shouldRunLearning, expected);
+      expect(decision.shouldRunAnalytics, expected);
+      expect(decision.shouldRunLog, expected);
+      expect(decision.shouldRunTimeline, expected);
+      expect(decision.shouldRunGuidance, expected);
+      expect(decision.shouldRunNotification, expected);
+      expect(decision.shouldRunEvent, expected);
     }
   });
 }

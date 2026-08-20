@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
@@ -344,10 +345,91 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test(
+    'failed task replacement rolls back the complete prior task set',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'existing',
+          title: 'Preserve this task',
+          createdAt: DateTime.utc(2026, 8, 1),
+        ),
+      );
+      repository.failFirstSaveForId = 'restore-fails';
+
+      await expectLater(
+        () => service.restoreTasks(<String, dynamic>{
+          'tasks': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 'restore-starts',
+              'title': 'Partially restored task',
+              'createdAt': '2026-08-02T00:00:00.000Z',
+            },
+            <String, dynamic>{
+              'id': 'restore-fails',
+              'title': 'Triggers rollback',
+              'createdAt': '2026-08-03T00:00:00.000Z',
+            },
+          ],
+        }),
+        throwsStateError,
+      );
+
+      final List<TaskEntity> tasks = await repository.getAllTasks();
+      expect(tasks.map((TaskEntity task) => task.id), <String>['existing']);
+    },
+  );
+
+  test(
+    'migrates legacy profile data to secure storage before writes',
+    () async {
+      final SecureStore secureStore = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final BackupService secureService = BackupService(
+        taskRepository: repository,
+        profileStorage: profileStorage,
+        prefs: service.prefs,
+        secureProfileStore: secureStore,
+      );
+      await profileStorage.put(
+        'profile_state',
+        jsonEncode(<String, dynamic>{'name': 'Legacy Secure User'}),
+      );
+
+      expect(
+        (await secureService.backupProfile())['profile'],
+        <String, dynamic>{'name': 'Legacy Secure User'},
+      );
+      expect(profileStorage.get('profile_state'), isNull);
+      expect(
+        await secureStore.readString('profile_state_v2'),
+        jsonEncode(<String, dynamic>{'name': 'Legacy Secure User'}),
+      );
+
+      await secureService.restoreProfile(<String, dynamic>{
+        'profile': <String, dynamic>{'name': 'Secure Restore'},
+      });
+      await secureService.restoreSettings(<String, dynamic>{
+        'settings': <String, dynamic>{'soundEnabled': false},
+      });
+
+      expect(
+        await secureStore.readString('profile_state_v2'),
+        jsonEncode(<String, dynamic>{'name': 'Secure Restore'}),
+      );
+      expect(secureService.prefs.getJson('settings'), <String, dynamic>{
+        'soundEnabled': false,
+      });
+    },
+  );
 }
 
 class _MemoryTaskRepository implements ITaskRepository {
   final Map<String, TaskEntity> _tasks = <String, TaskEntity>{};
+  String? failFirstSaveForId;
+  bool _didFailConfiguredSave = false;
 
   @override
   Future<void> deleteTask(String id) async {
@@ -366,6 +448,10 @@ class _MemoryTaskRepository implements ITaskRepository {
 
   @override
   Future<void> saveTask(TaskEntity task) async {
+    if (!_didFailConfiguredSave && task.id == failFirstSaveForId) {
+      _didFailConfiguredSave = true;
+      throw StateError('Simulated restore write failure for ${task.id}.');
+    }
     _tasks[task.id] = task;
   }
 }
