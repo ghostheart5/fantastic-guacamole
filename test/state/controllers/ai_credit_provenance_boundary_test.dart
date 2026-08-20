@@ -32,18 +32,12 @@ void main() {
     const AgentResult local = AgentResult(
       selectedAgent: 'chat',
       workflow: 'execute',
-      payload: <String, dynamic>{
-        'source': 'local',
-        'modelBacked': false,
-      },
+      payload: <String, dynamic>{'source': 'local', 'modelBacked': false},
     );
     const AgentResult external = AgentResult(
       selectedAgent: 'chat',
       workflow: 'execute',
-      payload: <String, dynamic>{
-        'source': 'model',
-        'modelBacked': true,
-      },
+      payload: <String, dynamic>{'source': 'model', 'modelBacked': true},
     );
 
     expect(shouldRetainExternalModelCredits(local), isFalse);
