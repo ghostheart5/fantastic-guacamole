@@ -3,6 +3,73 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('defers spotlight geometry for a transient zero-sized viewport', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey targetKey = GlobalKey();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox.shrink(
+            child: Stack(
+              children: <Widget>[
+                SizedBox(key: targetKey),
+                InteractiveTutorialOverlay(
+                  targetKey: targetKey,
+                  title: 'Deferred guide',
+                  body: 'Waits for usable layout constraints.',
+                  primaryLabel: 'Next',
+                  onPrimary: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Deferred guide'), findsNothing);
+  });
+
+  testWidgets('fits the tutorial callout inside a compact viewport', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey targetKey = GlobalKey();
+    await tester.binding.setSurfaceSize(const Size(240, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: <Widget>[
+              Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(key: targetKey, width: 80, height: 40),
+              ),
+              InteractiveTutorialOverlay(
+                targetKey: targetKey,
+                title: 'Compact guide',
+                body: 'The guide remains readable without overflowing.',
+                primaryLabel: 'Next',
+                onPrimary: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Compact guide'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('spotlight keeps the real target and guide action interactive', (
     WidgetTester tester,
   ) async {

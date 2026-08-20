@@ -123,6 +123,13 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
             160,
             size.height - keyboardInset,
           );
+          // A Stack can receive transient zero or very narrow constraints while
+          // its route is being installed. Defer spotlight geometry until every
+          // inset range used below is valid; LayoutBuilder will rebuild as soon
+          // as the real viewport constraints arrive.
+          if (size.width < 64 || size.height < 64) {
+            return _blocker();
+          }
           final Rect? measured = _targetRect;
           final Rect? target = measured == null
               ? null
@@ -237,7 +244,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
 
   Widget _callout(Rect? target, double width, double visibleHeight) {
     const double estimatedHeight = 190;
-    final double calloutWidth = math.min(390, math.max(260, width - 24));
+    final double calloutWidth = math.min(390, math.max(0, width - 24));
     final double left = (width - calloutWidth) / 2;
     final double top;
     if (target == null) {
