@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/signal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
@@ -20,6 +21,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart'
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
+import 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
 import 'package:fantastic_guacamole/state/services/si_engine_dependencies.dart';
 import 'package:fantastic_guacamole/state/services/state_si_engine_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,21 +58,64 @@ void main() {
 
       expect(accepted, isTrue);
     });
+
+    test('allocates a separate engine runtime for each conversation', () {
+      int engineCount = 0;
+      final StateSiEngineService service = StateSiEngineService(
+        _NoopSiEngineRepository(),
+        dependencies: _fakeDependencies(),
+        engineFactory: () {
+          engineCount += 1;
+          return SIEngineService();
+        },
+      );
+
+      service.validateOutput(
+        conversation: AssistantConversationScope.primarySmartPlanner,
+        message: 'Planner output has its own runtime and validation state.',
+        confidence: 0.8,
+      );
+      service.validateOutput(
+        conversation: AssistantConversationScope.primarySiConsole,
+        message: 'Console output has its own runtime and validation state.',
+        confidence: 0.8,
+      );
+      service.validateOutput(
+        conversation: AssistantConversationScope.primarySmartPlanner,
+        message: 'Planner reuses only the planner runtime.',
+        confidence: 0.8,
+      );
+
+      expect(engineCount, 2);
+    });
   });
 }
 
 class _NoopSiEngineRepository implements SiEngineRepository {
   @override
-  Future<void> clearState() async {}
+  Future<void> clearLegacyState() async {}
 
   @override
-  Future<Map<String, dynamic>?> exportState() async => null;
+  Future<void> clearState(AssistantConversationScope conversation) async {}
 
   @override
-  Future<Map<String, dynamic>?> loadState() async => null;
+  Future<Map<String, dynamic>?> exportState(
+    AssistantConversationScope conversation,
+  ) async => null;
 
   @override
-  Future<void> saveState(Map<String, dynamic> state) async {}
+  Future<Map<String, dynamic>?> loadState(
+    AssistantConversationScope conversation,
+  ) async => null;
+
+  @override
+  Future<void> saveState(
+    AssistantConversationScope conversation,
+    Map<String, dynamic> state,
+  ) async {}
+
+  @override
+  String? stateKey(AssistantConversationScope conversation) => null;
 }
 
 SiEngineDependencies _fakeDependencies() {

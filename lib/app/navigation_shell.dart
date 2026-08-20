@@ -100,6 +100,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     _energySubscription = ref.listenManual<double>(energyProvider, (_, _) {
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
+      ref.invalidate(smartPlannerAiResponseProvider);
     });
     _learningSubscription = ref.listenManual<LearningState>(learningProvider, (
       _,
@@ -107,6 +108,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     ) {
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
+      ref.invalidate(smartPlannerAiResponseProvider);
     });
     _viewSubscription = ref.listenManual<AppView>(appFlowProvider, (
       _,

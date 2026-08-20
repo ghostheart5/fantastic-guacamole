@@ -7,6 +7,10 @@ final aiAgentTraceProvider =
     NotifierProvider<AIAgentTraceNotifier, AgentResult?>(
       AIAgentTraceNotifier.new,
     );
+final smartPlannerAiAgentTraceProvider =
+    NotifierProvider<AIAgentTraceNotifier, AgentResult?>(
+      AIAgentTraceNotifier.new,
+    );
 final aiPersonalityProvider =
     NotifierProvider<AIPersonalityNotifier, AIPersonality>(
       AIPersonalityNotifier.new,
@@ -14,11 +18,21 @@ final aiPersonalityProvider =
 final aiInputProvider = NotifierProvider<AIInputNotifier, String?>(
   AIInputNotifier.new,
 );
+final smartPlannerAiInputProvider = NotifierProvider<AIInputNotifier, String?>(
+  AIInputNotifier.new,
+);
 final aiExecutionStatusProvider =
     NotifierProvider<AIExecutionStatusNotifier, AIExecutionStatus>(
       AIExecutionStatusNotifier.new,
     );
+final smartPlannerAiExecutionStatusProvider =
+    NotifierProvider<AIExecutionStatusNotifier, AIExecutionStatus>(
+      AIExecutionStatusNotifier.new,
+    );
 final aiMessageThrottleProvider = Provider<Throttle>((_) {
+  return Throttle(const Duration(milliseconds: 900));
+});
+final smartPlannerAiMessageThrottleProvider = Provider<Throttle>((_) {
   return Throttle(const Duration(milliseconds: 900));
 });
 final aiSuggestionRateLimiterProvider = Provider<SlidingWindowRateLimiter>((_) {
@@ -27,6 +41,13 @@ final aiSuggestionRateLimiterProvider = Provider<SlidingWindowRateLimiter>((_) {
     window: const Duration(seconds: 20),
   );
 });
+final smartPlannerAiSuggestionRateLimiterProvider =
+    Provider<SlidingWindowRateLimiter>((_) {
+      return SlidingWindowRateLimiter(
+        maxRequests: 3,
+        window: const Duration(seconds: 20),
+      );
+    });
 
 class AITriggerNotifier extends Notifier<int> {
   @override

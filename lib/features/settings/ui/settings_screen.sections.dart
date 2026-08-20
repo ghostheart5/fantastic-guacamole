@@ -297,15 +297,11 @@ class _PersonalizationSection extends ConsumerWidget {
   const _PersonalizationSection();
 
   Future<void> _exportSiMemory(BuildContext context, WidgetRef ref) async {
-    final Map<String, dynamic>? state = await ref
+    final Map<String, dynamic> state = await ref
         .read(siEngineServiceProvider)
-        .exportState();
+        .exportAllStates();
     await Clipboard.setData(
-      ClipboardData(
-        text: const JsonEncoder.withIndent(
-          '  ',
-        ).convert(state ?? <String, dynamic>{}),
-      ),
+      ClipboardData(text: const JsonEncoder.withIndent('  ').convert(state)),
     );
     if (!context.mounted) return;
     ScaffoldMessenger.of(
@@ -336,8 +332,13 @@ class _PersonalizationSection extends ConsumerWidget {
         ) ??
         false;
     if (!confirmed) return;
-    await ref.read(siEngineServiceProvider).clearMemory();
+    await ref.read(siEngineServiceProvider).clearAllMemory();
     ref.invalidate(siEngineStateProvider);
+    ref.invalidate(smartPlannerEngineStateProvider);
+    ref.invalidate(siMemoryProvider);
+    ref.invalidate(smartPlannerMemoryProvider);
+    ref.invalidate(aiResponseProvider);
+    ref.invalidate(smartPlannerAiResponseProvider);
     if (!context.mounted) return;
     ScaffoldMessenger.of(
       context,

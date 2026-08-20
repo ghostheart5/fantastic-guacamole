@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
+import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/momentum_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
@@ -28,6 +29,7 @@ import 'package:fantastic_guacamole/state/providers/personalization_provider.dar
 import 'package:fantastic_guacamole/state/providers/routines_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_console_thread_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/subtasks_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
@@ -57,6 +59,19 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(learningProvider);
   ref.invalidate(siStateProvider);
   ref.invalidate(siMemoryProvider);
+  ref.invalidate(smartPlannerMemoryProvider);
+  ref.invalidate(aiResponseProvider);
+  ref.invalidate(smartPlannerAiResponseProvider);
+  ref.invalidate(aiInputProvider);
+  ref.invalidate(smartPlannerAiInputProvider);
+  ref.invalidate(aiAgentTraceProvider);
+  ref.invalidate(smartPlannerAiAgentTraceProvider);
+  ref.invalidate(aiExecutionStatusProvider);
+  ref.invalidate(smartPlannerAiExecutionStatusProvider);
+  ref.invalidate(siEngineStateProvider);
+  ref.invalidate(smartPlannerEngineStateProvider);
+  ref.invalidate(siEngineRepositoryProvider);
+  ref.invalidate(siEngineServiceProvider);
   ref.invalidate(signalsBundleProvider);
   ref.invalidate(siConsoleThreadProvider);
   ref.invalidate(trajectoryForecastLedgerProvider);
