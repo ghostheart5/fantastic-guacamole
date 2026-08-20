@@ -33,6 +33,8 @@ if (-not (Test-Path $manifest)) {
     'android.permission.INTERNET',
     'com.android.vending.BILLING',
     'android.permission.POST_NOTIFICATIONS',
+    'android.permission.ACCESS_COARSE_LOCATION',
+    'android.permission.ACCESS_FINE_LOCATION',
     'android.permission.RECORD_AUDIO',
     'android.permission.FOREGROUND_SERVICE',
     'android.permission.FOREGROUND_SERVICE_DATA_SYNC',

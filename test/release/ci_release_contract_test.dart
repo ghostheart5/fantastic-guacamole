@@ -55,6 +55,8 @@ void main() {
       expect(gradle, contains('maxOf(flutter.compileSdkVersion, 36)'));
       expect(gradle, contains('maxOf(flutter.targetSdkVersion, 36)'));
       expect(guard, contains('\$requiredTargetApi = 36'));
+      expect(guard, contains("'android.permission.ACCESS_COARSE_LOCATION'"));
+      expect(guard, contains("'android.permission.ACCESS_FINE_LOCATION'"));
       expect(firebase, contains("iosBundleId: 'com.ghostheart5.chronospark'"));
       expect(firebase, isNot(contains('com.example.chronospark')));
     },
