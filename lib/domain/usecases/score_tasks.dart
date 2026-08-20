@@ -22,6 +22,7 @@ class ScoreTasks {
     double fatigue = 0.0,
     double priorityScale = 1.0,
     double difficultyScale = 1.0,
+    TaskRankingPolicy policy = const TaskRankingPolicy(),
     DateTime? now,
     SiStateEntity? siState,
   }) {
@@ -35,6 +36,7 @@ class ScoreTasks {
       fatigue: fatigue,
       priorityScale: priorityScale,
       difficultyScale: difficultyScale,
+      policy: policy,
       now: now,
       siState: siState,
     );

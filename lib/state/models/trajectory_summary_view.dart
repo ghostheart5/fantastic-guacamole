@@ -64,9 +64,9 @@ class TrajectorySummaryView {
       predictionProbability != null &&
       predictionExplanation != null;
 
-  bool get predictionReliable =>
+  bool get predictionEvidenceSufficient =>
       predictionProbability != null &&
-      predictionSampleSize >= 3 &&
+      predictionSampleSize >= 10 &&
       predictionConfidence?.band != PredictiveConfidenceBand.low &&
       predictionConfidence?.band !=
           PredictiveConfidenceBand.insufficientEvidence;

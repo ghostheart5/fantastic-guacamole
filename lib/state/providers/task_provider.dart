@@ -57,16 +57,21 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
         learning: learning,
         energy: si.energy,
         fatigue: si.fatigue,
-        priorityScale:
-            optimization.nextActionAggressiveness *
-            switch (personalization.priorityStrategy) {
-              PriorityStrategy.deadlineFirst => 1.15,
-              PriorityStrategy.energyFirst => 0.85,
-              PriorityStrategy.goalFirst => 1.05,
-              PriorityStrategy.quickWins => 0.9,
-              PriorityStrategy.balanced => 1.0,
-            },
+        priorityScale: optimization.nextActionAggressiveness,
         difficultyScale: optimization.taskDifficultyScale,
+        policy: switch (personalization.priorityStrategy) {
+          PriorityStrategy.deadlineFirst => const TaskRankingPolicy(
+            deadlineWeight: 2.25,
+          ),
+          PriorityStrategy.energyFirst => const TaskRankingPolicy(
+            energyWeight: 2.25,
+          ),
+          PriorityStrategy.goalFirst => const TaskRankingPolicy(goalBonus: 18),
+          PriorityStrategy.quickWins => const TaskRankingPolicy(
+            quickWinBonus: 18,
+          ),
+          PriorityStrategy.balanced => const TaskRankingPolicy(),
+        },
         siState: siState,
       );
   return ranked.map((RankedTask item) => _taskFromEntity(item.task)).toList();
@@ -185,7 +190,6 @@ class TaskActions {
         _recordCompletionSideEffects(
           task: selectedTask,
           durationSeconds: estimatedSeconds,
-          quality: score.quality,
           timestamp: now,
           notify: notify,
         ),
@@ -278,6 +282,14 @@ class TaskActions {
           .call(taskId: selectedTask!.id, difficulty: selectedTask.difficulty),
     );
     await _ref.read(observedPlanningPatternsProvider.notifier).recordSkip();
+    await _bestEffort(
+      () => _recordTaskOutcomeLearning(
+        task: selectedTask!,
+        durationSeconds: 0,
+        completed: false,
+        timestamp: now,
+      ),
+    );
     unawaited(_recordGuidance(GuidanceMilestone.firstTaskDeferral));
     _ref.read(siStateProvider.notifier).taskSkipped();
     await _ref
@@ -355,10 +367,10 @@ class TaskActions {
     }
   }
 
-  Future<void> _recordCompletionLearning({
+  Future<void> _recordTaskOutcomeLearning({
     required Task task,
     required int durationSeconds,
-    required double quality,
+    required bool completed,
     required DateTime timestamp,
   }) async {
     const String storageKey = 'neural_dump';
@@ -366,11 +378,14 @@ class TaskActions {
     final String? raw = await store.readString(storageKey);
     final Map<String, dynamic> entry = NeuralEntry(
       task: task.title,
-      reasoning: 'Recorded from a completed task.',
-      confidence: quality,
+      reasoning: completed
+          ? 'Observed completed task outcome.'
+          : 'Observed skipped task outcome.',
+      confidence: 1,
       duration: durationSeconds,
-      quality: quality,
+      quality: completed ? 1 : 0,
       timestamp: timestamp,
+      completed: completed,
     ).toJson();
 
     final String encoded = await compute<Map<String, dynamic>, String>(
@@ -414,7 +429,6 @@ class TaskActions {
   Future<void> _recordCompletionSideEffects({
     required Task task,
     required int durationSeconds,
-    required double quality,
     required DateTime timestamp,
     required bool notify,
   }) async {
@@ -438,10 +452,10 @@ class TaskActions {
       () => _ref.read(localMetricsAccumulatorProvider).recordTaskCompleted(),
     );
     await _bestEffort(
-      () => _recordCompletionLearning(
+      () => _recordTaskOutcomeLearning(
         task: task,
         durationSeconds: durationSeconds,
-        quality: quality,
+        completed: true,
         timestamp: timestamp,
       ),
     );

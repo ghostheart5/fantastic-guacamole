@@ -37,8 +37,9 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         trajectorySummaryProvider.overrideWithValue(trajectory),
-        if (weeklySummaryOverride != null)
-          weeklySummaryProvider.overrideWith(weeklySummaryOverride),
+        weeklySummaryProvider.overrideWith(
+          weeklySummaryOverride ?? (Ref ref) async => _summaryText,
+        ),
         if (tasksOverride != null) tasksProvider.overrideWith(tasksOverride),
         if (timelineOverdue != null)
           timelineOverdueProvider.overrideWithValue(timelineOverdue),

@@ -16,6 +16,8 @@ void main() {
       expect(result.mode, 'planning');
       expect(result.message.trim(), isNotEmpty);
       expect(result.durationMs, greaterThanOrEqualTo(0));
+      expect(result.source, 'local');
+      expect(result.modelBacked, isFalse);
     });
 
     test('normalizes malformed payload fields with defaults', () async {

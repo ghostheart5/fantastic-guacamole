@@ -36,6 +36,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Model
 // ---------------------------------------------------------------------------
 
+String _evidenceStrengthLabel(double value) {
+  final double bounded = value.clamp(0, 1).toDouble();
+  if (bounded >= .8) return 'Strong';
+  if (bounded >= .55) return 'Moderate';
+  return 'Limited';
+}
+
 class _Msg {
   const _Msg({
     required this.text,
@@ -486,8 +493,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     if (normalized == '/status' || normalized == 'status') {
       final String status = (aggregation == null)
           ? 'SI STATUS\n\n'
-                'Model is still initializing. Retry /status in a second.\n'
-                'If this persists, use /tasks or /plan to warm providers.'
+                'Local data sources are still loading. Retry /status in a second.\n'
+                'If this persists, open /tasks or /plan to inspect the affected source.'
           : 'SI STATUS\n\n'
                 'Connected surfaces:\n'
                 '- tasks: ${aggregation.tasks.length}\n'
@@ -1169,7 +1176,7 @@ class _BubbleTile extends ConsumerWidget {
                             msg.rationale!.trim().isNotEmpty)
                           'Why this appears: ${msg.rationale!.trim()}',
                         if (msg.confidence != null)
-                          'Confidence: ${(msg.confidence!.clamp(0, 1) * 100).round()}% — verify before acting.',
+                          '${msg.processingMode == AIProcessingMode.external ? 'Assistant confidence signal' : 'Heuristic evidence strength'}: ${_evidenceStrengthLabel(msg.confidence!)} — not a calibrated probability; verify before acting.',
                       ].join('\n'),
                       style: const TextStyle(
                         color: Colors.white54,

@@ -55,6 +55,12 @@ class AssistantResponseTemplates {
       );
     }
 
+    final String evidenceStrength = confidence >= 82
+        ? 'Strong'
+        : confidence >= 65
+        ? 'Moderate'
+        : 'Limited';
+
     return '🧠 SI ANALYSIS\n\n'
         'Query\n'
         '$query\n\n'
@@ -74,7 +80,7 @@ class AssistantResponseTemplates {
         '1. ${normalizedActions[0]}\n'
         '2. ${normalizedActions[1]}\n'
         '3. ${normalizedActions[2]}\n\n'
-        'Confidence\n'
-        '$confidence%';
+        'Evidence Strength\n'
+        '$evidenceStrength — heuristic signal, not a calibrated probability';
   }
 }

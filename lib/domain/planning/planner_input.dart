@@ -17,6 +17,7 @@ class PlannerInput {
     this.estimatedDuration,
     this.scheduledFor,
     this.dueDate,
+    this.goalId,
   });
 
   final String id;
@@ -31,6 +32,7 @@ class PlannerInput {
   final Duration? estimatedDuration;
   final DateTime? scheduledFor;
   final DateTime? dueDate;
+  final String? goalId;
 
   Duration get estimateOrDefault =>
       estimatedDuration ?? const Duration(minutes: 25);
@@ -67,6 +69,7 @@ class PlannerInput {
     estimatedDuration: estimatedDuration,
     scheduledFor: scheduledFor,
     dueDate: dueDate,
+    goalId: goalId,
     isCanceled: isCanceled,
     subtasks: prerequisiteIds,
     recurrenceRule: recurrenceRule,
@@ -90,6 +93,7 @@ class PlannerInputAdapter {
     estimatedDuration: task.estimatedDuration,
     scheduledFor: task.scheduledFor,
     dueDate: task.dueDate,
+    goalId: task.goalId,
   );
 
   static PlannerInput fromLegacyTask(Task task) => PlannerInput(
@@ -104,6 +108,7 @@ class PlannerInputAdapter {
     recurrenceRule: task.recurrenceRule,
     scheduledFor: task.scheduledFor,
     dueDate: task.dueDate,
+    goalId: task.goalId,
     estimatedDuration: task.estimatedDuration,
   );
 
@@ -121,6 +126,7 @@ class PlannerInputAdapter {
     energyRequired: input.energyRequired,
     scheduledFor: input.scheduledFor,
     dueDate: input.dueDate,
+    goalId: input.goalId,
     estimatedDuration: input.estimatedDuration ?? const Duration(minutes: 30),
     isCompleted: input.isCompleted,
     isCanceled: input.isCanceled,

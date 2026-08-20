@@ -181,6 +181,7 @@ class AIController {
         .call(
           inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
           energy: si.energy,
+          policy: _ref.read(adaptivePlanPolicyProvider),
         )
         .take(3)
         .map((block) => block.title)
@@ -783,6 +784,7 @@ class AIController {
       reasoning: 'si_console_timeline_deterministic',
       emotion: 'engaged',
       confidence: 0.6,
+      processingMode: AIProcessingMode.onDevice,
     );
   }
 
@@ -888,6 +890,7 @@ class AIController {
       reasoning: 'si_console_trajectory_deterministic',
       emotion: 'engaged',
       confidence: 0.6,
+      processingMode: AIProcessingMode.onDevice,
     );
   }
 
@@ -995,6 +998,7 @@ class AIController {
       reasoning: 'si_console_milestone_deterministic',
       emotion: 'engaged',
       confidence: 0.6,
+      processingMode: AIProcessingMode.onDevice,
     );
   }
 
@@ -1117,6 +1121,7 @@ class AIController {
       reasoning: 'si_console_structured_fallback',
       emotion: 'engaged',
       confidence: confidence / 100,
+      processingMode: AIProcessingMode.onDeviceFallback,
     );
   }
 

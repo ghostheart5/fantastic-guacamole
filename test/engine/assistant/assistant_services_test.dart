@@ -82,6 +82,8 @@ void main() {
     expect(analysis, contains('🧠 SI ANALYSIS'));
     expect(analysis, contains('Goal Query'));
     expect(analysis, contains('Next Actions'));
-    expect(analysis, contains('88%'));
+    expect(analysis, contains('Evidence Strength'));
+    expect(analysis, contains('Strong'));
+    expect(analysis, isNot(contains('88%')));
   });
 }

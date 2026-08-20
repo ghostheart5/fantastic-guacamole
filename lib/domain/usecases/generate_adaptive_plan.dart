@@ -21,6 +21,7 @@ class GenerateAdaptivePlan {
     required List<PlannerInput> inputs,
     required double energy,
     DateTime? startTime,
+    AdaptivePlanPolicy policy = const AdaptivePlanPolicy(),
   }) {
     if (inputs.isEmpty) {
       return const <TimeBlock>[];
@@ -29,6 +30,7 @@ class GenerateAdaptivePlan {
       inputs: inputs,
       energy: energy,
       startTime: startTime,
+      policy: policy,
     );
   }
 }

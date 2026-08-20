@@ -78,6 +78,55 @@ void main() {
 
       expect(blocks.first.taskId, 'high');
     });
+
+    test('applies explicit deadline and fixed-block planning policy', () {
+      final GenerateAdaptivePlan useCase = GenerateAdaptivePlan(
+        CalendarService(),
+      );
+      final List<TimeBlock> blocks = useCase(
+        inputs: <PlannerInput>[
+          const PlannerInput(
+            id: 'high',
+            title: 'High priority',
+            priority: 4,
+            difficulty: 3,
+            energyRequired: 3,
+            isCompleted: false,
+            isCanceled: false,
+            prerequisiteIds: <String>[],
+            recurrenceRule: RecurrenceRule.none,
+            estimatedDuration: Duration(minutes: 40),
+          ),
+          PlannerInput(
+            id: 'deadline',
+            title: 'Near deadline',
+            priority: 2,
+            difficulty: 2,
+            energyRequired: 2,
+            isCompleted: false,
+            isCanceled: false,
+            prerequisiteIds: const <String>[],
+            recurrenceRule: RecurrenceRule.none,
+            dueDate: start.add(const Duration(hours: 2)),
+            estimatedDuration: const Duration(minutes: 20),
+          ),
+        ],
+        energy: .9,
+        startTime: start,
+        policy: const AdaptivePlanPolicy(
+          deadlineWeight: 3,
+          adaptDurationToEnergy: false,
+          fixedBreakMinutes: 10,
+        ),
+      );
+
+      expect(blocks.first.taskId, 'deadline');
+      expect(blocks.first.end.difference(blocks.first.start).inMinutes, 20);
+      expect(
+        blocks[1].start.difference(blocks.first.end),
+        const Duration(minutes: 10),
+      );
+    });
   });
 
   group('AnalyzePlanContext', () {

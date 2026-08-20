@@ -117,8 +117,10 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
         : (prediction.safeProbability + intervalMargin!).clamp(0.0, 1.0),
     predictionSampleSize: prediction?.sampleSize ?? 0,
     predictionConfidence: predictionConfidence,
-    predictionModelVersion: prediction == null ? null : 'learning-task-v2',
+    predictionModelVersion: prediction == null
+        ? null
+        : 'observed-follow-through-v1',
     personalizationNote:
-        'Trajectory is weighted by ${personalization.priorityStrategy.name} priorities and ${personalization.planningStyle.name} planning.',
+        'Task ordering reflects the ${personalization.priorityStrategy.name} priority preference. Trajectory scenarios remain deterministic.',
   );
 });

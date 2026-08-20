@@ -37,11 +37,17 @@ class SmartPlannerResult {
     required this.prompt,
     required this.message,
     required this.savedNotes,
+    this.processingMode = AIProcessingMode.onDevice,
+    this.evidence = const <String>[],
+    this.generatedAt,
   });
 
   final String prompt;
   final String message;
   final String? savedNotes;
+  final AIProcessingMode processingMode;
+  final List<String> evidence;
+  final DateTime? generatedAt;
 }
 
 class SmartPlannerQueryController implements SmartPlannerInterface {
@@ -140,6 +146,13 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         prompt: prompt,
         message: message,
         savedNotes: savedNotes,
+        processingMode: AIProcessingMode.onDevice,
+        evidence: <String>[
+          'Selected topic: $detectedTopicLabel',
+          'User-set energy: ${(energy * 100).round()}%',
+          'Rule-based guidance; no external model used',
+        ],
+        generatedAt: DateTime.now(),
       );
     }
 
@@ -190,8 +203,9 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
       reasoning: recommendation?.reasoning,
     );
     final bool aiStructured = _isStructuredPlannerResponse(generated);
-    final String message =
-        generated.isNotEmpty && !aiFallbackDetected && aiStructured
+    final bool acceptedGeneratedResponse =
+        generated.isNotEmpty && !aiFallbackDetected && aiStructured;
+    final String message = acceptedGeneratedResponse
         ? generated
         : _buildPlanningGuidanceMessage(energy, emotion, notes);
 
@@ -210,6 +224,23 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
       prompt: prompt,
       message: message,
       savedNotes: savedNotes,
+      processingMode: acceptedGeneratedResponse
+          ? recommendation!.processingMode
+          : recommendation == null
+          ? AIProcessingMode.onDevice
+          : AIProcessingMode.onDeviceFallback,
+      evidence: <String>[
+        'Selected topic: $detectedTopicLabel',
+        'User-set energy: ${(energy * 100).round()}%',
+        if (!acceptedGeneratedResponse)
+          'Rule-based guidance; no external model used',
+        if (goalSummaries.isNotEmpty) 'Active goals: ${goalSummaries.length}',
+        if (timelineSummaries.isNotEmpty)
+          'Recent Timeline items: ${timelineSummaries.length}',
+        if (memorySummaries.isNotEmpty)
+          'User-enabled memory items: ${memorySummaries.length}',
+      ],
+      generatedAt: DateTime.now(),
     );
   }
 
@@ -437,7 +468,11 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     final patterns = _ref.read(observedPlanningPatternsProvider);
     final planPreview = _ref
         .read(generateAdaptivePlanUseCaseProvider)
-        .call(inputs: plannerInputs, energy: energy)
+        .call(
+          inputs: plannerInputs,
+          energy: energy,
+          policy: _ref.read(adaptivePlanPolicyProvider),
+        )
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);
@@ -630,6 +665,9 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     required double energy,
     required String input,
   }) {
+    if (_isHealthGuidanceTopic(topic)) {
+      return _buildHealthFollowUp(topic: topic, energy: energy);
+    }
     final String answerSummary = _summarizeFollowUpAnswer(topic, input);
     late final String move;
     late final String question;
@@ -873,6 +911,122 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     }
 
     return parts.join(' ');
+  }
+
+  static bool _isHealthGuidanceTopic(_PlannerTopic topic) => switch (topic) {
+    _PlannerTopic.weightLoss ||
+    _PlannerTopic.weightGain ||
+    _PlannerTopic.hydration ||
+    _PlannerTopic.fatigue ||
+    _PlannerTopic.sleep ||
+    _PlannerTopic.recovery ||
+    _PlannerTopic.stress ||
+    _PlannerTopic.burnout ||
+    _PlannerTopic.nutrition ||
+    _PlannerTopic.exercise ||
+    _PlannerTopic.mentalHealth => true,
+    _ => false,
+  };
+
+  static String _buildHealthGuidance({
+    required _PlannerTopic topic,
+    required double energy,
+  }) {
+    final String label = _topicLabel(topic);
+    final String signal = switch (topic) {
+      _PlannerTopic.weightLoss || _PlannerTopic.weightGain =>
+        'No weight trend, intake history, medical context, medication context, or clinician-set target is available, so Smart Planner cannot infer a cause or set a safe calorie target.',
+      _PlannerTopic.hydration =>
+        'No fluid-loss, medical, medication, climate, or activity evidence is available, so Smart Planner cannot set a safe fluid or electrolyte dose.',
+      _PlannerTopic.fatigue || _PlannerTopic.sleep || _PlannerTopic.recovery =>
+        'Fatigue, sleep disruption, and slow recovery can have many causes. Current planning data is not enough to identify one or rule out a health issue.',
+      _PlannerTopic.exercise =>
+        'No injury, condition, training-history, or clinician restriction data is available, so Smart Planner cannot safely prescribe a workout intensity.',
+      _PlannerTopic.stress ||
+      _PlannerTopic.burnout ||
+      _PlannerTopic.mentalHealth =>
+        'Your note can guide a low-risk support plan, but it is not enough to diagnose a mental-health condition or determine clinical risk.',
+      _PlannerTopic.nutrition =>
+        'No allergy, restriction, medical, medication, or intake evidence is available, so Smart Planner cannot safely prescribe a diet or nutrient target.',
+      _ => 'Current planning data is not enough to make a health claim.',
+    };
+    final List<String> actions = switch (topic) {
+      _PlannerTopic.weightLoss || _PlannerTopic.weightGain => <String>[
+        'Record a seven-day baseline: meals, activity, sleep, and weight trend without changing everything at once.',
+        'List allergies, medical constraints, medications, and any clinician-set target before choosing a change.',
+        'Choose one reversible routine change and review the trend; use a qualified clinician or dietitian for individualized targets.',
+      ],
+      _PlannerTopic.hydration => <String>[
+        'Record current intake, activity, heat exposure, and symptoms instead of guessing a dose.',
+        'Follow any existing clinician guidance or condition-specific fluid restriction.',
+        'Seek medical advice for persistent dizziness, confusion, fainting, severe weakness, or rapidly worsening symptoms.',
+      ],
+      _PlannerTopic.exercise => <String>[
+        'Record current training experience, injuries, conditions, and restrictions.',
+        'Choose a familiar low-risk session that stays within your established capacity; stop for pain, chest symptoms, faintness, or unusual shortness of breath.',
+        'Use a qualified professional for a new or condition-specific program.',
+      ],
+      _PlannerTopic.stress ||
+      _PlannerTopic.burnout ||
+      _PlannerTopic.mentalHealth => <String>[
+        'Name the immediate pressure and reduce the next action to one manageable step.',
+        'Contact a trusted person or qualified professional if the strain is persistent, worsening, or disrupting daily function.',
+        'Use urgent local help now if you may harm yourself or someone else, cannot stay safe, or face an immediate emergency.',
+      ],
+      _ => <String>[
+        'Record the recent pattern, severity, duration, and anything that makes it better or worse.',
+        'Choose a low-risk routine step that fits your known needs and restrictions.',
+        'Contact a qualified clinician for persistent, severe, worsening, or unexplained symptoms.',
+      ],
+    };
+    final String question = switch (topic) {
+      _PlannerTopic.weightLoss || _PlannerTopic.weightGain =>
+        'Do you have a clinician-set target, relevant medical conditions or medications, and at least a seven-day trend?',
+      _PlannerTopic.hydration =>
+        'Are there fluid restrictions, medications, heavy heat or exercise exposure, or concerning symptoms to account for?',
+      _PlannerTopic.exercise =>
+        'What is your training history, and are there injuries, conditions, symptoms, or clinician restrictions?',
+      _PlannerTopic.stress ||
+      _PlannerTopic.burnout ||
+      _PlannerTopic.mentalHealth =>
+        'Are you safe right now, and would practical planning support or contact with a qualified person help most?',
+      _ =>
+        'How long has this been happening, how severe is it, and are there medical conditions, medications, or restrictions to account for?',
+    };
+
+    return AssistantResponseTemplates.smartPlannerBlock(
+      signal: '$label planning boundary: $signal',
+      actions: actions,
+      nextStep:
+          'Capture the missing context first, then choose or confirm one reversible next step.',
+      followUp: question,
+      energy: energy,
+    );
+  }
+
+  static String _buildHealthFollowUp({
+    required _PlannerTopic topic,
+    required double energy,
+  }) {
+    return AssistantResponseTemplates.smartPlannerFollowUp(
+      move:
+          'Use the details you provided as context, not as a diagnosis. Record the pattern and choose one reversible step within your known restrictions; seek qualified care for persistent, severe, worsening, or urgent symptoms.',
+      question: switch (topic) {
+        _PlannerTopic.hydration =>
+          'What fluid restriction, medication, heat or exercise exposure, symptom severity, or professional guidance should shape the next step?',
+        _PlannerTopic.weightLoss || _PlannerTopic.weightGain =>
+          'What medical context, medication, restriction, trend, or professional target should shape the next step?',
+        _PlannerTopic.exercise =>
+          'What injury, condition, symptom, training history, or professional restriction should shape the next step?',
+        _PlannerTopic.stress ||
+        _PlannerTopic.burnout ||
+        _PlannerTopic.mentalHealth =>
+          'Are you safe right now, and who can you contact if the strain escalates?',
+        _ =>
+          'What restriction, medical context, medication, symptom severity, or professional guidance should shape the next step?',
+      },
+      energy: energy,
+    );
   }
 
   static _PlannerTopic _detectTopic(
@@ -1210,6 +1364,9 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     required double energy,
     required String input,
   }) {
+    if (_isHealthGuidanceTopic(topic)) {
+      return _buildHealthGuidance(topic: topic, energy: energy);
+    }
     final int pct = (energy * 100).round();
     late final String signal;
     late final List<String> actions;

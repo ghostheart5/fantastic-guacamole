@@ -74,6 +74,50 @@ void main() {
     expect(candidates.map((TaskEntity task) => task.id), <String>['easy']);
   });
 
+  test('ranking policies change the intended independent signal', () {
+    final DateTime now = DateTime.utc(2026, 8, 19, 12);
+    final List<TaskEntity> candidates = <TaskEntity>[
+      TaskEntity(
+        id: 'baseline',
+        title: 'Baseline task',
+        createdAt: createdAt,
+        priority: 3,
+        difficulty: 3,
+        energyRequired: 5,
+        estimatedDuration: const Duration(minutes: 90),
+      ),
+      TaskEntity(
+        id: 'signal',
+        title: 'Signal task',
+        createdAt: createdAt,
+        priority: 2,
+        difficulty: 2,
+        energyRequired: 1,
+        dueDate: now.add(const Duration(hours: 2)),
+        estimatedDuration: const Duration(minutes: 15),
+        goalId: 'goal-1',
+      ),
+    ];
+    const TaskRanker ranker = TaskRanker();
+
+    String first(TaskRankingPolicy policy) => ranker
+        .rank(
+          candidates,
+          learning: const LearningState(),
+          energy: .2,
+          now: now,
+          policy: policy,
+        )
+        .first
+        .task
+        .id;
+
+    expect(first(const TaskRankingPolicy(deadlineWeight: 2.25)), 'signal');
+    expect(first(const TaskRankingPolicy(energyWeight: 2.25)), 'signal');
+    expect(first(const TaskRankingPolicy(goalBonus: 18)), 'signal');
+    expect(first(const TaskRankingPolicy(quickWinBonus: 18)), 'signal');
+  });
+
   test('modular SI core produces a response and retains pipeline memory', () {
     final SICore core = SICore();
     const Task task = Task(

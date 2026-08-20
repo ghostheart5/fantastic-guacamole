@@ -3,6 +3,10 @@ import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_con
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// CHRONOSPARK-CLASS: INTERNAL ARCHITECTURE ADAPTER
+// Not a destination or model-backed prediction. This is a compatibility view
+// over the canonical deterministic Trajectory consequence model.
+
 enum PredictiveRiskLevel { unknown, low, medium, high }
 
 class PredictiveRisk {

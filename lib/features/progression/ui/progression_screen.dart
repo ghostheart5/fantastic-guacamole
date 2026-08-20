@@ -320,7 +320,7 @@ class _ProgressSignalsCard extends ConsumerWidget {
           const SizedBox(height: 10),
           _SignalRow(label: 'Recovery load', value: signals.load),
           const SizedBox(height: 10),
-          _SignalRow(label: 'Future direction', value: signals.direction),
+          _SignalRow(label: 'Recent direction', value: signals.direction),
         ],
       ),
     );

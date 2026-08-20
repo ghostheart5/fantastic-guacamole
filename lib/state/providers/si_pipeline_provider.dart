@@ -54,7 +54,11 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
 
   final List<String> planPreview = ref
       .read(generateAdaptivePlanUseCaseProvider)
-      .call(inputs: plannerInputs, energy: energy)
+      .call(
+        inputs: plannerInputs,
+        energy: energy,
+        policy: ref.watch(adaptivePlanPolicyProvider),
+      )
       .take(3)
       .map((block) => block.title)
       .toList(growable: false);

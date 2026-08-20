@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/engine/advisor/product_advisor_engine.dart';
-import 'package:fantastic_guacamole/engine/advisor/weekly_advisor.dart';
 import 'package:fantastic_guacamole/state/controllers/momentum_controller.dart';
+import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
@@ -30,12 +30,7 @@ final productRecommendationsProvider =
     });
 
 final weeklySummaryProvider = FutureProvider<String>((ref) async {
-  final snapshot = await ref.read(localMetricsAccumulatorProvider).snapshot();
-  final recommendations = await ref.watch(
-    productRecommendationsProvider.future,
-  );
-  final String baseline = const WeeklyAdvisor().summarize(recommendations);
-
+  final ExecutionSignals execution = ref.watch(executionSignalsProvider);
   final trajectory = ref.watch(trajectorySummaryProvider);
   final int timelineHealth = ref.watch(timelineHealthScoreProvider);
   final int timelineRisk = ref.watch(timelineRiskScoreProvider);
@@ -44,21 +39,47 @@ final weeklySummaryProvider = FutureProvider<String>((ref) async {
   final int activeGoals = ref.watch(goalsProvider).length;
   final int activeTasks = ref.watch(tasksProvider).asData?.value.length ?? 0;
 
-  final int started = (snapshot['started'] as num?)?.toInt() ?? 0;
-  final int completed = (snapshot['completed'] as num?)?.toInt() ?? 0;
-  final double completionRate = started <= 0
-      ? 0
-      : (completed / started).clamp(0.0, 1.0).toDouble();
+  return buildProgressionReview(
+    execution: execution,
+    pressureIndex: trajectory.pressureIndex,
+    timelineHealth: timelineHealth,
+    timelineRisk: timelineRisk,
+    overdue: overdue,
+    milestoneHealth: milestoneSummary.healthScore,
+    milestoneOverdue: milestoneSummary.overdue,
+    activeGoals: activeGoals,
+    activeTasks: activeTasks,
+  );
+});
 
-  final String executionState = completionRate >= 0.75
+String buildProgressionReview({
+  required ExecutionSignals execution,
+  required int pressureIndex,
+  required int timelineHealth,
+  required int timelineRisk,
+  required int overdue,
+  required int milestoneHealth,
+  required int milestoneOverdue,
+  required int activeGoals,
+  required int activeTasks,
+}) {
+  final int actioned = execution.actioned7d;
+  final int completed = execution.completed7d;
+  final double completionRate = actioned <= 0
+      ? 0
+      : (completed / actioned).clamp(0.0, 1.0).toDouble();
+
+  final String executionState = actioned == 0
+      ? 'A seven-day follow-through baseline is not available yet'
+      : completionRate >= 0.75
       ? 'Execution is reliable'
       : completionRate >= 0.45
       ? 'Execution is unstable'
       : 'Execution is breaking down';
 
-  final String pressureState = trajectory.pressureIndex >= 75
+  final String pressureState = pressureIndex >= 75
       ? 'Pressure is critical'
-      : trajectory.pressureIndex >= 55
+      : pressureIndex >= 55
       ? 'Pressure is elevated'
       : 'Pressure is manageable';
 
@@ -66,26 +87,30 @@ final weeklySummaryProvider = FutureProvider<String>((ref) async {
       ? 'Timeline integrity is at risk'
       : 'Timeline integrity is stable';
 
-  final String milestoneState = milestoneSummary.overdue > 0
+  final String milestoneState = milestoneOverdue > 0
       ? 'Milestone drift detected'
-      : milestoneSummary.healthScore >= 70
+      : milestoneHealth >= 70
       ? 'Milestones are on-track'
       : 'Milestones need tighter execution';
 
   final String oneAction = overdue > 0
       ? 'Clear one overdue timeline item before adding anything new.'
-      : trajectory.pressureIndex >= 70
+      : pressureIndex >= 70
       ? 'Shrink scope to one critical block and finish it today.'
       : completionRate < 0.5
       ? 'Complete one started task fully before opening another.'
       : 'Keep momentum by finishing one high-impact task now.';
 
-  return 'SYSTEM GUIDANCE REPORT\n\n'
-      '$executionState (${(completionRate * 100).round()}% completion). '
-      '$pressureState (index ${trajectory.pressureIndex}). '
+  final String completionDetail = actioned == 0
+      ? 'No completed, skipped, or delayed outcomes were recorded in this window.'
+      : '$completed of $actioned recorded outcomes were completed '
+            '(${(completionRate * 100).round()}%).';
+
+  return 'PROGRESS REVIEW\n\n'
+      '$executionState. $completionDetail '
+      '$pressureState (index $pressureIndex). '
       '$timelineState (health $timelineHealth%, risk $timelineRisk%, overdue $overdue). '
-      '$milestoneState (health ${milestoneSummary.healthScore}%, overdue ${milestoneSummary.overdue}).\n\n'
+      '$milestoneState (health $milestoneHealth%, overdue $milestoneOverdue).\n\n'
       'Active workload: $activeTasks tasks across $activeGoals goals.\n'
-      'Recommendation: $oneAction\n\n'
-      'Advisor baseline: $baseline';
-});
+      'Next practice: $oneAction';
+}

@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
@@ -125,6 +126,46 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(container.read(appFlowProvider), AppView.timeline);
+  });
+
+  testWidgets('shows guidance provenance, evidence, and freshness', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        smartPlannerQueryControllerProvider.overrideWith(
+          _EvidenceSmartPlannerQueryController.new,
+        ),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: ErrorBoundary(child: SmartPlannerScreen()),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await _tapPrimaryPlannerButton(tester);
+    await tester.pump(const Duration(milliseconds: 300));
+    final Finder evidenceBlock = find.textContaining('EXTERNAL ASSISTANT');
+    await tester.scrollUntilVisible(
+      evidenceBlock,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
+
+    expect(evidenceBlock, findsOneWidget);
+    expect(find.textContaining('Evidence: Active tasks: 3'), findsOneWidget);
+    expect(
+      find.textContaining('you choose whether to apply it'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -405,6 +446,31 @@ class _ConversationalSmartPlannerQueryController
     required List<Map<String, String>> history,
   }) async {
     return 'Follow-up reply for: $input';
+  }
+}
+
+class _EvidenceSmartPlannerQueryController extends SmartPlannerQueryController {
+  _EvidenceSmartPlannerQueryController(super.ref);
+
+  @override
+  bool detectsCrisis(String text) => false;
+
+  @override
+  Future<SmartPlannerResult> requestPlanningGuidance({
+    required double energy,
+    required EmotionalState emotion,
+    required String notes,
+    required List<Map<String, String>> history,
+    required String? previousSavedNotes,
+  }) async {
+    return SmartPlannerResult(
+      prompt: 'Plan today',
+      message: 'Use one grounded action.',
+      savedNotes: null,
+      processingMode: AIProcessingMode.external,
+      evidence: const <String>['Active tasks: 3'],
+      generatedAt: DateTime.now(),
+    );
   }
 }
 

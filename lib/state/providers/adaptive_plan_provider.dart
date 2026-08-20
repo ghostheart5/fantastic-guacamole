@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,6 +37,7 @@ class PlanProposalNotifier extends AsyncNotifier<PlanProposalEntity?> {
           startTime: startTime,
           sourceDecisionId: sourceDecisionId,
           evidenceSources: evidenceSources,
+          policy: ref.read(adaptivePlanPolicyProvider),
         );
     state = AsyncData<PlanProposalEntity?>(proposal);
     return proposal;

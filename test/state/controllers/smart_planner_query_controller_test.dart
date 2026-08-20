@@ -53,6 +53,11 @@ void main() {
       expect(result.message, contains('•'));
       expect(result.message.toLowerCase(), contains('next step:'));
       expect(result.message, isNot(contains('🎯 Goal Detected')));
+      expect(result.processingMode, AIProcessingMode.onDevice);
+      expect(
+        result.evidence,
+        contains('Rule-based guidance; no external model used'),
+      );
     },
   );
 
@@ -100,8 +105,8 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(reply.toLowerCase(), contains('you got 5 hours of sleep'));
-    expect(reply.toLowerCase(), contains('you haven\'t eaten yet'));
+    expect(reply.toLowerCase(), contains('not as a diagnosis'));
+    expect(reply.toLowerCase(), contains('persistent, severe, worsening'));
     expect(reply.toLowerCase(), contains('try this next:'));
   });
 
@@ -123,10 +128,8 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(
-      reply.toLowerCase(),
-      contains('you said 190 and want to get to 170'),
-    );
+    expect(reply.toLowerCase(), contains('medical context'));
+    expect(reply.toLowerCase(), contains('not as a diagnosis'));
     expect(reply.toLowerCase(), contains('try this next:'));
   });
 
@@ -148,10 +151,7 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(
-      reply.toLowerCase(),
-      contains('stress is tied to work pressure or deadlines'),
-    );
+    expect(reply.toLowerCase(), contains('are you safe right now'));
     expect(reply.toLowerCase(), contains('try this next:'));
   });
 
@@ -173,7 +173,8 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(reply.toLowerCase(), contains('calorie-dense meal'));
+    expect(reply.toLowerCase(), contains('medical context'));
+    expect(reply.toLowerCase(), isNot(contains('calorie-dense meal')));
   });
 
   test('requestFollowUp handles hydration usecase', () async {
@@ -194,8 +195,8 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(reply.toLowerCase(), contains('hydration has been low'));
-    expect(reply.toLowerCase(), contains('full glass of water'));
+    expect(reply.toLowerCase(), contains('fluid restriction'));
+    expect(reply.toLowerCase(), isNot(contains('full glass of water')));
   });
 
   test('requestFollowUp handles burnout usecase', () async {
@@ -216,8 +217,7 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(reply.toLowerCase(), contains('step back from the overload'));
-    expect(reply.toLowerCase(), contains('real recovery block'));
+    expect(reply.toLowerCase(), contains('are you safe right now'));
   });
 
   test('requestFollowUp handles career usecase', () async {
@@ -263,7 +263,7 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(reply.toLowerCase(), contains('and you haven\'t eaten yet'));
+    expect(reply.toLowerCase(), contains('medical context'));
     expect(reply.toLowerCase(), contains('try this next:'));
   });
 
@@ -337,8 +337,8 @@ void main() {
         result.message.toLowerCase(),
         isNot(contains('available app evidence has not changed')),
       );
-      expect(result.message.toLowerCase(), contains('tiredness'));
-      expect(result.message.toLowerCase(), contains('sleep debt'));
+      expect(result.message.toLowerCase(), contains('many causes'));
+      expect(result.message.toLowerCase(), contains('not enough to identify'));
     },
   );
 

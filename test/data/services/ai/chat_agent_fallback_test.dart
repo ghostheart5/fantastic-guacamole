@@ -40,6 +40,8 @@ void main() {
       expect(result['message'], isA<String>());
       expect((result['message'] as String).trim(), isNotEmpty);
       expect(result['response'], result['message']);
+      expect(result['source'], 'notAttempted');
+      expect(result['modelBacked'], isFalse);
     },
   );
 

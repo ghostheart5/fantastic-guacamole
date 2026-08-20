@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_adaptive_plan.dart';
+import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
 
 class PreviewAdaptivePlan {
   const PreviewAdaptivePlan(this._generate, this._repository);
@@ -19,12 +20,14 @@ class PreviewAdaptivePlan {
     String? id,
     String? sourceDecisionId,
     List<String> evidenceSources = const <String>['tasks', 'calendar'],
+    AdaptivePlanPolicy policy = const AdaptivePlanPolicy(),
   }) async {
     final DateTime generatedAt = now ?? DateTime.now();
     final List<TimeBlock> blocks = _generate(
       inputs: inputs,
       energy: energy,
       startTime: startTime,
+      policy: policy,
     );
     final PlanProposalEntity proposal = PlanProposalEntity(
       id: id ?? 'plan-proposal-${generatedAt.microsecondsSinceEpoch}',

@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -40,6 +41,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   String? _planningGuidanceMessage;
   String? _planningGuidancePrompt;
+  AIProcessingMode _guidanceProcessingMode = AIProcessingMode.unknown;
+  List<String> _guidanceEvidence = const <String>[];
+  DateTime? _guidanceGeneratedAt;
   String? _lastSavedNotes;
   String? _followUpError;
   String? _proposalError;
@@ -128,6 +132,11 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _planningGuidancePrompt = notes.isEmpty ? 'quick check-in' : notes;
         _planningGuidanceMessage =
             'Guidance request timed out. Tap GET GUIDANCE again or shorten your input for a faster response.';
+        _guidanceProcessingMode = AIProcessingMode.onDeviceFallback;
+        _guidanceEvidence = const <String>[
+          'No response completed before the timeout',
+        ];
+        _guidanceGeneratedAt = DateTime.now();
       });
       return;
     }
@@ -137,6 +146,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       _planningGuidancePrompt = result.prompt;
       _planningGuidanceMessage = result.message;
       _lastSavedNotes = result.savedNotes;
+      _guidanceProcessingMode = result.processingMode;
+      _guidanceEvidence = List<String>.unmodifiable(result.evidence);
+      _guidanceGeneratedAt = result.generatedAt;
       _saved = true;
       _gettingPlanningGuidance = false;
     });
@@ -268,11 +280,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _proposalStatusMessage = 'Preview ready. Review it before applying.';
         _previewingPlan = false;
       });
-      unawaited(
-        ref
-            .read(adaptiveGuidanceProvider.notifier)
-            .record(GuidanceMilestone.firstPlannerQuestion),
-      );
     } catch (error, stackTrace) {
       if (!mounted) return;
       setState(() {
@@ -500,6 +507,12 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                                 height: 1.7,
                               ),
                             ),
+                            const SizedBox(height: 10),
+                            _GuidanceEvidence(
+                              mode: _guidanceProcessingMode,
+                              evidence: _guidanceEvidence,
+                              generatedAt: _guidanceGeneratedAt,
+                            ),
                             const SizedBox(height: 12),
                             Wrap(
                               spacing: 10,
@@ -590,7 +603,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
               ),
             ),
             const Text(
-              'ADAPTIVE LIFE LOGIC',
+              'EVIDENCE-AWARE PLANNING',
               style: TextStyle(
                 fontSize: 10,
                 letterSpacing: 2,
@@ -1487,13 +1500,68 @@ class _QuickNavCard extends StatelessWidget {
 
 // ─── Disclaimer ───────────────────────────────────────────────────────────────
 
+class _GuidanceEvidence extends StatelessWidget {
+  const _GuidanceEvidence({
+    required this.mode,
+    required this.evidence,
+    required this.generatedAt,
+  });
+
+  final AIProcessingMode mode;
+  final List<String> evidence;
+  final DateTime? generatedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final String source = switch (mode) {
+      AIProcessingMode.external => 'EXTERNAL ASSISTANT',
+      AIProcessingMode.onDevice => 'ON-DEVICE GUIDANCE',
+      AIProcessingMode.onDeviceFallback => 'ON-DEVICE FALLBACK',
+      AIProcessingMode.unknown => 'SOURCE UNVERIFIED',
+    };
+    final DateTime? timestamp = generatedAt;
+    final int? ageMinutes = timestamp == null
+        ? null
+        : DateTime.now().difference(timestamp).inMinutes;
+    final String freshness = ageMinutes == null
+        ? 'time unavailable'
+        : ageMinutes < 5
+        ? 'generated now'
+        : 'generated ${ageMinutes}m ago';
+    return Semantics(
+      label: 'Guidance source and evidence',
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .035),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Text(
+          <String>[
+            '$source • $freshness',
+            if (evidence.isNotEmpty) 'Evidence: ${evidence.join(' • ')}',
+            'Guidance is advisory; you choose whether to apply it.',
+          ].join('\n'),
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 10,
+            height: 1.45,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DisclaimerText extends StatelessWidget {
   const _DisclaimerText();
 
   @override
   Widget build(BuildContext context) {
     return const Text(
-      'This app is not a substitute for professional mental health care.',
+      'Planning guidance is not medical, nutrition, exercise, or mental-health care. For persistent, severe, worsening, or urgent symptoms, contact a qualified professional or local emergency support.',
       style: TextStyle(
         color: Colors.white30,
         fontSize: 10,

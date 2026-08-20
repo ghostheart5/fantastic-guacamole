@@ -144,7 +144,7 @@ class ChatAgent extends AiAgent {
     required bool externalAiAllowed,
   }) async {
     if (!externalAiAllowed) {
-      return const AiProxyAttempt(AiProxyOutcome.withheld);
+      return const AiProxyAttempt(AiProxyOutcome.notAttempted);
     }
     final Uri? endpoint = parseSecureHttpsEndpoint(Env.aiProxyEndpoint);
     if (endpoint == null || prompt.trim().isEmpty) {

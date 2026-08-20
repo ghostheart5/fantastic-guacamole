@@ -4,6 +4,26 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 
+class AdaptivePlanPolicy {
+  const AdaptivePlanPolicy({
+    this.priorityWeight = 1,
+    this.deadlineWeight = 1,
+    this.energyWeight = 1,
+    this.goalBonus = 0,
+    this.quickWinBonus = 0,
+    this.adaptDurationToEnergy = true,
+    this.fixedBreakMinutes,
+  });
+
+  final double priorityWeight;
+  final double deadlineWeight;
+  final double energyWeight;
+  final double goalBonus;
+  final double quickWinBonus;
+  final bool adaptDurationToEnergy;
+  final int? fixedBreakMinutes;
+}
+
 /// Compatibility planning helper. Production decision surfaces consume the
 /// canonical `DecisionEngine` plan instead of an alternate planning screen.
 ///
@@ -20,14 +40,25 @@ class CalendarService {
     required List<PlannerInput> inputs,
     required double energy,
     DateTime? startTime,
+    AdaptivePlanPolicy policy = const AdaptivePlanPolicy(),
   }) {
     final double normalizedEnergy = energy.clamp(0.0, 1.0);
     final DateTime now = startTime ?? DateTime.now();
 
     final List<PlannerInput> ranked = List<PlannerInput>.from(inputs)
       ..sort((PlannerInput a, PlannerInput b) {
-        final double aScore = _adaptiveTaskScore(a, normalizedEnergy);
-        final double bScore = _adaptiveTaskScore(b, normalizedEnergy);
+        final double aScore = _adaptiveTaskScore(
+          a,
+          normalizedEnergy,
+          now,
+          policy,
+        );
+        final double bScore = _adaptiveTaskScore(
+          b,
+          normalizedEnergy,
+          now,
+          policy,
+        );
         return bScore.compareTo(aScore);
       });
 
@@ -48,6 +79,7 @@ class CalendarService {
         final Duration duration = _estimateAdaptiveDuration(
           task,
           normalizedEnergy,
+          adaptToEnergy: policy.adaptDurationToEnergy,
         );
         final DateTime end = cursor.add(duration);
 
@@ -62,7 +94,11 @@ class CalendarService {
         );
 
         plannedTaskDayKeys.add(taskDayKey);
-        cursorsByDay[dayKey] = end.add(_adaptiveBreak(normalizedEnergy));
+        cursorsByDay[dayKey] = end.add(
+          policy.fixedBreakMinutes == null
+              ? _adaptiveBreak(normalizedEnergy)
+              : Duration(minutes: policy.fixedBreakMinutes!),
+        );
       }
     }
 
@@ -214,12 +250,44 @@ class CalendarService {
     }
   }
 
-  double _adaptiveTaskScore(PlannerInput task, double energy) {
-    final double priorityWeight = task.priority * 10.0;
+  double _adaptiveTaskScore(
+    PlannerInput task,
+    double energy,
+    DateTime now,
+    AdaptivePlanPolicy policy,
+  ) {
+    final double priorityWeight = task.priority * 10.0 * policy.priorityWeight;
     final double normalizedRequirement = task.energyRequired / 5.0;
     final double effortFit =
-        (1 - (normalizedRequirement - energy).abs()).clamp(0.0, 1.0) * 30;
-    return priorityWeight + effortFit;
+        (1 - (normalizedRequirement - energy).abs()).clamp(0.0, 1.0) *
+        30 *
+        policy.energyWeight;
+    final Duration duration = task.estimateOrDefault;
+    final double quickWinFit = duration.inMinutes <= 15
+        ? 1
+        : duration.inMinutes <= 30
+        ? .65
+        : duration.inMinutes <= 60
+        ? .25
+        : 0;
+    final double goalContribution = (task.goalId?.trim().isNotEmpty ?? false)
+        ? policy.goalBonus
+        : 0;
+    final DateTime? due = task.dueDate;
+    final double deadlineContribution = due == null
+        ? 0
+        : due.isBefore(now)
+        ? 18 * policy.deadlineWeight
+        : due.difference(now) <= const Duration(hours: 24)
+        ? 14 * policy.deadlineWeight
+        : due.difference(now) <= const Duration(days: 3)
+        ? 7 * policy.deadlineWeight
+        : 0;
+    return priorityWeight +
+        effortFit +
+        goalContribution +
+        (quickWinFit * policy.quickWinBonus) +
+        deadlineContribution;
   }
 
   DateTime _startForPlanningDay(DateTime scheduled, DateTime now) {
@@ -232,7 +300,11 @@ class CalendarService {
     return DateTime(scheduled.year, scheduled.month, scheduled.day, 9);
   }
 
-  Duration _estimateAdaptiveDuration(PlannerInput task, double energy) {
+  Duration _estimateAdaptiveDuration(
+    PlannerInput task,
+    double energy, {
+    required bool adaptToEnergy,
+  }) {
     final Duration base =
         task.estimatedDuration ??
         switch (task.difficulty) {
@@ -243,6 +315,7 @@ class CalendarService {
           5 => const Duration(minutes: 90),
           _ => const Duration(minutes: 30),
         };
+    if (!adaptToEnergy) return base;
     if (energy >= 0.75) {
       return Duration(minutes: (base.inMinutes * 0.9).round());
     }

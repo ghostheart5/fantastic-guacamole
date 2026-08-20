@@ -616,7 +616,7 @@ class _TaskPredictionCard extends StatelessWidget {
     final summary = model.summary;
     if (!summary.hasPrediction) {
       return _Panel(
-        title: 'Task-specific outlook',
+        title: 'Observed follow-through',
         child: Text(
           summary.statusDetail,
           style: const TextStyle(
@@ -632,7 +632,7 @@ class _TaskPredictionCard extends StatelessWidget {
     final int lower = ((summary.predictionLowerBound ?? 0) * 100).round();
     final int upper = ((summary.predictionUpperBound ?? 1) * 100).round();
     return _Panel(
-      title: 'Task-specific outlook',
+      title: 'Observed follow-through',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -646,7 +646,7 @@ class _TaskPredictionCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '$probability% point estimate • $lower–$upper% interval • n=${summary.predictionSampleSize}',
+            '$probability% smoothed completion estimate • $lower–$upper% interval • ${summary.predictionSampleSize} outcomes',
             style: const TextStyle(
               color: Color(0xFFFFC857),
               fontSize: 11,
@@ -664,7 +664,7 @@ class _TaskPredictionCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${summary.predictionReliable ? 'Decision-grade evidence' : 'Provisional evidence'} • ${summary.predictionModelVersion ?? 'model unavailable'}',
+            '${summary.predictionEvidenceSufficient ? 'Established history' : 'Limited history'} • ${summary.predictionModelVersion ?? 'method unavailable'}',
             style: const TextStyle(color: Color(0xFF93A4D6), fontSize: 11),
           ),
         ],

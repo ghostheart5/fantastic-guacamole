@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,6 +19,78 @@ final observedPlanningPatternsProvider =
       ObservedPlanningPatternsController,
       ObservedPlanningPatterns
     >(ObservedPlanningPatternsController.new);
+
+final adaptivePlanPolicyProvider = Provider<AdaptivePlanPolicy>((Ref ref) {
+  final PersonalizationProfile profile = ref.watch(
+    personalizationProfileProvider,
+  );
+  return adaptivePlanPolicyFor(profile);
+});
+
+AdaptivePlanPolicy adaptivePlanPolicyFor(PersonalizationProfile profile) {
+  final ({
+    double priority,
+    double deadline,
+    double energy,
+    double goal,
+    double quickWin,
+  })
+  strategy = switch (profile.priorityStrategy) {
+    PriorityStrategy.deadlineFirst => (
+      priority: 1,
+      deadline: 2.25,
+      energy: 1,
+      goal: 0,
+      quickWin: 0,
+    ),
+    PriorityStrategy.energyFirst => (
+      priority: 1,
+      deadline: 1,
+      energy: 2.25,
+      goal: 0,
+      quickWin: 0,
+    ),
+    PriorityStrategy.goalFirst => (
+      priority: 1,
+      deadline: 1,
+      energy: 1,
+      goal: 18,
+      quickWin: 0,
+    ),
+    PriorityStrategy.quickWins => (
+      priority: 1,
+      deadline: 1,
+      energy: 1,
+      goal: 0,
+      quickWin: 18,
+    ),
+    PriorityStrategy.balanced => (
+      priority: 1,
+      deadline: 1,
+      energy: 1,
+      goal: 0,
+      quickWin: 0,
+    ),
+  };
+  final bool energyMatched =
+      profile.planningStyle == PlanningStyle.energyMatched;
+  final bool singleTask = profile.planningStyle == PlanningStyle.singleTask;
+  final bool fixedBlocks =
+      profile.planningStyle == PlanningStyle.timeBlocked || singleTask;
+  return AdaptivePlanPolicy(
+    priorityWeight: strategy.priority * (singleTask ? 1.4 : 1),
+    deadlineWeight: strategy.deadline,
+    energyWeight: strategy.energy * (energyMatched ? 1.75 : 1),
+    goalBonus: strategy.goal,
+    quickWinBonus: strategy.quickWin,
+    adaptDurationToEnergy: !fixedBlocks,
+    fixedBreakMinutes: singleTask
+        ? 15
+        : profile.planningStyle == PlanningStyle.timeBlocked
+        ? 10
+        : null,
+  );
+}
 
 class PersonalizationProfileController
     extends Notifier<PersonalizationProfile> {

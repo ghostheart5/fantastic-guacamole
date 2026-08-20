@@ -1,5 +1,14 @@
 part of 'ai_controller.dart';
 
+bool shouldReserveExternalModelCredits({
+  required bool externalAiAllowed,
+  required AgentKind? preferredAgent,
+}) =>
+    externalAiAllowed &&
+    (preferredAgent == null || preferredAgent == AgentKind.chat);
+
+bool shouldRetainExternalModelCredits(AgentResult result) => result.modelBacked;
+
 final siEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
   ref,
 ) async {
@@ -125,71 +134,56 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         input: input,
         personality: personality,
       );
-      final AiCreditSpendResult spend = await creditService.spend(
-        premium: hasPremiumAccess,
-        amount: creditCost,
+      final bool externalModelRequested = shouldReserveExternalModelCredits(
+        externalAiAllowed: context['externalAiAllowed'] == true,
+        preferredAgent: preferredAgent,
       );
-      ref.invalidate(aiCreditWalletProvider);
-
-      // Credits are debited up-front, before the request is issued. Any path
-      // below that returns without delivering a response must hand them back,
-      // otherwise timeouts, proxy failures and superseded requests all bill
-      // the user for nothing.
-      refundCredits = () async {
-        if (!spend.allowed || creditCost <= 0) {
-          return;
-        }
-        try {
-          await creditService.refund(
-            premium: hasPremiumAccess,
-            amount: creditCost,
-          );
-          ref.invalidate(aiCreditWalletProvider);
-        } on Object catch (error) {
-          RuntimeDiagnostics.record(
-            'AI[$requestId] credit refund failed: $error',
-          );
-        }
-      };
-
-      if (!spend.allowed) {
-        ref
-            .read(paywallPromptProvider.notifier)
-            .set(
-              PaywallPrompt(
-                title: 'AI credits exhausted',
-                message:
-                    'You have used your available AI credits. Upgrade to continue planning guidance, memory, and voice flows.',
-                trigger: 'ai_credit_limit',
-                remainingCredits: spend.wallet.balance,
-              ),
-            );
-
-        const AIRecommendation denied = AIRecommendation(
-          task: null,
-          message:
-              'Your AI credits are exhausted for this cycle. Upgrade to keep using Smart Planner guidance and memory.',
-          reasoning: 'AI credits exhausted',
-          emotion: 'cautious',
-          confidence: 0.35,
+      bool externalModelAuthorized = externalModelRequested;
+      if (externalModelRequested) {
+        final AiCreditSpendResult spend = await creditService.spend(
+          premium: hasPremiumAccess,
+          amount: creditCost,
         );
+        ref.invalidate(aiCreditWalletProvider);
+        externalModelAuthorized = spend.allowed;
+        if (spend.allowed) {
+          // Reserve only for a possible external-model call. A local or
+          // failed result releases the reservation below.
+          refundCredits = () async {
+            try {
+              await creditService.refund(
+                premium: hasPremiumAccess,
+                amount: creditCost,
+              );
+              ref.invalidate(aiCreditWalletProvider);
+            } on Object catch (error) {
+              RuntimeDiagnostics.record(
+                'AI[$requestId] credit refund failed: $error',
+              );
+            }
+          };
+        } else {
+          externalModelAuthorized = false;
+        }
 
-        state = const AsyncData<AIRecommendation?>(denied);
-        ref
-            .read(aiExecutionStatusProvider.notifier)
-            .set(
-              AIExecutionStatus(
-                phase: 'denied',
-                requestId: requestId,
-                durationMs: stopwatch.elapsedMilliseconds,
-                error: 'credits_exhausted',
-              ),
-            );
-        RuntimeDiagnostics.record('AI[$requestId] denied: credits exhausted');
-        return denied;
+        if (!spend.allowed) {
+          ref
+              .read(paywallPromptProvider.notifier)
+              .set(
+                PaywallPrompt(
+                  title: 'AI credits exhausted',
+                  message:
+                      'External assistant credits are exhausted. ChronoSpark will continue with on-device guidance.',
+                  trigger: 'ai_credit_limit',
+                  remainingCredits: spend.wallet.balance,
+                ),
+              );
+        } else {
+          ref.read(paywallPromptProvider.notifier).set(null);
+        }
+      } else {
+        ref.read(paywallPromptProvider.notifier).set(null);
       }
-
-      ref.read(paywallPromptProvider.notifier).set(null);
 
       final Map<String, dynamic>? previousState = await siEngineService
           .loadState();
@@ -251,6 +245,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           'paywallDisabled': intelligence.flags.paywallDisabled,
         },
         ...context,
+        'externalAiAllowed': externalModelAuthorized,
       };
 
       final AgentRequest request =
@@ -275,10 +270,15 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         preferredAgent: preferredAgent,
         request: request,
       );
+      if (!shouldRetainExternalModelCredits(agentResult) &&
+          refundCredits != null) {
+        await refundCredits();
+        refundCredits = null;
+      }
       if (_activeRequestId != requestId) {
         // Superseded by a newer request: this one delivers nothing, so it must
         // not keep the credits it took.
-        await refundCredits();
+        await refundCredits?.call();
         return null;
       }
       ref.read(aiAgentTraceProvider.notifier).set(agentResult);

@@ -16,6 +16,22 @@ class RankedTask {
   final TaskScoreBreakdown breakdown;
 }
 
+class TaskRankingPolicy {
+  const TaskRankingPolicy({
+    this.priorityWeight = 1,
+    this.deadlineWeight = 1,
+    this.energyWeight = 1,
+    this.goalBonus = 0,
+    this.quickWinBonus = 0,
+  });
+
+  final double priorityWeight;
+  final double deadlineWeight;
+  final double energyWeight;
+  final double goalBonus;
+  final double quickWinBonus;
+}
+
 class TaskRanker {
   const TaskRanker();
 
@@ -28,6 +44,7 @@ class TaskRanker {
     double fatigue = 0.0,
     double priorityScale = 1.0,
     double difficultyScale = 1.0,
+    TaskRankingPolicy policy = const TaskRankingPolicy(),
     DateTime? now,
     SiStateEntity? siState,
   }) {
@@ -43,6 +60,7 @@ class TaskRanker {
         fatigue,
         priorityScale,
         difficultyScale,
+        policy,
         ref,
       );
       return RankedTask(
@@ -61,6 +79,7 @@ class TaskRanker {
     double fatigue = 0.0,
     double priorityScale = 1.0,
     double difficultyScale = 1.0,
+    TaskRankingPolicy policy = const TaskRankingPolicy(),
     DateTime? now,
     SiStateEntity? siState,
   }) {
@@ -72,6 +91,7 @@ class TaskRanker {
       fatigue: fatigue,
       priorityScale: priorityScale,
       difficultyScale: difficultyScale,
+      policy: policy,
       now: now,
       siState: siState,
     ).first.task;
@@ -108,6 +128,7 @@ class TaskRanker {
     double fatigue,
     double priorityScale,
     double difficultyScale,
+    TaskRankingPolicy policy,
     DateTime now,
   ) {
     final double energyNeed = task.energyRequired / 5.0;
@@ -117,8 +138,12 @@ class TaskRanker {
     );
 
     final double priorityContribution =
-        task.priority * learning.priorityWeight * priorityScale * 10.0;
-    final double energyContribution = energyMatch * 12.0;
+        task.priority *
+        learning.priorityWeight *
+        priorityScale *
+        policy.priorityWeight *
+        10.0;
+    final double energyContribution = energyMatch * 12.0 * policy.energyWeight;
     final double fatigueContribution = (1.0 - fatigue) * 6.0;
     final double difficultyAdjustment =
         -(task.difficulty *
@@ -130,22 +155,44 @@ class TaskRanker {
         ? learning.taskAffinity[task.id] ?? .5
         : .5;
     final double affinityContribution = (affinity - .5) * 8;
+    final double goalContribution = (task.goalId?.trim().isNotEmpty ?? false)
+        ? policy.goalBonus
+        : 0;
+    final int estimateMinutes = task.estimateOrDefault.inMinutes;
+    final double quickWinFit = estimateMinutes <= 15
+        ? 1
+        : estimateMinutes <= 30
+        ? .65
+        : estimateMinutes <= 60
+        ? .25
+        : 0;
+    final double quickWinContribution = policy.quickWinBonus * quickWinFit;
     double score =
         priorityContribution +
         energyContribution +
         fatigueContribution +
         difficultyAdjustment +
-        affinityContribution;
+        affinityContribution +
+        goalContribution +
+        quickWinContribution;
 
     if (energy >= energyNeed) score += 4.0;
     if (fatigue > 0.7 && task.difficulty <= 2) score += 3.0;
 
     final DeadlinePressureAssessment deadline = _deadlinePressure(task, now);
-    score += deadline.score;
+    final double deadlineContribution = deadline.score * policy.deadlineWeight;
+    score += deadlineContribution;
     return TaskScoreBreakdown(
       taskId: task.id,
       priority: priorityContribution,
-      deadlinePressure: deadline,
+      deadlinePressure: DeadlinePressureAssessment(
+        taskId: deadline.taskId,
+        band: deadline.band,
+        score: deadlineContribution,
+        slack: deadline.slack,
+        explanation: deadline.explanation,
+        origin: deadline.origin,
+      ),
       energyFit: energyContribution,
       fatigueAdjustment: fatigueContribution,
       difficultyAdjustment: difficultyAdjustment,
@@ -155,6 +202,10 @@ class TaskRanker {
         'Priority contributed ${priorityContribution.toStringAsFixed(1)} points.',
         deadline.explanation,
         'Energy fit contributed ${energyContribution.toStringAsFixed(1)} points.',
+        if (goalContribution > 0)
+          'Goal linkage contributed ${goalContribution.toStringAsFixed(1)} points.',
+        if (quickWinContribution > 0)
+          'Short-duration fit contributed ${quickWinContribution.toStringAsFixed(1)} points.',
         if (learning is LearningEntity &&
             learning.taskAffinity.containsKey(task.id))
           'Observed task affinity adjusted the score by ${affinityContribution.toStringAsFixed(1)} points.',
