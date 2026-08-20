@@ -37,6 +37,15 @@ void main() {
     },
   );
 
+  testWidgets('direct Timeline launch does not mount a hidden Nexus surface', (
+    WidgetTester tester,
+  ) async {
+    await _pumpRouteShell(tester, initialLocation: RoutePaths.timeline);
+
+    expect(find.byType(TimelineScreen), findsOneWidget);
+    expect(find.byType(NexusScreen), findsNothing);
+  });
+
   testWidgets('bottom navigation updates both content and URL', (
     WidgetTester tester,
   ) async {

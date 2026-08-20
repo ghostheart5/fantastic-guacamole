@@ -2,7 +2,6 @@ import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
-import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -141,11 +140,17 @@ class CreatorScreen extends ConsumerWidget {
                       // Guidance persistence must never turn a successful save
                       // into a failed Creator action.
                     }
-                    await ref
-                        .read(localMetricsAccumulatorProvider)
-                        .recordTaskCreated();
-                    ref.invalidate(tasksProvider);
-                    ref.invalidate(goalProgressProvider);
+                    try {
+                      // TaskActions invalidates the ranked task projection
+                      // after persistence. Settle that projection before
+                      // Timeline mounts so its first provider watch cannot
+                      // trigger a refresh during the destination build.
+                      await ref.read(tasksProvider.future);
+                    } catch (_) {
+                      // The task is already durable. Timeline owns presenting
+                      // any projection/read failure without converting the
+                      // successful Creator save into a false failure.
+                    }
                     tutorialDraft.reset();
                     if (context.mounted) {
                       final ScaffoldMessengerState messenger =

@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
-import 'package:fantastic_guacamole/data/storage/secure_store.dart';
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
+import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
+import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
@@ -12,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +24,18 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
+    final Directory tempDir = await Directory.systemTemp.createTemp(
+      'chronospark_persistence_integration_',
+    );
+    await Hive.close();
+    Hive.init(tempDir.path);
+    final _DirectHiveStore backend = _DirectHiveStore();
+    addTearDown(() async {
+      await Hive.close();
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
 
     final ProviderContainer firstRun = _containerFor(backend);
     await firstRun
@@ -40,16 +55,22 @@ void main() {
       contains('Persisted integration task'),
     );
 
-    await backend.write(key: 'task_entries_v2', value: '{ malformed-json');
+    final Box<String> taskBox = await backend.openBox<String>(HiveBoxes.tasks);
+    await taskBox.put('malformed-task', '{ malformed-json');
 
     final ProviderContainer corruptedRun = _containerFor(backend);
     addTearDown(corruptedRun.dispose);
 
-    await expectLater(
-      corruptedRun
-          .read(tasksProvider.future)
-          .timeout(const Duration(seconds: 2)),
-      throwsA(isA<StorageException>()),
+    final recoveredAfterCorruption = await corruptedRun
+        .read(tasksProvider.future)
+        .timeout(const Duration(seconds: 2));
+    expect(
+      recoveredAfterCorruption.map((task) => task.title),
+      contains('Persisted integration task'),
+    );
+    expect(
+      taskBox.get(TaskRepository.quarantineKey),
+      contains('malformed-task'),
     );
 
     await tester.pumpWidget(
@@ -66,14 +87,48 @@ void main() {
   });
 }
 
-ProviderContainer _containerFor(InMemorySecureStoreBackend backend) {
+ProviderContainer _containerFor(HiveStore backend) {
   return ProviderContainer(
     overrides: [
-      secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
+      hiveStoreProvider.overrideWithValue(backend),
       siStateProvider.overrideWith(_FixedSiStateController.new),
       learningProvider.overrideWith(_FixedLearningController.new),
     ],
   );
+}
+
+class _DirectHiveStore implements HiveStore {
+  @override
+  Future<void> init() async {}
+
+  @override
+  bool isBoxOpen(String key) => Hive.isBoxOpen(key);
+
+  @override
+  Future<Box<T>> openBox<T>(String key) async {
+    if (Hive.isBoxOpen(key)) {
+      return Hive.box<T>(key);
+    }
+    return Hive.openBox<T>(key);
+  }
+
+  @override
+  Box<T> box<T>(String key) => Hive.box<T>(key);
+
+  @override
+  Future<void> clearBox(String key) async {
+    final Box<dynamic> box = Hive.isBoxOpen(key)
+        ? Hive.box<dynamic>(key)
+        : await Hive.openBox<dynamic>(key);
+    await box.clear();
+  }
+
+  @override
+  Future<void> closeBox(String key) async {
+    if (Hive.isBoxOpen(key)) {
+      await Hive.box<dynamic>(key).close();
+    }
+  }
 }
 
 class _FixedSiStateController extends SIStateController {

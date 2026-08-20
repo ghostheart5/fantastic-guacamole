@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
@@ -110,6 +111,35 @@ void main() {
       'task-1',
     ]);
     expect(secondPage.nextCursor, isNull);
+  });
+
+  test('quarantines malformed records without hiding valid tasks', () async {
+    final repository = TaskRepository(storage: storage);
+    await repository.saveTask(
+      TaskEntity(
+        id: 'valid-task',
+        title: 'Keep this task',
+        createdAt: DateTime.utc(2026, 8, 19),
+      ),
+    );
+    await storage.put('malformed-task', '{ malformed-json');
+
+    final List<TaskEntity> tasks = await repository.getAllTasks();
+
+    expect(tasks.map((TaskEntity task) => task.id), contains('valid-task'));
+    expect(
+      tasks.map((TaskEntity task) => task.id),
+      isNot(contains('malformed-task')),
+    );
+    final String? quarantine = storage.get(TaskRepository.quarantineKey);
+    expect(quarantine, isNotNull);
+    expect(quarantine, contains('malformed-task'));
+    expect(quarantine, contains('{ malformed-json'));
+
+    await repository.getAllTasks();
+    final List<dynamic> records =
+        jsonDecode(storage.get(TaskRepository.quarantineKey)!) as List<dynamic>;
+    expect(records, hasLength(1));
   });
 }
 

@@ -59,7 +59,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   late final ProviderSubscription<LearningState> _learningSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
   late final ProviderSubscription<bool> _networkOnlineSubscription;
-  final Set<int> _initializedTabIndexes = <int>{0};
+  final Set<int> _initializedTabIndexes = <int>{};
   bool _savingCurrentState = false;
   bool get _isFlutterTestBinding {
     final String bindingType = WidgetsBinding.instance.runtimeType.toString();
@@ -306,7 +306,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   }
 
   void _goToView(AppView view) {
-    _syncAppFlowToRouteView(view);
     final String routePath = routePathForAppView(view);
     try {
       final GoRouter router = GoRouter.of(context);
@@ -314,10 +313,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       if (currentUri.path != routePath || currentUri.hasQuery) {
         router.go(routePath);
       }
+      return;
     } on Object {
       // Widget tests and standalone shell previews may mount the shell without
-      // a GoRouter. Keep the compatibility provider updated in that case.
+      // a GoRouter. Only those previews use the compatibility provider.
     }
+    _syncAppFlowToRouteView(view);
   }
 
   void _triggerCloudSyncReplay() {

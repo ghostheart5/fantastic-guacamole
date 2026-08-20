@@ -1,4 +1,7 @@
-import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
@@ -15,17 +18,19 @@ import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
+import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
-import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -88,22 +93,58 @@ void main() {
     expect(find.text('APP_READY'), findsOneWidget);
   });
 
-  testWidgets('onboarding skip persists completion', (
+  testWidgets('two-page onboarding persists welcome and profile completion', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        profileProvider.overrideWith(_IntegrationProfileController.new),
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('integration-onboarding-user'),
+        ),
+        intelligenceStateProvider.overrideWithValue(_authenticatedIntelligence),
+      ],
+    );
+    addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: OnboardingScreen())),
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: OnboardingScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('CHRONOSPARK'), findsOneWidget);
+    expect(find.text('SKIP'), findsNothing);
+    await tester.tap(find.text('Continue to login'));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Integration User');
+    await tester.pump();
+    final Finder completeButton = find.widgetWithText(
+      FilledButton,
+      'Continue to Creator',
+    );
+    expect(
+      tester.widget<FilledButton>(completeButton).onPressed,
+      isNotNull,
+      reason: 'The second onboarding page must become actionable after input.',
+    );
+    await tester.tap(completeButton);
+    await _waitForPreference(
+      tester,
+      key: onboardingCompleteStorageKey,
+      expected: true,
     );
     await tester.pump();
 
-    expect(find.text('CHRONOSPARK'), findsOneWidget);
-    await tester.tap(find.text('SKIP'));
-    await tester.pump(const Duration(milliseconds: 300));
-
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(onboardingWelcomeCompleteStorageKey), isTrue);
     expect(prefs.getBool(onboardingCompleteStorageKey), isTrue);
+    expect(container.read(profileProvider).name, 'Integration User');
   });
 
   test(
@@ -173,25 +214,28 @@ void main() {
 
     expect(await container.read(tasksProvider.future), hasLength(1));
 
-    final Map<String, dynamic> metrics = await container
-        .read(localMetricsAccumulatorProvider)
-        .snapshot();
+    final Map<String, dynamic> metrics = await _waitForMetric(
+      container,
+      key: 'tasks_created',
+      expected: 1,
+    );
     expect(metrics['tasks_created'], 1);
     expect(metrics['tasks_completed'], 0);
   });
 
-  testWidgets('screen journey forges a task and routes to plan', (
+  testWidgets('screen journey forges a task and routes to Timeline', (
     WidgetTester tester,
   ) async {
     await SharedPrefsService.clear();
-    final ProviderContainer container = _integrationContainer(
-      _InMemoryTaskRepository(),
-    );
+    final _InMemoryTaskRepository repository = _InMemoryTaskRepository();
+    final ProviderContainer container = _integrationContainer(repository);
+    final GoRouter router = container.read(appRouterProvider);
+    router.go(RoutePaths.nexus);
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: NavigationShell()),
+        child: MaterialApp.router(routerConfig: router),
       ),
     );
     await tester.pump();
@@ -201,14 +245,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     final Finder creatorButton = find.text('Creator');
     await tester.tap(creatorButton);
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('CREATOR'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(router.routeInformationProvider.value.uri.path, RoutePaths.creator);
+    expect(find.byType(CreatorScreen), findsOneWidget);
 
     final Finder titleField = find.byWidgetPredicate(
       (Widget widget) =>
           widget is TextField && widget.decoration?.hintText == 'Title *',
     );
     await tester.enterText(titleField, 'UI journey task');
+    await tester.tap(find.text('TASK'));
+    await tester.tap(find.bySemanticsLabel('Set priority level 4'));
+    final Finder scheduleControl = find.bySemanticsLabel('Schedule date');
+    await tester.ensureVisible(scheduleControl);
+    await tester.tap(scheduleControl);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+    await tester.tap(find.text('OK'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(TimePickerDialog), findsOneWidget);
+    await tester.tap(find.text('OK'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Schedule date and time...'), findsNothing);
     FocusManager.instance.primaryFocus?.unfocus();
     await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
     await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -217,15 +278,18 @@ void main() {
     final Finder forgeButton = find.text('FORGE TASK');
     await tester.ensureVisible(forgeButton);
     await tester.pump(const Duration(milliseconds: 200));
-    final Finder forgeControl = find
-        .ancestor(of: forgeButton, matching: find.byType(SmartPressable))
-        .first;
-    await tester.tap(forgeControl);
+    await tester.tap(forgeButton);
     await tester.pump();
+    await _waitForRepositoryTask(tester, repository, title: 'UI journey task');
+    await _waitForRouterPath(tester, router, RoutePaths.timeline);
     await tester.pump(const Duration(milliseconds: 500));
     expect(container.read(appFlowProvider), AppView.timeline);
     final tasks = await container.read(tasksProvider.future);
     expect(tasks.where((task) => task.title == 'UI journey task'), isNotEmpty);
+    final Map<String, dynamic> metrics = await container
+        .read(localMetricsAccumulatorProvider)
+        .snapshot();
+    expect(metrics['tasks_created'], 1);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -248,9 +312,127 @@ ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {
         (Ref ref) async => OptimizationConfig.neutral(),
       ),
       aiResponseProvider.overrideWith(_IntegrationAIResponseController.new),
+      accountStorageScopeProvider.overrideWithValue(
+        AccountStorageScope.authenticated('integration-task-user'),
+      ),
+      guards.authenticatedGuardProvider.overrideWithValue(true),
+      guards.onboardingWelcomeCompleteGuardProvider.overrideWithValue(true),
+      guards.onboardingCompleteGuardProvider.overrideWithValue(true),
     ],
   );
 }
+
+Future<Map<String, dynamic>> _waitForMetric(
+  ProviderContainer container, {
+  required String key,
+  required int expected,
+}) async {
+  final DateTime deadline = DateTime.now().add(const Duration(seconds: 2));
+  Map<String, dynamic> snapshot = <String, dynamic>{};
+  do {
+    snapshot = await container.read(localMetricsAccumulatorProvider).snapshot();
+    if (snapshot[key] == expected) {
+      return snapshot;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+  } while (DateTime.now().isBefore(deadline));
+  return snapshot;
+}
+
+Future<void> _waitForPreference(
+  WidgetTester tester, {
+  required String key,
+  required Object expected,
+}) async {
+  final bool completed =
+      await tester.runAsync<bool>(() async {
+        final DateTime deadline = DateTime.now().add(
+          const Duration(seconds: 15),
+        );
+        do {
+          final SharedPreferences prefs = await SharedPreferences.getInstance();
+          if (prefs.get(key) == expected) {
+            return true;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        } while (DateTime.now().isBefore(deadline));
+        return false;
+      }) ??
+      false;
+  expect(completed, isTrue, reason: 'Timed out waiting for $key to persist.');
+}
+
+Future<void> _waitForRouterPath(
+  WidgetTester tester,
+  GoRouter router,
+  String expectedPath,
+) async {
+  final bool reached =
+      await tester.runAsync<bool>(() async {
+        final DateTime deadline = DateTime.now().add(
+          const Duration(seconds: 15),
+        );
+        do {
+          if (router.routeInformationProvider.value.uri.path == expectedPath) {
+            return true;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        } while (DateTime.now().isBefore(deadline));
+        return false;
+      }) ??
+      false;
+  expect(
+    reached,
+    isTrue,
+    reason: 'Timed out waiting for router path $expectedPath.',
+  );
+}
+
+Future<void> _waitForRepositoryTask(
+  WidgetTester tester,
+  _InMemoryTaskRepository repository, {
+  required String title,
+}) async {
+  final bool persisted =
+      await tester.runAsync<bool>(() async {
+        final DateTime deadline = DateTime.now().add(
+          const Duration(seconds: 15),
+        );
+        do {
+          final List<TaskEntity> tasks = await repository.getAllTasks();
+          if (tasks.any((TaskEntity task) => task.title == title)) {
+            return true;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        } while (DateTime.now().isBefore(deadline));
+        return false;
+      }) ??
+      false;
+  expect(
+    persisted,
+    isTrue,
+    reason: 'Timed out waiting for Creator to persist "$title".',
+  );
+}
+
+const IntelligenceState _authenticatedIntelligence = IntelligenceState(
+  environment: EnvironmentState(
+    appName: 'ChronoSpark',
+    appFlavor: 'integration',
+    isProduction: false,
+    isSupabaseConfigured: false,
+  ),
+  flags: FeatureFlagsState(
+    verboseLogs: false,
+    analyticsEnabled: false,
+    mockMode: true,
+    mockLoginEnabled: true,
+    paywallDisabled: true,
+    testerFullAccess: true,
+  ),
+  auth: AuthStateSnapshot(hasMockSignIn: true, hasAuthenticatedUser: true),
+  mockLogin: MockLoginConfigState(email: '', password: ''),
+);
 
 class _SilentAudioFeedbackController extends AudioFeedbackController {
   const _SilentAudioFeedbackController();

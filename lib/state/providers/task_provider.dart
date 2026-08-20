@@ -105,12 +105,10 @@ class TaskActions {
       'task_created',
       params: <String, Object?>{'has_task_id': normalized.id.isNotEmpty},
     );
-    unawaited(
-      _recordCreationSideEffects(
-        task: normalized,
-        timestamp: now,
-        notify: notify,
-      ),
+    await _recordCreationSideEffects(
+      task: normalized,
+      timestamp: now,
+      notify: notify,
     );
 
     _ref

@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +30,7 @@ void main() {
         currentThemeProvider.overrideWith(_StaticThemeController.new),
         siStateProvider.overrideWith(_FixedSiStateController.new),
         learningProvider.overrideWith(_FixedLearningController.new),
+        authSessionBoundaryProvider.overrideWith(_ReadyBoundaryNotifier.new),
       ],
     );
     addTearDown(container.dispose);
@@ -90,4 +92,14 @@ class _FixedSiStateController extends SIStateController {
 class _FixedLearningController extends LearningController {
   @override
   LearningState build() => const LearningState();
+}
+
+class _ReadyBoundaryNotifier extends AuthSessionBoundaryNotifier {
+  @override
+  AuthSessionBoundary build() => const AuthSessionBoundary(
+    generation: 1,
+    userId: null,
+    isTransitioning: false,
+    isStorageReady: true,
+  );
 }

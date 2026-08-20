@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/task_entity_mapper.dart';
@@ -11,6 +12,9 @@ import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 /// Implements ITaskRepository using `HiveStorage<String>` (JSON-serialised TaskEntity).
 class TaskRepository implements ITaskRepository {
   TaskRepository({required this._storage});
+
+  static const String quarantineKey = 'tasks_quarantine_v1';
+  static const int _maxQuarantineRecords = 100;
 
   final HiveStorage<String> _storage;
 
@@ -93,18 +97,74 @@ class TaskRepository implements ITaskRepository {
   Future<List<TaskEntity>> _loadSortedTasks() async {
     await _storage.open();
     final Map<dynamic, String> map = _storage.getAll();
-
-    final List<TaskEntity> tasks = map.values
-        .map(
-          (raw) => TaskEntityMapper.fromJson(
-            jsonDecode(raw) as Map<String, dynamic>,
+    final List<TaskEntity> tasks = <TaskEntity>[];
+    final List<Map<String, dynamic>> malformed = <Map<String, dynamic>>[];
+    for (final MapEntry<dynamic, String> entry in map.entries) {
+      if (entry.key == quarantineKey) {
+        continue;
+      }
+      try {
+        tasks.add(
+          TaskEntityMapper.fromJson(
+            jsonDecode(entry.value) as Map<String, dynamic>,
           ),
-        )
-        .toList(growable: false);
+        );
+      } on Object {
+        malformed.add(<String, dynamic>{
+          'key': entry.key.toString(),
+          'raw': entry.value,
+          'quarantinedAt': DateTime.now().toUtc().toIso8601String(),
+        });
+      }
+    }
+    if (malformed.isNotEmpty) {
+      await _quarantineMalformed(malformed);
+      Logger.warn(
+        'Quarantined ${malformed.length} malformed task record(s) while '
+        'preserving valid tasks.',
+      );
+    }
     tasks.sort(
       (TaskEntity a, TaskEntity b) => b.createdAt.compareTo(a.createdAt),
     );
     return tasks;
+  }
+
+  Future<void> _quarantineMalformed(
+    List<Map<String, dynamic>> malformed,
+  ) async {
+    final List<dynamic> records = <dynamic>[];
+    final String? existingRaw = _storage.get(quarantineKey);
+    if (existingRaw != null) {
+      try {
+        final Object? decoded = jsonDecode(existingRaw);
+        if (decoded is List<dynamic>) {
+          records.addAll(decoded.whereType<Map<String, dynamic>>());
+        }
+      } on Object {
+        records.add(<String, dynamic>{
+          'key': quarantineKey,
+          'raw': existingRaw,
+          'quarantinedAt': DateTime.now().toUtc().toIso8601String(),
+        });
+      }
+    }
+    for (final Map<String, dynamic> candidate in malformed) {
+      final bool alreadyCaptured = records
+          .whereType<Map<dynamic, dynamic>>()
+          .any(
+            (Map<dynamic, dynamic> record) =>
+                record['key'] == candidate['key'] &&
+                record['raw'] == candidate['raw'],
+          );
+      if (!alreadyCaptured) {
+        records.add(candidate);
+      }
+    }
+    final int start = records.length > _maxQuarantineRecords
+        ? records.length - _maxQuarantineRecords
+        : 0;
+    await _storage.put(quarantineKey, jsonEncode(records.sublist(start)));
   }
 
   PagedResult<T> _pageItems<T>(
