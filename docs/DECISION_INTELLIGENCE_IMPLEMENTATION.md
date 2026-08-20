@@ -51,12 +51,16 @@ history; the current decision is visually identified as live evidence-backed sta
 - Corrupt local continuity and SI-thread payloads are quarantined and rebuilt
   without exposing another account's data.
 
-## Verification record
+## Historical verification record
+
+The counts below are retained as evidence from the 2026-08-18 implementation
+run. They are not the current branch status and must not be reused as a release
+gate. Current status comes only from a commit-bound gate manifest and logs.
 
 - `flutter analyze`: passed with no issues.
 - Focused onboarding, adaptive guidance, decision intelligence, Nexus, SI
   Console, settings, and terminology contracts: 19 tests passed.
-- Full `flutter test --no-pub`: 1,195 passed, 0 failed, 0 skipped.
+- Historical full `flutter test --no-pub`: 1,195 passed, 0 failed, 0 skipped.
 - Emulator, simulator, APK/AAB build, device connection, and runtime UI
   automation: not run, as directed.
 

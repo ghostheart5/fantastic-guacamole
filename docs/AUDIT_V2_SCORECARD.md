@@ -5,6 +5,9 @@
 **Flutter:** 3.44.0 · Dart 3.12.0  
 **Scope:** Full second-pass audit covering security, session management, Phase 1 roadmap completion, feature coverage, testing, and Play Store readiness.
 
+> Historical audit snapshot only. Status labels below describe the 2026-07-19
+> audit and are not current CI, build, backend, or release evidence.
+
 ---
 
 ## Summary

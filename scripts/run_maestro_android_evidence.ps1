@@ -10,9 +10,12 @@ param(
     [string]$DeviceSerial,
     [string]$ApkPath,
     [switch]$SkipBuild,
+    [switch]$AllowDirtyTree,
     [switch]$KeepRawLogcat,
     [switch]$PreflightOnly,
     [string]$DestructiveConfirmation,
+    [string]$ExpectedCommit,
+    [string]$ExpectedApkSha256,
     [string]$PackageName = 'com.ghostheart5.chronospark',
     [string]$ArtifactsRoot = 'artifacts/maestro'
 )
@@ -213,6 +216,12 @@ $commit = (& git rev-parse HEAD).Trim()
 $shortCommit = (& git rev-parse --short HEAD).Trim()
 $branch = (& git branch --show-current).Trim()
 $dirtyEntries = @(& git status --porcelain=v1)
+if (-not $AllowDirtyTree -and $dirtyEntries.Count -gt 0) {
+    throw "Maestro evidence requires a clean source snapshot. Found $($dirtyEntries.Count) dirty path(s)."
+}
+if (-not [string]::IsNullOrWhiteSpace($ExpectedCommit) -and $commit -ne $ExpectedCommit.Trim()) {
+    throw "Source commit $commit does not match expected commit $ExpectedCommit."
+}
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $runRoot = Join-Path $ArtifactsRoot "$timestamp-$shortCommit-$Suite"
 $runRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $runRoot))
@@ -288,6 +297,10 @@ if (-not (Test-Path -LiteralPath $resolvedApk -PathType Leaf)) {
 }
 
 $apkHash = (Get-FileHash -LiteralPath $resolvedApk -Algorithm SHA256).Hash
+if (-not [string]::IsNullOrWhiteSpace($ExpectedApkSha256) -and
+    $apkHash -ne $ExpectedApkSha256.Trim()) {
+    throw "APK SHA-256 $apkHash does not match expected SHA-256 $ExpectedApkSha256."
+}
 $installLog = Join-Path $runRoot 'adb-install.log'
 Invoke-NativeLogged -Executable $adb -Arguments @('-s', $serial, 'install', '--no-streaming', '-r', '-t', $resolvedApk) -LogPath $installLog -FailureMessage 'ADB APK install failed.'
 
@@ -299,10 +312,9 @@ $packageDump = @(& $adb -s $serial shell dumpsys package $PackageName)
 $versionName = (($packageDump | Select-String 'versionName=' | Select-Object -First 1).Line -replace '^\s*versionName=', '').Trim()
 $versionCodeLine = (($packageDump | Select-String 'versionCode=' | Select-Object -First 1).Line).Trim()
 
-& $adb -s $serial logcat -c
 $rawLogcat = Join-Path $runRoot 'adb-logcat-raw.log'
 $logcatError = Join-Path $runRoot 'adb-logcat-stderr.log'
-$logcatProcess = Start-Process -FilePath $adb -ArgumentList @('-s', $serial, 'logcat', '-v', 'threadtime') -RedirectStandardOutput $rawLogcat -RedirectStandardError $logcatError -WindowStyle Hidden -PassThru
+$logcatProcess = Start-Process -FilePath $adb -ArgumentList @('-s', $serial, 'logcat', '-T', '1', '-v', 'threadtime') -RedirectStandardOutput $rawLogcat -RedirectStandardError $logcatError -WindowStyle Hidden -PassThru
 
 $maestroLog = Join-Path $runRoot 'maestro-console.log'
 $junitPath = Join-Path $runRoot 'maestro-results.xml'

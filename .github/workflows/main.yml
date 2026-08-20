@@ -15,7 +15,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  quality-gate:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build:
+    needs: quality-gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

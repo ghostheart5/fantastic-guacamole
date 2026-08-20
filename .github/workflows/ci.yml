@@ -1,6 +1,7 @@
 name: CI/CD
 
 on:
+  workflow_call:
   push:
     branches: ["main"]
   pull_request:
@@ -21,6 +22,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Record exact source commit
+        id: source
+        shell: pwsh
+        run: |
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -ne '${{ github.sha }}') {
+            throw "Checkout SHA $actual does not match event SHA ${{ github.sha }}."
+          }
+          if (git status --porcelain --untracked-files=no) {
+            throw 'Tracked checkout is dirty before the quality gate.'
+          }
+          New-Item -ItemType Directory -Force artifacts/ci-evidence | Out-Null
+          [ordered]@{
+            schemaVersion = 1
+            commit = $actual
+            repository = '${{ github.repository }}'
+            workflow = '${{ github.workflow }}'
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+          } | ConvertTo-Json | Set-Content artifacts/ci-evidence/exact-commit.json
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -70,6 +92,12 @@ jobs:
         shell: pwsh
         run: ./scripts/edge_function_gate.ps1 -RunTests
 
+      - name: Start disposable Supabase backend
+        run: npx --yes supabase@2.115.0 start
+
+      - name: Test database schema and RLS
+        run: npx --yes supabase@2.115.0 test db
+
       - name: Generate dependency audit evidence
         shell: pwsh
         run: ./scripts/dependency_audit.ps1
@@ -84,6 +112,10 @@ jobs:
         shell: pwsh
         run: ./scripts/coverage_guard.ps1 -Mode ratchet
 
+      - name: Stop disposable Supabase backend
+        if: always()
+        run: npx --yes supabase@2.115.0 stop --no-backup
+
       - name: Upload CI evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -92,4 +124,5 @@ jobs:
           if-no-files-found: warn
           path: |
             coverage/lcov.info
+            artifacts/ci-evidence/**
             artifacts/dependency-audit/**

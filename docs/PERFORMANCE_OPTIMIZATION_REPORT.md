@@ -166,14 +166,14 @@ dart run scripts/analyze_assets.dart
 
 ## 3. Test Coverage
 
-**All Tests Passing:** 36/36  
+**Historical scoped result (not current release status):** 36/36
 - 22 pre-existing unit + integration tests
 - 3 paywall receipt verifier deferred tests
 - 3 SI AI deferred queue tests
 - 1 deep link parser test
 - 7 workspace store service tests
 
-**No Regressions:** MainShell Selector change and post-frame scheduling verified to not break:
+**Historical scope:** MainShell Selector change and post-frame scheduling were checked against:
 - Decision computation flow
 - Paywall event handling
 - Premium entitlement sync

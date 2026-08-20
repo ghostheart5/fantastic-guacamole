@@ -9,7 +9,13 @@ on:
       - 'v*.*.*'
 
 jobs:
+  quality-gate:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build-aab:
+    needs: quality-gate
     runs-on: ubuntu-latest
 
     steps:

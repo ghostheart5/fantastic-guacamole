@@ -19,6 +19,8 @@ void main() {
       );
       expect(workflow, contains('scripts/secret_content_guard.ps1'));
       expect(workflow, contains('scripts/dependency_audit.ps1'));
+      expect(workflow, contains('supabase@2.115.0 test db'));
+      expect(workflow, contains('artifacts/ci-evidence/exact-commit.json'));
       expect(workflow, contains('actions/upload-artifact@v4'));
     },
   );
@@ -28,6 +30,11 @@ void main() {
     () {
       final String android = read('.github/workflows/android-release.yml');
       final String web = read('.github/workflows/main.yml');
+      final String linux = read('.github/workflows/linux-release.yml');
+      for (final String workflow in <String>[android, web, linux]) {
+        expect(workflow, contains('uses: ./.github/workflows/ci.yml'));
+        expect(workflow, contains('needs: quality-gate'));
+      }
       expect(
         android,
         contains('::error::Required production secret is missing'),
