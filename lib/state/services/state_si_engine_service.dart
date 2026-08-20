@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
@@ -8,33 +9,79 @@ class StateSiEngineService {
   StateSiEngineService(
     this._repository, {
     required this.dependencies,
-    SIEngineService? engine,
-  }) : _engine = engine ?? SIEngineService();
+    SIEngineService Function()? engineFactory,
+  }) : _engineFactory = engineFactory ?? SIEngineService.new;
 
   final SiEngineRepository _repository;
-  final SIEngineService _engine;
+  final SIEngineService Function() _engineFactory;
+  final Map<AssistantConversationScope, SIEngineService> _engines =
+      <AssistantConversationScope, SIEngineService>{};
   final SiEngineDependencies dependencies;
 
-  Future<Map<String, dynamic>?> loadState() => _repository.loadState();
+  SIEngineService _engineFor(AssistantConversationScope conversation) =>
+      _engines.putIfAbsent(conversation, _engineFactory);
 
-  Future<void> saveState(Map<String, dynamic> state) =>
-      _repository.saveState(state);
+  Future<Map<String, dynamic>?> loadState({
+    AssistantConversationScope conversation =
+        AssistantConversationScope.primarySiConsole,
+  }) => _repository.loadState(conversation);
 
-  Future<Map<String, dynamic>?> exportState() => _repository.exportState();
+  Future<void> saveState(
+    Map<String, dynamic> state, {
+    AssistantConversationScope conversation =
+        AssistantConversationScope.primarySiConsole,
+  }) => _repository.saveState(conversation, state);
 
-  Future<void> clearMemory() async {
-    _engine.clear();
-    await _repository.clearState();
+  Future<Map<String, dynamic>?> exportState({
+    AssistantConversationScope conversation =
+        AssistantConversationScope.primarySiConsole,
+  }) => _repository.exportState(conversation);
+
+  Future<Map<String, dynamic>> exportAllStates() async {
+    return <String, dynamic>{
+      AssistantSurface.smartPlanner.storageId:
+          await exportState(
+            conversation: AssistantConversationScope.primarySmartPlanner,
+          ) ??
+          const <String, dynamic>{},
+      AssistantSurface.siConsole.storageId:
+          await exportState(
+            conversation: AssistantConversationScope.primarySiConsole,
+          ) ??
+          const <String, dynamic>{},
+    };
+  }
+
+  Future<void> clearMemory({
+    AssistantConversationScope conversation =
+        AssistantConversationScope.primarySiConsole,
+  }) async {
+    _engines.remove(conversation)?.clear();
+    await _repository.clearState(conversation);
+  }
+
+  Future<void> clearAllMemory() async {
+    for (final SIEngineService engine in _engines.values) {
+      engine.clear();
+    }
+    _engines.clear();
+    await Future.wait(<Future<void>>[
+      _repository.clearState(AssistantConversationScope.primarySmartPlanner),
+      _repository.clearState(AssistantConversationScope.primarySiConsole),
+      _repository.clearLegacyState(),
+    ]);
   }
 
   Future<SIFinalOutputBundle> handleUserInput(
     SIInputPacket input, {
+    AssistantConversationScope conversation =
+        AssistantConversationScope.primarySiConsole,
     List<NeuralEntry> history = const <NeuralEntry>[],
     Task? task,
     List<String> goals = const <String>[],
     String? previousMood,
   }) {
-    return _engine.handleUserInput(
+    return _engineFor(conversation).handleUserInput(
       input,
       history: history,
       task: task,
@@ -44,6 +91,8 @@ class StateSiEngineService {
   }
 
   Future<Map<String, dynamic>> generateResponse({
+    AssistantConversationScope conversation =
+        AssistantConversationScope.primarySiConsole,
     required String input,
     required String message,
     String emotion = 'balanced',
@@ -51,7 +100,7 @@ class StateSiEngineService {
     String? taskId,
     Map<String, dynamic> context = const <String, dynamic>{},
   }) async {
-    return _engine.generateResponse(
+    return _engineFor(conversation).generateResponse(
       input: input,
       message: message,
       emotion: emotion,
@@ -62,16 +111,19 @@ class StateSiEngineService {
   }
 
   Map<String, dynamic> updateMemory({
+    AssistantConversationScope conversation =
+        AssistantConversationScope.primarySiConsole,
     required Map<String, dynamic>? currentState,
     required Map<String, dynamic> memoryEvent,
   }) {
-    return _engine.updateMemory(
-      currentState: currentState,
-      memoryEvent: memoryEvent,
-    );
+    return _engineFor(
+      conversation,
+    ).updateMemory(currentState: currentState, memoryEvent: memoryEvent);
   }
 
   bool validateOutput({
+    AssistantConversationScope conversation =
+        AssistantConversationScope.primarySiConsole,
     required String message,
     required double confidence,
     bool coherent = true,
@@ -79,7 +131,7 @@ class StateSiEngineService {
     bool policyAccepted = true,
     bool grounded = true,
   }) {
-    return _engine.validateOutput(
+    return _engineFor(conversation).validateOutput(
       message: message,
       confidence: confidence,
       coherent: coherent,

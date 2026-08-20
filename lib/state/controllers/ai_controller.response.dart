@@ -13,7 +13,18 @@ final siEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
   ref,
 ) async {
   final siEngineService = ref.read(siEngineServiceProvider);
-  return siEngineService.loadState();
+  return siEngineService.loadState(
+    conversation: AssistantConversationScope.primarySiConsole,
+  );
+});
+
+final smartPlannerEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
+  ref,
+) async {
+  final siEngineService = ref.read(siEngineServiceProvider);
+  return siEngineService.loadState(
+    conversation: AssistantConversationScope.primarySmartPlanner,
+  );
 });
 
 final aiDecisionProvider = FutureProvider<Decision?>((ref) async {
@@ -38,10 +49,21 @@ final aiResponseProvider =
       AIResponseController.new,
     );
 
+final smartPlannerAiResponseProvider =
+    AsyncNotifierProvider<AIResponseController, AIRecommendation?>(
+      () =>
+          AIResponseController(AssistantConversationScope.primarySmartPlanner),
+    );
+
 class AIResponseController extends AsyncNotifier<AIRecommendation?>
     implements SIConsoleInterface {
+  AIResponseController([
+    this.conversation = AssistantConversationScope.primarySiConsole,
+  ]);
+
   static int _requestCounter = 0;
   String? _activeRequestId;
+  final AssistantConversationScope conversation;
 
   @override
   Future<AIRecommendation?> build() async {
@@ -53,6 +75,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
     List<Map<String, String>> history = const <Map<String, String>>[],
     Map<String, dynamic> context = const <String, dynamic>{},
   }) {
+    _requireSurface(AssistantSurface.smartPlanner);
     return execute(
       inputOverride: input,
       personalityOverride: AIPersonality.planner,
@@ -73,6 +96,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
     List<Map<String, String>> history = const <Map<String, String>>[],
     Map<String, dynamic> context = const <String, dynamic>{},
   }) {
+    _requireSurface(AssistantSurface.siConsole);
     return execute(
       inputOverride: input,
       personalityOverride: AIPersonality.strategist,
@@ -80,6 +104,15 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       history: history,
       context: context,
     );
+  }
+
+  void _requireSurface(AssistantSurface requiredSurface) {
+    if (conversation.surface != requiredSurface) {
+      throw StateError(
+        'Assistant runtime ${conversation.surface.storageId} cannot execute '
+        '${requiredSurface.storageId} requests.',
+      );
+    }
   }
 
   Future<AIRecommendation?> execute({
@@ -91,13 +124,19 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
     AgentRequest? requestOverride,
   }) async {
     final int seq = ++_requestCounter;
-    final String requestId = 'ai-${DateTime.now().millisecondsSinceEpoch}-$seq';
+    final String accountNamespace =
+        ref.read(accountStorageScopeProvider).v2Namespace ?? 'v2.unsafe';
+    final String conversationNamespace = base64UrlEncode(
+      utf8.encode(conversation.conversationId),
+    );
+    final String requestId =
+        'ai-$accountNamespace-${conversation.surface.storageId}-$conversationNamespace-${DateTime.now().millisecondsSinceEpoch}-$seq';
     final Stopwatch stopwatch = Stopwatch()..start();
     _activeRequestId = requestId;
 
     state = const AsyncLoading<AIRecommendation?>();
     ref
-        .read(aiExecutionStatusProvider.notifier)
+        .read(_executionStatusProviderFor(conversation.surface).notifier)
         .set(
           AIExecutionStatus(
             phase: 'running',
@@ -128,7 +167,8 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           personalityOverride ??
           ref.read(aiPersonalityProvider) ??
           AIPersonality.planner;
-      final input = inputOverride ?? ref.read(aiInputProvider);
+      final input =
+          inputOverride ?? ref.read(_inputProviderFor(conversation.surface));
 
       final int creditCost = _aiCreditCost(
         input: input,
@@ -186,7 +226,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       }
 
       final Map<String, dynamic>? previousState = await siEngineService
-          .loadState();
+          .loadState(conversation: conversation);
       final List<Map<String, String>> conversationHistory =
           List<Map<String, String>>.from(history);
       final String previousMessage =
@@ -203,7 +243,11 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         });
       }
       final List<SISnapshot> recentSnapshots = ref
-          .read(siMemoryProvider)
+          .read(
+            conversation.surface == AssistantSurface.smartPlanner
+                ? smartPlannerMemoryProvider
+                : siMemoryProvider,
+          )
           .entries
           .take(20)
           .toList(growable: false);
@@ -229,7 +273,6 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       final Map<String, dynamic> conversationContext = <String, dynamic>{
         'mode': 'planner',
         'previousMessage': previousMessage,
-        'requestId': requestId,
         'intent': intent.label,
         'grounded': <String, dynamic>{
           'taskCount': tasks.length,
@@ -245,6 +288,10 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           'paywallDisabled': intelligence.flags.paywallDisabled,
         },
         ...context,
+        'requestId': requestId,
+        'surfaceId': conversation.surface.storageId,
+        'conversationId': conversation.conversationId,
+        'accountNamespace': accountNamespace,
         'externalAiAllowed': externalModelAuthorized,
       };
 
@@ -281,7 +328,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         await refundCredits?.call();
         return null;
       }
-      ref.read(aiAgentTraceProvider.notifier).set(agentResult);
+      ref
+          .read(_traceProviderFor(conversation.surface).notifier)
+          .set(agentResult);
 
       final AIResponse response = _responseFromAgentResult(
         result: agentResult,
@@ -377,7 +426,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       );
 
       final SlidingWindowRateLimiter suggestionLimiter = ref.read(
-        aiSuggestionRateLimiterProvider,
+        _suggestionRateLimiterProviderFor(conversation.surface),
       );
       if (selection.repeatedTask && !suggestionLimiter.tryAcquire()) {
         recommendation = AIRecommendation(
@@ -441,6 +490,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       final bool emittedGrounded =
           validatedDecision.grounded || usedGroundingFallback;
       final bool facadeValidated = siEngineService.validateOutput(
+        conversation: conversation,
         message: recommendation.message,
         confidence: (recommendation.confidence ?? 0.0),
         coherent: selection.coherent || usedGroundingFallback,
@@ -516,6 +566,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
 
       final Map<String, dynamic> generatedResponse = await siEngineService
           .generateResponse(
+            conversation: conversation,
             input: input ?? '',
             message: recommendation.message,
             emotion: recommendation.emotion ?? 'balanced',
@@ -552,6 +603,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         memoryEvent: memoryEvent,
       );
       final Map<String, dynamic> memoryState = siEngineService.updateMemory(
+        conversation: conversation,
         currentState: previousState,
         memoryEvent: memoryEvent,
       );
@@ -566,6 +618,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       await siEngineService.saveState(<String, dynamic>{
         'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
         'requestId': requestId,
+        'surfaceId': conversation.surface.storageId,
+        'conversationId': conversation.conversationId,
+        'accountNamespace': accountNamespace,
         'durationMs': stopwatch.elapsedMilliseconds,
         'personality': personality.name,
         'input': input,
@@ -591,11 +646,20 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           'confidence': intent.confidence,
         },
         'communicationContract': communicationContract,
-      });
-      ref.invalidate(siEngineStateProvider);
+      }, conversation: conversation);
+      ref.invalidate(
+        conversation.surface == AssistantSurface.smartPlanner
+            ? smartPlannerEngineStateProvider
+            : siEngineStateProvider,
+      );
 
       ref
-          .read(siMemoryProvider.notifier)
+          .read(
+            (conversation.surface == AssistantSurface.smartPlanner
+                    ? smartPlannerMemoryProvider
+                    : siMemoryProvider)
+                .notifier,
+          )
           .capture(
             SISnapshot(
               timestamp: DateTime.now(),
@@ -613,7 +677,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
 
       state = AsyncData<AIRecommendation?>(recommendation);
       ref
-          .read(aiExecutionStatusProvider.notifier)
+          .read(_executionStatusProviderFor(conversation.surface).notifier)
           .set(
             AIExecutionStatus(
               phase: 'completed',
@@ -640,7 +704,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       }
       state = AsyncError<AIRecommendation?>(error, stackTrace);
       ref
-          .read(aiExecutionStatusProvider.notifier)
+          .read(_executionStatusProviderFor(conversation.surface).notifier)
           .set(
             AIExecutionStatus(
               phase: 'failed',

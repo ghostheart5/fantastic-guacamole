@@ -259,7 +259,7 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
             if (response != null) 'seedResponse': response.toJson(),
           },
           context: <String, dynamic>{
-            'appState': 'planner',
+            'appState': 'si_console',
             'energy': si.energy,
             if (response != null) 'seedReasoning': response.reasoning,
           },
@@ -270,6 +270,7 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
             hesitation: si.fatigue,
           ),
         ),
+        conversation: AssistantConversationScope.primarySiConsole,
         task: selectedTask,
         previousMood: response?.emotion,
       );

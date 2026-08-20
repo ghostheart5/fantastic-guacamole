@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -35,6 +36,7 @@ import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
@@ -61,6 +63,33 @@ part 'ai_controller.providers.dart';
 part 'ai_controller.response.dart';
 
 final aiControllerProvider = Provider<AIController>((ref) => AIController(ref));
+
+NotifierProvider<AIInputNotifier, String?> _inputProviderFor(
+  AssistantSurface surface,
+) => switch (surface) {
+  AssistantSurface.smartPlanner => smartPlannerAiInputProvider,
+  AssistantSurface.siConsole => aiInputProvider,
+};
+
+NotifierProvider<AIAgentTraceNotifier, AgentResult?> _traceProviderFor(
+  AssistantSurface surface,
+) => switch (surface) {
+  AssistantSurface.smartPlanner => smartPlannerAiAgentTraceProvider,
+  AssistantSurface.siConsole => aiAgentTraceProvider,
+};
+
+NotifierProvider<AIExecutionStatusNotifier, AIExecutionStatus>
+_executionStatusProviderFor(AssistantSurface surface) => switch (surface) {
+  AssistantSurface.smartPlanner => smartPlannerAiExecutionStatusProvider,
+  AssistantSurface.siConsole => aiExecutionStatusProvider,
+};
+
+Provider<SlidingWindowRateLimiter> _suggestionRateLimiterProviderFor(
+  AssistantSurface surface,
+) => switch (surface) {
+  AssistantSurface.smartPlanner => smartPlannerAiSuggestionRateLimiterProvider,
+  AssistantSurface.siConsole => aiSuggestionRateLimiterProvider,
+};
 
 /// Synchronous next-step text derived from the highest-priority pending task.
 final nextActionTextProvider = Provider<String>((ref) {

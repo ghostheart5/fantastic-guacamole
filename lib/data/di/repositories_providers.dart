@@ -158,7 +158,10 @@ final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
 });
 
 final siEngineRepositoryProvider = Provider<SiEngineRepository>((Ref ref) {
-  return SiEngineRepository(ref.read(secureStoreProvider));
+  return SiEngineRepository(
+    ref.read(secureStoreProvider),
+    ref.watch(accountStorageScopeProvider),
+  );
 });
 
 final logRepositoryProvider = Provider<LogRepository>((Ref ref) {

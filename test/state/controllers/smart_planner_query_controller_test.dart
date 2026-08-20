@@ -382,7 +382,7 @@ ProviderContainer _buildContainer({
           store: SecureStore(backend: InMemorySecureStoreBackend()),
         ),
       ),
-      aiResponseProvider.overrideWith(aiOverride),
+      smartPlannerAiResponseProvider.overrideWith(aiOverride),
     ],
   );
 }

@@ -168,7 +168,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         ? structuredPrompt
         : '$structuredPrompt\n\nCONTEXT SNAPSHOT:\n$knowledge';
 
-    _ref.read(aiInputProvider.notifier).set(aiInput);
+    _ref.read(smartPlannerAiInputProvider.notifier).set(aiInput);
     final recommendation = personalization.externalAiAllowed
         ? await _safeSmartPlannerQuery(
             input: aiInput,
@@ -317,7 +317,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         ? structuredPrompt
         : '$structuredPrompt\n\nCONTEXT SNAPSHOT:\n$knowledge';
 
-    _ref.read(aiInputProvider.notifier).set(aiInput);
+    _ref.read(smartPlannerAiInputProvider.notifier).set(aiInput);
     final recommendation = personalization.externalAiAllowed
         ? await _safeSmartPlannerQuery(
             input: aiInput,
@@ -579,7 +579,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
   }) async {
     try {
       return await _ref
-          .read(aiResponseProvider.notifier)
+          .read(smartPlannerAiResponseProvider.notifier)
           .executeSmartPlannerQuery(
             input: input,
             history: history,
