@@ -1,4 +1,7 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
@@ -12,6 +15,7 @@ import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
@@ -33,29 +37,169 @@ final smartPlannerQueryControllerProvider =
     });
 
 class SmartPlannerResult {
-  const SmartPlannerResult({
-    required this.prompt,
-    required this.message,
-    required this.savedNotes,
-    this.processingMode = AIProcessingMode.onDevice,
-    this.evidence = const <String>[],
-    this.generatedAt,
-  });
+  factory SmartPlannerResult({
+    required String prompt,
+    required String message,
+    required String? savedNotes,
+    AIProcessingMode processingMode = AIProcessingMode.onDevice,
+    List<String> evidence = const <String>[],
+    DateTime? generatedAt,
+  }) {
+    final AssistantRequestEnvelope request = createAssistantRequestEnvelope(
+      accountScopeId: 'account.compatibility',
+      conversation: AssistantConversationScope.primarySmartPlanner,
+      kind: AssistantRequestKind.planningGuidance,
+      input: prompt,
+    );
+    final AIRecommendation recommendation =
+        AIRecommendation(
+          message: message,
+          processingMode: processingMode,
+        ).withValidatedContract(
+          request: request,
+          evidence: createAssistantEvidenceItems(
+            request: request,
+            summaries: evidence,
+            sourceId: 'compatibility_result',
+            kind: AssistantEvidenceKind.fallback,
+          ),
+          generatedAt: generatedAt,
+          status: processingMode == AIProcessingMode.onDeviceFallback
+              ? AssistantResponseStatus.fallback
+              : AssistantResponseStatus.completed,
+        );
+    return SmartPlannerResult.fromContracts(
+      request: request,
+      response: recommendation.contract!,
+      savedNotes: savedNotes,
+    );
+  }
 
-  final String prompt;
-  final String message;
+  SmartPlannerResult.fromContracts({
+    required this.request,
+    required this.response,
+    required this.savedNotes,
+  }) {
+    response.validateAgainst(request);
+  }
+
+  final AssistantRequestEnvelope request;
+  final AssistantResponseEnvelope response;
   final String? savedNotes;
-  final AIProcessingMode processingMode;
-  final List<String> evidence;
-  final DateTime? generatedAt;
+
+  String get prompt => request.input;
+  String get message => response.message;
+  AIProcessingMode get processingMode => switch (response.processingMode) {
+    AssistantContractProcessingMode.unknown => AIProcessingMode.unknown,
+    AssistantContractProcessingMode.onDevice => AIProcessingMode.onDevice,
+    AssistantContractProcessingMode.external => AIProcessingMode.external,
+    AssistantContractProcessingMode.onDeviceFallback =>
+      AIProcessingMode.onDeviceFallback,
+  };
+  List<String> get evidence => response.evidence.items
+      .map((AssistantEvidenceItem item) => item.summary)
+      .toList(growable: false);
+  DateTime get generatedAt => response.generatedAt;
 }
 
-class SmartPlannerQueryController implements SmartPlannerInterface {
+class SmartPlannerQueryController
+    implements SmartPlannerInterface<SmartPlannerResult> {
   const SmartPlannerQueryController(this._ref);
 
   final Ref _ref;
 
+  String get _accountScopeId {
+    final AccountStorageScope scope = _ref.read(accountStorageScopeProvider);
+    return assistantAccountScopeId(
+      authenticatedNamespace: scope.v2Namespace,
+      isSignedOut: scope.state == AccountStorageScopeState.signedOut,
+    );
+  }
+
+  AssistantRequestEnvelope _requestContract({
+    required AssistantRequestKind kind,
+    required String input,
+    required List<Map<String, String>> history,
+    required double energy,
+    required EmotionalState emotion,
+    Map<String, Object?> context = const <String, Object?>{},
+  }) {
+    return createAssistantRequestEnvelope(
+      accountScopeId: _accountScopeId,
+      conversation: AssistantConversationScope.primarySmartPlanner,
+      kind: kind,
+      input: input,
+      history: history,
+      context: <String, Object?>{
+        'energy': energy,
+        'emotion': emotion.name,
+        ...context,
+      },
+    );
+  }
+
+  SmartPlannerResult _resultFromRecommendation({
+    required AssistantRequestEnvelope request,
+    required AIRecommendation recommendation,
+    required String? savedNotes,
+    required List<String> evidence,
+    required String evidenceSource,
+    AssistantResponseStatus status = AssistantResponseStatus.completed,
+  }) {
+    final AIRecommendation typed = recommendation.contract == null
+        ? recommendation.withValidatedContract(
+            request: request,
+            evidence: createAssistantEvidenceItems(
+              request: request,
+              summaries: evidence,
+              sourceId: evidenceSource,
+              kind: status == AssistantResponseStatus.fallback
+                  ? AssistantEvidenceKind.fallback
+                  : AssistantEvidenceKind.domainFact,
+            ),
+            status: status,
+          )
+        : recommendation;
+    typed.validateContractAgainst(request);
+    return SmartPlannerResult.fromContracts(
+      request: request,
+      response: typed.contract!,
+      savedNotes: savedNotes,
+    );
+  }
+
   bool detectsCrisis(String text) => CrisisDetectionPolicy.detects(text);
+
+  SmartPlannerResult localFallbackResult({
+    required String input,
+    required String message,
+    required double energy,
+    required EmotionalState emotion,
+    required List<Map<String, String>> history,
+    required String reason,
+    AssistantRequestKind kind = AssistantRequestKind.planningGuidance,
+  }) {
+    final AssistantRequestEnvelope request = _requestContract(
+      kind: kind,
+      input: input,
+      history: history,
+      energy: energy,
+      emotion: emotion,
+      context: <String, Object?>{'fallbackReason': reason},
+    );
+    return _resultFromRecommendation(
+      request: request,
+      recommendation: AIRecommendation(
+        message: message,
+        reasoning: 'smart_planner_fallback:$reason',
+        processingMode: AIProcessingMode.onDeviceFallback,
+      ),
+      savedNotes: null,
+      evidence: <String>['Deterministic Planner fallback: $reason'],
+      evidenceSource: 'smart_planner_local_boundary',
+      status: AssistantResponseStatus.fallback,
+    );
+  }
 
   @override
   Future<SmartPlannerResult> requestPlanningGuidance({
@@ -101,7 +245,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     final AssistantIntent assistantIntent =
         const DefaultAssistantIntentDetector().detect(
           input: prompt,
-          surface: 'smart_planner',
+          surface: AssistantSurface.smartPlanner,
         );
     final DefaultAssistantContextBuilder contextBuilder =
         const DefaultAssistantContextBuilder();
@@ -125,6 +269,17 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         .map((event) => event.title.trim())
         .where((text) => text.isNotEmpty)
         .toList(growable: false);
+    final AssistantRequestEnvelope requestContract = _requestContract(
+      kind: AssistantRequestKind.planningGuidance,
+      input: prompt,
+      history: history,
+      energy: energy,
+      emotion: emotion,
+      context: <String, Object?>{
+        'detectedTopic': detectedTopicLabel,
+        'assistantIntent': assistantIntent.toJson(),
+      },
+    );
 
     if (detectedTopic != _PlannerTopic.generalChat) {
       final String message = _buildStructuredResponse(
@@ -142,17 +297,19 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         channel: 'planner',
         content: message,
       );
-      return SmartPlannerResult(
-        prompt: prompt,
-        message: message,
+      return _resultFromRecommendation(
+        request: requestContract,
+        recommendation: AIRecommendation(
+          message: message,
+          processingMode: AIProcessingMode.onDevice,
+        ),
         savedNotes: savedNotes,
-        processingMode: AIProcessingMode.onDevice,
         evidence: <String>[
           'Selected topic: $detectedTopicLabel',
           'User-set energy: ${(energy * 100).round()}%',
           'Rule-based guidance; no external model used',
         ],
-        generatedAt: DateTime.now(),
+        evidenceSource: 'smart_planner_rules',
       );
     }
 
@@ -168,31 +325,39 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         ? structuredPrompt
         : '$structuredPrompt\n\nCONTEXT SNAPSHOT:\n$knowledge';
 
+    final Map<String, Object?> aiContext = <String, Object?>{
+      'source': 'smart_planner',
+      'externalAiAllowed': personalization.externalAiAllowed,
+      'energy': energy,
+      'emotion': contextEmotion.name,
+      'detectedTopic': detectedTopicLabel,
+      'assistantIntent': assistantIntent.toJson(),
+      'assistantContext': contextBuilder
+          .buildSmartPlannerContext(
+            input: prompt,
+            intent: assistantIntent,
+            energy: energy,
+            emotion: contextEmotion.name,
+            memorySummaries: memorySummaries,
+            timelineSummaries: timelineSummaries,
+            goalSummaries: goalSummaries,
+          )
+          .toJson(),
+      'reflection': notes,
+      'knowledge': knowledge,
+      ...Map<String, Object?>.from(moduleSnapshot),
+    };
+    final AssistantRequestEnvelope externalRequest = requestContract.copyWith(
+      context: aiContext,
+    );
+
     _ref.read(smartPlannerAiInputProvider.notifier).set(aiInput);
     final recommendation = personalization.externalAiAllowed
         ? await _safeSmartPlannerQuery(
             input: aiInput,
             history: history,
-            context: <String, dynamic>{
-              'source': 'smart_planner',
-              'externalAiAllowed': true,
-              'energy': energy,
-              'emotion': contextEmotion.name,
-              'detectedTopic': detectedTopicLabel,
-              'assistantIntent': assistantIntent.toJson(),
-              'assistantContext': contextBuilder.buildSmartPlannerContext(
-                input: prompt,
-                intent: assistantIntent,
-                energy: energy,
-                emotion: contextEmotion.name,
-                memorySummaries: memorySummaries,
-                timelineSummaries: timelineSummaries,
-                goalSummaries: goalSummaries,
-              ),
-              'reflection': notes,
-              'knowledge': knowledge,
-              ...moduleSnapshot,
-            },
+            context: aiContext,
+            request: externalRequest,
             source: 'smart_planner',
           )
         : null;
@@ -220,15 +385,18 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
       content: message,
     );
 
-    return SmartPlannerResult(
-      prompt: prompt,
-      message: message,
+    final AIProcessingMode processingMode = acceptedGeneratedResponse
+        ? recommendation!.processingMode
+        : recommendation == null
+        ? AIProcessingMode.onDevice
+        : AIProcessingMode.onDeviceFallback;
+    final AIRecommendation resultRecommendation = acceptedGeneratedResponse
+        ? recommendation!
+        : AIRecommendation(message: message, processingMode: processingMode);
+    return _resultFromRecommendation(
+      request: externalRequest,
+      recommendation: resultRecommendation,
       savedNotes: savedNotes,
-      processingMode: acceptedGeneratedResponse
-          ? recommendation!.processingMode
-          : recommendation == null
-          ? AIProcessingMode.onDevice
-          : AIProcessingMode.onDeviceFallback,
       evidence: <String>[
         'Selected topic: $detectedTopicLabel',
         'User-set energy: ${(energy * 100).round()}%',
@@ -240,12 +408,33 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         if (memorySummaries.isNotEmpty)
           'User-enabled memory items: ${memorySummaries.length}',
       ],
-      generatedAt: DateTime.now(),
+      evidenceSource: acceptedGeneratedResponse
+          ? 'smart_planner_model'
+          : 'smart_planner_fallback',
+      status: processingMode == AIProcessingMode.onDeviceFallback
+          ? AssistantResponseStatus.fallback
+          : AssistantResponseStatus.completed,
     );
   }
 
   @override
   Future<String> requestFollowUp({
+    required String input,
+    required double energy,
+    required EmotionalState emotion,
+    required String reflection,
+    required List<Map<String, String>> history,
+  }) async {
+    return (await requestFollowUpResult(
+      input: input,
+      energy: energy,
+      emotion: emotion,
+      reflection: reflection,
+      history: history,
+    )).message;
+  }
+
+  Future<SmartPlannerResult> requestFollowUpResult({
     required String input,
     required double energy,
     required EmotionalState emotion,
@@ -261,7 +450,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     final AssistantIntent assistantIntent =
         const DefaultAssistantIntentDetector().detect(
           input: input,
-          surface: 'smart_planner',
+          surface: AssistantSurface.smartPlanner,
         );
     final DefaultAssistantContextBuilder contextBuilder =
         const DefaultAssistantContextBuilder();
@@ -285,6 +474,17 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         .map((event) => event.title.trim())
         .where((text) => text.isNotEmpty)
         .toList(growable: false);
+    final AssistantRequestEnvelope requestContract = _requestContract(
+      kind: AssistantRequestKind.followUp,
+      input: input,
+      history: history,
+      energy: energy,
+      emotion: emotion,
+      context: <String, Object?>{
+        'detectedTopic': detectedTopicLabel,
+        'assistantIntent': assistantIntent.toJson(),
+      },
+    );
 
     if (detectedTopic != _PlannerTopic.generalChat) {
       final String fallbackReply = _buildFollowUpResponse(
@@ -302,7 +502,20 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         channel: 'follow_up',
         content: fallbackReply,
       );
-      return fallbackReply;
+      return _resultFromRecommendation(
+        request: requestContract,
+        recommendation: AIRecommendation(
+          message: fallbackReply,
+          processingMode: AIProcessingMode.onDevice,
+        ),
+        savedNotes: null,
+        evidence: <String>[
+          'Selected topic: $detectedTopicLabel',
+          'User-set energy: ${(energy * 100).round()}%',
+          'Rule-based follow-up; no external model used',
+        ],
+        evidenceSource: 'smart_planner_follow_up_rules',
+      );
     }
 
     final String policy = _smartPlannerPolicy();
@@ -317,31 +530,39 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         ? structuredPrompt
         : '$structuredPrompt\n\nCONTEXT SNAPSHOT:\n$knowledge';
 
+    final Map<String, Object?> aiContext = <String, Object?>{
+      'source': 'smart_planner_follow_up',
+      'externalAiAllowed': personalization.externalAiAllowed,
+      'energy': energy,
+      'emotion': contextEmotion.name,
+      'detectedTopic': detectedTopicLabel,
+      'assistantIntent': assistantIntent.toJson(),
+      'assistantContext': contextBuilder
+          .buildSmartPlannerContext(
+            input: input,
+            intent: assistantIntent,
+            energy: energy,
+            emotion: contextEmotion.name,
+            memorySummaries: memorySummaries,
+            timelineSummaries: timelineSummaries,
+            goalSummaries: goalSummaries,
+          )
+          .toJson(),
+      'reflection': reflection,
+      'knowledge': knowledge,
+      ...Map<String, Object?>.from(moduleSnapshot),
+    };
+    final AssistantRequestEnvelope externalRequest = requestContract.copyWith(
+      context: aiContext,
+    );
+
     _ref.read(smartPlannerAiInputProvider.notifier).set(aiInput);
     final recommendation = personalization.externalAiAllowed
         ? await _safeSmartPlannerQuery(
             input: aiInput,
             history: history,
-            context: <String, dynamic>{
-              'source': 'smart_planner_follow_up',
-              'externalAiAllowed': true,
-              'energy': energy,
-              'emotion': contextEmotion.name,
-              'detectedTopic': detectedTopicLabel,
-              'assistantIntent': assistantIntent.toJson(),
-              'assistantContext': contextBuilder.buildSmartPlannerContext(
-                input: input,
-                intent: assistantIntent,
-                energy: energy,
-                emotion: contextEmotion.name,
-                memorySummaries: memorySummaries,
-                timelineSummaries: timelineSummaries,
-                goalSummaries: goalSummaries,
-              ),
-              'reflection': reflection,
-              'knowledge': knowledge,
-              ...moduleSnapshot,
-            },
+            context: aiContext,
+            request: externalRequest,
             source: 'smart_planner_follow_up',
           )
         : null;
@@ -352,8 +573,9 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
       reasoning: recommendation?.reasoning,
     );
     final bool aiStructured = _isStructuredPlannerResponse(generated);
-    final String response =
-        generated.isNotEmpty && !aiFallbackDetected && aiStructured
+    final bool acceptedGeneratedResponse =
+        generated.isNotEmpty && !aiFallbackDetected && aiStructured;
+    final String response = acceptedGeneratedResponse
         ? generated
         : _buildFollowUpReply(input, energy, emotion);
     await _persistConversationTurn(
@@ -366,7 +588,30 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
       channel: 'follow_up',
       content: response,
     );
-    return response;
+    final AIProcessingMode processingMode = acceptedGeneratedResponse
+        ? recommendation!.processingMode
+        : recommendation == null
+        ? AIProcessingMode.onDevice
+        : AIProcessingMode.onDeviceFallback;
+    return _resultFromRecommendation(
+      request: externalRequest,
+      recommendation: acceptedGeneratedResponse
+          ? recommendation!
+          : AIRecommendation(message: response, processingMode: processingMode),
+      savedNotes: null,
+      evidence: <String>[
+        'Selected topic: $detectedTopicLabel',
+        'User-set energy: ${(energy * 100).round()}%',
+        if (!acceptedGeneratedResponse)
+          'Rule-based follow-up; no external model used',
+      ],
+      evidenceSource: acceptedGeneratedResponse
+          ? 'smart_planner_follow_up_model'
+          : 'smart_planner_follow_up_fallback',
+      status: processingMode == AIProcessingMode.onDeviceFallback
+          ? AssistantResponseStatus.fallback
+          : AssistantResponseStatus.completed,
+    );
   }
 
   static bool _isNonActionableAIFallback({
@@ -574,7 +819,8 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
   Future<AIRecommendation?> _safeSmartPlannerQuery({
     required String input,
     required List<Map<String, String>> history,
-    required Map<String, dynamic> context,
+    required Map<String, Object?> context,
+    required AssistantRequestEnvelope request,
     required String source,
   }) async {
     try {
@@ -583,7 +829,10 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
           .executeSmartPlannerQuery(
             input: input,
             history: history,
-            context: context,
+            context: <String, dynamic>{
+              ...Map<String, dynamic>.from(context),
+              'assistantRequestContract': request.toJson(),
+            },
           );
     } catch (error, stackTrace) {
       Logger.error(

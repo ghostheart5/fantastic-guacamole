@@ -1,32 +1,38 @@
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 
 class DefaultAssistantIntentDetector implements AssistantIntentDetector {
   const DefaultAssistantIntentDetector();
 
   @override
-  AssistantIntent detect({required String input, required String surface}) {
+  AssistantIntent detect({
+    required String input,
+    required AssistantSurface surface,
+  }) {
     final String normalized = input.toLowerCase();
-    if (surface == 'smart_planner') {
+    if (surface == AssistantSurface.smartPlanner) {
       return _detectSmartPlannerIntent(normalized);
     }
-    if (surface == 'si_console') {
+    if (surface == AssistantSurface.siConsole) {
       return _detectConsoleIntent(normalized);
     }
     return AssistantIntent(
       label: 'general',
       confidence: 0.5,
       surface: surface,
-      metadata: <String, dynamic>{'group': 'general'},
+      group: 'general',
+      metadata: const <String, Object?>{},
     );
   }
 
   AssistantIntent _detectSmartPlannerIntent(String text) {
-    AssistantIntent result = const AssistantIntent(
+    AssistantIntent result = AssistantIntent(
       label: 'general_chat',
       confidence: 0.52,
-      surface: 'smart_planner',
-      metadata: <String, dynamic>{'group': 'general'},
+      surface: AssistantSurface.smartPlanner,
+      group: 'general',
+      metadata: const <String, Object?>{},
     );
 
     if (_hasAny(text, <String>[
@@ -172,11 +178,11 @@ class DefaultAssistantIntentDetector implements AssistantIntentDetector {
     return AssistantIntent(
       label: label,
       confidence: confidence,
-      surface: group,
-      metadata: <String, dynamic>{
-        'group': group,
-        'sample': text.isEmpty ? null : text,
-      },
+      surface: group == 'si_console'
+          ? AssistantSurface.siConsole
+          : AssistantSurface.smartPlanner,
+      group: group,
+      metadata: <String, Object?>{'sample': text.isEmpty ? null : text},
     );
   }
 

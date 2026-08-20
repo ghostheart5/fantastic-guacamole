@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
 
@@ -5,7 +6,7 @@ class DefaultAssistantContextBuilder implements AssistantContextBuilder {
   const DefaultAssistantContextBuilder();
 
   @override
-  Map<String, dynamic> buildSmartPlannerContext({
+  AssistantContext buildSmartPlannerContext({
     required String input,
     required AssistantIntent intent,
     required double energy,
@@ -14,20 +15,22 @@ class DefaultAssistantContextBuilder implements AssistantContextBuilder {
     required List<String> timelineSummaries,
     required List<String> goalSummaries,
   }) {
-    return <String, dynamic>{
-      'surface': 'smart_planner',
-      'intent': intent.toJson(),
-      'query': input,
-      'energy': energy,
-      'emotion': emotion,
-      'memorySummaries': memorySummaries,
-      'timelineSummaries': timelineSummaries,
-      'goalSummaries': goalSummaries,
-    };
+    return AssistantContext(
+      surface: AssistantSurface.smartPlanner,
+      intent: intent,
+      query: input,
+      metadata: <String, Object?>{
+        'energy': energy,
+        'emotion': emotion,
+        'memorySummaries': memorySummaries,
+        'timelineSummaries': timelineSummaries,
+        'goalSummaries': goalSummaries,
+      },
+    );
   }
 
   @override
-  Map<String, dynamic> buildSIConsoleContext({
+  AssistantContext buildSIConsoleContext({
     required String input,
     required AssistantIntent intent,
     required List<String> matchedSurfaces,
@@ -36,15 +39,17 @@ class DefaultAssistantContextBuilder implements AssistantContextBuilder {
     required int taskCount,
     required int goalCount,
   }) {
-    return <String, dynamic>{
-      'surface': 'si_console',
-      'intent': intent.toJson(),
-      'query': input,
-      'matchedSurfaces': matchedSurfaces,
-      'memorySummaries': memorySummaries,
-      'timelineSummaries': timelineSummaries,
-      'taskCount': taskCount,
-      'goalCount': goalCount,
-    };
+    return AssistantContext(
+      surface: AssistantSurface.siConsole,
+      intent: intent,
+      query: input,
+      metadata: <String, Object?>{
+        'matchedSurfaces': matchedSurfaces,
+        'memorySummaries': memorySummaries,
+        'timelineSummaries': timelineSummaries,
+        'taskCount': taskCount,
+        'goalCount': goalCount,
+      },
+    );
   }
 }

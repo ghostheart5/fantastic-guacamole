@@ -38,6 +38,7 @@ class PreviewAdaptivePlan {
       evidenceSources: List<String>.unmodifiable(evidenceSources),
       sourceDecisionId: sourceDecisionId,
     );
+    proposal.validate();
     await _repository.saveProposal(proposal);
     return proposal;
   }
@@ -72,6 +73,7 @@ class ApplyPlanProposal {
   final IPlanRepository _repository;
 
   Future<PlanEntity> call(PlanProposalEntity proposal, {DateTime? now}) async {
+    proposal.validate();
     if (proposal.status != PlanProposalStatus.preview) {
       throw StateError('Only preview proposals can be applied.');
     }
@@ -85,13 +87,12 @@ class ApplyPlanProposal {
       blocks: proposal.blocks,
       updatedAt: appliedAt,
     );
-    await _repository.applyProposal(
-      proposal: proposal.copyWith(
-        status: PlanProposalStatus.applied,
-        resolvedAt: appliedAt,
-      ),
-      plan: plan,
+    final PlanProposalEntity applied = proposal.copyWith(
+      status: PlanProposalStatus.applied,
+      resolvedAt: appliedAt,
     );
+    applied.validate();
+    await _repository.applyProposal(proposal: applied, plan: plan);
     return plan;
   }
 }
@@ -106,6 +107,7 @@ class RejectPlanProposal {
     String? reason,
     DateTime? now,
   }) async {
+    proposal.validate();
     if (proposal.status != PlanProposalStatus.preview) {
       throw StateError('Only preview proposals can be rejected.');
     }
@@ -114,6 +116,7 @@ class RejectPlanProposal {
       rejectionReason: reason?.trim(),
       resolvedAt: now ?? DateTime.now(),
     );
+    rejected.validate();
     await _repository.saveProposal(rejected);
     return rejected;
   }

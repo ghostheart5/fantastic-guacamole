@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/rate_limiter.dart';
 import 'package:fantastic_guacamole/core/utils/throttle.dart';
 import 'package:fantastic_guacamole/data/di/services_providers.dart';
@@ -9,6 +10,7 @@ import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
@@ -109,22 +111,64 @@ class AIController {
   final Ref _ref;
   static const String _neuralDumpKey = 'neural_dump';
 
-  Future<AIRecommendation?> sendMessage(String text) async {
+  AIRecommendation _typedConsoleRecommendation({
+    required AssistantRequestEnvelope request,
+    required AIRecommendation recommendation,
+    required List<String> evidence,
+    AssistantResponseStatus status = AssistantResponseStatus.completed,
+  }) {
+    final AIRecommendation typed = recommendation.contract == null
+        ? recommendation.withValidatedContract(
+            request: request,
+            evidence: createAssistantEvidenceItems(
+              request: request,
+              summaries: evidence,
+              sourceId: 'si_console',
+              kind: status == AssistantResponseStatus.fallback
+                  ? AssistantEvidenceKind.fallback
+                  : AssistantEvidenceKind.domainFact,
+            ),
+            status: status,
+          )
+        : recommendation;
+    typed.validateContractAgainst(request);
+    return typed;
+  }
+
+  Future<AIRecommendation?> sendMessage(String text) =>
+      _sendMessage(text, kind: AssistantRequestKind.consoleQuery);
+
+  Future<AIRecommendation?> _sendMessage(
+    String text, {
+    required AssistantRequestKind kind,
+  }) async {
     final String rawInput = text.trim();
     final String? forcedSurface = _extractForcedSurface(rawInput);
     final String input = _stripLeadingSurfaceCommand(rawInput);
     if (input.isEmpty) {
       return null;
     }
+    AssistantRequestEnvelope requestContract = createAssistantRequestEnvelope(
+      accountScopeId: _assistantAccountScopeId(_ref),
+      conversation: AssistantConversationScope.primarySiConsole,
+      kind: kind,
+      input: input,
+    );
 
     final Throttle throttle = _ref.read(aiMessageThrottleProvider);
     if (!throttle.isReady) {
-      return const AIRecommendation(
-        message:
-            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
-        reasoning: 'throttled',
-        emotion: 'balanced',
-        confidence: 0.6,
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: const AIRecommendation(
+          message:
+              'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+          reasoning: 'throttled',
+          emotion: 'balanced',
+          confidence: 0.6,
+          processingMode: AIProcessingMode.onDeviceFallback,
+        ),
+        evidence: const <String>['Message throttle blocked a rapid repeat'],
+        status: AssistantResponseStatus.fallback,
       );
     }
 
@@ -133,12 +177,18 @@ class AIController {
       accepted = true;
     });
     if (!accepted) {
-      return const AIRecommendation(
-        message:
-            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
-        reasoning: 'throttled',
-        emotion: 'balanced',
-        confidence: 0.6,
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: const AIRecommendation(
+          message:
+              'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+          reasoning: 'throttled',
+          emotion: 'balanced',
+          confidence: 0.6,
+          processingMode: AIProcessingMode.onDeviceFallback,
+        ),
+        evidence: const <String>['Message throttle blocked a rapid repeat'],
+        status: AssistantResponseStatus.fallback,
       );
     }
 
@@ -245,7 +295,15 @@ class AIController {
           timelineRecommendationCount: timelineRecommendationCount,
         );
     if (timelineDeterministic != null) {
-      return timelineDeterministic;
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: timelineDeterministic,
+        evidence: <String>[
+          'Timeline events available: ${timelineEvents.length}',
+          'Timeline health score: $timelineHealthScore',
+          'Timeline risk score: $timelineRiskScore',
+        ],
+      );
     }
     final AIRecommendation? trajectoryDeterministic =
         _tryDeterministicTrajectoryResponse(
@@ -260,7 +318,15 @@ class AIController {
           alert: trajectory.alert,
         );
     if (trajectoryDeterministic != null) {
-      return trajectoryDeterministic;
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: trajectoryDeterministic,
+        evidence: <String>[
+          'Trajectory pressure: ${trajectory.pressureIndex}',
+          'Trajectory momentum: ${trajectory.momentum}',
+          'Behavior divergence: ${trajectory.behaviorDivergence}',
+        ],
+      );
     }
     final AIRecommendation? milestoneDeterministic =
         _tryDeterministicMilestoneResponse(
@@ -275,12 +341,20 @@ class AIController {
           upcoming: milestoneUpcoming,
         );
     if (milestoneDeterministic != null) {
-      return milestoneDeterministic;
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: milestoneDeterministic,
+        evidence: <String>[
+          'Milestones available: ${milestoneSummary.total}',
+          'Overdue milestones: ${milestoneSummary.overdue}',
+          'Milestone health score: ${milestoneSummary.healthScore}',
+        ],
+      );
     }
     final AssistantIntent assistantIntent =
         const DefaultAssistantIntentDetector().detect(
           input: input,
-          surface: 'si_console',
+          surface: AssistantSurface.siConsole,
         );
     final List<String> timelineSummaries = timelineEvents
         .take(3)
@@ -309,7 +383,8 @@ class AIController {
             timelineSummaries: timelineSummaries,
             taskCount: tasks.length,
             goalCount: goals.length,
-          ),
+          )
+          .toJson(),
       'name': profile.name,
       'level': profile.level,
       'xp': profile.xp,
@@ -427,6 +502,10 @@ class AIController {
       },
     };
 
+    requestContract = requestContract.copyWith(
+      history: AssistantRequestEnvelope.historyFromLegacy(history),
+      context: Map<String, Object?>.from(context),
+    );
     final AgentRequest request = AgentRequest(
       prompt: input,
       context: context,
@@ -445,24 +524,37 @@ class AIController {
           personalityOverride: AIPersonality.strategist,
           preferredAgent: null,
           history: history,
-          context: context,
+          context: <String, dynamic>{
+            ...context,
+            'assistantRequestContract': requestContract.toJson(),
+          },
           requestOverride: request,
         );
 
     if (recommendation == null ||
         !_isStructuredSIResponse(recommendation.message)) {
-      return _buildStructuredSIFallback(
-        query: input,
-        category: siIntentCategory,
-        tasks: taskEntities,
-        goalsCount: goals.length,
-        timelineOverdueCount: timelineOverdueCount,
-        timelineUpcomingCount: timelineUpcomingCount,
-        timelineHealthScore: timelineHealthScore,
-        timelineRiskScore: timelineRiskScore,
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: _buildStructuredSIFallback(
+          query: input,
+          category: siIntentCategory,
+          tasks: taskEntities,
+          goalsCount: goals.length,
+          timelineOverdueCount: timelineOverdueCount,
+          timelineUpcomingCount: timelineUpcomingCount,
+          timelineHealthScore: timelineHealthScore,
+          timelineRiskScore: timelineRiskScore,
+        ),
+        evidence: <String>[
+          'Active task signals: ${taskEntities.length}',
+          'Active goal signals: ${goals.length}',
+          'Timeline health score: $timelineHealthScore',
+        ],
+        status: AssistantResponseStatus.fallback,
       );
     }
 
+    recommendation.validateContractAgainst(requestContract);
     return recommendation;
   }
 
@@ -1235,7 +1327,7 @@ class AIController {
     if (input.isEmpty) {
       return null;
     }
-    return sendMessage(input);
+    return _sendMessage(input, kind: AssistantRequestKind.retry);
   }
 
   Future<void> clearConversation() async {

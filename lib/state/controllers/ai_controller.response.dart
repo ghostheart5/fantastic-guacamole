@@ -124,13 +124,42 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
     AgentRequest? requestOverride,
   }) async {
     final int seq = ++_requestCounter;
-    final String accountNamespace =
-        ref.read(accountStorageScopeProvider).v2Namespace ?? 'v2.unsafe';
+    final String accountNamespace = _assistantAccountScopeId(ref);
     final String conversationNamespace = base64UrlEncode(
       utf8.encode(conversation.conversationId),
     );
-    final String requestId =
+    final String generatedRequestId =
         'ai-$accountNamespace-${conversation.surface.storageId}-$conversationNamespace-${DateTime.now().millisecondsSinceEpoch}-$seq';
+    final String contractInput =
+        (inputOverride ??
+                ref.read(_inputProviderFor(conversation.surface)) ??
+                '')
+            .trim();
+    final Object? embeddedContract = context['assistantRequestContract'];
+    final AssistantRequestEnvelope typedRequest =
+        embeddedContract is Map<Object?, Object?>
+        ? AssistantRequestEnvelope.fromJson(
+            Map<String, Object?>.from(embeddedContract),
+          )
+        : createAssistantRequestEnvelope(
+            accountScopeId: accountNamespace,
+            conversation: conversation,
+            kind: conversation.surface == AssistantSurface.smartPlanner
+                ? AssistantRequestKind.planningGuidance
+                : AssistantRequestKind.consoleQuery,
+            input: contractInput,
+            history: history,
+            context: Map<String, Object?>.from(context),
+            requestId: generatedRequestId,
+          );
+    typedRequest.validate();
+    if (typedRequest.conversation != conversation ||
+        typedRequest.accountScopeId != accountNamespace) {
+      throw const AssistantContractException(
+        'Assistant request identity does not match the active runtime.',
+      );
+    }
+    final String requestId = typedRequest.requestId;
     final Stopwatch stopwatch = Stopwatch()..start();
     _activeRequestId = requestId;
 
@@ -227,8 +256,16 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
 
       final Map<String, dynamic>? previousState = await siEngineService
           .loadState(conversation: conversation);
-      final List<Map<String, String>> conversationHistory =
-          List<Map<String, String>>.from(history);
+      final List<Map<String, String>> conversationHistory = history.isNotEmpty
+          ? List<Map<String, String>>.from(history)
+          : typedRequest.history
+                .map(
+                  (AssistantHistoryTurn turn) => <String, String>{
+                    'role': turn.role.name,
+                    'content': turn.content,
+                  },
+                )
+                .toList(growable: true);
       final String previousMessage =
           previousState?['message']?.toString().trim() ?? '';
       final bool alreadyContainsPrevious = conversationHistory.any(
@@ -287,6 +324,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           'mockLoginEnabled': intelligence.flags.mockLoginEnabled,
           'paywallDisabled': intelligence.flags.paywallDisabled,
         },
+        ...Map<String, dynamic>.from(typedRequest.context),
         ...context,
         'requestId': requestId,
         'surfaceId': conversation.surface.storageId,
@@ -561,6 +599,25 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         confidence: calibratedConfidence,
         processingMode: recommendation.processingMode,
       );
+      recommendation = recommendation.withValidatedContract(
+        request: typedRequest,
+        evidence: createAssistantEvidenceItems(
+          request: typedRequest,
+          summaries: <String>[
+            'Request kind: ${typedRequest.kind.name}',
+            'Grounded task signals available: ${tasks.length}',
+            if (selectedMemorySummaries.isNotEmpty)
+              'Surface-local memory signals used: ${selectedMemorySummaries.length}',
+            'Deterministic output validators completed',
+          ],
+          sourceId: 'assistant_runtime',
+        ),
+        status:
+            recommendation.processingMode == AIProcessingMode.onDeviceFallback
+            ? AssistantResponseStatus.fallback
+            : AssistantResponseStatus.completed,
+      );
+      recommendation.validateContractAgainst(typedRequest);
 
       stopwatch.stop();
 
@@ -646,6 +703,8 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           'confidence': intent.confidence,
         },
         'communicationContract': communicationContract,
+        'requestContract': typedRequest.toJson(),
+        'responseContract': recommendation.contract!.toJson(),
       }, conversation: conversation);
       ref.invalidate(
         conversation.surface == AssistantSurface.smartPlanner

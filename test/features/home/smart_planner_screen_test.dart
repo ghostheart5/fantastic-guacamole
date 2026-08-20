@@ -362,7 +362,7 @@ class _FlakySmartPlannerQueryController extends SmartPlannerQueryController {
       throw StateError('simulated planner failure');
     }
 
-    return const SmartPlannerResult(
+    return SmartPlannerResult(
       prompt: 'practical planning guidance check-in',
       message: 'Recovered planning response.',
       savedNotes: null,
@@ -430,7 +430,7 @@ class _ConversationalSmartPlannerQueryController
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
   }) async {
-    return const SmartPlannerResult(
+    return SmartPlannerResult(
       prompt: 'practical planning guidance check-in',
       message: 'Initial planning response.',
       savedNotes: null,
@@ -489,7 +489,7 @@ class _CrisisFollowUpSmartPlannerQueryController
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
   }) async {
-    return const SmartPlannerResult(
+    return SmartPlannerResult(
       prompt: 'practical planning guidance check-in',
       message: 'Initial planning response.',
       savedNotes: null,

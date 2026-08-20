@@ -58,6 +58,8 @@ void main() {
         result.evidence,
         contains('Rule-based guidance; no external model used'),
       );
+      result.request.validate();
+      result.response.validateAgainst(result.request);
     },
   );
 
@@ -73,17 +75,19 @@ void main() {
         smartPlannerQueryControllerProvider,
       );
 
-      final String reply = await controller.requestFollowUp(
+      final SmartPlannerResult result = await controller.requestFollowUpResult(
         input: 'How do I stay motivated?',
         energy: 0.5,
         emotion: EmotionalState.neutral,
         reflection: '',
         history: const <Map<String, String>>[],
       );
+      final String reply = result.message;
 
       expect(reply, isNotEmpty);
       expect(reply.toLowerCase(), contains('try this next:'));
       expect(reply.toLowerCase(), contains('planner question:'));
+      result.response.validateAgainst(result.request);
     },
   );
 

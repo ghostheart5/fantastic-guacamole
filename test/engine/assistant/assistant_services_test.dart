@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
@@ -15,7 +17,7 @@ void main() {
       detector
           .detect(
             input: 'I want to gain weight and build muscle',
-            surface: 'smart_planner',
+            surface: AssistantSurface.smartPlanner,
           )
           .label,
       'weight_gain',
@@ -24,7 +26,7 @@ void main() {
       detector
           .detect(
             input: 'I am burned out and overloaded',
-            surface: 'smart_planner',
+            surface: AssistantSurface.smartPlanner,
           )
           .label,
       'stress_support',
@@ -33,7 +35,7 @@ void main() {
       detector
           .detect(
             input: 'I need help with my career path',
-            surface: 'smart_planner',
+            surface: AssistantSurface.smartPlanner,
           )
           .label,
       'life',
@@ -43,9 +45,9 @@ void main() {
   test('builds assistant context payloads', () {
     final AssistantIntent intent = detector.detect(
       input: 'status check',
-      surface: 'si_console',
+      surface: AssistantSurface.siConsole,
     );
-    final Map<String, dynamic> context = contextBuilder.buildSIConsoleContext(
+    final AssistantContext context = contextBuilder.buildSIConsoleContext(
       input: 'status check',
       intent: intent,
       matchedSurfaces: const <String>['tasks', 'timeline'],
@@ -55,10 +57,23 @@ void main() {
       goalCount: 2,
     );
 
-    expect(context['surface'], 'si_console');
-    expect(context['taskCount'], 4);
-    expect(context['goalCount'], 2);
-    expect(context['matchedSurfaces'], contains('tasks'));
+    expect(context.surface, AssistantSurface.siConsole);
+    expect(context.metadata['taskCount'], 4);
+    expect(context.metadata['goalCount'], 2);
+    expect(context.metadata['matchedSurfaces'], contains('tasks'));
+  });
+
+  test('intent and context reject non-JSON metadata', () {
+    expect(
+      () => AssistantIntent(
+        label: 'invalid',
+        confidence: 0.5,
+        surface: AssistantSurface.siConsole,
+        group: 'si_console',
+        metadata: <String, Object?>{'generatedAt': DateTime.now()},
+      ),
+      throwsA(isA<AssistantContractException>()),
+    );
   });
 
   test('renders SI analysis template', () {

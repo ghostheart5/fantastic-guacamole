@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
     as si_models;
 import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
@@ -9,11 +10,14 @@ import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 
 abstract class AssistantIntentDetector {
-  AssistantIntent detect({required String input, required String surface});
+  AssistantIntent detect({
+    required String input,
+    required AssistantSurface surface,
+  });
 }
 
 abstract class AssistantContextBuilder {
-  Map<String, dynamic> buildSmartPlannerContext({
+  AssistantContext buildSmartPlannerContext({
     required String input,
     required AssistantIntent intent,
     required double energy,
@@ -23,7 +27,7 @@ abstract class AssistantContextBuilder {
     required List<String> goalSummaries,
   });
 
-  Map<String, dynamic> buildSIConsoleContext({
+  AssistantContext buildSIConsoleContext({
     required String input,
     required AssistantIntent intent,
     required List<String> matchedSurfaces,
@@ -56,8 +60,8 @@ abstract class RecommendationEngine {
   Future<Map<String, dynamic>> execute(Map<String, dynamic> request);
 }
 
-abstract class SmartPlannerInterface {
-  Future<dynamic> requestPlanningGuidance({
+abstract class SmartPlannerInterface<TResult extends Object> {
+  Future<TResult> requestPlanningGuidance({
     required double energy,
     required EmotionalState emotion,
     required String notes,

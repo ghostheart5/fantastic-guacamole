@@ -127,16 +127,22 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           .timeout(const Duration(seconds: 25));
     } on TimeoutException {
       if (!mounted) return;
+      final SmartPlannerResult fallback = planner.localFallbackResult(
+        input: notes.isEmpty ? 'quick check-in' : notes,
+        message:
+            'Guidance request timed out. Tap GET GUIDANCE again or shorten your input for a faster response.',
+        energy: _energy,
+        emotion: _emotion,
+        history: _conversationHistory(),
+        reason: 'request_timeout',
+      );
       setState(() {
         _gettingPlanningGuidance = false;
-        _planningGuidancePrompt = notes.isEmpty ? 'quick check-in' : notes;
-        _planningGuidanceMessage =
-            'Guidance request timed out. Tap GET GUIDANCE again or shorten your input for a faster response.';
-        _guidanceProcessingMode = AIProcessingMode.onDeviceFallback;
-        _guidanceEvidence = const <String>[
-          'No response completed before the timeout',
-        ];
-        _guidanceGeneratedAt = DateTime.now();
+        _planningGuidancePrompt = fallback.prompt;
+        _planningGuidanceMessage = fallback.message;
+        _guidanceProcessingMode = fallback.processingMode;
+        _guidanceEvidence = fallback.evidence;
+        _guidanceGeneratedAt = fallback.generatedAt;
       });
       return;
     }

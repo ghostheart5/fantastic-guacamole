@@ -1,5 +1,13 @@
 part of 'ai_controller.dart';
 
+String _assistantAccountScopeId(Ref ref) {
+  final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
+  return assistantAccountScopeId(
+    authenticatedNamespace: scope.v2Namespace,
+    isSignedOut: scope.state == AccountStorageScopeState.signedOut,
+  );
+}
+
 int _aiCreditCost({
   required String? input,
   required AIPersonality personality,

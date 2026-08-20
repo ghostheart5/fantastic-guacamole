@@ -408,15 +408,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     required String response,
     String emotion = 'engaged',
   }) {
+    final AIRecommendation typed = ref
+        .read(siConsoleQueryControllerProvider)
+        .localShortcutResponse(
+          query: query,
+          response: response,
+          shortcut: query.trim().toLowerCase().split(RegExp(r'\s+')).first,
+          emotion: emotion,
+        );
+    typed.contract!.validate();
     _safeSetState(() {
       _messages.add(_Msg(text: query, isUser: true));
       _messages.add(
         _Msg(
-          text: response,
+          text: typed.message,
           isUser: false,
-          emotion: emotion,
+          emotion: typed.emotion ?? emotion,
+          rationale: typed.reasoning,
           systemPanel: true,
-          processingMode: AIProcessingMode.onDevice,
+          processingMode: typed.processingMode,
         ),
       );
     });
@@ -657,22 +667,41 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   Future<void> _dispatchQuery(String text) async {
     try {
-      final recommendation = await ref
+      final AIRecommendation? rawRecommendation = await ref
           .read(aiControllerProvider)
           .sendMessage(text);
       if (!mounted) return;
+      final AIRecommendation? recommendation = rawRecommendation == null
+          ? null
+          : ref
+                .read(siConsoleQueryControllerProvider)
+                .ensureTypedResponse(
+                  query: text,
+                  recommendation: rawRecommendation,
+                );
       final String message = recommendation?.message.trim() ?? '';
-      if (message.isEmpty || _isInvalidAssistantText(message)) {
+      if (recommendation?.contract == null ||
+          message.isEmpty ||
+          _isInvalidAssistantText(message)) {
+        final AIRecommendation fallback = ref
+            .read(siConsoleQueryControllerProvider)
+            .localFallbackResponse(
+              query: text,
+              response:
+                  'No grounded response was generated. Ask with a specific feature and intent, for example: "show trajectory pressure", "summarize goals", or "plan next 3 tasks".',
+              reason: 'response_schema_validation',
+            );
+        fallback.contract!.validate();
         _safeSetState(() {
           _typing = false;
           _messages.add(
-            const _Msg(
-              text:
-                  'No grounded response was generated. Ask with a specific feature and intent, for example: "show trajectory pressure", "summarize goals", or "plan next 3 tasks".',
+            _Msg(
+              text: fallback.message,
               isUser: false,
-              emotion: 'balanced',
+              emotion: fallback.emotion ?? 'balanced',
+              rationale: fallback.reasoning,
               systemPanel: true,
-              processingMode: AIProcessingMode.onDevice,
+              processingMode: fallback.processingMode,
             ),
           );
         });
@@ -698,16 +727,26 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
+      final AIRecommendation fallback = ref
+          .read(siConsoleQueryControllerProvider)
+          .localFallbackResponse(
+            query: text,
+            response:
+                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, or milestones.',
+            reason: 'query_execution_failure',
+            emotion: 'cautious',
+          );
+      fallback.contract!.validate();
       _safeSetState(() {
         _typing = false;
         _messages.add(
-          const _Msg(
-            text:
-                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, or milestones.',
+          _Msg(
+            text: fallback.message,
             isUser: false,
-            emotion: 'cautious',
+            emotion: fallback.emotion ?? 'cautious',
+            rationale: fallback.reasoning,
             systemPanel: true,
-            processingMode: AIProcessingMode.onDeviceFallback,
+            processingMode: fallback.processingMode,
           ),
         );
       });
