@@ -467,8 +467,8 @@ $assistantUiLayerPaths = @(
   'lib/features/home/ui/smart_planner_screen.dart',
   'lib/features/home/widgets/ai_decision_card.dart',
   'lib/features/si_console/ui/si_console_screen.dart',
-  'lib/features/plan/ui/plan_screen.dart',
-  'lib/features/tasks/ui/task_screen.dart'
+  'lib/features/creator/ui/creator_screen.dart',
+  'lib/features/timeline/ui/timeline_screen.dart'
 )
 
 $assistantStateLayerPaths = @(

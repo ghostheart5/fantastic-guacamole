@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';

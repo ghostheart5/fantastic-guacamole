@@ -17,7 +17,6 @@ Layer 1 - Assistant UI:
 - features/home/ui/smart_planner_screen.dart
 - features/home/widgets/ai_decision_card.dart
 - features/si_console/ui/si_console_screen.dart
-- features/plan/ui/plan_screen.dart
 - features/creator/ui/creator_screen.dart
 - features/timeline/ui/timeline_screen.dart
 
