@@ -15,6 +15,7 @@ import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope
 import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
+import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
@@ -144,8 +145,12 @@ class AIController {
     required AssistantRequestKind kind,
   }) async {
     final String rawInput = text.trim();
-    final String? forcedSurface = _extractForcedSurface(rawInput);
-    final String input = _stripLeadingSurfaceCommand(rawInput);
+    final SIConsoleShortcutInvocation shortcutInvocation =
+        SIConsoleShortcutRegistry.parse(rawInput);
+    final String? forcedSurface = shortcutInvocation.forcedSurface;
+    final String input = forcedSurface == null
+        ? rawInput
+        : shortcutInvocation.intelligenceInput;
     if (input.isEmpty) {
       return null;
     }
@@ -372,6 +377,8 @@ class AIController {
       'querySurface': primarySurface,
       'matchedSurfaces': matchedSurfaces,
       'forcedSurface': forcedSurface,
+      'shortcutId': shortcutInvocation.definition?.id,
+      'shortcutArguments': shortcutInvocation.arguments,
       'responseContract': _responseContract(primarySurface, matchedSurfaces),
       'assistantIntent': assistantIntent.toJson(),
       'assistantContext': _ref
@@ -671,45 +678,6 @@ class AIController {
     });
 
     return matched.isEmpty ? <String>['general'] : matched;
-  }
-
-  String? _extractForcedSurface(String input) {
-    if (!input.startsWith('/')) {
-      return null;
-    }
-    final String token = input.split(RegExp(r'\s+')).first.toLowerCase();
-    const Map<String, String> aliases = <String, String>{
-      '/tasks': 'tasks',
-      '/task': 'tasks',
-      '/progression': 'progression',
-      '/xp': 'progression',
-      '/goals': 'goals',
-      '/goal': 'goals',
-      '/memories': 'memories',
-      '/memory': 'memories',
-      '/plan': 'plan',
-      '/emotions': 'emotions',
-      '/emotion': 'emotions',
-      '/timeline': 'timeline',
-      '/milestones': 'milestones',
-      '/trajectory': 'trajectory',
-    };
-    return aliases[token];
-  }
-
-  String _stripLeadingSurfaceCommand(String input) {
-    if (!input.startsWith('/')) {
-      return input;
-    }
-    final String? forcedSurface = _extractForcedSurface(input);
-    if (forcedSurface == null) {
-      return input;
-    }
-    final List<String> parts = input.split(RegExp(r'\s+'));
-    if (parts.length <= 1) {
-      return forcedSurface;
-    }
-    return parts.sublist(1).join(' ').trim();
   }
 
   String _deriveConsoleIntent(List<String> matchedSurfaces) {

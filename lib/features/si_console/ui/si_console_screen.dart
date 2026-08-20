@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_message.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
@@ -406,6 +407,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   void _addShortcutResponse({
     required String query,
     required String response,
+    required SIConsoleShortcutDefinition definition,
     String emotion = 'engaged',
   }) {
     final AIRecommendation typed = ref
@@ -413,9 +415,36 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         .localShortcutResponse(
           query: query,
           response: response,
-          shortcut: query.trim().toLowerCase().split(RegExp(r'\s+')).first,
+          shortcut: definition.shortcut,
           emotion: emotion,
         );
+    _appendLocalResponse(query: query, typed: typed, fallbackEmotion: emotion);
+  }
+
+  void _addShortcutFallback({
+    required String query,
+    required String response,
+    required String reason,
+  }) {
+    final AIRecommendation typed = ref
+        .read(siConsoleQueryControllerProvider)
+        .localFallbackResponse(
+          query: query,
+          response: response,
+          reason: reason,
+        );
+    _appendLocalResponse(
+      query: query,
+      typed: typed,
+      fallbackEmotion: 'balanced',
+    );
+  }
+
+  void _appendLocalResponse({
+    required String query,
+    required AIRecommendation typed,
+    required String fallbackEmotion,
+  }) {
     typed.contract!.validate();
     _safeSetState(() {
       _messages.add(_Msg(text: query, isUser: true));
@@ -423,7 +452,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _Msg(
           text: typed.message,
           isUser: false,
-          emotion: typed.emotion ?? emotion,
+          emotion: typed.emotion ?? fallbackEmotion,
           rationale: typed.reasoning,
           systemPanel: true,
           processingMode: typed.processingMode,
@@ -465,90 +494,122 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   }
 
   bool _handleLocalShortcut(String text) {
-    final String normalized = text.trim().toLowerCase();
-    final String shortcut = normalized.split(RegExp(r'\s+')).first;
+    final SIConsoleShortcutInvocation invocation =
+        SIConsoleShortcutRegistry.parse(text);
+    if (invocation.kind == SIShortcutParseKind.notShortcut) return false;
+    if (invocation.kind == SIShortcutParseKind.unknown) {
+      _addShortcutFallback(
+        query: text,
+        response:
+            'Unknown shortcut "${invocation.token}". No part of the request was sent or discarded. Use /help to list the available shortcuts.',
+        reason: 'unknown_shortcut:${invocation.token.toLowerCase()}',
+      );
+      return true;
+    }
+
+    final SIConsoleShortcutDefinition definition = invocation.definition!;
     final SIConsoleScreenModel? consoleModel = ref
         .read(siConsoleScreenModelProvider)
         .asData
         ?.value;
     final SIStateAggregation? aggregation = consoleModel?.aggregation;
 
-    if (normalized == '/help' || normalized == 'help') {
-      _addShortcutResponse(
+    if (invocation.argumentsRejected) {
+      _addShortcutFallback(
         query: text,
         response:
-            'SI QUERY SHORTCUTS\n\n'
-            'Quick shortcuts:\n'
-            '- /tasks: inspect active tasks and next actions\n'
-            '- /goals: summarize goals and drift\n'
-            '- /milestones: summarize checkpoint health, risk, and next target\n'
-            '- /plan: summarize schedule and next blocks\n'
-            '- /timeline: summarize recent milestones/events\n'
-            '- /trajectory: summarize momentum, pressure, and prediction\n\n'
-            'Rules:\n'
-            '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
-            '- SI Console is analysis and guidance, not data entry.\n\n'
-            'High-signal prompts SI responds well to:\n'
-            '- "List my 3 newest tasks and what to do first."\n'
-            '- "Did I create a task just now? Show the latest task title."\n'
-            '- "Summarize trajectory pressure and one corrective action."\n'
-            '- "Show plan risks for today and 3 next actions."\n'
-            '- "Summarize goals at risk and what to do next."\n'
-            '- "Compare current self to future self."\n\n'
-            'Tip: use a shortcut first, then add intent. Example: /tasks what should I execute now?',
+            '${definition.shortcut} does not accept extra text. No argument was ignored or sent. Use ${definition.shortcut} alone. Received: "${invocation.arguments}"',
+        reason: 'shortcut_arguments_rejected:${definition.id}',
       );
       return true;
     }
 
-    if (normalized == '/status' || normalized == 'status') {
-      final String status = (aggregation == null)
-          ? 'SI STATUS\n\n'
-                'Local data sources are still loading. Retry /status in a second.\n'
-                'If this persists, open /tasks or /plan to inspect the affected source.'
-          : 'SI STATUS\n\n'
-                'Connected surfaces:\n'
-                '- tasks: ${aggregation.tasks.length}\n'
-                '- goals: ${aggregation.goals.length}\n'
-                '- logs: ${aggregation.logs.length}\n'
-                '- memories: ${aggregation.memories.length}\n'
-                '- notifications: ${aggregation.notifications.length}\n'
-                '- timeline: ${aggregation.timeline.length}\n'
-                '- milestones: ${ref.read(milestonesProvider).asData?.value.length ?? 0}\n'
-                '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
-                'Trajectory:\n'
-                '- pressure: ${aggregation.trajectory.pressureIndex}\n'
-                '- momentum: ${(aggregation.trajectory.momentum * 100).round()}%\n'
-                '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
-                'Use /tasks, /goals, /milestones, /plan, /timeline, and /trajectory for module-specific responses.';
+    switch (invocation.resolvedRoute!) {
+      case SIShortcutRoute.help:
+        _addShortcutResponse(
+          query: text,
+          definition: definition,
+          response:
+              '${SIConsoleShortcutRegistry.buildHelp(filter: invocation.arguments)}\n\n'
+              'Rules:\n'
+              '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
+              '- SI Console is analysis and guidance, not data entry.\n\n'
+              'High-signal prompts SI responds well to:\n'
+              '- "List my 3 newest tasks and what to do first."\n'
+              '- "Did I create a task just now? Show the latest task title."\n'
+              '- "Summarize trajectory pressure and one corrective action."\n'
+              '- "Show plan risks for today and 3 next actions."\n'
+              '- "Summarize goals at risk and what to do next."\n'
+              '- "Compare current self to future self."\n\n'
+              'Tip: use a shortcut first, then add intent. Example: /tasks what should I execute now?',
+        );
+        return true;
+      case SIShortcutRoute.status:
+        final String surfaceShortcuts = SIConsoleShortcutRegistry.definitions
+            .where(
+              (SIConsoleShortcutDefinition item) =>
+                  item.route != SIShortcutRoute.help &&
+                  item.route != SIShortcutRoute.status,
+            )
+            .map((SIConsoleShortcutDefinition item) => item.shortcut)
+            .join(', ');
+        final String status = (aggregation == null)
+            ? 'SI STATUS\n\n'
+                  'Local data sources are still loading. Retry /status in a second.\n'
+                  'If this persists, open /tasks or /plan to inspect the affected source.'
+            : 'SI STATUS\n\n'
+                  'Connected surfaces:\n'
+                  '- tasks: ${aggregation.tasks.length}\n'
+                  '- goals: ${aggregation.goals.length}\n'
+                  '- logs: ${aggregation.logs.length}\n'
+                  '- memories: ${aggregation.memories.length}\n'
+                  '- notifications: ${aggregation.notifications.length}\n'
+                  '- timeline: ${aggregation.timeline.length}\n'
+                  '- milestones: ${ref.read(milestonesProvider).asData?.value.length ?? 0}\n'
+                  '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
+                  'Trajectory:\n'
+                  '- pressure: ${aggregation.trajectory.pressureIndex}\n'
+                  '- momentum: ${(aggregation.trajectory.momentum * 100).round()}%\n'
+                  '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
+                  'Available evidence shortcuts: $surfaceShortcuts.';
 
-      _addShortcutResponse(query: text, response: status);
-      return true;
+        _addShortcutResponse(
+          query: text,
+          response: status,
+          definition: definition,
+        );
+        return true;
+      case SIShortcutRoute.tasksSnapshot:
+      case SIShortcutRoute.goalsSnapshot:
+      case SIShortcutRoute.planSnapshot:
+      case SIShortcutRoute.milestonesSnapshot:
+      case SIShortcutRoute.timelineSnapshot:
+      case SIShortcutRoute.trajectorySnapshot:
+        final String response = _localSurfaceSummary(
+          invocation.resolvedRoute!,
+          aggregation,
+        );
+        _addShortcutResponse(
+          query: text,
+          response: response,
+          definition: definition,
+        );
+        return true;
+      case SIShortcutRoute.intelligenceQuery:
+        return false;
     }
-
-    if (shortcut == '/tasks' ||
-        shortcut == '/goals' ||
-        shortcut == '/milestones' ||
-        shortcut == '/plan' ||
-        shortcut == '/timeline' ||
-        shortcut == '/trajectory') {
-      final String response = _localSurfaceSummary(shortcut, aggregation);
-      _addShortcutResponse(query: text, response: response);
-      return true;
-    }
-
-    return false;
   }
 
   String _localSurfaceSummary(
-    String shortcut,
+    SIShortcutRoute route,
     SIStateAggregation? aggregation,
   ) {
     if (aggregation == null) {
       return 'SI is still loading module data. Retry the shortcut in a second.';
     }
 
-    switch (shortcut) {
-      case '/tasks':
+    switch (route) {
+      case SIShortcutRoute.tasksSnapshot:
         final String? selectedTaskId =
             aggregation.planningDecision.selectedTask?.id;
         final String? selectedTaskTitle =
@@ -568,7 +629,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Why:\n${aggregation.planningDecision.rationale}\n\n'
             'Other active tasks:\n$activeText\n\n'
             'Prompt: "why this task first, and what is the smallest next step?"';
-      case '/goals':
+      case SIShortcutRoute.goalsSnapshot:
         final List<String> top = aggregation.goals
             .take(3)
             .map((g) => g.title)
@@ -577,12 +638,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             ? 'No goals found.'
             : top.map((g) => '- $g').join('\n');
         return 'GOALS SNAPSHOT\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\nPrompt: "which goal is drifting and what is the next corrective action?"';
-      case '/plan':
+      case SIShortcutRoute.planSnapshot:
         final String blocks = aggregation.planPreview.isEmpty
             ? 'No adaptive blocks generated yet.'
             : aggregation.planPreview.take(3).map((b) => '- $b').join('\n');
         return 'PLAN SNAPSHOT\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\nPrompt: "what should I move or drop to reduce pressure today?"';
-      case '/milestones':
+      case SIShortcutRoute.milestonesSnapshot:
         final MilestoneSummary summary = ref.read(milestoneSummaryProvider);
         final List<MilestoneEntity> overdue = ref.read(
           milestoneOverdueProvider,
@@ -620,7 +681,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Top risk: ${risks.isEmpty ? 'None' : '${risks.first.milestone.title} - ${risks.first.reason}'}\n\n'
             'Top milestones:\n$topText\n\n'
             'Prompt: "what milestone is next, what is overdue, and am I on track?"';
-      case '/timeline':
+      case SIShortcutRoute.timelineSnapshot:
         final int healthScore = ref.read(timelineHealthScoreProvider);
         final int riskScore = ref.read(timelineRiskScoreProvider);
         final int overdueCount = ref.read(timelineOverdueProvider).length;
@@ -658,10 +719,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Next deadline: $nextDeadline\n\n'
             'Recent events:\n$eventsText\n\n'
             'Prompt: "what is overdue, what is next, and am I on track?"';
-      case '/trajectory':
+      case SIShortcutRoute.trajectorySnapshot:
         return 'TRAJECTORY SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\nPrompt: "give me one action to improve momentum today."';
-      default:
-        return 'Module shortcut not recognized.';
+      case SIShortcutRoute.help:
+      case SIShortcutRoute.status:
+      case SIShortcutRoute.intelligenceQuery:
+        throw StateError('The selected shortcut does not have a snapshot.');
     }
   }
 
@@ -1495,18 +1558,6 @@ class _InputBar extends ConsumerWidget {
   final bool compact;
   final bool busy;
 
-  static const List<({String label, String shortcut})> _commands =
-      <({String label, String shortcut})>[
-        (label: 'Help', shortcut: '/help'),
-        (label: 'Status', shortcut: '/status'),
-        (label: 'Tasks', shortcut: '/tasks'),
-        (label: 'Goals', shortcut: '/goals'),
-        (label: 'Plan', shortcut: '/plan'),
-        (label: 'Milestones', shortcut: '/milestones'),
-        (label: 'Timeline', shortcut: '/timeline'),
-        (label: 'Trajectory', shortcut: '/trajectory'),
-      ];
-
   void _insertShortcut(String shortcut) {
     controller
       ..text = '$shortcut '
@@ -1565,15 +1616,15 @@ class _InputBar extends ConsumerWidget {
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: _commands
+                      children: SIConsoleShortcutRegistry.chips
                           .map(
-                            (shortcut) => Padding(
+                            (definition) => Padding(
                               padding: const EdgeInsets.only(right: 6),
                               child: GestureDetector(
                                 onTap: busy
                                     ? null
                                     : () {
-                                        _insertShortcut(shortcut.shortcut);
+                                        _insertShortcut(definition.shortcut);
                                         onSend();
                                       },
                                 behavior: HitTestBehavior.opaque,
@@ -1597,7 +1648,7 @@ class _InputBar extends ConsumerWidget {
                                     ),
                                   ),
                                   child: Text(
-                                    shortcut.label,
+                                    definition.label,
                                     style: TextStyle(
                                       color: busy
                                           ? Colors.white38
@@ -1615,6 +1666,38 @@ class _InputBar extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                 ],
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller,
+                  builder: (context, value, child) {
+                    final List<SIConsoleShortcutDefinition> suggestions =
+                        SIConsoleShortcutRegistry.autocomplete(value.text);
+                    if (suggestions.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: suggestions
+                            .map(
+                              (definition) => ActionChip(
+                                key: ValueKey<String>(
+                                  'si-shortcut-autocomplete-${definition.id}',
+                                ),
+                                label: Text(definition.shortcut),
+                                tooltip: definition.description,
+                                onPressed: busy
+                                    ? null
+                                    : () =>
+                                          _insertShortcut(definition.shortcut),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
+                    );
+                  },
+                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [

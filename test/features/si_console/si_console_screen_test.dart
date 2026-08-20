@@ -243,6 +243,130 @@ void main() {
       expect(find.textContaining('SI QUERY SHORTCUTS'), findsNothing);
     },
   );
+
+  testWidgets('shortcut arguments reach intelligence without modification', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        aiControllerProvider.overrideWith(
+          (Ref ref) => _RecordingAiController(ref),
+        ),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        intelligenceStateProvider.overrideWithValue(_intelligence),
+      ],
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SIConsoleScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    const String query = '/tasks explain THIS exact  task';
+    await tester.enterText(find.byType(TextField), query);
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    final _RecordingAiController controller =
+        container.read(aiControllerProvider) as _RecordingAiController;
+    expect(controller.calls, 1);
+    expect(controller.lastText, query);
+    expect(find.textContaining('TASKS SNAPSHOT'), findsNothing);
+  });
+
+  testWidgets('unsupported and unknown shortcut input fails explicitly', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        aiControllerProvider.overrideWith(
+          (Ref ref) => _RecordingAiController(ref),
+        ),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        intelligenceStateProvider.overrideWithValue(_intelligence),
+      ],
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SIConsoleScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    await tester.enterText(find.byType(TextField), '/status extra');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(
+      find.textContaining('does not accept extra text', skipOffstage: false),
+      findsOneWidget,
+    );
+
+    await tester.enterText(find.byType(TextField), '/not-real preserve this');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(
+      find.textContaining('Unknown shortcut', skipOffstage: false),
+      findsOneWidget,
+    );
+
+    final _RecordingAiController controller =
+        container.read(aiControllerProvider) as _RecordingAiController;
+    expect(controller.calls, 0);
+  });
+
+  testWidgets('autocomplete suggestions are generated from typed prefix', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        aiControllerProvider.overrideWith(
+          (Ref ref) => _RecordingAiController(ref),
+        ),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        intelligenceStateProvider.overrideWithValue(_intelligence),
+      ],
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SIConsoleScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    await tester.enterText(find.byType(TextField), '/ta');
+    await tester.pump();
+    final Finder suggestion = find.byKey(
+      const ValueKey<String>('si-shortcut-autocomplete-tasks'),
+    );
+    expect(suggestion, findsOneWidget);
+
+    await tester.tap(suggestion);
+    await tester.pump();
+    final TextField field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller?.text, '/tasks ');
+  });
 }
 
 const IntelligenceState _intelligence = IntelligenceState(
@@ -268,10 +392,12 @@ class _RecordingAiController extends AIController {
   _RecordingAiController(super.ref);
 
   int calls = 0;
+  String? lastText;
 
   @override
   Future<AIRecommendation?> sendMessage(String text) async {
     calls += 1;
+    lastText = text;
     return const AIRecommendation(
       message: 'ok',
       reasoning: 'n/a',
