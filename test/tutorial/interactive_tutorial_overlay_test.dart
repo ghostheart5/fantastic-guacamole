@@ -33,6 +33,12 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Deferred guide'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is AbsorbPointer && widget.absorbing,
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('fits the tutorial callout inside a compact viewport', (

@@ -128,7 +128,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
           // inset range used below is valid; LayoutBuilder will rebuild as soon
           // as the real viewport constraints arrive.
           if (size.width < 64 || size.height < 64) {
-            return _blocker();
+            return const SizedBox.expand();
           }
           final Rect? measured = _targetRect;
           final Rect? target = measured == null
