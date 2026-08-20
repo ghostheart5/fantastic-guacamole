@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
@@ -45,11 +46,13 @@ class SmartPlannerResult {
     List<String> evidence = const <String>[],
     DateTime? generatedAt,
   }) {
+    final DateTime created = (generatedAt ?? DateTime.now()).toUtc();
     final AssistantRequestEnvelope request = createAssistantRequestEnvelope(
       accountScopeId: 'account.compatibility',
       conversation: AssistantConversationScope.primarySmartPlanner,
       kind: AssistantRequestKind.planningGuidance,
       input: prompt,
+      now: created,
     );
     final AIRecommendation recommendation =
         AIRecommendation(
@@ -62,8 +65,9 @@ class SmartPlannerResult {
             summaries: evidence,
             sourceId: 'compatibility_result',
             kind: AssistantEvidenceKind.fallback,
+            observedAt: created,
           ),
-          generatedAt: generatedAt,
+          generatedAt: created,
           status: processingMode == AIProcessingMode.onDeviceFallback
               ? AssistantResponseStatus.fallback
               : AssistantResponseStatus.completed,
@@ -71,6 +75,7 @@ class SmartPlannerResult {
     return SmartPlannerResult.fromContracts(
       request: request,
       response: recommendation.contract!,
+      evidenceManifest: recommendation.evidenceManifest!,
       savedNotes: savedNotes,
     );
   }
@@ -78,13 +83,17 @@ class SmartPlannerResult {
   SmartPlannerResult.fromContracts({
     required this.request,
     required this.response,
+    required this.evidenceManifest,
     required this.savedNotes,
   }) {
     response.validateAgainst(request);
+    evidenceManifest.validateAgainstRequest(request);
+    evidenceManifest.validateAgainstResponse(response);
   }
 
   final AssistantRequestEnvelope request;
   final AssistantResponseEnvelope response;
+  final AssistantEvidenceManifest evidenceManifest;
   final String? savedNotes;
 
   String get prompt => request.input;
@@ -164,6 +173,7 @@ class SmartPlannerQueryController
     return SmartPlannerResult.fromContracts(
       request: request,
       response: typed.contract!,
+      evidenceManifest: typed.evidenceManifest!,
       savedNotes: savedNotes,
     );
   }

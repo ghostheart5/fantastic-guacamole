@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/smart_planner_query_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
@@ -60,6 +61,12 @@ void main() {
       );
       result.request.validate();
       result.response.validateAgainst(result.request);
+      result.evidenceManifest.validateAgainstRequest(result.request);
+      result.evidenceManifest.validateAgainstResponse(result.response);
+      expect(
+        result.evidenceManifest.overallFreshnessAt(result.generatedAt),
+        EvidenceFreshness.current,
+      );
     },
   );
 
@@ -88,6 +95,7 @@ void main() {
       expect(reply.toLowerCase(), contains('try this next:'));
       expect(reply.toLowerCase(), contains('planner question:'));
       result.response.validateAgainst(result.request);
+      result.evidenceManifest.validateAgainstResponse(result.response);
     },
   );
 

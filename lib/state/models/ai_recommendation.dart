@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 
@@ -31,6 +32,7 @@ class AIRecommendation {
     this.confidence,
     this.processingMode = AIProcessingMode.unknown,
     this.contract,
+    this.evidenceManifest,
   });
 
   final TaskView? task;
@@ -40,6 +42,7 @@ class AIRecommendation {
   final double? confidence;
   final AIProcessingMode processingMode;
   final AssistantResponseEnvelope? contract;
+  final AssistantEvidenceManifest? evidenceManifest;
 
   AIRecommendation withValidatedContract({
     required AssistantRequestEnvelope request,
@@ -47,6 +50,7 @@ class AIRecommendation {
     AssistantResponseStatus status = AssistantResponseStatus.completed,
     DateTime? generatedAt,
     String? proposalId,
+    AssistantEvidenceManifest? evidenceManifest,
   }) {
     final DateTime created = (generatedAt ?? DateTime.now()).toUtc();
     final AssistantEvidenceBundle bundle = AssistantEvidenceBundle(
@@ -74,6 +78,19 @@ class AIRecommendation {
       proposalId: proposalId,
     );
     response.validateAgainst(request);
+    final AssistantEvidenceManifest manifest =
+        evidenceManifest ??
+        createAssistantEvidenceManifest(
+          request: request,
+          evidence: bundle,
+          responseMessage: message,
+          createdAt: created,
+          claimKind: status == AssistantResponseStatus.completed
+              ? EvidenceClaimKind.inference
+              : EvidenceClaimKind.systemNotice,
+        );
+    manifest.validateAgainstRequest(request);
+    manifest.validateAgainstResponse(response);
     return AIRecommendation(
       task: task,
       message: message,
@@ -82,12 +99,14 @@ class AIRecommendation {
       confidence: confidence,
       processingMode: processingMode,
       contract: response,
+      evidenceManifest: manifest,
     );
   }
 
   void validateContractAgainst(AssistantRequestEnvelope request) {
     validateContract();
     contract!.validateAgainst(request);
+    evidenceManifest!.validateAgainstRequest(request);
   }
 
   void validateContract() {
@@ -98,6 +117,13 @@ class AIRecommendation {
       );
     }
     value.validate();
+    final AssistantEvidenceManifest? manifest = evidenceManifest;
+    if (manifest == null) {
+      throw const EvidencePlaneException(
+        'Production assistant response is missing its evidence manifest.',
+      );
+    }
+    manifest.validateAgainstResponse(value);
     if (value.message != message.trim() ||
         value.reasoning != reasoning?.trim() ||
         value.emotion != emotion?.trim() ||
