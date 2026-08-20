@@ -50,7 +50,10 @@ class TaskRepository implements ITaskRepository {
       await _storage.open();
       final String? raw = _storage.get(id);
       if (raw == null) return null;
-      return TaskEntityMapper.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final TaskEntity task = TaskEntityMapper.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      return task.isCanceled ? null : task;
     } catch (e) {
       throw StorageException('Failed to get task $id: $e');
     }
@@ -68,7 +71,20 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<void> deleteTask(String id) async {
     try {
-      await _storage.delete(id);
+      await _storage.open();
+      final String? raw = _storage.get(id);
+      if (raw == null) return;
+      final TaskEntity task = TaskEntityMapper.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      if (task.isCanceled) return;
+      // A timestamped tombstone is deliberately retained in account-scoped
+      // storage. Backup merge can then propagate deletion to another device
+      // instead of resurrecting an older cloud copy.
+      await _storage.put(
+        id,
+        jsonEncode(TaskEntityMapper.toJson(task.cancel())),
+      );
     } catch (e) {
       throw StorageException('Failed to delete task $id: $e');
     }

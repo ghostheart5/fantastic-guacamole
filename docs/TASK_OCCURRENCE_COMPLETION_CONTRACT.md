@@ -13,8 +13,12 @@ reschedule behavior.
 - committed transitions replicate as immutable SQL rows.
 
 The Supabase table is not a future placeholder and not merely a backup export.
-If cloud replication fails, local completion remains authoritative and later
-sync may replay the immutable transition by `operation_id`.
+If cloud replication fails, local completion remains authoritative. The
+account-scoped occurrence record retains the operation ID in its cloud outbox.
+Explicit retry, process restart recovery, or an idempotent replay uses that
+same operation ID until the immutable Supabase upsert is acknowledged. A
+successful remote upsert followed by a local crash is safe because retry uses
+the same unique key.
 
 ## Completion-result boundary
 
@@ -44,14 +48,16 @@ current durable state without duplicating rewards or history.
 
 | Local field | SQL field | Rule |
 | --- | --- | --- |
-| `TaskOccurrence.id` | `id` | Row ID unique inside `user_id`. |
+| `TaskOccurrence.id` + `transition.operationId` | `id` | Immutable transition-row ID unique inside `user_id`. |
 | `transition.operationId` | `operation_id` | Replay equality key. Duplicate operation IDs are ignored. |
 | `taskId` | `task_id` | Required, non-blank. |
+| `seriesId` | `series_id` | Stable across generated recurring task instances. |
 | `occurrenceKey` | `occurrence_key` | Required, non-blank. |
 | `initialScheduledFor` | `original_schedule_identity` | UTC instant for the original scheduled slot. |
 | `transition.at` | `resolved_at` | UTC commit instant. |
 | `transition.rescheduledFor` | `rescheduled_to` | UTC target instant for reschedules. |
 | `pendingOperation` | none | Local-only recovery state; never exported as committed SQL. |
+| `pendingCloudOperationIds` | none | Account-scoped local outbox; cleared only after remote acknowledgement. |
 
 ## Timezone semantics
 
@@ -75,17 +81,19 @@ must preserve this order:
 2. task-state
 3. successor-task, when recurring
 4. final-ledger
-5. immutable cloud-replica upsert
+5. durable cloud-outbox entry inside the final ledger
+6. immutable cloud-replica upsert
+7. local outbox acknowledgement (safe to replay)
 
 ## Account-transition matrix
 
 | Pause point | Provider/account transition rule |
 | --- | --- |
 | Before pending ledger | Do not start while account storage scope is unsafe. |
-| After pending ledger | `cancelAndDrain` waits for the queued mutation; after process death, retry resumes from pending. |
-| After task-state write | Drain waits for the final ledger; process-death recovery finalizes on retry. |
-| After successor write | Drain waits for final ledger; retry must not duplicate successor. |
-| After final ledger | Account transition may continue after read-model invalidation. |
+| After pending ledger | The old account stops at the next boundary; later retry resumes from pending. |
+| After task-state write | The old account stops before successor/final writes; retry converges. |
+| After successor write | The old account stops before final ledger; retry must not duplicate successor. |
+| After final ledger | The old account cannot replicate under a new auth user; the durable cloud outbox remains. |
 
 ## Edge-case matrix
 
@@ -104,8 +112,16 @@ Priority cases:
 Recurring series identity, task-instance identity, and occurrence identity are
 separate:
 
-- series identity: stable parent recurrence concept; future cross-device work
-  should add an explicit series ID rather than deriving it from a task row;
+- series identity: stable parent recurrence concept persisted as `series_id`;
 - task instance ID: concrete local task row;
 - occurrence key: stable actionable slot for one scheduled occurrence;
 - operation ID: idempotency key for one user mutation on one occurrence.
+
+Mutation serialization is keyed by account namespace and task ID, not by one
+coordinator object. Two provider containers or overlapping coordinator
+lifetimes therefore converge through the same in-process lock. Every awaited
+persistence boundary rechecks account ownership.
+
+Malformed ledger members are isolated into the bounded account-scoped
+`task_occurrences_v2_quarantine` record. Valid occurrence members remain
+readable; malformed records are never silently rewritten into valid outcomes.

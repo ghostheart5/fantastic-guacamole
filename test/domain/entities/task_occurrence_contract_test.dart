@@ -30,6 +30,7 @@ void main() {
       containsAll(<String>[
         'row_id',
         'operation_id',
+        'series_id',
         'resolved_at',
         'rescheduled_to',
         'pending_state',
@@ -60,7 +61,9 @@ void main() {
         'task-state',
         'successor-task',
         'final-ledger',
+        'cloud-outbox',
         'cloud-replica-upsert',
+        'cloud-outbox-ack',
       ]);
       expect(
         TaskOccurrenceContract.accountTransitionMatrix.keys,

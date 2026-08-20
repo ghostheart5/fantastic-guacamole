@@ -350,12 +350,17 @@ void main() {
   });
 
   test(
-    'syncDelta resurrects a locally deleted task that is still in the cloud',
+    'syncDelta keeps a newer local deletion tombstone over a cloud task',
     () async {
-      // Documents a real gap rather than endorsing it: there are no tombstones,
-      // so deleting on one device and syncing brings the task back. Asserting
-      // it here means adding deletion tracking will fail this test loudly
-      // instead of changing behaviour unnoticed.
+      await repository.saveTask(
+        TaskEntity(
+          id: 'deleted-here',
+          title: 'Deleted on this device',
+          createdAt: DateTime.utc(2026, 7, 5, 8),
+          updatedAt: DateTime.utc(2026, 7, 5, 12),
+          isCanceled: true,
+        ),
+      );
       gateway.fullBackup = <String, dynamic>{
         'version': '3.0.0',
         'tasks': <Map<String, dynamic>>[
@@ -363,16 +368,15 @@ void main() {
             'id': 'deleted-here',
             'title': 'Deleted on this device',
             'createdAt': '2026-07-05T09:00:00.000Z',
+            'updatedAt': '2026-07-05T10:00:00.000Z',
           },
         ],
       };
 
       expect(await syncService.syncDelta(), isTrue);
-      expect(
-        mergedTasks().single['id'],
-        'deleted-here',
-        reason: 'No tombstone support: cloud copy wins over a local deletion.',
-      );
+      expect(mergedTasks().single['id'], 'deleted-here');
+      expect(mergedTasks().single['isCanceled'], isTrue);
+      expect((await repository.getAllTasks()).single.isCanceled, isTrue);
     },
   );
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -13,12 +14,15 @@ import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/services/task_occurrence_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late Directory tempDir;
   setUp(() async {
+    tzdata.initializeTimeZones();
     tempDir = await Directory.systemTemp.createTemp('occurrence-ledger-');
     await Hive.close();
     Hive.init(tempDir.path);
@@ -101,7 +105,57 @@ void main() {
     expect(replica.transitions, hasLength(1));
     expect(replica.transitions.single.operationId, isNotEmpty);
     expect(replica.occurrences.single.taskId, 'cloud-task');
+    expect(replica.expectedUserIds.single, 'cloud-user');
+    expect(first.occurrence.pendingCloudOperationIds, isEmpty);
   });
+
+  test(
+    'failed cloud replication remains durable and is delivered after restart',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'cloud-retry-user',
+      );
+      final _Tasks tasks = _Tasks(<TaskEntity>[_task('cloud-retry')]);
+      final TaskOccurrenceRepository occurrences = _occurrences(scope);
+      final _Replica failing = _Replica()..succeed = false;
+
+      final TaskOccurrenceResult committed = await TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+        cloudReplica: failing,
+        clock: () => DateTime.utc(2026, 8, 18, 11),
+      ).complete('cloud-retry', operationId: 'cloud-retry-operation');
+
+      expect(committed.mutation, TaskOccurrenceMutation.applied);
+      expect(committed.occurrence.pendingCloudOperationIds, <String>{
+        'cloud-retry-operation',
+      });
+
+      final _Replica recoveredReplica = _Replica();
+      final TaskOccurrenceCoordinator restarted = TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: TaskOccurrenceRepository(
+          HiveStorage<String>(
+            HiveBoxes.accountScoped(HiveBoxes.taskOccurrences, scope),
+            hive: _DirectHiveStore(),
+          ),
+        ),
+        cloudReplica: recoveredReplica,
+      );
+
+      expect(await restarted.retryPendingCloudReplication(), 1);
+      final TaskOccurrence stored =
+          (await occurrences.listOccurrences()).single;
+      expect(stored.pendingCloudOperationIds, isEmpty);
+      expect(stored.transitions, hasLength(1));
+      expect(
+        recoveredReplica.transitions.single.operationId,
+        'cloud-retry-operation',
+      );
+    },
+  );
 
   test('pending completion survives failure and converges on retry', () async {
     final AccountStorageScope scope = AccountStorageScope.authenticated(
@@ -296,6 +350,158 @@ void main() {
     );
   });
 
+  test(
+    'separate coordinators share one account-and-task mutation lock',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'multi-coordinator-user',
+      );
+      final _Tasks tasks = _Tasks(<TaskEntity>[
+        _task('multi-race', recurrenceRule: RecurrenceRule.daily),
+      ]);
+      final TaskOccurrenceRepository occurrences = _occurrences(scope);
+      final TaskOccurrenceCoordinator first = TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+      );
+      final TaskOccurrenceCoordinator second = TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+      );
+
+      final List<TaskOccurrenceResult> results =
+          await Future.wait(<Future<TaskOccurrenceResult>>[
+            first.complete('multi-race', operationId: 'multi-complete'),
+            second.skip('multi-race', operationId: 'multi-skip'),
+          ]);
+
+      expect(
+        results.where(
+          (TaskOccurrenceResult value) =>
+              value.mutation == TaskOccurrenceMutation.applied,
+        ),
+        hasLength(1),
+      );
+      expect(
+        results.where(
+          (TaskOccurrenceResult value) =>
+              value.mutation == TaskOccurrenceMutation.conflict,
+        ),
+        hasLength(1),
+      );
+      expect(
+        (await occurrences.listOccurrences()).single.transitions,
+        hasLength(1),
+      );
+      expect(
+        tasks.values.values.where(
+          (TaskEntity value) => value.id.startsWith('multi-race::next::'),
+        ),
+        hasLength(1),
+      );
+    },
+  );
+
+  test('daily recurrence preserves wall clock across DST boundaries', () async {
+    final tz.Location chicago = tz.getLocation('America/Chicago');
+    final fixtures = <({DateTime scheduled, int elapsedHours})>[
+      (scheduled: tz.TZDateTime(chicago, 2026, 3, 7, 9), elapsedHours: 23),
+      (scheduled: tz.TZDateTime(chicago, 2026, 10, 31, 9), elapsedHours: 25),
+    ];
+    for (final fixture in fixtures) {
+      final String id = 'dst-${fixture.elapsedHours}';
+      final AccountStorageScope scope = AccountStorageScope.authenticated(id);
+      final _Tasks tasks = _Tasks(<TaskEntity>[
+        _task(
+          id,
+          recurrenceRule: RecurrenceRule.daily,
+          scheduledFor: fixture.scheduled,
+        ),
+      ]);
+
+      final TaskOccurrenceResult result = await TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: _occurrences(scope),
+        clock: () => fixture.scheduled.add(const Duration(hours: 1)),
+      ).complete(id);
+
+      final DateTime next = result.successor!.scheduledFor!;
+      expect(next.hour, 9);
+      expect(next.difference(fixture.scheduled).inHours, fixture.elapsedHours);
+    }
+  });
+
+  test(
+    'malformed ledger members are quarantined without hiding valid records',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'quarantine-user',
+      );
+      final HiveStorage<String> storage = HiveStorage<String>(
+        HiveBoxes.accountScoped(HiveBoxes.taskOccurrences, scope),
+        hive: _DirectHiveStore(),
+      );
+      await storage.open();
+      await storage.put(
+        TaskOccurrenceRepository.persistenceKey,
+        '[{"taskId":"valid","occurrenceKey":"slot","transitions":[]},'
+        '{"taskId":"broken","occurrenceKey":"slot","transitions":'
+        '[{"operationId":"","outcome":"completed","at":"bad"}]}]',
+      );
+      final TaskOccurrenceRepository repository = TaskOccurrenceRepository(
+        storage,
+      );
+
+      final List<TaskOccurrence> valid = await repository.listOccurrences();
+
+      expect(valid.single.taskId, 'valid');
+      expect(valid.single.seriesId, 'valid');
+      expect(await repository.listQuarantinedRecords(), hasLength(1));
+    },
+  );
+
+  test('account transition stops after each persistence boundary', () async {
+    for (final _PauseBoundary boundary in _PauseBoundary.values) {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'transition-${boundary.name}',
+      );
+      final _PausingTasks tasks = _PausingTasks(<TaskEntity>[
+        _task(
+          'transition-task',
+          recurrenceRule: RecurrenceRule.daily,
+          scheduledFor: DateTime.utc(2026, 8, 18, 10),
+        ),
+      ], pauseOnSaveCall: boundary.taskSaveCall);
+      final _PausingOccurrenceRepository occurrences =
+          _PausingOccurrenceRepository(
+            pauseOnSaveCall: boundary.occurrenceSaveCall,
+          );
+      final _Replica replica = _Replica();
+      final TaskOccurrenceCoordinator coordinator = TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+        cloudReplica: replica,
+        clock: () => DateTime.utc(2026, 8, 18, 11),
+      );
+
+      final Future<TaskOccurrenceResult> mutation = coordinator.complete(
+        'transition-task',
+        operationId: 'transition-operation',
+      );
+      await boundary.waitUntilPaused(tasks, occurrences);
+      final Future<void> drain = coordinator.cancelAndDrain();
+      boundary.release(tasks, occurrences);
+
+      await expectLater(mutation, throwsStateError, reason: boundary.name);
+      await drain;
+      expect(replica.transitions, isEmpty, reason: boundary.name);
+    }
+  });
+
   test('signed-out and drained coordinators fail closed', () async {
     final _Tasks tasks = _Tasks(<TaskEntity>[_task('protected')]);
     final TaskOccurrenceCoordinator signedOut = TaskOccurrenceCoordinator(
@@ -419,15 +625,103 @@ class _Replica implements TaskOccurrenceCloudReplica {
   final List<TaskOccurrence> occurrences = <TaskOccurrence>[];
   final List<TaskOccurrenceTransition> transitions =
       <TaskOccurrenceTransition>[];
+  final List<String> expectedUserIds = <String>[];
+  bool succeed = true;
 
   @override
   Future<bool> replicate({
+    required String expectedUserId,
     required TaskOccurrence occurrence,
     required TaskOccurrenceTransition transition,
   }) async {
     occurrences.add(occurrence);
     transitions.add(transition);
-    return true;
+    expectedUserIds.add(expectedUserId);
+    return succeed;
+  }
+}
+
+enum _PauseBoundary {
+  pendingLedger(occurrenceSaveCall: 1),
+  taskState(taskSaveCall: 1),
+  successorTask(taskSaveCall: 2),
+  finalLedger(occurrenceSaveCall: 2);
+
+  const _PauseBoundary({this.taskSaveCall, this.occurrenceSaveCall});
+
+  final int? taskSaveCall;
+  final int? occurrenceSaveCall;
+
+  Future<void> waitUntilPaused(
+    _PausingTasks tasks,
+    _PausingOccurrenceRepository occurrences,
+  ) => taskSaveCall == null ? occurrences.paused.future : tasks.paused.future;
+
+  void release(_PausingTasks tasks, _PausingOccurrenceRepository occurrences) {
+    if (taskSaveCall == null) {
+      occurrences.release.complete();
+    } else {
+      tasks.release.complete();
+    }
+  }
+}
+
+class _PausingTasks extends _Tasks {
+  _PausingTasks(super.seed, {required this.pauseOnSaveCall});
+
+  final int? pauseOnSaveCall;
+  final Completer<void> paused = Completer<void>();
+  final Completer<void> release = Completer<void>();
+
+  @override
+  Future<void> saveTask(TaskEntity task) async {
+    final int nextCall = saveCalls + 1;
+    if (nextCall == pauseOnSaveCall) {
+      paused.complete();
+      await release.future;
+    }
+    await super.saveTask(task);
+  }
+}
+
+class _PausingOccurrenceRepository extends TaskOccurrenceRepository {
+  _PausingOccurrenceRepository({required this.pauseOnSaveCall})
+    : super.unavailable();
+
+  final int? pauseOnSaveCall;
+  final Completer<void> paused = Completer<void>();
+  final Completer<void> release = Completer<void>();
+  final List<TaskOccurrence> values = <TaskOccurrence>[];
+  int saveCalls = 0;
+
+  @override
+  Future<TaskOccurrence?> getOccurrence(
+    String taskId,
+    String occurrenceKey,
+  ) async => values.cast<TaskOccurrence?>().firstWhere(
+    (TaskOccurrence? value) =>
+        value?.taskId == taskId && value?.occurrenceKey == occurrenceKey,
+    orElse: () => null,
+  );
+
+  @override
+  Future<List<TaskOccurrence>> listOccurrences() async =>
+      List<TaskOccurrence>.from(values);
+
+  @override
+  Future<List<TaskOccurrence>> listOccurrencesForTask(String taskId) async =>
+      values.where((TaskOccurrence value) => value.taskId == taskId).toList();
+
+  @override
+  Future<void> save(TaskOccurrence occurrence) async {
+    saveCalls += 1;
+    if (saveCalls == pauseOnSaveCall) {
+      paused.complete();
+      await release.future;
+    }
+    values
+      ..removeWhere((TaskOccurrence value) => value.id == occurrence.id)
+      ..add(occurrence);
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 abstract interface class TaskOccurrenceCloudReplica {
   Future<bool> replicate({
+    required String expectedUserId,
     required TaskOccurrence occurrence,
     required TaskOccurrenceTransition transition,
   });
@@ -15,6 +16,7 @@ class UnavailableTaskOccurrenceCloudReplica
 
   @override
   Future<bool> replicate({
+    required String expectedUserId,
     required TaskOccurrence occurrence,
     required TaskOccurrenceTransition transition,
   }) async {
@@ -29,28 +31,19 @@ class SupabaseTaskOccurrenceCloudReplica implements TaskOccurrenceCloudReplica {
 
   @override
   Future<bool> replicate({
+    required String expectedUserId,
     required TaskOccurrence occurrence,
     required TaskOccurrenceTransition transition,
   }) async {
     final sb.User? user = _client.auth.currentUser;
-    if (user == null) {
+    if (user == null || user.id != expectedUserId) {
       return false;
     }
-    final Map<String, dynamic> row = <String, dynamic>{
-      'user_id': user.id,
-      'id': occurrence.id,
-      'task_id': occurrence.taskId,
-      'occurrence_key': occurrence.occurrenceKey,
-      'operation_id': transition.operationId,
-      'outcome': transition.outcome.name,
-      'original_schedule_identity': occurrence.initialScheduledFor
-          ?.toUtc()
-          .toIso8601String(),
-      'resolved_at': transition.at.toUtc().toIso8601String(),
-      'rescheduled_to': transition.rescheduledFor?.toUtc().toIso8601String(),
-      'created_at': transition.at.toUtc().toIso8601String(),
-      'updated_at': transition.at.toUtc().toIso8601String(),
-    };
+    final Map<String, dynamic> row = TaskOccurrenceCloudRowMapper.toRow(
+      expectedUserId: expectedUserId,
+      occurrence: occurrence,
+      transition: transition,
+    );
     try {
       await _client
           .from('task_occurrences')
@@ -70,4 +63,32 @@ class SupabaseTaskOccurrenceCloudReplica implements TaskOccurrenceCloudReplica {
       return false;
     }
   }
+}
+
+class TaskOccurrenceCloudRowMapper {
+  const TaskOccurrenceCloudRowMapper._();
+
+  static Map<String, dynamic> toRow({
+    required String expectedUserId,
+    required TaskOccurrence occurrence,
+    required TaskOccurrenceTransition transition,
+  }) => <String, dynamic>{
+    'user_id': expectedUserId,
+    // One occurrence may be rescheduled more than once. The SQL primary key
+    // must therefore identify the immutable transition, not only its parent
+    // occurrence, while operation_id remains the replay equality key.
+    'id': '${occurrence.id}::${transition.operationId}',
+    'series_id': occurrence.seriesId,
+    'task_id': occurrence.taskId,
+    'occurrence_key': occurrence.occurrenceKey,
+    'operation_id': transition.operationId,
+    'outcome': transition.outcome.name,
+    'original_schedule_identity': occurrence.initialScheduledFor
+        ?.toUtc()
+        .toIso8601String(),
+    'resolved_at': transition.at.toUtc().toIso8601String(),
+    'rescheduled_to': transition.rescheduledFor?.toUtc().toIso8601String(),
+    'created_at': transition.at.toUtc().toIso8601String(),
+    'updated_at': transition.at.toUtc().toIso8601String(),
+  };
 }

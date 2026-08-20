@@ -42,9 +42,11 @@ class TaskOccurrenceContract {
 
   static const Map<String, String> localToSqlMapping = <String, String>{
     'row_id':
-        'TaskOccurrence.id -> task_occurrences.id; unique inside user_id.',
+        'TaskOccurrence.id + transition.operationId -> task_occurrences.id; one immutable row per transition inside user_id.',
     'operation_id':
         'TaskOccurrenceTransition.operationId -> operation_id; duplicate operation IDs replay idempotently.',
+    'series_id':
+        'TaskOccurrence.seriesId -> series_id; stable across generated recurring task instances.',
     'task_id': 'TaskOccurrence.taskId -> task_id.',
     'occurrence_key': 'TaskOccurrence.occurrenceKey -> occurrence_key.',
     'resolved_at': 'TaskOccurrenceTransition.at UTC -> resolved_at.',
@@ -53,7 +55,7 @@ class TaskOccurrenceContract {
     'original_schedule_identity':
         'TaskOccurrence.initialScheduledFor UTC -> original_schedule_identity.',
     'pending_state':
-        'pendingOperation is local-only recovery state and is never replicated as a committed SQL row.',
+        'pendingOperation and pendingCloudOperationIds are local-only recovery/outbox state and are never replicated as committed SQL fields.',
     'validation':
         'Blank IDs/keys and unknown outcomes are invalid locally; SQL check constraints repeat the fail-closed contract.',
   };
@@ -63,7 +65,9 @@ class TaskOccurrenceContract {
     'task-state',
     'successor-task',
     'final-ledger',
+    'cloud-outbox',
     'cloud-replica-upsert',
+    'cloud-outbox-ack',
   ];
 
   static const Map<String, String> accountTransitionMatrix = <String, String>{
@@ -81,7 +85,7 @@ class TaskOccurrenceContract {
 
   static const Map<String, String> seriesIdentity = <String, String>{
     'series_id':
-        'Stable recurring-series identity. Required for future multi-device recurrence editing; do not derive it from one task instance.',
+        'Stable recurring-series identity, persisted locally and in SQL separately from one generated task instance.',
     'task_instance_id': 'Concrete task row for one visible scheduled item.',
     'occurrence_key':
         'Stable actionable slot identity for one scheduled occurrence.',

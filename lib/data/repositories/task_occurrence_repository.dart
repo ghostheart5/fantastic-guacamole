@@ -8,6 +8,7 @@ class TaskOccurrenceRepository {
   TaskOccurrenceRepository.unavailable() : _storage = null;
 
   static const String persistenceKey = 'task_occurrences_v2';
+  static const String quarantineKey = 'task_occurrences_v2_quarantine';
   final HiveStorage<String>? _storage;
   bool _cancelled = false;
   Future<void> _writeQueue = Future<void>.value();
@@ -33,6 +34,20 @@ class TaskOccurrenceRepository {
           .where((TaskOccurrence item) => item.taskId == taskId)
           .toList(growable: false);
 
+  Future<List<TaskOccurrence>> listOccurrences() async =>
+      List<TaskOccurrence>.unmodifiable(await _read());
+
+  Future<List<dynamic>> listQuarantinedRecords() async {
+    final HiveStorage<String> storage = _requireStorage();
+    await storage.open();
+    final String? raw = storage.get(quarantineKey);
+    if (raw == null || raw.trim().isEmpty) return const <dynamic>[];
+    final Object? decoded = jsonDecode(raw);
+    return decoded is List<dynamic>
+        ? List<dynamic>.unmodifiable(decoded)
+        : <dynamic>[decoded];
+  }
+
   Future<void> save(TaskOccurrence occurrence) => _serializeWrite(() async {
     final List<TaskOccurrence> all = await _read();
     final int index = all.indexWhere(
@@ -51,20 +66,57 @@ class TaskOccurrenceRepository {
     await storage.open();
     final String? raw = storage.get(persistenceKey);
     if (raw == null || raw.trim().isEmpty) return <TaskOccurrence>[];
-    final Object? decoded = jsonDecode(raw);
-    if (decoded is! List<dynamic>) {
-      throw const FormatException('Task occurrence storage is not a list.');
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException {
+      await _quarantine(<dynamic>[raw]);
+      return <TaskOccurrence>[];
     }
-    return decoded
-        .whereType<Map<dynamic, dynamic>>()
-        .map(
-          (Map<dynamic, dynamic> value) => TaskOccurrence.fromJson(
+    if (decoded is! List<dynamic>) {
+      await _quarantine(<dynamic>[decoded]);
+      return <TaskOccurrence>[];
+    }
+    final List<TaskOccurrence> valid = <TaskOccurrence>[];
+    final List<dynamic> malformed = <dynamic>[];
+    for (final dynamic value in decoded) {
+      if (value is! Map<dynamic, dynamic>) {
+        malformed.add(value);
+        continue;
+      }
+      try {
+        valid.add(
+          TaskOccurrence.fromJson(
             value.map<String, dynamic>(
               (dynamic key, dynamic item) => MapEntry(key.toString(), item),
             ),
           ),
-        )
-        .toList(growable: true);
+        );
+      } on FormatException {
+        malformed.add(value);
+      }
+    }
+    if (malformed.isNotEmpty) await _quarantine(malformed);
+    return valid;
+  }
+
+  Future<void> _quarantine(List<dynamic> malformed) async {
+    const int maxQuarantinedRecords = 100;
+    final HiveStorage<String> storage = _requireStorage();
+    final String? existingRaw = storage.get(quarantineKey);
+    final List<dynamic> records = <dynamic>[];
+    if (existingRaw != null && existingRaw.trim().isNotEmpty) {
+      try {
+        final Object? existing = jsonDecode(existingRaw);
+        if (existing is List<dynamic>) records.addAll(existing);
+      } on FormatException {
+        records.add(existingRaw);
+      }
+    }
+    records.addAll(malformed);
+    final int overflow = records.length - maxQuarantinedRecords;
+    if (overflow > 0) records.removeRange(0, overflow);
+    await storage.put(quarantineKey, jsonEncode(records));
   }
 
   Future<void> _write(List<TaskOccurrence> occurrences) =>

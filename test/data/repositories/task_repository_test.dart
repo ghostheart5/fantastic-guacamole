@@ -53,7 +53,7 @@ void main() {
     expect(loaded?.updatedAt, DateTime.utc(2026, 7, 6, 9, 30));
   });
 
-  test('deletes task by id', () async {
+  test('hides a deleted task while retaining a sync tombstone', () async {
     final repository = TaskRepository(storage: storage);
     final task = TaskEntity(
       id: 'task-delete',
@@ -65,6 +65,10 @@ void main() {
     await repository.deleteTask('task-delete');
 
     expect(await repository.getTaskById('task-delete'), isNull);
+    final TaskEntity tombstone = (await repository.getAllTasks()).single;
+    expect(tombstone.id, 'task-delete');
+    expect(tombstone.isCanceled, isTrue);
+    expect(tombstone.updatedAt, isNotNull);
   });
 
   test('returns paged tasks newest first with cursor continuation', () async {
