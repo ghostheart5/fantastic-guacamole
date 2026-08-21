@@ -141,6 +141,47 @@ foreach ($file in $implScanFiles) {
 }
 
 $interfaceFiles = Get-ChildItem -Path (Join-Path $libRoot 'domain/interfaces') -Filter 'i_*_repository.dart' -File
+$parentInterfacesByInterface = @{}
+
+foreach ($interfaceFile in $interfaceFiles) {
+  $content = Get-Content -Path $interfaceFile.FullName -Raw
+  if ($content -match '(?s)abstract(?:\s+interface)?\s+class\s+(I[A-Za-z0-9]+Repository)([^\{]*)\{') {
+    $interfaceName = $matches[1]
+    $inheritanceClause = $matches[2]
+    $parentInterfaces = New-Object System.Collections.Generic.List[string]
+
+    foreach ($parentMatch in [regex]::Matches($inheritanceClause, '\bI[A-Za-z0-9]+Repository\b')) {
+      $parentName = $parentMatch.Value
+      if ($parentName -ne $interfaceName -and -not $parentInterfaces.Contains($parentName)) {
+        $parentInterfaces.Add($parentName) | Out-Null
+      }
+    }
+
+    $parentInterfacesByInterface[$interfaceName] = @($parentInterfaces)
+  }
+}
+
+# A concrete implementation of a composite repository interface also owns the
+# repository interfaces that the composite interface extends or implements.
+# Expand to a fixed point so deeper interface chains remain valid as well.
+$pendingInterfaces = New-Object 'System.Collections.Generic.Queue[string]'
+foreach ($implementedInterface in @($implementedInterfaces)) {
+  $pendingInterfaces.Enqueue($implementedInterface)
+}
+
+while ($pendingInterfaces.Count -gt 0) {
+  $implementedInterface = $pendingInterfaces.Dequeue()
+  if (-not $parentInterfacesByInterface.ContainsKey($implementedInterface)) {
+    continue
+  }
+
+  foreach ($parentInterface in $parentInterfacesByInterface[$implementedInterface]) {
+    if ($implementedInterfaces.Add($parentInterface)) {
+      $pendingInterfaces.Enqueue($parentInterface)
+    }
+  }
+}
+
 foreach ($interfaceFile in $interfaceFiles) {
   $relativeInterfacePath = $interfaceFile.FullName.Replace($root + '\\', '').Replace('\\', '/')
   $content = Get-Content -Path $interfaceFile.FullName -Raw
