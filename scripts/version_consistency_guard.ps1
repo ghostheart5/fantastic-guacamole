@@ -42,7 +42,9 @@ if ($null -ne $pubspec -and $null -ne $gradleProps) {
 }
 
 $tag = $ExpectedTag
-if ([string]::IsNullOrWhiteSpace($tag)) { $tag = $env:GITHUB_REF_NAME }
+if ([string]::IsNullOrWhiteSpace($tag) -and $env:GITHUB_REF_TYPE -eq 'tag') {
+  $tag = $env:GITHUB_REF_NAME
+}
 if ($RequireTag -and [string]::IsNullOrWhiteSpace($tag)) { Add-Failure 'A release tag is required.' }
 if (-not [string]::IsNullOrWhiteSpace($tag)) {
   $tagMatch = [regex]::Match($tag, '^v([0-9]+\.[0-9]+\.[0-9]+)(?:[-+].*)?$')
