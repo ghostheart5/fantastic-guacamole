@@ -36,16 +36,44 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   _TimelineWindow _window = _TimelineWindow.week;
   _TimelineFilter _filter = _TimelineFilter.all;
   String _query = '';
+  bool _refineExpanded = false;
+  late final TextEditingController _searchController;
+  AsyncValue<List<Task>> _tasksState = const AsyncData<List<Task>>(<Task>[]);
+  ProviderSubscription<AsyncValue<List<Task>>>? _tasksSubscription;
   List<TimelineEventEntity>? _cachedCombined;
   int? _cachedCombinedKey;
   DateTime? _cachedCombinedDay;
 
   @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final AsyncValue<List<Task>> initial = ref.read(tasksProvider);
+      _tasksSubscription = ref.listenManual<AsyncValue<List<Task>>>(
+        tasksProvider,
+        (AsyncValue<List<Task>>? previous, AsyncValue<List<Task>> next) {
+          if (!mounted) return;
+          setState(() => _tasksState = next);
+        },
+      );
+      setState(() => _tasksState = initial);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tasksSubscription?.close();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final List<TimelineEventEntity> baseEvents = ref.watch(timelineProvider);
     final List<GoalEntity> goals = ref.watch(goalsProvider);
-    final List<Task> tasks =
-        ref.watch(tasksProvider).asData?.value ?? const <Task>[];
+    final List<Task> tasks = _tasksState.asData?.value ?? const <Task>[];
     final DateTime now = DateTime.now();
 
     final int combinedKey = Object.hash(
@@ -65,30 +93,22 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         tasks: tasks,
         goals: goals,
       );
-      combined = <TimelineEventEntity>[
-        ...baseEvents,
-        ...projected,
-        ..._buildIntelligenceEvents(
-          now: now,
-          events: <TimelineEventEntity>[...baseEvents, ...projected],
-        ),
-      ]..sort((a, b) => _eventMoment(b).compareTo(_eventMoment(a)));
+      combined = <TimelineEventEntity>[...baseEvents, ...projected]
+        ..sort((a, b) => _eventMoment(b).compareTo(_eventMoment(a)));
       _cachedCombined = combined;
       _cachedCombinedKey = combinedKey;
       _cachedCombinedDay = today;
     }
 
-    final List<TimelineEventEntity> filtered = combined
+    final List<TimelineEventEntity> windowEvents = combined
         .where((TimelineEventEntity event) {
           final DateTime moment = _eventMoment(event);
-          final bool inWindow = _inWindow(
-            moment: moment,
-            now: now,
-            window: _window,
-          );
-          if (!inWindow) {
-            return false;
-          }
+          return _inWindow(moment: moment, now: now, window: _window);
+        })
+        .toList(growable: false);
+
+    final List<TimelineEventEntity> filtered = windowEvents
+        .where((TimelineEventEntity event) {
           final bool matchesFilter = switch (_filter) {
             _TimelineFilter.all => true,
             _TimelineFilter.overdue => event.isOverdue,
@@ -124,30 +144,31 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       }
     }
 
-    final int overdueCount = filtered
+    final int overdueCount = windowEvents
         .where((TimelineEventEntity event) => event.isOverdue)
         .length;
-    final int upcomingCount = filtered
+    final int upcomingCount = windowEvents
         .where((TimelineEventEntity event) => event.isUpcoming)
         .length;
-    final int milestoneCount = filtered
+    final int milestoneCount = windowEvents
         .where((TimelineEventEntity event) => event.isMilestone)
         .length;
-    final int riskCount = filtered
+    final int riskCount = windowEvents
         .where((TimelineEventEntity event) => event.isRisk)
         .length;
-    final int recommendationCount = filtered
-        .where((TimelineEventEntity event) => event.isRecommendation)
-        .length;
-
-    final int healthScore = _computeHealthScore(
-      overdueCount: overdueCount,
-      riskCount: riskCount,
-      milestoneCount: milestoneCount,
-      upcomingCount: upcomingCount,
+    final int dueTodayCount = windowEvents.where((TimelineEventEntity event) {
+      final DateTime? due = event.dueAt;
+      return due != null &&
+          due.year == now.year &&
+          due.month == now.month &&
+          due.day == now.day &&
+          event.status != TimelineEventStatus.completed &&
+          event.status != TimelineEventStatus.canceled;
+    }).length;
+    final TimelineEventEntity? nextDeadline = _nearestUpcoming(
+      windowEvents,
+      now,
     );
-    final int riskScore = 100 - healthScore;
-    final TimelineEventEntity? nextDeadline = _nearestUpcoming(filtered, now);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgTimelineThreads,
@@ -159,147 +180,61 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Row(
-                    children: [
-                      SmartPressable(
-                        onTap: () => goToAppView(context, ref, AppView.nexus),
-                        semanticLabel: 'Back to Nexus',
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.neonViolet.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: AppColors.neonViolet.withValues(
-                                alpha: 0.3,
-                              ),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.arrow_back_ios_new,
-                            color: AppColors.neonViolet,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [
-                                AppColors.neonViolet,
-                                AppColors.neonCyan,
-                              ],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'TIMELINE',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 3,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const Text(
-                            'EVENT CHRONOLOGY',
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 2,
-                              color: Colors.white38,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  child: _TimelineHeader(
+                    eventCount: windowEvents.length,
+                    window: _window,
+                    onBack: () => goToAppView(context, ref, AppView.nexus),
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 14)),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _TimelineIntelligenceStrip(
-                    healthScore: healthScore,
-                    riskScore: riskScore,
+                  child: _TimelineFocusCard(
+                    now: now,
+                    dueTodayCount: dueTodayCount,
                     overdueCount: overdueCount,
                     upcomingCount: upcomingCount,
                     milestoneCount: milestoneCount,
                     riskCount: riskCount,
-                    recommendationCount: recommendationCount,
                     nextDeadline: nextDeadline,
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: TextField(
-                    onChanged: (String value) => setState(() => _query = value),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Search timeline...',
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: Colors.white38,
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xAA091427),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: AppColors.neonViolet.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.neonCyan),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 10)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _WindowChips(
-                    selected: _window,
-                    onSelect: (_TimelineWindow value) =>
+                  child: _TimelineControls(
+                    window: _window,
+                    filter: _filter,
+                    searchController: _searchController,
+                    expanded: _refineExpanded,
+                    visibleCount: filtered.length,
+                    onWindowChanged: (_TimelineWindow value) =>
                         setState(() => _window = value),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _FilterChips(
-                    selected: _filter,
-                    onSelect: (_TimelineFilter value) =>
+                    onFilterChanged: (_TimelineFilter value) =>
                         setState(() => _filter = value),
+                    onQueryChanged: (String value) =>
+                        setState(() => _query = value),
+                    onToggleExpanded: () =>
+                        setState(() => _refineExpanded = !_refineExpanded),
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
               if (filtered.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      'No Timeline evidence matches this window or filter.\nTry another view, reduce filters, or create an item in Creator to establish a baseline.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 14,
-                        height: 1.6,
-                      ),
-                    ),
+                  child: _TimelineEmptyState(
+                    isRefined:
+                        _filter != _TimelineFilter.all || _query.isNotEmpty,
+                    onReset: () => setState(() {
+                      _filter = _TimelineFilter.all;
+                      _query = '';
+                      _searchController.clear();
+                    }),
                   ),
                 )
               else
@@ -312,22 +247,18 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Text(
-                              day,
-                              style: const TextStyle(
-                                color: Colors.white38,
-                                fontSize: 11,
-                                letterSpacing: 1.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                          _TimelineDayHeader(
+                            label: day,
+                            eventCount: dayEvents.length,
                           ),
-                          ...dayEvents.map(
-                            (TimelineEventEntity event) => _TimelineEventTile(
-                              event: event,
-                              tutorialTarget: event.id == tutorialEventId,
+                          ...List<Widget>.generate(
+                            dayEvents.length,
+                            (int eventIndex) => _TimelineEventTile(
+                              event: dayEvents[eventIndex],
+                              tutorialTarget:
+                                  dayEvents[eventIndex].id == tutorialEventId,
+                              emphasized: i == 0 && eventIndex == 0,
+                              isLast: eventIndex == dayEvents.length - 1,
                             ),
                           ),
                         ],
@@ -344,12 +275,35 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 }
 
 class _TimelineEventTile extends StatelessWidget {
-  const _TimelineEventTile({required this.event, required this.tutorialTarget});
+  const _TimelineEventTile({
+    required this.event,
+    required this.tutorialTarget,
+    required this.emphasized,
+    required this.isLast,
+  });
+
   final TimelineEventEntity event;
   final bool tutorialTarget;
+  final bool emphasized;
+  final bool isLast;
+
+  bool get _isTaskAdded =>
+      event.title.trim().toLowerCase() == 'task added' &&
+      RegExp(
+        r'\s+added to trajectory\.?$',
+        caseSensitive: false,
+      ).hasMatch(event.detail);
+
+  TimelineEventType get _visualType =>
+      event.phase?.trim().toLowerCase() == 'task' || _isTaskAdded
+      ? TimelineEventType.task
+      : event.type;
+
+  String get _visualLabel =>
+      _visualType == TimelineEventType.task ? 'Task' : event.shortLabel;
 
   Color get _color {
-    switch (event.type) {
+    switch (_visualType) {
       case TimelineEventType.reflection:
         return AppColors.neonViolet;
       case TimelineEventType.levelUp:
@@ -387,7 +341,7 @@ class _TimelineEventTile extends StatelessWidget {
   }
 
   IconData get _icon {
-    switch (event.type) {
+    switch (_visualType) {
       case TimelineEventType.reflection:
         return Icons.edit_note_rounded;
       case TimelineEventType.levelUp:
@@ -427,108 +381,197 @@ class _TimelineEventTile extends StatelessWidget {
     }
   }
 
+  String get _displayTitle {
+    if (!_isTaskAdded) return event.title;
+    return event.detail.replaceFirst(
+      RegExp(r'\s+added to trajectory\.?$', caseSensitive: false),
+      '',
+    );
+  }
+
+  String get _displayDetail =>
+      _isTaskAdded ? 'Added to your trajectory' : event.detail;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       key: tutorialTarget ? FirstRunTutorialTargets.timelineEvidence : null,
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Timeline line + dot
-          Column(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: _color.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: _color.withValues(alpha: 0.4)),
-                ),
-                child: Icon(_icon, color: _color, size: 13),
-              ),
-              Container(
-                width: 1,
-                height: 20,
-                color: _color.withValues(alpha: 0.15),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF050D1A),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _color.withValues(alpha: 0.15)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Titles are user-entered, so the title has to yield space
-                      // to the fixed-width time label instead of overflowing.
-                      Expanded(
-                        child: Text(
-                          event.title,
-                          style: TextStyle(
-                            color: _color,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
+      padding: const EdgeInsets.only(bottom: 6),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 38,
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: <Widget>[
+                  if (!isLast)
+                    Positioned(
+                      top: 32,
+                      bottom: -6,
+                      child: Container(
+                        width: 2,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: <Color>[
+                              _color.withValues(alpha: .42),
+                              _color.withValues(alpha: .08),
+                            ],
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateTimeFormats.timelineTime(_eventMoment(event)),
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                        ),
+                    ),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF081325),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _color.withValues(alpha: emphasized ? .9 : .5),
+                        width: emphasized ? 2 : 1,
                       ),
-                    ],
+                      boxShadow: emphasized
+                          ? <BoxShadow>[
+                              BoxShadow(
+                                color: _color.withValues(alpha: .28),
+                                blurRadius: 14,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Icon(_icon, color: _color, size: 15),
                   ),
-                  if (event.detail.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.all(emphasized ? 16 : 13),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: emphasized
+                        ? <Color>[
+                            _color.withValues(alpha: .18),
+                            const Color(0xE6091428),
+                          ]
+                        : const <Color>[Color(0xE6081223), Color(0xD9050D1A)],
+                  ),
+                  borderRadius: BorderRadius.circular(emphasized ? 20 : 16),
+                  border: Border.all(
+                    color: _color.withValues(alpha: emphasized ? .48 : .2),
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .24),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _color.withValues(alpha: .11),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            _visualLabel.toUpperCase(),
+                            style: TextStyle(
+                              color: _color,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          DateTimeFormats.timelineTime(_eventMoment(event)),
+                          style: const TextStyle(
+                            color: Color(0xFF8B99B8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 9),
                     Text(
-                      event.detail,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 12,
-                        height: 1.4,
+                      _displayTitle,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: emphasized ? 17 : 14,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                  if (event.dueAt != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      event.isOverdue
-                          ? 'Overdue since ${DateTimeFormats.dateShort(event.dueAt!)}'
-                          : 'Due ${DateTimeFormats.dateShort(event.dueAt!)}',
-                      style: TextStyle(
-                        color: event.isOverdue
-                            ? AppColors.recallRed
-                            : Colors.white54,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                    if (_displayDetail.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 5),
+                      Text(
+                        _displayDetail,
+                        style: const TextStyle(
+                          color: Color(0xFFB4C0DA),
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                        maxLines: emphasized ? 3 : 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
+                    ],
+                    if (event.dueAt != null) ...<Widget>[
+                      const SizedBox(height: 9),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              (event.isOverdue
+                                      ? AppColors.recallRed
+                                      : AppColors.neonCyan)
+                                  .withValues(alpha: .09),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          event.isOverdue
+                              ? 'OVERDUE SINCE ${DateTimeFormats.dateShort(event.dueAt!)}'
+                              : 'DUE ${DateTimeFormats.dateShort(event.dueAt!)}',
+                          style: TextStyle(
+                            color: event.isOverdue
+                                ? AppColors.recallRed
+                                : AppColors.neonCyan,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: .5,
+                          ),
+                        ),
+                      ),
+                    ],
+                    _TimelineEventActions(event: event),
                   ],
-                  _TimelineEventActions(event: event),
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -673,151 +716,479 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
   }
 }
 
-class _TimelineIntelligenceStrip extends StatelessWidget {
-  const _TimelineIntelligenceStrip({
-    required this.healthScore,
-    required this.riskScore,
+class _TimelineHeader extends StatelessWidget {
+  const _TimelineHeader({
+    required this.eventCount,
+    required this.window,
+    required this.onBack,
+  });
+
+  final int eventCount;
+  final _TimelineWindow window;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        SmartPressable(
+          onTap: onBack,
+          semanticLabel: 'Back to Nexus',
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.neonViolet.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: AppColors.neonViolet.withValues(alpha: .38),
+              ),
+            ),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: AppColors.neonViolet,
+              size: 18,
+            ),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              ShaderMask(
+                shaderCallback: (Rect bounds) => const LinearGradient(
+                  colors: <Color>[AppColors.neonViolet, AppColors.neonCyan],
+                ).createShader(bounds),
+                child: const Text(
+                  'TIMELINE',
+                  style: TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 3.2,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const Text(
+                'YOUR TIME, CONNECTED',
+                style: TextStyle(
+                  fontSize: 9,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF8390AB),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xB3081427),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: .1)),
+          ),
+          child: Column(
+            children: <Widget>[
+              Text(
+                '$eventCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                _windowLabel(window).toUpperCase(),
+                style: const TextStyle(
+                  color: Color(0xFF8B99B8),
+                  fontSize: 7,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .8,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TimelineFocusCard extends StatelessWidget {
+  const _TimelineFocusCard({
+    required this.now,
+    required this.dueTodayCount,
     required this.overdueCount,
     required this.upcomingCount,
     required this.milestoneCount,
     required this.riskCount,
-    required this.recommendationCount,
     required this.nextDeadline,
   });
 
-  final int healthScore;
-  final int riskScore;
+  final DateTime now;
+  final int dueTodayCount;
   final int overdueCount;
   final int upcomingCount;
   final int milestoneCount;
   final int riskCount;
-  final int recommendationCount;
   final TimelineEventEntity? nextDeadline;
 
   @override
   Widget build(BuildContext context) {
+    final bool needsAttention = overdueCount > 0 || riskCount > 0;
+    final Color accent = needsAttention
+        ? AppColors.recallRed
+        : AppColors.neonCyan;
+    final String headline = overdueCount > 0
+        ? '$overdueCount overdue ${overdueCount == 1 ? 'item' : 'items'}'
+        : dueTodayCount > 0
+        ? '$dueTodayCount due today'
+        : nextDeadline != null
+        ? 'Next commitment is mapped'
+        : 'Nothing needs action now';
+    final String supporting = nextDeadline != null
+        ? '${nextDeadline!.title} is due ${DateTimeFormats.dateShort(nextDeadline!.dueAt ?? nextDeadline!.timestamp)}.'
+        : 'Your recent activity remains available in the chronology below.';
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xAA07111F),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.2)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            accent.withValues(alpha: .19),
+            const Color(0xE4091428),
+            AppColors.neonViolet.withValues(alpha: .12),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: accent.withValues(alpha: .4)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: accent.withValues(alpha: .12),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _StatPill(label: 'HEALTH', value: '$healthScore%'),
-              _StatPill(label: 'RISK', value: '$riskScore%'),
-              _StatPill(label: 'OVERDUE', value: '$overdueCount'),
-              _StatPill(label: 'UPCOMING', value: '$upcomingCount'),
-              _StatPill(label: 'MILESTONES', value: '$milestoneCount'),
-              _StatPill(label: 'RISKS', value: '$riskCount'),
-              _StatPill(label: 'RECS', value: '$recommendationCount'),
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 62,
+                height: 68,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xA9081427),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: accent.withValues(alpha: .42)),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(
+                      '${now.day}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _monthShort(now.month),
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      needsAttention ? 'NEEDS ATTENTION' : 'CURRENT PRIORITY',
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      headline,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      supporting,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFFB8C4DE),
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-          if (nextDeadline != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Next deadline: ${nextDeadline!.title} (${DateTimeFormats.dateShort(nextDeadline!.dueAt ?? nextDeadline!.timestamp)})',
-              style: const TextStyle(color: Colors.white60, fontSize: 11),
-            ),
-          ],
+          const SizedBox(height: 16),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _TimelineMetric(
+                  label: 'DUE TODAY',
+                  value: '$dueTodayCount',
+                  accent: AppColors.neonCyan,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TimelineMetric(
+                  label: 'NEXT 7 DAYS',
+                  value: '$upcomingCount',
+                  accent: AppColors.neonViolet,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TimelineMetric(
+                  label: overdueCount > 0 ? 'OVERDUE' : 'MILESTONES',
+                  value: '${overdueCount > 0 ? overdueCount : milestoneCount}',
+                  accent: overdueCount > 0
+                      ? AppColors.recallRed
+                      : AppColors.memoryAmber,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _StatPill extends StatelessWidget {
-  const _StatPill({required this.label, required this.value});
+class _TimelineMetric extends StatelessWidget {
+  const _TimelineMetric({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
 
   final String label;
   final String value;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.black.withValues(alpha: .15),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: accent.withValues(alpha: .2)),
+      ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            value,
+            style: TextStyle(
+              color: accent,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF8E9BBA),
+              fontSize: 7,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .7,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineControls extends StatelessWidget {
+  const _TimelineControls({
+    required this.window,
+    required this.filter,
+    required this.searchController,
+    required this.expanded,
+    required this.visibleCount,
+    required this.onWindowChanged,
+    required this.onFilterChanged,
+    required this.onQueryChanged,
+    required this.onToggleExpanded,
+  });
+
+  final _TimelineWindow window;
+  final _TimelineFilter filter;
+  final TextEditingController searchController;
+  final bool expanded;
+  final int visibleCount;
+  final ValueChanged<_TimelineWindow> onWindowChanged;
+  final ValueChanged<_TimelineFilter> onFilterChanged;
+  final ValueChanged<String> onQueryChanged;
+  final VoidCallback onToggleExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isRefined =
+        filter != _TimelineFilter.all ||
+        searchController.text.trim().isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xD9071121),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(color: Colors.white.withValues(alpha: .1)),
       ),
-      child: Text(
-        '$label $value',
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _WindowChips extends StatelessWidget {
-  const _WindowChips({required this.selected, required this.onSelect});
-
-  final _TimelineWindow selected;
-  final ValueChanged<_TimelineWindow> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _TimelineWindow.values
-            .map(
-              (_TimelineWindow value) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _Chip(
-                  label: _windowLabel(value),
-                  selected: selected == value,
-                  onTap: () => onSelect(value),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: _TimelineWindow.values
+                .map(
+                  (_TimelineWindow value) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: value == _TimelineWindow.all ? 0 : 5,
+                      ),
+                      child: _TimelineRangeButton(
+                        label: _windowLabel(value),
+                        selected: window == value,
+                        onTap: () => onWindowChanged(value),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              const Icon(
+                Icons.auto_awesome_motion_rounded,
+                color: AppColors.neonViolet,
+                size: 16,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '$visibleCount ${visibleCount == 1 ? 'event' : 'events'} shown',
+                  style: const TextStyle(
+                    color: Color(0xFFB8C4DE),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            )
-            .toList(growable: false),
-      ),
-    );
-  }
-}
-
-class _FilterChips extends StatelessWidget {
-  const _FilterChips({required this.selected, required this.onSelect});
-
-  final _TimelineFilter selected;
-  final ValueChanged<_TimelineFilter> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _TimelineFilter.values
-            .map(
-              (_TimelineFilter value) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _Chip(
-                  label: _filterLabel(value),
-                  selected: selected == value,
-                  onTap: () => onSelect(value),
+              TextButton.icon(
+                onPressed: onToggleExpanded,
+                icon: Icon(
+                  expanded ? Icons.expand_less_rounded : Icons.tune_rounded,
+                  size: 17,
                 ),
+                label: Text(isRefined ? 'Refined' : 'Find & filter'),
               ),
-            )
-            .toList(growable: false),
+            ],
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 220),
+            crossFadeState: expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                children: <Widget>[
+                  TextField(
+                    controller: searchController,
+                    onChanged: onQueryChanged,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Find an event, task, goal, or note',
+                      hintStyle: const TextStyle(color: Color(0xFF74809A)),
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.black.withValues(alpha: .18),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  DropdownButtonFormField<_TimelineFilter>(
+                    initialValue: filter,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'Activity type',
+                      prefixIcon: const Icon(Icons.filter_alt_outlined),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.black.withValues(alpha: .18),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    items: _TimelineFilter.values
+                        .map(
+                          (_TimelineFilter value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(_filterLabel(value)),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (_TimelineFilter? value) {
+                      if (value != null) onFilterChanged(value);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({
+class _TimelineRangeButton extends StatelessWidget {
+  const _TimelineRangeButton({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -831,27 +1202,146 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     return SmartPressable(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      semanticLabel: 'Show $label timeline',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.neonCyan.withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
+              ? AppColors.neonCyan.withValues(alpha: .18)
+              : Colors.white.withValues(alpha: .035),
+          borderRadius: BorderRadius.circular(11),
           border: Border.all(
             color: selected
-                ? AppColors.neonCyan.withValues(alpha: 0.55)
-                : Colors.white.withValues(alpha: 0.12),
+                ? AppColors.neonCyan.withValues(alpha: .55)
+                : Colors.transparent,
           ),
         ),
         child: Text(
           label,
+          maxLines: 1,
           style: TextStyle(
-            color: selected ? AppColors.neonCyan : Colors.white70,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.4,
+            color: selected ? AppColors.neonCyan : const Color(0xFF8E9AB5),
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineDayHeader extends StatelessWidget {
+  const _TimelineDayHeader({required this.label, required this.eventCount});
+
+  final String label;
+  final int eventCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 12, 0, 12),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 7,
+            height: 7,
+            decoration: const BoxDecoration(
+              color: AppColors.neonCyan,
+              shape: BoxShape.circle,
+              boxShadow: <BoxShadow>[
+                BoxShadow(color: AppColors.neonCyan, blurRadius: 8),
+              ],
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Text(
+            '$eventCount ${eventCount == 1 ? 'EVENT' : 'EVENTS'}',
+            style: const TextStyle(
+              color: Color(0xFF77839E),
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineEmptyState extends StatelessWidget {
+  const _TimelineEmptyState({required this.isRefined, required this.onReset});
+
+  final bool isRefined;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.neonViolet.withValues(alpha: .1),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.neonViolet.withValues(alpha: .3),
+                ),
+              ),
+              child: const Icon(
+                Icons.hourglass_empty_rounded,
+                color: AppColors.neonViolet,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isRefined ? 'No matching moments' : 'This part of time is clear',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              isRefined
+                  ? 'Change the search or activity filter to reveal more of your chronology.'
+                  : 'New tasks, goals, notes, and completed work will connect here as they happen.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF93A0BA),
+                fontSize: 12,
+                height: 1.5,
+              ),
+            ),
+            if (isRefined) ...<Widget>[
+              const SizedBox(height: 14),
+              TextButton.icon(
+                onPressed: onReset,
+                icon: const Icon(Icons.restart_alt_rounded),
+                label: const Text('Reset search and filter'),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -897,6 +1387,21 @@ String _windowLabel(_TimelineWindow value) {
     _TimelineWindow.all => 'All',
   };
 }
+
+String _monthShort(int month) => const <String>[
+  'JAN',
+  'FEB',
+  'MAR',
+  'APR',
+  'MAY',
+  'JUN',
+  'JUL',
+  'AUG',
+  'SEP',
+  'OCT',
+  'NOV',
+  'DEC',
+][month - 1];
 
 String _filterLabel(_TimelineFilter value) {
   return switch (value) {
@@ -967,69 +1472,6 @@ List<TimelineEventEntity> _buildProjectedEvents({
   }
 
   return events;
-}
-
-List<TimelineEventEntity> _buildIntelligenceEvents({
-  required DateTime now,
-  required List<TimelineEventEntity> events,
-}) {
-  final int overdue = events
-      .where((TimelineEventEntity event) => event.isOverdue)
-      .length;
-  final int upcoming = events
-      .where((TimelineEventEntity event) => event.isUpcoming)
-      .length;
-  final int risk = overdue > 0 ? 1 : 0;
-  final List<TimelineEventEntity> out = <TimelineEventEntity>[
-    TimelineEventEntity(
-      id: 'timeline-snapshot-${now.millisecondsSinceEpoch}',
-      type: TimelineEventType.snapshot,
-      title: 'Timeline Snapshot',
-      detail:
-          'Overdue: $overdue · Upcoming: $upcoming · Total events: ${events.length}',
-      timestamp: now,
-      status: TimelineEventStatus.info,
-      phase: 'snapshot',
-    ),
-  ];
-  if (risk > 0) {
-    out.add(
-      TimelineEventEntity(
-        id: 'timeline-risk-${now.millisecondsSinceEpoch}',
-        type: TimelineEventType.risk,
-        title: 'Timeline Risk Detected',
-        detail:
-            'You have $overdue overdue items. Prioritize overdue resolution first.',
-        timestamp: now,
-        status: TimelineEventStatus.atRisk,
-        phase: 'risk',
-      ),
-    );
-    out.add(
-      TimelineEventEntity(
-        id: 'timeline-rec-${now.millisecondsSinceEpoch}',
-        type: TimelineEventType.recommendation,
-        title: 'Recommended Action',
-        detail: 'Complete overdue tasks before adding new commitments.',
-        timestamp: now,
-        status: TimelineEventStatus.info,
-        phase: 'recommendation',
-      ),
-    );
-  }
-  return out;
-}
-
-int _computeHealthScore({
-  required int overdueCount,
-  required int riskCount,
-  required int milestoneCount,
-  required int upcomingCount,
-}) {
-  final int penalty =
-      (overdueCount * 12) + (riskCount * 10) + (upcomingCount > 6 ? 8 : 0);
-  final int bonus = (milestoneCount * 3).clamp(0, 18);
-  return (100 - penalty + bonus).clamp(0, 100);
 }
 
 TimelineEventEntity? _nearestUpcoming(

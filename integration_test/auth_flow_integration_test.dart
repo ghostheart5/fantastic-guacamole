@@ -223,7 +223,7 @@ void main() {
     expect(metrics['tasks_completed'], 0);
   });
 
-  testWidgets('screen journey forges a task and routes to Timeline', (
+  testWidgets('screen journey reviews, creates, and routes to Timeline', (
     WidgetTester tester,
   ) async {
     await SharedPrefsService.clear();
@@ -275,20 +275,36 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 600));
 
-    final Finder forgeButton = find.text('FORGE TASK');
-    await tester.ensureVisible(forgeButton);
+    final Finder reviewButton = find.text('REVIEW CHANGES');
+    await tester.ensureVisible(reviewButton);
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(forgeButton);
+    await tester.tap(reviewButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('CONFIRM CREATOR CHANGES'), findsOneWidget);
+    final Finder confirmButton = find.byKey(
+      const Key('creator-confirm-selected'),
+    );
+    await tester.ensureVisible(confirmButton);
+    await tester.tap(confirmButton);
     await tester.pump();
     await _waitForRepositoryTask(tester, repository, title: 'UI journey task');
+
+    final Finder openTimelineButton = find.text('Open Timeline');
+    await tester.ensureVisible(openTimelineButton);
+    await tester.tap(openTimelineButton);
+    await tester.pump();
     await _waitForRouterPath(tester, router, RoutePaths.timeline);
     await tester.pump(const Duration(milliseconds: 500));
     expect(container.read(appFlowProvider), AppView.timeline);
     final tasks = await container.read(tasksProvider.future);
     expect(tasks.where((task) => task.title == 'UI journey task'), isNotEmpty);
-    final Map<String, dynamic> metrics = await container
-        .read(localMetricsAccumulatorProvider)
-        .snapshot();
+    final Map<String, dynamic> metrics = await _waitForMetric(
+      container,
+      key: 'tasks_created',
+      expected: 1,
+    );
     expect(metrics['tasks_created'], 1);
 
     await tester.pumpWidget(const SizedBox.shrink());

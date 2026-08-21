@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -253,6 +254,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
           throw StateError('The confirmed task no longer passes validation.');
         }
         await repository.saveTask(task);
+        _bestEffort(
+          () => ref.read(localMetricsAccumulatorProvider).recordTaskCreated(),
+        ).ignore();
         ledger[operation.operationId] = _ledgerEntry(
           operation,
           status: 'applied',
