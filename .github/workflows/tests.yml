@@ -16,6 +16,9 @@ jobs:
         with:
           channel: stable
 
+      - name: Create safe local configuration asset
+        run: cp .env.example .env
+
       - name: Run Build-Critical Flutter Tests
         id: critical_tests
         run: |
