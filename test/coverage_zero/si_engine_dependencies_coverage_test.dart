@@ -3,7 +3,6 @@ import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/profile_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -14,7 +13,6 @@ import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
@@ -137,14 +135,6 @@ class _FakeNotificationRepository implements INotificationRepository {
   Future<void> delete(String id) async {}
 }
 
-class _FakeProfileRepository implements IProfileRepository {
-  @override
-  Future<ProfileEntity?> getProfile() async => null;
-
-  @override
-  Future<void> saveProfile(ProfileEntity profile) async {}
-}
-
 void main() {
   test('si engine dependencies preserve repository references', () {
     final _FakeTaskRepository tasks = _FakeTaskRepository();
@@ -157,7 +147,6 @@ void main() {
     final _FakePlanRepository plan = _FakePlanRepository();
     final _FakeNotificationRepository notifications =
         _FakeNotificationRepository();
-    final _FakeProfileRepository profile = _FakeProfileRepository();
 
     final SiEngineDependencies dependencies = SiEngineDependencies(
       tasks: tasks,
@@ -169,7 +158,6 @@ void main() {
       memories: memories,
       plan: plan,
       notifications: notifications,
-      profile: profile,
     );
 
     expect(identical(dependencies.tasks, tasks), isTrue);
@@ -181,6 +169,5 @@ void main() {
     expect(identical(dependencies.memories, memories), isTrue);
     expect(identical(dependencies.plan, plan), isTrue);
     expect(identical(dependencies.notifications, notifications), isTrue);
-    expect(identical(dependencies.profile, profile), isTrue);
   });
 }

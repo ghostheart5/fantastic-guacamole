@@ -150,7 +150,7 @@ class HiveService {
     }
 
     try {
-      return Hive.openBox<T>(key, encryptionCipher: cipher);
+      return await Hive.openBox<T>(key, encryptionCipher: cipher);
     } on Object catch (error) {
       // Migration-safe fallback for legacy unencrypted boxes.
       Logger.warn('Encrypted open failed for box "$key": $error');
