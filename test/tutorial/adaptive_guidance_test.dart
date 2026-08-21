@@ -25,6 +25,7 @@ void main() {
             .nextIntervention(
               currentRoute: RoutePaths.nexus,
               decision: _decision,
+              now: observedAt.add(const Duration(days: 2)),
             )
             ?.id,
         GuidanceLessonId.scheduleFirstItem,
@@ -51,9 +52,40 @@ void main() {
             .nextIntervention(
               currentRoute: RoutePaths.nexus,
               decision: _decision,
+              now: observedAt.add(const Duration(days: 2)),
             )
             ?.id,
         GuidanceLessonId.nexus,
+      );
+    },
+  );
+
+  test(
+    'finishing core setup returns control to Nexus before advanced help',
+    () {
+      final DateTime observedAt = DateTime.utc(2026, 8, 20, 17);
+      final AdaptiveGuidanceState state = AdaptiveGuidanceState(
+        milestones: <GuidanceMilestone, DateTime>{
+          GuidanceMilestone.firstItem: observedAt,
+          GuidanceMilestone.firstSchedule: observedAt,
+          GuidanceMilestone.firstTimelineReview: observedAt,
+        },
+        counts: const <GuidanceMilestone, int>{},
+        skippedLessons: const <GuidanceLessonId>{},
+        completedLessons: const <GuidanceLessonId>{
+          GuidanceLessonId.createFirstItem,
+          GuidanceLessonId.scheduleFirstItem,
+          GuidanceLessonId.reviewTimeline,
+        },
+      );
+
+      expect(
+        state.nextIntervention(
+          currentRoute: RoutePaths.nexus,
+          decision: _decision,
+          now: observedAt.add(const Duration(minutes: 1)),
+        ),
+        isNull,
       );
     },
   );

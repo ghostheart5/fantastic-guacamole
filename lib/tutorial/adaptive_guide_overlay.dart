@@ -169,7 +169,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     if (_completingTimeline) return;
     setState(() {
       _completingTimeline = true;
-      _suppressedLesson = GuidanceLessonId.timelineExecution;
+      _suppressedLesson = GuidanceLessonId.reviewTimeline;
     });
     try {
       await ref

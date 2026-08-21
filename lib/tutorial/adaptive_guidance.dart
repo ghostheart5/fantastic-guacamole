@@ -79,17 +79,30 @@ class AdaptiveGuidanceState {
       has(GuidanceMilestone.firstSchedule) &&
       has(GuidanceMilestone.firstTimelineReview);
 
+  static const Duration postCoreQuietPeriod = Duration(hours: 24);
+
+  bool isInPostCoreQuietPeriod(DateTime now) {
+    final DateTime? completedAt =
+        milestones[GuidanceMilestone.firstTimelineReview];
+    if (!coreComplete || completedAt == null) return false;
+    final Duration elapsed = now.toUtc().difference(completedAt.toUtc());
+    // A device-clock rollback must not make a just-completed tutorial reappear.
+    return elapsed.isNegative || elapsed < postCoreQuietPeriod;
+  }
+
   bool get hasDeferralFriction =>
       count(GuidanceMilestone.firstTaskDeferral) >= 2;
 
   GuidanceLesson? nextIntervention({
     required String currentRoute,
     required DailyDecisionIntelligence decision,
+    DateTime? now,
   }) {
     return GuidanceInterventionEngine.resolve(
       state: this,
       currentRoute: currentRoute,
       decision: decision,
+      now: now ?? DateTime.now(),
     );
   }
 }
@@ -101,6 +114,7 @@ abstract final class GuidanceInterventionEngine {
     required AdaptiveGuidanceState state,
     required String currentRoute,
     required DailyDecisionIntelligence decision,
+    required DateTime now,
   }) {
     GuidanceLesson? unresolved(GuidanceLesson lesson) {
       if (state.skippedLessons.contains(lesson.id) ||
@@ -160,6 +174,11 @@ abstract final class GuidanceInterventionEngine {
       );
       if (recovery != null) return recovery;
     }
+
+    // Finishing first-run setup should hand control back to the product. Do not
+    // replace Nexus with another modal lesson immediately; advanced guidance
+    // can resume after the user has had an uninterrupted day with the app.
+    if (state.isInPostCoreQuietPeriod(now)) return null;
 
     final GuidanceLessonId? routeLesson = switch (currentRoute) {
       RoutePaths.nexus => GuidanceLessonId.nexus,
