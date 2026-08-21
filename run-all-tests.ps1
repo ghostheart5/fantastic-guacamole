@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Config = "$PSScriptRoot\test-orchestrator.json",
+    [string]$Config,
     [switch]$AllowConnectedDevice,
     [switch]$SkipMonkey,
     [switch]$SkipMaestro,
@@ -14,6 +14,10 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $script:Started = Get-Date
 $script:Results = [System.Collections.Generic.List[object]]::new()
+
+if ([string]::IsNullOrWhiteSpace($Config)) {
+    $Config = Join-Path $PSScriptRoot 'test-orchestrator.json'
+}
 
 function Read-Config {
     if (-not (Test-Path -LiteralPath $Config)) { throw "Config file not found: $Config" }
