@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'Creator persistence feeds shared PlannerInput consumers without planner-owned persistence',
+    'Creator owns persistence while Planner V2 keeps its handoff transient',
     () {
       final String plannerInput = File(
         'lib/domain/planning/planner_input.dart',
@@ -15,6 +15,12 @@ void main() {
       final String smartPlanner = File(
         'lib/state/controllers/smart_planner_query_controller.dart',
       ).readAsStringSync();
+      final String creator = File(
+        'lib/features/creator/ui/creator_screen.dart',
+      ).readAsStringSync();
+      final String creatorDraft = File(
+        'lib/state/providers/creator_draft_provider.dart',
+      ).readAsStringSync();
       final String calendar = File(
         'lib/engine/planning/calendar_service.dart',
       ).readAsStringSync();
@@ -23,7 +29,17 @@ void main() {
       expect(plannerInput, contains('fromLegacyTask'));
       expect(nexus, contains('PlannerInputAdapter.fromTaskEntities'));
       expect(nexus, contains('inputs: plannerInputs'));
-      expect(smartPlanner, contains('PlannerInputAdapter.fromLegacyTasks'));
+      expect(smartPlanner, contains('PlannerV2Response'));
+      expect(
+        smartPlanner,
+        contains("'persistenceMode': 'ephemeral_read_only'"),
+      );
+      expect(smartPlanner, isNot(contains('PlannerInputAdapter')));
+      expect(smartPlanner, isNot(contains('planProposalProvider')));
+      expect(creator, contains('creatorActionsProvider).createTask'));
+      expect(creator, contains('creatorDraftPreviewProvider'));
+      expect(creatorDraft, isNot(contains('Repository')));
+      expect(creatorDraft, isNot(contains('UseCase')));
       expect(calendar, contains('required List<PlannerInput> inputs'));
       expect(plannerInput, isNot(contains('Repository')));
     },

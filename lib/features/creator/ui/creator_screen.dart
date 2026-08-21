@@ -16,6 +16,9 @@ class CreatorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final CreatorDraftPreview? plannerDraft = ref.watch(
+      creatorDraftPreviewProvider,
+    );
     final AdaptiveGuidanceState? guidanceState = ref
         .watch(adaptiveGuidanceProvider)
         .asData
@@ -114,7 +117,18 @@ class CreatorScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
+                if (plannerDraft != null) ...[
+                  _PlannerDraftPreviewCard(
+                    draft: plannerDraft,
+                    onDiscard: () =>
+                        ref.read(creatorDraftPreviewProvider.notifier).clear(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 DynamicForm(
+                  initialDraftId: plannerDraft?.id,
+                  initialTitle: plannerDraft?.title,
+                  initialDescription: plannerDraft?.description,
                   guidedFirstTask: guidedFirstTask,
                   tutorialController: ref.read(
                     creatorTutorialFormControllerProvider,
@@ -152,6 +166,7 @@ class CreatorScreen extends ConsumerWidget {
                       // successful Creator save into a false failure.
                     }
                     tutorialDraft.reset();
+                    ref.read(creatorDraftPreviewProvider.notifier).clear();
                     if (context.mounted) {
                       final ScaffoldMessengerState messenger =
                           ScaffoldMessenger.of(context);
@@ -174,6 +189,69 @@ class CreatorScreen extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PlannerDraftPreviewCard extends StatelessWidget {
+  const _PlannerDraftPreviewCard({
+    required this.draft,
+    required this.onDiscard,
+  });
+
+  final CreatorDraftPreview draft;
+  final VoidCallback onDiscard;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('creator-planner-draft-preview'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.neonCyan.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'PLANNER DRAFT PREVIEW',
+            style: TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: 10,
+              letterSpacing: 1.8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Nothing has been saved. Review and edit the prefilled form, then press FORGE TASK only if you want Creator to save it.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            draft.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${draft.estimatedMinutes} minute ${draft.sourceOption.name} option',
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: onDiscard,
+            icon: const Icon(Icons.close_rounded, size: 16),
+            label: const Text('Discard preview'),
+          ),
+        ],
       ),
     );
   }

@@ -44,3 +44,4 @@ export 'package:fantastic_guacamole/state/providers/trajectory_consequence_provi
 export 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 export 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 export 'decision_outcome_provider.dart';
+export 'creator_draft_provider.dart';

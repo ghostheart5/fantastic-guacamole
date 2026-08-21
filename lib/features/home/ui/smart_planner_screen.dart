@@ -1,18 +1,13 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
-import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/task.dart';
-import 'package:fantastic_guacamole/domain/entities/time_block.dart';
-import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
+import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
-import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -37,24 +32,24 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   late final Future<void> Function() _stopVoice;
   final _notesController = TextEditingController();
   final _followUpController = TextEditingController();
+  final _understandingController = TextEditingController();
   final ScrollController _scroll = ScrollController();
 
   String? _planningGuidanceMessage;
   String? _planningGuidancePrompt;
+  PlannerV2Response? _plannerResponse;
   AIProcessingMode _guidanceProcessingMode = AIProcessingMode.unknown;
   List<String> _guidanceEvidence = const <String>[];
   DateTime? _guidanceGeneratedAt;
-  String? _lastSavedNotes;
   String? _followUpError;
-  String? _proposalError;
-  String? _proposalStatusMessage;
+  String? _plannerActionStatus;
   final List<_Exchange> _followUps = [];
   bool _saved = false;
   bool _gettingPlanningGuidance = false;
   bool _sendingFollowUp = false;
-  bool _previewingPlan = false;
-  bool _applyingPlan = false;
-  bool _rejectingPlan = false;
+  bool _editingUnderstanding = false;
+  bool _showWhy = false;
+  bool _dismissed = false;
 
   List<_Exchange> get _visibleFollowUps {
     const int maxVisibleFollowUps = 20;
@@ -67,7 +62,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   @override
   void initState() {
     super.initState();
-    AppAnalytics.track('planner_opened');
     final voiceService = ref.read(voiceServiceProvider);
     _speakVoice = voiceService.speak;
     _stopVoice = voiceService.stop;
@@ -80,6 +74,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     unawaited(_stopVoice());
     _notesController.dispose();
     _followUpController.dispose();
+    _understandingController.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -102,11 +97,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       smartPlannerQueryControllerProvider,
     );
 
-    AppAnalytics.track(
-      'smart_planner_requested',
-      params: <String, Object?>{'has_notes': notes.isNotEmpty},
-    );
-
     if (planner.detectsCrisis(notes) && mounted) {
       await showCrisisDialog(context);
       return;
@@ -122,7 +112,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             emotion: _emotion,
             notes: notes,
             history: _conversationHistory(),
-            previousSavedNotes: _lastSavedNotes,
+            previousSavedNotes: null,
           )
           .timeout(const Duration(seconds: 25));
     } on TimeoutException {
@@ -140,6 +130,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _gettingPlanningGuidance = false;
         _planningGuidancePrompt = fallback.prompt;
         _planningGuidanceMessage = fallback.message;
+        _plannerResponse = fallback.plannerResponse;
+        _understandingController.text = fallback.plannerResponse.whatIHeard;
         _guidanceProcessingMode = fallback.processingMode;
         _guidanceEvidence = fallback.evidence;
         _guidanceGeneratedAt = fallback.generatedAt;
@@ -151,24 +143,18 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     setState(() {
       _planningGuidancePrompt = result.prompt;
       _planningGuidanceMessage = result.message;
-      _lastSavedNotes = result.savedNotes;
+      _plannerResponse = result.plannerResponse;
+      _understandingController.text = result.plannerResponse.whatIHeard;
       _guidanceProcessingMode = result.processingMode;
       _guidanceEvidence = List<String>.unmodifiable(result.evidence);
       _guidanceGeneratedAt = result.generatedAt;
       _saved = true;
       _gettingPlanningGuidance = false;
+      _editingUnderstanding = false;
+      _showWhy = false;
+      _dismissed = false;
+      _plannerActionStatus = null;
     });
-    unawaited(
-      ref
-          .read(adaptiveGuidanceProvider.notifier)
-          .record(GuidanceMilestone.firstPlannerQuestion),
-    );
-
-    AppAnalytics.track(
-      'smart_planner_response_rendered',
-      params: <String, Object?>{'message_length': result.message.length},
-    );
-
     // Speak the planning guidance message
     unawaited(_speakVoice(result.message));
 
@@ -190,11 +176,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     if (text.isEmpty) return;
     final SmartPlannerQueryController planner = ref.read(
       smartPlannerQueryControllerProvider,
-    );
-
-    AppAnalytics.track(
-      'smart_planner_followup_requested',
-      params: <String, Object?>{'input_length': text.length},
     );
 
     if (planner.detectsCrisis(text)) {
@@ -222,15 +203,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _followUps.add(_Exchange(question: text, answer: reply));
         _sendingFollowUp = false;
       });
-      unawaited(
-        ref
-            .read(adaptiveGuidanceProvider.notifier)
-            .record(GuidanceMilestone.firstPlannerQuestion),
-      );
-      AppAnalytics.track(
-        'smart_planner_followup_response_rendered',
-        params: <String, Object?>{'reply_length': reply.length},
-      );
       unawaited(_speakVoice(reply));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -258,102 +230,100 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     }
   }
 
-  Future<void> _previewPlan() async {
-    if (_previewingPlan) return;
+  void _beginUnderstandingEdit() {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null) return;
+    _understandingController.text = response.whatIHeard;
     setState(() {
-      _previewingPlan = true;
-      _proposalError = null;
-      _proposalStatusMessage = null;
+      _editingUnderstanding = true;
+      _plannerActionStatus = null;
     });
-    try {
-      final List<Task> tasks = await ref.read(tasksProvider.future);
-      final List<PlannerInput> inputs = PlannerInputAdapter.fromLegacyTasks(
-        tasks,
-      );
-      if (inputs.isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _proposalError = 'Create a task first so Smart Planner has evidence.';
-          _previewingPlan = false;
-        });
-        return;
-      }
-      await ref
-          .read(planProposalProvider.notifier)
-          .preview(inputs: inputs, energy: _energy);
-      if (!mounted) return;
-      setState(() {
-        _proposalStatusMessage = 'Preview ready. Review it before applying.';
-        _previewingPlan = false;
-      });
-    } catch (error, stackTrace) {
-      if (!mounted) return;
-      setState(() {
-        _proposalError =
-            'Plan preview failed. Try again after refreshing tasks.';
-        _previewingPlan = false;
-      });
-      ErrorBoundary.of(context)?.captureError(error, stackTrace);
-    }
   }
 
-  Future<void> _applyProposal() async {
-    if (_applyingPlan) return;
+  void _saveUnderstandingEdit() {
+    final PlannerV2Response? response = _plannerResponse;
+    final String edited = _understandingController.text.trim();
+    if (response == null || edited.isEmpty) return;
+    final PlannerV2Response updated = response.copyWith(whatIHeard: edited);
     setState(() {
-      _applyingPlan = true;
-      _proposalError = null;
-      _proposalStatusMessage = null;
+      _plannerResponse = updated;
+      _planningGuidanceMessage = updated.toAccessibleText();
+      _editingUnderstanding = false;
+      _plannerActionStatus =
+          'Understanding updated for this check-in only. Nothing was saved.';
     });
-    try {
-      final plan = await ref.read(planProposalProvider.notifier).apply();
-      if (!mounted) return;
-      setState(() {
-        _applyingPlan = false;
-        _proposalStatusMessage = plan == null
-            ? 'No preview is ready to apply.'
-            : 'Plan applied. Timeline is now the source of action.';
-      });
-      if (plan != null) {
-        ref.invalidate(adaptivePlanProvider);
-        ref.invalidate(todayTimeBlocksProvider);
-        goToAppView(context, ref, AppView.timeline);
-      }
-    } catch (error, stackTrace) {
-      if (!mounted) return;
-      setState(() {
-        _proposalError = 'Plan could not be applied. Review conflicts first.';
-        _applyingPlan = false;
-      });
-      ErrorBoundary.of(context)?.captureError(error, stackTrace);
-    }
   }
 
-  Future<void> _rejectProposal() async {
-    if (_rejectingPlan) return;
-    setState(() {
-      _rejectingPlan = true;
-      _proposalError = null;
-      _proposalStatusMessage = null;
-    });
-    try {
-      final proposal = await ref
-          .read(planProposalProvider.notifier)
-          .reject(reason: 'User rejected Smart Planner preview.');
-      if (!mounted) return;
-      setState(() {
-        _rejectingPlan = false;
-        _proposalStatusMessage = proposal == null
-            ? 'No preview is ready to reject.'
-            : 'Preview rejected. Adjust tasks or ask for a new plan.';
-      });
-    } catch (error, stackTrace) {
-      if (!mounted) return;
-      setState(() {
-        _proposalError = 'Preview could not be rejected.';
-        _rejectingPlan = false;
-      });
-      ErrorBoundary.of(context)?.captureError(error, stackTrace);
+  void _cancelUnderstandingEdit() {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response != null) {
+      _understandingController.text = response.whatIHeard;
     }
+    setState(() => _editingUnderstanding = false);
+  }
+
+  void _tryThis() {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null) return;
+    setState(() {
+      _plannerActionStatus =
+          'Selected “${response.recommendedOption.title}” for this check-in. Nothing was saved.';
+    });
+  }
+
+  void _makeItSmaller() {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null) return;
+    final PlannerV2Response updated = response.recommend(
+      PlannerOptionKind.minimum,
+      why:
+          'You asked to make the plan smaller, so the Minimum option is now recommended.',
+    );
+    setState(() {
+      _plannerResponse = updated;
+      _planningGuidanceMessage = updated.toAccessibleText();
+      _plannerActionStatus =
+          'Recommendation reduced locally. Nothing was saved.';
+    });
+  }
+
+  void _differentApproach() {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null) return;
+    final PlannerOptionKind alternative = switch (response.recommendedKind) {
+      PlannerOptionKind.minimum => PlannerOptionKind.bestFit,
+      PlannerOptionKind.bestFit => PlannerOptionKind.stretch,
+      PlannerOptionKind.stretch => PlannerOptionKind.minimum,
+    };
+    final PlannerV2Response updated = response.recommend(
+      alternative,
+      why:
+          'You requested a different approach, so another existing Plan Spectrum option is now recommended.',
+    );
+    setState(() {
+      _plannerResponse = updated;
+      _planningGuidanceMessage = updated.toAccessibleText();
+      _plannerActionStatus =
+          'Alternative selected locally. Review its tradeoff before acting.';
+    });
+  }
+
+  void _openCreatorDraft() {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null) return;
+    ref
+        .read(creatorDraftPreviewProvider.notifier)
+        .open(
+          CreatorDraftPreview.fromPlannerOption(response.recommendedOption),
+        );
+    goToAppView(context, ref, AppView.creator);
+  }
+
+  void _notNow() {
+    setState(() {
+      _dismissed = true;
+      _plannerActionStatus = null;
+    });
   }
 
   List<Map<String, String>> _conversationHistory() {
@@ -382,15 +352,10 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(extendedDomainBootstrapProvider);
-    final AsyncValue<PlanProposalEntity?> proposalState = ref.watch(
-      planProposalProvider,
-    );
+    final PlannerV2Response? plannerResponse = _plannerResponse;
     final String effectivePlannerMessage =
-        (_planningGuidanceMessage?.trim().isNotEmpty ?? false)
-        ? _planningGuidanceMessage!
-        : '';
-    final bool hasPlannerMessage = effectivePlannerMessage.trim().isNotEmpty;
+        plannerResponse?.toAccessibleText() ?? '';
+    final bool hasPlannerMessage = plannerResponse != null && !_dismissed;
     final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgHome,
@@ -475,17 +440,16 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _PlanProposalPanel(
-                      proposalState: proposalState,
-                      previewing: _previewingPlan,
-                      applying: _applyingPlan,
-                      rejecting: _rejectingPlan,
-                      errorText: _proposalError,
-                      statusText: _proposalStatusMessage,
-                      onPreview: _previewPlan,
-                      onApply: _applyProposal,
-                      onReject: _rejectProposal,
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Check-in input stays ephemeral. Getting guidance does not save a reflection, change SI state, or create a plan.',
+                        style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 11,
+                          height: 1.4,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
                     HoloButton(
@@ -499,46 +463,45 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                     ),
                     if (hasPlannerMessage) ...[
                       const SizedBox(height: 20),
-                      _PlannerPanel(
-                        label: 'PLANNING GUIDANCE',
-                        accentColor: AppColors.memoryAmber,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              effectivePlannerMessage,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                height: 1.7,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            _GuidanceEvidence(
-                              mode: _guidanceProcessingMode,
-                              evidence: _guidanceEvidence,
-                              generatedAt: _guidanceGeneratedAt,
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                _VoiceButton(message: effectivePlannerMessage),
-                                _VoiceSummaryButton(
-                                  headline: effectivePlannerMessage,
-                                  energy: _energy,
-                                  emotion: _emotion,
-                                ),
-                                const _VoiceAccessibilityButton(),
-                                _MicButton(
-                                  onRecognized: (String text) =>
-                                      _followUpController.text = text,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      _PlannerV2ResponsePanel(
+                        response: plannerResponse,
+                        understandingController: _understandingController,
+                        editingUnderstanding: _editingUnderstanding,
+                        showWhy: _showWhy,
+                        actionStatus: _plannerActionStatus,
+                        onBeginEdit: _beginUnderstandingEdit,
+                        onSaveEdit: _saveUnderstandingEdit,
+                        onCancelEdit: _cancelUnderstandingEdit,
+                        onTryThis: _tryThis,
+                        onMakeSmaller: _makeItSmaller,
+                        onDifferentApproach: _differentApproach,
+                        onToggleWhy: () => setState(() => _showWhy = !_showWhy),
+                        onOpenCreatorDraft: _openCreatorDraft,
+                        onNotNow: _notNow,
+                      ),
+                      const SizedBox(height: 10),
+                      _GuidanceEvidence(
+                        mode: _guidanceProcessingMode,
+                        evidence: _guidanceEvidence,
+                        generatedAt: _guidanceGeneratedAt,
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _VoiceButton(message: effectivePlannerMessage),
+                          _VoiceSummaryButton(
+                            headline: effectivePlannerMessage,
+                            energy: _energy,
+                            emotion: _emotion,
+                          ),
+                          const _VoiceAccessibilityButton(),
+                          _MicButton(
+                            onRecognized: (String text) =>
+                                _followUpController.text = text,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       ..._visibleFollowUps.map(
@@ -663,177 +626,359 @@ class _Exchange {
   final String answer;
 }
 
-class _PlanProposalPanel extends StatelessWidget {
-  const _PlanProposalPanel({
-    required this.proposalState,
-    required this.previewing,
-    required this.applying,
-    required this.rejecting,
-    required this.onPreview,
-    required this.onApply,
-    required this.onReject,
-    this.errorText,
-    this.statusText,
+class _PlannerV2ResponsePanel extends StatelessWidget {
+  const _PlannerV2ResponsePanel({
+    required this.response,
+    required this.understandingController,
+    required this.editingUnderstanding,
+    required this.showWhy,
+    required this.onBeginEdit,
+    required this.onSaveEdit,
+    required this.onCancelEdit,
+    required this.onTryThis,
+    required this.onMakeSmaller,
+    required this.onDifferentApproach,
+    required this.onToggleWhy,
+    required this.onOpenCreatorDraft,
+    required this.onNotNow,
+    this.actionStatus,
   });
 
-  final AsyncValue<PlanProposalEntity?> proposalState;
-  final bool previewing;
-  final bool applying;
-  final bool rejecting;
-  final VoidCallback onPreview;
-  final VoidCallback onApply;
-  final VoidCallback onReject;
-  final String? errorText;
-  final String? statusText;
+  final PlannerV2Response response;
+  final TextEditingController understandingController;
+  final bool editingUnderstanding;
+  final bool showWhy;
+  final String? actionStatus;
+  final VoidCallback onBeginEdit;
+  final VoidCallback onSaveEdit;
+  final VoidCallback onCancelEdit;
+  final VoidCallback onTryThis;
+  final VoidCallback onMakeSmaller;
+  final VoidCallback onDifferentApproach;
+  final VoidCallback onToggleWhy;
+  final VoidCallback onOpenCreatorDraft;
+  final VoidCallback onNotNow;
 
   @override
   Widget build(BuildContext context) {
-    final PlanProposalEntity? proposal = proposalState.asData?.value;
-    final bool busy = previewing || applying || rejecting;
-    final bool canResolve =
-        proposal != null && proposal.status == PlanProposalStatus.preview;
-
     return _PlannerPanel(
-      label: 'PLAN PREVIEW',
-      accentColor: AppColors.neonCyan,
+      label: 'PLANNER V2',
+      accentColor: AppColors.memoryAmber,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (proposal == null)
-            const Text(
-              'Preview the next schedule from your saved tasks, then choose whether to apply it to Timeline.',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.5,
-              ),
-            )
-          else ...[
-            Text(
-              _proposalSummary(proposal),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                height: 1.5,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.neonCyan.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.25),
               ),
             ),
-            if (proposal.blocks.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              ...proposal.blocks
-                  .take(3)
-                  .map(
-                    (TimeBlock block) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            child: const Text(
+              'ON-DEVICE PLANNER V2 · DETERMINISTIC · NOT AI-GENERATED',
+              style: TextStyle(
+                color: AppColors.neonCyan,
+                fontSize: 10,
+                height: 1.4,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          _section(
+            'WHAT I HEARD · EDITABLE',
+            editingUnderstanding
+                ? Column(
+                    children: [
+                      TextField(
+                        key: const Key('planner-what-i-heard-field'),
+                        controller: understandingController,
+                        minLines: 2,
+                        maxLines: 4,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          height: 1.5,
+                        ),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          helperText: 'Check-in-only edit; nothing is saved.',
+                          helperStyle: TextStyle(color: Colors.white38),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
                         children: [
-                          Text(
-                            '${_formatTime(block.start)} ',
-                            style: const TextStyle(
-                              color: AppColors.neonCyan,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          ElevatedButton(
+                            onPressed: onSaveEdit,
+                            child: const Text('Save check-in edit'),
                           ),
-                          Expanded(
-                            child: Text(
-                              block.title,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                                height: 1.35,
-                              ),
-                            ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: onCancelEdit,
+                            child: const Text('Cancel'),
                           ),
                         ],
                       ),
+                    ],
+                  )
+                : Text(
+                    response.whatIHeard,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.55,
                     ),
                   ),
+          ),
+          _section('WHAT APPEARS TO MATTER MOST', _body(response.mattersMost)),
+          _section(
+            'VERIFIED CHRONOSPARK EVIDENCE',
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: response.verifiedEvidence
+                  .map(
+                    (String item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        '• $item',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ),
+          _section(
+            'PLAN SPECTRUM',
+            Column(
+              children: response.options
+                  .map(
+                    (PlannerOption option) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _PlanSpectrumOptionCard(
+                        option: option,
+                        recommended: option.kind == response.recommendedKind,
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ),
+          _section(
+            'RECOMMENDED OPTION + TRADEOFF',
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  response.recommendedOption.title,
+                  style: const TextStyle(
+                    color: AppColors.memoryAmber,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                _body(response.recommendationReason),
+                const SizedBox(height: 5),
+                _body('Tradeoff: ${response.recommendedOption.tradeoff}'),
+              ],
+            ),
+          ),
+          _section('ONE CONCRETE NEXT STEP', _body(response.nextStep)),
+          if (response.usefulQuestion?.trim().isNotEmpty ?? false)
+            _section('ONE USEFUL QUESTION', _body(response.usefulQuestion!)),
+          _section(
+            'ADAPTATION RECEIPT',
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _body(
+                  'Inputs used: ${response.adaptationReceipt.energyPercent}% energy and '
+                  '${response.adaptationReceipt.userSelectedEmotion.name} emotion — both selected by you.',
+                ),
+                const SizedBox(height: 6),
+                ...response.adaptationReceipt.adjustments.map(
+                  (String item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _body('• $item'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (showWhy)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.memoryAmber.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: _body(
+                'Why this: ${response.recommendationReason} The recommendation only changes this check-in response; it does not mutate ChronoSpark data.',
+              ),
+            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton(
+                onPressed: onTryThis,
+                child: const Text('Try this'),
+              ),
+              OutlinedButton(onPressed: onBeginEdit, child: const Text('Edit')),
+              OutlinedButton(
+                onPressed: onMakeSmaller,
+                child: const Text('Make it smaller'),
+              ),
+              OutlinedButton(
+                onPressed: onDifferentApproach,
+                child: const Text('Different approach'),
+              ),
+              OutlinedButton(
+                onPressed: onToggleWhy,
+                child: const Text('Why this?'),
+              ),
+              OutlinedButton(
+                key: const Key('planner-open-creator-draft'),
+                onPressed: onOpenCreatorDraft,
+                child: const Text('Open as Creator draft'),
+              ),
+              TextButton(onPressed: onNotNow, child: const Text('Not now')),
             ],
-          ],
-          if (errorText != null) ...[
+          ),
+          if (actionStatus != null) ...[
             const SizedBox(height: 10),
             Text(
-              errorText!,
+              actionStatus!,
               style: const TextStyle(
-                color: AppColors.recallRed,
-                fontSize: 12,
+                color: AppColors.neonCyan,
+                fontSize: 11,
+                height: 1.4,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ],
-          if (statusText != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              statusText!,
-              style: const TextStyle(
-                color: AppColors.memoryAmber,
-                fontSize: 12,
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              ElevatedButton.icon(
-                onPressed: busy ? null : onPreview,
-                icon: previewing
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome_rounded, size: 16),
-                label: Text(previewing ? 'Previewing' : 'Preview Plan'),
-              ),
-              OutlinedButton.icon(
-                onPressed: busy || !canResolve || !proposal.isFeasible
-                    ? null
-                    : onApply,
-                icon: applying
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check_circle_outline_rounded, size: 16),
-                label: Text(applying ? 'Applying' : 'Apply to Timeline'),
-              ),
-              OutlinedButton.icon(
-                onPressed: busy || !canResolve ? null : onReject,
-                icon: rejecting
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.close_rounded, size: 16),
-                label: Text(rejecting ? 'Rejecting' : 'Reject'),
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  static String _proposalSummary(PlanProposalEntity proposal) {
-    final String status = switch (proposal.status) {
-      PlanProposalStatus.preview => 'Preview',
-      PlanProposalStatus.applied => 'Applied',
-      PlanProposalStatus.rejected => 'Rejected',
-    };
-    final String conflictText = proposal.conflicts.isEmpty
-        ? 'No conflicts detected.'
-        : '${proposal.conflicts.length} conflict detected.';
-    return '$status plan: ${proposal.blocks.length} blocks. $conflictText';
+  static Widget _section(String title, Widget child) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.memoryAmber,
+              fontSize: 10,
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 7),
+          child,
+        ],
+      ),
+    );
   }
 
-  static String _formatTime(DateTime value) {
-    final int hour = value.hour;
-    final int displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final String minute = value.minute.toString().padLeft(2, '0');
-    final String period = hour >= 12 ? 'PM' : 'AM';
-    return '$displayHour:$minute $period';
+  static Widget _body(String text) => Text(
+    text,
+    style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+  );
+}
+
+class _PlanSpectrumOptionCard extends StatelessWidget {
+  const _PlanSpectrumOptionCard({
+    required this.option,
+    required this.recommended,
+  });
+
+  final PlannerOption option;
+  final bool recommended;
+
+  @override
+  Widget build(BuildContext context) {
+    final String label = switch (option.kind) {
+      PlannerOptionKind.minimum => 'MINIMUM',
+      PlannerOptionKind.bestFit => 'BEST-FIT',
+      PlannerOptionKind.stretch => 'STRETCH',
+    };
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: recommended
+            ? AppColors.neonCyan.withValues(alpha: 0.10)
+            : Colors.white.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: recommended
+              ? AppColors.neonCyan.withValues(alpha: 0.55)
+              : Colors.white.withValues(alpha: 0.10),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '$label · ${option.estimatedMinutes} MIN',
+                style: TextStyle(
+                  color: recommended ? AppColors.neonCyan : Colors.white54,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              if (recommended) ...[
+                const Spacer(),
+                const Text(
+                  'RECOMMENDED',
+                  style: TextStyle(
+                    color: AppColors.neonCyan,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            option.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            option.description,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1520,9 +1665,10 @@ class _GuidanceEvidence extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String source = switch (mode) {
-      AIProcessingMode.external => 'EXTERNAL ASSISTANT',
-      AIProcessingMode.onDevice => 'ON-DEVICE GUIDANCE',
-      AIProcessingMode.onDeviceFallback => 'ON-DEVICE FALLBACK',
+      AIProcessingMode.external => 'EXTERNAL MODEL RESPONSE',
+      AIProcessingMode.onDevice => 'ON-DEVICE PLANNER · NOT AI-GENERATED',
+      AIProcessingMode.onDeviceFallback =>
+        'ON-DEVICE PLANNER FALLBACK · NOT AI-GENERATED',
       AIProcessingMode.unknown => 'SOURCE UNVERIFIED',
     };
     final DateTime? timestamp = generatedAt;

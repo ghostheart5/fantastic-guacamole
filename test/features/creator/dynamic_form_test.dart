@@ -1,8 +1,90 @@
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('Planner preview prefills Creator but does not submit', (
+    WidgetTester tester,
+  ) async {
+    CreatorFormData? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(
+              initialDraftId: 'planner-draft-1',
+              initialTitle: 'Review one release decision',
+              initialDescription: 'Transient Planner preview.',
+              onSubmit: (CreatorFormData data) async => submitted = data,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final Finder titleField = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is TextField && widget.decoration?.hintText == 'Title *',
+    );
+    final Finder descriptionField = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText == 'Description (optional)',
+    );
+    expect(
+      tester.widget<TextField>(titleField).controller?.text,
+      'Review one release decision',
+    );
+    expect(
+      tester.widget<TextField>(descriptionField).controller?.text,
+      'Transient Planner preview.',
+    );
+    expect(submitted, isNull);
+
+    await tester.ensureVisible(find.text('FORGE TASK'));
+    await tester.tap(find.text('FORGE TASK'));
+    await tester.pump();
+    expect(submitted?.title, 'Review one release decision');
+  });
+
+  testWidgets('removing a Planner preview clears its transient prefill', (
+    WidgetTester tester,
+  ) async {
+    String? draftId = 'planner-draft-1';
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              rebuild = setState;
+              return SingleChildScrollView(
+                child: DynamicForm(
+                  initialDraftId: draftId,
+                  initialTitle: 'Transient title',
+                  initialDescription: 'Transient description',
+                  onSubmit: (_) async {},
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    rebuild(() => draftId = null);
+    await tester.pump();
+
+    final Iterable<TextField> fields = tester.widgetList<TextField>(
+      find.byType(TextField),
+    );
+    expect(fields.first.controller?.text, isEmpty);
+    expect(fields.elementAt(1).controller?.text, isEmpty);
+  });
+
   testWidgets('schedule picker pauses guidance while its dialog is open', (
     WidgetTester tester,
   ) async {

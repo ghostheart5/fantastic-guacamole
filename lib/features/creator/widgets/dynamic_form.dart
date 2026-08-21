@@ -17,6 +17,9 @@ class DynamicForm extends StatefulWidget {
     this.onScheduleValidityChanged,
     this.tutorialController,
     this.onPickerVisibilityChanged,
+    this.initialDraftId,
+    this.initialTitle,
+    this.initialDescription,
   });
 
   final Future<void> Function(CreatorFormData data) onSubmit;
@@ -27,6 +30,9 @@ class DynamicForm extends StatefulWidget {
   final ValueChanged<bool>? onScheduleValidityChanged;
   final CreatorTutorialFormController? tutorialController;
   final ValueChanged<bool>? onPickerVisibilityChanged;
+  final String? initialDraftId;
+  final String? initialTitle;
+  final String? initialDescription;
 
   @override
   State<DynamicForm> createState() => _DynamicFormState();
@@ -41,6 +47,7 @@ class _DynamicFormState extends State<DynamicForm> {
   RecurrenceRule _recurrenceRule = RecurrenceRule.none;
   bool _submitting = false;
   String? _errorMessage;
+  String? _appliedDraftId;
   late final Future<void> Function() _tutorialSubmitAction;
 
   @override
@@ -49,6 +56,35 @@ class _DynamicFormState extends State<DynamicForm> {
     _tutorialSubmitAction = _submit;
     widget.tutorialController?.attach(_tutorialSubmitAction);
     _titleController.addListener(_notifyTitleValidity);
+    _applyDraftIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant DynamicForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialDraftId != widget.initialDraftId) {
+      if (oldWidget.initialDraftId != null && widget.initialDraftId == null) {
+        _appliedDraftId = null;
+        _titleController.clear();
+        _descController.clear();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _notifyTitleValidity();
+        });
+      } else {
+        _applyDraftIfNeeded();
+      }
+    }
+  }
+
+  void _applyDraftIfNeeded() {
+    final String? draftId = widget.initialDraftId;
+    if (draftId == null || draftId == _appliedDraftId) return;
+    _appliedDraftId = draftId;
+    _titleController.text = widget.initialTitle?.trim() ?? '';
+    _descController.text = widget.initialDescription?.trim() ?? '';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _notifyTitleValidity();
+    });
   }
 
   void _notifyTitleValidity() {
