@@ -49,9 +49,14 @@ maestro test .maestro/flows/01-login.yaml                # one flow
 For a device result that can be traced to the exact checkout and APK, use the
 PowerShell evidence runner instead of invoking Maestro directly. Its default
 `qa-smoke` suite builds a QA-configured debug APK, installs it on one explicitly resolved
-Android device, uses the tester-access login, captures Logcat during Maestro,
+Android device, uses the tester-access login, runs product flows 04-08, captures Logcat during Maestro,
 and writes a manifest containing the Git commit, dirty-tree count, APK SHA-256,
 installed package version, device/API, flow list, timings, and exit status.
+
+The QA profile deliberately bypasses onboarding so visual testing can open on
+Nexus. Run flow 03 separately with a non-tester-access build when verifying the
+two-page onboarding contract; counting it as QA smoke would report a false
+failure without exercising onboarding.
 
 ```powershell
 # Confirm tools, device, flow contracts, and output location. No build/install/run.

@@ -77,7 +77,6 @@ function Get-SelectedFlows {
     switch ($SelectedSuite) {
         'qa-smoke' {
             return @(
-                '.maestro/flows/03-onboarding-tutorial.yaml',
                 '.maestro/flows/04-smart-planner.yaml',
                 '.maestro/flows/05-creator.yaml',
                 '.maestro/flows/06-si-console.yaml',
