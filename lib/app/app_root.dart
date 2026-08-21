@@ -96,6 +96,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
       routerConfig: router,
       builder: (context, child) {
         final Widget appChild = Stack(
+          fit: StackFit.expand,
           children: <Widget>[
             Positioned.fill(
               child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
@@ -111,6 +112,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
         }
 
         return Stack(
+          fit: StackFit.expand,
           children: [
             appChild,
             if (startupBannerMessage.isNotEmpty)
