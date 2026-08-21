@@ -16,4 +16,4 @@ tags:
 
 # The screen must expose its current source-aware contract, not only a title.
 - assertVisible: "Systems intelligence - source-aware guidance"
-- assertVisible: "Evidence ready:.*"
+- assertVisible: "Read-only evidence ready:.*"

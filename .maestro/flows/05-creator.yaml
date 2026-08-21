@@ -31,12 +31,43 @@ tags:
 
 - scrollUntilVisible:
     element:
-      text: "CREATE TASK"
+      text: "Schedule date"
     direction: DOWN
     timeout: 10000
-- tapOn: "CREATE TASK"
-
-# Creating routes to Timeline and the task must actually be there.
+- tapOn: "Schedule date"
 - extendedWaitUntil:
-    visible: "Maestro smoke task"
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+
+- scrollUntilVisible:
+    element:
+      text: "REVIEW CHANGES"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "REVIEW CHANGES"
+
+# Creator is a two-step, explicitly confirmed write boundary.
+- extendedWaitUntil:
+    visible: "CONFIRM CREATOR CHANGES"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "CONFIRM SELECTED"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "CONFIRM SELECTED"
+
+- extendedWaitUntil:
+    visible: "Open Timeline"
+    timeout: 15000
+- tapOn: "Open Timeline"
+
+# The confirmed creation routes to Timeline and the task must actually be there.
+- extendedWaitUntil:
+    visible: "Maestro smoke task is due.*"
     timeout: 15000
