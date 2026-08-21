@@ -72,8 +72,6 @@ const List<String> _legacyPaths = <String>[
   RoutePaths.legacySi,
   RoutePaths.legacyTasks,
   RoutePaths.legacyProfile,
-  RoutePaths.legacyCoach,
-  RoutePaths.legacySignals,
   RoutePaths.legacyInsights,
 ];
 

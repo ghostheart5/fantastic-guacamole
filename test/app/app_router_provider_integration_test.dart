@@ -301,24 +301,31 @@ void main() {
     });
 
     testWidgets(
-      'unknown authenticated paths render the router error destination',
+      'removed and unknown authenticated paths render the router error destination',
       (WidgetTester tester) async {
-        final _RouterHarness harness = await _pumpRealRouter(
-          tester,
-          initialLocation: '/unknown-route',
-          authenticated: true,
-          welcomeComplete: true,
-          onboardingComplete: true,
-        );
-        await tester.pump();
-        await tester.pump();
+        for (final String removedOrUnknownPath in <String>[
+          '/coach',
+          '/signals',
+          '/unknown-route',
+        ]) {
+          final _RouterHarness harness = await _pumpRealRouter(
+            tester,
+            initialLocation: removedOrUnknownPath,
+            authenticated: true,
+            welcomeComplete: true,
+            onboardingComplete: true,
+          );
+          await tester.pump();
+          await tester.pump();
 
-        _expectUri(harness, '/unknown-route');
-        expect(find.byType(NavigationShell), findsNothing);
-        expect(find.byType(OnboardingScreen), findsNothing);
-        expect(find.byType(AuthGate), findsNothing);
+          _expectUri(harness, removedOrUnknownPath);
+          expect(find.byType(NavigationShell), findsNothing);
+          expect(find.byType(OnboardingScreen), findsNothing);
+          expect(find.byType(AuthGate), findsNothing);
 
-        harness.dispose();
+          await tester.pumpWidget(const SizedBox.shrink());
+          harness.dispose();
+        }
       },
     );
 
@@ -727,24 +734,6 @@ const List<_LegacyRouteExpectation> _legacyRouteExpectations =
           finalPath: RoutePaths.profile,
           expectedWidget: NavigationShell,
           shellView: AppView.profile,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyCoach,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.smartPlanner,
-          finalPath: RoutePaths.smartPlanner,
-          expectedWidget: NavigationShell,
-          shellView: AppView.smartPlanner,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacySignals,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.smartPlanner,
-          finalPath: RoutePaths.smartPlanner,
-          expectedWidget: NavigationShell,
-          shellView: AppView.smartPlanner,
         ),
       ),
       _LegacyRouteExpectation(

@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Event-driven coaching rendered as an interactive spotlight over the real
+/// Event-driven guidance rendered as an interactive spotlight over the real
 /// controls. Core lessons only advance after real input or persistence.
 class AdaptiveGuideOverlay extends ConsumerStatefulWidget {
   const AdaptiveGuideOverlay({super.key});

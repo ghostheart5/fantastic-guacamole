@@ -296,14 +296,6 @@ List<GoRoute> get _legacyRedirectRoutes {
       path: RoutePaths.legacyInsights,
       redirect: (_, _) => RoutePaths.smartPlanner,
     ),
-    GoRoute(
-      path: RoutePaths.legacyCoach,
-      redirect: (_, _) => RoutePaths.smartPlanner,
-    ),
-    GoRoute(
-      path: RoutePaths.legacySignals,
-      redirect: (_, _) => RoutePaths.smartPlanner,
-    ),
   ];
 }
 
@@ -442,22 +434,6 @@ const List<_LegacyExpectation> _legacyExpectations = <_LegacyExpectation>[
   ),
   _LegacyExpectation(
     legacyRoute: RoutePaths.legacyInsights,
-    canonical: _ShellExpectation(
-      route: RoutePaths.smartPlanner,
-      view: AppView.smartPlanner,
-      screenType: SmartPlannerScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyCoach,
-    canonical: _ShellExpectation(
-      route: RoutePaths.smartPlanner,
-      view: AppView.smartPlanner,
-      screenType: SmartPlannerScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacySignals,
     canonical: _ShellExpectation(
       route: RoutePaths.smartPlanner,
       view: AppView.smartPlanner,

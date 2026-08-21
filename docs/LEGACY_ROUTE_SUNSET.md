@@ -4,13 +4,11 @@ Legacy route redirects in `lib/app/router/app_router.dart` exist only to preserv
 
 ## Current Legacy Routes
 
-- `/coach`
 - `/insights`
 - `/logs`
 - `/notifications`
 - `/plan`
 - `/progression`
-- `/signals`
 - `/si`
 - `/tasks`
 - `/profile`
@@ -22,3 +20,7 @@ Legacy route redirects in `lib/app/router/app_router.dart` exist only to preserv
 - Remove the redirects after one release cycle with no reported legacy-link dependence from QA, support, or store-distributed builds.
 
 If new legacy routes are added, they must include an explicit sunset date and migration rationale.
+
+Insights remain Smart Planner outputs, with `/insights` retained only as a
+temporary compatibility redirect. Signals remain internal intelligence data
+and are not destination routes.

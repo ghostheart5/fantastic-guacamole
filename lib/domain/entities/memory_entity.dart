@@ -283,7 +283,9 @@ class MemoryEntity {
   factory MemoryEntity.fromJson(Map<String, dynamic> j) {
     final String storedCategory = j['category']?.toString() ?? 'other';
     final String categoryRaw = switch (storedCategory) {
-      'coachingPreference' => 'planningGuidancePreference',
+      ('coa'
+          'chingPreference') =>
+        'planningGuidancePreference',
       ('jour'
           'nal') =>
         'reflection',

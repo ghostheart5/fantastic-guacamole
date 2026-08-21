@@ -17,12 +17,13 @@ Support surfaces are important, but subordinate to a canon feature or advanced w
 
 Evidence sources and outputs:
 
-- Insights, signals, forecasts, recommendations, and activity summaries may appear inside feature content.
+- Insights are Smart Planner outputs. Signals are internal intelligence data.
+- Forecasts, recommendations, and activity summaries may appear inside feature content.
 - They must not become destination-level product promises or navigation labels.
 
 Legacy compatibility:
 
-Old top-level routes (including `/coach`, `/insights`, `/logs`, `/plan`, `/si`, and `/tasks`) are maintained only as compatibility redirects and must not be used for new links. `/insights` redirects to Smart Planner; insight is an output, not a standalone surface.
+Old top-level routes (including `/insights`, `/logs`, `/plan`, `/si`, and `/tasks`) are maintained only as compatibility redirects and must not be used for new links. `/insights` redirects to Smart Planner; insight is an output, not a standalone surface.
 
 Diagnostics and internal tools:
 

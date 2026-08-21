@@ -61,8 +61,6 @@ AppView? appViewFromRoutePath(String? path) {
     RoutePaths.shell || RoutePaths.home || RoutePaths.nexus => AppView.nexus,
     RoutePaths.profile || RoutePaths.legacyProfile => AppView.profile,
     RoutePaths.smartPlanner ||
-    RoutePaths.legacyCoach ||
-    RoutePaths.legacySignals ||
     RoutePaths.legacyInsights => AppView.smartPlanner,
     RoutePaths.si || RoutePaths.legacySi => AppView.console,
     RoutePaths.settings => AppView.settings,

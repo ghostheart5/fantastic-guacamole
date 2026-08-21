@@ -316,14 +316,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.legacyInsights,
         redirect: (_, _) => RoutePaths.smartPlanner,
       ),
-      GoRoute(
-        path: RoutePaths.legacyCoach,
-        redirect: (_, _) => RoutePaths.smartPlanner,
-      ),
-      GoRoute(
-        path: RoutePaths.legacySignals,
-        redirect: (_, _) => RoutePaths.smartPlanner,
-      ),
 
       GoRoute(
         path: RoutePaths.login,

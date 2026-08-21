@@ -63,8 +63,6 @@ abstract final class RouteAccessPolicy {
     RoutePaths.legacySi,
     RoutePaths.legacyTasks,
     RoutePaths.legacyProfile,
-    RoutePaths.legacyCoach,
-    RoutePaths.legacySignals,
     RoutePaths.legacyInsights,
   };
 

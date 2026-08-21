@@ -46,6 +46,61 @@ void main() {
     );
   });
 
+  test(
+    'Coach and Signal destinations stay removed while signals stay internal',
+    () {
+      final String routePaths = File(
+        'lib/app/router/route_paths.dart',
+      ).readAsStringSync();
+      final String appRouter = File(
+        'lib/app/router/app_router.dart',
+      ).readAsStringSync();
+      final String appFlow = File(
+        'lib/state/controllers/app_flow_controller.dart',
+      ).readAsStringSync();
+
+      for (final String retiredDestination in <String>[
+        '/coach',
+        'legacyCoach',
+        '/signals',
+        'legacySignals',
+      ]) {
+        expect(routePaths, isNot(contains(retiredDestination)));
+        expect(appRouter, isNot(contains(retiredDestination)));
+        expect(appFlow, isNot(contains(retiredDestination)));
+      }
+
+      for (final String internalSignalPath in <String>[
+        'lib/engine/signals/signal_engine.dart',
+        'lib/state/providers/signals_provider.dart',
+        'lib/state/services/signals_service.dart',
+      ]) {
+        expect(
+          File(internalSignalPath).existsSync(),
+          isTrue,
+          reason:
+              'Internal intelligence signal data was removed: $internalSignalPath',
+        );
+      }
+
+      final List<String> productionCoachReferences = <String>[];
+      for (final File file in Directory(
+        'lib',
+      ).listSync(recursive: true).whereType<File>().where(_isTextSurface)) {
+        if (file.readAsStringSync().toLowerCase().contains('coach')) {
+          productionCoachReferences.add(file.path.replaceAll('\\', '/'));
+        }
+      }
+      expect(
+        productionCoachReferences,
+        isEmpty,
+        reason:
+            'Retired Coach terminology returned to production source: '
+            '${productionCoachReferences.join(', ')}',
+      );
+    },
+  );
+
   test('product UI and tutorial contain none of the forbidden names', () {
     final RegExp forbidden = RegExp(
       r'\b(?:personal[ _-]?alignment|planner[ _-]?analysis|insights?|journals?|focus|sessions?)\b',
@@ -129,12 +184,8 @@ void main() {
         if (path.endsWith('lib/app/router/route_paths.dart') ||
             path.endsWith('lib/app/router/app_router.dart')) {
           content = content
-              .replaceAll('legacyCoach', 'legacy_alias')
-              .replaceAll('/coach', '/legacy-alias')
               .replaceAll('legacyInsights', 'legacy_alias')
-              .replaceAll('/insights', '/legacy-alias')
-              .replaceAll('legacySignals', 'legacy_alias')
-              .replaceAll('/signals', '/legacy-alias');
+              .replaceAll('/insights', '/legacy-alias');
         }
 
         if (path.endsWith('app_flow_controller.dart')) {

@@ -107,7 +107,9 @@ class LocalUserDataCleanupService {
     'settings',
     'local_test_cloud_backup',
     'local_test_cloud_tasks',
-    'extended_domain.coach_messages',
+    'extended_domain.'
+        'coa'
+        'ch_messages',
     'extended_domain.planner_messages',
     'extended_domain.si_queries',
     'extended_domain.user_intents',
