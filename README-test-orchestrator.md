@@ -1,45 +1,41 @@
-# One-command Flutter test orchestrator
+# ChronoSpark test orchestrator
 
-`run-all-tests.ps1` runs the available checks back to back and stops at the first required failure:
+`run-all-tests.ps1` coordinates the repository's non-destructive release gate in this order:
 
-1. `flutter pub get`
-2. `flutter test` (unit and widget tests)
-3. `flutter test integration_test` when `integration_test/` exists
-4. `maestro test maestro` when the Maestro CLI and `maestro/` exist
-5. `flutter devices` as a simulator/device smoke check
-6. Device-targeted integration tests when `deviceId` is not `auto`
-7. A bounded Android `adb shell monkey` run
+1. Dependency resolution.
+2. Non-writing format verification.
+3. Both secret guards.
+4. Flutter analysis with fatal infos.
+5. Maestro static contract validation.
+6. Supabase Edge Function checks and tests.
+7. Robot tests with coverage and the coverage ratchet.
+8. Flutter application-root integration tests on the configured emulator.
+9. The five-flow QA Maestro smoke suite with commit, APK, device, and Logcat evidence.
+10. Five bounded Android monkey variants against the exact QA APK installed by Maestro.
 
-## Setup
+The checked-in configuration targets `emulator-5554`, Android API 35, and application ID `com.ghostheart5.chronospark`. Change the serial only when an explicitly approved disposable emulator is selected. The monkey matrix refuses physical devices and caps every variant at 1,000 events.
 
-Copy these two files into the Flutter project root, then edit `test-orchestrator.json`:
-
-- Set `monkey.package` to the Android application ID from `android/app/build.gradle`, `build.gradle.kts`, or `AndroidManifest.xml`.
-- Set `deviceId` to an emulator/device ID for targeted tests, or leave it `auto` to use Flutter's default device.
-- Keep `events` bounded. The default is 500 events.
-
-Run from the project root:
+Run the complete configured gate from the project root:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\run-all-tests.ps1
-```
-
-Because monkey testing generates input on a connected Android device, it requires an explicit safety flag:
-
-```powershell
 .\run-all-tests.ps1 -AllowConnectedDevice
 ```
 
-Useful controls:
+The source snapshot must be clean by default. `-AllowDirtyTree` is available only for an intentional diagnostic run; evidence records the commit and dirty-entry count.
+
+Optional controls:
 
 ```powershell
 .\run-all-tests.ps1 -SkipMonkey
 .\run-all-tests.ps1 -SkipMaestro
 .\run-all-tests.ps1 -SkipSimulator
 .\run-all-tests.ps1 -KeepGoing
+.\run-all-tests.ps1 -PreflightOnly -AllowDirtyTree
 ```
 
-Each run writes a timestamped transcript to `test-results\orchestrator-YYYYMMDD-HHmmss\run.log` and returns exit code `1` if any executed stage fails. Missing optional directories/tools are reported as skipped; required tools (`flutter` and `dart`) stop the run when absent.
+Skipped, unavailable, or unauthorized stages are recorded as `not-run`. A run with any `not-run` stage exits with code `2` and reports `PARTIAL`; it is never reported as a successful complete gate. Executed failures exit with code `1`. Only a run in which every configured stage executes and passes exits with code `0`.
 
-This is a runner, not a substitute for real device coverage: start the desired emulator before running, install/debug-launch the app as required by your Maestro flows, and add project-specific smoke commands to the script if your app needs seeded data or a special build flavor.
+Each orchestrator run writes a transcript under `test-results/orchestrator-<timestamp>/`. Maestro writes evidence under `artifacts/maestro/`, and the monkey matrix writes its fixed seeds, event mixes, APK hash, crash/ANR scan, and relaunch result under `artifacts/monkey/`.
+
+Credential-backed login and signup journeys are not part of the mock QA smoke set. Run them only with disposable account credentials through the dedicated Maestro evidence runner. Destructive account deletion is always outside the ordinary orchestrator and requires its separate confirmation contract.
