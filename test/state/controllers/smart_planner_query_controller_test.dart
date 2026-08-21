@@ -3,15 +3,31 @@ import 'dart:io';
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/controllers/smart_planner_query_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  ProviderContainer plannerContainer() => ProviderContainer(
+    overrides: [
+      assistantReleaseConfigProvider.overrideWith(
+        (Ref ref) async => AssistantReleaseConfig(
+          stage: AssistantReleaseStage.general,
+          canaryBasisPoints: 0,
+          shadowEvaluationEnabled: false,
+          internalAccountDigests: const <String>{},
+          rollbackCapabilities: const <AssistantReleaseCapability>{},
+        ),
+      ),
+    ],
+  );
+
   test('Planner V2 returns the complete typed response contract', () async {
-    final ProviderContainer container = ProviderContainer();
+    final ProviderContainer container = plannerContainer();
     addTearDown(container.dispose);
     final SmartPlannerQueryController controller = container.read(
       smartPlannerQueryControllerProvider,
@@ -56,7 +72,7 @@ void main() {
   test(
     'low energy and anxious self-report recommend Minimum without inference',
     () async {
-      final ProviderContainer container = ProviderContainer();
+      final ProviderContainer container = plannerContainer();
       addTearDown(container.dispose);
       final SmartPlannerQueryController controller = container.read(
         smartPlannerQueryControllerProvider,
@@ -85,7 +101,7 @@ void main() {
   );
 
   test('high energy and engaged self-report can recommend Stretch', () async {
-    final ProviderContainer container = ProviderContainer();
+    final ProviderContainer container = plannerContainer();
     addTearDown(container.dispose);
     final SmartPlannerQueryController controller = container.read(
       smartPlannerQueryControllerProvider,
@@ -105,7 +121,7 @@ void main() {
   });
 
   test('follow-up uses the same read-only typed contract', () async {
-    final ProviderContainer container = ProviderContainer();
+    final ProviderContainer container = plannerContainer();
     addTearDown(container.dispose);
     final SmartPlannerQueryController controller = container.read(
       smartPlannerQueryControllerProvider,
