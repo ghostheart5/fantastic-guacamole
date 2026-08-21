@@ -41,7 +41,7 @@ void main() {
       );
 
       expect(await service.hasUnownedAccountData(), isTrue);
-    expect(Hive.box<String>(HiveBoxes.tasks).get('task-1'), isNotNull);
+      expect(Hive.box<String>(HiveBoxes.tasks).get('task-1'), isNotNull);
     },
   );
 }
