@@ -28,6 +28,10 @@ class WeeklySummaryCard extends ConsumerWidget {
         .watch(timelineProvider)
         .where((event) => event.isMilestone)
         .length;
+    final String milestoneText =
+        milestoneSummary.total == 0 && timelineMilestones == 0
+        ? 'No milestones recorded yet.'
+        : 'Milestones completed: ${milestoneSummary.completed}/${milestoneSummary.total}  •  Timeline milestones: $timelineMilestones';
 
     return Container(
       width: double.infinity,
@@ -61,8 +65,8 @@ class WeeklySummaryCard extends ConsumerWidget {
               const Text(
                 'WEEK IN REVIEW',
                 style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2.5,
+                  fontSize: 11,
+                  letterSpacing: 2,
                   color: AppColors.neonViolet,
                   fontWeight: FontWeight.w700,
                 ),
@@ -112,8 +116,12 @@ class WeeklySummaryCard extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Milestones completed: ${milestoneSummary.completed}/${milestoneSummary.total}  •  Timeline milestones: $timelineMilestones',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            milestoneText,
+            style: const TextStyle(
+              color: Color(0xFFC6D0E2),
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
         ],
       ),
@@ -148,10 +156,13 @@ class _StatColumn extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
+            textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 9,
-              letterSpacing: 1.5,
+              color: Color(0xFFD7DFF0),
+              fontSize: 10,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.1,
             ),
           ),
         ],
@@ -166,7 +177,7 @@ class _StatDivider extends StatelessWidget {
     return Container(
       width: 1,
       height: 36,
-      color: Colors.white10,
+      color: const Color(0xFF344056),
       margin: const EdgeInsets.symmetric(horizontal: 8),
     );
   }

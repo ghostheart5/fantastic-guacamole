@@ -37,81 +37,107 @@ class CreatorScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    SmartPressable(
-                      onTap: () => goToAppView(context, ref, AppView.nexus),
-                      semanticLabel: 'Back to Smart Planner',
-                      child: Container(
-                        width: 48,
-                        height: 48,
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: <Color>[Color(0xF207111F), Color(0xEC0B1428)],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.neonCyan.withValues(alpha: 0.38),
+                    ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      SmartPressable(
+                        onTap: () => goToAppView(context, ref, AppView.nexus),
+                        semanticLabel: 'Back to Nexus',
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: AppColors.neonCyan.withValues(alpha: 0.13),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.neonCyan.withValues(alpha: 0.55),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: AppColors.neonCyan,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 13),
+                      Container(
+                        width: 3,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: AppColors.neonCyan.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.3),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: <Color>[
+                              AppColors.neonCyan,
+                              AppColors.neonViolet,
+                            ],
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: AppColors.neonCyan,
-                          size: 16,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Container(
-                      width: 3,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.neonCyan,
-                        borderRadius: BorderRadius.circular(2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.neonCyan.withValues(alpha: 0.8),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [
-                                AppColors.neonCyan,
-                                AppColors.neonViolet,
-                              ],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'CREATOR',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 3,
-                                color: Colors.white,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: <Color>[
+                                  AppColors.neonCyan,
+                                  Color(0xFFB9A8FF),
+                                ],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'CREATOR',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 23,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 2.5,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                          const Text(
-                            'INTENTION → CONNECTED ACTION',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 2,
-                              color: Colors.white38,
+                            const SizedBox(height: 3),
+                            const Text(
+                              'Turn intention into connected action',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.25,
+                                letterSpacing: 0.45,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFD7DFF0),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
                 DynamicForm(

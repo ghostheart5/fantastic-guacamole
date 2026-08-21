@@ -331,7 +331,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    final Finder creatorEntry = find.text('OPEN CREATOR TO MAKE TASK');
+    final Finder creatorEntry = find.text('OPEN CREATOR');
     expect(creatorEntry, findsOneWidget);
 
     await tester.tap(creatorEntry);

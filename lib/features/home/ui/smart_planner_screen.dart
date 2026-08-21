@@ -421,7 +421,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                     ElevatedButton(
                       onPressed: () =>
                           goToAppView(context, ref, AppView.creator),
-                      child: const Text('OPEN CREATOR TO MAKE TASK'),
+                      child: const Text('OPEN CREATOR'),
                     ),
                     const SizedBox(height: 14),
                     _PlannerPanel(
@@ -463,7 +463,11 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                         decoration: const InputDecoration(
                           hintText:
                               'Share your current context, friction, or desired outcome...',
-                          hintStyle: TextStyle(color: Colors.white24),
+                          hintStyle: TextStyle(
+                            color: Color(0xFFAEB9D0),
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
@@ -580,45 +584,81 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   }
 
   Widget _buildHeader() {
-    return Row(
-      children: [
-        SmartPressable(
-          onTap: () => goToAppView(context, ref, AppView.nexus),
-          semanticLabel: 'Back',
-          child: const Padding(
-            padding: EdgeInsets.all(11),
-            child: Icon(Icons.arrow_back_ios, color: Colors.white54, size: 18),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xF207111F),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.42)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withValues(alpha: 0.12),
+            blurRadius: 24,
+            spreadRadius: -8,
           ),
-        ),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [AppColors.neonCyan, AppColors.neonViolet],
-              ).createShader(bounds),
-              child: const Text(
-                'SMART PLANNER',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 3,
-                  color: Colors.white,
+        ],
+      ),
+      child: Row(
+        children: [
+          SmartPressable(
+            onTap: () => goToAppView(context, ref, AppView.nexus),
+            semanticLabel: 'Back to Nexus',
+            child: Container(
+              width: 48,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.neonCyan.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.neonCyan.withValues(alpha: 0.38),
                 ),
               ),
-            ),
-            const Text(
-              'EVIDENCE-AWARE PLANNING',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 2,
-                color: Colors.white38,
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 19,
               ),
             ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [AppColors.neonCyan, AppColors.neonViolet],
+                  ).createShader(bounds),
+                  child: const Text(
+                    'SMART PLANNER',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2.4,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Build your next plan from real evidence',
+                  maxLines: 2,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: Color(0xFFD7DFF0),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -902,7 +942,7 @@ class _FollowUpBar extends StatelessWidget {
                     decoration: InputDecoration(
                       hintText: 'Send a follow-up question...',
                       hintStyle: const TextStyle(
-                        color: Colors.white38,
+                        color: Color(0xFFAEB9D0),
                         fontSize: 14,
                       ),
                       filled: true,
@@ -1022,9 +1062,10 @@ class _EnergySlider extends StatelessWidget {
             const Text(
               'CURRENT ENERGY',
               style: TextStyle(
-                color: Colors.white54,
+                color: Color(0xFFD7DFF0),
                 fontSize: 11,
                 letterSpacing: 1.5,
+                fontWeight: FontWeight.w600,
               ),
             ),
             Text(
@@ -1042,7 +1083,7 @@ class _EnergySlider extends StatelessWidget {
           data: SliderThemeData(
             trackHeight: 3,
             activeTrackColor: color,
-            inactiveTrackColor: Colors.white12,
+            inactiveTrackColor: const Color(0xFF526079),
             thumbColor: color,
             overlayColor: color.withValues(alpha: 0.2),
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
@@ -1378,16 +1419,18 @@ class _ProgressionBanner extends ConsumerWidget {
                     Text(
                       '$pct% to Level ${progress.level + 1}',
                       style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
+                        color: Color(0xFFD7DFF0),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
                       ),
                     ),
                     Text(
                       '${progress.xpToNext} XP',
                       style: const TextStyle(
-                        color: Colors.white24,
-                        fontSize: 10,
+                        color: Color(0xFFAEB9D0),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -1540,9 +1583,9 @@ class _GuidanceEvidence extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .035),
+          color: const Color(0xED07111F),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.24)),
         ),
         child: Text(
           <String>[
@@ -1551,8 +1594,8 @@ class _GuidanceEvidence extends StatelessWidget {
             'Guidance is advisory; you choose whether to apply it.',
           ].join('\n'),
           style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 10,
+            color: Color(0xFFC6D0E2),
+            fontSize: 11,
             height: 1.45,
           ),
         ),
@@ -1566,13 +1609,42 @@ class _DisclaimerText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'Planning guidance is not medical, nutrition, exercise, or mental-health care. For persistent, severe, worsening, or urgent symptoms, contact a qualified professional or local emergency support.',
-      style: TextStyle(
-        color: Colors.white30,
-        fontSize: 10,
-        letterSpacing: 0.3,
-        height: 1.4,
+    return Semantics(
+      container: true,
+      label: 'Planning guidance safety information',
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xF207111F),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
+        ),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(
+                Icons.health_and_safety_outlined,
+                color: AppColors.neonCyan,
+                size: 18,
+              ),
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'This supports planning, not medical, nutrition, exercise, or mental-health care. For urgent or worsening symptoms, contact a qualified professional or local emergency service.',
+                style: TextStyle(
+                  color: Color(0xFFD7DFF0),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

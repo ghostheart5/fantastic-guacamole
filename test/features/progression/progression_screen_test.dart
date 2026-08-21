@@ -20,13 +20,14 @@ void main() {
   Future<ProviderContainer> pumpProgression(
     WidgetTester tester, {
     required TrajectorySummaryView trajectory,
+    Size physicalSize = const Size(1200, 4000),
     FutureOr<String> Function(Ref ref)? weeklySummaryOverride,
     FutureOr<List<Task>> Function(Ref ref)? tasksOverride,
     List<TimelineEventEntity>? timelineOverdue,
     List<LearningHistorySnapshot>? learningHistorySnapshots,
   }) async {
     tester.platformDispatcher.views.first
-      ..physicalSize = const Size(1200, 4000)
+      ..physicalSize = physicalSize
       ..devicePixelRatio = 1.0;
     addTearDown(() {
       tester.platformDispatcher.views.first
@@ -78,6 +79,19 @@ void main() {
     WidgetTester tester,
   ) async {
     await pumpProgression(tester, trajectory: _activeTrajectory);
+
+    expect(find.text('PROGRESSION'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('fits a compact Pixel-width viewport without overflow', (
+    WidgetTester tester,
+  ) async {
+    await pumpProgression(
+      tester,
+      trajectory: _activeTrajectory,
+      physicalSize: const Size(412, 915),
+    );
 
     expect(find.text('PROGRESSION'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -151,9 +165,10 @@ void main() {
     container.read(appFlowProvider.notifier).toProgression();
     await tester.pump();
 
-    expect(find.bySemanticsLabel('Back to Nexus'), findsOneWidget);
+    final Finder backToNexus = find.bySemanticsLabel('Back to Nexus');
+    expect(backToNexus, findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(backToNexus);
     await tester.pump();
 
     expect(container.read(appFlowProvider), AppView.nexus);
@@ -275,8 +290,12 @@ void main() {
 
       await pumpProgression(tester, trajectory: _activeTrajectory);
 
-      await tester.tap(find.byTooltip('Share progress snapshot'));
+      await tester.tap(find.byTooltip('Share progression'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Progress snapshot'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Review progress snapshot'), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, 'Share'));
       await tester.pump();

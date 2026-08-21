@@ -43,6 +43,10 @@ class _DynamicFormState extends State<DynamicForm> {
   String? _errorMessage;
   late final Future<void> Function() _tutorialSubmitAction;
 
+  String get _selectedTypeNoun => _selectedType.trim().toLowerCase();
+
+  String get _createActionLabel => 'CREATE ${_selectedType.toUpperCase()}';
+
   @override
   void initState() {
     super.initState();
@@ -70,13 +74,16 @@ class _DynamicFormState extends State<DynamicForm> {
     if (_submitting) return;
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      setState(() => _errorMessage = 'Add a title before creating the task.');
+      setState(
+        () => _errorMessage =
+            'Add a title before creating the $_selectedTypeNoun.',
+      );
       return;
     }
     if (widget.guidedFirstTask && _scheduledFor == null) {
       setState(
         () => _errorMessage =
-            'Choose a date and time so your first task can appear on Timeline.',
+            'Choose a date and time so your first $_selectedTypeNoun can appear on Timeline.',
       );
       return;
     }
@@ -112,7 +119,7 @@ class _DynamicFormState extends State<DynamicForm> {
       if (!mounted) return;
       setState(() {
         _errorMessage =
-            'The task could not be saved. Your entry is still here—retry.';
+            'The $_selectedTypeNoun could not be saved. Your entry is still here—retry.';
       });
     } finally {
       if (mounted) {
@@ -225,6 +232,7 @@ class _DynamicFormState extends State<DynamicForm> {
                 : null,
             child: SmartPressable(
               onTap: _submitting ? () {} : _submit,
+              semanticLabel: _createActionLabel.toLowerCase(),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -252,10 +260,10 @@ class _DynamicFormState extends State<DynamicForm> {
                           ),
                         ),
                       )
-                    : const Text(
-                        'FORGE TASK',
+                    : Text(
+                        _createActionLabel,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           letterSpacing: 2.5,
                           fontWeight: FontWeight.w800,

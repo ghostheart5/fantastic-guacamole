@@ -19,7 +19,7 @@ class ProgressBar extends StatelessWidget {
         Container(
           height: height,
           decoration: BoxDecoration(
-            color: Colors.white10,
+            color: const Color(0xFF39465B),
             borderRadius: BorderRadius.circular(height / 2),
           ),
         ),

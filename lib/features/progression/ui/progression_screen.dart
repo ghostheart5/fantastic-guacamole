@@ -21,6 +21,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+enum _ProgressionShareAction { progress, achievement }
+
 class ProgressionScreen extends ConsumerStatefulWidget {
   const ProgressionScreen({super.key});
 
@@ -173,91 +175,167 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    SmartPressable(
-                      onTap: () => goToAppView(context, ref, AppView.nexus),
-                      semanticLabel: 'Back to Nexus',
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: AppColors.neonCyan.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: AppColors.neonCyan,
-                          size: 16,
-                        ),
-                      ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xF207111F),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.memoryAmber.withValues(alpha: 0.34),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [
-                                AppColors.memoryAmber,
-                                AppColors.neonCyan,
-                              ],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'PROGRESSION',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 3,
-                                color: Colors.white,
-                              ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.memoryAmber.withValues(alpha: 0.1),
+                        blurRadius: 24,
+                        spreadRadius: -8,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      SmartPressable(
+                        onTap: () => goToAppView(context, ref, AppView.nexus),
+                        semanticLabel: 'Back to Nexus',
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.neonCyan.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppColors.neonCyan.withValues(alpha: 0.38),
                             ),
                           ),
-                          const Text(
-                            'CAPABILITY BUILT THROUGH ACTION',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 2,
-                              color: Colors.white38,
+                          child: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white,
+                            size: 19,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [
+                                  AppColors.memoryAmber,
+                                  AppColors.neonCyan,
+                                ],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'PROGRESSION',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 2.4,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            const Text(
+                              'See what your actions are building',
+                              maxLines: 2,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.35,
+                                color: Color(0xFFD7DFF0),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton<_ProgressionShareAction>(
+                        tooltip: 'Share progression',
+                        color: const Color(0xFF101827),
+                        onSelected: (_ProgressionShareAction action) async {
+                          switch (action) {
+                            case _ProgressionShareAction.progress:
+                              await _shareProgressCard(context, ref);
+                            case _ProgressionShareAction.achievement:
+                              await _shareAchievementCard(context, ref);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => const [
+                          PopupMenuItem<_ProgressionShareAction>(
+                            value: _ProgressionShareAction.progress,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.insights_rounded,
+                                  color: AppColors.memoryAmber,
+                                ),
+                                SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    'Progress snapshot',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem<_ProgressionShareAction>(
+                            value: _ProgressionShareAction.achievement,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.emoji_events_outlined,
+                                  color: AppColors.neonCyan,
+                                ),
+                                SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    'Achievement',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.memoryAmber.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppColors.memoryAmber.withValues(
+                                alpha: 0.38,
+                              ),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.ios_share_rounded,
+                            color: AppColors.memoryAmber,
+                            size: 21,
+                          ),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'Share progress snapshot',
-                      onPressed: () => _shareProgressCard(context, ref),
-                      icon: const Icon(
-                        Icons.ios_share_rounded,
-                        color: AppColors.memoryAmber,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Share achievement',
-                      onPressed: () => _shareAchievementCard(context, ref),
-                      icon: const Icon(
-                        Icons.emoji_events_outlined,
-                        color: AppColors.neonCyan,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 28),
-                const WeeklySummaryCard(),
-                const SizedBox(height: 16),
-                const _XpProgressChartCard(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 LevelCard(progress: progress),
                 const SizedBox(height: 16),
+                const WeeklySummaryCard(),
+                const SizedBox(height: 16),
                 StreakCard(progress: progress),
+                const SizedBox(height: 16),
+                const _XpProgressChartCard(),
                 const SizedBox(height: 16),
                 const _ProgressSignalsCard(),
                 const SizedBox(height: 12),
@@ -305,8 +383,8 @@ class _ProgressSignalsCard extends ConsumerWidget {
               const Text(
                 'CAPABILITY SIGNALS',
                 style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2.5,
+                  fontSize: 11,
+                  letterSpacing: 2,
                   color: AppColors.neonCyan,
                   fontWeight: FontWeight.w700,
                 ),
@@ -356,14 +434,18 @@ class _SignalRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white38,
-            fontSize: 12,
-            letterSpacing: 0.5,
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFFD7DFF0),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
+        const SizedBox(width: 12),
         Text(
           value,
           style: TextStyle(
@@ -398,8 +480,8 @@ class _NarrativeCard extends ConsumerWidget {
           const Text(
             'WHAT YOUR ACTIONS ARE CHANGING',
             style: TextStyle(
-              fontSize: 9,
-              letterSpacing: 2.5,
+              fontSize: 11,
+              letterSpacing: 1.8,
               color: AppColors.neonViolet,
               fontWeight: FontWeight.w700,
             ),
@@ -418,8 +500,8 @@ class _NarrativeCard extends ConsumerWidget {
           Text(
             narrative.trajectory,
             style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
+              color: Color(0xFFC6D0E2),
+              fontSize: 13,
               height: 1.4,
             ),
           ),
@@ -450,8 +532,8 @@ class _AdvisorSummaryCard extends ConsumerWidget {
           const Text(
             'NEXT CAPABILITY TO PRACTICE',
             style: TextStyle(
-              fontSize: 9,
-              letterSpacing: 2.5,
+              fontSize: 11,
+              letterSpacing: 1.8,
               color: AppColors.memoryAmber,
               fontWeight: FontWeight.w700,
             ),
@@ -464,8 +546,8 @@ class _AdvisorSummaryCard extends ConsumerWidget {
                 Text(
                   summary,
                   style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
+                    color: Color(0xFFD7DFF0),
+                    fontSize: 13,
                     height: 1.55,
                   ),
                 ),
@@ -490,14 +572,18 @@ class _AdvisorSummaryCard extends ConsumerWidget {
             ),
             loading: () => const Text(
               'Building a progress view from your saved Timeline and completed actions...',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+              style: TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
             ),
             error: (_, _) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Not enough saved evidence yet. Add or complete an item, then return to see a grounded progression signal.',
-                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                  style: TextStyle(
+                    color: Color(0xFFC6D0E2),
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 OutlinedButton.icon(
@@ -614,22 +700,45 @@ class _XpProgressChartCard extends ConsumerWidget {
           const Text(
             'COMPLETION MOMENTUM',
             style: TextStyle(
-              fontSize: 10,
-              letterSpacing: 2.5,
+              fontSize: 11,
+              letterSpacing: 2,
               color: AppColors.memoryAmber,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Last ${points.length} checkpoints • ${end - start >= 0 ? '+' : ''}${end - start} completed',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          if (points.isNotEmpty) ...[
+            Text(
+              'Last ${points.length} checkpoints • ${end - start >= 0 ? '+' : ''}${end - start} completed',
+              style: const TextStyle(
+                color: Color(0xFFC6D0E2),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (points.isEmpty)
-            const Text(
-              'Complete activity to establish a real progress history.',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.show_chart_rounded,
+                  color: AppColors.memoryAmber,
+                  size: 20,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Your momentum trend will appear after you complete an item.',
+                    style: TextStyle(
+                      color: Color(0xFFD7DFF0),
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
             )
           else
             SizedBox(

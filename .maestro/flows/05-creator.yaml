@@ -21,7 +21,7 @@ tags:
       - runFlow:
           file: ../subflows/open-from-nexus.yaml
           env:
-            TARGET: "Create Task"
+            TARGET: "Creator"
 
 - assertVisible: "CREATOR"
 
@@ -31,12 +31,12 @@ tags:
 
 - scrollUntilVisible:
     element:
-      text: "FORGE TASK"
+      text: "CREATE TASK"
     direction: DOWN
     timeout: 10000
-- tapOn: "FORGE TASK"
+- tapOn: "CREATE TASK"
 
-# Forging routes to the plan surface and the task must actually be there.
+# Creating routes to Timeline and the task must actually be there.
 - extendedWaitUntil:
     visible: "Maestro smoke task"
     timeout: 15000

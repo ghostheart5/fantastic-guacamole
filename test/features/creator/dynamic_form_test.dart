@@ -3,6 +3,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('create action follows the selected Creator item type', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(onSubmit: (_) async {}),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('CREATE TASK'), findsOneWidget);
+
+    await tester.tap(find.text('ROUTINE'));
+    await tester.pump();
+    expect(find.text('CREATE ROUTINE'), findsOneWidget);
+    expect(find.text('CREATE TASK'), findsNothing);
+
+    await tester.tap(find.text('NOTE'));
+    await tester.pump();
+    expect(find.text('CREATE NOTE'), findsOneWidget);
+
+    await tester.tap(find.text('GOAL'));
+    await tester.pump();
+    expect(find.text('CREATE GOAL'), findsOneWidget);
+  });
+
   testWidgets('schedule picker pauses guidance while its dialog is open', (
     WidgetTester tester,
   ) async {
@@ -69,8 +98,8 @@ void main() {
     await tester.enterText(titleField, 'Prepare the first launch');
     await tester.tap(find.text('TASK'));
     await tester.tap(find.bySemanticsLabel('Set priority level 4'));
-    await tester.ensureVisible(find.text('FORGE TASK'));
-    await tester.tap(find.text('FORGE TASK'));
+    await tester.ensureVisible(find.text('CREATE TASK'));
+    await tester.tap(find.text('CREATE TASK'));
     await tester.pump();
 
     expect(titleReady, isTrue);
@@ -107,7 +136,7 @@ void main() {
           widget is TextField && widget.decoration?.hintText == 'Title *',
     );
     await tester.enterText(titleField, 'Keep this task');
-    await tester.tap(find.text('FORGE TASK'));
+    await tester.tap(find.text('CREATE TASK'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
