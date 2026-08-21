@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -20,9 +21,18 @@ void main() {
         _FakeTesterDataResetService();
     final _FakeNotificationRepository notifications =
         _FakeNotificationRepository();
+    final SecureStore inMemorySecureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    const String legacySiStateKey = 'si_engine_state_v1';
+    await inMemorySecureStore.writeString(
+      legacySiStateKey,
+      '{"memory":"must be cleared"}',
+    );
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        secureStoreProvider.overrideWithValue(inMemorySecureStore),
         testerDataResetServiceProvider.overrideWithValue(fakeService),
         domainNotificationRepositoryProvider.overrideWithValue(notifications),
       ],
@@ -43,6 +53,7 @@ void main() {
     expect(container.read(onboardingCompleteProvider), isFalse);
     expect(container.read(aiInputProvider), isNull);
     expect(container.read(notificationProvider), isEmpty);
+    expect(await inMemorySecureStore.readString(legacySiStateKey), isNull);
   });
 }
 
