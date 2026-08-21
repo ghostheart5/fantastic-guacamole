@@ -5,6 +5,16 @@ import 'package:fantastic_guacamole/domain/policies/memory_governance_policy.dar
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('governance exceptions retain their user-safe diagnostic message', () {
+    expect(
+      const MemoryGovernanceException(
+        'invalid_memory',
+        'Memory could not be saved.',
+      ).toString(),
+      'Memory could not be saved.',
+    );
+  });
+
   test('accepts a bounded planning preference', () {
     expect(
       MemoryGovernancePolicy.validatePreferenceText(
@@ -36,6 +46,45 @@ void main() {
           (MemoryGovernanceException error) => error.code,
           'code',
           'emotional_memory_blocked',
+        ),
+      ),
+    );
+  });
+
+  test('expiry must be after creation and no more than one year away', () {
+    final DateTime createdAt = DateTime(2026, 8, 20, 12);
+    final DateTime validExpiry = DateTime(2026, 11, 18, 12);
+
+    expect(
+      MemoryGovernancePolicy.validateExpiry(
+        createdAt: createdAt,
+        expiresAt: validExpiry,
+      ),
+      validExpiry.toUtc(),
+    );
+    expect(
+      () => MemoryGovernancePolicy.validateExpiry(
+        createdAt: createdAt,
+        expiresAt: createdAt,
+      ),
+      throwsA(
+        isA<MemoryGovernanceException>().having(
+          (MemoryGovernanceException error) => error.code,
+          'code',
+          'invalid_expiry',
+        ),
+      ),
+    );
+    expect(
+      () => MemoryGovernancePolicy.validateExpiry(
+        createdAt: createdAt,
+        expiresAt: createdAt.add(const Duration(days: 366)),
+      ),
+      throwsA(
+        isA<MemoryGovernanceException>().having(
+          (MemoryGovernanceException error) => error.code,
+          'code',
+          'invalid_expiry',
         ),
       ),
     );

@@ -17,6 +17,43 @@ void main() {
     expect(outcome.receipt.findingCodes, isEmpty);
   });
 
+  test('route exceptions retain their stable diagnostic code', () {
+    expect(
+      const AssistantSafetyRouteException(
+        'invalid_route',
+        'The requested route is unavailable.',
+      ).toString(),
+      'AssistantSafetyRouteException(invalid_route): '
+      'The requested route is unavailable.',
+    );
+  });
+
+  test('malformed reviews fail closed after every validator runs', () {
+    final AssistantSafetyReview review = AssistantSafetyReview(
+      requestId: ' ',
+      accountScopeId: ' ',
+      surface: AssistantSafetySurface.siConsole,
+      responseText: '',
+      evidenceIds: const <String>['', ''],
+      evidenceUris: const <String>['https://outside.example/evidence'],
+      authority: AssistantActionAuthority.readOnly,
+      risk: AssistantSafetyRisk.routine,
+      contradictionCount: -1,
+      budget: const AssistantSafetyBudget(retrievalRounds: 2),
+    );
+
+    expect(() => pipeline.evaluate(review), throwsStateError);
+  });
+
+  test('confirmed Creator receipts record explicit confirmation', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(authority: AssistantActionAuthority.confirmedCreator),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.confirmationState, 'creator_confirmed');
+  });
+
   test('high-impact response receives one minimized critic review', () {
     final _CapturingCritic critic = _CapturingCritic();
     final AssistantSafetyOutcome outcome = AssistantSafetyPipeline(
@@ -109,6 +146,30 @@ void main() {
     );
   });
 
+  test('each crisis pressure phrase is independently rejected', () {
+    for (final String pressure in <String>[
+      'Protect your streak.',
+      'Raise your momentum score.',
+      'Do it now.',
+      'No excuses.',
+    ]) {
+      final AssistantSafetyOutcome outcome = pipeline.evaluate(
+        _safeReview(
+          requestId: 'crisis.$pressure',
+          responseText: pressure,
+          risk: AssistantSafetyRisk.crisis,
+          crisisDetected: true,
+        ),
+      );
+
+      expect(
+        outcome.receipt.findingCodes,
+        contains('crisis_productivity_pressure'),
+        reason: pressure,
+      );
+    }
+  });
+
   test(
     'safety replay excludes prompts, replies, account ids, and reasoning',
     () {
@@ -191,6 +252,7 @@ AssistantSafetyReview _safeReview({
   AssistantSafetyRisk risk = AssistantSafetyRisk.routine,
   bool crisisDetected = false,
   AssistantSafetyBudget budget = const AssistantSafetyBudget(),
+  AssistantActionAuthority authority = AssistantActionAuthority.readOnly,
 }) => AssistantSafetyReview(
   requestId: requestId,
   accountScopeId: 'account.alpha',
@@ -199,7 +261,7 @@ AssistantSafetyReview _safeReview({
   evidenceIds: const <String>['tasks:t1'],
   evidenceUris: const <String>['chronospark://tasks/t1'],
   untrustedData: untrustedData,
-  authority: AssistantActionAuthority.readOnly,
+  authority: authority,
   risk: risk,
   crisisDetected: crisisDetected,
   budget: budget,
