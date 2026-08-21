@@ -30,7 +30,7 @@ Counts:
 | `lib/features/profile/ui/profile_screen.dart` | Core Value filter chip | Touch-target | Padding bump only; visible text already serves as the label |
 | `lib/features/profile/ui/widgets/profile_header.dart` | `_HeaderIconBtn` (Settings gear) | Combined | Added required `semanticLabel` param, bumped to 48×48 |
 | `lib/features/onboarding/ui/onboarding_screen.dart` | Landscape SKIP, portrait SKIP | Combined | `Semantics(button:true, label:'Skip onboarding')` + padding; personalization slide's keyboard-dismiss logic (pre-existing Phase 1 fix) untouched |
-| `lib/features/creator/widgets/dynamic_form.dart` | FORGE TASK submit button, priority-level bars (5), schedule-date row, clear-date "X", repeat chips (3) | Combined | Padding/hit-area/`Semantics` only; form submission and state logic untouched |
+| `lib/features/creator/widgets/dynamic_form.dart` | CREATE TASK submit button, priority-level bars (5), schedule-date row, clear-date "X", repeat chips (3) | Combined | Padding/hit-area/`Semantics` only; form submission and state logic untouched |
 | `lib/features/creator/widgets/type_selector.dart` | Task/Routine/Note/Goal type chips | Touch-target | Padding bump only; visible text already labels each chip |
 | `lib/features/creator/widgets/quick_input_bar.dart` | Quick-add send button | Combined | `semanticLabel` + size bump 32×32 → 40×40; verified no overflow in the input row |
 | `lib/app/navigation_shell.dart` | Map FAB (`FloatingActionButton.small`) | Tooltip | Added `tooltip: 'Open navigation map'` only; the 40×40 fixed FAB size is deferred to Phase 2E, not resized here |
@@ -101,7 +101,7 @@ Counts:
 - Fix: `semanticLabel: 'Clear schedule date'` + `Padding(EdgeInsets.all(11))`.
 - Risk: low — `Spacer()` in the row absorbs the added width.
 
-**Creator schedule-date row, FORGE TASK button, repeat chips, type chips**
+**Creator schedule-date row, CREATE TASK button, repeat chips, type chips**
 - Before: 36-46px tap heights.
 - Fix: modest padding bumps (10→13 vertical on schedule row, 14→16 on submit button, 8→12 on repeat/type chips) plus a `semanticLabel: 'Schedule date'` on the date row.
 - Risk: low.
