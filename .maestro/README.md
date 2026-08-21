@@ -52,6 +52,8 @@ PowerShell evidence runner instead of invoking Maestro directly. Its default
 Android device, uses the tester-access login, runs product flows 04-08, captures Logcat during Maestro,
 and writes a manifest containing the Git commit, dirty-tree count, APK SHA-256,
 installed package version, device/API, flow list, timings, and exit status.
+The QA APK targets the x86_64 emulator ABI to avoid generating unused ARM
+artifacts during local automation; debug and release profiles remain unchanged.
 
 The QA profile deliberately bypasses onboarding so visual testing can open on
 Nexus. Run flow 03 separately with a non-tester-access build when verifying the

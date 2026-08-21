@@ -1,14 +1,14 @@
-# Shared: open a surface from the Nexus button group.
+# Shared: open a surface from the shell navigation map.
 #
-# Pass TARGET as the button's ORIGINAL casing, e.g. "Timeline". HoloButton
-# uppercases only the visible text; the accessibility label keeps the original.
+# Pass TARGET using the canonical destination label, e.g. "Timeline".
 appId: com.ghostheart5.chronospark
 ---
+- tapOn: "Open navigation map"
 - scrollUntilVisible:
     element:
-      text: "${TARGET}"
+      text: "${TARGET}\\n.*"
     direction: DOWN
     timeout: 15000
-- tapOn: "${TARGET}"
+- tapOn: "${TARGET}\\n.*"
 - waitForAnimationToEnd:
     timeout: 5000

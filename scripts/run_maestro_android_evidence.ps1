@@ -268,8 +268,13 @@ if (-not $SkipBuild) {
     switch ($BuildProfile) {
         'qa' {
             # Device automation does not need the protected production signing
-            # path. Keep QA features while producing an installable debug APK.
-            $buildArguments += @('--debug', '--dart-define-from-file=tool/qa_defines.json')
+            # path or non-emulator ABIs. Keep QA features while producing a
+            # smaller installable APK for the explicitly selected x86_64 AVD.
+            $buildArguments += @(
+                '--debug',
+                '--target-platform=android-x64',
+                '--dart-define-from-file=tool/qa_defines.json'
+            )
             $resolvedApk = Join-Path $projectRoot 'build/app/outputs/flutter-apk/app-debug.apk'
         }
         'debug' {
@@ -366,10 +371,10 @@ $fatalPatterns = @(
     'FATAL EXCEPTION',
     'E/flutter',
     'ANR in',
-    'Process\s+' + [regex]::Escape($PackageName) + '\s+has died',
+    ('Process\s+' + [regex]::Escape($PackageName) + '\s+has died'),
     'MissingPluginException',
     'Failed assertion',
-    'Unable to start.*' + [regex]::Escape($PackageName)
+    ('Unable to start.*' + [regex]::Escape($PackageName))
 )
 $fatalHits = @(Select-String -LiteralPath $sanitizedLogcat -Pattern $fatalPatterns -CaseSensitive:$false -Context 2, 4)
 $scanPath = Join-Path $runRoot 'adb-logcat-scan.txt'
