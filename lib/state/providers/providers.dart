@@ -45,3 +45,4 @@ export 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordi
 export 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 export 'decision_outcome_provider.dart';
 export 'creator_draft_provider.dart';
+export 'creator_handshake_provider.dart';

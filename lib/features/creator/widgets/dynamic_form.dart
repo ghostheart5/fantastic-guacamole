@@ -20,6 +20,8 @@ class DynamicForm extends StatefulWidget {
     this.initialDraftId,
     this.initialTitle,
     this.initialDescription,
+    this.submitLabel = 'FORGE TASK',
+    this.clearAfterSubmit = true,
   });
 
   final Future<void> Function(CreatorFormData data) onSubmit;
@@ -33,6 +35,8 @@ class DynamicForm extends StatefulWidget {
   final String? initialDraftId;
   final String? initialTitle;
   final String? initialDescription;
+  final String submitLabel;
+  final bool clearAfterSubmit;
 
   @override
   State<DynamicForm> createState() => _DynamicFormState();
@@ -136,14 +140,16 @@ class _DynamicFormState extends State<DynamicForm> {
         ),
       );
       if (!mounted) return;
-      _titleController.clear();
-      _descController.clear();
-      setState(() {
-        _selectedType = 'Task';
-        _priority = 3;
-        _scheduledFor = null;
-        _recurrenceRule = RecurrenceRule.none;
-      });
+      if (widget.clearAfterSubmit) {
+        _titleController.clear();
+        _descController.clear();
+        setState(() {
+          _selectedType = 'Task';
+          _priority = 3;
+          _scheduledFor = null;
+          _recurrenceRule = RecurrenceRule.none;
+        });
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -288,10 +294,10 @@ class _DynamicFormState extends State<DynamicForm> {
                           ),
                         ),
                       )
-                    : const Text(
-                        'FORGE TASK',
+                    : Text(
+                        widget.submitLabel,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           letterSpacing: 2.5,
                           fontWeight: FontWeight.w800,
