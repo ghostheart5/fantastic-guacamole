@@ -2,15 +2,10 @@ import 'package:fantastic_guacamole/theme/theme.dart' as neon;
 import 'package:flutter/material.dart';
 
 class HoloButton extends StatefulWidget {
-  const HoloButton({
-    super.key,
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
+  const HoloButton({super.key, required this.label, this.onTap, this.color});
 
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color? color;
 
   @override
@@ -46,7 +41,7 @@ class _HoloButtonState extends State<HoloButton>
   void _onTapDown(TapDownDetails _) => _press.forward();
   void _onTapUp(TapUpDetails _) {
     _press.reverse();
-    widget.onTap();
+    widget.onTap?.call();
   }
 
   void _onTapCancel() => _press.reverse();
@@ -56,11 +51,13 @@ class _HoloButtonState extends State<HoloButton>
     return Semantics(
       label: widget.label,
       button: true,
+      enabled: widget.onTap != null,
+      onTap: widget.onTap,
       child: ExcludeSemantics(
         child: GestureDetector(
-          onTapDown: _onTapDown,
-          onTapUp: _onTapUp,
-          onTapCancel: _onTapCancel,
+          onTapDown: widget.onTap == null ? null : _onTapDown,
+          onTapUp: widget.onTap == null ? null : _onTapUp,
+          onTapCancel: widget.onTap == null ? null : _onTapCancel,
           child: AnimatedBuilder(
             animation: _press,
             builder: (context, _) => Transform.scale(

@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
@@ -35,6 +36,9 @@ void main() {
         secureStoreProvider.overrideWithValue(inMemorySecureStore),
         testerDataResetServiceProvider.overrideWithValue(fakeService),
         domainNotificationRepositoryProvider.overrideWithValue(notifications),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
       ],
     );
     addTearDown(container.dispose);

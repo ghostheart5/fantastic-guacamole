@@ -10,5 +10,6 @@ Operational guides for product administrators, QA leads, and release owners.
 
 ## Suggested Next Docs
 - `feature_flag_rollout.md`
+- `assistant_controlled_release.md`
 - `notification_permission_recovery.md`
 - `tester_data_reset_runbook.md`

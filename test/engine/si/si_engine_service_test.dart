@@ -212,10 +212,17 @@ class _FakeProgressionRepository implements IProgressionRepository {
 
 class _FakeMemoryRepository implements IMemoryRepository {
   @override
+  Future<void> deleteAllMemories() async {}
+
+  @override
   Future<void> deleteMemory(String id) async {}
 
   @override
   List<MemoryEntity> getMemories() => const <MemoryEntity>[];
+
+  @override
+  List<MemoryEntity> getMemoriesForSurface(MemorySurface surface) =>
+      const <MemoryEntity>[];
 
   @override
   Future<void> saveMemories(List<MemoryEntity> memories) async {}

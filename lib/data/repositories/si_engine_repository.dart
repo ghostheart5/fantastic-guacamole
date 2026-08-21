@@ -4,15 +4,20 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 
 class SiEngineRepository {
-  SiEngineRepository(this._store, this._scope);
+  SiEngineRepository(this._store, this._scope, {DateTime Function()? clock})
+    : _clock = clock ?? DateTime.now;
 
   static const String _stateKeyPrefix = 'si_engine_state_v2';
   static const String _legacyStateKey = 'si_engine_state_v1';
+  static const String _sessionExpiresAtKey = 'sessionExpiresAtUtc';
+  static const Duration sessionRetention = Duration(hours: 24);
 
   final SecureStore _store;
   final AccountStorageScope _scope;
+  final DateTime Function() _clock;
 
   String? stateKey(AssistantConversationScope conversation) {
     final String? accountNamespace = _scope.v2Namespace;
@@ -41,11 +46,18 @@ class SiEngineRepository {
     try {
       final dynamic decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
-        return decoded;
+        final Map<String, dynamic>? active = _activeSession(decoded);
+        if (active == null) await _store.delete(key);
+        return active;
       }
       if (decoded is Map<dynamic, dynamic>) {
-        return decoded.cast<String, dynamic>();
+        final Map<String, dynamic>? active = _activeSession(
+          decoded.cast<String, dynamic>(),
+        );
+        if (active == null) await _store.delete(key);
+        return active;
       }
+      await _store.delete(key);
       return null;
     } on FormatException catch (error) {
       Logger.error('Stored SI engine state is corrupt.', error);
@@ -59,7 +71,14 @@ class SiEngineRepository {
   ) async {
     final String? key = stateKey(conversation);
     if (key == null) return;
-    await _store.writeString(key, jsonEncode(state));
+    final Map<String, dynamic> expiringState = <String, dynamic>{
+      ...state,
+      _sessionExpiresAtKey: _clock()
+          .toUtc()
+          .add(sessionRetention)
+          .toIso8601String(),
+    };
+    await _store.writeString(key, jsonEncode(expiringState));
   }
 
   Future<Map<String, dynamic>?> exportState(
@@ -78,4 +97,43 @@ class SiEngineRepository {
   /// Legacy state has no provable account or surface owner, so it is never
   /// migrated. It may only be removed by an explicit device-wide memory clear.
   Future<void> clearLegacyState() => _store.delete(_legacyStateKey);
+
+  Map<String, dynamic>? _activeSession(Map<String, dynamic> state) {
+    final DateTime? expiry = DateTime.tryParse(
+      state[_sessionExpiresAtKey]?.toString() ?? '',
+    );
+    // Pre-Phase-8 state has no bounded retention receipt and is never adopted.
+    if (expiry == null || !_clock().toUtc().isBefore(expiry.toUtc())) {
+      return null;
+    }
+    return state;
+  }
+}
+
+extension SiEngineEvidencePlaneRepository on SiEngineRepository {
+  String? get accountScopeId => _scope.v2Namespace;
+
+  Future<AssistantEvidenceExchange?> loadAssistantEvidenceExchange(
+    AssistantConversationScope conversation,
+  ) async {
+    final Map<String, dynamic>? state = await loadState(conversation);
+    final Object? rawExchange = state?['assistantEvidenceExchange'];
+    if (rawExchange is! Map<Object?, Object?>) return null;
+    try {
+      final AssistantEvidenceExchange exchange =
+          AssistantEvidenceExchange.fromJson(
+            Map<String, Object?>.from(rawExchange),
+          );
+      if (exchange.request.accountScopeId != accountScopeId ||
+          exchange.request.conversation != conversation) {
+        throw const EvidencePlaneException(
+          'Persisted evidence exchange does not belong to this repository scope.',
+        );
+      }
+      return exchange;
+    } on FormatException catch (error) {
+      Logger.error('Stored assistant evidence exchange is invalid.', error);
+      return null;
+    }
+  }
 }

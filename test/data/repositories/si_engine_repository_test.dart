@@ -5,6 +5,8 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -47,6 +49,57 @@ void main() {
     expect(state?['score'], 7);
   });
 
+  test(
+    'session state expires and pre-governance state is not adopted',
+    () async {
+      DateTime now = DateTime.utc(2026, 8, 20, 12);
+      final SiEngineRepository expiringRepository = SiEngineRepository(
+        SecureStore(backend: backend),
+        AccountStorageScope.authenticated('user-1'),
+        clock: () => now,
+      );
+      await expiringRepository.saveState(
+        AssistantConversationScope.primarySmartPlanner,
+        <String, dynamic>{'message': 'short-lived'},
+      );
+      expect(
+        (await expiringRepository.loadState(
+          AssistantConversationScope.primarySmartPlanner,
+        ))?['message'],
+        'short-lived',
+      );
+
+      now = now.add(const Duration(hours: 25));
+      expect(
+        await expiringRepository.loadState(
+          AssistantConversationScope.primarySmartPlanner,
+        ),
+        isNull,
+      );
+      expect(
+        await SecureStore(backend: backend).readString(
+          expiringRepository.stateKey(
+            AssistantConversationScope.primarySmartPlanner,
+          )!,
+        ),
+        isNull,
+      );
+
+      await SecureStore(backend: backend).writeString(
+        expiringRepository.stateKey(
+          AssistantConversationScope.primarySiConsole,
+        )!,
+        jsonEncode(<String, dynamic>{'message': 'no-expiry-legacy'}),
+      );
+      expect(
+        await expiringRepository.loadState(
+          AssistantConversationScope.primarySiConsole,
+        ),
+        isNull,
+      );
+    },
+  );
+
   test('returns null for non-map payload types', () async {
     await SecureStore(backend: backend).writeString(
       repository.stateKey(AssistantConversationScope.primarySiConsole)!,
@@ -84,6 +137,69 @@ void main() {
       await repository.loadState(AssistantConversationScope.primarySiConsole),
       isNull,
     );
+  });
+
+  test('reloads a complete validated assistant evidence exchange', () async {
+    final AssistantEvidenceExchange exchange = _exchange(
+      accountScopeId: repository.accountScopeId!,
+    );
+    await repository.saveState(
+      AssistantConversationScope.primarySiConsole,
+      <String, dynamic>{'assistantEvidenceExchange': exchange.toJson()},
+    );
+
+    final AssistantEvidenceExchange? loaded = await repository
+        .loadAssistantEvidenceExchange(
+          AssistantConversationScope.primarySiConsole,
+        );
+
+    expect(loaded, isNotNull);
+    expect(loaded!.request.requestId, exchange.request.requestId);
+    expect(loaded.response.message, exchange.response.message);
+    expect(loaded.manifest.snapshotVersion, exchange.manifest.snapshotVersion);
+    loaded.validate();
+  });
+
+  test('persisted evidence exchange fails closed after tampering', () async {
+    final AssistantEvidenceExchange exchange = _exchange(
+      accountScopeId: repository.accountScopeId!,
+    );
+    final Map<String, dynamic> tampered =
+        jsonDecode(jsonEncode(exchange.toJson()))! as Map<String, dynamic>;
+    (tampered['response']! as Map<String, dynamic>)['message'] =
+        'Forged persisted response';
+    await repository.saveState(
+      AssistantConversationScope.primarySiConsole,
+      <String, dynamic>{'assistantEvidenceExchange': tampered},
+    );
+
+    final AssistantEvidenceExchange? loaded = await Logger.withMutedErrors(
+      () => repository.loadAssistantEvidenceExchange(
+        AssistantConversationScope.primarySiConsole,
+      ),
+    );
+
+    expect(loaded, isNull);
+  });
+
+  test('persisted evidence exchange cannot cross account scope', () async {
+    final AssistantEvidenceExchange wrongOwner = _exchange(
+      accountScopeId: AccountStorageScope.authenticated(
+        'different-user',
+      ).v2Namespace!,
+    );
+    await repository.saveState(
+      AssistantConversationScope.primarySiConsole,
+      <String, dynamic>{'assistantEvidenceExchange': wrongOwner.toJson()},
+    );
+
+    final AssistantEvidenceExchange? loaded = await Logger.withMutedErrors(
+      () => repository.loadAssistantEvidenceExchange(
+        AssistantConversationScope.primarySiConsole,
+      ),
+    );
+
+    expect(loaded, isNull);
   });
 
   test('isolates state by account, surface, and conversation', () async {
@@ -181,4 +297,54 @@ void main() {
     await repository.clearLegacyState();
     expect(await store.readString('si_engine_state_v1'), isNull);
   });
+}
+
+AssistantEvidenceExchange _exchange({required String accountScopeId}) {
+  final DateTime now = DateTime.utc(2026, 8, 20, 18);
+  const AssistantConversationScope conversation =
+      AssistantConversationScope.primarySiConsole;
+  final AssistantRequestEnvelope request = createAssistantRequestEnvelope(
+    accountScopeId: accountScopeId,
+    conversation: conversation,
+    kind: AssistantRequestKind.consoleQuery,
+    input: 'What needs attention?',
+    now: now,
+    requestId: 'persisted-evidence-request',
+  );
+  final AssistantEvidenceBundle evidence = AssistantEvidenceBundle(
+    requestId: request.requestId,
+    conversation: conversation,
+    collectedAt: now,
+    items: <AssistantEvidenceItem>[
+      AssistantEvidenceItem(
+        evidenceId: 'persisted-task-fact',
+        kind: AssistantEvidenceKind.domainFact,
+        sourceId: 'tasks',
+        summary: 'One current task needs attention.',
+        observedAt: now,
+        freshness: AssistantEvidenceFreshness.current,
+      ),
+    ],
+  );
+  final AssistantResponseEnvelope response = AssistantResponseEnvelope(
+    responseId: 'persisted-evidence-response',
+    requestId: request.requestId,
+    accountScopeId: request.accountScopeId,
+    conversation: conversation,
+    status: AssistantResponseStatus.completed,
+    message: 'Review the current task.',
+    processingMode: AssistantContractProcessingMode.onDevice,
+    generatedAt: now,
+    evidence: evidence,
+  );
+  return AssistantEvidenceExchange(
+    request: request,
+    response: response,
+    manifest: createAssistantEvidenceManifest(
+      request: request,
+      evidence: evidence,
+      responseMessage: response.message,
+      createdAt: now,
+    ),
+  );
 }

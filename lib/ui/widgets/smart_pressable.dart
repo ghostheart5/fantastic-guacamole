@@ -11,6 +11,7 @@ class SmartPressable extends StatefulWidget {
     this.duration = const Duration(milliseconds: 100),
     this.semanticLabel,
     this.button = true,
+    this.selected,
     super.key,
   });
 
@@ -25,6 +26,7 @@ class SmartPressable extends StatefulWidget {
   /// child already carries its own label (e.g. visible text) are unaffected.
   final String? semanticLabel;
   final bool button;
+  final bool? selected;
 
   @override
   State<SmartPressable> createState() => _SmartPressableState();
@@ -81,11 +83,13 @@ class _SmartPressableState extends State<SmartPressable> {
     if (label == null) {
       return gesture;
     }
-    // ExcludeSemantics prevents the child's own text/icon semantics (if any)
-    // from being announced alongside this label, avoiding double-reads.
+    // The outer node provides both the name and the action. Excluding child
+    // semantics prevents duplicated text while preserving TalkBack activation.
     return Semantics(
       label: label,
       button: widget.button,
+      selected: widget.selected,
+      onTap: () => unawaited(_handleTap()),
       child: ExcludeSemantics(child: gesture),
     );
   }

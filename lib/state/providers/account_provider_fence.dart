@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/state/core/state_bootstrap.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/behavior_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
@@ -78,6 +79,8 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(personalizationProfileProvider);
   ref.invalidate(observedPlanningPatternsProvider);
   ref.invalidate(cloudSyncPreferenceProvider);
+  ref.invalidate(assistantBetaOptInProvider);
+  ref.invalidate(assistantReleaseDecisionProvider);
   ref.invalidate(extendedDomainRepositoryProvider);
   ref.invalidate(extendedDomainBootstrapProvider);
   ref.invalidate(notesProvider);

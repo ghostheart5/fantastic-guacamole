@@ -483,6 +483,14 @@ class _FakeMemoryRepository implements IMemoryRepository {
   List<MemoryEntity> getMemories() => List<MemoryEntity>.from(_memories);
 
   @override
+  List<MemoryEntity> getMemoriesForSurface(MemorySurface surface) => _memories
+      .where((MemoryEntity memory) => memory.sourceSurface == surface)
+      .toList(growable: false);
+
+  @override
+  Future<void> deleteAllMemories() async => _memories.clear();
+
+  @override
   Future<void> saveMemory(MemoryEntity memory) async {
     final int index = _memories.indexWhere(
       (MemoryEntity item) => item.id == memory.id,

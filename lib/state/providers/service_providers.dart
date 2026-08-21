@@ -74,7 +74,7 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
     logs: ref.read(logRepositoryProvider),
     timeline: ref.read(timelineRepositoryProvider),
     progression: ref.read(progressionRepositoryProvider),
-    memories: ref.read(memoryRepositoryProvider),
+    memories: ref.watch(memoryRepositoryProvider),
     plan: ref.read(planRepositoryProvider),
     notifications: ref.read(notificationsRepositoryProvider),
     profile: ref.read(profileRepositoryProvider),
@@ -84,7 +84,7 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
 final siEngineServiceProvider = Provider<StateSiEngineService>((Ref ref) {
   return StateSiEngineService(
     ref.watch(siEngineRepositoryProvider),
-    dependencies: ref.read(siEngineDependenciesProvider),
+    dependencies: ref.watch(siEngineDependenciesProvider),
   );
 });
 

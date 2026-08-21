@@ -27,7 +27,7 @@ class PersonalizationProfile {
     this.recommendationMode = RecommendationMode.gentle,
     this.explanationDepth = ExplanationDepth.standard,
     this.useEmotionSignals = true,
-    this.useMemoryContext = true,
+    this.useMemoryContext = false,
     this.externalAiAllowed = false,
     this.lastReviewedAt,
   });
@@ -120,7 +120,7 @@ class PersonalizationProfile {
         ExplanationDepth.standard,
       ),
       useEmotionSignals: json['useEmotionSignals'] as bool? ?? true,
-      useMemoryContext: json['useMemoryContext'] as bool? ?? true,
+      useMemoryContext: json['useMemoryContext'] as bool? ?? false,
       externalAiAllowed: json['externalAiAllowed'] as bool? ?? false,
       lastReviewedAt: DateTime.tryParse(
         json['lastReviewedAt']?.toString() ?? '',

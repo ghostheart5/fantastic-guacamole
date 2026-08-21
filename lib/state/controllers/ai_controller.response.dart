@@ -705,6 +705,12 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         'communicationContract': communicationContract,
         'requestContract': typedRequest.toJson(),
         'responseContract': recommendation.contract!.toJson(),
+        'evidenceManifest': recommendation.evidenceManifest!.toJson(),
+        'assistantEvidenceExchange': AssistantEvidenceExchange(
+          request: typedRequest,
+          response: recommendation.contract!,
+          manifest: recommendation.evidenceManifest!,
+        ).toJson(),
       }, conversation: conversation);
       ref.invalidate(
         conversation.surface == AssistantSurface.smartPlanner

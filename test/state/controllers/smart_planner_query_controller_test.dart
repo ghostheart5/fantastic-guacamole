@@ -1,449 +1,234 @@
-import 'dart:async';
+import 'dart:io';
 
-import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
-import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
-import 'package:fantastic_guacamole/data/storage/secure_store.dart';
-import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
+import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
+import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/state/controllers/smart_planner_query_controller.dart';
-import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import '../../helpers/path_provider_harness.dart';
 
 void main() {
-  useTemporaryPathProvider();
+  test('Planner V2 returns the complete typed response contract', () async {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+    final SmartPlannerQueryController controller = container.read(
+      smartPlannerQueryControllerProvider,
+    );
 
-  setUp(() {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final SmartPlannerResult result = await controller.requestPlanningGuidance(
+      energy: 0.61,
+      emotion: EmotionalState.calm,
+      notes: 'I need to focus on the launch checklist',
+      history: const <Map<String, String>>[],
+      previousSavedNotes: 'must not be reused or changed',
+    );
+
+    final PlannerV2Response response = result.plannerResponse;
+    expect(response.whatIHeard, contains('launch checklist'));
+    expect(response.mattersMost, isNotEmpty);
+    expect(response.verifiedEvidence, hasLength(4));
+    expect(
+      response.options.map((PlannerOption option) => option.kind),
+      containsAllInOrder(PlannerOptionKind.values),
+    );
+    expect(response.recommendedOption.kind, PlannerOptionKind.bestFit);
+    expect(response.recommendationReason, isNotEmpty);
+    expect(response.nextStep, isNotEmpty);
+    expect(response.usefulQuestion, isNotEmpty);
+    expect(response.adaptationReceipt.energyPercent, 61);
+    expect(response.adaptationReceipt.userSelectedEmotion, EmotionalState.calm);
+    expect(response.controls, containsAll(PlannerActionControl.values));
+    expect(response.origin, PlannerResponseOrigin.deterministic);
+    expect(result.savedNotes, isNull);
+    expect(result.processingMode, AIProcessingMode.onDevice);
+    expect(result.evidence, contains(contains('not AI-generated')));
+    result.request.validate();
+    result.response.validateAgainst(result.request);
+    result.evidenceManifest.validateAgainstResponse(result.response);
+    expect(
+      result.safetyReceipt.disposition,
+      AssistantSafetyDisposition.approved,
+    );
   });
 
   test(
-    'requestPlanningGuidance falls back to local planning guidance message when AI result is null',
+    'low energy and anxious self-report recommend Minimum without inference',
     () async {
-      final ProviderContainer container = _buildContainer(
-        aiOverride: _NullAIResponseController.new,
-      );
+      final ProviderContainer container = ProviderContainer();
       addTearDown(container.dispose);
-
       final SmartPlannerQueryController controller = container.read(
         smartPlannerQueryControllerProvider,
       );
 
       final SmartPlannerResult result = await controller
           .requestPlanningGuidance(
-            energy: 0.35,
+            energy: 0.31,
             emotion: EmotionalState.anxious,
-            notes: '',
+            notes: 'My work deadline feels overloaded',
             history: const <Map<String, String>>[],
             previousSavedNotes: null,
           );
 
-      expect(result.prompt, contains('practical planning guidance check-in'));
-      expect(result.message, isNotEmpty);
+      expect(result.plannerResponse.recommendedKind, PlannerOptionKind.minimum);
       expect(
-        result.message.toLowerCase(),
-        contains('progress slows because effort gets spread too thin'),
+        result.plannerResponse.adaptationReceipt.adjustments,
+        contains(
+          'Used only your selected emotion; no emotion was inferred from your text.',
+        ),
       );
-      expect(result.message, contains('•'));
-      expect(result.message.toLowerCase(), contains('next step:'));
-      expect(result.message, isNot(contains('🎯 Goal Detected')));
-      expect(result.processingMode, AIProcessingMode.onDevice);
-      expect(
-        result.evidence,
-        contains('Rule-based guidance; no external model used'),
-      );
-      result.request.validate();
-      result.response.validateAgainst(result.request);
+      expect(result.message, contains('Minimum:'));
+      expect(result.message, contains('Best-fit:'));
+      expect(result.message, contains('Stretch:'));
     },
   );
+
+  test('high energy and engaged self-report can recommend Stretch', () async {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+    final SmartPlannerQueryController controller = container.read(
+      smartPlannerQueryControllerProvider,
+    );
+
+    final PlannerV2Response response =
+        (await controller.requestPlanningGuidance(
+          energy: 0.9,
+          emotion: EmotionalState.engaged,
+          notes: 'Advance the next goal milestone',
+          history: const <Map<String, String>>[],
+          previousSavedNotes: null,
+        )).plannerResponse;
+
+    expect(response.recommendedKind, PlannerOptionKind.stretch);
+    expect(response.recommendedOption.estimatedMinutes, 60);
+  });
+
+  test('follow-up uses the same read-only typed contract', () async {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+    final SmartPlannerQueryController controller = container.read(
+      smartPlannerQueryControllerProvider,
+    );
+
+    final SmartPlannerResult result = await controller.requestFollowUpResult(
+      input: 'Can you make the habit easier to repeat?',
+      energy: 0.45,
+      emotion: EmotionalState.neutral,
+      reflection: 'private reflection that must not be persisted',
+      history: const <Map<String, String>>[],
+    );
+
+    expect(result.request.kind, AssistantRequestKind.followUp);
+    expect(result.savedNotes, isNull);
+    expect(result.plannerResponse.options, hasLength(3));
+    expect(result.plannerResponse.origin, PlannerResponseOrigin.deterministic);
+  });
+
+  test('local timeout result stays explicit and typed', () {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+    final SmartPlannerQueryController controller = container.read(
+      smartPlannerQueryControllerProvider,
+    );
+
+    final SmartPlannerResult result = controller.localFallbackResult(
+      input: 'Plan this task',
+      message: 'The request timed out.',
+      energy: 0.5,
+      emotion: EmotionalState.neutral,
+      history: const <Map<String, String>>[],
+      reason: 'request_timeout',
+    );
+
+    expect(result.processingMode, AIProcessingMode.onDeviceFallback);
+    expect(result.plannerResponse.mattersMost, 'The request timed out.');
+    expect(result.evidence, contains(contains('request_timeout')));
+  });
+
+  test('Planner request path has no hidden write or stateful model hooks', () {
+    final String source = File(
+      'lib/state/controllers/smart_planner_query_controller.dart',
+    ).readAsStringSync();
+    const List<String> forbidden = <String>[
+      'appendSiReflection',
+      'saveMirroredMemory',
+      'replaceState(',
+      'emotionProvider.notifier',
+      '_persistConversationTurn',
+      'savePlannerMessageUseCaseProvider',
+      'smartPlannerAiResponseProvider',
+      'smartPlannerAiInputProvider',
+      'planProposalProvider',
+      'timelineActionsProvider',
+      'awardXp',
+    ];
+    for (final String token in forbidden) {
+      expect(source, isNot(contains(token)), reason: 'Forbidden hook: $token');
+    }
+    expect(source, contains("'persistenceMode': 'ephemeral_read_only'"));
+  });
 
   test(
-    'requestFollowUp falls back to deterministic reply when AI result is null',
-    () async {
-      final ProviderContainer container = _buildContainer(
-        aiOverride: _NullAIResponseController.new,
-      );
-      addTearDown(container.dispose);
-
-      final SmartPlannerQueryController controller = container.read(
-        smartPlannerQueryControllerProvider,
-      );
-
-      final SmartPlannerResult result = await controller.requestFollowUpResult(
-        input: 'How do I stay motivated?',
-        energy: 0.5,
-        emotion: EmotionalState.neutral,
-        reflection: '',
-        history: const <Map<String, String>>[],
-      );
-      final String reply = result.message;
-
-      expect(reply, isNotEmpty);
-      expect(reply.toLowerCase(), contains('try this next:'));
-      expect(reply.toLowerCase(), contains('planner question:'));
-      result.response.validateAgainst(result.request);
+    'Planner screen has no hidden persistence, analytics, or apply hooks',
+    () {
+      final String source = File(
+        'lib/features/home/ui/smart_planner_screen.dart',
+      ).readAsStringSync();
+      const List<String> forbidden = <String>[
+        'planProposalProvider',
+        'Apply to Timeline',
+        'appendSiReflection',
+        'adaptiveGuidanceProvider',
+        'AppAnalytics.track',
+        'extendedDomainBootstrapProvider',
+        'memoriesActionsProvider',
+        'timelineActionsProvider',
+      ];
+      for (final String token in forbidden) {
+        expect(
+          source,
+          isNot(contains(token)),
+          reason: 'Forbidden hook: $token',
+        );
+      }
+      expect(source, contains('Check-in input stays ephemeral'));
     },
   );
 
-  test('requestFollowUp reflects answered fatigue details', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _NullAIResponseController.new,
-    );
+  test('crisis detection remains active before planning', () {
+    final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
-
-    final SmartPlannerQueryController controller = container.read(
-      smartPlannerQueryControllerProvider,
-    );
-
-    final String reply = await controller.requestFollowUp(
-      input: '5 hours and I haven\'t eaten yet',
-      energy: 0.38,
-      emotion: EmotionalState.fatigued,
-      reflection: '',
-      history: const <Map<String, String>>[],
-    );
-
-    expect(reply.toLowerCase(), contains('not as a diagnosis'));
-    expect(reply.toLowerCase(), contains('persistent, severe, worsening'));
-    expect(reply.toLowerCase(), contains('try this next:'));
-  });
-
-  test('requestFollowUp reflects answered weight loss details', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _NullAIResponseController.new,
-    );
-    addTearDown(container.dispose);
-
-    final SmartPlannerQueryController controller = container.read(
-      smartPlannerQueryControllerProvider,
-    );
-
-    final String reply = await controller.requestFollowUp(
-      input: 'I weigh 190 lbs and want to get to 170 lbs',
-      energy: 0.62,
-      emotion: EmotionalState.neutral,
-      reflection: '',
-      history: const <Map<String, String>>[],
-    );
-
-    expect(reply.toLowerCase(), contains('medical context'));
-    expect(reply.toLowerCase(), contains('not as a diagnosis'));
-    expect(reply.toLowerCase(), contains('try this next:'));
-  });
-
-  test('requestFollowUp reflects answered stress details', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _NullAIResponseController.new,
-    );
-    addTearDown(container.dispose);
-
-    final SmartPlannerQueryController controller = container.read(
-      smartPlannerQueryControllerProvider,
-    );
-
-    final String reply = await controller.requestFollowUp(
-      input: 'My work deadline is tomorrow and I feel overloaded',
-      energy: 0.42,
-      emotion: EmotionalState.anxious,
-      reflection: '',
-      history: const <Map<String, String>>[],
-    );
-
-    expect(reply.toLowerCase(), contains('are you safe right now'));
-    expect(reply.toLowerCase(), contains('try this next:'));
-  });
-
-  test('requestFollowUp handles weight gain usecase', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _NullAIResponseController.new,
-    );
-    addTearDown(container.dispose);
-
-    final SmartPlannerQueryController controller = container.read(
-      smartPlannerQueryControllerProvider,
-    );
-
-    final String reply = await controller.requestFollowUp(
-      input: 'I want to gain weight and build muscle',
-      energy: 0.58,
-      emotion: EmotionalState.neutral,
-      reflection: '',
-      history: const <Map<String, String>>[],
-    );
-
-    expect(reply.toLowerCase(), contains('medical context'));
-    expect(reply.toLowerCase(), isNot(contains('calorie-dense meal')));
-  });
-
-  test('requestFollowUp handles hydration usecase', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _NullAIResponseController.new,
-    );
-    addTearDown(container.dispose);
-
-    final SmartPlannerQueryController controller = container.read(
-      smartPlannerQueryControllerProvider,
-    );
-
-    final String reply = await controller.requestFollowUp(
-      input: 'I have been dehydrated and need more water today',
-      energy: 0.66,
-      emotion: EmotionalState.neutral,
-      reflection: '',
-      history: const <Map<String, String>>[],
-    );
-
-    expect(reply.toLowerCase(), contains('fluid restriction'));
-    expect(reply.toLowerCase(), isNot(contains('full glass of water')));
-  });
-
-  test('requestFollowUp handles burnout usecase', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _NullAIResponseController.new,
-    );
-    addTearDown(container.dispose);
-
-    final SmartPlannerQueryController controller = container.read(
-      smartPlannerQueryControllerProvider,
-    );
-
-    final String reply = await controller.requestFollowUp(
-      input: 'I feel burned out and overloaded',
-      energy: 0.31,
-      emotion: EmotionalState.negative,
-      reflection: '',
-      history: const <Map<String, String>>[],
-    );
-
-    expect(reply.toLowerCase(), contains('are you safe right now'));
-  });
-
-  test('requestFollowUp handles career usecase', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _NullAIResponseController.new,
-    );
-    addTearDown(container.dispose);
-
-    final SmartPlannerQueryController controller = container.read(
-      smartPlannerQueryControllerProvider,
-    );
-
-    final String reply = await controller.requestFollowUp(
-      input: 'I need to think about my next career move',
-      energy: 0.57,
-      emotion: EmotionalState.neutral,
-      reflection: '',
-      history: const <Map<String, String>>[],
-    );
-
-    expect(
-      reply.toLowerCase(),
-      contains('what outcome matters most right now'),
-    );
-    expect(reply.toLowerCase(), contains('try this next:'));
-  });
-
-  test('requestFollowUp reflects answered nutrition details', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _NullAIResponseController.new,
-    );
-    addTearDown(container.dispose);
-
-    final SmartPlannerQueryController controller = container.read(
-      smartPlannerQueryControllerProvider,
-    );
-
-    final String reply = await controller.requestFollowUp(
-      input: 'I have not eaten yet today',
-      energy: 0.55,
-      emotion: EmotionalState.neutral,
-      reflection: '',
-      history: const <Map<String, String>>[],
-    );
-
-    expect(reply.toLowerCase(), contains('medical context'));
-    expect(reply.toLowerCase(), contains('try this next:'));
-  });
-
-  test('detectsCrisis flags high-risk phrasing', () {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _NullAIResponseController.new,
-    );
-    addTearDown(container.dispose);
-
     final SmartPlannerQueryController controller = container.read(
       smartPlannerQueryControllerProvider,
     );
 
     expect(controller.detectsCrisis('I want to kill myself tonight'), isTrue);
-    expect(
-      controller.detectsCrisis('I had a rough day but will rest'),
-      isFalse,
-    );
+    expect(controller.detectsCrisis('I had a difficult day'), isFalse);
   });
 
-  test('requestPlanningGuidance falls back when AI execution throws', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _ThrowingAIResponseController.new,
-    );
+  test('direct crisis request cannot enter ordinary planning', () async {
+    final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
-
     final SmartPlannerQueryController controller = container.read(
       smartPlannerQueryControllerProvider,
     );
 
-    final SmartPlannerResult result = await Logger.withMutedErrors(
-      () => controller.requestPlanningGuidance(
-        energy: 0.52,
-        emotion: EmotionalState.engaged,
-        notes: '',
+    await expectLater(
+      controller.requestPlanningGuidance(
+        energy: 0.7,
+        emotion: EmotionalState.anxious,
+        notes: 'I want to kill myself tonight',
         history: const <Map<String, String>>[],
         previousSavedNotes: null,
       ),
-    );
-
-    expect(result.message, isNotEmpty);
-    expect(
-      result.message.toLowerCase(),
-      contains('when priorities are unclear'),
-    );
-    expect(result.message, contains('•'));
-  });
-
-  test(
-    'requestPlanningGuidance ignores non-actionable AI dedup fallback text',
-    () async {
-      final ProviderContainer container = _buildContainer(
-        aiOverride: _EvidenceFallbackAIResponseController.new,
-      );
-      addTearDown(container.dispose);
-
-      final SmartPlannerQueryController controller = container.read(
-        smartPlannerQueryControllerProvider,
-      );
-
-      final SmartPlannerResult result = await controller
-          .requestPlanningGuidance(
-            energy: 0.33,
-            emotion: EmotionalState.fatigued,
-            notes: '',
-            history: const <Map<String, String>>[],
-            previousSavedNotes: null,
-          );
-
-      expect(
-        result.message.toLowerCase(),
-        isNot(contains('available app evidence has not changed')),
-      );
-      expect(result.message.toLowerCase(), contains('many causes'));
-      expect(result.message.toLowerCase(), contains('not enough to identify'));
-    },
-  );
-
-  test('requestFollowUp falls back when AI execution times out', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _ThrowingAIResponseController.new,
-    );
-    addTearDown(container.dispose);
-
-    final SmartPlannerQueryController controller = container.read(
-      smartPlannerQueryControllerProvider,
-    );
-
-    final String reply = await Logger.withMutedErrors(
-      () => controller.requestFollowUp(
-        input: 'How do I begin when overwhelmed?',
-        energy: 0.38,
-        emotion: EmotionalState.fatigued,
-        reflection: 'Too much context switching today',
-        history: const <Map<String, String>>[],
-      ),
-    );
-
-    expect(reply, isNotEmpty);
-    expect(reply.toLowerCase(), contains('try this next:'));
-    expect(reply.toLowerCase(), contains('planner question:'));
-  });
-}
-
-ProviderContainer _buildContainer({
-  required AIResponseController Function() aiOverride,
-}) {
-  return ProviderContainer(
-    overrides: [
-      secureStoreProvider.overrideWithValue(
-        SecureStore(backend: InMemorySecureStoreBackend()),
-      ),
-      profileProvider.overrideWith(_TestProfileController.new),
-      workspaceStoreServiceProvider.overrideWithValue(
-        WorkspaceStoreService(
-          store: SecureStore(backend: InMemorySecureStoreBackend()),
+      throwsA(
+        isA<AssistantSafetyRouteException>().having(
+          (AssistantSafetyRouteException error) => error.code,
+          'code',
+          'crisis_route_required',
         ),
       ),
-      smartPlannerAiResponseProvider.overrideWith(aiOverride),
-    ],
-  );
-}
-
-class _NullAIResponseController extends AIResponseController {
-  @override
-  Future<AIRecommendation?> build() async {
-    return null;
-  }
-
-  @override
-  Future<AIRecommendation?> executeSmartPlannerQuery({
-    required String input,
-    List<Map<String, String>> history = const <Map<String, String>>[],
-    Map<String, dynamic> context = const <String, dynamic>{},
-  }) async {
-    return null;
-  }
-}
-
-class _ThrowingAIResponseController extends AIResponseController {
-  @override
-  Future<AIRecommendation?> build() async {
-    return null;
-  }
-
-  @override
-  Future<AIRecommendation?> executeSmartPlannerQuery({
-    required String input,
-    List<Map<String, String>> history = const <Map<String, String>>[],
-    Map<String, dynamic> context = const <String, dynamic>{},
-  }) async {
-    throw TimeoutException('simulated ai timeout');
-  }
-}
-
-class _EvidenceFallbackAIResponseController extends AIResponseController {
-  @override
-  Future<AIRecommendation?> build() async {
-    return null;
-  }
-
-  @override
-  Future<AIRecommendation?> executeSmartPlannerQuery({
-    required String input,
-    List<Map<String, String>> history = const <Map<String, String>>[],
-    Map<String, dynamic> context = const <String, dynamic>{},
-  }) async {
-    return const AIRecommendation(
-      message:
-          'The available app evidence has not changed enough for a different answer. Ask from another angle.',
-      reasoning: 'final_dedup_fallback',
     );
-  }
-}
-
-class _TestProfileController extends ProfileController {
-  @override
-  ProfileState build() => ProfileState();
+  });
 }
