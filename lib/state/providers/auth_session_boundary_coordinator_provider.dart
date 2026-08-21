@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
@@ -118,6 +119,25 @@ class AuthSessionBoundaryCoordinator {
         // owner marker lets a later sign-in prove which account may reopen it.
         invalidateAccountOwnedProviders(_ref);
         boundary.complete(generation, storageReady: false);
+        return;
+      }
+
+      // QA mock mode uses an in-memory secure store, while its Hive fixtures
+      // intentionally survive app restarts. Requiring a persisted secure owner
+      // marker in that one configuration would lock the deterministic mock
+      // account out of its own fixtures on every cold start. This exception is
+      // restricted to the explicitly enabled tester account and cannot apply
+      // to production authentication.
+      final bool isAuthorizedMockAccount =
+          Env.isMockMode && Env.hasTesterFullAccess && currentId == 'mock-user';
+      if (isAuthorizedMockAccount) {
+        await _ref
+            .read(secureStoreProvider)
+            .writeString(_accountMarkerKey, currentId);
+        if (!_isLatest(sequence)) return;
+        invalidateAccountOwnedProviders(_ref);
+        boundary.markStorageReady(generation);
+        boundary.complete(generation);
         return;
       }
 
