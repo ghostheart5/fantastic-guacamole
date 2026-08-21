@@ -311,18 +311,21 @@ foreach ($featureRoot in $featureUiRoots) {
   }
 }
 
-# Rule 12: SI chat clean path critical links.
+# Rule 12: SI V2 read-only path critical links.
 $siConsolePath = Join-Path $root 'lib/features/si_console/ui/si_console_screen.dart'
 if (Test-Path $siConsolePath) {
   $siConsoleRaw = Get-Content -Path $siConsolePath -Raw
-  if ($siConsoleRaw -notmatch 'aiControllerProvider\)\s*\.sendMessage\(') {
-    $violations.Add('lib/features/si_console/ui/si_console_screen.dart:1 -> SI Console must route chat through aiControllerProvider.sendMessage(text)') | Out-Null
+  if ($siConsoleRaw -notmatch 'siV2QueryServiceProvider\)\s*\.analyze\(') {
+    $violations.Add('lib/features/si_console/ui/si_console_screen.dart:1 -> SI Console must route analysis through the read-only siV2QueryServiceProvider.analyze(query) boundary') | Out-Null
   }
   if ($siConsoleRaw -notmatch 'siConsoleQueryControllerProvider\)\s*\.detectsCrisis\(') {
     $violations.Add('lib/features/si_console/ui/si_console_screen.dart:1 -> SI Console must delegate crisis gating through siConsoleQueryControllerProvider.detectsCrisis(text)') | Out-Null
   }
   if ($siConsoleRaw -match 'aiResponseProvider\.notifier\)\s*\.executeConsoleQuery\(') {
-    $violations.Add('lib/features/si_console/ui/si_console_screen.dart:1 -> SI Console must not call aiResponseProvider.executeConsoleQuery directly; route through aiControllerProvider.sendMessage(text)') | Out-Null
+    $violations.Add('lib/features/si_console/ui/si_console_screen.dart:1 -> SI Console must not call aiResponseProvider.executeConsoleQuery directly; route through siV2QueryServiceProvider.analyze(query)') | Out-Null
+  }
+  if ($siConsoleRaw -match 'aiControllerProvider\)\s*\.sendMessage\(') {
+    $violations.Add('lib/features/si_console/ui/si_console_screen.dart:1 -> SI Console V2 must not route through the legacy mutable AI controller') | Out-Null
   }
 }
 

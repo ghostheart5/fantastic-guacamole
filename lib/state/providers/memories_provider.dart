@@ -2,7 +2,9 @@ import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/policies/memory_governance_policy.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -204,6 +206,10 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
         'Sign in with a verified account before saving a preference.',
       );
     }
+    await requireAssistantReleaseCapability(
+      ref,
+      AssistantReleaseCapability.governedMemory,
+    );
     final String normalized = MemoryGovernancePolicy.validatePreferenceText(
       text,
     );

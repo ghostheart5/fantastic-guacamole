@@ -3,12 +3,14 @@ import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/milestone_usecases.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -124,9 +126,36 @@ final class SIV2QueryService implements SIV2QueryPort {
 }
 
 final siV2QueryServiceProvider = Provider<SIV2QueryPort>((Ref ref) {
-  return SIV2QueryService(
+  final SIV2QueryPort delegate = SIV2QueryService(
     readEvidence: (DateTime observedAt) =>
         ref.read(siV2ReadGatewayProvider).read(observedAt: observedAt),
     clock: ref.watch(siV2ClockProvider),
   );
+  return _ReleaseControlledSIV2QueryPort(ref, delegate: delegate);
 });
+
+final class _ReleaseControlledSIV2QueryPort implements SIV2QueryPort {
+  const _ReleaseControlledSIV2QueryPort(this._ref, {required this.delegate});
+
+  final Ref _ref;
+  final SIV2QueryPort delegate;
+
+  @override
+  Future<SIV2Response> analyze(SIV2Query query) async {
+    if (CrisisDetectionPolicy.detects(query.rawText)) {
+      throw const AssistantSafetyRouteException(
+        'crisis_route_required',
+        'SI Console must show the dedicated crisis support route.',
+      );
+    }
+    await requireAssistantReleaseCapability(
+      _ref,
+      AssistantReleaseCapability.siConsoleV2,
+    );
+    await requireAssistantReleaseCapability(
+      _ref,
+      AssistantReleaseCapability.safetyCritic,
+    );
+    return delegate.analyze(query);
+  }
+}

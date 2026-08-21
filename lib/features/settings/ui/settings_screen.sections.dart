@@ -773,6 +773,96 @@ class _PreferenceDropdown<T> extends StatelessWidget {
   }
 }
 
+class _AssistantReleaseSection extends ConsumerWidget {
+  const _AssistantReleaseSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<bool> optIn = ref.watch(assistantBetaOptInProvider);
+    final AsyncValue<AssistantReleaseConfig> config = ref.watch(
+      assistantReleaseConfigProvider,
+    );
+    final AsyncValue<AssistantReleaseDecision> plannerDecision = ref.watch(
+      assistantReleaseDecisionProvider(
+        AssistantReleaseCapability.smartPlannerV2,
+      ),
+    );
+    final AssistantReleaseConfig? loadedConfig = config.asData?.value;
+    return _Section(
+      label: 'ASSISTANT RELEASE CONTROL',
+      accentColor: AppColors.neonViolet,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: Text(
+              'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Planner, SI, memory, and critic each have an independent emergency rollback.',
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+          _NeonToggleTile(
+            title: 'Join opt-in assistant beta',
+            value: optIn.asData?.value ?? false,
+            onChanged: optIn.isLoading
+                ? null
+                : (bool value) => unawaited(
+                    ref
+                        .read(assistantBetaOptInProvider.notifier)
+                        .setEnabled(value),
+                  ),
+          ),
+          _NeonStatusTile(
+            title: 'Release stage',
+            subtitle: loadedConfig == null
+                ? 'Loading fail-closed release configuration...'
+                : loadedConfig.configurationValid
+                ? loadedConfig.stage.name
+                : 'Disabled: ${loadedConfig.configurationIssue}',
+          ),
+          _NeonStatusTile(
+            title: 'Your Planner cohort',
+            subtitle: plannerDecision.when(
+              data: (AssistantReleaseDecision decision) =>
+                  '${decision.cohort.name} · ${decision.enabled ? 'enabled' : 'not enabled'}',
+              loading: () => 'Resolving without exposing account identity...',
+              error: (Object _, StackTrace _) =>
+                  'Disabled because release state could not be verified.',
+            ),
+          ),
+          _NeonStatusTile(
+            title: 'Privacy-safe shadow evaluation',
+            subtitle: loadedConfig?.shadowEvaluationEnabled == true
+                ? 'Enabled for digests and finding codes only; cannot publish or write.'
+                : 'Disabled',
+          ),
+          for (final AssistantReleaseCapability capability
+              in AssistantReleaseCapability.values)
+            _NeonStatusTile(
+              title: _assistantCapabilityLabel(capability),
+              subtitle: loadedConfig?.isRolledBack(capability) == true
+                  ? 'Emergency rollback active'
+                  : 'Independent rollback ready',
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+String _assistantCapabilityLabel(AssistantReleaseCapability capability) {
+  return switch (capability) {
+    AssistantReleaseCapability.smartPlannerV2 => 'Smart Planner V2',
+    AssistantReleaseCapability.siConsoleV2 => 'SI Console V2',
+    AssistantReleaseCapability.governedMemory => 'Governed memory',
+    AssistantReleaseCapability.safetyCritic => 'Safety critic',
+  };
+}
+
 class _AdaptiveGuidanceSection extends ConsumerWidget {
   const _AdaptiveGuidanceSection();
 
@@ -1226,7 +1316,7 @@ class _NeonToggleTile extends StatelessWidget {
   });
   final String title;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {

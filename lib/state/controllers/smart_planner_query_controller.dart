@@ -5,9 +5,11 @@ import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dar
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -157,6 +159,7 @@ class SmartPlannerQueryController
         ? 'Give me a practical planning check-in for my current energy and emotional state.'
         : notes.trim();
     _requireNonCrisisRoute(prompt);
+    await _requireReleaseCapabilities();
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.planningGuidance,
       input: prompt,
@@ -203,6 +206,7 @@ class SmartPlannerQueryController
   }) async {
     final String prompt = input.trim();
     _requireNonCrisisRoute(prompt);
+    await _requireReleaseCapabilities();
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.followUp,
       input: prompt,
@@ -441,6 +445,17 @@ class SmartPlannerQueryController
         'Smart Planner must show the dedicated crisis support route.',
       );
     }
+  }
+
+  Future<void> _requireReleaseCapabilities() async {
+    await requireAssistantReleaseCapability(
+      _ref,
+      AssistantReleaseCapability.smartPlannerV2,
+    );
+    await requireAssistantReleaseCapability(
+      _ref,
+      AssistantReleaseCapability.safetyCritic,
+    );
   }
 
   static PlannerOptionKind _recommendedKind({
