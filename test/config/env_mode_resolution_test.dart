@@ -1,6 +1,14 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+const bool _qaDefinesProvided =
+    bool.hasEnvironment('CHRONOSPARK_APP_FLAVOR') &&
+    bool.hasEnvironment('CHRONOSPARK_ENABLE_MOCK_LOGIN') &&
+    bool.hasEnvironment('CHRONOSPARK_ENABLE_MOCK_MODE') &&
+    bool.hasEnvironment('CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS') &&
+    bool.hasEnvironment('CHRONOSPARK_PAYWALL_DISABLED');
 
 void main() {
   group('Env mode resolution', () {
@@ -125,6 +133,24 @@ void main() {
         isTrue,
       );
     });
+
+    test(
+      'explicit QA defines take precedence over bundled debug dotenv flags',
+      () async {
+        await dotenv.load(fileName: '.env');
+
+        expect(Env.appFlavor, 'qa');
+        expect(Env.enableMockLogin, isTrue);
+        expect(Env.enableMockMode, isTrue);
+        expect(Env.enableTesterFullAccess, isTrue);
+        expect(Env.enablePaywallDisabled, isTrue);
+        expect(Env.isMockMode, isTrue);
+        expect(Env.hasTesterFullAccess, isTrue);
+      },
+      skip: _qaDefinesProvided
+          ? false
+          : 'Run with --dart-define-from-file=tool/qa_defines.json.',
+    );
 
     test('receipt verification endpoint derives from configuration safely', () {
       expect(

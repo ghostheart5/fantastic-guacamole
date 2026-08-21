@@ -17,9 +17,15 @@ abstract final class Env {
     'CHRONOSPARK_APP_FLAVOR',
     defaultValue: 'prod',
   );
+  static const bool _hasAppFlavorDefine = bool.hasEnvironment(
+    'CHRONOSPARK_APP_FLAVOR',
+  );
   static const bool _enableVerboseLogsDefine = bool.fromEnvironment(
     'CHRONOSPARK_VERBOSE_LOGS',
     defaultValue: false,
+  );
+  static const bool _hasEnableVerboseLogsDefine = bool.hasEnvironment(
+    'CHRONOSPARK_VERBOSE_LOGS',
   );
   static const bool _enableCrashReportingDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_CRASH_REPORTING',
@@ -36,17 +42,29 @@ abstract final class Env {
     // default for any build that was not BOTH release mode AND prod flavor.
     defaultValue: false,
   );
+  static const bool _hasEnableMockLoginDefine = bool.hasEnvironment(
+    'CHRONOSPARK_ENABLE_MOCK_LOGIN',
+  );
   static const bool _enableMockModeDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_MOCK_MODE',
     defaultValue: false,
+  );
+  static const bool _hasEnableMockModeDefine = bool.hasEnvironment(
+    'CHRONOSPARK_ENABLE_MOCK_MODE',
   );
   static const bool _enablePaywallDisabledDefine = bool.fromEnvironment(
     'CHRONOSPARK_PAYWALL_DISABLED',
     defaultValue: false,
   );
+  static const bool _hasEnablePaywallDisabledDefine = bool.hasEnvironment(
+    'CHRONOSPARK_PAYWALL_DISABLED',
+  );
   static const bool _enableTesterFullAccessDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
     defaultValue: false,
+  );
+  static const bool _hasEnableTesterFullAccessDefine = bool.hasEnvironment(
+    'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
   );
   static const String _mockLoginEmailDefine = String.fromEnvironment(
     'CHRONOSPARK_MOCK_LOGIN_EMAIL',
@@ -114,27 +132,41 @@ abstract final class Env {
     defaultValue: false,
   );
 
-  static String get appFlavor =>
-      _readRiskString('CHRONOSPARK_APP_FLAVOR', _appFlavorDefine);
-  static bool get enableVerboseLogs =>
-      _readRiskBool('CHRONOSPARK_VERBOSE_LOGS', _enableVerboseLogsDefine);
+  static String get appFlavor => _readRiskString(
+    'CHRONOSPARK_APP_FLAVOR',
+    _appFlavorDefine,
+    defineProvided: _hasAppFlavorDefine,
+  );
+  static bool get enableVerboseLogs => _readRiskBool(
+    'CHRONOSPARK_VERBOSE_LOGS',
+    _enableVerboseLogsDefine,
+    defineProvided: _hasEnableVerboseLogsDefine,
+  );
   static bool get enableCrashReporting => _readBool(
     'CHRONOSPARK_ENABLE_CRASH_REPORTING',
     _enableCrashReportingDefine,
   );
   static bool get enableAnalytics =>
       _readBool('CHRONOSPARK_ENABLE_ANALYTICS', _enableAnalyticsDefine);
-  static bool get enableMockLogin =>
-      _readRiskBool('CHRONOSPARK_ENABLE_MOCK_LOGIN', _enableMockLoginDefine);
-  static bool get enableMockMode =>
-      _readRiskBool('CHRONOSPARK_ENABLE_MOCK_MODE', _enableMockModeDefine);
+  static bool get enableMockLogin => _readRiskBool(
+    'CHRONOSPARK_ENABLE_MOCK_LOGIN',
+    _enableMockLoginDefine,
+    defineProvided: _hasEnableMockLoginDefine,
+  );
+  static bool get enableMockMode => _readRiskBool(
+    'CHRONOSPARK_ENABLE_MOCK_MODE',
+    _enableMockModeDefine,
+    defineProvided: _hasEnableMockModeDefine,
+  );
   static bool get enablePaywallDisabled => _readRiskBool(
     'CHRONOSPARK_PAYWALL_DISABLED',
     _enablePaywallDisabledDefine,
+    defineProvided: _hasEnablePaywallDisabledDefine,
   );
   static bool get enableTesterFullAccess => _readRiskBool(
     'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
     _enableTesterFullAccessDefine,
+    defineProvided: _hasEnableTesterFullAccessDefine,
   );
   static String get mockLoginEmail =>
       _readString('CHRONOSPARK_MOCK_LOGIN_EMAIL', _mockLoginEmailDefine);
@@ -437,8 +469,15 @@ abstract final class Env {
   /// repackaged bundle — could enable mock authentication in a shipped binary,
   /// and a `--dart-define` could not override it. Debug/profile builds keep the
   /// `.env` convenience.
-  static bool _readRiskBool(String key, bool fallback) {
+  static bool _readRiskBool(
+    String key,
+    bool fallback, {
+    required bool defineProvided,
+  }) {
     if (kReleaseMode) {
+      return fallback;
+    }
+    if (defineProvided) {
       return fallback;
     }
     return _readBool(key, fallback);
@@ -446,8 +485,15 @@ abstract final class Env {
 
   /// String counterpart of [_readRiskBool]. Used for the app flavor, which
   /// gates every other production check.
-  static String _readRiskString(String key, String fallback) {
+  static String _readRiskString(
+    String key,
+    String fallback, {
+    required bool defineProvided,
+  }) {
     if (kReleaseMode) {
+      return fallback;
+    }
+    if (defineProvided) {
       return fallback;
     }
     return _readString(key, fallback);
