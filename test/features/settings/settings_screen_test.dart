@@ -1,12 +1,15 @@
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
+import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
+import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
-  testWidgets('opens without provider crash', (WidgetTester tester) async {
+  ProviderContainer createContainer() {
     final ValueNotifier<bool?> permissionListenable = ValueNotifier<bool?>(
       true,
     );
@@ -14,6 +17,15 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        aiCreditWalletProvider.overrideWith(
+          (Ref ref) async => AiCreditWallet(
+            balance: 20,
+            tier: 'free',
+            allowance: 20,
+            resetAt: DateTime(2026, 9),
+            updatedAt: DateTime(2026, 8, 20),
+          ),
+        ),
         settingsUiActionsProvider.overrideWith(
           (Ref ref) => _FakeSettingsUiActions(ref),
         ),
@@ -23,6 +35,25 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    return container;
+  }
+
+  void useTallSurface(WidgetTester tester) {
+    tester.platformDispatcher.views.first
+      ..physicalSize = const Size(1200, 2400)
+      ..devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.platformDispatcher.views.first
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio();
+    });
+  }
+
+  testWidgets('prioritizes plan and credits above collapsed settings groups', (
+    WidgetTester tester,
+  ) async {
+    useTallSurface(tester);
+    final ProviderContainer container = createContainer();
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -33,8 +64,77 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('SETTINGS'), findsOneWidget);
-    expect(find.text('SYSTEM STATUS'), findsOneWidget);
-    expect(find.text('SYSTEM TUNING'), findsOneWidget);
+    expect(find.text('PREFERENCES & ACCOUNT'), findsOneWidget);
+    expect(find.text('PLAN & CREDITS'), findsOneWidget);
+    expect(find.text('SUBSCRIPTION'), findsOneWidget);
+    expect(find.text('20 of 20 available'), findsOneWidget);
+    expect(find.text('Manage plan'), findsOneWidget);
+    expect(find.text('View credits'), findsOneWidget);
+
+    expect(find.text('Appearance & permissions'), findsOneWidget);
+    expect(find.text('Planning & guidance'), findsOneWidget);
+    expect(find.text('Data & account'), findsOneWidget);
+    expect(find.text('Help & legal'), findsOneWidget);
+    expect(find.text('Developer & diagnostics'), findsOneWidget);
+    expect(find.text('APPEARANCE & PERMISSIONS'), findsNothing);
+
+    await tester.tap(find.text('Appearance & permissions'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('APPEARANCE & PERMISSIONS'), findsOneWidget);
+  });
+
+  testWidgets('subscription and credit actions open the paywall route', (
+    WidgetTester tester,
+  ) async {
+    useTallSurface(tester);
+    final ProviderContainer container = createContainer();
+    final GoRouter router = GoRouter(
+      initialLocation: '/settings',
+      routes: <RouteBase>[
+        GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+        GoRoute(
+          path: '/paywall',
+          builder: (_, _) => const Scaffold(body: Text('PAYWALL ROUTE')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final InkWell managePlan = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byKey(const Key('settings_manage_plan')),
+        matching: find.byType(InkWell),
+      ),
+    );
+    managePlan.onTap!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(router.routeInformationProvider.value.uri.path, '/paywall');
+    expect(find.text('PAYWALL ROUTE'), findsOneWidget);
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final InkWell viewCredits = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byKey(const Key('settings_view_credits')),
+        matching: find.byType(InkWell),
+      ),
+    );
+    viewCredits.onTap!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(router.routeInformationProvider.value.uri.path, '/paywall');
+    expect(find.text('PAYWALL ROUTE'), findsOneWidget);
   });
 }
 

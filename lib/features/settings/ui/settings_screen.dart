@@ -52,6 +52,20 @@ class SettingsScreen extends ConsumerWidget {
     final themeAsync = ref.watch(currentThemeProvider);
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
+    final walletAsync = ref.watch(aiCreditWalletProvider);
+    final bool usesAiCredits = Env.isAiProxyConfigured;
+    final String creditLabel = usesAiCredits ? 'AI credits' : 'Smart credits';
+    final String creditValue = walletAsync.when(
+      data: (wallet) => '${wallet.balance} of ${wallet.allowance} available',
+      loading: () => 'Loading balance',
+      error: (_, _) => 'Balance unavailable',
+    );
+    final String creditDetail = walletAsync.when(
+      data: (wallet) =>
+          '${wallet.tier == 'premium' ? 'Premium' : 'Free'} allowance · resets ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
+      loading: () => 'Reading this account’s credit wallet.',
+      error: (_, _) => 'Open credits to retry and review usage.',
+    );
     final bool hasInternalAdvisorAccess = ref.watch(
       internalAdvisorAccessProvider,
     );
@@ -129,7 +143,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ),
                         const Text(
-                          'SYSTEM STATUS',
+                          'PREFERENCES & ACCOUNT',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -143,362 +157,422 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
 
-              _Section(
-                label: 'SYSTEM TUNING',
-                accentColor: AppColors.neonCyan,
-                child: Column(
-                  children: [
-                    _NeonToggleTile(
-                      title: 'Dark Mode',
-                      value: isDarkMode,
-                      onChanged: (bool enabled) {
-                        final AppThemeEntity next = enabled
-                            ? AppThemeEntity.dark()
-                            : AppThemeEntity.light();
-                        unawaited(ref.read(themeActionsProvider).save(next));
-                      },
-                    ),
-                    _NeonToggleTile(
-                      title: 'Audio FX',
-                      value: soundEnabled,
-                      onChanged: (v) =>
-                          ref.read(soundEnabledProvider.notifier).set(v),
-                    ),
-                    ValueListenableBuilder<bool?>(
-                      valueListenable: ref.watch(
-                        notificationPermissionListenableProvider,
-                      ),
-                      builder: (context, granted, _) {
-                        final String subtitle = switch (granted) {
-                          true => 'Granted',
-                          false => 'Denied (scheduling disabled)',
-                          null => 'Unknown until app initializes notifications',
-                        };
-                        return _NeonStatusTile(
-                          title: 'Alert Permission',
-                          subtitle:
-                              '$subtitle · reminder text may appear in device previews',
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    ValueListenableBuilder<bool?>(
-                      valueListenable: ref.watch(
-                        notificationPermissionListenableProvider,
-                      ),
-                      builder: (context, granted, _) {
-                        return NotificationPermissionPrompt(
-                          permissionGranted: granted,
-                          onRequestPermission: () async {
-                            final bool granted = await ref
-                                .read(settingsUiActionsProvider)
-                                .requestNotificationPermissionAndRegisterPush();
-                            return granted;
-                          },
-                          onOpenSystemSettings: () async {
-                            final bool opened = await ref
-                                .read(settingsUiActionsProvider)
-                                .openSystemAppSettings();
-                            if (!context.mounted || opened) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Open your device app settings and enable notifications for ChronoSpark.',
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    VoicePermissionPrompt(
-                      permissionGranted: voicePermissionGranted,
-                      onRequestPermission: () async {
-                        final bool granted = await ref
-                            .read(settingsUiActionsProvider)
-                            .requestVoicePermission();
-                        ref
-                            .read(voicePermissionStatusProvider.notifier)
-                            .set(granted);
-                        return granted;
-                      },
-                      onOpenSystemSettings: () async {
-                        final bool opened = await ref
-                            .read(settingsUiActionsProvider)
-                            .openSystemAppSettings();
-                        if (!context.mounted || opened) {
-                          return;
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Open your device app settings and enable microphone access for ChronoSpark.',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    LocationPermissionPrompt(
-                      result: locationPermissionResult,
-                      onRequestLocation: () async {
-                        final result = await ref
-                            .read(settingsUiActionsProvider)
-                            .requestLocationPermissionAndCurrentLocation();
-                        ref
-                            .read(locationPermissionStatusProvider.notifier)
-                            .set(result);
-                        return result;
-                      },
-                      onOpenAppSettings: () async {
-                        final bool opened = await ref
-                            .read(settingsUiActionsProvider)
-                            .openLocationAppSettings();
-                        if (!context.mounted || opened) {
-                          return opened;
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Open app settings and enable location for ChronoSpark.',
-                            ),
-                          ),
-                        );
-                        return opened;
-                      },
-                      onOpenLocationSettings: () async {
-                        final bool opened = await ref
-                            .read(settingsUiActionsProvider)
-                            .openLocationSystemSettings();
-                        if (!context.mounted || opened) {
-                          return opened;
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Open device location settings and turn location services on.',
-                            ),
-                          ),
-                        );
-                        return opened;
-                      },
-                    ),
-                  ],
-                ),
+              _PlanAndCreditsCard(
+                planStatus: access.subscriptionStatusLabel,
+                planDetail: access.subscriptionStatusDetail,
+                creditLabel: creditLabel,
+                creditValue: creditValue,
+                creditDetail: creditDetail,
+                onOpenPlan: () => context.go(routes.paywall),
+                onOpenCredits: () => context.go(routes.paywall),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              const _ReflectionReminderSection(),
-              const SizedBox(height: 16),
-              const _ReminderAutomationSection(),
-              const SizedBox(height: 16),
-              const _PersonalizationSection(),
-              const SizedBox(height: 16),
-              const _MemoryGovernanceSection(),
-              const SizedBox(height: 16),
-              const _AssistantReleaseSection(),
-              const SizedBox(height: 16),
-              const _AdaptiveGuidanceSection(),
-              const SizedBox(height: 16),
-
-              _Section(
-                label: 'IDENTITY & ACCESS',
-                accentColor: AppColors.neonViolet,
-                child: Column(
-                  children: [
-                    _NeonNavTile(
-                      title: 'Subscription & Paywall',
-                      subtitle: access.subscriptionStatusDetail,
-                      onTap: () => context.go(routes.paywall),
-                    ),
-                    _NeonNavTile(
-                      title: hasMockSignIn ? 'Exit Tester Mode' : 'Log Out',
-                      subtitle: hasMockSignIn
-                          ? 'Return to login and disable the current tester sign-in state.'
-                          : 'Sign out and return to login.',
-                      onTap: () => unawaited(
-                        _signOut(context, ref, hasMockSignIn: hasMockSignIn),
-                      ),
-                    ),
-                    _NeonNavTile(
-                      title: 'Clear Local Data',
-                      subtitle:
-                          'Remove saved planning data, offline actions, notifications, and local intelligence from this device.',
-                      onTap: () =>
-                          unawaited(_confirmClearLocalData(context, ref)),
-                    ),
-                    if (access.hasTesterFullAccess)
-                      _NeonNavTile(
-                        title: 'Reset Tester Data',
-                        subtitle:
-                            'Erase local test content and restart onboarding.',
-                        onTap: () =>
-                            unawaited(_confirmTesterReset(context, ref)),
-                      ),
-                    if (!hasMockSignIn)
-                      _NeonNavTile(
-                        title: 'Delete Account',
-                        subtitle: accountDeletionConfigured
-                            ? 'Permanent deletion of account and synced data.'
-                            : 'Deletion endpoint unavailable in this build; request deletion via support.',
-                        onTap: () => unawaited(
-                          accountDeletionConfigured
-                              ? _confirmDeleteAccount(context, ref)
-                              : _requestAccountDeletionSupport(context, ref),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              if (kDebugMode) ...[
-                _Section(
-                  label: 'RUNTIME FLAGS',
+              _SettingsCategory(
+                title: 'Appearance & permissions',
+                subtitle:
+                    'Theme, sound, alerts, microphone, and location access',
+                icon: Icons.tune_rounded,
+                accent: AppColors.neonCyan,
+                child: _Section(
+                  label: 'APPEARANCE & PERMISSIONS',
                   accentColor: AppColors.neonCyan,
                   child: Column(
                     children: [
-                      _NeonStatusTile(
-                        title: 'Flavor',
-                        subtitle: intelligence.environment.appFlavor,
+                      _NeonToggleTile(
+                        title: 'Dark Mode',
+                        value: isDarkMode,
+                        onChanged: (bool enabled) {
+                          final AppThemeEntity next = enabled
+                              ? AppThemeEntity.dark()
+                              : AppThemeEntity.light();
+                          unawaited(ref.read(themeActionsProvider).save(next));
+                        },
                       ),
-                      _NeonStatusTile(
-                        title: 'Mock Mode',
-                        subtitle: intelligence.flags.mockMode
-                            ? 'Enabled (offline local mode)'
-                            : 'Disabled',
+                      _NeonToggleTile(
+                        title: 'Audio FX',
+                        value: soundEnabled,
+                        onChanged: (v) =>
+                            ref.read(soundEnabledProvider.notifier).set(v),
                       ),
-                      _NeonStatusTile(
-                        title: 'Paywall Disabled',
-                        subtitle: intelligence.flags.paywallDisabled
-                            ? 'Enabled (dev-only bypass)'
-                            : 'Disabled',
+                      ValueListenableBuilder<bool?>(
+                        valueListenable: ref.watch(
+                          notificationPermissionListenableProvider,
+                        ),
+                        builder: (context, granted, _) {
+                          final String subtitle = switch (granted) {
+                            true => 'Granted',
+                            false => 'Denied (scheduling disabled)',
+                            null =>
+                              'Unknown until app initializes notifications',
+                          };
+                          return _NeonStatusTile(
+                            title: 'Alert Permission',
+                            subtitle:
+                                '$subtitle · reminder text may appear in device previews',
+                          );
+                        },
                       ),
-                      _NeonStatusTile(
-                        title: 'Mock Login',
-                        subtitle: intelligence.flags.mockLoginEnabled
-                            ? 'Enabled'
-                            : 'Disabled',
+                      const SizedBox(height: 8),
+                      ValueListenableBuilder<bool?>(
+                        valueListenable: ref.watch(
+                          notificationPermissionListenableProvider,
+                        ),
+                        builder: (context, granted, _) {
+                          return NotificationPermissionPrompt(
+                            permissionGranted: granted,
+                            onRequestPermission: () async {
+                              final bool granted = await ref
+                                  .read(settingsUiActionsProvider)
+                                  .requestNotificationPermissionAndRegisterPush();
+                              return granted;
+                            },
+                            onOpenSystemSettings: () async {
+                              final bool opened = await ref
+                                  .read(settingsUiActionsProvider)
+                                  .openSystemAppSettings();
+                              if (!context.mounted || opened) {
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Open your device app settings and enable notifications for ChronoSpark.',
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
                       ),
-                      _NeonStatusTile(
-                        title: 'Extended Settings',
-                        subtitle: '$extendedSettingsCount loaded',
+                      const SizedBox(height: 8),
+                      VoicePermissionPrompt(
+                        permissionGranted: voicePermissionGranted,
+                        onRequestPermission: () async {
+                          final bool granted = await ref
+                              .read(settingsUiActionsProvider)
+                              .requestVoicePermission();
+                          ref
+                              .read(voicePermissionStatusProvider.notifier)
+                              .set(granted);
+                          return granted;
+                        },
+                        onOpenSystemSettings: () async {
+                          final bool opened = await ref
+                              .read(settingsUiActionsProvider)
+                              .openSystemAppSettings();
+                          if (!context.mounted || opened) {
+                            return;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Open your device app settings and enable microphone access for ChronoSpark.',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      LocationPermissionPrompt(
+                        result: locationPermissionResult,
+                        onRequestLocation: () async {
+                          final result = await ref
+                              .read(settingsUiActionsProvider)
+                              .requestLocationPermissionAndCurrentLocation();
+                          ref
+                              .read(locationPermissionStatusProvider.notifier)
+                              .set(result);
+                          return result;
+                        },
+                        onOpenAppSettings: () async {
+                          final bool opened = await ref
+                              .read(settingsUiActionsProvider)
+                              .openLocationAppSettings();
+                          if (!context.mounted || opened) {
+                            return opened;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Open app settings and enable location for ChronoSpark.',
+                              ),
+                            ),
+                          );
+                          return opened;
+                        },
+                        onOpenLocationSettings: () async {
+                          final bool opened = await ref
+                              .read(settingsUiActionsProvider)
+                              .openLocationSystemSettings();
+                          if (!context.mounted || opened) {
+                            return opened;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Open device location settings and turn location services on.',
+                              ),
+                            ),
+                          );
+                          return opened;
+                        },
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-              ],
-              const _CloudDataControlSection(),
-              const SizedBox(height: 16),
-              if (kDebugMode) ...[
-                const _SupabaseBackendHealthSection(),
-                const SizedBox(height: 16),
-              ],
+              ),
+              const SizedBox(height: 12),
 
-              _Section(
-                label: 'LEGAL & SUPPORT',
-                accentColor: AppColors.memoryAmber,
+              const _SettingsCategory(
+                title: 'Planning & guidance',
+                subtitle:
+                    'Reminders, planning preferences, memory, and tutorials',
+                icon: Icons.auto_awesome_rounded,
+                accent: AppColors.neonViolet,
                 child: Column(
-                  children: [
-                    _NeonNavTile(
-                      title: 'Privacy Policy',
-                      subtitle: legalPoliciesCount > 0
-                          ? 'Live: ${AppUrls.privacy} · local cache:$legalPoliciesCount'
-                          : AppUrls.privacy,
-                      onTap: () => unawaited(
-                        _openExternalWithFallback(
-                          context: context,
-                          ref: ref,
-                          url: AppUrls.privacy,
-                          fallbackRoute: routes.privacy,
-                          failureLabel: 'Privacy policy link unavailable.',
-                        ),
+                  children: <Widget>[
+                    _ReflectionReminderSection(),
+                    SizedBox(height: 10),
+                    _ReminderAutomationSection(),
+                    SizedBox(height: 10),
+                    _PersonalizationSection(),
+                    SizedBox(height: 10),
+                    _MemoryGovernanceSection(),
+                    SizedBox(height: 10),
+                    _AssistantReleaseSection(),
+                    SizedBox(height: 10),
+                    _AdaptiveGuidanceSection(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              _SettingsCategory(
+                title: 'Data & account',
+                subtitle:
+                    'Cloud backup, sign out, local data, and account controls',
+                icon: Icons.shield_outlined,
+                accent: AppColors.neonCyan,
+                child: Column(
+                  children: <Widget>[
+                    const _CloudDataControlSection(),
+                    const SizedBox(height: 10),
+                    _Section(
+                      label: 'ACCOUNT & DEVICE',
+                      accentColor: AppColors.neonViolet,
+                      child: Column(
+                        children: <Widget>[
+                          _NeonNavTile(
+                            title: hasMockSignIn
+                                ? 'Exit Tester Mode'
+                                : 'Log Out',
+                            subtitle: hasMockSignIn
+                                ? 'Return to login and disable the current tester sign-in state.'
+                                : 'Sign out and return to login.',
+                            onTap: () => unawaited(
+                              _signOut(
+                                context,
+                                ref,
+                                hasMockSignIn: hasMockSignIn,
+                              ),
+                            ),
+                          ),
+                          _NeonNavTile(
+                            title: 'Clear Local Data',
+                            subtitle:
+                                'Remove saved planning data, offline actions, notifications, and local intelligence from this device.',
+                            onTap: () =>
+                                unawaited(_confirmClearLocalData(context, ref)),
+                          ),
+                          if (access.hasTesterFullAccess)
+                            _NeonNavTile(
+                              title: 'Reset Tester Data',
+                              subtitle:
+                                  'Erase local test content and restart onboarding.',
+                              onTap: () =>
+                                  unawaited(_confirmTesterReset(context, ref)),
+                            ),
+                          if (!hasMockSignIn)
+                            _NeonNavTile(
+                              title: 'Delete Account',
+                              subtitle: accountDeletionConfigured
+                                  ? 'Permanent deletion of account and synced data.'
+                                  : 'Deletion endpoint unavailable in this build; request deletion via support.',
+                              onTap: () => unawaited(
+                                accountDeletionConfigured
+                                    ? _confirmDeleteAccount(context, ref)
+                                    : _requestAccountDeletionSupport(
+                                        context,
+                                        ref,
+                                      ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                    _NeonNavTile(
-                      title: 'Terms of Service',
-                      onTap: () => unawaited(
-                        _openExternalWithFallback(
-                          context: context,
-                          ref: ref,
-                          url: AppUrls.terms,
-                          fallbackRoute: routes.terms,
-                          failureLabel: 'Terms link unavailable.',
-                        ),
-                      ),
-                    ),
-                    _NeonNavTile(
-                      title: 'Support',
-                      subtitle: 'Help center: ${AppUrls.support}',
-                      onTap: () => unawaited(
-                        _openExternalWithFallback(
-                          context: context,
-                          ref: ref,
-                          url: AppUrls.support,
-                          fallbackRoute: routes.support,
-                          failureLabel: 'Support link unavailable.',
-                        ),
-                      ),
-                    ),
-                    _NeonNavTile(
-                      title: 'Contact Support',
-                      subtitle:
-                          'Review app/device context before sending; no stable device ID is included.',
-                      onTap: () => unawaited(
-                        _contactSupportWithDiagnostics(context, ref),
-                      ),
-                    ),
-                    _NeonNavTile(
-                      title: 'Copy Support Email',
-                      subtitle:
-                          'Copy prefilled support email template to clipboard',
-                      onTap: () =>
-                          unawaited(_copySupportEmailTemplate(context)),
-                    ),
-                    _NeonNavTile(
-                      title: 'Copy Diagnostics',
-                      subtitle:
-                          'Copy a reviewable, identifier-free support summary',
-                      onTap: () =>
-                          unawaited(_copyDiagnosticsToClipboard(context)),
                     ),
                   ],
                 ),
               ),
-              if (kDebugMode) ...[
-                const SizedBox(height: 16),
-                _Section(
-                  label: 'DEV TOOLS',
-                  accentColor: AppColors.neonViolet,
-                  child: _NeonNavTile(
-                    title: 'Generate Test Data',
-                    subtitle: '20 tasks · XP 2400 · streak 14 · energy 75%',
-                    onTap: () =>
-                        unawaited(TestDataGenerator.generate(ref, context)),
+              const SizedBox(height: 12),
+
+              _SettingsCategory(
+                title: 'Help & legal',
+                subtitle: 'Support, privacy, terms, and account assistance',
+                icon: Icons.help_outline_rounded,
+                accent: AppColors.memoryAmber,
+                child: _Section(
+                  label: 'HELP & LEGAL',
+                  accentColor: AppColors.memoryAmber,
+                  child: Column(
+                    children: [
+                      _NeonNavTile(
+                        title: 'Privacy Policy',
+                        subtitle: legalPoliciesCount > 0
+                            ? 'Live: ${AppUrls.privacy} · local cache:$legalPoliciesCount'
+                            : AppUrls.privacy,
+                        onTap: () => unawaited(
+                          _openExternalWithFallback(
+                            context: context,
+                            ref: ref,
+                            url: AppUrls.privacy,
+                            fallbackRoute: routes.privacy,
+                            failureLabel: 'Privacy policy link unavailable.',
+                          ),
+                        ),
+                      ),
+                      _NeonNavTile(
+                        title: 'Terms of Service',
+                        onTap: () => unawaited(
+                          _openExternalWithFallback(
+                            context: context,
+                            ref: ref,
+                            url: AppUrls.terms,
+                            fallbackRoute: routes.terms,
+                            failureLabel: 'Terms link unavailable.',
+                          ),
+                        ),
+                      ),
+                      _NeonNavTile(
+                        title: 'Support',
+                        subtitle: 'Help center: ${AppUrls.support}',
+                        onTap: () => unawaited(
+                          _openExternalWithFallback(
+                            context: context,
+                            ref: ref,
+                            url: AppUrls.support,
+                            fallbackRoute: routes.support,
+                            failureLabel: 'Support link unavailable.',
+                          ),
+                        ),
+                      ),
+                      _NeonNavTile(
+                        title: 'Contact Support',
+                        subtitle:
+                            'Review app/device context before sending; no stable device ID is included.',
+                        onTap: () => unawaited(
+                          _contactSupportWithDiagnostics(context, ref),
+                        ),
+                      ),
+                      _NeonNavTile(
+                        title: 'Copy Support Email',
+                        subtitle:
+                            'Copy prefilled support email template to clipboard',
+                        onTap: () =>
+                            unawaited(_copySupportEmailTemplate(context)),
+                      ),
+                      _NeonNavTile(
+                        title: 'Copy Diagnostics',
+                        subtitle:
+                            'Copy a reviewable, identifier-free support summary',
+                        onTap: () =>
+                            unawaited(_copyDiagnosticsToClipboard(context)),
+                      ),
+                    ],
                   ),
                 ),
-                if (hasInternalAdvisorAccess) ...[
-                  const SizedBox(height: 8),
-                  _Section(
-                    label: 'INTERNAL DIAGNOSTICS',
-                    accentColor: AppColors.memoryAmber,
-                    child: _NeonNavTile(
-                      title: 'Advisor Diagnostics',
-                      subtitle: 'Admin-only product health and optimizer state',
-                      onTap: () => context.push(routes.advisor),
-                    ),
+              ),
+              const SizedBox(height: 12),
+              if (kDebugMode) ...[
+                _SettingsCategory(
+                  title: 'Developer & diagnostics',
+                  subtitle:
+                      'Internal build details, backend health, and test tools',
+                  icon: Icons.developer_mode_rounded,
+                  accent: AppColors.neonViolet,
+                  child: Column(
+                    children: <Widget>[
+                      _Section(
+                        label: 'RUNTIME FLAGS',
+                        accentColor: AppColors.neonCyan,
+                        child: Column(
+                          children: <Widget>[
+                            _NeonStatusTile(
+                              title: 'Flavor',
+                              subtitle: intelligence.environment.appFlavor,
+                            ),
+                            _NeonStatusTile(
+                              title: 'Mock Mode',
+                              subtitle: intelligence.flags.mockMode
+                                  ? 'Enabled (offline local mode)'
+                                  : 'Disabled',
+                            ),
+                            _NeonStatusTile(
+                              title: 'Paywall Disabled',
+                              subtitle: intelligence.flags.paywallDisabled
+                                  ? 'Enabled (dev-only bypass)'
+                                  : 'Disabled',
+                            ),
+                            _NeonStatusTile(
+                              title: 'Mock Login',
+                              subtitle: intelligence.flags.mockLoginEnabled
+                                  ? 'Enabled'
+                                  : 'Disabled',
+                            ),
+                            _NeonStatusTile(
+                              title: 'Extended Settings',
+                              subtitle: '$extendedSettingsCount loaded',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const _SupabaseBackendHealthSection(),
+                      const SizedBox(height: 10),
+                      _Section(
+                        label: 'DEV TOOLS',
+                        accentColor: AppColors.neonViolet,
+                        child: _NeonNavTile(
+                          title: 'Generate Test Data',
+                          subtitle:
+                              '20 tasks · XP 2400 · streak 14 · energy 75%',
+                          onTap: () => unawaited(
+                            TestDataGenerator.generate(ref, context),
+                          ),
+                        ),
+                      ),
+                      if (hasInternalAdvisorAccess) ...[
+                        const SizedBox(height: 8),
+                        _Section(
+                          label: 'INTERNAL DIAGNOSTICS',
+                          accentColor: AppColors.memoryAmber,
+                          child: _NeonNavTile(
+                            title: 'Advisor Diagnostics',
+                            subtitle:
+                                'Admin-only product health and optimizer state',
+                            onTap: () => context.push(routes.advisor),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      const _GlobalMetricsDebugSection(),
+                      const SizedBox(height: 10),
+                      const _AdaptiveGuidanceDebugSection(),
+                    ],
                   ),
-                ],
-                const SizedBox(height: 16),
-                const _GlobalMetricsDebugSection(),
-                const SizedBox(height: 16),
-                const _AdaptiveGuidanceDebugSection(),
+                ),
               ],
             ],
           ),
