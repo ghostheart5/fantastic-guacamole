@@ -1,6 +1,8 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
+import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_timeline_events.dart';
@@ -61,9 +63,63 @@ final class SIV2QueryService implements SIV2QueryPort {
 
   @override
   Future<SIV2Response> analyze(SIV2Query query) async {
+    if (CrisisDetectionPolicy.detects(query.rawText)) {
+      throw const AssistantSafetyRouteException(
+        'crisis_route_required',
+        'SI Console must show the dedicated crisis support route.',
+      );
+    }
     final DateTime now = clock().toUtc();
     final SIV2EvidenceSnapshot snapshot = await readEvidence(now);
-    return engine.analyze(query: query, snapshot: snapshot, now: now);
+    final SIV2Response response = engine.analyze(
+      query: query,
+      snapshot: snapshot,
+      now: now,
+    );
+    final String responseText = response.toPlainText();
+    final AssistantSafetyRisk risk = switch (query.intent) {
+      SIV2Intent.forecast ||
+      SIV2Intent.counterfactual => AssistantSafetyRisk.highImpact,
+      _ when response.conflicts.isNotEmpty => AssistantSafetyRisk.contradictory,
+      _ => AssistantSafetyRisk.routine,
+    };
+    final AssistantSafetyOutcome safety = const AssistantSafetyPipeline()
+        .evaluate(
+          AssistantSafetyReview(
+            requestId:
+                'si-v2-${snapshot.revision.substring(0, 16)}-'
+                '${now.microsecondsSinceEpoch}',
+            accountScopeId: snapshot.accountScopeId,
+            surface: AssistantSafetySurface.siConsole,
+            responseText: responseText,
+            evidenceIds: response.evidenceLinks.map(
+              (SIV2EvidenceLink item) => item.evidenceId,
+            ),
+            evidenceUris: response.evidenceLinks.map(
+              (SIV2EvidenceLink item) => item.uri,
+            ),
+            untrustedData: <String>[
+              ...snapshot.tasks.map((SIV2TaskEvidence item) => item.title),
+              ...snapshot.goals.map((SIV2GoalEvidence item) => item.title),
+              ...snapshot.milestones.map(
+                (SIV2MilestoneEvidence item) => item.title,
+              ),
+              ...snapshot.timeline.map(
+                (SIV2TimelineEvidence item) => item.title,
+              ),
+            ],
+            authority: AssistantActionAuthority.readOnly,
+            risk: risk,
+            contradictionCount: response.conflicts.length,
+          ),
+        );
+    if (!safety.mayPublish || safety.publishableText != responseText) {
+      throw const AssistantSafetyRouteException(
+        'si_response_withheld',
+        'SI V2 withheld a draft that could not be safely repaired into its typed contract.',
+      );
+    }
+    return response.withSafetyReceipt(safety.receipt);
   }
 }
 

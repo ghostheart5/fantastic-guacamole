@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
+import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
@@ -61,10 +62,26 @@ class SmartPlannerResult {
               ? AssistantResponseStatus.fallback
               : AssistantResponseStatus.completed,
         );
+    final AssistantSafetyReceipt safetyReceipt = _requirePublishableSafety(
+      const AssistantSafetyPipeline().evaluate(
+        AssistantSafetyReview(
+          requestId: request.requestId,
+          accountScopeId: request.accountScopeId,
+          surface: AssistantSafetySurface.smartPlanner,
+          responseText: recommendation.contract!.message,
+          evidenceIds: recommendation.contract!.evidence.items.map(
+            (AssistantEvidenceItem item) => item.evidenceId,
+          ),
+          authority: AssistantActionAuthority.proposalOnly,
+          risk: AssistantSafetyRisk.routine,
+        ),
+      ),
+    );
     return SmartPlannerResult.fromContracts(
       request: request,
       response: recommendation.contract!,
       evidenceManifest: recommendation.evidenceManifest!,
+      safetyReceipt: safetyReceipt,
       savedNotes: savedNotes,
       plannerResponse: resolvedResponse,
     );
@@ -74,17 +91,26 @@ class SmartPlannerResult {
     required this.request,
     required this.response,
     required this.evidenceManifest,
+    required this.safetyReceipt,
     required this.savedNotes,
     required this.plannerResponse,
   }) {
     response.validateAgainst(request);
     evidenceManifest.validateAgainstRequest(request);
     evidenceManifest.validateAgainstResponse(response);
+    if (safetyReceipt.requestId != request.requestId ||
+        safetyReceipt.accountScopeId != request.accountScopeId ||
+        safetyReceipt.surface != AssistantSafetySurface.smartPlanner ||
+        safetyReceipt.disposition == AssistantSafetyDisposition.withheld ||
+        safetyReceipt.disposition == AssistantSafetyDisposition.crisisRoute) {
+      throw StateError('Smart Planner response failed its safety boundary.');
+    }
   }
 
   final AssistantRequestEnvelope request;
   final AssistantResponseEnvelope response;
   final AssistantEvidenceManifest evidenceManifest;
+  final AssistantSafetyReceipt safetyReceipt;
   final String? savedNotes;
   final PlannerV2Response plannerResponse;
 
@@ -130,6 +156,7 @@ class SmartPlannerQueryController
     final String prompt = notes.trim().isEmpty
         ? 'Give me a practical planning check-in for my current energy and emotional state.'
         : notes.trim();
+    _requireNonCrisisRoute(prompt);
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.planningGuidance,
       input: prompt,
@@ -175,6 +202,7 @@ class SmartPlannerQueryController
     required List<Map<String, String>> history,
   }) async {
     final String prompt = input.trim();
+    _requireNonCrisisRoute(prompt);
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.followUp,
       input: prompt,
@@ -204,6 +232,7 @@ class SmartPlannerQueryController
     required String reason,
     AssistantRequestKind kind = AssistantRequestKind.planningGuidance,
   }) {
+    _requireNonCrisisRoute(input);
     final AssistantRequestEnvelope request = _requestContract(
       kind: kind,
       input: input,
@@ -375,13 +404,43 @@ class SmartPlannerQueryController
           status: status,
         );
     recommendation.validateContractAgainst(request);
+    final _PlannerTopic topic = _detectTopic(request.input);
+    final AssistantSafetyRisk risk =
+        topic == _PlannerTopic.health || topic == _PlannerTopic.wellbeing
+        ? AssistantSafetyRisk.highImpact
+        : AssistantSafetyRisk.routine;
+    final AssistantSafetyReceipt safetyReceipt = _requirePublishableSafety(
+      const AssistantSafetyPipeline().evaluate(
+        AssistantSafetyReview(
+          requestId: request.requestId,
+          accountScopeId: request.accountScopeId,
+          surface: AssistantSafetySurface.smartPlanner,
+          responseText: recommendation.contract!.message,
+          evidenceIds: recommendation.contract!.evidence.items.map(
+            (AssistantEvidenceItem item) => item.evidenceId,
+          ),
+          authority: AssistantActionAuthority.proposalOnly,
+          risk: risk,
+        ),
+      ),
+    );
     return SmartPlannerResult.fromContracts(
       request: request,
       response: recommendation.contract!,
       evidenceManifest: recommendation.evidenceManifest!,
+      safetyReceipt: safetyReceipt,
       savedNotes: null,
       plannerResponse: response,
     );
+  }
+
+  void _requireNonCrisisRoute(String input) {
+    if (detectsCrisis(input)) {
+      throw const AssistantSafetyRouteException(
+        'crisis_route_required',
+        'Smart Planner must show the dedicated crisis support route.',
+      );
+    }
   }
 
   static PlannerOptionKind _recommendedKind({
@@ -607,6 +666,18 @@ class SmartPlannerQueryController
     }
     return '${singleLine.substring(0, maxLength - 1).trimRight()}…';
   }
+}
+
+AssistantSafetyReceipt _requirePublishableSafety(
+  AssistantSafetyOutcome outcome,
+) {
+  if (!outcome.mayPublish) {
+    throw const AssistantSafetyRouteException(
+      'assistant_response_withheld',
+      'The response did not pass the assistant safety boundary.',
+    );
+  }
+  return outcome.receipt;
 }
 
 enum _PlannerTopic {

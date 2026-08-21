@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
+import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -39,7 +40,7 @@ class SIConsoleQueryController {
           'SI display boundary rejected a response from another runtime.',
         );
       }
-      return recommendation;
+      return _attachSafety(recommendation);
     }
     final AccountStorageScope account = _ref.read(accountStorageScopeProvider);
     final AssistantRequestEnvelope request = createAssistantRequestEnvelope(
@@ -67,7 +68,7 @@ class SIConsoleQueryController {
           : AssistantResponseStatus.completed,
     );
     typed.validateContractAgainst(request);
-    return typed;
+    return _attachSafety(typed);
   }
 
   AIRecommendation localShortcutResponse({
@@ -113,6 +114,12 @@ class SIConsoleQueryController {
     required String emotion,
     required AssistantResponseStatus status,
   }) {
+    if (detectsCrisis(query)) {
+      throw const AssistantSafetyRouteException(
+        'crisis_route_required',
+        'SI Console must show the dedicated crisis support route.',
+      );
+    }
     final AccountStorageScope account = _ref.read(accountStorageScopeProvider);
     final AssistantRequestEnvelope request = createAssistantRequestEnvelope(
       accountScopeId: assistantAccountScopeId(
@@ -145,6 +152,32 @@ class SIConsoleQueryController {
           status: status,
         );
     recommendation.validateContractAgainst(request);
-    return recommendation;
+    return _attachSafety(recommendation);
+  }
+
+  AIRecommendation _attachSafety(AIRecommendation recommendation) {
+    recommendation.validateContract();
+    final AssistantResponseEnvelope response = recommendation.contract!;
+    final AssistantSafetyOutcome safety = const AssistantSafetyPipeline()
+        .evaluate(
+          AssistantSafetyReview(
+            requestId: response.requestId,
+            accountScopeId: response.accountScopeId,
+            surface: AssistantSafetySurface.siConsole,
+            responseText: response.message,
+            evidenceIds: response.evidence.items.map(
+              (AssistantEvidenceItem item) => item.evidenceId,
+            ),
+            authority: AssistantActionAuthority.readOnly,
+            risk: AssistantSafetyRisk.routine,
+          ),
+        );
+    if (!safety.mayPublish || safety.publishableText != response.message) {
+      throw const AssistantSafetyRouteException(
+        'si_response_withheld',
+        'The SI response did not pass the safety boundary.',
+      );
+    }
+    return recommendation.withSafetyReceipt(safety.receipt);
   }
 }

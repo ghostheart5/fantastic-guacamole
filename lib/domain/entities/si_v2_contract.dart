@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 
 const int siV2SchemaVersion = 1;
 
@@ -473,6 +474,7 @@ final class SIV2Response {
     required String recommendation,
     required this.confidence,
     required List<SIV2EvidenceLink> evidenceLinks,
+    this.safetyReceipt,
   }) : directAnswer = directAnswer.trim(),
        observedFacts = List<SIV2Statement>.unmodifiable(observedFacts),
        calculations = List<SIV2Statement>.unmodifiable(calculations),
@@ -500,6 +502,26 @@ final class SIV2Response {
   final String recommendation;
   final SIV2ConfidenceAnatomy confidence;
   final List<SIV2EvidenceLink> evidenceLinks;
+  final AssistantSafetyReceipt? safetyReceipt;
+
+  SIV2Response withSafetyReceipt(AssistantSafetyReceipt receipt) =>
+      SIV2Response(
+        schemaVersion: schemaVersion,
+        query: query,
+        snapshotRevision: snapshotRevision,
+        directAnswer: directAnswer,
+        observedFacts: observedFacts,
+        calculations: calculations,
+        inferences: inferences,
+        missingInformation: missingInformation,
+        conflicts: conflicts,
+        scenarios: scenarios,
+        scenarioAssumptions: scenarioAssumptions,
+        recommendation: recommendation,
+        confidence: confidence,
+        evidenceLinks: evidenceLinks,
+        safetyReceipt: receipt,
+      );
 
   void validate() {
     if (schemaVersion != siV2SchemaVersion ||
@@ -566,6 +588,13 @@ final class SIV2Response {
     ].expand((Iterable<String> ids) => ids);
     if (!linkIds.containsAll(citedIds)) {
       throw StateError('SI V2 response cites evidence outside its lens.');
+    }
+    if (safetyReceipt != null &&
+        (safetyReceipt!.surface != AssistantSafetySurface.siConsole ||
+            safetyReceipt!.disposition == AssistantSafetyDisposition.withheld ||
+            safetyReceipt!.disposition ==
+                AssistantSafetyDisposition.crisisRoute)) {
+      throw StateError('SI V2 response has an invalid safety receipt.');
     }
   }
 

@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
+import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 
@@ -33,6 +34,7 @@ class AIRecommendation {
     this.processingMode = AIProcessingMode.unknown,
     this.contract,
     this.evidenceManifest,
+    this.safetyReceipt,
   });
 
   final TaskView? task;
@@ -43,6 +45,7 @@ class AIRecommendation {
   final AIProcessingMode processingMode;
   final AssistantResponseEnvelope? contract;
   final AssistantEvidenceManifest? evidenceManifest;
+  final AssistantSafetyReceipt? safetyReceipt;
 
   AIRecommendation withValidatedContract({
     required AssistantRequestEnvelope request,
@@ -100,8 +103,22 @@ class AIRecommendation {
       processingMode: processingMode,
       contract: response,
       evidenceManifest: manifest,
+      safetyReceipt: safetyReceipt,
     );
   }
+
+  AIRecommendation withSafetyReceipt(AssistantSafetyReceipt receipt) =>
+      AIRecommendation(
+        task: task,
+        message: message,
+        reasoning: reasoning,
+        emotion: emotion,
+        confidence: confidence,
+        processingMode: processingMode,
+        contract: contract,
+        evidenceManifest: evidenceManifest,
+        safetyReceipt: receipt,
+      );
 
   void validateContractAgainst(AssistantRequestEnvelope request) {
     validateContract();

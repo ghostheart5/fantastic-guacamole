@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
+import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/state/controllers/smart_planner_query_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
@@ -46,6 +47,10 @@ void main() {
     result.request.validate();
     result.response.validateAgainst(result.request);
     result.evidenceManifest.validateAgainstResponse(result.response);
+    expect(
+      result.safetyReceipt.disposition,
+      AssistantSafetyDisposition.approved,
+    );
   });
 
   test(
@@ -200,5 +205,30 @@ void main() {
 
     expect(controller.detectsCrisis('I want to kill myself tonight'), isTrue);
     expect(controller.detectsCrisis('I had a difficult day'), isFalse);
+  });
+
+  test('direct crisis request cannot enter ordinary planning', () async {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+    final SmartPlannerQueryController controller = container.read(
+      smartPlannerQueryControllerProvider,
+    );
+
+    await expectLater(
+      controller.requestPlanningGuidance(
+        energy: 0.7,
+        emotion: EmotionalState.anxious,
+        notes: 'I want to kill myself tonight',
+        history: const <Map<String, String>>[],
+        previousSavedNotes: null,
+      ),
+      throwsA(
+        isA<AssistantSafetyRouteException>().having(
+          (AssistantSafetyRouteException error) => error.code,
+          'code',
+          'crisis_route_required',
+        ),
+      ),
+    );
   });
 }
