@@ -7,32 +7,28 @@ tags:
     clearState: true
 - runFlow: ../subflows/sign-in.yaml
 
-- tapOn: "Profile"
-- waitForAnimationToEnd:
-    timeout: 5000
-- scrollUntilVisible:
-    element:
-      text: "Open settings"
-    direction: DOWN
-    timeout: 15000
-- tapOn: "Open settings"
-
-- scrollUntilVisible:
-    element:
-      text: "Log Out"
-    direction: DOWN
-    timeout: 15000
-- tapOn: "Log Out"
-
 - runFlow:
-    when:
-      visible: "Log Out"
-    commands:
-      - tapOn: "Log Out"
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
+
+- scrollUntilVisible:
+    element:
+      text: "Data & account\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Data & account\\n.*"
+
+- scrollUntilVisible:
+    element:
+      text: "(?:Exit Tester Mode|Log Out)\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "(?:Exit Tester Mode|Log Out)\\n.*"
 
 - extendedWaitUntil:
-    visible: "ENTER SYSTEM"
+    visible: "(?:Continue to login|ENTER SYSTEM)"
     timeout: 20000
 
 # Signing out must not leave the app surface reachable behind the gate.
-- assertNotVisible: "NEXUS"
+- assertNotVisible: "Open navigation map"

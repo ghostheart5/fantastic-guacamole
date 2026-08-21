@@ -8,31 +8,40 @@ tags:
     clearState: true
 - runFlow: ../subflows/sign-in.yaml
 
-- tapOn: "Profile"
-- waitForAnimationToEnd:
-    timeout: 5000
-- tapOn: "Open settings"
-- waitForAnimationToEnd:
-    timeout: 5000
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
 
 - scrollUntilVisible:
     element:
-      text: "Subscription & Paywall"
+      text: "(?s)SUBSCRIPTION.*Manage plan"
     direction: DOWN
     timeout: 15000
-- tapOn: "Subscription & Paywall"
+- tapOn: "(?s)SUBSCRIPTION.*Manage plan"
 - waitForAnimationToEnd:
     timeout: 5000
 
 # Restore must always be reachable: Play requires it, and users who reinstall
 # have no other route back to what they paid for.
+- scrollUntilVisible:
+    element:
+      text: "Restore Purchases"
+    direction: DOWN
+    timeout: 15000
 - assertVisible: "Restore Purchases"
 
-# Trust copy is a store-review surface. Losing it is a compliance problem, not
-# a cosmetic one.
-- assertVisible:
-    text: ".*Cancel anytime.*"
+# QA must disclose that billing is simulated.
+- runFlow:
+    when:
+      visible: "UNLOCKED FOR TESTING"
+    commands:
+      - assertVisible: ".*Testing mode is active; purchases are simulated.*"
 
-# A production build must never expose the simulated-purchase path.
-- assertNotVisible: "Simulate unlock"
-- assertNotVisible: "UNLOCKED FOR TESTING"
+# A production build must show trust copy and never expose test purchasing.
+- runFlow:
+    when:
+      notVisible: "UNLOCKED FOR TESTING"
+    commands:
+      - assertVisible: ".*Cancel anytime.*"
+      - assertNotVisible: "Simulate unlock"

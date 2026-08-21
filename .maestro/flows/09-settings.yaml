@@ -7,22 +7,30 @@ tags:
     clearState: true
 - runFlow: ../subflows/sign-in.yaml
 
-- tapOn: "Profile"
-- waitForAnimationToEnd:
-    timeout: 5000
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
 
 - scrollUntilVisible:
     element:
-      text: "Open settings"
+      text: "Data & account\\n.*"
     direction: DOWN
     timeout: 15000
-- tapOn: "Open settings"
+- tapOn: "Data & account\\n.*"
 
-# Both destructive controls must be present and clearly labelled, but neither
-# is tapped here.
-- scrollUntilVisible:
-    element:
-      text: "Delete Account"
-    direction: DOWN
-    timeout: 15000
-- assertVisible: "Delete Account"
+# Tester mode must expose only tester-safe account controls.
+- runFlow:
+    when:
+      visible: "Exit Tester Mode\\n.*"
+    commands:
+      - assertVisible: "Clear Local Data\\n.*"
+      - assertVisible: "Reset Tester Data\\n.*"
+      - assertNotVisible: "Delete Account\\n.*"
+
+# A real-account build must retain both sign-out and account deletion access.
+- runFlow:
+    when:
+      visible: "Log Out\\n.*"
+    commands:
+      - assertVisible: "Delete Account\\n.*"
