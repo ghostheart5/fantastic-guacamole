@@ -86,7 +86,7 @@ class _ProfileBody extends ConsumerWidget {
         ProfileHeader(
           name: data.name,
           level: data.level,
-          onOpenSettings: actions.openSettings,
+          onOpenSettings: () => goToAppView(context, ref, AppView.settings),
         ),
         const SizedBox(height: 16),
         Wrap(
@@ -129,7 +129,7 @@ class _ProfileBody extends ConsumerWidget {
         const SizedBox(height: 16),
         _NavButtons(
           onTimeline: () => goToAppView(context, ref, AppView.timeline),
-          onProgression: actions.openProgression,
+          onProgression: () => goToAppView(context, ref, AppView.progression),
           onInviteFriends: () => _inviteFriends(context, state),
         ),
       ],

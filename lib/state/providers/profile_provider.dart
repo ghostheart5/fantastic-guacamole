@@ -26,10 +26,6 @@ class ProfileActions {
     return _ref.read(profileProvider.notifier).updateName(name);
   }
 
-  void openProgression() {
-    _ref.read(appFlowProvider.notifier).toProgression();
-  }
-
   void openSettings() {
     _ref.read(appFlowProvider.notifier).toSettings();
   }
