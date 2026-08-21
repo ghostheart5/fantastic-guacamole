@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,5 +54,30 @@ void main() {
     );
 
     expect(blocks.first.taskId, 'low-energy');
+  });
+
+  test('daily recurrence never starts before its selected start date', () {
+    final DateTime now = DateTime(2026, 8, 20, 17);
+    final DateTime scheduled = DateTime(2026, 8, 27, 18, 27);
+
+    final blocks = CalendarService().generateAdaptivePlan(
+      inputs: PlannerInputAdapter.fromLegacyTasks(<Task>[
+        Task(
+          id: 'future-daily-task',
+          title: 'Future daily task',
+          priority: 3,
+          difficulty: 3,
+          energyRequired: 3,
+          scheduledFor: scheduled,
+          recurrenceRule: RecurrenceRule.daily,
+        ),
+      ]),
+      energy: 0.5,
+      startTime: now,
+    );
+
+    expect(blocks, isNotEmpty);
+    expect(blocks.first.start, scheduled);
+    expect(blocks.every((block) => !block.start.isBefore(scheduled)), isTrue);
   });
 }

@@ -96,11 +96,16 @@ class DecisionEngine {
                     window.status == WorkWindowStatus.active,
               )
               .toList(growable: false);
+    final List<TimeBlock> resolvedBlocks = _preserveScheduledCommitments(
+      inputs: active,
+      existingBlocks: existingBlocks,
+      now: timestamp,
+    );
     final FeasiblePlan plan = planner.plan(
       PlanningProblem(
         inputs: active,
         workWindows: resolvedWindows,
-        existingBlocks: existingBlocks,
+        existingBlocks: resolvedBlocks,
         energy: state.energy,
         now: timestamp,
         windowOrigin: usesAssumedWindow
@@ -403,6 +408,39 @@ class DecisionEngine {
       if (block.taskId == taskId) return block.start;
     }
     return null;
+  }
+
+  List<TimeBlock> _preserveScheduledCommitments({
+    required List<PlannerInput> inputs,
+    required List<TimeBlock> existingBlocks,
+    required DateTime now,
+  }) {
+    final Set<String> occupiedTaskIds = existingBlocks
+        .where((TimeBlock block) => !block.completed)
+        .map((TimeBlock block) => block.taskId)
+        .toSet();
+    final List<TimeBlock> blocks = List<TimeBlock>.from(existingBlocks);
+
+    for (final PlannerInput input in inputs) {
+      final DateTime? start = input.scheduledFor;
+      if (start == null || occupiedTaskIds.contains(input.id)) continue;
+
+      final DateTime end = start.add(input.estimateOrDefault);
+      if (!end.isAfter(now)) continue;
+
+      blocks.add(
+        TimeBlock(
+          id: 'scheduled-${input.id}-${start.microsecondsSinceEpoch}',
+          taskId: input.id,
+          title: input.title,
+          start: start,
+          end: end,
+        ),
+      );
+      occupiedTaskIds.add(input.id);
+    }
+
+    return List<TimeBlock>.unmodifiable(blocks);
   }
 
   double _dataSufficiency(LearningEntity learning, DateTime now) {

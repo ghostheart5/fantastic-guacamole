@@ -100,6 +100,69 @@ final todayTimeBlocksProvider = Provider<AsyncValue<List<TimeBlock>>>((
   });
 });
 
+/// The blocks Nexus should render: today's real schedule when available,
+/// otherwise the nearest upcoming scheduled day. Nexus is the planning home,
+/// so a valid future commitment must not be replaced by a generic empty-state
+/// prompt merely because it is not scheduled for the current calendar day.
+final nexusTimeBlocksProvider = Provider<AsyncValue<List<TimeBlock>>>((
+  Ref ref,
+) {
+  final DateTime now = ref.watch(adaptivePlanClockProvider)();
+  return ref.watch(adaptivePlanProvider).whenData((List<TimeBlock> blocks) {
+    final List<TimeBlock> ordered = List<TimeBlock>.of(blocks)
+      ..sort(
+        (TimeBlock first, TimeBlock second) =>
+            first.start.compareTo(second.start),
+      );
+    final List<TimeBlock> today = ordered
+        .where((TimeBlock block) => _sameLocalDay(block.start, now))
+        .toList(growable: false);
+    if (today.isNotEmpty) return List<TimeBlock>.unmodifiable(today);
+
+    final List<TimeBlock> upcoming = ordered
+        .where(
+          (TimeBlock block) => !block.completed && !block.end.isBefore(now),
+        )
+        .toList(growable: false);
+    if (upcoming.isEmpty) return const <TimeBlock>[];
+
+    final DateTime nearestDay = upcoming.first.start;
+    return List<TimeBlock>.unmodifiable(
+      upcoming.where(
+        (TimeBlock block) => _sameLocalDay(block.start, nearestDay),
+      ),
+    );
+  });
+});
+
+final nextNexusTimeBlockProvider = Provider<TimeBlock?>((Ref ref) {
+  final DateTime now = ref.watch(adaptivePlanClockProvider)();
+  final String? selectedTaskId = ref
+      .watch(siStateAggregationProvider)
+      .asData
+      ?.value
+      .planningDecision
+      .selectedTask
+      ?.id;
+  return ref
+      .watch(nexusTimeBlocksProvider)
+      .maybeWhen(
+        data: (List<TimeBlock> blocks) {
+          if (selectedTaskId != null) {
+            for (final TimeBlock block in blocks) {
+              if (!block.completed && block.taskId == selectedTaskId) {
+                return block;
+              }
+            }
+          }
+          return ref
+              .read(recommendNextBlockUseCaseProvider)
+              .call(blocks: blocks, now: now);
+        },
+        orElse: () => null,
+      );
+});
+
 /// The active block, or the nearest upcoming block, from today's real plan.
 final nextTodayTimeBlockProvider = Provider<TimeBlock?>((Ref ref) {
   final DateTime now = ref.watch(adaptivePlanClockProvider)();
@@ -128,3 +191,8 @@ final nextTodayTimeBlockProvider = Provider<TimeBlock?>((Ref ref) {
         orElse: () => null,
       );
 });
+
+bool _sameLocalDay(DateTime first, DateTime second) =>
+    first.year == second.year &&
+    first.month == second.month &&
+    first.day == second.day;

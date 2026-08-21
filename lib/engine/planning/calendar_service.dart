@@ -339,7 +339,15 @@ class CalendarService {
     final DateTime scheduled = task.scheduledFor ?? now;
     switch (task.recurrenceRule) {
       case RecurrenceRule.daily:
-        final DateTime startDate = DateTime(now.year, now.month, now.day);
+        final DateTime today = DateTime(now.year, now.month, now.day);
+        final DateTime scheduledDate = DateTime(
+          scheduled.year,
+          scheduled.month,
+          scheduled.day,
+        );
+        final DateTime startDate = scheduledDate.isAfter(today)
+            ? scheduledDate
+            : today;
         final int hour = (scheduled.hour == 0 && scheduled.minute == 0)
             ? now.hour
             : scheduled.hour;
@@ -357,10 +365,19 @@ class CalendarService {
           ),
         );
       case RecurrenceRule.weekly:
+        final DateTime today = DateTime(now.year, now.month, now.day);
+        final DateTime scheduledDate = DateTime(
+          scheduled.year,
+          scheduled.month,
+          scheduled.day,
+        );
+        final DateTime firstEligibleDate = scheduledDate.isAfter(today)
+            ? scheduledDate
+            : today;
         DateTime candidate = DateTime(
-          now.year,
-          now.month,
-          now.day,
+          firstEligibleDate.year,
+          firstEligibleDate.month,
+          firstEligibleDate.day,
           scheduled.hour,
           scheduled.minute,
         );
