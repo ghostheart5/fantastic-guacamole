@@ -442,7 +442,7 @@ bool _looksLikeInstructionInjection(String value) {
     'developer message',
     'reveal your prompt',
     'call the tool',
-    'execute command',
+    'execute ',
     'delete all',
     'bypass safety',
     'jailbreak',
