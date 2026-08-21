@@ -3,7 +3,11 @@ name: CI/CD
 on:
   workflow_call:
   push:
-    branches: ["main"]
+    branches:
+      - "main"
+      - "release/chronospark-production-candidate-20260821"
+    paths-ignore:
+      - ".github/workflows/**"
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -21,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Record exact source commit
         id: source
@@ -118,7 +122,7 @@ jobs:
 
       - name: Upload CI evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: chronospark-ci-evidence-${{ github.run_id }}
           if-no-files-found: warn

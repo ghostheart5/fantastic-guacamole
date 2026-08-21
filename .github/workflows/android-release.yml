@@ -1,7 +1,7 @@
 name: Android Release
 
 permissions:
-  contents: write
+  contents: read
 
 on:
   push:
@@ -17,9 +17,11 @@ jobs:
   build-aab:
     needs: quality-gate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -170,23 +172,43 @@ jobs:
 
       - name: Verify and fingerprint release artifact
         run: |
-          AAB=build/app/outputs/bundle/release/app-release.aab
+          AAB_DIR=build/app/outputs/bundle/release
+          AAB="$AAB_DIR/app-release.aab"
           test -s "$AAB"
           jarsigner -verify -strict "$AAB"
-          sha256sum "$AAB" | tee "$AAB.sha256"
+          (
+            cd "$AAB_DIR"
+            sha256sum app-release.aab > app-release.aab.sha256
+          )
 
       - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: chronospark-release-${{ github.ref_name }}
           path: |
             build/app/outputs/bundle/release/app-release.aab
             build/app/outputs/bundle/release/app-release.aab.sha256
 
+  publish-release:
+    needs: build-aab
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified AAB artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: chronospark-release-${{ github.ref_name }}
+          path: release-artifacts
+
+      - name: Recheck AAB artifact digest
+        working-directory: release-artifacts
+        run: sha256sum --check app-release.aab.sha256
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
-            build/app/outputs/bundle/release/app-release.aab
-            build/app/outputs/bundle/release/app-release.aab.sha256
+            release-artifacts/app-release.aab
+            release-artifacts/app-release.aab.sha256
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}

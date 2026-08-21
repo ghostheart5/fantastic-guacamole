@@ -3,9 +3,16 @@ name: "CodeQL"
 on:
   workflow_dispatch:
   push:
-    branches: ["main"]
+    branches:
+      - "main"
+      - "release/chronospark-production-candidate-20260821"
+    paths-ignore:
+      - ".github/workflows/**"
   pull_request:
     branches: ["main"]
+
+permissions:
+  contents: read
 
 jobs:
   analyze:
@@ -27,7 +34,7 @@ jobs:
             runner: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Default CodeQL setup is managed in repository settings, not by a
       # workflow token. Keeping this workflow read-only prevents CI from
@@ -35,7 +42,7 @@ jobs:
       # GitHub will fail the run and the maintainer can resolve it explicitly.
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build_mode }}
@@ -45,6 +52,10 @@ jobs:
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           channel: stable
+
+      - name: Create safe local configuration asset
+        if: matrix.language == 'swift'
+        run: cp .env.example .env
 
       - name: Flutter pub get
         if: matrix.language == 'swift'
@@ -68,7 +79,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4
         with:
           category: "/language:${{ matrix.language }}"
           upload: true
