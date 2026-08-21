@@ -4,6 +4,18 @@ import 'package:fantastic_guacamole/domain/release/assistant_release_control.dar
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('missing remote release snapshot remains off', () async {
+    final AssistantReleaseConfig config = await FeatureFlagRepository(
+      RemoteConfigService(),
+    ).loadAssistantReleaseConfig();
+
+    expect(config.configurationValid, isTrue);
+    expect(config.stage, AssistantReleaseStage.off);
+    expect(config.canaryBasisPoints, 0);
+    expect(config.shadowEvaluationEnabled, isFalse);
+    expect(config.rollbackCapabilities, isEmpty);
+  });
+
   test('repository maps one atomic controlled-release snapshot', () async {
     final RemoteConfigService remote = RemoteConfigService(
       initialValues: <String, Object?>{

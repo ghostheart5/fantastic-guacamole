@@ -7,7 +7,7 @@ the safety critic without changing their code or sharing state between them.
 
 | Key | Accepted value | Safe default |
 |---|---|---|
-| `assistant_release_stage` | `off`, `internal`, `opted_in_beta`, `canary`, `general` | `general` |
+| `assistant_release_stage` | `off`, `internal`, `opted_in_beta`, `canary`, `general` | `off` |
 | `assistant_release_canary_basis_points` | integer from 0 through 10000 | `0` |
 | `assistant_release_internal_account_digests` | comma-separated SHA-256 digests | empty |
 | `assistant_shadow_evaluation_enabled` | boolean | `false` |
@@ -19,6 +19,10 @@ the safety critic without changing their code or sharing state between them.
 Unknown stages, out-of-range canary values, and malformed internal-account
 digests fail closed. A critic rollback disables guarded assistant generation;
 it never bypasses the critic.
+
+If no remote snapshot is available, the stage is `off`: no assistant
+capability is enabled until an explicit controlled-release configuration is
+published.
 
 ## Promotion order
 

@@ -110,7 +110,7 @@ class FeatureFlagRepository {
     return AssistantReleaseConfig.fromRemote(
       stage: _remoteConfigService.getString(
         'assistant_release_stage',
-        defaultValue: 'general',
+        defaultValue: 'off',
       ),
       canaryBasisPoints: _remoteConfigService.getInt(
         'assistant_release_canary_basis_points',
