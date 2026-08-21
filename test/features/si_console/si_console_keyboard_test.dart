@@ -97,7 +97,10 @@ void main() {
       // guide text is enough, repeated a few times, to overflow the
       // transcript viewport and make it scrollable.
       for (int i = 0; i < 6; i++) {
-        await tester.enterText(find.byType(TextField), '/help');
+        await tester.enterText(
+          find.byKey(const Key('si-query-input')),
+          '/help',
+        );
         await tester.tap(find.byIcon(Icons.send_rounded));
         await tester.pump();
       }
@@ -118,7 +121,15 @@ void main() {
       expect(scrollable.position.maxScrollExtent, greaterThan(0));
       expect(scrollable.position.pixels, scrollable.position.maxScrollExtent);
 
-      await tester.drag(find.byType(ListView), const Offset(0, 300));
+      // Move the transcript directly. The Phase 7 query builder intentionally
+      // overlaps the lower part of the transcript, so a center-point drag can
+      // correctly hit the composer instead of the ListView.
+      scrollable.position.jumpTo(
+        (scrollable.position.maxScrollExtent - 300).clamp(
+          0,
+          scrollable.position.maxScrollExtent,
+        ),
+      );
       await tester.pump();
       expect(
         scrollable.position.pixels,

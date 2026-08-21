@@ -46,3 +46,4 @@ export 'package:fantastic_guacamole/state/providers/auth_session_boundary_provid
 export 'decision_outcome_provider.dart';
 export 'creator_draft_provider.dart';
 export 'creator_handshake_provider.dart';
+export 'si_v2_provider.dart';

@@ -17,4 +17,5 @@ export 'package:fantastic_guacamole/engine/si/si_response_policy.dart'
     hide SIIntent;
 export 'package:fantastic_guacamole/engine/si/si_synthetic_soul_layer.dart';
 export 'package:fantastic_guacamole/engine/si/si_task_core.dart' hide SICore;
+export 'package:fantastic_guacamole/engine/si/si_v2_engine.dart';
 export 'package:fantastic_guacamole/engine/si/synthetic_intelligence_engine.dart';

@@ -2,28 +2,16 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
-import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
-import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
-import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
-import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_message.dart';
-import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
-import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
+import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
-import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
-import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
-import 'package:fantastic_guacamole/state/providers/si_console_thread_provider.dart';
-import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
-import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
-import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -37,43 +25,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Model
 // ---------------------------------------------------------------------------
 
-String _evidenceStrengthLabel(double value) {
-  final double bounded = value.clamp(0, 1).toDouble();
-  if (bounded >= .8) return 'Strong';
-  if (bounded >= .55) return 'Moderate';
-  return 'Limited';
-}
-
 class _Msg {
   const _Msg({
     required this.text,
     required this.isUser,
     this.emotion,
     this.rationale,
-    this.confidence,
     this.processingMode = AIProcessingMode.unknown,
     this.systemPanel = false,
+    this.siV2,
   });
   final String text;
   final bool isUser;
   final String? emotion;
   final String? rationale;
-  final double? confidence;
   final AIProcessingMode processingMode;
   final bool systemPanel;
-
-  SIConsoleMessage toStoredMessage() => SIConsoleMessage(
-    text: text,
-    isUser: isUser,
-    emotion: emotion,
-    createdAt: DateTime.now().toUtc(),
-  );
-
-  static _Msg fromStoredMessage(SIConsoleMessage message) => _Msg(
-    text: message.text,
-    isUser: message.isUser,
-    emotion: message.emotion,
-  );
+  final SIV2Response? siV2;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,15 +59,18 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final List<_Msg> _messages = [];
   final TextEditingController _input = TextEditingController();
+  final TextEditingController _entityFilter = TextEditingController();
+  final TextEditingController _scenarioAssumption = TextEditingController();
   final ScrollController _scroll = ScrollController();
   final GlobalKey _composerKey = GlobalKey();
   // Starting guess only, replaced by the composer's real measured height
   // right after the first frame — see _measureComposer.
   final ValueNotifier<double> _composerHeight = ValueNotifier<double>(220);
   bool _typing = false;
-  bool _threadRestored = false;
+  SIV2Intent _intent = SIV2Intent.answer;
+  Set<SIV2Source> _sources = SIV2Source.values.toSet();
+  SIV2TimeRange _timeRange = SIV2TimeRange.thirtyDays;
   late final AnimationController _typingAnim;
-  StreamSubscription<GoalLifecycleEvent>? _goalEventSubscription;
 
   /// Captured in [initState] because `ref` cannot be read from [dispose] —
   /// the element is already deactivated by then and Riverpod throws.
@@ -132,38 +103,22 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    AppAnalytics.track('si_opened');
     final voiceService = ref.read(voiceServiceProvider);
     _stopVoice = voiceService.stop;
     _speakAccessibilityHint = voiceService.speakAccessibilityHint;
-    _goalEventSubscription = ref
-        .read(eventBusProvider)
-        .on<GoalLifecycleEvent>()
-        .listen((event) {
-          if (!mounted) {
-            return;
-          }
-          _safeSetState(() {
-            _messages.add(
-              _Msg(
-                text: 'GOAL SYNC: ${event.action.toUpperCase()} ${event.title}',
-                isUser: false,
-                emotion: 'engaged',
-                systemPanel: true,
-              ),
-            );
-          });
-          _schedulePersistThread();
-          _scrollToBottom();
-        });
+    _messages.add(
+      const _Msg(
+        text:
+            'SI V2 is ready. Analysis uses a read-only Evidence Lens over tasks, goals, milestones, and Timeline. Every substantive answer separates facts, calculations, inferences, scenarios, conflicts, confidence anatomy, and evidence links.',
+        isUser: false,
+        emotion: 'confident',
+        systemPanel: true,
+      ),
+    );
     _typingAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_restoreThread());
-    });
   }
 
   @override
@@ -171,10 +126,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     WidgetsBinding.instance.removeObserver(this);
     _typingAnim.dispose();
     _input.dispose();
+    _entityFilter.dispose();
+    _scenarioAssumption.dispose();
     _scroll.dispose();
     _composerHeight.dispose();
     unawaited(_stopVoice());
-    unawaited(_goalEventSubscription?.cancel());
     super.dispose();
   }
 
@@ -198,45 +154,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     if (height != null && height != _composerHeight.value) {
       _composerHeight.value = height;
     }
-  }
-
-  Future<void> _restoreThread() async {
-    if (_threadRestored) return;
-    final List<SIConsoleMessage> stored = await ref.read(
-      siConsoleThreadProvider.future,
-    );
-    if (!mounted || _threadRestored) return;
-    _safeSetState(() {
-      _threadRestored = true;
-      if (stored.isNotEmpty) {
-        _messages
-          ..clear()
-          ..addAll(stored.map(_Msg.fromStoredMessage));
-        return;
-      }
-      _messages.add(
-        const _Msg(
-          text:
-              'Strategic Intelligence is ready. I will use only the sources currently available, such as tasks, goals, Timeline, Progression, and saved preferences. '
-              'Responses may be limited when a source is missing, stale, or offline. Type "help" to see available shortcuts.',
-          isUser: false,
-          emotion: 'confident',
-          systemPanel: true,
-        ),
-      );
-    });
-    _scrollToBottom();
-  }
-
-  void _schedulePersistThread() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final List<SIConsoleMessage> persisted = _messages
-          .where((message) => message.text.trim().isNotEmpty)
-          .map((message) => message.toStoredMessage())
-          .toList(growable: false);
-      unawaited(ref.read(siConsoleThreadStoreProvider).save(persisted));
-    });
   }
 
   Future<void> _showReportDialog(_Msg msg) async {
@@ -459,7 +376,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         ),
       );
     });
-    _schedulePersistThread();
     _scrollToBottom();
   }
 
@@ -473,12 +389,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return;
     }
 
-    unawaited(
-      ref
-          .read(adaptiveGuidanceProvider.notifier)
-          .record(GuidanceMilestone.firstSiQuery),
-    );
-
     if (_handleLocalShortcut(text)) {
       _input.clear();
       return;
@@ -486,7 +396,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _input.clear();
 
     _safeSetState(() => _messages.add(_Msg(text: text, isUser: true)));
-    _schedulePersistThread();
     _scrollToBottom();
     _safeSetState(() => _typing = true);
 
@@ -508,11 +417,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
 
     final SIConsoleShortcutDefinition definition = invocation.definition!;
-    final SIConsoleScreenModel? consoleModel = ref
-        .read(siConsoleScreenModelProvider)
+    final SIV2EvidenceSnapshot? snapshot = ref
+        .read(siV2EvidenceSnapshotProvider)
         .asData
         ?.value;
-    final SIStateAggregation? aggregation = consoleModel?.aggregation;
 
     if (invocation.argumentsRejected) {
       _addShortcutFallback(
@@ -533,15 +441,15 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
               '${SIConsoleShortcutRegistry.buildHelp(filter: invocation.arguments)}\n\n'
               'Rules:\n'
               '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
-              '- SI Console is analysis and guidance, not data entry.\n\n'
-              'High-signal prompts SI responds well to:\n'
-              '- "List my 3 newest tasks and what to do first."\n'
-              '- "Did I create a task just now? Show the latest task title."\n'
-              '- "Summarize trajectory pressure and one corrective action."\n'
-              '- "Show plan risks for today and 3 next actions."\n'
-              '- "Summarize goals at risk and what to do next."\n'
-              '- "Compare current self to future self."\n\n'
-              'Tip: use a shortcut first, then add intent. Example: /tasks what should I execute now?',
+              '- SI V2 has read-only evidence capability and cannot mutate domain data.\n'
+              '- The visible query builder is primary; shortcuts are aliases.\n\n'
+              'High-signal SI V2 prompts:\n'
+              '- "What needs attention?"\n'
+              '- "Why is this goal at risk?"\n'
+              '- "Compare my two nearest goals."\n'
+              '- "What happens if I defer this task?"\n'
+              '- "Which commitments conflict?"\n'
+              '- "What would change your recommendation?"',
         );
         return true;
       case SIShortcutRoute.status:
@@ -553,25 +461,19 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             )
             .map((SIConsoleShortcutDefinition item) => item.shortcut)
             .join(', ');
-        final String status = (aggregation == null)
+        final String status = (snapshot == null)
             ? 'SI STATUS\n\n'
                   'Local data sources are still loading. Retry /status in a second.\n'
-                  'If this persists, open /tasks or /plan to inspect the affected source.'
+                  'No domain data was changed.'
             : 'SI STATUS\n\n'
-                  'Connected surfaces:\n'
-                  '- tasks: ${aggregation.tasks.length}\n'
-                  '- goals: ${aggregation.goals.length}\n'
-                  '- logs: ${aggregation.logs.length}\n'
-                  '- memories: ${aggregation.memories.length}\n'
-                  '- notifications: ${aggregation.notifications.length}\n'
-                  '- timeline: ${aggregation.timeline.length}\n'
-                  '- milestones: ${ref.read(milestonesProvider).asData?.value.length ?? 0}\n'
-                  '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
-                  'Trajectory:\n'
-                  '- pressure: ${aggregation.trajectory.pressureIndex}\n'
-                  '- momentum: ${(aggregation.trajectory.momentum * 100).round()}%\n'
-                  '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
-                  'Available evidence shortcuts: $surfaceShortcuts.';
+                  'Read-only Evidence Lens:\n'
+                  '- tasks: ${snapshot.tasks.length}\n'
+                  '- goals: ${snapshot.goals.length}\n'
+                  '- milestones: ${snapshot.milestones.length}\n'
+                  '- Timeline: ${snapshot.timeline.length}\n'
+                  '- unavailable sources: ${snapshot.unavailableSources.length}\n'
+                  '- revision: ${snapshot.revision.substring(0, 16)}\n\n'
+                  'Available evidence aliases: $surfaceShortcuts.';
 
         _addShortcutResponse(
           query: text,
@@ -585,208 +487,47 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       case SIShortcutRoute.milestonesSnapshot:
       case SIShortcutRoute.timelineSnapshot:
       case SIShortcutRoute.trajectorySnapshot:
-        final String response = _localSurfaceSummary(
-          invocation.resolvedRoute!,
-          aggregation,
-        );
-        _addShortcutResponse(
-          query: text,
-          response: response,
-          definition: definition,
-        );
-        return true;
+        return false;
       case SIShortcutRoute.intelligenceQuery:
         return false;
     }
   }
 
-  String _localSurfaceSummary(
-    SIShortcutRoute route,
-    SIStateAggregation? aggregation,
-  ) {
-    if (aggregation == null) {
-      return 'SI is still loading module data. Retry the shortcut in a second.';
-    }
-
-    switch (route) {
-      case SIShortcutRoute.tasksSnapshot:
-        final String? selectedTaskId =
-            aggregation.planningDecision.selectedTask?.id;
-        final String? selectedTaskTitle =
-            aggregation.planningDecision.selectedTask?.title;
-        final List<String> active = aggregation.tasks
-            .where((task) => task.id != selectedTaskId)
-            .take(3)
-            .map((task) => task.title)
-            .toList(growable: false);
-        final String activeText = active.isEmpty
-            ? 'No active tasks yet.'
-            : active.map((task) => '- $task').join('\n');
-        return 'TASKS SNAPSHOT\n\n'
-            'Active tasks: ${aggregation.tasks.length}\n\n'
-            'Recommended next:\n'
-            '${selectedTaskTitle == null || selectedTaskTitle.trim().isEmpty ? 'No ranked task available yet.' : '- $selectedTaskTitle'}\n\n'
-            'Why:\n${aggregation.planningDecision.rationale}\n\n'
-            'Other active tasks:\n$activeText\n\n'
-            'Prompt: "why this task first, and what is the smallest next step?"';
-      case SIShortcutRoute.goalsSnapshot:
-        final List<String> top = aggregation.goals
-            .take(3)
-            .map((g) => g.title)
-            .toList(growable: false);
-        final String topText = top.isEmpty
-            ? 'No goals found.'
-            : top.map((g) => '- $g').join('\n');
-        return 'GOALS SNAPSHOT\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\nPrompt: "which goal is drifting and what is the next corrective action?"';
-      case SIShortcutRoute.planSnapshot:
-        final String blocks = aggregation.planPreview.isEmpty
-            ? 'No adaptive blocks generated yet.'
-            : aggregation.planPreview.take(3).map((b) => '- $b').join('\n');
-        return 'PLAN SNAPSHOT\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\nPrompt: "what should I move or drop to reduce pressure today?"';
-      case SIShortcutRoute.milestonesSnapshot:
-        final MilestoneSummary summary = ref.read(milestoneSummaryProvider);
-        final List<MilestoneEntity> overdue = ref.read(
-          milestoneOverdueProvider,
-        );
-        final List<MilestoneEntity> upcoming = ref.read(
-          milestoneUpcomingProvider,
-        );
-        final List<MilestoneRisk> risks = ref.read(milestoneRisksProvider);
-        final List<String> topMilestones =
-            (ref.read(milestonesProvider).asData?.value ??
-                    const <MilestoneEntity>[])
-                .take(3)
-                .map(
-                  (MilestoneEntity item) =>
-                      '${item.title} (${item.completionPercent.round()}%)',
-                )
-                .toList(growable: false);
-        final String topText = topMilestones.isEmpty
-            ? 'No milestones created yet.'
-            : topMilestones.map((String item) => '- $item').join('\n');
-        return 'MILESTONES SNAPSHOT\n\n'
-            'Total: ${summary.total}\n'
-            'Active: ${summary.active}\n'
-            'Completed: ${summary.completed}\n'
-            'Overdue: ${summary.overdue}\n'
-            'Upcoming: ${summary.upcoming}\n'
-            'Health: ${summary.healthScore}%\n'
-            'Momentum: ${summary.momentumScore}%\n'
-            'Risk: ${summary.riskScore}%\n\n'
-            'Closest: ${summary.closestMilestone?.title ?? 'No milestone'}\n'
-            'Highest Priority: ${summary.highestPriority?.title ?? 'No milestone'}\n'
-            'Next: ${summary.nextMilestone?.title ?? 'No upcoming milestone'}\n\n'
-            'Overdue list: ${overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'None' : overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ')}\n'
-            'Upcoming list: ${upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'None' : upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ')}\n'
-            'Top risk: ${risks.isEmpty ? 'None' : '${risks.first.milestone.title} - ${risks.first.reason}'}\n\n'
-            'Top milestones:\n$topText\n\n'
-            'Prompt: "what milestone is next, what is overdue, and am I on track?"';
-      case SIShortcutRoute.timelineSnapshot:
-        final int healthScore = ref.read(timelineHealthScoreProvider);
-        final int riskScore = ref.read(timelineRiskScoreProvider);
-        final int overdueCount = ref.read(timelineOverdueProvider).length;
-        final int upcomingCount = ref.read(timelineUpcomingProvider).length;
-        final int riskEventsCount = ref.read(timelineRiskEventsProvider).length;
-        final int recommendationCount = ref
-            .read(timelineRecommendationsProvider)
-            .length;
-        final List<TimelineEventEntity> upcomingEvents = ref.read(
-          timelineUpcomingProvider,
-        );
-        final String nextDeadline = upcomingEvents.isEmpty
-            ? 'No upcoming deadline in timeline data.'
-            : upcomingEvents
-                  .map((event) => event.title.toString().trim())
-                  .firstWhere(
-                    (String title) => title.isNotEmpty,
-                    orElse: () => 'Upcoming deadline detected.',
-                  );
-        final List<String> events = aggregation.timeline
-            .take(3)
-            .map((e) => '${e.shortLabel}: ${e.title}')
-            .toList(growable: false);
-        final String eventsText = events.isEmpty
-            ? 'No timeline events yet.'
-            : events.map((e) => '- $e').join('\n');
-        return 'TIMELINE SNAPSHOT\n\n'
-            'Events: ${aggregation.timeline.length}\n'
-            'Health: $healthScore%\n'
-            'Risk: $riskScore%\n'
-            'Overdue: $overdueCount\n'
-            'Upcoming: $upcomingCount\n'
-            'Risk events: $riskEventsCount\n'
-            'Recommendations: $recommendationCount\n\n'
-            'Next deadline: $nextDeadline\n\n'
-            'Recent events:\n$eventsText\n\n'
-            'Prompt: "what is overdue, what is next, and am I on track?"';
-      case SIShortcutRoute.trajectorySnapshot:
-        return 'TRAJECTORY SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\nPrompt: "give me one action to improve momentum today."';
-      case SIShortcutRoute.help:
-      case SIShortcutRoute.status:
-      case SIShortcutRoute.intelligenceQuery:
-        throw StateError('The selected shortcut does not have a snapshot.');
-    }
-  }
-
   Future<void> _dispatchQuery(String text) async {
     try {
-      final AIRecommendation? rawRecommendation = await ref
-          .read(aiControllerProvider)
-          .sendMessage(text);
+      final SIV2Query query = SIV2Query.fromUserInput(
+        rawText: text,
+        selectedIntent: _intent,
+        selectedSources: _sources,
+        timeRange: _timeRange,
+        entityFilter: _entityFilter.text,
+        scenarioAssumption: _scenarioAssumption.text,
+      );
+      final SIV2Response response = await ref
+          .read(siV2QueryServiceProvider)
+          .analyze(query);
       if (!mounted) return;
-      final AIRecommendation? recommendation = rawRecommendation == null
-          ? null
-          : ref
-                .read(siConsoleQueryControllerProvider)
-                .ensureTypedResponse(
-                  query: text,
-                  recommendation: rawRecommendation,
-                );
-      final String message = recommendation?.message.trim() ?? '';
-      if (recommendation?.contract == null ||
-          message.isEmpty ||
-          _isInvalidAssistantText(message)) {
-        final AIRecommendation fallback = ref
-            .read(siConsoleQueryControllerProvider)
-            .localFallbackResponse(
-              query: text,
-              response:
-                  'No grounded response was generated. Ask with a specific feature and intent, for example: "show trajectory pressure", "summarize goals", or "plan next 3 tasks".',
-              reason: 'response_schema_validation',
-            );
-        fallback.contract!.validate();
-        _safeSetState(() {
-          _typing = false;
-          _messages.add(
-            _Msg(
-              text: fallback.message,
-              isUser: false,
-              emotion: fallback.emotion ?? 'balanced',
-              rationale: fallback.reasoning,
-              systemPanel: true,
-              processingMode: fallback.processingMode,
-            ),
-          );
-        });
-        _schedulePersistThread();
-        _scrollToBottom();
-        return;
-      }
+      response.validate();
       _safeSetState(() {
         _typing = false;
         _messages.add(
           _Msg(
-            text: message,
+            text: response.toPlainText(),
             isUser: false,
-            emotion: recommendation?.emotion ?? 'balanced',
-            rationale: recommendation?.reasoning,
-            confidence: recommendation?.confidence,
-            processingMode:
-                recommendation?.processingMode ?? AIProcessingMode.unknown,
+            emotion:
+                response.conflicts.any(
+                  (SIV2Conflict item) =>
+                      item.severity == SIV2ConflictSeverity.critical,
+                )
+                ? 'cautious'
+                : 'focused',
+            rationale:
+                'SI V2 read-only evidence revision ${response.snapshotRevision.substring(0, 16)}',
+            processingMode: AIProcessingMode.onDevice,
+            siV2: response,
           ),
         );
       });
-      _schedulePersistThread();
       _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
@@ -795,8 +536,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           .localFallbackResponse(
             query: text,
             response:
-                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, or milestones.',
-            reason: 'query_execution_failure',
+                'SI V2 could not validate a read-only evidence response. Retry, broaden the Evidence Lens, or select tasks, goals, milestones, or Timeline. Nothing was changed.',
+            reason: 'si_v2_contract_or_evidence_failure',
             emotion: 'cautious',
           );
       fallback.contract!.validate();
@@ -813,17 +554,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           ),
         );
       });
-      _schedulePersistThread();
       _scrollToBottom();
     }
-  }
-
-  bool _isInvalidAssistantText(String value) {
-    final String normalized = value.trim().toLowerCase();
-    return normalized == 'undefined' ||
-        normalized == 'null' ||
-        normalized == 'undefined response' ||
-        normalized == 'no response';
   }
 
   void _scrollToBottom() {
@@ -836,12 +568,14 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(extendedDomainBootstrapProvider);
-    final int seededQueryCount = ref.watch(siQueriesProvider).length;
-    final consoleModelAsync = ref.watch(siConsoleScreenModelProvider);
-    final SIConsoleScreenModel? consoleModel = consoleModelAsync.asData?.value;
-    final Object? consoleError = consoleModelAsync.asError?.error;
-    final String? engineSnapshot = consoleModel?.engineSnapshot;
+    final AsyncValue<SIV2EvidenceSnapshot> snapshotAsync = ref.watch(
+      siV2EvidenceSnapshotProvider,
+    );
+    final SIV2EvidenceSnapshot? snapshot = snapshotAsync.asData?.value;
+    final Object? consoleError = snapshotAsync.asError?.error;
+    final String? engineSnapshot = snapshot == null
+        ? null
+        : 'Read-only lens: ${snapshot.tasks.length} tasks, ${snapshot.goals.length} goals, ${snapshot.milestones.length} milestones, ${snapshot.timeline.length} Timeline events';
     final MediaQueryData mediaQuery = MediaQuery.of(context);
     final double keyboardInset = mediaQuery.viewInsets.bottom;
     final bool keyboardVisible = keyboardInset > 0;
@@ -869,7 +603,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   goToAppView(context, ref, AppView.nexus);
                 },
                 engineSnapshot: engineSnapshot,
-                seededQueryCount: seededQueryCount,
                 onSpeakSummary: () {
                   final List<_Msg> recentAssistant = _messages
                       .where((msg) => !msg.isUser)
@@ -892,10 +625,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 },
               ),
               _ContextStatusBanner(
-                loading: consoleModelAsync.isLoading,
+                loading: snapshotAsync.isLoading,
                 error: consoleError,
-                model: consoleModel,
-                onRetry: () => ref.invalidate(siConsoleScreenModelProvider),
+                snapshot: snapshot,
+                onRetry: () => ref.invalidate(siV2EvidenceSnapshotProvider),
               ),
               Expanded(
                 child: ValueListenableBuilder<double>(
@@ -941,9 +674,35 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                               key: _composerKey,
                               child: _InputBar(
                                 controller: _input,
+                                entityFilterController: _entityFilter,
+                                scenarioAssumptionController:
+                                    _scenarioAssumption,
                                 onSend: _send,
                                 compact: keyboardVisible,
                                 busy: _typing,
+                                intent: _intent,
+                                sources: _sources,
+                                timeRange: _timeRange,
+                                onIntentChanged: (SIV2Intent value) {
+                                  setState(() => _intent = value);
+                                },
+                                onSourceChanged:
+                                    (SIV2Source source, bool selected) {
+                                      if (!selected && _sources.length == 1) {
+                                        return;
+                                      }
+                                      setState(() {
+                                        final Set<SIV2Source> updated = _sources
+                                            .toSet();
+                                        selected
+                                            ? updated.add(source)
+                                            : updated.remove(source);
+                                        _sources = updated;
+                                      });
+                                    },
+                                onTimeRangeChanged: (SIV2TimeRange value) {
+                                  setState(() => _timeRange = value);
+                                },
                               ),
                             ),
                           ),
@@ -969,13 +728,13 @@ class _ContextStatusBanner extends StatelessWidget {
   const _ContextStatusBanner({
     required this.loading,
     required this.error,
-    required this.model,
+    required this.snapshot,
     required this.onRetry,
   });
 
   final bool loading;
   final Object? error;
-  final SIConsoleScreenModel? model;
+  final SIV2EvidenceSnapshot? snapshot;
   final VoidCallback onRetry;
 
   @override
@@ -996,10 +755,9 @@ class _ContextStatusBanner extends StatelessWidget {
       icon = Icons.sync_rounded;
       accent = AppColors.neonCyan;
     } else {
-      final SIStateAggregation? aggregation = model?.aggregation;
-      message = aggregation == null
+      message = snapshot == null
           ? 'Evidence state unavailable.'
-          : 'Evidence ready: ${aggregation.tasks.length} tasks, ${aggregation.goals.length} goals, ${aggregation.timeline.length} timeline events.';
+          : 'Read-only evidence ready: ${snapshot!.tasks.length} tasks, ${snapshot!.goals.length} goals, ${snapshot!.milestones.length} milestones, ${snapshot!.timeline.length} Timeline events.';
       icon = Icons.verified_rounded;
       accent = Colors.greenAccent;
     }
@@ -1038,13 +796,11 @@ class _ContextStatusBanner extends StatelessWidget {
 class _Header extends StatelessWidget {
   const _Header({
     required this.onBack,
-    required this.seededQueryCount,
     required this.onSpeakSummary,
     required this.onSpeakAccessibility,
     this.engineSnapshot,
   });
   final VoidCallback onBack;
-  final int seededQueryCount;
   final VoidCallback onSpeakSummary;
   final VoidCallback onSpeakAccessibility;
   final String? engineSnapshot;
@@ -1086,7 +842,7 @@ class _Header extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -1095,10 +851,8 @@ class _Header extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        seededQueryCount > 0
-                            ? 'SI CONSOLE QRY:$seededQueryCount'
-                            : 'SI CONSOLE',
-                        style: const TextStyle(
+                        'SI CONSOLE V2',
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 3,
@@ -1109,7 +863,7 @@ class _Header extends StatelessWidget {
                     // "SI" is the app's own coinage and appears nowhere in
                     // onboarding, so expand it here: a user arriving on this
                     // screen otherwise has no way to learn what it means.
-                    const Text(
+                    Text(
                       'Systems intelligence - source-aware guidance',
                       style: TextStyle(
                         fontSize: 10,
@@ -1252,24 +1006,26 @@ class _BubbleTile extends ConsumerWidget {
                           padding: const EdgeInsets.only(bottom: 6),
                           child: _ProcessingModeTag(mode: msg.processingMode),
                         ),
-                      TypingText(
-                        msg.text,
-                        key: ValueKey<String>(
-                          'si-msg-${msg.isUser}-${msg.text}',
+                      if (msg.siV2 case final SIV2Response response)
+                        _SIV2ResponseCard(response: response)
+                      else
+                        TypingText(
+                          msg.text,
+                          key: ValueKey<String>(
+                            'si-msg-${msg.isUser}-${msg.text}',
+                          ),
+                          animate: false,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.55,
+                            color: isUser ? Colors.white70 : Colors.white,
+                            fontFamily: null,
+                          ),
                         ),
-                        animate: false,
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.55,
-                          color: isUser ? Colors.white70 : Colors.white,
-                          fontFamily: null,
-                        ),
-                      ),
                     ],
                   ),
                 ),
-                if (!isUser &&
-                    (msg.rationale != null || msg.confidence != null))
+                if (!isUser && msg.rationale != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
@@ -1277,8 +1033,6 @@ class _BubbleTile extends ConsumerWidget {
                         if (msg.rationale != null &&
                             msg.rationale!.trim().isNotEmpty)
                           'Why this appears: ${msg.rationale!.trim()}',
-                        if (msg.confidence != null)
-                          '${msg.processingMode == AIProcessingMode.external ? 'Assistant confidence signal' : 'Heuristic evidence strength'}: ${_evidenceStrengthLabel(msg.confidence!)} — not a calibrated probability; verify before acting.',
                       ].join('\n'),
                       style: const TextStyle(
                         color: Colors.white54,
@@ -1321,6 +1075,126 @@ class _BubbleTile extends ConsumerWidget {
             ),
           ),
           if (isUser) const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _SIV2ResponseCard extends StatelessWidget {
+  const _SIV2ResponseCard({required this.response});
+
+  final SIV2Response response;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('si-v2-response'),
+      constraints: const BoxConstraints(maxWidth: 680),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _section('DIRECT ANSWER', <String>[response.directAnswer]),
+          _section(
+            'OBSERVED FACTS',
+            response.observedFacts
+                .map((SIV2Statement item) => item.text)
+                .toList(),
+          ),
+          _section(
+            'DETERMINISTIC CALCULATIONS',
+            response.calculations
+                .map((SIV2Statement item) => item.text)
+                .toList(),
+          ),
+          _section(
+            'INFERENCES',
+            response.inferences.map((SIV2Statement item) => item.text).toList(),
+          ),
+          _section('MISSING OR CONFLICTING INFORMATION', <String>[
+            ...response.missingInformation,
+            ...response.conflicts.map(
+              (SIV2Conflict item) =>
+                  '${item.severity.name.toUpperCase()}: ${item.summary}',
+            ),
+          ]),
+          _section(
+            'SCENARIOS',
+            response.scenarios
+                .map(
+                  (SIV2Scenario item) =>
+                      '${item.label}: ${item.projectedEffect}',
+                )
+                .toList(),
+          ),
+          _section('SCENARIO ASSUMPTIONS', response.scenarioAssumptions),
+          _section('RECOMMENDATION', <String>[response.recommendation]),
+          _section('CONFIDENCE ANATOMY', <String>[
+            'Evidence strength: ${response.confidence.strength.name}',
+            'Coverage: ${response.confidence.coveredSignals} of ${response.confidence.requiredSignals} required signals',
+            'Freshness: ${response.confidence.freshness.name}',
+            'Conflicts: ${response.confidence.conflictCount}',
+            'Assumptions: ${response.confidence.assumptionCount}',
+          ]),
+          _section(
+            'EVIDENCE LINKS',
+            response.evidenceLinks
+                .map((SIV2EvidenceLink item) => '${item.label} — ${item.uri}')
+                .toList(),
+            bottomPadding: 0,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _section(
+    String title,
+    List<String> values, {
+    double bottomPadding = 14,
+  }) {
+    final List<String> visible = values
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: 10,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          if (visible.isEmpty)
+            const Text(
+              'None identified.',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            )
+          else
+            ...visible.map(
+              (String item) => Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(
+                  visible.length == 1 ? item : '• $item',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1549,12 +1423,28 @@ class _TypingIndicator extends StatelessWidget {
 class _InputBar extends ConsumerWidget {
   const _InputBar({
     required this.controller,
+    required this.entityFilterController,
+    required this.scenarioAssumptionController,
     required this.onSend,
+    required this.intent,
+    required this.sources,
+    required this.timeRange,
+    required this.onIntentChanged,
+    required this.onSourceChanged,
+    required this.onTimeRangeChanged,
     this.compact = false,
     this.busy = false,
   });
   final TextEditingController controller;
+  final TextEditingController entityFilterController;
+  final TextEditingController scenarioAssumptionController;
   final VoidCallback onSend;
+  final SIV2Intent intent;
+  final Set<SIV2Source> sources;
+  final SIV2TimeRange timeRange;
+  final ValueChanged<SIV2Intent> onIntentChanged;
+  final void Function(SIV2Source source, bool selected) onSourceChanged;
+  final ValueChanged<SIV2TimeRange> onTimeRangeChanged;
   final bool compact;
   final bool busy;
 
@@ -1605,63 +1495,144 @@ class _InputBar extends ConsumerWidget {
               children: [
                 if (!effectiveCompact) ...[
                   const Text(
-                    'Explore evidence',
+                    'SI V2 QUERY BUILDER',
                     style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      color: AppColors.neonCyan,
+                      fontSize: 10,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 6),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: SIConsoleShortcutRegistry.chips
+                      children: SIV2Intent.values
                           .map(
-                            (definition) => Padding(
+                            (SIV2Intent option) => Padding(
                               padding: const EdgeInsets.only(right: 6),
-                              child: GestureDetector(
-                                onTap: busy
-                                    ? null
-                                    : () {
-                                        _insertShortcut(definition.shortcut);
-                                        onSend();
-                                      },
-                                behavior: HitTestBehavior.opaque,
-                                child: Container(
-                                  constraints: const BoxConstraints(
-                                    minHeight: 44,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 11,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: busy
-                                        ? const Color(0xFF151B22)
-                                        : const Color(0xFF102436),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: busy
-                                          ? Colors.white12
-                                          : AppColors.neonCyan,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    definition.label,
-                                    style: TextStyle(
-                                      color: busy
-                                          ? Colors.white38
-                                          : AppColors.neonCyan,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+                              child: ChoiceChip(
+                                key: ValueKey<String>(
+                                  'si-v2-intent-${option.name}',
                                 ),
+                                label: Text(option.label),
+                                selected: intent == option,
+                                onSelected: busy
+                                    ? null
+                                    : (bool selected) {
+                                        if (selected) onIntentChanged(option);
+                                      },
                               ),
                             ),
                           )
                           .toList(growable: false),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: SIV2Source.values
+                        .map(
+                          (SIV2Source source) => FilterChip(
+                            key: ValueKey<String>(
+                              'si-v2-source-${source.name}',
+                            ),
+                            label: Text(source.label),
+                            selected: sources.contains(source),
+                            onSelected: busy
+                                ? null
+                                : (bool selected) =>
+                                      onSourceChanged(source, selected),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                  const SizedBox(height: 6),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: SIV2TimeRange.values
+                          .map(
+                            (SIV2TimeRange option) => Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                key: ValueKey<String>(
+                                  'si-v2-range-${option.name}',
+                                ),
+                                label: Text(option.label),
+                                selected: timeRange == option,
+                                onSelected: busy
+                                    ? null
+                                    : (bool selected) {
+                                        if (selected) {
+                                          onTimeRangeChanged(option);
+                                        }
+                                      },
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: TextField(
+                          key: const Key('si-v2-entity-filter'),
+                          controller: entityFilterController,
+                          enabled: !busy,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            labelText: 'Entity filter (optional)',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          key: const Key('si-v2-assumption'),
+                          controller: scenarioAssumptionController,
+                          enabled: !busy,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            labelText: 'Scenario assumption (optional)',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: <Widget>[
+                        const Padding(
+                          padding: EdgeInsets.only(right: 8),
+                          child: Text(
+                            'Power aliases',
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                        ...SIConsoleShortcutRegistry.chips.map(
+                          (SIConsoleShortcutDefinition definition) => Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ActionChip(
+                              key: ValueKey<String>(
+                                'si-v2-alias-${definition.id}',
+                              ),
+                              label: Text(definition.shortcut),
+                              onPressed: busy
+                                  ? null
+                                  : () => _insertShortcut(definition.shortcut),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1703,6 +1674,7 @@ class _InputBar extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: TextField(
+                        key: const Key('si-query-input'),
                         controller: controller,
                         minLines: 1,
                         maxLines: 4,
@@ -1714,7 +1686,7 @@ class _InputBar extends ConsumerWidget {
                         cursorColor: AppColors.neonCyan,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
-                          hintText: 'Query the system...',
+                          hintText: 'Ask SI V2 about current evidence...',
                           hintStyle: const TextStyle(
                             color: Colors.white60,
                             fontSize: 13,
