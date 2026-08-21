@@ -1,11 +1,70 @@
 {
   "projectRoot": ".",
-  "deviceId": "auto",
-  "maestroDirectory": "maestro",
+  "deviceId": "emulator-5554",
+  "expectedAndroidApi": "35",
+  "maestroDirectory": ".maestro/flows",
   "monkey": {
-    "package": "com.example.app",
-    "seed": 20260817,
-    "throttleMs": 100,
-    "events": 500
+    "package": "com.ghostheart5.chronospark",
+    "variants": [
+      {
+        "name": "smoke",
+        "seed": 2026082101,
+        "throttleMs": 50,
+        "events": 100,
+        "percentages": {}
+      },
+      {
+        "name": "balanced",
+        "seed": 2026082102,
+        "throttleMs": 75,
+        "events": 500,
+        "percentages": {
+          "touch": 35,
+          "motion": 20,
+          "nav": 15,
+          "majornav": 10,
+          "appswitch": 10,
+          "anyevent": 10
+        }
+      },
+      {
+        "name": "navigation",
+        "seed": 2026082103,
+        "throttleMs": 75,
+        "events": 300,
+        "percentages": {
+          "touch": 15,
+          "motion": 5,
+          "nav": 35,
+          "majornav": 25,
+          "appswitch": 20
+        }
+      },
+      {
+        "name": "touch-motion",
+        "seed": 2026082104,
+        "throttleMs": 60,
+        "events": 500,
+        "percentages": {
+          "touch": 55,
+          "motion": 35,
+          "nav": 5,
+          "appswitch": 5
+        }
+      },
+      {
+        "name": "lifecycle",
+        "seed": 2026082105,
+        "throttleMs": 100,
+        "events": 300,
+        "percentages": {
+          "touch": 10,
+          "nav": 10,
+          "majornav": 20,
+          "appswitch": 40,
+          "anyevent": 20
+        }
+      }
+    ]
   }
 }
