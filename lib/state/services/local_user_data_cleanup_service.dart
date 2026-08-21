@@ -127,8 +127,11 @@ class LocalUserDataCleanupService {
 
   Future<void> clearForAccountSwitch() async {
     await _hive.init();
-    for (final String box in _userBoxes) {
-      await _hive.clearBox(box);
+    for (final String boxName in _userBoxes) {
+      final bool wasOpen = _hive.isBoxOpen(boxName);
+      final box = await _hive.openBox<String>(boxName);
+      await box.clear();
+      if (!wasOpen) await box.close();
     }
     for (final String key in _userSecureKeys) {
       await _secureStore.delete(key);
@@ -147,7 +150,10 @@ class LocalUserDataCleanupService {
     await _hive.init();
     for (final String boxName in _userBoxes) {
       final bool wasOpen = _hive.isBoxOpen(boxName);
-      final box = await _hive.openBox<dynamic>(boxName);
+      // Every account-owned Hive repository serializes its payload as JSON
+      // strings. Opening an already-open Box<String> as Box<dynamic> throws
+      // before ownership recovery can be offered.
+      final box = await _hive.openBox<String>(boxName);
       final bool hasValues = box.isNotEmpty;
       if (!wasOpen) await box.close();
       if (hasValues) return true;
