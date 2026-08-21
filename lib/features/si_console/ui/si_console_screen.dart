@@ -774,18 +774,27 @@ class _ContextStatusBanner extends StatelessWidget {
           Icon(icon, color: accent, size: 18),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                height: 1.35,
+            child: Semantics(
+              liveRegion: true,
+              label: message,
+              child: ExcludeSemantics(
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
               ),
             ),
           ),
           if (error != null) ...<Widget>[
             const SizedBox(width: 8),
-            TextButton(onPressed: onRetry, child: const Text('Retry')),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('Retry evidence loading'),
+            ),
           ],
         ],
       ),
@@ -888,7 +897,7 @@ class _Header extends StatelessWidget {
                 letterSpacing: 1,
                 color: Colors.white54,
               ),
-              maxLines: 2,
+              maxLines: 4,
             ),
           ],
           const SizedBox(height: 8),
@@ -971,58 +980,63 @@ class _BubbleTile extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: bubbleColor,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(systemPanel ? 8 : 16),
-                      topRight: Radius.circular(systemPanel ? 8 : 16),
-                      bottomLeft: Radius.circular(isUser ? 16 : 6),
-                      bottomRight: Radius.circular(isUser ? 6 : 16),
+                Semantics(
+                  container: true,
+                  liveRegion: !isUser,
+                  label: isUser ? 'Your query' : 'SI response',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
                     ),
-                    border: Border.all(
-                      color: isUser
-                          ? Colors.purple.withValues(alpha: 0.25)
-                          : systemPanel
-                          ? Colors.white24
-                          : AppColors.neonCyan.withValues(alpha: 0.22),
+                    decoration: BoxDecoration(
+                      color: bubbleColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(systemPanel ? 8 : 16),
+                        topRight: Radius.circular(systemPanel ? 8 : 16),
+                        bottomLeft: Radius.circular(isUser ? 16 : 6),
+                        bottomRight: Radius.circular(isUser ? 6 : 16),
+                      ),
+                      border: Border.all(
+                        color: isUser
+                            ? Colors.purple.withValues(alpha: 0.25)
+                            : systemPanel
+                            ? Colors.white24
+                            : AppColors.neonCyan.withValues(alpha: 0.22),
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (!isUser && emotion != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 5),
-                          child: _EmotionTag(emotion: emotion),
-                        ),
-                      if (!isUser &&
-                          msg.processingMode != AIProcessingMode.unknown)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: _ProcessingModeTag(mode: msg.processingMode),
-                        ),
-                      if (msg.siV2 case final SIV2Response response)
-                        _SIV2ResponseCard(response: response)
-                      else
-                        TypingText(
-                          msg.text,
-                          key: ValueKey<String>(
-                            'si-msg-${msg.isUser}-${msg.text}',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!isUser && emotion != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: _EmotionTag(emotion: emotion),
                           ),
-                          animate: false,
-                          style: TextStyle(
-                            fontSize: 13,
-                            height: 1.55,
-                            color: isUser ? Colors.white70 : Colors.white,
-                            fontFamily: null,
+                        if (!isUser &&
+                            msg.processingMode != AIProcessingMode.unknown)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: _ProcessingModeTag(mode: msg.processingMode),
                           ),
-                        ),
-                    ],
+                        if (msg.siV2 case final SIV2Response response)
+                          _SIV2ResponseCard(response: response)
+                        else
+                          TypingText(
+                            msg.text,
+                            key: ValueKey<String>(
+                              'si-msg-${msg.isUser}-${msg.text}',
+                            ),
+                            animate: false,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.55,
+                              color: isUser ? Colors.white70 : Colors.white,
+                              fontFamily: null,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 if (!isUser && msg.rationale != null)
@@ -1162,13 +1176,16 @@ class _SIV2ResponseCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.neonCyan,
-              fontSize: 10,
-              letterSpacing: 1.4,
-              fontWeight: FontWeight.w800,
+          Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: AppColors.neonCyan,
+                fontSize: 10,
+                letterSpacing: 1.4,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -1224,25 +1241,27 @@ class _SIAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xFF0A1520),
-        border: Border.all(color: _color.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(color: _color.withValues(alpha: 0.25), blurRadius: 8),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          'SI',
-          style: TextStyle(
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-            color: _color,
+    return ExcludeSemantics(
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF0A1520),
+          border: Border.all(color: _color.withValues(alpha: 0.5)),
+          boxShadow: [
+            BoxShadow(color: _color.withValues(alpha: 0.25), blurRadius: 8),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            'SI',
+            style: TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+              color: _color,
+            ),
           ),
         ),
       ),
@@ -1358,59 +1377,68 @@ class _TypingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          const _SIAvatar(),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D1A2A),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-                bottomLeft: Radius.circular(4),
-              ),
-              border: Border.all(
-                color: AppColors.neonCyan.withValues(alpha: 0.18),
-              ),
-            ),
-            child: AnimatedBuilder(
-              animation: animation,
-              builder: (_, _) {
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(3, (i) {
-                    final double phase = (animation.value - i * 0.2).clamp(
-                      0.0,
-                      1.0,
-                    );
-                    final double opacity =
-                        0.3 + 0.7 * math.sin(phase * math.pi);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Opacity(
-                        opacity: opacity.clamp(0.0, 1.0),
-                        child: Container(
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            color: AppColors.neonCyan,
-                            shape: BoxShape.circle,
+    return Semantics(
+      liveRegion: true,
+      label: 'SI is analyzing the current evidence',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const _SIAvatar(),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D1A2A),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                    bottomLeft: Radius.circular(4),
+                  ),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: AnimatedBuilder(
+                  animation: animation,
+                  builder: (_, _) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(3, (i) {
+                        final double phase = (animation.value - i * 0.2).clamp(
+                          0.0,
+                          1.0,
+                        );
+                        final double opacity =
+                            0.3 + 0.7 * math.sin(phase * math.pi);
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Opacity(
+                            opacity: opacity.clamp(0.0, 1.0),
+                            child: Container(
+                              width: 5,
+                              height: 5,
+                              decoration: const BoxDecoration(
+                                color: AppColors.neonCyan,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                     );
-                  }),
-                );
-              },
-            ),
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1576,32 +1604,46 @@ class _InputBar extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: TextField(
-                          key: const Key('si-v2-entity-filter'),
-                          controller: entityFilterController,
-                          enabled: !busy,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            labelText: 'Entity filter (optional)',
-                          ),
+                  LayoutBuilder(
+                    builder: (BuildContext context, BoxConstraints fields) {
+                      final bool stackFields =
+                          fields.maxWidth < 600 ||
+                          MediaQuery.textScalerOf(context).scale(1) > 1.3;
+                      final Widget entityField = TextField(
+                        key: const Key('si-v2-entity-filter'),
+                        controller: entityFilterController,
+                        enabled: !busy,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          labelText: 'Entity filter (optional)',
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          key: const Key('si-v2-assumption'),
-                          controller: scenarioAssumptionController,
-                          enabled: !busy,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            labelText: 'Scenario assumption (optional)',
-                          ),
+                      );
+                      final Widget assumptionField = TextField(
+                        key: const Key('si-v2-assumption'),
+                        controller: scenarioAssumptionController,
+                        enabled: !busy,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          labelText: 'Scenario assumption (optional)',
                         ),
-                      ),
-                    ],
+                      );
+                      if (stackFields) {
+                        return Column(
+                          children: <Widget>[
+                            entityField,
+                            const SizedBox(height: 8),
+                            assumptionField,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: <Widget>[
+                          Expanded(child: entityField),
+                          const SizedBox(width: 8),
+                          Expanded(child: assumptionField),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 6),
                   SingleChildScrollView(
@@ -1686,6 +1728,7 @@ class _InputBar extends ConsumerWidget {
                         cursorColor: AppColors.neonCyan,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
+                          labelText: 'SI query',
                           hintText: 'Ask SI V2 about current evidence...',
                           hintStyle: const TextStyle(
                             color: Colors.white60,
@@ -1727,6 +1770,8 @@ class _InputBar extends ConsumerWidget {
                           ? 'Stop voice input'
                           : 'Start voice input',
                       button: true,
+                      enabled: !busy,
+                      liveRegion: listening,
                       child: GestureDetector(
                         onTap: busy
                             ? null
@@ -1765,8 +1810,9 @@ class _InputBar extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
                     Semantics(
-                      label: 'Send query',
+                      label: busy ? 'SI is analyzing' : 'Send SI query',
                       button: true,
+                      enabled: !busy,
                       child: GestureDetector(
                         onTap: busy ? null : onSend,
                         child: Container(

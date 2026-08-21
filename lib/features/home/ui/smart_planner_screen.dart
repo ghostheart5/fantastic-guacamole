@@ -560,6 +560,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                       label: 'PLANNING CONTEXT',
                       accentColor: AppColors.neonViolet,
                       child: TextField(
+                        key: const Key('planner-context-field'),
                         controller: _notesController,
                         maxLines: 4,
                         style: const TextStyle(
@@ -568,6 +569,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                           height: 1.6,
                         ),
                         decoration: const InputDecoration(
+                          labelText: 'Planning context',
+                          helperText:
+                              'Used only for this check-in unless you explicitly remember a preference.',
                           hintText:
                               'Share your current context, friction, or desired outcome...',
                           hintStyle: TextStyle(color: Colors.white24),
@@ -600,28 +604,34 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                           : (_saved ? 'REFRESH GUIDANCE' : 'GET GUIDANCE'),
                       color: AppColors.neonCyan,
                       onTap: _gettingPlanningGuidance
-                          ? () {}
+                          ? null
                           : _getPlanningGuidance,
                     ),
                     if (hasPlannerMessage) ...[
                       const SizedBox(height: 20),
-                      _PlannerV2ResponsePanel(
-                        response: plannerResponse,
-                        understandingController: _understandingController,
-                        editingUnderstanding: _editingUnderstanding,
-                        showWhy: _showWhy,
-                        actionStatus: _plannerActionStatus,
-                        onBeginEdit: _beginUnderstandingEdit,
-                        onSaveEdit: _saveUnderstandingEdit,
-                        onCancelEdit: _cancelUnderstandingEdit,
-                        onTryThis: _tryThis,
-                        onMakeSmaller: _makeItSmaller,
-                        onDifferentApproach: _differentApproach,
-                        onToggleWhy: () => setState(() => _showWhy = !_showWhy),
-                        onOpenCreatorDraft: _openCreatorDraft,
-                        onRememberPreference: () =>
-                            unawaited(_rememberPreference()),
-                        onNotNow: _notNow,
+                      Semantics(
+                        container: true,
+                        liveRegion: true,
+                        label: 'Planning guidance ready',
+                        child: _PlannerV2ResponsePanel(
+                          response: plannerResponse,
+                          understandingController: _understandingController,
+                          editingUnderstanding: _editingUnderstanding,
+                          showWhy: _showWhy,
+                          actionStatus: _plannerActionStatus,
+                          onBeginEdit: _beginUnderstandingEdit,
+                          onSaveEdit: _saveUnderstandingEdit,
+                          onCancelEdit: _cancelUnderstandingEdit,
+                          onTryThis: _tryThis,
+                          onMakeSmaller: _makeItSmaller,
+                          onDifferentApproach: _differentApproach,
+                          onToggleWhy: () =>
+                              setState(() => _showWhy = !_showWhy),
+                          onOpenCreatorDraft: _openCreatorDraft,
+                          onRememberPreference: () =>
+                              unawaited(_rememberPreference()),
+                          onNotNow: _notNow,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       _GuidanceEvidence(
@@ -698,32 +708,38 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           ),
         ),
         const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [AppColors.neonCyan, AppColors.neonViolet],
-              ).createShader(bounds),
-              child: const Text(
-                'SMART PLANNER',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 3,
-                  color: Colors.white,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [AppColors.neonCyan, AppColors.neonViolet],
+                ).createShader(bounds),
+                child: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'SMART PLANNER',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 3,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const Text(
-              'EVIDENCE-AWARE PLANNING',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 2,
-                color: Colors.white38,
+              const Text(
+                'EVIDENCE-AWARE PLANNING',
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 2,
+                  color: Colors.white60,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -1019,13 +1035,19 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
           ),
           if (actionStatus != null) ...[
             const SizedBox(height: 10),
-            Text(
-              actionStatus!,
-              style: const TextStyle(
-                color: AppColors.neonCyan,
-                fontSize: 11,
-                height: 1.4,
-                fontWeight: FontWeight.w700,
+            Semantics(
+              liveRegion: true,
+              label: actionStatus ?? '',
+              child: ExcludeSemantics(
+                child: Text(
+                  actionStatus ?? '',
+                  style: const TextStyle(
+                    color: AppColors.neonCyan,
+                    fontSize: 11,
+                    height: 1.4,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1095,7 +1117,10 @@ class _PlanSpectrumOptionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 12,
+            runSpacing: 4,
             children: [
               Text(
                 '$label · ${option.estimatedMinutes} MIN',
@@ -1106,8 +1131,7 @@ class _PlanSpectrumOptionCard extends StatelessWidget {
                   letterSpacing: 1.2,
                 ),
               ),
-              if (recommended) ...[
-                const Spacer(),
+              if (recommended)
                 const Text(
                   'RECOMMENDED',
                   style: TextStyle(
@@ -1116,7 +1140,6 @@ class _PlanSpectrumOptionCard extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-              ],
             ],
           ),
           const SizedBox(height: 6),
@@ -1167,37 +1190,42 @@ class _FollowUpBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (errorText != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: AppColors.recallRed,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        errorText!,
-                        style: const TextStyle(
-                          color: AppColors.recallRed,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+              Semantics(
+                liveRegion: true,
+                label: 'Follow-up failed. $errorText',
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: AppColors.recallRed,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          errorText!,
+                          style: const TextStyle(
+                            color: AppColors.recallRed,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: sending ? null : onSend,
-                      child: const Text('Retry'),
-                    ),
-                  ],
+                      TextButton(
+                        onPressed: sending ? null : onSend,
+                        child: const Text('Retry follow-up'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             Row(
               children: [
                 Expanded(
                   child: TextField(
+                    key: const Key('planner-follow-up-field'),
                     controller: controller,
                     enabled: !sending,
                     style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -1206,6 +1234,7 @@ class _FollowUpBar extends StatelessWidget {
                       if (!sending) onSend();
                     },
                     decoration: InputDecoration(
+                      labelText: 'Follow-up question',
                       hintText: 'Send a follow-up question...',
                       hintStyle: const TextStyle(
                         color: Colors.white38,
@@ -1287,13 +1316,15 @@ class _PlannerPanel extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2.5,
-                  color: accentColor,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 2.5,
+                    color: accentColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -1322,8 +1353,10 @@ class _EnergySlider extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 12,
+          runSpacing: 4,
           children: [
             const Text(
               'CURRENT ENERGY',
@@ -1344,16 +1377,25 @@ class _EnergySlider extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        SliderTheme(
-          data: SliderThemeData(
-            trackHeight: 3,
-            activeTrackColor: color,
-            inactiveTrackColor: Colors.white12,
-            thumbColor: color,
-            overlayColor: color.withValues(alpha: 0.2),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+        Semantics(
+          label: 'Current energy',
+          value: '${(value * 100).round()} percent',
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              activeTrackColor: color,
+              inactiveTrackColor: Colors.white12,
+              thumbColor: color,
+              overlayColor: color.withValues(alpha: 0.2),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+            ),
+            child: Slider(
+              value: value,
+              onChanged: onChanged,
+              semanticFormatterCallback: (double sliderValue) =>
+                  '${(sliderValue * 100).round()} percent',
+            ),
           ),
-          child: Slider(value: value, onChanged: onChanged),
         ),
       ],
     );
@@ -1366,37 +1408,42 @@ class _VoiceButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () => unawaited(ref.read(voiceServiceProvider).speak(message)),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: BoxDecoration(
-          color: AppColors.memoryAmber.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: AppColors.memoryAmber.withValues(alpha: 0.4),
+    return Semantics(
+      label: 'Read full planning guidance aloud',
+      button: true,
+      child: GestureDetector(
+        onTap: () => unawaited(ref.read(voiceServiceProvider).speak(message)),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: AppColors.memoryAmber.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.memoryAmber.withValues(alpha: 0.4),
+            ),
           ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.volume_up_rounded,
-              color: AppColors.memoryAmber,
-              size: 15,
-            ),
-            SizedBox(width: 6),
-            Text(
-              'SPEAK',
-              style: TextStyle(
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.volume_up_rounded,
                 color: AppColors.memoryAmber,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
+                size: 15,
               ),
-            ),
-          ],
+              SizedBox(width: 6),
+              Text(
+                'SPEAK',
+                style: TextStyle(
+                  color: AppColors.memoryAmber,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1416,42 +1463,53 @@ class _VoiceSummaryButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () => unawaited(
-        ref
-            .read(voiceServiceProvider)
-            .speakSummary(
-              title: 'Smart Planner voice summary',
-              points: <String>[
-                'Energy is ${(energy * 100).round()} percent',
-                'Emotion state is ${emotion.name}',
-                headline,
-              ],
-            ),
-      ),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: BoxDecoration(
-          color: AppColors.neonCyan.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.summarize_rounded, color: AppColors.neonCyan, size: 15),
-            SizedBox(width: 6),
-            Text(
-              'SUMMARY',
-              style: TextStyle(
-                color: AppColors.neonCyan,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
+    return Semantics(
+      label: 'Read condensed planning summary aloud',
+      button: true,
+      child: GestureDetector(
+        onTap: () => unawaited(
+          ref
+              .read(voiceServiceProvider)
+              .speakSummary(
+                title: 'Smart Planner voice summary',
+                points: <String>[
+                  'Energy is ${(energy * 100).round()} percent',
+                  'Emotion state is ${emotion.name}',
+                  headline,
+                ],
               ),
+        ),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: AppColors.neonCyan.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.neonCyan.withValues(alpha: 0.45),
             ),
-          ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.summarize_rounded,
+                color: AppColors.neonCyan,
+                size: 15,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'SUMMARY',
+                style: TextStyle(
+                  color: AppColors.neonCyan,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1463,89 +1521,96 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        showModalBottomSheet<void>(
-          context: context,
-          backgroundColor: const Color(0xFF0D1420),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          builder: (BuildContext context) {
-            return const SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Accessibility Guide',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                      ),
+    return Semantics(
+      label: 'Open Smart Planner accessibility guide and read it aloud',
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          showModalBottomSheet<void>(
+            context: context,
+            backgroundColor: const Color(0xFF0D1420),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (BuildContext context) {
+              return const SafeArea(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Accessibility Guide',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'A11Y means accessibility. Use these controls for easier reading and audio guidance.',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'A11Y means accessibility. Use these controls for easier reading and audio guidance.',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.5,
-                      ),
-                    ),
+                  ),
+                ),
+              );
+            },
+          );
+          unawaited(
+            ref
+                .read(voiceServiceProvider)
+                .speakAccessibilityHint(
+                  surface: 'Smart Planner',
+                  controls: const <String>[
+                    'Adjust energy slider to set intensity',
+                    'Select emotional state to tune guidance',
+                    'Use Get Guidance to generate a planning response',
+                    'Use the speak button to read the latest guidance aloud',
+                    'Use summary button for condensed voice recap',
+                    'Use microphone button for voice interactions',
                   ],
                 ),
-              ),
-            );
-          },
-        );
-        unawaited(
-          ref
-              .read(voiceServiceProvider)
-              .speakAccessibilityHint(
-                surface: 'Smart Planner',
-                controls: const <String>[
-                  'Adjust energy slider to set intensity',
-                  'Select emotional state to tune guidance',
-                  'Use Get Guidance to generate a planning response',
-                  'Use the speak button to read the latest guidance aloud',
-                  'Use summary button for condensed voice recap',
-                  'Use microphone button for voice interactions',
-                ],
-              ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.accessibility_new_rounded,
-              color: Colors.white70,
-              size: 15,
-            ),
-            SizedBox(width: 5),
-            Text(
-              'ACCESS',
-              style: TextStyle(
+          );
+        },
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.accessibility_new_rounded,
                 color: Colors.white70,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
+                size: 15,
               ),
-            ),
-          ],
+              SizedBox(width: 5),
+              Text(
+                'ACCESS',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1573,60 +1638,66 @@ class _MicButton extends ConsumerWidget {
       }
     });
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () async {
-        if (listening) {
-          await ref.read(voiceControllerProvider.notifier).stopListening();
-          return;
-        }
-        await ref.read(voiceControllerProvider.notifier).startListening();
-        if (!context.mounted) {
-          return;
-        }
-        final String? error = ref.read(voiceControllerProvider).error;
-        if (error != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Voice input is unavailable. Check permission and retry.',
+    return Semantics(
+      label: listening ? 'Stop voice input' : 'Start voice input',
+      button: true,
+      liveRegion: listening,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () async {
+          if (listening) {
+            await ref.read(voiceControllerProvider.notifier).stopListening();
+            return;
+          }
+          await ref.read(voiceControllerProvider.notifier).startListening();
+          if (!context.mounted) {
+            return;
+          }
+          final String? error = ref.read(voiceControllerProvider).error;
+          if (error != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Voice input is unavailable. Check permission and retry.',
+                ),
               ),
-            ),
-          );
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: BoxDecoration(
-          color: listening
-              ? AppColors.neonCyan.withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
+            );
+          }
+        },
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
             color: listening
-                ? AppColors.neonCyan.withValues(alpha: 0.6)
-                : Colors.white24,
+                ? AppColors.neonCyan.withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: listening
+                  ? AppColors.neonCyan.withValues(alpha: 0.6)
+                  : Colors.white24,
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              listening ? Icons.mic : Icons.mic_none_rounded,
-              color: listening ? AppColors.neonCyan : Colors.white54,
-              size: 15,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              listening ? 'LISTENING...' : 'SPEAK',
-              style: TextStyle(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                listening ? Icons.mic : Icons.mic_none_rounded,
                 color: listening ? AppColors.neonCyan : Colors.white54,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
+                size: 15,
               ),
-            ),
-          ],
+              const SizedBox(width: 6),
+              Text(
+                listening ? 'LISTENING...' : 'SPEAK',
+                style: TextStyle(
+                  color: listening ? AppColors.neonCyan : Colors.white54,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1642,6 +1713,75 @@ class _ProgressionBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(progressionProvider).progress;
     final int pct = (progress.levelProgress * 100).round();
+    final double textScale = MediaQuery.textScalerOf(context).scale(1);
+    final Widget levelBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.memoryAmber.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        'LVL ${progress.level}',
+        style: const TextStyle(
+          color: AppColors.memoryAmber,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+    final Widget streak = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        const Icon(
+          Icons.local_fire_department,
+          color: Colors.deepOrangeAccent,
+          size: 14,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '${progress.streak}',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+    final List<Widget> progressLabels = <Widget>[
+      Text(
+        '$pct% to Level ${progress.level + 1}',
+        style: const TextStyle(
+          color: Colors.white60,
+          fontSize: 10,
+          letterSpacing: 0.5,
+        ),
+      ),
+      Text(
+        '${progress.xpToNext} XP',
+        style: const TextStyle(color: Colors.white54, fontSize: 10),
+      ),
+    ];
+    final Widget progressDetails = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (textScale > 1.3)
+          ...progressLabels
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: progressLabels,
+          ),
+        const SizedBox(height: 4),
+        ProgressBar(
+          value: progress.levelProgress,
+          color: AppColors.memoryAmber,
+          height: 4,
+        ),
+      ],
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1652,82 +1792,32 @@ class _ProgressionBanner extends ConsumerWidget {
           color: AppColors.memoryAmber.withValues(alpha: 0.35),
         ),
       ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.memoryAmber.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: AppColors.memoryAmber.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Text(
-              'LVL ${progress.level}',
-              style: const TextStyle(
-                color: AppColors.memoryAmber,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool reflow = constraints.maxWidth < 420 || textScale > 1.3;
+          if (reflow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Text(
-                      '$pct% to Level ${progress.level + 1}',
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    Text(
-                      '${progress.xpToNext} XP',
-                      style: const TextStyle(
-                        color: Colors.white24,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
+                  children: <Widget>[levelBadge, streak],
                 ),
-                const SizedBox(height: 4),
-                ProgressBar(
-                  value: progress.levelProgress,
-                  color: AppColors.memoryAmber,
-                  height: 4,
-                ),
+                const SizedBox(height: 8),
+                progressDetails,
               ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+            );
+          }
+          return Row(
             children: <Widget>[
-              const Icon(
-                Icons.local_fire_department,
-                color: Colors.deepOrangeAccent,
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '${progress.streak}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              levelBadge,
+              const SizedBox(width: 12),
+              Expanded(child: progressDetails),
+              const SizedBox(width: 12),
+              streak,
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1777,11 +1867,14 @@ class _QuickNavCard extends StatelessWidget {
     return Expanded(
       child: Semantics(
         button: true,
+        label: 'Open $label',
+        onTap: onTap,
         child: GestureDetector(
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 52,
+            constraints: const BoxConstraints(minHeight: 52),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(12),
@@ -1792,13 +1885,16 @@ class _QuickNavCard extends StatelessWidget {
               children: [
                 Icon(icon, color: color, size: 16),
                 const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
               ],

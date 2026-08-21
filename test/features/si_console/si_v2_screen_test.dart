@@ -27,6 +27,68 @@ void main() {
     timeline: const <SIV2TimelineEvidence>[],
   );
 
+  testWidgets('TalkBack semantics and 200 percent text stay recoverable', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final SemanticsHandle semantics = tester.ensureSemantics();
+    final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        siV2QueryServiceProvider.overrideWithValue(port),
+        siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+      ],
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    try {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: Size(360, 1000),
+                textScaler: TextScaler.linear(2),
+              ),
+              child: SIConsoleScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(tester.takeException(), isNull);
+      expect(find.bySemanticsLabel('Back to Nexus'), findsOneWidget);
+      expect(find.bySemanticsLabel('Send SI query'), findsOneWidget);
+      final Rect entity = tester.getRect(
+        find.byKey(const Key('si-v2-entity-filter')),
+      );
+      final Rect assumption = tester.getRect(
+        find.byKey(const Key('si-v2-assumption')),
+      );
+      expect(assumption.top, greaterThan(entity.bottom));
+
+      await tester.enterText(
+        find.byKey(const Key('si-query-input')),
+        'What needs attention?',
+      );
+      await tester.tap(find.bySemanticsLabel('Send SI query'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.bySemanticsLabel(RegExp(r'^SI response')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('query builder produces a complete structured SI V2 response', (
     WidgetTester tester,
   ) async {

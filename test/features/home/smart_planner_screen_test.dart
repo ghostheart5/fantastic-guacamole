@@ -10,6 +10,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('TalkBack semantics and 200 percent text remain usable', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final SemanticsHandle semantics = tester.ensureSemantics();
+    final ProviderContainer container = _container();
+    addTearDown(container.dispose);
+    try {
+      await _pumpPlanner(tester, container, textScale: 2);
+
+      expect(tester.takeException(), isNull);
+      await _scrollTo(tester, find.text('CURRENT ENERGY'));
+      expect(find.bySemanticsLabel(RegExp(r'Current energy')), findsOneWidget);
+      await _scrollTo(tester, find.text('NEUTRAL'));
+      expect(
+        find.bySemanticsLabel(RegExp(r'^Select neutral emotional state')),
+        findsOneWidget,
+      );
+      await _scrollTo(tester, find.byKey(const Key('planner-context-field')));
+      expect(find.byKey(const Key('planner-context-field')), findsOneWidget);
+      await _scrollTo(tester, find.text('GET GUIDANCE'));
+      expect(find.bySemanticsLabel('GET GUIDANCE'), findsOneWidget);
+
+      await _requestGuidance(tester);
+      await _scrollTo(
+        tester,
+        find.bySemanticsLabel(RegExp(r'^Planning guidance ready')),
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(r'^Planning guidance ready')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('starts with an ephemeral input boundary and no write controls', (
     WidgetTester tester,
   ) async {
@@ -199,13 +238,17 @@ ProviderContainer _container() {
 
 Future<void> _pumpPlanner(
   WidgetTester tester,
-  ProviderContainer container,
-) async {
+  ProviderContainer container, {
+  double textScale = 1,
+}) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(
-        home: ErrorBoundary(child: SmartPlannerScreen()),
+      child: MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+          child: const ErrorBoundary(child: SmartPlannerScreen()),
+        ),
       ),
     ),
   );
