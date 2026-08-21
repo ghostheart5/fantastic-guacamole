@@ -38,6 +38,7 @@ node_modules/
 /coverage/
 /artifacts/dependency-audit/
 /artifacts/maestro/
+/artifacts/monkey/
 
 # Symbolication related
 app.*.symbols
