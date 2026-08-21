@@ -102,24 +102,12 @@ class _TrajectoryEngineScreenState
                 ),
               ),
             if (!blocksContent) ...<Widget>[
-              if (model.decisionIntelligence
-                  case final DecisionIntelligence intelligence) ...<Widget>[
-                const SizedBox(height: 8),
-                DecisionIntelligenceCard(
-                  intelligence: intelligence,
-                  title: 'Trajectory decision context',
-                  compact: true,
-                  onAction: () =>
-                      _openDecisionAction(intelligence.decision.actionIntent),
-                ),
-              ],
               if (comparison case final TrajectoryComparison value) ...<Widget>[
                 const SizedBox(height: 8),
-                _BaselineCard(baseline: value.baseline),
-                const SizedBox(height: 8),
-                _CalibrationCard(summary: calibration),
-                const SizedBox(height: 8),
-                _TaskPredictionCard(model: model),
+                _TrajectoryOverviewCard(
+                  baseline: value.baseline,
+                  horizonDays: horizonDays,
+                ),
                 const SizedBox(height: 8),
                 _HorizonSelector(
                   selectedDays: horizonDays,
@@ -128,34 +116,6 @@ class _TrajectoryEngineScreenState
                     ref
                         .read(trajectoryHorizonDaysProvider.notifier)
                         .select(days);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _CustomScenarioComposer(
-                  baseline: value.baseline,
-                  horizonDays: horizonDays,
-                  onComposed: (TrajectoryCustomScenarioDraft draft) {
-                    ref
-                        .read(trajectoryCustomScenarioProvider.notifier)
-                        .compose(draft);
-                    setState(
-                      () => _selectedScenarioId = trajectoryCustomScenarioId(
-                        draft,
-                        horizonDays: horizonDays,
-                      ),
-                    );
-                  },
-                  onClear: () {
-                    ref.read(trajectoryCustomScenarioProvider.notifier).clear();
-                    setState(() => _selectedScenarioId = null);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _ScenarioSelector(
-                  comparison: value,
-                  selectedId: selected?.id,
-                  onSelected: (String id) {
-                    setState(() => _selectedScenarioId = id);
                   },
                 ),
                 if (selected
@@ -170,6 +130,59 @@ class _TrajectoryEngineScreenState
                     onTrack: () => _trackScenario(value.baseline, outcome),
                   ),
                 ],
+                const SizedBox(height: 8),
+                _DisclosurePanel(
+                  title: 'Try a custom what-if',
+                  subtitle: 'Optional simulation tools',
+                  child: _CustomScenarioComposer(
+                    baseline: value.baseline,
+                    horizonDays: horizonDays,
+                    onComposed: (TrajectoryCustomScenarioDraft draft) {
+                      ref
+                          .read(trajectoryCustomScenarioProvider.notifier)
+                          .compose(draft);
+                      setState(
+                        () => _selectedScenarioId = trajectoryCustomScenarioId(
+                          draft,
+                          horizonDays: horizonDays,
+                        ),
+                      );
+                    },
+                    onClear: () {
+                      ref
+                          .read(trajectoryCustomScenarioProvider.notifier)
+                          .clear();
+                      setState(() => _selectedScenarioId = null);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _DisclosurePanel(
+                  title: 'Evidence and model details',
+                  subtitle: 'Baseline, calibration, and forecast sources',
+                  child: Column(
+                    children: <Widget>[
+                      if (model.decisionIntelligence
+                          case final DecisionIntelligence
+                              intelligence) ...<Widget>[
+                        DecisionIntelligenceCard(
+                          intelligence: intelligence,
+                          title: 'Decision context',
+                          compact: true,
+                          onAction: () => _openDecisionAction(
+                            intelligence.decision.actionIntent,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      _BaselineCard(baseline: value.baseline),
+                      const SizedBox(height: 8),
+                      _CalibrationCard(summary: calibration),
+                      const SizedBox(height: 8),
+                      _TaskPredictionCard(model: model),
+                    ],
+                  ),
+                ),
               ],
             ],
           ],
@@ -251,6 +264,197 @@ class _TrajectoryEngineScreenState
       case TrajectoryInterventionType.recoverCommitment:
         goToAppView(context, ref, AppView.timeline);
     }
+  }
+}
+
+class _TrajectoryOverviewCard extends StatelessWidget {
+  const _TrajectoryOverviewCard({
+    required this.baseline,
+    required this.horizonDays,
+  });
+
+  final TrajectoryBaseline baseline;
+  final int horizonDays;
+
+  @override
+  Widget build(BuildContext context) {
+    final String direction = baseline.pressure >= 80
+        ? 'High pressure'
+        : baseline.pressure >= 50
+        ? 'Needs attention'
+        : 'Steady direction';
+    final Color accent = baseline.pressure >= 80
+        ? const Color(0xFFFF6B88)
+        : baseline.pressure >= 50
+        ? const Color(0xFFFFC857)
+        : const Color(0xFF6EE7F9);
+    return _Panel(
+      title: 'Current direction',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: accent.withValues(alpha: .35)),
+                ),
+                child: Icon(Icons.route_rounded, color: accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      direction,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${baseline.tasks.length} active commitment${baseline.tasks.length == 1 ? '' : 's'} across the next $horizonDays days.',
+                      style: const TextStyle(
+                        color: Color(0xFFD8E2FF),
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _OverviewMetric(
+                  label: 'PRESSURE',
+                  value: '${baseline.pressure}%',
+                  accent: accent,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _OverviewMetric(
+                  label: 'MOMENTUM',
+                  value: '${baseline.momentum}%',
+                  accent: const Color(0xFF6EE7F9),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _OverviewMetric(
+                  label: 'ENERGY',
+                  value: '${baseline.energy}%',
+                  accent: const Color(0xFFA78BFA),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverviewMetric extends StatelessWidget {
+  const _OverviewMetric({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: accent.withValues(alpha: .22)),
+      ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            label,
+            maxLines: 1,
+            style: const TextStyle(
+              color: Color(0xFF93A4C9),
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .8,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              color: accent,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DisclosurePanel extends StatelessWidget {
+  const _DisclosurePanel({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xE611192A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFF24345B)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+        childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        iconColor: const Color(0xFF6EE7F9),
+        collapsedIconColor: const Color(0xFF93A4C9),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: Color(0xFF93A4C9), fontSize: 11),
+        ),
+        children: <Widget>[child],
+      ),
+    );
   }
 }
 
@@ -685,7 +889,7 @@ class _HorizonSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Panel(
-      title: 'Simulation horizon',
+      title: 'Look ahead',
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
@@ -702,54 +906,22 @@ class _HorizonSelector extends StatelessWidget {
   }
 }
 
-class _ScenarioSelector extends StatelessWidget {
-  const _ScenarioSelector({
-    required this.comparison,
-    required this.selectedId,
-    required this.onSelected,
-  });
+String _conciseOutcomeSummary({
+  required TrajectoryBaseline baseline,
+  required TrajectoryScenarioOutcome outcome,
+}) {
+  final int momentumDelta = outcome.projectedMomentum - baseline.momentum;
+  final int pressureDelta = outcome.projectedPressure - baseline.pressure;
+  final String momentumChange = momentumDelta == 0
+      ? 'momentum holding steady'
+      : 'momentum ${momentumDelta > 0 ? 'rising' : 'falling'} by ${momentumDelta.abs()} points';
+  final String pressureChange = pressureDelta == 0
+      ? 'pressure holding steady'
+      : 'pressure ${pressureDelta > 0 ? 'rising' : 'falling'} by ${pressureDelta.abs()} points';
 
-  final TrajectoryComparison comparison;
-  final String? selectedId;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return _Panel(
-      title: 'Alternative path comparison',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            'Every path uses the same frozen baseline. Select one to inspect its declared intervention and consequences.',
-            style: TextStyle(
-              color: Color(0xFFD8E2FF),
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: comparison.outcomes
-                .map((TrajectoryScenarioOutcome outcome) {
-                  final bool recommended =
-                      outcome.id == comparison.recommendedScenarioId;
-                  return ChoiceChip(
-                    label: Text(
-                      '${recommended ? 'BEST FIT • ' : ''}${outcome.intervention.title}',
-                    ),
-                    selected: selectedId == outcome.id,
-                    onSelected: (_) => onSelected(outcome.id),
-                  );
-                })
-                .toList(growable: false),
-          ),
-        ],
-      ),
-    );
-  }
+  return 'Over ${outcome.intervention.horizon.inDays} days, this path projects '
+      '$momentumChange and $pressureChange. Open the full report for uncertainty '
+      'and supporting evidence.';
 }
 
 class _ScenarioComparisonCard extends StatelessWidget {
@@ -769,13 +941,131 @@ class _ScenarioComparisonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _Panel(
+      title: isRecommended ? 'Recommended adjustment' : 'Custom forecast',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            outcome.intervention.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            outcome.intervention.description,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFD8E2FF),
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _MetricDelta(
+                label: 'Momentum',
+                current: baseline.momentum,
+                projected: outcome.projectedMomentum,
+                uncertainty: outcome.uncertainty,
+              ),
+              _MetricDelta(
+                label: 'Pressure',
+                current: baseline.pressure,
+                projected: outcome.projectedPressure,
+                uncertainty: outcome.uncertainty,
+                lowerIsBetter: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _conciseOutcomeSummary(baseline: baseline, outcome: outcome),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFB8C7E8),
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onOpen,
+              icon: Icon(
+                outcome.intervention.type ==
+                        TrajectoryInterventionType.applySmartPlanner
+                    ? Icons.auto_awesome_rounded
+                    : Icons.timeline_rounded,
+              ),
+              label: Text(
+                outcome.intervention.type ==
+                        TrajectoryInterventionType.applySmartPlanner
+                    ? 'Review adjustment'
+                    : 'Review on Timeline',
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(top: 4),
+            title: const Text(
+              'Full impact and evidence',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: Text(
+              '${outcome.confidence.band.name} confidence · ±${outcome.uncertainty} points',
+              style: const TextStyle(color: Color(0xFF93A4C9), fontSize: 11),
+            ),
+            children: <Widget>[
+              _ScenarioFullDetails(
+                baseline: baseline,
+                outcome: outcome,
+                onOpen: onOpen,
+                onTrack: onTrack,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScenarioFullDetails extends StatelessWidget {
+  const _ScenarioFullDetails({
+    required this.baseline,
+    required this.outcome,
+    required this.onOpen,
+    required this.onTrack,
+  });
+
+  final TrajectoryBaseline baseline;
+  final TrajectoryScenarioOutcome outcome;
+  final VoidCallback onOpen;
+  final VoidCallback onTrack;
+
+  @override
+  Widget build(BuildContext context) {
     final MaterialLocalizations localizations = MaterialLocalizations.of(
       context,
     );
     return _Panel(
-      title: isRecommended
-          ? 'Recommended conditional path'
-          : 'Conditional path',
+      title: 'Full impact report',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1117,34 +1407,37 @@ class _Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFF0D1322), Color(0xFF15233F)],
-        ),
+    return Material(
+      color: const Color(0xFF0D1322),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF24345B)),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(color: Color(0x1400FFFF), blurRadius: 8),
-        ],
+        side: const BorderSide(color: Color(0xFF24345B)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            title.toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFF6EE7F9),
-              fontSize: 10,
-              letterSpacing: 1,
-              fontWeight: FontWeight.w800,
-            ),
+      clipBehavior: Clip.antiAlias,
+      child: Ink(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: <Color>[Color(0xFF0D1322), Color(0xFF15233F)],
           ),
-          const SizedBox(height: 8),
-          child,
-        ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                color: Color(0xFF6EE7F9),
+                fontSize: 10,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            child,
+          ],
+        ),
       ),
     );
   }

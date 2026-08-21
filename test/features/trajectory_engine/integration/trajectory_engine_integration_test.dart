@@ -11,7 +11,7 @@ import '../../../helpers/trajectory_test_fixture.dart';
 
 void main() {
   group('Trajectory Engine integration', () {
-    testWidgets('renders a revisioned baseline and conditional comparison', (
+    testWidgets('renders a concise forecast with progressive disclosure', (
       WidgetTester tester,
     ) async {
       await tester.binding.setSurfaceSize(const Size(900, 1800));
@@ -20,14 +20,23 @@ void main() {
       await tester.pump();
 
       expect(find.text('BASELINE READY'), findsOneWidget);
-      expect(find.text('CURRENT TRAJECTORY BASELINE'), findsOneWidget);
-      expect(find.textContaining('trajectory-fixture-r1'), findsWidgets);
-      expect(find.text('FORECAST CALIBRATION'), findsOneWidget);
-      expect(find.text('PROVISIONAL'), findsOneWidget);
+      expect(find.text('CURRENT DIRECTION'), findsOneWidget);
+      expect(find.text('RECOMMENDED ADJUSTMENT'), findsOneWidget);
+      expect(find.text('Compare a path'), findsNothing);
+      expect(find.text('BEST NEXT ADJUSTMENT'), findsNothing);
       expect(find.text('7 DAYS'), findsOneWidget);
       expect(find.text('30 DAYS'), findsOneWidget);
       expect(find.text('90 DAYS'), findsOneWidget);
+      expect(find.text('CURRENT TRAJECTORY BASELINE'), findsNothing);
+      expect(find.text('FORECAST CALIBRATION'), findsNothing);
 
+      await tester.scrollUntilVisible(
+        find.text('Full impact and evidence'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Full impact and evidence'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.scrollUntilVisible(
         find.text('WHY THIS CHANGES THE FUTURE'),
         300,
@@ -43,6 +52,20 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Track this path for calibration'), findsOneWidget);
+      await tester.tap(find.text('Full impact and evidence'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.scrollUntilVisible(
+        find.text('Evidence and model details'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Evidence and model details'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('CURRENT TRAJECTORY BASELINE'), findsOneWidget);
+      expect(find.textContaining('trajectory-fixture-r1'), findsWidgets);
+      expect(find.text('FORECAST CALIBRATION'), findsOneWidget);
+      expect(find.text('PROVISIONAL'), findsOneWidget);
     });
 
     testWidgets('horizon control selects the requested future window', (
@@ -84,6 +107,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('RECALCULATION NEEDED'), findsOneWidget);
+      expect(find.text('CURRENT DIRECTION'), findsNothing);
       expect(find.text('CURRENT TRAJECTORY BASELINE'), findsNothing);
       expect(find.textContaining('No future conclusion'), findsOneWidget);
     });
