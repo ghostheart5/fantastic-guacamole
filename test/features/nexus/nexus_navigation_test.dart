@@ -3,17 +3,23 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Nexus keeps the required schedule-first hierarchy', () {
+  test('Nexus keeps the required dashboard hierarchy', () {
     final String source = File(
       'lib/features/nexus/ui/nexus_screen.dart',
     ).readAsStringSync();
     final int header = source.indexOf('_NexusHeader(');
-    final int schedule = source.indexOf('_NexusTimeBlockSchedule(');
-    final int rings = source.indexOf('_SystemRings(');
+    final int rings = source.indexOf('_NexusVitals(');
+    final int suggestion = source.indexOf('_SmartPlannerSuggestion(');
+    final int focus = source.indexOf('_CurrentFocusSection(');
+    final int trajectory = source.indexOf('_TrajectoryReport(');
+    final int timeline = source.indexOf('_TimelineSnapshot(');
 
     expect(header, greaterThanOrEqualTo(0));
-    expect(schedule, greaterThan(header));
-    expect(rings, greaterThan(schedule));
+    expect(rings, greaterThan(header));
+    expect(suggestion, greaterThan(rings));
+    expect(focus, greaterThan(suggestion));
+    expect(trajectory, greaterThan(focus));
+    expect(timeline, greaterThan(trajectory));
   });
 
   test('retired Nexus dashboard and Plan View do not return', () {
@@ -31,6 +37,7 @@ void main() {
       '_DependencyMesh',
       '_ActionGrid',
       '_NexusBridgeCard',
+      '_NexusDestinationPanel',
       'Plan View',
       'OPEN PLAN',
     ]) {

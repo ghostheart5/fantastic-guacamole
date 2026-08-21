@@ -3,16 +3,22 @@ import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
-import 'package:fantastic_guacamole/features/plan/widgets/time_block_widget.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -76,10 +82,17 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     final double fatigue = siState.fatigue;
     final NexusDecisionModel decisionModel = ref.watch(nexusDecisionProvider);
     _recordDecisionShown(decisionModel.intelligence?.decision);
-    final AsyncValue<List<TimeBlock>> todayBlocks = ref.watch(
-      todayTimeBlocksProvider,
+    final AsyncValue<List<TimeBlock>> nexusBlocks = ref.watch(
+      nexusTimeBlocksProvider,
     );
-    final TimeBlock? nextBlock = ref.watch(nextTodayTimeBlockProvider);
+    final TimeBlock? nextBlock = ref.watch(nextNexusTimeBlockProvider);
+    final List<GoalEntity> goals = ref.watch(goalsProvider);
+    final AsyncValue<List<TaskEntity>> tasks = ref.watch(tasksProvider);
+    final AsyncValue<List<NoteEntity>> notes = ref.watch(notesProvider);
+    final TrajectorySummaryView trajectory = ref.watch(
+      trajectorySummaryProvider,
+    );
+    final List<TimelineEventEntity> timeline = ref.watch(timelineProvider);
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgTimelineThreads,
       child: Scaffold(
@@ -90,28 +103,10 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
               SliverToBoxAdapter(child: _NexusHeader(profile: profile)),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _NexusTimeBlockSchedule(
-                    blocks: todayBlocks,
-                    nextBlockId: nextBlock?.id,
-                    decisionModel: decisionModel,
-                    completingTaskIds: _completingTaskIds,
-                    onCompleteTask: _completeTimeBlockTask,
-                    onRetry: () => ref.invalidate(tasksProvider),
-                    onCreateTask: () =>
-                        goToAppView(context, ref, AppView.creator),
-                    onOpenTimeline: () =>
-                        goToAppView(context, ref, AppView.timeline),
-                    onReviewPlan: _reviewNextDecision,
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: AnimatedBuilder(
                     animation: _pulse,
-                    builder: (context, _) => _SystemRings(
+                    builder: (context, _) => _NexusVitals(
                       energy: energy,
                       fatigue: fatigue,
                       pulse: _pulse.value,
@@ -120,9 +115,53 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                 ),
               ),
               SliverToBoxAdapter(
-                child: _RingLabels(energy: energy, fatigue: fatigue),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                  child: _SmartPlannerSuggestion(
+                    blocks: nexusBlocks,
+                    nextBlock: nextBlock,
+                    decisionModel: decisionModel,
+                    completingTaskIds: _completingTaskIds,
+                    onCompleteTask: _completeTimeBlockTask,
+                    onRetry: () => ref.invalidate(tasksProvider),
+                    onReviewPlan: _reviewNextDecision,
+                  ),
+                ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                  child: _CurrentFocusSection(
+                    goals: goals,
+                    tasks: tasks,
+                    notes: notes,
+                    nextBlock: nextBlock,
+                    onOpenCreator: () =>
+                        goToAppView(context, ref, AppView.creator),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                  child: _TrajectoryReport(
+                    summary: trajectory,
+                    onOpen: () =>
+                        goToAppView(context, ref, AppView.trajectoryEngine),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                  child: _TimelineSnapshot(
+                    events: timeline,
+                    tasks: tasks,
+                    onOpen: () => goToAppView(context, ref, AppView.timeline),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
           ),
         ),
