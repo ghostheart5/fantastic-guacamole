@@ -35,9 +35,6 @@ void main() {
         secureStoreProvider.overrideWithValue(inMemorySecureStore),
         testerDataResetServiceProvider.overrideWithValue(fakeService),
         domainNotificationRepositoryProvider.overrideWithValue(notifications),
-        secureStoreProvider.overrideWithValue(
-          SecureStore(backend: InMemorySecureStoreBackend()),
-        ),
       ],
     );
     addTearDown(container.dispose);
