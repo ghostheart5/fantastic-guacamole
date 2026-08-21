@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
+import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -326,6 +328,146 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     });
   }
 
+  Future<void> _rememberPreference() async {
+    final TextEditingController preferenceController = TextEditingController();
+    int retentionDays = 90;
+    bool consentConfirmed = false;
+    final _PreferenceMemoryChoice?
+    choice = await showDialog<_PreferenceMemoryChoice>(
+      context: context,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, void Function(void Function()) setDialogState) {
+          return AlertDialog(
+            title: const Text('Remember a Smart Planner preference?'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'Use only this time is the default. Enter only the exact planning-style preference you want stored; your check-in, emotion, and response are not copied.',
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    key: const Key('planner-memory-preference-field'),
+                    controller: preferenceController,
+                    maxLength: 280,
+                    minLines: 2,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                      labelText: 'Exact preference',
+                      hintText:
+                          'Example: Prefer one small next step before optional stretch ideas.',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    key: const Key('planner-memory-expiry'),
+                    initialValue: retentionDays,
+                    decoration: const InputDecoration(
+                      labelText: 'Automatically delete after',
+                    ),
+                    items: const <DropdownMenuItem<int>>[
+                      DropdownMenuItem(value: 30, child: Text('30 days')),
+                      DropdownMenuItem(value: 90, child: Text('90 days')),
+                      DropdownMenuItem(value: 180, child: Text('180 days')),
+                      DropdownMenuItem(value: 365, child: Text('1 year')),
+                    ],
+                    onChanged: (int? value) {
+                      if (value == null) return;
+                      setDialogState(() => retentionDays = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.memoryAmber.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Receipt preview\nWhy: adapt future Smart Planner guidance to this preference\nSource: Smart Planner only\nExpiry: $retentionDays days\nControls: view, correct, export, delete in Settings',
+                      style: const TextStyle(height: 1.4),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    key: const Key('planner-memory-consent'),
+                    contentPadding: EdgeInsets.zero,
+                    value: consentConfirmed,
+                    title: const Text(
+                      'I explicitly consent to storing this exact preference.',
+                    ),
+                    onChanged: (bool? value) =>
+                        setDialogState(() => consentConfirmed = value ?? false),
+                  ),
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Use only this time'),
+              ),
+              FilledButton(
+                key: const Key('planner-confirm-memory'),
+                onPressed: consentConfirmed
+                    ? () => Navigator.of(dialogContext).pop(
+                        _PreferenceMemoryChoice(
+                          text: preferenceController.text,
+                          retentionDays: retentionDays,
+                        ),
+                      )
+                    : null,
+                child: const Text('Remember preference'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    preferenceController.dispose();
+    if (choice == null || !mounted) {
+      if (choice == null && mounted) {
+        setState(() {
+          _plannerActionStatus =
+              'Used only for this check-in. No durable memory was saved.';
+        });
+      }
+      return;
+    }
+
+    final DateTime expiresAt = DateTime.now().toUtc().add(
+      Duration(days: choice.retentionDays),
+    );
+    try {
+      final MemoryReceipt receipt = await ref
+          .read(memoryGovernanceControllerProvider)
+          .rememberPreference(
+            text: choice.text,
+            sourceSurface: MemorySurface.smartPlanner,
+            expiresAt: expiresAt,
+            consentConfirmed: true,
+            whyStored:
+                'Adapt future Smart Planner guidance to this explicit planning-style preference.',
+            provenance: 'User-entered in Smart Planner memory consent dialog.',
+          );
+      if (!mounted) return;
+      final String expiry = receipt.expiresAt!
+          .toLocal()
+          .toIso8601String()
+          .split('T')
+          .first;
+      setState(() {
+        _plannerActionStatus =
+            'Preference remembered with consent. Smart Planner only · expires $expiry · manage in Settings.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _plannerActionStatus = error.toString());
+    }
+  }
+
   List<Map<String, String>> _conversationHistory() {
     final List<Map<String, String>> history = <Map<String, String>>[];
     final String initialPrompt = _planningGuidancePrompt?.trim() ?? '';
@@ -477,6 +619,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                         onDifferentApproach: _differentApproach,
                         onToggleWhy: () => setState(() => _showWhy = !_showWhy),
                         onOpenCreatorDraft: _openCreatorDraft,
+                        onRememberPreference: () =>
+                            unawaited(_rememberPreference()),
                         onNotNow: _notNow,
                       ),
                       const SizedBox(height: 10),
@@ -626,6 +770,16 @@ class _Exchange {
   final String answer;
 }
 
+class _PreferenceMemoryChoice {
+  const _PreferenceMemoryChoice({
+    required this.text,
+    required this.retentionDays,
+  });
+
+  final String text;
+  final int retentionDays;
+}
+
 class _PlannerV2ResponsePanel extends StatelessWidget {
   const _PlannerV2ResponsePanel({
     required this.response,
@@ -640,6 +794,7 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
     required this.onDifferentApproach,
     required this.onToggleWhy,
     required this.onOpenCreatorDraft,
+    required this.onRememberPreference,
     required this.onNotNow,
     this.actionStatus,
   });
@@ -657,6 +812,7 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
   final VoidCallback onDifferentApproach;
   final VoidCallback onToggleWhy;
   final VoidCallback onOpenCreatorDraft;
+  final VoidCallback onRememberPreference;
   final VoidCallback onNotNow;
 
   @override
@@ -852,6 +1008,11 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
                 key: const Key('planner-open-creator-draft'),
                 onPressed: onOpenCreatorDraft,
                 child: const Text('Open as Creator draft'),
+              ),
+              OutlinedButton(
+                key: const Key('planner-remember-preference'),
+                onPressed: onRememberPreference,
+                child: const Text('Remember a preference'),
               ),
               TextButton(onPressed: onNotNow, child: const Text('Not now')),
             ],

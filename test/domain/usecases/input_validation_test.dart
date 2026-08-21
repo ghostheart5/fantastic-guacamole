@@ -267,6 +267,13 @@ class _FakeMemoryRepository implements IMemoryRepository {
   List<MemoryEntity> getMemories() => const <MemoryEntity>[];
 
   @override
+  List<MemoryEntity> getMemoriesForSurface(MemorySurface surface) =>
+      const <MemoryEntity>[];
+
+  @override
+  Future<void> deleteAllMemories() async => deletedIds.addAll(<String>['all']);
+
+  @override
   Future<void> saveMemory(MemoryEntity memory) async {}
 
   @override

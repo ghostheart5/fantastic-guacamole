@@ -11,7 +11,6 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,7 +27,9 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final signalBundle = ref.watch(signalsBundleProvider);
   final logs = ref.watch(logsProvider).entries;
   final timeline = ref.watch(timelineProvider);
-  final memories = ref.watch(memoriesProvider);
+  // Shared assistant aggregation must never bridge durable memory across
+  // surfaces. Surface-private recall is requested explicitly at its gateway.
+  const List<MemoryEntity> memories = <MemoryEntity>[];
   final notifications = ref.watch(notificationProvider);
   final profile = ref.watch(profileProvider);
   final siState = ref.watch(siStateProvider);

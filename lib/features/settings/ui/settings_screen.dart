@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/location_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
@@ -15,6 +16,7 @@ import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart'
     as extended_domain;
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
@@ -294,6 +296,8 @@ class SettingsScreen extends ConsumerWidget {
               const _ReminderAutomationSection(),
               const SizedBox(height: 16),
               const _PersonalizationSection(),
+              const SizedBox(height: 16),
+              const _MemoryGovernanceSection(),
               const SizedBox(height: 16),
               const _AdaptiveGuidanceSection(),
               const SizedBox(height: 16),

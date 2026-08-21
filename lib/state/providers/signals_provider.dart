@@ -7,7 +7,6 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/services/signals_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,10 +53,6 @@ class SignalsActions {
         .map((Signal item) => item.title.trim())
         .where((String title) => title.isNotEmpty)
         .toList(growable: false);
-    final String memoryText = topTitles.isEmpty
-        ? summary
-        : '$summary :: ${topTitles.join(' | ')}';
-
     await _ref
         .read(logsActionsProvider)
         .addMirroredEntry(source: 'signal_generated', message: summary);
@@ -72,7 +67,6 @@ class SignalsActions {
             timestamp: now,
           ),
         );
-    await _ref.read(memoriesActionsProvider).saveMirroredMemory(memoryText);
     _ref.invalidate(soulStateProvider);
     await _refreshPlannerDecision();
     _ref

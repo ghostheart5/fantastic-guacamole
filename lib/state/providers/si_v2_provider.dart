@@ -17,7 +17,7 @@ final siV2ClockProvider = Provider<DateTime Function()>(
 );
 
 /// Composition root: SI V2 resolves only query use cases and reduces them to
-/// read-only tear-offs. No repository or command object crosses this boundary.
+/// read-only tear-offs. No repository or write-capable object crosses this boundary.
 final siV2ReadGatewayProvider = Provider<SIV2ReadGateway>((Ref ref) {
   final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
   final GetTasks tasks = ref.read(getTasksUseCaseProvider);

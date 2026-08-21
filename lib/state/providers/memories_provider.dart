@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/policies/memory_governance_policy.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,18 +25,31 @@ class MemorySummary {
   final List<String> topTags;
 }
 
-final memoriesActionsProvider = Provider<MemoriesActions>((Ref ref) {
-  return MemoriesActions(ref);
-});
+/// The only public write entrypoint for governed durable memory.
+final memoryGovernanceControllerProvider = Provider<MemoryGovernanceController>(
+  (Ref ref) => MemoryGovernanceController(ref),
+);
 
 final memoriesProvider = NotifierProvider<MemoriesNotifier, List<MemoryEntity>>(
   MemoriesNotifier.new,
 );
 
+/// Assistant recall is exact-surface. SI returns no durable interpretive
+/// memory by policy even if a malformed record exists in storage.
+final memoryRecallProvider = Provider.family<List<MemoryEntity>, MemorySurface>(
+  (Ref ref, MemorySurface surface) {
+    final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+    if (!scope.isAuthenticated) return const <MemoryEntity>[];
+    return ref
+        .watch(domainMemoryRepositoryProvider)
+        .getMemoriesForSurface(surface);
+  },
+);
+
 final memorySummaryProvider = Provider<MemorySummary>((Ref ref) {
   final List<MemoryEntity> memories = ref.watch(memoriesProvider);
   final Map<MemoryCategory, int> categoryCounts = <MemoryCategory, int>{
-    for (final c in MemoryCategory.values) c: 0,
+    for (final MemoryCategory category in MemoryCategory.values) category: 0,
   };
   final Map<String, int> tagCounts = <String, int>{};
   int recent = 0;
@@ -103,327 +119,214 @@ final memoriesByCategoryProvider =
       return grouped;
     });
 
-class MemoriesActions {
-  const MemoriesActions(this._ref);
+class MemoryGovernanceController {
+  const MemoryGovernanceController(this._ref);
 
   final Ref _ref;
 
-  Future<void> saveMemory(String text) {
-    return _ref.read(memoriesProvider.notifier).capture(text);
-  }
-
-  Future<void> saveStructuredMemory(
-    String text, {
-    MemoryCategory? category,
-    List<String> tags = const <String>[],
-    Map<String, String> metadata = const <String, String>{},
+  Future<MemoryReceipt> rememberPreference({
+    required String text,
+    required MemorySurface sourceSurface,
+    required DateTime expiresAt,
+    required bool consentConfirmed,
+    required String whyStored,
+    required String provenance,
   }) {
     return _ref
         .read(memoriesProvider.notifier)
-        .capture(text, category: category, tags: tags, metadata: metadata);
+        .rememberPreference(
+          text: text,
+          sourceSurface: sourceSurface,
+          expiresAt: expiresAt,
+          consentConfirmed: consentConfirmed,
+          whyStored: whyStored,
+          provenance: provenance,
+        );
   }
 
-  Future<void> saveMirroredMemory(String text) {
+  Future<MemoryReceipt> correctPreference({
+    required String id,
+    required String text,
+  }) {
     return _ref
         .read(memoriesProvider.notifier)
-        .capture(text, refreshPlanner: false);
+        .correctPreference(id: id, text: text);
+  }
+
+  Future<void> deleteMemory(String id) {
+    return _ref.read(memoriesProvider.notifier).remove(id);
+  }
+
+  Future<void> deleteAll() {
+    return _ref.read(memoriesProvider.notifier).deleteAll();
+  }
+
+  Map<String, dynamic> exportReceipts() {
+    return _ref.read(memoriesProvider.notifier).exportReceipts();
   }
 }
 
 class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
-  static const _maxEntries = 200;
+  static const int _maxEntries = 200;
 
   @override
   List<MemoryEntity> build() {
-    return ref.read(getMemoriesUseCaseProvider).call();
+    ref.watch(accountStorageScopeProvider);
+    return ref.watch(getMemoriesUseCaseProvider).call();
   }
 
-  Future<void> capture(
-    String text, {
-    MemoryCategory? category,
-    List<String> tags = const <String>[],
-    Map<String, String> metadata = const <String, String>{},
-    String source = 'manual',
-    bool refreshPlanner = true,
+  Future<MemoryReceipt> rememberPreference({
+    required String text,
+    required MemorySurface sourceSurface,
+    required DateTime expiresAt,
+    required bool consentConfirmed,
+    required String whyStored,
+    required String provenance,
   }) async {
-    final String normalizedText = text.trim();
-    if (normalizedText.isEmpty) {
-      return;
+    if (!consentConfirmed) {
+      throw const MemoryGovernanceException(
+        'consent_required',
+        'Memory was not saved because explicit consent was not confirmed.',
+      );
     }
-    final DateTime now = DateTime.now();
-    final MemoryCategory resolvedCategory =
-        category ?? _inferCategory(normalizedText, metadata);
-    final List<String> resolvedTags = _mergeTags(
-      explicitTags: tags,
-      inferredTags: _inferTags(normalizedText, resolvedCategory, metadata),
+    if (sourceSurface == MemorySurface.siConsole ||
+        sourceSurface == MemorySurface.unknown) {
+      throw const MemoryGovernanceException(
+        'surface_not_allowed',
+        'SI durable interpretive memory is disabled. Nothing was saved.',
+      );
+    }
+    final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
+    final String? accountScopeId = scope.v2Namespace;
+    if (!scope.isAuthenticated || accountScopeId == null) {
+      throw const MemoryGovernanceException(
+        'account_scope_required',
+        'Sign in with a verified account before saving a preference.',
+      );
+    }
+    final String normalized = MemoryGovernancePolicy.validatePreferenceText(
+      text,
     );
-    final double importance = _computeImportance(
-      text: normalizedText,
-      category: resolvedCategory,
-      tags: resolvedTags,
-      metadata: metadata,
+    final DateTime now = DateTime.now().toUtc();
+    final DateTime expiry = MemoryGovernancePolicy.validateExpiry(
+      createdAt: now,
+      expiresAt: expiresAt,
     );
+    if (whyStored.trim().isEmpty || provenance.trim().isEmpty) {
+      throw const MemoryGovernanceException(
+        'receipt_required',
+        'Memory needs a visible reason and provenance receipt.',
+      );
+    }
 
-    final memory = MemoryEntity(
-      id: now.microsecondsSinceEpoch.toString(),
-      text: normalizedText,
+    final MemoryEntity memory = MemoryEntity(
+      id: 'memory-${now.microsecondsSinceEpoch}',
+      text: normalized,
       date: now,
-      category: resolvedCategory,
-      tags: resolvedTags,
-      importance: importance,
-      metadata: metadata,
-      source: source,
+      category: MemoryCategory.planningGuidancePreference,
+      tags: const <String>['explicit-preference'],
+      importance: 0.6,
+      metadata: const <String, String>{'type': 'explicit_preference'},
+      source: 'explicit_user_consent',
+      accountScopeId: accountScopeId,
+      sourceSurface: sourceSurface,
+      purpose: MemoryPurpose.guidancePreference,
+      sensitivity: MemoryGovernancePolicy.classify(normalized),
+      consentStatus: MemoryConsentStatus.granted,
+      consentedAt: now,
+      expiresAt: expiry,
+      provenance: provenance.trim(),
+      whyStored: whyStored.trim(),
     );
-
-    final List<MemoryEntity> linkedExisting = _linkToRelatedMemories(
-      memory,
-      state,
-    );
-    final List<MemoryEntity> updated = [memory, ...linkedExisting];
-    state = updated.length > _maxEntries
-        ? updated.sublist(0, _maxEntries)
-        : updated;
+    memory.validateForDurableStorage();
     await ref.read(saveMemoryUseCaseProvider).call(memory);
-    for (final MemoryEntity existing in linkedExisting) {
-      if (existing.links.any((MemoryLink link) => link.memoryId == memory.id)) {
-        await ref.read(saveMemoryUseCaseProvider).call(existing);
-      }
-    }
-
-    if (refreshPlanner) {
-      await _refreshPlannerDecision();
-    }
+    state = <MemoryEntity>[
+      memory,
+      ...state,
+    ].take(_maxEntries).toList(growable: false);
     ref
         .read(eventBusProvider)
         .emit(MemoryLifecycleEvent(memoryId: memory.id, text: memory.text));
+    return memory.toReceipt();
+  }
+
+  Future<MemoryReceipt> correctPreference({
+    required String id,
+    required String text,
+  }) async {
+    final String normalized = MemoryGovernancePolicy.validatePreferenceText(
+      text,
+    );
+    final int index = state.indexWhere((MemoryEntity item) => item.id == id);
+    if (index < 0) {
+      throw const MemoryGovernanceException(
+        'memory_not_found',
+        'That memory no longer exists.',
+      );
+    }
+    final MemoryEntity updated = state[index].copyWith(
+      text: normalized,
+      sensitivity: MemoryGovernancePolicy.classify(normalized),
+    );
+    updated.validateForDurableStorage();
+    await ref.read(saveMemoryUseCaseProvider).call(updated);
+    state = <MemoryEntity>[
+      for (final MemoryEntity memory in state)
+        if (memory.id == id) updated else memory,
+    ];
+    return updated.toReceipt();
   }
 
   Future<void> toggleStar(String id) async {
-    MemoryEntity? updatedMemory;
-    state = state.map((m) {
-      final next = m.id == id ? m.copyWith(starred: !m.starred) : m;
-      if (next.id == id) {
-        updatedMemory = next;
-      }
-      return next;
-    }).toList();
-    if (updatedMemory != null) {
-      await ref.read(saveMemoryUseCaseProvider).call(updatedMemory!);
-    }
+    final MemoryEntity? current = _find(id);
+    if (current == null) return;
+    final MemoryEntity updated = current.copyWith(starred: !current.starred);
+    await ref.read(saveMemoryUseCaseProvider).call(updated);
+    _replace(updated);
   }
 
   Future<void> archive(String id) async {
-    MemoryEntity? archived;
-    state = state
-        .map((MemoryEntity item) {
-          if (item.id != id) return item;
-          archived = item.archive();
-          return archived!;
-        })
-        .toList(growable: false);
-    if (archived != null) {
-      await ref.read(saveMemoryUseCaseProvider).call(archived!);
-    }
-  }
-
-  Future<void> updateMemory(
-    String id, {
-    String? text,
-    MemoryCategory? category,
-    List<String>? tags,
-    Map<String, String>? metadata,
-    double? importance,
-  }) async {
-    MemoryEntity? updatedMemory;
-    state = state
-        .map((MemoryEntity item) {
-          if (item.id != id) {
-            return item;
-          }
-          final String? normalizedText = text?.trim();
-          final MemoryCategory nextCategory =
-              category ??
-              _inferCategory(
-                normalizedText ?? item.text,
-                metadata ?? item.metadata,
-              );
-          final List<String> nextTags = _mergeTags(
-            explicitTags: tags ?? item.tags,
-            inferredTags: _inferTags(
-              normalizedText ?? item.text,
-              nextCategory,
-              metadata ?? item.metadata,
-            ),
-          );
-          updatedMemory = item.copyWith(
-            text: normalizedText == null || normalizedText.isEmpty
-                ? item.text
-                : normalizedText,
-            category: nextCategory,
-            tags: nextTags,
-            metadata: metadata ?? item.metadata,
-            importance:
-                importance ??
-                _computeImportance(
-                  text: normalizedText ?? item.text,
-                  category: nextCategory,
-                  tags: nextTags,
-                  metadata: metadata ?? item.metadata,
-                ),
-          );
-          return updatedMemory!;
-        })
-        .toList(growable: false);
-    if (updatedMemory != null) {
-      await ref.read(saveMemoryUseCaseProvider).call(updatedMemory!);
-    }
+    final MemoryEntity? current = _find(id);
+    if (current == null) return;
+    final MemoryEntity updated = current.archive();
+    await ref.read(saveMemoryUseCaseProvider).call(updated);
+    _replace(updated);
   }
 
   Future<void> remove(String id) async {
     await ref.read(deleteMemoryUseCaseProvider).call(id);
-    state = state.where((m) => m.id != id).toList(growable: false);
-  }
-
-  MemoryCategory _inferCategory(String text, Map<String, String> metadata) {
-    final String lowered = text.toLowerCase();
-    final String type = metadata['type']?.toLowerCase() ?? '';
-    if (type.contains('goal')) return MemoryCategory.goal;
-    if (type.contains('habit')) return MemoryCategory.habit;
-    if (type.contains('task')) return MemoryCategory.task;
-    if (type.contains('reflection')) return MemoryCategory.reflection;
-    if (type.contains('preference')) return MemoryCategory.userPreference;
-    if (type.contains('date')) return MemoryCategory.importantDate;
-    if (type.contains('value')) return MemoryCategory.value;
-    if (lowered.contains('goal') || lowered.contains('target')) {
-      return MemoryCategory.goal;
-    }
-    if (lowered.contains('habit') || lowered.contains('streak')) {
-      return MemoryCategory.habit;
-    }
-    if (lowered.contains('task') || lowered.contains('todo')) {
-      return MemoryCategory.task;
-    }
-    if (lowered.contains('reflection')) {
-      return MemoryCategory.reflection;
-    }
-    if (lowered.contains('prefer') || lowered.contains('like to')) {
-      return MemoryCategory.userPreference;
-    }
-    if (lowered.contains('planner') && lowered.contains('style')) {
-      return MemoryCategory.planningGuidancePreference;
-    }
-    if (lowered.contains('value') || lowered.contains('belief')) {
-      return MemoryCategory.value;
-    }
-    if (lowered.contains('birthday') || lowered.contains('anniversary')) {
-      return MemoryCategory.importantDate;
-    }
-    if (lowered.contains('win') || lowered.contains('completed')) {
-      return MemoryCategory.achievement;
-    }
-    return MemoryCategory.other;
-  }
-
-  List<String> _inferTags(
-    String text,
-    MemoryCategory category,
-    Map<String, String> metadata,
-  ) {
-    final Set<String> tags = <String>{category.name};
-    final String lowered = text.toLowerCase();
-    if (lowered.contains('morning')) tags.add('morning');
-    if (lowered.contains('evening')) tags.add('evening');
-    if (lowered.contains('work')) tags.add('work');
-    if (lowered.contains('health') || lowered.contains('workout')) {
-      tags.add('health');
-    }
-    if (lowered.contains('stress') || lowered.contains('anxious')) {
-      tags.add('stress');
-    }
-    metadata.forEach((String key, String value) {
-      if (key.trim().isNotEmpty && value.trim().isNotEmpty) {
-        tags.add(key.toLowerCase());
-        tags.add(value.toLowerCase());
-      }
-    });
-    return tags
-        .map((String item) => item.trim())
-        .where((String item) => item.isNotEmpty)
-        .take(8)
+    state = state
+        .where((MemoryEntity memory) => memory.id != id)
         .toList(growable: false);
   }
 
-  List<String> _mergeTags({
-    required List<String> explicitTags,
-    required List<String> inferredTags,
-  }) {
-    final Set<String> merged = <String>{};
-    for (final String tag in <String>[...explicitTags, ...inferredTags]) {
-      final String normalized = tag.trim().toLowerCase();
-      if (normalized.isNotEmpty) {
-        merged.add(normalized);
-      }
-    }
-    return merged.take(10).toList(growable: false);
+  Future<void> deleteAll() async {
+    await ref.read(domainMemoryRepositoryProvider).deleteAllMemories();
+    state = const <MemoryEntity>[];
   }
 
-  double _computeImportance({
-    required String text,
-    required MemoryCategory category,
-    required List<String> tags,
-    required Map<String, String> metadata,
-  }) {
-    double score = 0.45;
-    if (text.length >= 80) score += 0.08;
-    if (text.length >= 140) score += 0.05;
-    if (tags.isNotEmpty) score += 0.05;
-    if (metadata.isNotEmpty) score += 0.05;
-    if (category == MemoryCategory.goal ||
-        category == MemoryCategory.value ||
-        category == MemoryCategory.importantDate) {
-      score += 0.12;
-    }
-    final String lowered = text.toLowerCase();
-    if (lowered.contains('must') || lowered.contains('important')) {
-      score += 0.10;
-    }
-    if (lowered.contains('deadline') || lowered.contains('due')) {
-      score += 0.08;
-    }
-    return score.clamp(0.0, 1.0);
+  Map<String, dynamic> exportReceipts() {
+    return <String, dynamic>{
+      'schemaVersion': 1,
+      'exportType': 'chronospark_memory_receipts',
+      'generatedAt': DateTime.now().toUtc().toIso8601String(),
+      'memoryReceipts': state
+          .map((MemoryEntity memory) => memory.toReceipt().toJson())
+          .toList(growable: false),
+    };
   }
 
-  List<MemoryEntity> _linkToRelatedMemories(
-    MemoryEntity incoming,
-    List<MemoryEntity> existing,
-  ) {
-    final Set<String> incomingTags = incoming.tags.toSet();
-    return existing
-        .map((MemoryEntity item) {
-          if (item.id == incoming.id || item.isArchived) {
-            return item;
-          }
-          final bool sameCategory = item.category == incoming.category;
-          final bool sharedTag = item.tags.any(incomingTags.contains);
-          final bool closeInTime =
-              incoming.date.difference(item.date).abs().inDays <= 14;
-          if ((sameCategory && sharedTag) || (sharedTag && closeInTime)) {
-            return item.addLink(
-              incoming.id,
-              relation: sameCategory ? 'same_category' : 'related_tag',
-            );
-          }
-          return item;
-        })
-        .toList(growable: false);
+  MemoryEntity? _find(String id) {
+    for (final MemoryEntity memory in state) {
+      if (memory.id == id) return memory;
+    }
+    return null;
   }
 
-  Future<void> _refreshPlannerDecision() async {
-    try {
-      await ref.read(generateSiDecisionUseCaseProvider).call();
-      ref.invalidate(domainSiDecisionProvider);
-    } catch (_) {
-      // Avoid blocking memory saves if planner refresh fails.
-    }
+  void _replace(MemoryEntity updated) {
+    state = <MemoryEntity>[
+      for (final MemoryEntity memory in state)
+        if (memory.id == updated.id) updated else memory,
+    ];
   }
 }

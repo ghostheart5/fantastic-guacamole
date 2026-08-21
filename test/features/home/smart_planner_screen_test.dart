@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
@@ -127,6 +128,44 @@ void main() {
     expect(draft!.title, 'Balanced release block');
     expect(draft.sourceOption, PlannerOptionKind.bestFit);
     expect(container.read(appFlowProvider), AppView.creator);
+  });
+
+  testWidgets('durable memory defaults to use-once and requires consent', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = _container();
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await _requestGuidance(tester);
+
+    final Finder remember = find.byKey(
+      const Key('planner-remember-preference'),
+    );
+    await _scrollTo(tester, remember);
+    await tester.tap(remember);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Use only this time'), findsOneWidget);
+    expect(find.textContaining('Receipt preview'), findsOneWidget);
+    final Finder confirm = find.byKey(const Key('planner-confirm-memory'));
+    expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('planner-memory-preference-field')),
+      'Prefer one small next step.',
+    );
+    tester
+        .widget<CheckboxListTile>(
+          find.byKey(const Key('planner-memory-consent')),
+        )
+        .onChanged!(true);
+    await tester.pump();
+    expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+
+    await tester.tap(find.text('Use only this time'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(memoriesProvider), isEmpty);
+    expect(find.textContaining('No durable memory was saved'), findsOneWidget);
   });
 
   testWidgets('Not now dismisses the response without applying anything', (

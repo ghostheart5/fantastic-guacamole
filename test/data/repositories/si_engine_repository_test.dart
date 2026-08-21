@@ -49,6 +49,57 @@ void main() {
     expect(state?['score'], 7);
   });
 
+  test(
+    'session state expires and pre-governance state is not adopted',
+    () async {
+      DateTime now = DateTime.utc(2026, 8, 20, 12);
+      final SiEngineRepository expiringRepository = SiEngineRepository(
+        SecureStore(backend: backend),
+        AccountStorageScope.authenticated('user-1'),
+        clock: () => now,
+      );
+      await expiringRepository.saveState(
+        AssistantConversationScope.primarySmartPlanner,
+        <String, dynamic>{'message': 'short-lived'},
+      );
+      expect(
+        (await expiringRepository.loadState(
+          AssistantConversationScope.primarySmartPlanner,
+        ))?['message'],
+        'short-lived',
+      );
+
+      now = now.add(const Duration(hours: 25));
+      expect(
+        await expiringRepository.loadState(
+          AssistantConversationScope.primarySmartPlanner,
+        ),
+        isNull,
+      );
+      expect(
+        await SecureStore(backend: backend).readString(
+          expiringRepository.stateKey(
+            AssistantConversationScope.primarySmartPlanner,
+          )!,
+        ),
+        isNull,
+      );
+
+      await SecureStore(backend: backend).writeString(
+        expiringRepository.stateKey(
+          AssistantConversationScope.primarySiConsole,
+        )!,
+        jsonEncode(<String, dynamic>{'message': 'no-expiry-legacy'}),
+      );
+      expect(
+        await expiringRepository.loadState(
+          AssistantConversationScope.primarySiConsole,
+        ),
+        isNull,
+      );
+    },
+  );
+
   test('returns null for non-map payload types', () async {
     await SecureStore(backend: backend).writeString(
       repository.stateKey(AssistantConversationScope.primarySiConsole)!,

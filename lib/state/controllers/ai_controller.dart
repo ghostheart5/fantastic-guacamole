@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
@@ -211,7 +212,9 @@ class AIController {
     final goals = _ref.read(goalsProvider);
     final signalsBundle = _ref.read(signalsBundleProvider);
     final logsState = _ref.read(logsProvider);
-    final memories = _ref.read(memoriesProvider);
+    // SI durable interpretive memory is disabled. This typed provider also
+    // enforces exact-account and exact-surface recall at the repository edge.
+    final memories = _ref.read(memoryRecallProvider(MemorySurface.siConsole));
     final notifications = _ref.read(notificationProvider);
     final timelineEvents = _ref.read(timelineProvider);
     final int timelineOverdueCount = _ref.read(timelineOverdueProvider).length;
