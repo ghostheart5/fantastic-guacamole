@@ -41,4 +41,37 @@ void main() {
 
     expect(container.read<bool>(authenticatedGuardProvider), isFalse);
   });
+
+  test('tester access does not keep a signed-out QA session authenticated', () {
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        intelligenceStateProvider.overrideWith(
+          (Ref ref) => const IntelligenceState(
+            environment: EnvironmentState(
+              appName: 'ChronoSpark',
+              appFlavor: 'qa',
+              isProduction: false,
+              isSupabaseConfigured: false,
+            ),
+            flags: FeatureFlagsState(
+              verboseLogs: false,
+              analyticsEnabled: false,
+              mockMode: true,
+              mockLoginEnabled: true,
+              paywallDisabled: true,
+              testerFullAccess: true,
+            ),
+            auth: AuthStateSnapshot(
+              hasMockSignIn: false,
+              hasAuthenticatedUser: false,
+            ),
+            mockLogin: MockLoginConfigState(email: '', password: ''),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    expect(container.read<bool>(authenticatedGuardProvider), isFalse);
+  });
 }
