@@ -1,6 +1,5 @@
-# P0 — Onboarding. Content-versioned: bumping TutorialContent.contentVersion
-# replays this for existing users, so a regression here hits everyone, not just
-# new installs.
+# P0 - First-run welcome. Account-scoped guidance continues after sign-in;
+# this journey verifies the public first-run page and its authentication handoff.
 appId: com.ghostheart5.chronospark
 tags:
   - critical
@@ -10,10 +9,11 @@ tags:
     clearState: true
 
 - assertVisible: "CHRONOSPARK"
+- assertVisible: "FIRST SETUP 1 OF 4"
+- assertVisible: "Welcome to ChronoSpark"
+- assertVisible: "Continue to login"
 
-# Slide 2 is personalization. Feature education continues through the
-# account-scoped adaptive guide after onboarding.
-- tapOn: "NEXT"
-- assertVisible: "PERSONALIZE"
-
-- runFlow: ../subflows/skip-onboarding.yaml
+- tapOn: "Continue to login"
+- extendedWaitUntil:
+    visible: "ENTER SYSTEM"
+    timeout: 10000
