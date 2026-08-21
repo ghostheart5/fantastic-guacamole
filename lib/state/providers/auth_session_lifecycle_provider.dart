@@ -1263,7 +1263,7 @@ class AuthSessionLifecycleCoordinator {
       _ref
           .read(authSessionBoundaryProvider.notifier)
           .complete(cleanupGeneration, storageReady: false);
-      return _transitionSerial(refreshedUser, isStartup: false);
+      return await _transitionSerial(refreshedUser, isStartup: false);
     } on Object catch (error, stackTrace) {
       Logger.errorCategory(
         'Auth Session',
