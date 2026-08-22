@@ -6,63 +6,59 @@ import '../behavior/_support/source_test_utils.dart';
 
 void main() {
   group('P2-4 connector workflow contract', () {
-    test(
-      'creator actions stay wired to canonical task and goal entry points',
-      () {
-        final File creatorFile = File(
-          'lib/state/providers/creator_provider.dart',
-        );
-        expect(creatorFile.existsSync(), isTrue);
+    test('creator actions stay wired to canonical task and goal entry points', () {
+      final File creatorFile = File(
+        'lib/state/providers/creator_provider.dart',
+      );
+      expect(creatorFile.existsSync(), isTrue);
 
-        final String text = SourceTestUtils.readText(creatorFile);
+      final String text = SourceTestUtils.readText(creatorFile);
 
-        expect(
-          text.contains(
-            'Future<CreatorSavedKind> createEntry(CreatorFormData data) async {',
-          ),
-          isTrue,
-        );
-        expect(
-          text.contains(
-            'await _createGoal(data: data, recurrence: intake.resolvedRecurrence);',
-          ),
-          isTrue,
-        );
-        expect(text.contains(".read(taskActionsProvider)"), isTrue);
-        expect(text.contains('.createTask(entity, actionSource:'), isTrue);
-        expect(text.contains('await _markFirstItemCreated();'), isTrue);
-        expect(text.contains('goalsProvider.notifier'), isTrue);
-      },
-    );
+      expect(
+        text.contains(
+          'Future<CreatorSavedKind> createEntry(CreatorFormData data) async {',
+        ),
+        isTrue,
+      );
+      expect(
+        text.contains(
+          'await _createGoal(data: data, recurrence: intake.resolvedRecurrence);',
+        ),
+        isTrue,
+      );
+      expect(text.contains(".read(taskActionsProvider)"), isTrue);
+      expect(text.contains('.createTask(entity, actionSource:'), isTrue);
+      expect(text.contains('await _markFirstItemCreated();'), isTrue);
+      expect(text.contains('goalsProvider.notifier'), isTrue);
+    });
 
     test(
       'task and goal fan-out remain connected to timeline, logs, and lifecycle events',
       () {
         final File taskFile = File('lib/state/providers/task_provider.dart');
         final File goalsFile = File('lib/state/providers/goals_provider.dart');
+        final File projectionFile = File(
+          'lib/state/services/task_occurrence_projection_coordinator.dart',
+        );
         expect(taskFile.existsSync(), isTrue);
         expect(goalsFile.existsSync(), isTrue);
+        expect(projectionFile.existsSync(), isTrue);
 
         final String taskText = SourceTestUtils.readText(taskFile);
         final String goalsText = SourceTestUtils.readText(goalsFile);
+        final String projectionText = SourceTestUtils.readText(projectionFile);
 
         expect(taskText.contains('connectTask(normalized)'), isTrue);
+        expect(taskText.contains("source: 'task_created'"), isTrue);
         expect(
-          taskText.contains("addMirroredEntry(source: 'task_created'"),
-          isTrue,
-        );
-        expect(
-          taskText.contains(
-            'completionEventRepositoryProvider).addEvent(event);',
+          projectionText.contains(
+            'TaskOccurrenceProjectionStage.completionLedger',
           ),
           isTrue,
         );
         expect(taskText.contains('TaskLifecycleEvent('), isTrue);
 
-        expect(
-          goalsText.contains('addMirroredEntry(source: \'goal_\$actionName\''),
-          isTrue,
-        );
+        expect(goalsText.contains("source: 'goal_\$actionName'"), isTrue);
         expect(goalsText.contains('addMirroredEvent('), isTrue);
         expect(goalsText.contains('GoalLifecycleEvent('), isTrue);
       },

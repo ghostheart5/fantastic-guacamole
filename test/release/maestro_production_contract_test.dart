@@ -116,15 +116,31 @@ void main() {
       final String workflow = File(
         '.github/workflows/android-release.yml',
       ).readAsStringSync();
+      final String guardedBuild = File(
+        'scripts/build_android_aab_prod_guarded.ps1',
+      ).readAsStringSync();
 
       expect(
         env.contains("issues.add('Maestro test mode is enabled.')"),
         isTrue,
       );
       expect(env.contains('!kReleaseMode'), isTrue);
-      expect(workflow.contains('CHRONOSPARK_MAESTRO_MODE=false'), isTrue);
-      expect(workflow.contains('CHRONOSPARK_ENABLE_MOCK_LOGIN=false'), isTrue);
-      expect(workflow.contains('CHRONOSPARK_ENABLE_MOCK_MODE=false'), isTrue);
+      expect(
+        env.contains("issues.add('Mock login bypass is enabled.')"),
+        isTrue,
+      );
+      expect(
+        env.contains("issues.add('Global mock mode is enabled.')"),
+        isTrue,
+      );
+      expect(
+        guardedBuild.contains("CHRONOSPARK_ENFORCE_PROD_READINESS = 'true'"),
+        isTrue,
+      );
+      expect(
+        workflow.contains('Download exact gated AAB and manifest'),
+        isTrue,
+      );
     });
 
     test('onboarding runs in its dedicated isolated build profile', () {

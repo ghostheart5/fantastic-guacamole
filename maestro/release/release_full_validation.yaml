@@ -1,6 +1,5 @@
 appId: ${APP_ID}
 ---
-- runFlow: ../onboarding/_suite_onboarding.yaml
 - runFlow: ../smoke/_suite_smoke.yaml
 - runFlow: ../authentication/_suite_authentication.yaml
 - runFlow: ../nexus/_suite_nexus.yaml

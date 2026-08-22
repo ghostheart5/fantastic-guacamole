@@ -177,6 +177,16 @@ try {
   if ($LASTEXITCODE -ne 0) {
     throw "Maestro suite failed with exit code $LASTEXITCODE. See $artifactRoot."
   }
+  if (!(Test-Path -LiteralPath $resultPath)) {
+    throw "Maestro did not write the expected JUnit result: $resultPath"
+  }
+  [xml]$junit = Get-Content -LiteralPath $resultPath -Raw
+  $failedCases = @($junit.SelectNodes('//testcase[failure or error]'))
+  if ($failedCases.Count -eq 0) {
+    Write-Host 'Maestro JUnit report contains no failed test cases.'
+  } else {
+    throw "Maestro JUnit report contains $($failedCases.Count) failed test case(s). See $resultPath."
+  }
 } finally {
   # These artifacts contain device diagnostics only. They are never baselines.
   & $adbCommand -s $Device logcat -d -t 300 | Out-File -LiteralPath (Join-Path $artifactRoot 'device-logcat.txt') -Encoding utf8

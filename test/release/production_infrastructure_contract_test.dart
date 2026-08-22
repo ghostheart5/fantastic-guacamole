@@ -197,21 +197,13 @@ void main() {
 
       expect(
         workflow,
-        contains(
-          'cp web/delete-account/index.html build/web/delete-account/index.html',
-        ),
+        contains('for route in privacy terms support delete-account; do'),
       );
       expect(
         workflow,
-        contains('cp web/privacy/index.html build/web/privacy/index.html'),
+        contains('cp "web/\$route/index.html" "_site/\$route/index.html"'),
       );
-      expect(
-        workflow,
-        contains(
-          'cp web/.well-known/assetlinks.json '
-          'build/web/.well-known/assetlinks.json',
-        ),
-      );
+      expect(workflow, contains("'delete-account/index.html'"));
       expect(
         workflow,
         isNot(
@@ -253,25 +245,13 @@ void main() {
           'scripts/build_android_aab_prod_guarded.ps1',
         ).readAsStringSync();
 
+        expect(workflow, contains('Download exact gated AAB and manifest'));
+        expect(workflow, isNot(contains('flutter build appbundle')));
         expect(
-          workflow,
+          guardedScript,
           contains(
-            '--dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL='
-            'https://chronospark.app/app/auth/callback',
-          ),
-        );
-        expect(
-          workflow,
-          contains(
-            '--dart-define=CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL='
-            'https://chronospark.app/app/auth/callback',
-          ),
-        );
-        expect(
-          workflow,
-          contains(
-            '--dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL='
-            'https://chronospark.app/app/auth/callback',
+            "CHRONOSPARK_OAUTH_REDIRECT_URL = "
+            "'https://chronospark.app/app/auth/callback'",
           ),
         );
         expect(
@@ -302,7 +282,10 @@ void main() {
 
       expect(
         releaseWorkflow,
-        contains('needs: [database-gate, public-infrastructure-gate]'),
+        contains(
+          'needs: [resolve-authoritative-gate, database-gate, '
+          'public-infrastructure-gate, production-backend-gate]',
+        ),
       );
       expect(
         releaseWorkflow,
@@ -327,6 +310,14 @@ void main() {
       );
 
       expect(databaseWorkflow, contains('version: 2.113.0'));
+      expect(
+        databaseWorkflow,
+        contains(
+          '--allow-env=SUPABASE_URL,SUPABASE_SECRET_KEY,'
+          'SUPABASE_SERVICE_ROLE_KEY,SUPABASE_PUBLISHABLE_KEY,'
+          'SUPABASE_ANON_KEY',
+        ),
+      );
       expect(
         databaseWorkflow,
         contains(

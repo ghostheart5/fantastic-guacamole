@@ -87,7 +87,9 @@ void main() {
     },
   );
 
-  test('project and subtask corruption does not become first-run data', () async {
+  test(
+    'project and subtask corruption does not become first-run data',
+    () async {
       final HiveStorage<String> projects = _hiveStorage('corrupt_projects');
       final HiveStorage<String> subtasks = _hiveStorage('corrupt_subtasks');
       await projects.put('projects_v1', '{bad');
@@ -107,16 +109,16 @@ void main() {
   test(
     'timeline and insight corruption is not converted to an empty collection',
     () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'corruption',
+      );
       final _MemoryPrefsStore store = _MemoryPrefsStore(<String, String>{
-        'timeline_events_v1': '{bad',
+        'timeline_events_v2.${scope.v2Namespace}': '{bad',
         'insights_v1':
             '[{"id":"i","title":"x","summary":"x","createdAt":"bad","tags":[]}]',
       });
       expect(
-        TimelineRepository(
-          store,
-          AccountStorageScope.authenticated('corruption'),
-        ).getEvents,
+        TimelineRepository(store, scope).getEvents,
         throwsA(isA<StorageException>()),
       );
       expect(

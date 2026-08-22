@@ -16,9 +16,10 @@ void main() {
 
         final String text = SourceTestUtils.readText(creatorProviderFile);
 
-        expect(text.contains("actionSource: 'creator_task'"), isTrue);
+        expect(text.contains("String actionSource = 'creator_task'"), isTrue);
         expect(text.contains("actionSource: 'creator_routine'"), isTrue);
-        expect(text.contains("actionSource: 'creator_note'"), isTrue);
+        expect(text.contains('notesProvider.notifier'), isTrue);
+        expect(text.contains("actionSource: 'creator_note'"), isFalse);
       },
     );
 
@@ -55,7 +56,11 @@ void main() {
 
       final String text = SourceTestUtils.readText(taskProviderFile);
 
-      expect(text.contains("'kind': task.kind,"), isTrue);
+      expect(text.contains('taskKind: selectedTask?.kind'), isTrue);
+      final String completionAdapter = SourceTestUtils.readText(
+        File('lib/data/adapters/task_occurrence_completion_adapter.dart'),
+      );
+      expect(completionAdapter.contains("'kind': taskKind,"), isTrue);
     });
   });
 }

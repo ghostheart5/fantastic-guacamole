@@ -259,7 +259,23 @@ void main() {
       expect(hive.clearedBoxes, <String>{
         ...HiveBoxes.encryptedBoxes,
         HiveBoxes.accountScopedNamespace(HiveBoxes.tasks, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(
+          HiveBoxes.taskOccurrences,
+          'v2.dXNlci0x',
+        ),
+        HiveBoxes.accountScopedNamespace(
+          HiveBoxes.taskOccurrenceProjectionWork,
+          'v2.dXNlci0x',
+        ),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.notes, 'v2.dXNlci0x'),
         HiveBoxes.accountScopedNamespace(HiveBoxes.goals, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.habits, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(
+          HiveBoxes.habitOccurrences,
+          'v2.dXNlci0x',
+        ),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.dailyPlans, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.offlineQueue, 'v2.dXNlci0x'),
         'profile_box',
         'tasks',
         StorageKeys.credentials,
@@ -324,7 +340,23 @@ void main() {
       expect(hive.clearedBoxes, <String>{
         ...HiveBoxes.encryptedBoxes,
         HiveBoxes.accountScopedNamespace(HiveBoxes.tasks, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(
+          HiveBoxes.taskOccurrences,
+          'v2.dXNlci0x',
+        ),
+        HiveBoxes.accountScopedNamespace(
+          HiveBoxes.taskOccurrenceProjectionWork,
+          'v2.dXNlci0x',
+        ),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.notes, 'v2.dXNlci0x'),
         HiveBoxes.accountScopedNamespace(HiveBoxes.goals, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.habits, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(
+          HiveBoxes.habitOccurrences,
+          'v2.dXNlci0x',
+        ),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.dailyPlans, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.offlineQueue, 'v2.dXNlci0x'),
         'profile_box',
         'tasks',
         StorageKeys.credentials,

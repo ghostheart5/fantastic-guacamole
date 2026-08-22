@@ -39,14 +39,11 @@ void main() {
 
         expect(text.contains("tags:\n      - 'v*.*.*'"), isTrue);
         expect(text.contains('./scripts/security_secret_guard.ps1'), isTrue);
-        expect(text.contains('CHRONOSPARK_ENFORCE_PROD_READINESS'), isTrue);
-        expect(text.contains('CHRONOSPARK_ENABLE_MOCK_LOGIN=false'), isTrue);
-        expect(text.contains('CHRONOSPARK_ENABLE_MOCK_MODE=false'), isTrue);
-        expect(text.contains('CHRONOSPARK_PAYWALL_DISABLED=false'), isTrue);
-        expect(
-          text.contains('CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=false'),
-          isTrue,
-        );
+        expect(text.contains('resolve-authoritative-gate:'), isTrue);
+        expect(text.contains('production-backend-gate:'), isTrue);
+        expect(text.contains('public-infrastructure-gate:'), isTrue);
+        expect(text.contains('Download exact gated AAB and manifest'), isTrue);
+        expect(text.contains('flutter build appbundle'), isFalse);
       },
     );
 

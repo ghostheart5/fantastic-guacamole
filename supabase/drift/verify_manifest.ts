@@ -8,11 +8,18 @@ type EdgeFunctionEntry = {
   verify_jwt: boolean;
   source_path: string;
   source_sha256?: string;
+  captured_source_sha256?: string;
+};
+
+type ExcludedLocalArtifact = {
+  path: string;
+  reason: string;
 };
 
 type DriftManifest = {
   remote_migrations: MigrationEntry[];
   local_unapplied_migrations_at_capture: string[];
+  excluded_local_artifacts_at_capture: ExcludedLocalArtifact[];
   remote_edge_functions: EdgeFunctionEntry[];
   remote_tables: {
     count: number;
@@ -89,6 +96,19 @@ export async function verifyManifest(): Promise<string[]> {
     }
   }
 
+  for (const artifact of manifest.excluded_local_artifacts_at_capture) {
+    if (
+      manifest.local_unapplied_migrations_at_capture.includes(artifact.path)
+    ) {
+      failures.push(
+        `Excluded artifact is also listed as a migration: ${artifact.path}`,
+      );
+    }
+    if (!artifact.path.trim() || !artifact.reason.trim()) {
+      failures.push("Excluded local artifact requires a path and reason");
+    }
+  }
+
   const slugs = new Set<string>();
   for (const fn of manifest.remote_edge_functions) {
     if (slugs.has(fn.slug)) {
@@ -109,6 +129,12 @@ export async function verifyManifest(): Promise<string[]> {
       if (actual !== fn.source_sha256) {
         failures.push(`Source hash mismatch for ${fn.slug}: ${actual}`);
       }
+    }
+    if (
+      fn.captured_source_sha256 &&
+      !/^[0-9a-f]{64}$/.test(fn.captured_source_sha256)
+    ) {
+      failures.push(`Invalid captured source hash for ${fn.slug}`);
     }
   }
 

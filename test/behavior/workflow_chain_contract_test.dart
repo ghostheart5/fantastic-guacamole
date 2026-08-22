@@ -39,7 +39,8 @@ void main() {
         expect(taskText.contains('createTaskUseCaseProvider'), isTrue);
         expect(taskText.contains('timelineActionsProvider'), isTrue);
         expect(taskText.contains('connectTask(normalized)'), isTrue);
-        expect(taskText.contains('completeTaskUseCaseProvider'), isTrue);
+        expect(taskText.contains('taskOccurrenceCoordinatorProvider'), isTrue);
+        expect(taskText.contains('_occurrences.complete('), isTrue);
         expect(taskText.contains('if (actionSource == \'timeline\')'), isTrue);
         expect(taskText.contains('_markTimelineFirstActionCompleted'), isTrue);
         expect(taskText.contains("'task_created'"), isTrue);

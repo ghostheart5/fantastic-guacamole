@@ -20,15 +20,21 @@ void main() {
         expect(
           SourceTestUtils.countMatches(
             text,
-            RegExp(r"unawaited\(_markTimelineFirstActionCompleted\(\)\);"),
+            RegExp(r'await _markTimelineFirstActionCompleted\(\);'),
           ),
           greaterThanOrEqualTo(3),
         );
         expect(text.contains("'task_created'"), isTrue);
         expect(text.contains("'task_completed'"), isTrue);
-        expect(text.contains("'task_skipped'"), isTrue);
+        expect(text.contains("'task_skipped_event_emitted'"), isTrue);
         expect(text.contains("String delayReason = 'reschedule'"), isTrue);
-        expect(text.contains('CompletionEventType.rescheduled'), isTrue);
+        final String completionAdapter = SourceTestUtils.readText(
+          File('lib/data/adapters/task_occurrence_completion_adapter.dart'),
+        );
+        expect(
+          completionAdapter.contains('CompletionEventType.rescheduled'),
+          isTrue,
+        );
       },
     );
 
@@ -38,19 +44,39 @@ void main() {
         final File taskProviderFile = File(
           'lib/state/providers/task_provider.dart',
         );
+        final File coordinatorFile = File(
+          'lib/state/services/task_occurrence_projection_coordinator.dart',
+        );
+        final File completionAdapterFile = File(
+          'lib/data/adapters/task_occurrence_completion_adapter.dart',
+        );
         expect(taskProviderFile.existsSync(), isTrue);
+        expect(coordinatorFile.existsSync(), isTrue);
+        expect(completionAdapterFile.existsSync(), isTrue);
 
         final String text = SourceTestUtils.readText(taskProviderFile);
-
-        final int persistIndex = text.indexOf(
-          'await _ref.read(completionEventRepositoryProvider).addEvent(event);',
+        final String coordinatorText = SourceTestUtils.readText(
+          coordinatorFile,
         );
+        final String completionAdapterText = SourceTestUtils.readText(
+          completionAdapterFile,
+        );
+
+        final int projectIndex = text.indexOf('() => _projections.project(');
         final int invalidateIndex = text.indexOf(
-          '_ref.invalidate(completionEventsProvider);',
+          '_invalidateOccurrenceProjections();',
         );
 
-        expect(persistIndex, greaterThanOrEqualTo(0));
-        expect(invalidateIndex, greaterThan(persistIndex));
+        expect(projectIndex, greaterThanOrEqualTo(0));
+        expect(invalidateIndex, greaterThan(projectIndex));
+        expect(
+          coordinatorText.contains('() => completion.recordTransition('),
+          isTrue,
+        );
+        expect(
+          completionAdapterText.contains('await _completionEvents.addEvent('),
+          isTrue,
+        );
       },
     );
 

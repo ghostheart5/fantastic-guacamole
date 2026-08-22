@@ -10,9 +10,18 @@ class TaskOccurrenceCompletionAdapter {
 
   final ICompletionEventRepository _completionEvents;
 
-  Future<void> record(TaskOccurrence occurrence, {String? source}) async {
+  Future<void> record(
+    TaskOccurrence occurrence, {
+    String? source,
+    String? taskKind,
+  }) async {
     for (final TaskOccurrenceTransition transition in occurrence.transitions) {
-      await recordTransition(occurrence, transition, source: source);
+      await recordTransition(
+        occurrence,
+        transition,
+        source: source,
+        taskKind: taskKind,
+      );
     }
   }
 
@@ -20,6 +29,7 @@ class TaskOccurrenceCompletionAdapter {
     TaskOccurrence occurrence,
     TaskOccurrenceTransition transition, {
     String? source,
+    String? taskKind,
   }) async {
     final String id = eventIdFor(occurrence, transition);
     if (_completionEvents.getEvents().any(
@@ -39,6 +49,7 @@ class TaskOccurrenceCompletionAdapter {
           'occurrenceKey': occurrence.occurrenceKey,
           'operationId': transition.operationId,
           'outcome': transition.outcome.name,
+          'kind': taskKind,
           'rescheduledTo': transition.rescheduledFor?.toUtc().toIso8601String(),
         },
       ),

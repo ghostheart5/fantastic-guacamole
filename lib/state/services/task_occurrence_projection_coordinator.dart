@@ -14,12 +14,14 @@ class TaskOccurrenceProjectionContext {
   const TaskOccurrenceProjectionContext({
     required this.taskTitle,
     required this.taskDifficulty,
+    this.taskKind,
     this.durationSeconds,
     this.quality,
   });
 
   final String taskTitle;
   final int taskDifficulty;
+  final String? taskKind;
   final int? durationSeconds;
   final double? quality;
 }
@@ -114,6 +116,7 @@ class TaskOccurrenceProjectionCoordinator {
       operationId: transition.operationId,
       taskTitle: context.taskTitle,
       taskDifficulty: context.taskDifficulty,
+      taskKind: context.taskKind,
       transitionAt: transition.at,
       durationSeconds: context.durationSeconds,
       quality: context.quality,
@@ -162,7 +165,11 @@ class TaskOccurrenceProjectionCoordinator {
     current = await _retryable(
       current,
       TaskOccurrenceProjectionStage.completionLedger,
-      () => completion.recordTransition(occurrence, transition),
+      () => completion.recordTransition(
+        occurrence,
+        transition,
+        taskKind: current.taskKind,
+      ),
     );
     current = await _retryableBool(
       current,

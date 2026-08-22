@@ -118,9 +118,26 @@ class LocalUserDataCleanupService {
         AccountStorageNamespace.authenticated(userId);
     return <String>{
       HiveBoxes.accountScopedNamespace(HiveBoxes.tasks, namespace.v2Scope),
+      HiveBoxes.accountScopedNamespace(
+        HiveBoxes.taskOccurrences,
+        namespace.v2Scope,
+      ),
+      HiveBoxes.accountScopedNamespace(
+        HiveBoxes.taskOccurrenceProjectionWork,
+        namespace.v2Scope,
+      ),
+      HiveBoxes.accountScopedNamespace(HiveBoxes.notes, namespace.v2Scope),
       HiveBoxes.accountScopedNamespace(HiveBoxes.goals, namespace.v2Scope),
       HiveBoxes.accountScopedNamespace(HiveBoxes.habits, namespace.v2Scope),
+      HiveBoxes.accountScopedNamespace(
+        HiveBoxes.habitOccurrences,
+        namespace.v2Scope,
+      ),
       HiveBoxes.accountScopedNamespace(HiveBoxes.dailyPlans, namespace.v2Scope),
+      HiveBoxes.accountScopedNamespace(
+        HiveBoxes.offlineQueue,
+        namespace.v2Scope,
+      ),
     };
   }
 

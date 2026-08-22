@@ -86,7 +86,10 @@ void main() {
       SourceTestUtils.readText(subscriptionTest),
       contains('lower-tier token'),
     );
-    expect(SourceTestUtils.readText(aiProxyTest), contains('oversized system'));
+    expect(
+      SourceTestUtils.readText(aiProxyTest),
+      contains('rejects caller-authored system prompts'),
+    );
     expect(
       SourceTestUtils.readText(creditTest),
       contains('negative credit consumption'),

@@ -30,14 +30,11 @@ void main() {
 
         final String text = SourceTestUtils.readText(creatorProviderFile);
 
+        expect(text.contains('final intake = IntakeRequest.fromRaw'), isTrue);
         expect(
           text.contains(
-            'final intake = IntakeRequest.fromRaw',
+            'return _savedKindFor(requestedKind: intake.kind.name);',
           ),
-          isTrue,
-        );
-        expect(
-          text.contains('return _savedKindFor(requestedKind: intake.kind.name);'),
           isTrue,
         );
         expect(text.contains("'routine' => CreatorSavedKind.routine"), isTrue);
@@ -46,7 +43,7 @@ void main() {
     );
 
     test(
-      'creator screen preserves metrics recording for routine and note saves',
+      'creator screen records task metrics only for task-backed save kinds',
       () {
         final File creatorScreenFile = File(
           'lib/features/creator/ui/creator_screen.dart',
@@ -56,12 +53,15 @@ void main() {
         final String text = SourceTestUtils.readText(creatorScreenFile);
 
         expect(text.contains('savedKind == CreatorSavedKind.task ||'), isTrue);
-        expect(
-          text.contains('savedKind == CreatorSavedKind.routine ||'),
-          isTrue,
+        expect(text.contains('savedKind == CreatorSavedKind.routine)'), isTrue);
+        final int metricsStart = text.indexOf(
+          'if (savedKind == CreatorSavedKind.task ||',
         );
-        expect(text.contains('savedKind == CreatorSavedKind.note'), isTrue);
+        final int metricsEnd = text.indexOf('ref.invalidate(tasksProvider);');
+        final String metricsBlock = text.substring(metricsStart, metricsEnd);
+        expect(metricsBlock.contains('CreatorSavedKind.note'), isFalse);
         expect(text.contains('.recordTaskCreated();'), isTrue);
+        expect(text.contains("CreatorSavedKind.note => 'Note saved.'"), isTrue);
       },
     );
   });

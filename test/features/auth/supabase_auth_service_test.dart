@@ -21,6 +21,7 @@ class _FakeCleanupService extends LocalUserDataCleanupService {
 
   int clearCalls = 0;
   int prepareCalls = 0;
+  int prepareSignOutCalls = 0;
   int clearLocalDataCalls = 0;
   String? clearedUserId;
 
@@ -42,6 +43,11 @@ class _FakeCleanupService extends LocalUserDataCleanupService {
     clearedUserId = userId;
     await secureStore.delete('auth.cached_session');
     await secureStore.delete('profile_state_v2');
+  }
+
+  @override
+  Future<void> prepareForSignOut() async {
+    prepareSignOutCalls += 1;
   }
 }
 
@@ -297,7 +303,7 @@ void main() {
         store: store,
         httpClient: MockClient((http.Request request) async {
           deletionRequestCount += 1;
-          return http.Response('{"deleted":true}', 200);
+          return http.Response('{"completed":true}', 200);
         }),
         accountDeleteEndpoint:
             'https://example.supabase.co/functions/v1/account-delete',
@@ -391,7 +397,7 @@ void main() {
     });
 
     test(
-      'failed remote sign-out still clears cached auth and local profile',
+      'failed remote sign-out preserves the active account until retry',
       () async {
         await service.signIn(
           email: 'person@example.com',
@@ -406,10 +412,11 @@ void main() {
           throwsA(isA<FirebaseAuthException>()),
         );
 
-        expect(cleanup.clearCalls, 1);
-        expect(cleanup.clearedUserId, 'u1');
-        expect(await store.readString('auth.cached_session'), isNull);
-        expect(await store.readString('profile_state_v2'), isNull);
+        expect(cleanup.prepareSignOutCalls, 1);
+        expect(cleanup.clearCalls, 0);
+        expect(auth.currentUser?.id, 'u1');
+        expect(await store.readString('auth.cached_session'), 'cached');
+        expect(await store.readString('profile_state_v2'), '{"name":"Person"}');
       },
     );
 

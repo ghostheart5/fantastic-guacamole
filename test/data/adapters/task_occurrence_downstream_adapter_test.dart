@@ -352,12 +352,13 @@ void main() {
       final TaskOccurrenceCompletionAdapter adapter =
           TaskOccurrenceCompletionAdapter(ledger);
 
-      await adapter.record(occurrence);
-      await adapter.record(occurrence);
+      await adapter.record(occurrence, taskKind: 'routine');
+      await adapter.record(occurrence, taskKind: 'routine');
 
       expect(ledger.events, hasLength(2));
       expect(ledger.events.last.eventType, CompletionEventType.completed);
       expect(ledger.events.last.metadata['occurrenceId'], occurrence.id);
+      expect(ledger.events.last.metadata['kind'], 'routine');
       await ledger.removeEvent(ledger.events.last.id);
       expect(ledger.events, hasLength(1));
     },

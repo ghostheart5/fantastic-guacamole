@@ -13,12 +13,10 @@ void main() {
     final features = <String, List<String>>{
       'nexus': ['lib/features/nexus', 'lib/nexus'],
       'creator': ['lib/features/creator', 'lib/creator'],
-      'coach': [
-        'lib/features/coach',
-        'lib/features/smart_coach',
+      'smart_planner': [
+        'lib/features/smart_planner',
         'lib/features/home',
-        'lib/coach',
-        'lib/smart_coach',
+        'lib/smart_planner',
       ],
       'timeline': ['lib/features/timeline', 'lib/timeline'],
       'profile_or_settings': [
@@ -73,7 +71,7 @@ void main() {
       'ui': ['test/features/ui'],
       'nexus': ['test/features/nexus'],
       'creator': ['test/features/creator'],
-      'coach': ['test/features/smart_coach', 'test/features/coach'],
+      'smart_planner': ['test/features/smart_planner'],
       'progression': ['test/features/progression'],
       'trajectory': [
         'test/features/trajectory_engine',

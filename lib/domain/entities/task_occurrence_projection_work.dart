@@ -17,6 +17,7 @@ class TaskOccurrenceProjectionWork {
     required this.operationId,
     required this.taskTitle,
     required this.taskDifficulty,
+    this.taskKind,
     required this.transitionAt,
     this.durationSeconds,
     this.quality,
@@ -27,6 +28,7 @@ class TaskOccurrenceProjectionWork {
   final String operationId;
   final String taskTitle;
   final int taskDifficulty;
+  final String? taskKind;
   final DateTime transitionAt;
   final int? durationSeconds;
   final double? quality;
@@ -47,6 +49,7 @@ class TaskOccurrenceProjectionWork {
     operationId: operationId,
     taskTitle: taskTitle,
     taskDifficulty: taskDifficulty,
+    taskKind: taskKind,
     transitionAt: transitionAt,
     durationSeconds: durationSeconds,
     quality: quality,
@@ -61,6 +64,7 @@ class TaskOccurrenceProjectionWork {
     'operationId': operationId,
     'taskTitle': taskTitle,
     'taskDifficulty': taskDifficulty,
+    'taskKind': taskKind,
     'transitionAt': transitionAt.toUtc().toIso8601String(),
     'durationSeconds': durationSeconds,
     'quality': quality,
@@ -93,6 +97,7 @@ class TaskOccurrenceProjectionWork {
       operationId: json['operationId']?.toString() ?? '',
       taskTitle: json['taskTitle']?.toString() ?? '',
       taskDifficulty: (json['taskDifficulty'] as num?)?.toInt() ?? 3,
+      taskKind: json['taskKind']?.toString(),
       transitionAt:
           DateTime.tryParse(
             json['transitionAt']?.toString() ?? '',

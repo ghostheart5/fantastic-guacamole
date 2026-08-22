@@ -23,6 +23,9 @@ void main() {
         HiveBoxes.tasks,
         HiveBoxes.goals,
         HiveBoxes.habits,
+        HiveBoxes.habitOccurrences,
+        HiveBoxes.taskOccurrences,
+        HiveBoxes.taskOccurrenceProjectionWork,
         HiveBoxes.projects,
         HiveBoxes.routines,
         HiveBoxes.subtasks,
@@ -30,12 +33,13 @@ void main() {
         HiveBoxes.dailyPlans,
         HiveBoxes.offlineQueue,
         HiveBoxes.notifications,
+        HiveBoxes.notes,
         HiveBoxes.timeline,
         HiveBoxes.cache,
       };
 
       expect(HiveBoxes.encryptedBoxes, expected);
-      expect(HiveBoxes.encryptedBoxes.length, 12);
+      expect(HiveBoxes.encryptedBoxes.length, 16);
     });
   });
 }

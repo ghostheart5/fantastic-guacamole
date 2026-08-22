@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/eventing/event_bus.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
@@ -20,12 +23,15 @@ import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
+import 'package:fantastic_guacamole/state/services/task_occurrence_coordinator.dart';
 import 'package:fantastic_guacamole/system/analytics/local_metrics_accumulator.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
@@ -184,12 +190,25 @@ void main() {
         final _FakeLocalMetricsAccumulator metrics =
             _FakeLocalMetricsAccumulator();
         final EventBus bus = EventBus();
+        final AccountStorageScope taskScope = AccountStorageScope.authenticated(
+          'core-flow-user',
+        );
+        final _MemoryTaskOccurrenceRepository occurrences =
+            _MemoryTaskOccurrenceRepository();
 
         final ProviderContainer container = ProviderContainer(
           overrides: [
             eventBusProvider.overrideWithValue(bus),
             profileProvider.overrideWith(_TestProfileController.new),
             domainTaskRepositoryProvider.overrideWithValue(taskRepository),
+            accountStorageScopeProvider.overrideWithValue(taskScope),
+            taskOccurrenceCoordinatorProvider.overrideWithValue(
+              TaskOccurrenceCoordinator(
+                scope: taskScope,
+                taskRepository: taskRepository,
+                occurrenceRepository: occurrences,
+              ),
+            ),
             createTaskUseCaseProvider.overrideWithValue(
               CreateTask(taskRepository),
             ),
@@ -257,6 +276,32 @@ void main() {
       tags: <String>['full'],
     );
   });
+}
+
+class _MemoryTaskOccurrenceRepository extends TaskOccurrenceRepository {
+  _MemoryTaskOccurrenceRepository() : super.unavailable();
+
+  final Map<String, TaskOccurrence> _values = <String, TaskOccurrence>{};
+
+  @override
+  Future<void> cancelAndDrain() async {}
+
+  @override
+  Future<TaskOccurrence?> getOccurrence(
+    String taskId,
+    String occurrenceKey,
+  ) async => _values[TaskOccurrence.occurrenceId(taskId, occurrenceKey)];
+
+  @override
+  Future<List<TaskOccurrence>> listOccurrencesForTask(String taskId) async =>
+      _values.values
+          .where((TaskOccurrence value) => value.taskId == taskId)
+          .toList(growable: false);
+
+  @override
+  Future<void> save(TaskOccurrence occurrence) async {
+    _values[occurrence.id] = occurrence;
+  }
 }
 
 Future<void> _flushMicrotasks() async {

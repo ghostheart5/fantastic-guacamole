@@ -35,7 +35,8 @@ void main() {
         }
 
         final bool guarded =
-            (text.contains('try {') && text.contains('catch')) ||
+            (text.contains('try {') &&
+                (text.contains('catch') || text.contains('on Object'))) ||
             text.contains('FormatException') ||
             text.contains('jsonDecodeSafe(') ||
             text.contains('json.decode(') ||

@@ -19,7 +19,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
-import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 
 final nexusStartupSummaryProvider = Provider<NexusStartupSummary>((Ref ref) {
   final ProfileState profile = ref.watch(profileProvider);
@@ -226,7 +225,6 @@ Future<List<TaskEntity>> _loadAllActiveTaskEntities(Ref ref) async {
       .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
       .toList(growable: false);
 }
-
 
 final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
   Ref ref,

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/eventing/event_bus.dart';
+import 'package:fantastic_guacamole/data/adapters/habit_routine_compatibility.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -39,6 +41,7 @@ import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/routines_provider.dart';
@@ -91,6 +94,9 @@ void main() {
             CreateGoalUsecase(goalRepository),
           ),
           domainRoutineRepositoryProvider.overrideWithValue(routineRepository),
+          habitsProvider.overrideWith(
+            () => _JourneyHabitsNotifier(routineRepository),
+          ),
           getRoutinesUseCaseProvider.overrideWithValue(
             GetRoutines(routineRepository),
           ),
@@ -341,6 +347,18 @@ void main() {
     },
     tags: <String>['smoke', 'journey'],
   );
+}
+
+class _JourneyHabitsNotifier extends HabitsNotifier {
+  _JourneyHabitsNotifier(this._routines);
+
+  final _FakeRoutineRepository _routines;
+
+  @override
+  Future<List<HabitRecord>> build() async => _routines
+      .getRoutines()
+      .map(habitRecordFromRoutine)
+      .toList(growable: false);
 }
 
 Future<void> _tapAnyLabel(WidgetTester tester, List<String> labels) async {

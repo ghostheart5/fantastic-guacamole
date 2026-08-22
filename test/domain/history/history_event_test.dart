@@ -31,16 +31,15 @@ void main() {
     });
 
     test('preserves unknown legacy Timeline kinds explicitly', () {
-      final HistoryEvent event = TimelineHistoryAdapter.fromLegacyJson(
-        <String, dynamic>{
-          'id': 'legacy-1',
-          'type': 'future_custom_kind',
-          'title': 'Imported item',
-          'detail': 'Keep this record.',
-          'timestamp': '2026-08-12T12:00:00.000Z',
-          'status': 'info',
-        },
-      );
+      final HistoryEvent event =
+          TimelineHistoryAdapter.fromLegacyJson(<String, dynamic>{
+            'id': 'legacy-1',
+            'type': 'future_custom_kind',
+            'title': 'Imported item',
+            'detail': 'Keep this record.',
+            'timestamp': '2026-08-12T12:00:00.000Z',
+            'status': 'info',
+          });
 
       expect(event.kind, HistoryEventKind.legacyTimeline);
       expect(event.legacyKind, 'future_custom_kind');
@@ -49,66 +48,82 @@ void main() {
   });
 
   group('Timeline history compatibility', () {
-    test('adapts known creator completion facts without changing Timeline UI data', () {
-      final TimelineEventEntity timeline = TimelineEventEntity(
-        id: 'timeline-complete',
-        type: TimelineEventType.reflection,
-        title: 'Task Completed',
-        detail: 'Write history contract marked complete.',
-        timestamp: DateTime.utc(2026, 8, 12, 15),
-        relatedId: 'task-2',
-      );
+    test(
+      'adapts known creator completion facts without changing Timeline UI data',
+      () {
+        final TimelineEventEntity timeline = TimelineEventEntity(
+          id: 'timeline-complete',
+          type: TimelineEventType.reflection,
+          title: 'Task Completed',
+          detail: 'Write history contract marked complete.',
+          timestamp: DateTime.utc(2026, 8, 12, 15),
+          relatedId: 'task-2',
+        );
 
-      final HistoryEvent history = TimelineHistoryAdapter.toHistory(timeline);
-      final TimelineEventEntity restored = TimelineHistoryAdapter.toTimeline(history);
+        final HistoryEvent history = TimelineHistoryAdapter.fromLegacyJson(
+          timeline.toJson(),
+        );
+        final TimelineEventEntity restored = TimelineHistoryAdapter.toTimeline(
+          history,
+        );
 
-      expect(history.kind, HistoryEventKind.taskCompleted);
-      expect(history.entityId, 'task-2');
-      expect(restored.type, TimelineEventType.reflection);
-      expect(restored.title, timeline.title);
-      expect(restored.detail, timeline.detail);
-    });
+        expect(history.kind, HistoryEventKind.taskCompleted);
+        expect(history.entityId, 'task-2');
+        expect(restored.type, TimelineEventType.reflection);
+        expect(restored.title, timeline.title);
+        expect(restored.detail, timeline.detail);
+      },
+    );
 
-    test('repository writes scoped canonical records and orders history', () async {
-      final _MemoryStore store = _MemoryStore();
-      final AccountStorageScope scope = AccountStorageScope.authenticated('history-test');
-      final TimelineRepository repository = TimelineRepository(store, scope);
-      final String key = 'timeline_events_v2.${scope.v2Namespace}';
-      await repository.saveEvents(<TimelineEventEntity>[
-        TimelineEventEntity(
-          id: 'older',
-          type: TimelineEventType.task,
-          title: 'Older task',
-          detail: 'Scheduled earlier.',
-          timestamp: DateTime.utc(2026, 8, 10),
-        ),
-        TimelineEventEntity(
-          id: 'newer',
-          type: TimelineEventType.goalComplete,
-          title: 'Newer goal',
-          detail: 'Completed later.',
-          timestamp: DateTime.utc(2026, 8, 12),
-          relatedId: 'goal-1',
-        ),
-      ]);
+    test(
+      'repository writes scoped canonical records and orders history',
+      () async {
+        final _MemoryStore store = _MemoryStore();
+        final AccountStorageScope scope = AccountStorageScope.authenticated(
+          'history-test',
+        );
+        final TimelineRepository repository = TimelineRepository(store, scope);
+        final String key = 'timeline_events_v2.${scope.v2Namespace}';
+        await repository.saveEvents(<TimelineEventEntity>[
+          TimelineEventEntity(
+            id: 'older',
+            type: TimelineEventType.task,
+            title: 'Older task',
+            detail: 'Scheduled earlier.',
+            timestamp: DateTime.utc(2026, 8, 10),
+          ),
+          TimelineEventEntity(
+            id: 'newer',
+            type: TimelineEventType.goalComplete,
+            title: 'Newer goal',
+            detail: 'Completed later.',
+            timestamp: DateTime.utc(2026, 8, 12),
+            relatedId: 'goal-1',
+          ),
+        ]);
 
-      final List<dynamic> persisted = jsonDecode(store.values[key]!) as List<dynamic>;
-      expect((persisted.first as Map<String, dynamic>)['schemaVersion'], 1);
-      expect(repository.getHistoryEvents().first.id, 'newer');
+        final List<dynamic> persisted =
+            jsonDecode(store.values[key]!) as List<dynamic>;
+        expect((persisted.first as Map<String, dynamic>)['schemaVersion'], 1);
+        expect(repository.getHistoryEvents().first.id, 'newer');
 
-      store.values[key] = jsonEncode(<Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 'legacy',
-          'type': 'reflection',
-          'title': 'Legacy reflection',
-          'detail': 'Old shape remains readable.',
-          'timestamp': '2026-08-11T00:00:00.000Z',
-          'status': 'info',
-        },
-      ]);
-      expect(repository.getEvents().single.title, 'Legacy reflection');
-      expect(repository.getHistoryEvents().single.kind, HistoryEventKind.reflectionRecorded);
-    });
+        store.values[key] = jsonEncode(<Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'legacy',
+            'type': 'reflection',
+            'title': 'Legacy reflection',
+            'detail': 'Old shape remains readable.',
+            'timestamp': '2026-08-11T00:00:00.000Z',
+            'status': 'info',
+          },
+        ]);
+        expect(repository.getEvents().single.title, 'Legacy reflection');
+        expect(
+          repository.getHistoryEvents().single.kind,
+          HistoryEventKind.reflectionRecorded,
+        );
+      },
+    );
   });
 }
 

@@ -205,6 +205,7 @@ class TaskActions {
         context: TaskOccurrenceProjectionContext(
           taskTitle: selectedTask?.title ?? occurrenceResult.occurrence.taskId,
           taskDifficulty: selectedTask?.difficulty ?? 3,
+          taskKind: selectedTask?.kind,
           durationSeconds: projectionDurationSeconds,
           quality: projectionQuality,
         ),
@@ -357,6 +358,7 @@ class TaskActions {
         context: TaskOccurrenceProjectionContext(
           taskTitle: selectedTask!.title,
           taskDifficulty: selectedTask.difficulty,
+          taskKind: selectedTask.kind,
         ),
       ),
     );
@@ -448,6 +450,7 @@ class TaskActions {
         context: TaskOccurrenceProjectionContext(
           taskTitle: delayed.title,
           taskDifficulty: delayed.difficulty,
+          taskKind: delayed.kind,
         ),
       ),
     );

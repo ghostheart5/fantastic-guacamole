@@ -145,7 +145,7 @@ void main() {
 
         expect(text.contains("actionSource == 'timeline'"), isTrue);
         expect(
-          text.contains('unawaited(_markTimelineFirstActionCompleted());'),
+          text.contains('await _markTimelineFirstActionCompleted();'),
           isTrue,
         );
       },

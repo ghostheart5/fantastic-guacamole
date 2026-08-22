@@ -26,8 +26,15 @@ Run:
 deno test --allow-read supabase/drift/verify_manifest_test.ts
 ```
 
-This checks migration filenames, local source/snapshot hashes, Edge Function
-JWT flags, and the manifest's table inventory. It does not contact production.
+This checks migration filenames, immutable snapshot hashes, the format of
+historical hashes for mutable repository sources, Edge Function JWT flags, and
+the manifest's table inventory. It does not contact production or pretend that
+today's repository source is identical to the source captured on 2026-08-09.
+
+The captured zero-byte
+`20260809164233_optimize_legacy_auth_uid_policies.sql` artifact is recorded as
+excluded evidence, not kept in `supabase/migrations/`, because an empty SQL file
+is not a deployable migration.
 
 ## Refresh procedure
 

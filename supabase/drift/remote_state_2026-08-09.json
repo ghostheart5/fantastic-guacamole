@@ -96,9 +96,14 @@
     }
   ],
   "local_unapplied_migrations_at_capture": [
-    "../migrations/20260809164233_optimize_legacy_auth_uid_policies.sql",
     "../migrations/20260809170000_harden_function_privileges_and_data_api_defaults.sql",
     "../migrations/20260809171000_enforce_account_deletion_cascades.sql"
+  ],
+  "excluded_local_artifacts_at_capture": [
+    {
+      "path": "../migrations/20260809164233_optimize_legacy_auth_uid_policies.sql",
+      "reason": "Untracked zero-byte artifact; excluded because it is not a deployable migration."
+    }
   ],
   "remote_edge_functions": [
     {
@@ -119,7 +124,7 @@
       "deployment_sha256": "8d7831a33197a45117c26dfbbf7f84d001b8d24703285583556d9b1ce83ff50f",
       "classification": "canonical repository source",
       "source_path": "../functions/ai-proxy/index.ts",
-      "source_sha256": "a5a82b8a775b2522a4f2508f37125acf0d0397191a9227c3ca1d3a5710792b3a"
+      "captured_source_sha256": "a5a82b8a775b2522a4f2508f37125acf0d0397191a9227c3ca1d3a5710792b3a"
     },
     {
       "slug": "monetization-verify",
@@ -129,7 +134,7 @@
       "deployment_sha256": "58dad0e71c55c7c828c82c00691cdef3a8d8776145a046cbc123c1124a82f75f",
       "classification": "canonical repository source",
       "source_path": "../functions/monetization-verify/index.ts",
-      "source_sha256": "e8689bbb57a0b8465432344c0d8a4568325ee9d57b5b55f3fd4695d24a4859d6"
+      "captured_source_sha256": "e8689bbb57a0b8465432344c0d8a4568325ee9d57b5b55f3fd4695d24a4859d6"
     },
     {
       "slug": "delete-account",
@@ -159,7 +164,7 @@
       "deployment_sha256": "659d25c08a784b09d7a104ba22be94f7ae3c5ccb95ceda53730abe06ab73e83d",
       "classification": "canonical repository source; owned by the account-deletion workstream",
       "source_path": "../functions/account-delete/index.ts",
-      "source_sha256": "ae82891f4b33108c63d12bdc87ca8a3adb865446914d6af13b6926ba67ed96b4"
+      "captured_source_sha256": "ae82891f4b33108c63d12bdc87ca8a3adb865446914d6af13b6926ba67ed96b4"
     }
   ],
   "intentional_authenticated_security_definer_rpcs": [

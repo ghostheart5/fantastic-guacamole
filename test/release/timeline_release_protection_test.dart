@@ -80,7 +80,16 @@ void main() {
         File('lib/state/providers/execution_signals_provider.dart'),
       ).toLowerCase();
 
-      expect(taskProvider.contains('task_not_completed'), isTrue);
+      expect(
+        taskProvider.contains(
+          "lifecycleaction = isnotcompleted ? 'not_completed'",
+        ),
+        isTrue,
+      );
+      expect(
+        taskProvider.contains("'task_\${lifecycleaction}_event_emitted'"),
+        isTrue,
+      );
       expect(executionSignals.contains('task_not_completed'), isTrue);
     });
   });

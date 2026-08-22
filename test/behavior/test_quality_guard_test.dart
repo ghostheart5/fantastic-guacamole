@@ -24,6 +24,9 @@ void main() {
 
         for (final File file in SourceTestUtils.dartFilesUnder('test')) {
           final String path = SourceTestUtils.normalizePath(file.path);
+          if (!path.endsWith('_test.dart')) {
+            continue;
+          }
           if (path.contains('/robot/')) {
             continue;
           }
@@ -73,6 +76,9 @@ void main() {
 
         for (final File file in SourceTestUtils.dartFilesUnder('test')) {
           final String path = SourceTestUtils.normalizePath(file.path);
+          if (!path.endsWith('_test.dart')) {
+            continue;
+          }
           if (path.contains('/robot/')) {
             continue;
           }
