@@ -62,7 +62,7 @@ void main() {
     expect(repository.contains('ai_credit_purchases'), isFalse);
   });
 
-  test('recovered task and goal links preserve account-scoped identity', () {
+  test('recovered task, goal, and habit links preserve account identity', () {
     final String recoveryMigration = SourceTestUtils.readText(
       File(
         'supabase/migrations/'
@@ -75,6 +75,7 @@ void main() {
       '"linked_goal_id" text',
       '"goal_id" text not null',
       '"task_id" text not null',
+      '"habit_id" text not null',
     ]) {
       expect(recoveryMigration, contains(identifierColumn));
     }
@@ -94,6 +95,12 @@ void main() {
 
     expect(recoveryMigration, isNot(contains('REFERENCES goals(id)')));
     expect(recoveryMigration, isNot(contains('REFERENCES tasks(id)')));
+    expect(recoveryMigration, isNot(contains('"habit_id" uuid')));
+    expect(recoveryMigration, contains('h.id = "habit entries".habit_id'));
+    expect(
+      recoveryMigration,
+      contains('h.user_id = ( SELECT auth.uid() AS uid)'),
+    );
   });
 
   test('Edge function validators and database regression suites are tracked', () {

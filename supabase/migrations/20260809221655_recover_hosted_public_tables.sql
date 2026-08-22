@@ -167,7 +167,7 @@ create table if not exists public."habit entries" (
   "id" uuid default gen_random_uuid() not null,
   "created_at" timestamp with time zone default now() not null,
   "completed_date" date not null,
-  "habit_id" uuid default gen_random_uuid() not null,
+  "habit_id" text not null,
   "user_id" uuid not null
 );
 alter table public."habit entries" enable row level security;

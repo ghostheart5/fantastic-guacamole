@@ -1,5 +1,5 @@
 begin;
-select plan(117);
+select plan(120);
 
 with expected(table_name) as (
   values
@@ -159,6 +159,49 @@ join information_schema.columns column_type
   on column_type.table_schema = 'public'
  and column_type.table_name = expected.table_name
  and column_type.column_name = expected.column_name;
+
+select is(
+  (
+    select data_type
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'habit entries'
+      and column_name = 'habit_id'
+  ),
+  'text',
+  'public."habit entries".habit_id matches the canonical habit identifier type'
+);
+
+with expected(policy_name, requires_using) as (
+  values
+    ('habit entries - insert habit belongs', false),
+    ('habit entries - update habit belongs', true)
+), policy_expressions as (
+  select
+    expected.policy_name,
+    expected.requires_using,
+    coalesce(pg_get_expr(source_policy.polwithcheck, source_policy.polrelid), '') as check_expression,
+    coalesce(pg_get_expr(source_policy.polqual, source_policy.polrelid), '') as using_expression
+  from expected
+  join pg_policy source_policy
+    on source_policy.polrelid = 'public."habit entries"'::regclass
+   and source_policy.polname = expected.policy_name
+)
+select ok(
+  position('"habit entries".habit_id' in check_expression) > 0
+    and position('h.user_id' in check_expression) > 0
+    and position('auth.uid()' in check_expression) > 0
+    and (
+      not requires_using
+      or (
+        position('"habit entries".habit_id' in using_expression) > 0
+        and position('h.user_id' in using_expression) > 0
+        and position('auth.uid()' in using_expression) > 0
+      )
+    ),
+  format('%s keeps the linked habit and authenticated owner checks', policy_name)
+)
+from policy_expressions;
 
 with expected(table_name, constraint_name, definition) as (
   values

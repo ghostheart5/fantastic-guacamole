@@ -62,9 +62,10 @@ refresh this inventory.
 - The 24 hosted-only tables were recovered from a read-only PostgreSQL catalog
   capture in `20260809221655_recover_hosted_public_tables.sql`. An isolated
   PostgreSQL 17 replay passed locally. The clean Supabase stack additionally
-  requires recovered task and goal links to use the canonical account-scoped
-  `(user_id, id)` keys; the Supabase-specific clean-stack CI and staging replay
-  remain mandatory before production deployment.
+  requires recovered task, goal, and habit links to use the canonical
+  account-scoped identifier types and ownership checks; the Supabase-specific
+  clean-stack CI and staging replay remain mandatory before production
+  deployment.
 - A read-only foreign-key audit found eleven account-owned tables with no
   `auth.users` foreign key and `app_events` using `ON DELETE SET NULL`. All
   twelve tables were empty at capture time. The fail-closed follow-up migration

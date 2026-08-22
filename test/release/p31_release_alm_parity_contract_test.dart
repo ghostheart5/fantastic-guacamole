@@ -78,6 +78,17 @@ void main() {
       );
 
       expect(
+        RegExp("flutter-version: '3.44.6'").allMatches(ciWorkflow).length,
+        1,
+      );
+      expect(
+        RegExp("flutter-version: '3.44.6'").allMatches(testWorkflow).length,
+        2,
+      );
+      expect(ciWorkflow, isNot(contains("flutter-version: '3.47.1'")));
+      expect(testWorkflow, isNot(contains("flutter-version: '3.47.1'")));
+
+      expect(
         ciWorkflow,
         contains(
           'flutter test --coverage --concurrency=1 --exclude-tags=golden',
