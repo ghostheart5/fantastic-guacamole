@@ -13,8 +13,10 @@
 --
 -- No user data is deleted or modified. This is a policy-only change.
 
--- DROP the broad SELECT policy that allowed cross-tenant reads.
+-- DROP either historical SELECT policy so fresh migration replay and
+-- previously initialized environments converge on the same secure policy.
 drop policy if exists "user_daily_metrics_select_authenticated" on public.user_daily_metrics;
+drop policy if exists "user_daily_metrics_select_own" on public.user_daily_metrics;
 
 -- REPLACE with a user-scoped policy matching the same pattern as
 -- profiles_select_own and purchase_bindings_select_own.
