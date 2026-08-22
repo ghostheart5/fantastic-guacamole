@@ -21,7 +21,10 @@ $policyPattern = '(?im)^[\t ]*(?<verb>create|drop)[\t ]+policy(?:[\t ]+if[\t ]+e
 $activePolicies = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
 
 foreach ($migrationFile in $migrationFiles) {
-  [string]$sql = Get-Content -LiteralPath $migrationFile.FullName -Raw
+  $sql = Get-Content -LiteralPath $migrationFile.FullName -Raw
+  if ([string]::IsNullOrEmpty($sql)) {
+    continue
+  }
 
   foreach ($match in [regex]::Matches($sql, $policyPattern)) {
     $policyName = if ($match.Groups['quotedPolicy'].Success) {
