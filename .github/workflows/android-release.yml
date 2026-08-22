@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Resolve successful same-commit production gate
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const artifactName = `authoritative-release-gate-${context.sha}-production`;
@@ -130,7 +130,7 @@ jobs:
       ACCOUNT_DELETE_RECONCILE_SECRET: ${{ secrets.ACCOUNT_DELETE_RECONCILE_SECRET }}
       ANDROID_PACKAGE_NAME: com.ghostheart5.chronospark
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Require production verification credentials
         run: |
@@ -209,7 +209,7 @@ jobs:
         run: node scripts/verify_production_backend.mjs > build/release-evidence/production-backend.json
 
       - name: Upload backend verification evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: chronospark-production-backend-${{ github.ref_name }}
           path: build/release-evidence/
@@ -234,7 +234,7 @@ jobs:
       CHRONOSPARK_ANDROID_SHA256_CERT_SECRET: CHRONOSPARK_ANDROID_SHA256_CERT
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
 
@@ -505,7 +505,7 @@ jobs:
         run: flutter test
 
       - name: Download exact gated AAB and manifest
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: authoritative-release-gate-${{ github.sha }}-production
           run-id: ${{ needs.resolve-authoritative-gate.outputs.run_id }}
@@ -574,7 +574,7 @@ jobs:
           sha256sum "$AAB" > "$EVIDENCE_DIR/app-release.aab.sha256"
 
       - name: Upload release evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: chronospark-release-evidence-${{ github.ref_name }}
           path: build/release-evidence/
@@ -582,13 +582,13 @@ jobs:
           retention-days: 90
 
       - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: chronospark-release-${{ github.ref_name }}
           path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: build/app/outputs/bundle/release/app-release.aab
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}

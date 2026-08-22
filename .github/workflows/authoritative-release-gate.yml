@@ -46,7 +46,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download exact candidate
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: ${{ inputs.candidate_artifact_name }}
           run-id: ${{ inputs.source_run_id }}
@@ -54,7 +54,7 @@ jobs:
           path: ${{ runner.temp }}/phase13-candidate
 
       - name: Download release evidence
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: ${{ inputs.evidence_artifact_name }}
           run-id: ${{ inputs.source_run_id }}
@@ -73,7 +73,7 @@ jobs:
             -ExpectedCommit "${{ inputs.commit_sha }}"
 
       - name: Upload immutable gated candidate
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: authoritative-release-gate-${{ inputs.commit_sha }}-${{ inputs.build_flavor }}
           path: ${{ runner.temp }}/authoritative-release-gate
