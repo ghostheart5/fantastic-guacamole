@@ -14,6 +14,11 @@ void main() {
     const String integrationCommand =
         'xvfb-run -a flutter test integration_test -d linux';
     for (final String hostWorkflow in <String>[workflow, extended]) {
+      expect(hostWorkflow, contains('libgtk-3-dev'));
+      expect(hostWorkflow, contains('libgstreamer1.0-dev'));
+      expect(hostWorkflow, contains('libgstreamer-plugins-base1.0-dev'));
+      expect(hostWorkflow, contains('libsecret-1-dev'));
+      expect(hostWorkflow, contains('liblzma-dev'));
       expect(hostWorkflow, contains(integrationCommand));
       expect(
         hostWorkflow,
