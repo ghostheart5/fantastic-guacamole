@@ -1,23 +1,63 @@
-name: Jekyll site CI
+name: Static Site Source Check
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+    paths:
+      - 'site/**'
+      - 'web/privacy/**'
+      - 'web/terms/**'
+      - 'web/support/**'
+      - 'web/delete-account/**'
+      - 'web/legal.css'
+      - '.github/workflows/jekyll-docker.yml'
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+    paths:
+      - 'site/**'
+      - 'web/privacy/**'
+      - 'web/terms/**'
+      - 'web/support/**'
+      - 'web/delete-account/**'
+      - 'web/legal.css'
+      - '.github/workflows/jekyll-docker.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
 
     steps:
-    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-    - name: Build the site in the jekyll/builder container
-      run: |
-        docker run \
-        -v ${{ github.workspace }}:/srv/jekyll -v ${{ github.workspace }}/_site:/srv/jekyll/_site \
-        jekyll/builder:latest /bin/bash -c "chmod -R 777 /srv/jekyll && jekyll build --future"
+      - name: Checkout public-site source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Verify static-site source contract
+        shell: python
+        run: |
+          from pathlib import Path
+
+          required = (
+              Path('site/index.html'),
+              Path('site/app/index.html'),
+              Path('site/features/index.html'),
+              Path('site/download/index.html'),
+              Path('web/privacy/index.html'),
+              Path('web/terms/index.html'),
+              Path('web/support/index.html'),
+              Path('web/delete-account/index.html'),
+              Path('web/legal.css'),
+              Path('feature.png'),
+          )
+          missing = [str(path) for path in required if not path.is_file()]
+          if missing:
+              raise SystemExit(f'Static site source is incomplete: {missing}')
+
+          cname = Path('site/CNAME')
+          if cname.exists() and 'chronospark.app' in cname.read_text(encoding='utf-8'):
+              raise SystemExit('A custom domain must not be added without separate approval.')

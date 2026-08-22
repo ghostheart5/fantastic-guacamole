@@ -7,6 +7,7 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
 
 jobs:
   quality-gate:
@@ -16,17 +17,26 @@ jobs:
 
   build-aab:
     needs: quality-gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: production
     permissions:
       contents: read
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           channel: stable
+          flutter-version: '3.47.1'
+
+      - name: Create empty .env file for asset bundling
+        run: |
+          : > .env
 
       - name: Install dependencies
         run: flutter pub get
@@ -43,8 +53,14 @@ jobs:
         run: ./scripts/secret_content_guard.ps1
 
       - name: Validate release version and tag
+        if: github.event_name == 'push'
         shell: pwsh
         run: ./scripts/version_consistency_guard.ps1 -RequireTag
+
+      - name: Validate release version
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: ./scripts/version_consistency_guard.ps1
 
       - name: Run release source guard
         shell: pwsh
@@ -71,7 +87,11 @@ jobs:
         run: flutter test test --concurrency=1
 
       - name: Decode keystore
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/key.jks
 
       - name: Write key.properties
         env:
@@ -101,13 +121,14 @@ jobs:
           keyAlias=$RESOLVED_ALIAS
           storeFile=app/key.jks
           EOF
-          echo "Using keystore alias: $RESOLVED_ALIAS"
+          echo "Keystore alias resolved."
 
       - name: Verify upload key fingerprint
         env:
           EXPECTED_UPLOAD_SHA1: "13:60:98:6B:E3:45:4F:75:52:56:2E:9A:97:CE:CE:37:74:E2:FD:46"
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: |
-          ACTUAL_SHA1=$(keytool -list -v -keystore android/app/key.jks -storepass "${{ secrets.ANDROID_STORE_PASSWORD }}" -alias "$(awk -F= '$1=="keyAlias" {print $2}' android/key.properties)" 2>/dev/null | awk -F': ' '/SHA1:/{print $2; exit}')
+          ACTUAL_SHA1=$(keytool -list -v -keystore android/app/key.jks -storepass "$STORE_PASSWORD" -alias "$(awk -F= '$1=="keyAlias" {print $2}' android/key.properties)" 2>/dev/null | awk -F': ' '/SHA1:/{print $2; exit}')
           if [ -z "$ACTUAL_SHA1" ]; then
             echo "::error::Unable to read upload key SHA1 fingerprint from android/app/key.jks"
             exit 1
@@ -154,21 +175,26 @@ jobs:
           if [ "$missing" -ne 0 ]; then exit 1; fi
           echo "PROD_READINESS=true" >> "$GITHUB_ENV"
 
-      - name: Create empty .env file for asset bundling
-        run: touch .env
-
       - name: Build signed AAB
+        env:
+          SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          RECEIPT_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
+          AI_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
+          DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
+          ANDROID_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
+          IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
         run: >-
           flutter build appbundle --release
           --dart-define=CHRONOSPARK_APP_FLAVOR=prod
           --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
-          --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }}
-          --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
-          --dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
-          --dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
-          --dart-define=CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
-          --dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
-          --dart-define=CHRONOSPARK_IOS_TEAM_ID=${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
+          --dart-define="CHRONOSPARK_SUPABASE_URL=$SUPABASE_URL"
+          --dart-define="CHRONOSPARK_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
+          --dart-define="CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=$RECEIPT_ENDPOINT"
+          --dart-define="CHRONOSPARK_AI_PROXY_ENDPOINT=$AI_ENDPOINT"
+          --dart-define="CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=$DELETE_ENDPOINT"
+          --dart-define="CHRONOSPARK_ANDROID_SHA256_CERT=$ANDROID_SHA256"
+          --dart-define="CHRONOSPARK_IOS_TEAM_ID=$IOS_TEAM_ID"
 
       - name: Verify and fingerprint release artifact
         run: |
@@ -181,24 +207,30 @@ jobs:
             sha256sum app-release.aab > app-release.aab.sha256
           )
 
+      - name: Remove runner-only sensitive material
+        if: always()
+        run: rm -f android/app/key.jks android/key.properties android/app/google-services.json .env
+
       - name: Upload AAB artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-release-${{ github.ref_name }}
+          name: chronospark-release-${{ github.run_id }}
           path: |
             build/app/outputs/bundle/release/app-release.aab
             build/app/outputs/bundle/release/app-release.aab.sha256
 
   publish-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: build-aab
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
       - name: Download verified AAB artifact
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: chronospark-release-${{ github.ref_name }}
+          name: chronospark-release-${{ github.run_id }}
           path: release-artifacts
 
       - name: Recheck AAB artifact digest

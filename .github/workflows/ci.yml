@@ -3,11 +3,6 @@ name: CI/CD
 on:
   workflow_call:
   push:
-    branches:
-      - "main"
-      - "release/chronospark-production-candidate-20260821"
-    paths-ignore:
-      - ".github/workflows/**"
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -22,10 +17,13 @@ concurrency:
 jobs:
   test:
     name: Analyze & Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Record exact source commit
         id: source
@@ -52,6 +50,7 @@ jobs:
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           channel: stable
+          flutter-version: '3.47.1'
 
       - name: Create safe local configuration asset
         run: cp .env.example .env
@@ -61,6 +60,9 @@ jobs:
 
       - name: Ensure dependency lockfile is reproducible
         run: git diff --exit-code -- pubspec.lock
+
+      - name: Validate GitHub workflow controls
+        run: dart run tool/validate_github_workflows.dart
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test integration_test

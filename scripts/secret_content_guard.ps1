@@ -7,13 +7,21 @@ $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try {
   $failures = New-Object System.Collections.Generic.List[string]
-  $tracked = @(git ls-files)
-  if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed.' }
+  $repositoryFiles = @(git ls-files --cached --others --exclude-standard)
+  if ($LASTEXITCODE -ne 0) {
+    throw 'git repository file discovery failed.'
+  }
 
-  $textExtensions = @('.dart', '.yaml', '.yml', '.json', '.toml', '.md', '.html', '.txt', '.ps1', '.sh', '.ts', '.js', '.kt', '.kts', '.properties', '.env.example')
-  $files = $tracked | Where-Object {
+  $textExtensions = @(
+    '.dart', '.yaml', '.yml', '.json', '.toml', '.md', '.html', '.txt',
+    '.ps1', '.sh', '.ts', '.js', '.kt', '.kts', '.properties', '.sql',
+    '.xml', '.plist', '.gradle', '.swift', '.java', '.c', '.cc', '.cpp',
+    '.h', '.hpp', '.conf', '.ini', '.cfg', '.csv', '.robot', '.pem', '.key'
+  )
+  $files = $repositoryFiles | Where-Object {
     $extension = [IO.Path]::GetExtension($_).ToLowerInvariant()
-    $textExtensions -contains $extension -and (Test-Path $_)
+    $leafName = [IO.Path]::GetFileName($_)
+    (($textExtensions -contains $extension) -or $leafName -eq '.env.example') -and (Test-Path $_)
   }
 
   $patterns = @(
@@ -35,7 +43,8 @@ try {
   }
 
   if ($ScanHistory) {
-    $history = git log --all --format= --patch -- . ':!pubspec.lock' 2>$null
+    $history = git log --no-textconv --all --format= --patch -- . ':!pubspec.lock' 2>$null
+    if ($LASTEXITCODE -ne 0) { throw 'git history scan failed.' }
     foreach ($pattern in $patterns) {
       if ($history -match $pattern.Regex) { $failures.Add("$($pattern.Message) detected in repository history") }
     }

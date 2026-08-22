@@ -56,7 +56,6 @@ app.*.map.json
 # Flutter/Dart
 .dart_tool/
 .packages
-pubspec.lock
 build/
 
 # Android

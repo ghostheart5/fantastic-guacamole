@@ -35,6 +35,7 @@ void main() {
     expect(workflow, contains('scripts/edge_function_gate.ps1 -RunTests'));
     expect(workflow, contains('scripts/secret_content_guard.ps1'));
     expect(workflow, contains('scripts/dependency_audit.ps1'));
+    expect(workflow, contains('tool/validate_github_workflows.dart'));
     expect(workflow, contains('supabase@2.115.0 test db'));
     expect(workflow, contains('artifacts/ci-evidence/exact-commit.json'));
     expect(
@@ -92,6 +93,54 @@ void main() {
     );
   });
 
+  test('GitHub workflows pin external actions and hosted runner versions', () {
+    final List<File> workflowFiles = Directory('.github/workflows')
+        .listSync()
+        .whereType<File>()
+        .where(
+          (File file) =>
+              file.path.endsWith('.yml') || file.path.endsWith('.yaml'),
+        )
+        .toList();
+    final String workflows = workflowFiles
+        .map((File file) => file.readAsStringSync())
+        .join('\n');
+
+    expect(workflows, isNot(contains('ubuntu-latest')));
+    expect(workflows, isNot(contains('jekyll/builder:latest')));
+
+    for (final File file in workflowFiles) {
+      for (final String line in file.readAsLinesSync()) {
+        final String trimmed = line.trim();
+        if (!trimmed.startsWith('uses:') || trimmed.contains('uses: ./')) {
+          continue;
+        }
+        final Match? action = RegExp(
+          r'^uses:\s+[^@\s]+@([^\s#]+)',
+        ).firstMatch(trimmed);
+        expect(action, isNotNull, reason: '${file.path}: $trimmed');
+        expect(
+          action!.group(1),
+          matches(RegExp(r'^[0-9a-f]{40}$')),
+          reason: '${file.path}: $trimmed',
+        );
+      }
+    }
+
+    final int checkoutCount = RegExp(
+      r'uses:\s+actions/checkout@',
+    ).allMatches(workflows).length;
+    final int readOnlyCheckoutCount = RegExp(
+      r'persist-credentials:\s+false',
+    ).allMatches(workflows).length;
+    expect(readOnlyCheckoutCount, checkoutCount);
+
+    final String ci = read('.github/workflows/ci.yml');
+    expect(ci, contains('runs-on: ubuntu-24.04'));
+    expect(ci, contains("flutter-version: '3.47.1'"));
+    expect(ci, isNot(contains('paths-ignore:')));
+  });
+
   test('application release workflows use the reusable quality gate', () {
     final String android = read('.github/workflows/android-release.yml');
     final String linux = read('.github/workflows/linux-release.yml');
@@ -101,6 +150,51 @@ void main() {
     }
     expect(android, contains('::error::Required production secret is missing'));
     expect(android, contains('CHRONOSPARK_ENFORCE_PROD_READINESS=true'));
+    expect(android, contains('workflow_dispatch:'));
+    expect(android, contains('environment: production'));
+    expect(android, contains(r'chronospark-release-${{ github.run_id }}'));
+    expect(android, contains('Remove runner-only sensitive material'));
+    expect(
+      android,
+      isNot(
+        contains(
+          r'--dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }}',
+        ),
+      ),
+    );
+    expect(
+      android,
+      contains(
+        "if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')",
+      ),
+    );
+  });
+
+  test(
+    'backend reconciliation is bounded and does not print response bodies',
+    () {
+      final String workflow = read(
+        '.github/workflows/backend-reconciliation.yml',
+      );
+      expect(workflow, contains('contents: read'));
+      expect(workflow, contains('environment: production'));
+      expect(workflow, contains('timeout-minutes: 10'));
+      expect(workflow, contains('--output /dev/null'));
+      expect(workflow, isNot(contains('--fail-with-body')));
+    },
+  );
+
+  test('secret guards scan expanded source types without text conversion', () {
+    final String repositoryGuard = read('scripts/security_secret_guard.ps1');
+    final String contentGuard = read('scripts/secret_content_guard.ps1');
+    expect(repositoryGuard, contains(r'\.env(?:\..+)?'));
+    expect(repositoryGuard, contains('jks|keystore|p12|pfx|key'));
+    expect(repositoryGuard, contains('--others --exclude-standard'));
+    expect(contentGuard, contains("'.sql'"));
+    expect(contentGuard, contains("'.plist'"));
+    expect(contentGuard, contains('--others --exclude-standard'));
+    expect(contentGuard, contains('git log --no-textconv'));
+    expect(contentGuard, contains("throw 'git history scan failed.'"));
   });
 
   test('public Pages workflow deploys only the verified static site', () {
