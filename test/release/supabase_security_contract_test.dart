@@ -106,6 +106,44 @@ void main() {
     );
   });
 
+  test('verified purchase duplicate lookup is qualified and replay-safe', () {
+    final String purchaseRepairMigration = SourceTestUtils.readText(
+      File(
+        'supabase/migrations/'
+        '20260822180701_qualify_apply_verified_purchase_token.sql',
+      ),
+    );
+    final String purchaseRpcTest = SourceTestUtils.readText(
+      File('supabase/tests/monetization_purchase_rpc_test.sql'),
+    );
+
+    for (final String contract in <String>[
+      'create or replace function public.apply_verified_purchase(',
+      'security invoker',
+      'set search_path = public',
+      'from public.monetization_purchases as purchase',
+      'where purchase.user_id = target_user_id',
+      'purchase.purchase_token_hash = '
+          'apply_verified_purchase.purchase_token_hash',
+      ') from public, anon, authenticated;',
+      ') to service_role;',
+    ]) {
+      expect(purchaseRepairMigration, contains(contract));
+    }
+
+    for (final String regression in <String>[
+      'verified purchase remains service-role only',
+      'first verified receipt is applied',
+      'replayed receipt is reported as a duplicate',
+      'duplicate receipt creates one purchase row',
+      'duplicate receipt grants the credit pack once',
+      'duplicate receipt records one credit transaction',
+      'duplicate receipt records one entitlement event',
+    ]) {
+      expect(purchaseRpcTest, contains(regression));
+    }
+  });
+
   test('recovered task, goal, and habit links preserve account identity', () {
     final String recoveryMigration = SourceTestUtils.readText(
       File(
