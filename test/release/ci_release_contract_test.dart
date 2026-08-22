@@ -145,12 +145,23 @@ void main() {
   );
 
   test(
-    'CodeQL no longer mutates repository security settings or hides SARIF failures',
+    'advanced CodeQL workflow stays retired while default setup owns scanning',
     () {
-      final String codeql = read('.github/workflows/codeql.yml');
-      expect(codeql, isNot(contains('PATCH')));
-      expect(codeql, contains('upload: true'));
-      expect(codeql, isNot(contains('continue-on-error: true')));
+      final File advancedWorkflow = File.fromUri(
+        root.uri.resolve('.github/workflows/codeql.yml'),
+      );
+      final String workflows = Directory('.github/workflows')
+          .listSync()
+          .whereType<File>()
+          .where(
+            (File file) =>
+                file.path.endsWith('.yml') || file.path.endsWith('.yaml'),
+          )
+          .map((File file) => file.readAsStringSync())
+          .join('\n');
+
+      expect(advancedWorkflow.existsSync(), isFalse);
+      expect(workflows, isNot(contains('github/codeql-action/')));
     },
   );
 
