@@ -142,8 +142,8 @@ create table if not exists public."focus_sessions" (
   "created_at" timestamp with time zone default now() not null,
   "updated_at" timestamp with time zone default now() not null,
   "title" text,
-  "linked_task_id" uuid,
-  "linked_goal_id" uuid,
+  "linked_task_id" text,
+  "linked_goal_id" text,
   "notes" text,
   "completed" boolean default false not null
 );
@@ -152,7 +152,7 @@ alter table public."focus_sessions" enable row level security;
 create table if not exists public."goal_checkins" (
   "id" uuid default gen_random_uuid() not null,
   "user_id" uuid not null,
-  "goal_id" uuid not null,
+  "goal_id" text not null,
   "checkin_date" date not null,
   "progress_value" integer,
   "note" text,
@@ -311,7 +311,7 @@ alter table public."sync_queue" enable row level security;
 create table if not exists public."task_steps" (
   "id" uuid default gen_random_uuid() not null,
   "user_id" uuid not null,
-  "task_id" uuid not null,
+  "task_id" text not null,
   "step_index" integer not null,
   "title" text not null,
   "notes" text,
@@ -905,7 +905,7 @@ begin
     where conrelid = 'public."focus_sessions"'::regclass
       and conname = 'focus_sessions_linked_goal_id_fkey'
   ) then
-    execute $constraint_sql$alter table public."focus_sessions" add constraint "focus_sessions_linked_goal_id_fkey" FOREIGN KEY (linked_goal_id) REFERENCES goals(id) ON DELETE SET NULL$constraint_sql$;
+    execute $constraint_sql$alter table public."focus_sessions" add constraint "focus_sessions_linked_goal_id_fkey" FOREIGN KEY (user_id, linked_goal_id) REFERENCES goals(user_id, id) ON DELETE SET NULL (linked_goal_id)$constraint_sql$;
   end if;
 end;
 $constraint$;
@@ -918,7 +918,7 @@ begin
     where conrelid = 'public."focus_sessions"'::regclass
       and conname = 'focus_sessions_linked_task_id_fkey'
   ) then
-    execute $constraint_sql$alter table public."focus_sessions" add constraint "focus_sessions_linked_task_id_fkey" FOREIGN KEY (linked_task_id) REFERENCES tasks(id) ON DELETE SET NULL$constraint_sql$;
+    execute $constraint_sql$alter table public."focus_sessions" add constraint "focus_sessions_linked_task_id_fkey" FOREIGN KEY (user_id, linked_task_id) REFERENCES tasks(user_id, id) ON DELETE SET NULL (linked_task_id)$constraint_sql$;
   end if;
 end;
 $constraint$;
@@ -944,7 +944,7 @@ begin
     where conrelid = 'public."goal_checkins"'::regclass
       and conname = 'goal_checkins_goal_id_fkey'
   ) then
-    execute $constraint_sql$alter table public."goal_checkins" add constraint "goal_checkins_goal_id_fkey" FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE$constraint_sql$;
+    execute $constraint_sql$alter table public."goal_checkins" add constraint "goal_checkins_goal_id_fkey" FOREIGN KEY (user_id, goal_id) REFERENCES goals(user_id, id) ON DELETE CASCADE$constraint_sql$;
   end if;
 end;
 $constraint$;
@@ -1035,7 +1035,7 @@ begin
     where conrelid = 'public."task_steps"'::regclass
       and conname = 'task_steps_task_id_fkey'
   ) then
-    execute $constraint_sql$alter table public."task_steps" add constraint "task_steps_task_id_fkey" FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE$constraint_sql$;
+    execute $constraint_sql$alter table public."task_steps" add constraint "task_steps_task_id_fkey" FOREIGN KEY (user_id, task_id) REFERENCES tasks(user_id, id) ON DELETE CASCADE$constraint_sql$;
   end if;
 end;
 $constraint$;

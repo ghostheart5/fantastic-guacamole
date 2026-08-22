@@ -39,6 +39,6 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('../goldens/widgets/offline_banner_error.png'),
       );
-    });
+    }, tags: <String>['golden']);
   });
 }

@@ -133,6 +133,6 @@ void main() {
           '../goldens/trajectory/trajectory_engine_default.png',
         ),
       );
-    });
+    }, tags: <String>['golden']);
   });
 }

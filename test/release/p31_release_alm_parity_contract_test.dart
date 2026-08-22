@@ -68,5 +68,32 @@ void main() {
         );
       },
     );
+
+    test('goldens stay strict on their canonical Windows runner', () {
+      final String ciWorkflow = SourceTestUtils.readText(
+        File('.github/workflows/dart.yml'),
+      );
+      final String testWorkflow = SourceTestUtils.readText(
+        File('.github/workflows/tests.yml'),
+      );
+
+      expect(
+        ciWorkflow,
+        contains(
+          'flutter test --coverage --concurrency=1 --exclude-tags=golden',
+        ),
+      );
+      expect(
+        testWorkflow,
+        contains('flutter test --coverage --exclude-tags=golden'),
+      );
+      expect(testWorkflow, contains('name: Golden Tests (Windows)'));
+      expect(testWorkflow, contains('runs-on: windows-latest'));
+      expect(
+        testWorkflow,
+        contains('flutter test test/golden --concurrency=1'),
+      );
+      expect(testWorkflow, isNot(contains('--update-goldens')));
+    });
   });
 }

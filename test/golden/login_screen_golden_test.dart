@@ -39,6 +39,6 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('../goldens/auth/login_screen_default.png'),
       );
-    });
+    }, tags: <String>['golden']);
   });
 }

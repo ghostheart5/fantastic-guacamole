@@ -76,6 +76,6 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('../goldens/settings/settings_screen_default.png'),
       );
-    });
+    }, tags: <String>['golden']);
   });
 }

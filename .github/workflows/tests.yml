@@ -35,7 +35,7 @@ jobs:
       - name: Run Extended Flutter Tests
         id: extended_tests
         run: |
-          flutter test --coverage
+          flutter test --coverage --exclude-tags=golden
           flutter test test/integration
           flutter test test/features
           flutter test test/providers
@@ -72,3 +72,25 @@ jobs:
         with:
           name: coverage
           path: coverage/lcov.info
+
+  golden:
+    name: Golden Tests (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: '3.47.1'
+
+      - name: Create safe local configuration asset
+        shell: pwsh
+        run: Copy-Item -LiteralPath .env.example -Destination .env
+
+      - name: Run canonical Windows golden tests
+        run: flutter test test/golden --concurrency=1

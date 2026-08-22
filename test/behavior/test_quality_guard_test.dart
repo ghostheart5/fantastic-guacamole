@@ -107,6 +107,15 @@ void main() {
     );
 
     test('major UI surfaces have at least one golden visual test', () {
+      final String dartTestConfig = SourceTestUtils.readText(
+        File('dart_test.yaml'),
+      );
+      expect(
+        dartTestConfig,
+        contains('  golden:'),
+        reason: 'The canonical golden tag must be declared in dart_test.yaml',
+      );
+
       final List<String> requiredUiFolders = <String>[
         'package:fantastic_guacamole/features/auth/ui/',
         'package:fantastic_guacamole/features/settings/ui/',
@@ -122,6 +131,14 @@ void main() {
       final String combinedGoldenSource = goldenTests
           .map(SourceTestUtils.readText)
           .join('\n');
+
+      for (final File goldenTest in goldenTests) {
+        expect(
+          SourceTestUtils.readText(goldenTest),
+          contains("tags: <String>['golden']"),
+          reason: '${goldenTest.path} must use the canonical golden tag',
+        );
+      }
 
       final List<String> missingFolders = <String>[];
       for (final String folder in requiredUiFolders) {

@@ -62,6 +62,40 @@ void main() {
     expect(repository.contains('ai_credit_purchases'), isFalse);
   });
 
+  test('recovered task and goal links preserve account-scoped identity', () {
+    final String recoveryMigration = SourceTestUtils.readText(
+      File(
+        'supabase/migrations/'
+        '20260809221655_recover_hosted_public_tables.sql',
+      ),
+    );
+
+    for (final String identifierColumn in <String>[
+      '"linked_task_id" text',
+      '"linked_goal_id" text',
+      '"goal_id" text not null',
+      '"task_id" text not null',
+    ]) {
+      expect(recoveryMigration, contains(identifierColumn));
+    }
+
+    for (final String accountScopedReference in <String>[
+      'FOREIGN KEY (user_id, linked_goal_id) '
+          'REFERENCES goals(user_id, id) ON DELETE SET NULL (linked_goal_id)',
+      'FOREIGN KEY (user_id, linked_task_id) '
+          'REFERENCES tasks(user_id, id) ON DELETE SET NULL (linked_task_id)',
+      'FOREIGN KEY (user_id, goal_id) '
+          'REFERENCES goals(user_id, id) ON DELETE CASCADE',
+      'FOREIGN KEY (user_id, task_id) '
+          'REFERENCES tasks(user_id, id) ON DELETE CASCADE',
+    ]) {
+      expect(recoveryMigration, contains(accountScopedReference));
+    }
+
+    expect(recoveryMigration, isNot(contains('REFERENCES goals(id)')));
+    expect(recoveryMigration, isNot(contains('REFERENCES tasks(id)')));
+  });
+
   test('Edge function validators and database regression suites are tracked', () {
     final File subscriptionTest = File(
       'supabase/functions/monetization-verify/subscription_verification_test.ts',

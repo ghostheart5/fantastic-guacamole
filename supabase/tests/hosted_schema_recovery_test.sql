@@ -1,5 +1,5 @@
 begin;
-select plan(109);
+select plan(117);
 
 with expected(table_name) as (
   values
@@ -138,6 +138,60 @@ select ok(
     and not has_function_privilege('service_role', 'public.sync_app_events_legacy_fields()', 'EXECUTE'),
   'sync_app_events_legacy_fields is trigger-only'
 );
+
+with expected(table_name, column_name) as (
+  values
+    ('focus_sessions', 'linked_goal_id'),
+    ('focus_sessions', 'linked_task_id'),
+    ('goal_checkins', 'goal_id'),
+    ('task_steps', 'task_id')
+)
+select ok(
+  column_type.data_type = 'text',
+  format(
+    'public.%I.%I matches the canonical account-scoped identifier type',
+    expected.table_name,
+    expected.column_name
+  )
+)
+from expected
+join information_schema.columns column_type
+  on column_type.table_schema = 'public'
+ and column_type.table_name = expected.table_name
+ and column_type.column_name = expected.column_name;
+
+with expected(table_name, constraint_name, definition) as (
+  values
+    (
+      'focus_sessions',
+      'focus_sessions_linked_goal_id_fkey',
+      'FOREIGN KEY (user_id, linked_goal_id) REFERENCES goals(user_id, id) ON DELETE SET NULL (linked_goal_id)'
+    ),
+    (
+      'focus_sessions',
+      'focus_sessions_linked_task_id_fkey',
+      'FOREIGN KEY (user_id, linked_task_id) REFERENCES tasks(user_id, id) ON DELETE SET NULL (linked_task_id)'
+    ),
+    (
+      'goal_checkins',
+      'goal_checkins_goal_id_fkey',
+      'FOREIGN KEY (user_id, goal_id) REFERENCES goals(user_id, id) ON DELETE CASCADE'
+    ),
+    (
+      'task_steps',
+      'task_steps_task_id_fkey',
+      'FOREIGN KEY (user_id, task_id) REFERENCES tasks(user_id, id) ON DELETE CASCADE'
+    )
+)
+select is(
+  pg_get_constraintdef(source_constraint.oid),
+  expected.definition,
+  format('%s preserves account ownership in its foreign key', expected.constraint_name)
+)
+from expected
+join pg_constraint source_constraint
+  on source_constraint.conrelid = format('public.%I', expected.table_name)::regclass
+ and source_constraint.conname = expected.constraint_name;
 
 with expected(table_name) as (
   values
