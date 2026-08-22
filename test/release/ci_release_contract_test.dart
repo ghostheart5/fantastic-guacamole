@@ -8,11 +8,12 @@ void main() {
   String read(String path) =>
       File.fromUri(root.uri.resolve(path)).readAsStringSync();
 
-  test('host CI binds app-root integration to Linux under Xvfb', () {
+  test('host CI isolates each app-root integration file under Xvfb', () {
     final String workflow = read('.github/workflows/ci.yml');
     final String extended = read('.github/workflows/dart.yml');
+    final String linuxRunner = read('scripts/run_linux_integration_tests.sh');
     const String integrationCommand =
-        'xvfb-run -a flutter test integration_test -d linux';
+        'bash ./scripts/run_linux_integration_tests.sh';
     for (final String hostWorkflow in <String>[workflow, extended]) {
       expect(hostWorkflow, contains('libgtk-3-dev'));
       expect(hostWorkflow, contains('libgstreamer1.0-dev'));
@@ -22,9 +23,15 @@ void main() {
       expect(hostWorkflow, contains(integrationCommand));
       expect(
         hostWorkflow,
-        isNot(contains('flutter test integration_test --concurrency=1')),
+        isNot(contains('flutter test integration_test -d linux')),
       );
     }
+    expect(linuxRunner, contains('integration_test/*_test.dart'));
+    expect(
+      linuxRunner,
+      contains(r'xvfb-run -a flutter test "$test_file" --no-pub -d linux'),
+    );
+    expect(linuxRunner, contains(r'failures=$((failures + 1))'));
     expect(workflow, contains('scripts/edge_function_gate.ps1 -RunTests'));
     expect(workflow, contains('scripts/secret_content_guard.ps1'));
     expect(workflow, contains('scripts/dependency_audit.ps1'));

@@ -128,7 +128,7 @@ jobs:
             liblzma-dev
 
       - name: Run app-root integration tests
-        run: xvfb-run -a flutter test integration_test -d linux
+        run: bash ./scripts/run_linux_integration_tests.sh
 
       - name: Enforce coverage and critical-test contracts
         shell: pwsh

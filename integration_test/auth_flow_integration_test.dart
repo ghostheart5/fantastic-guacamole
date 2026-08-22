@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
@@ -102,6 +103,9 @@ void main() {
         profileProvider.overrideWith(_IntegrationProfileController.new),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('integration-onboarding-user'),
+        ),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
         ),
         intelligenceStateProvider.overrideWithValue(_authenticatedIntelligence),
       ],
@@ -320,6 +324,7 @@ ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
+      isOnlineProvider.overrideWithValue(true),
       profileProvider.overrideWith(_IntegrationProfileController.new),
       audioFeedbackControllerProvider.overrideWithValue(
         const _SilentAudioFeedbackController(),
