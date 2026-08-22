@@ -384,7 +384,6 @@ class _LandscapeLoginContent extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final double leftWidth = math.min(constraints.maxWidth * 0.42, 420);
-            final double rightWidth = constraints.maxWidth - leftWidth;
             final double bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
             return AnimatedPadding(
@@ -399,10 +398,10 @@ class _LandscapeLoginContent extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
+                      minHeight: math.max(0, constraints.maxHeight - 40),
                     ),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         SizedBox(
                           width: leftWidth,
@@ -413,8 +412,7 @@ class _LandscapeLoginContent extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 24),
-                        SizedBox(
-                          width: rightWidth,
+                        Expanded(
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: ConstrainedBox(

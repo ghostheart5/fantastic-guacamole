@@ -8,8 +8,10 @@ void main() {
   Future<void> pumpLoginScreen(
     WidgetTester tester, {
     required double width,
+    double height = 900,
+    VoidCallback? onPrimaryAction,
   }) async {
-    tester.view.physicalSize = Size(width, 900);
+    tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -26,7 +28,7 @@ void main() {
           obscurePassword: true,
           isSubmitting: false,
           isSignUpMode: false,
-          onPrimaryAction: () {},
+          onPrimaryAction: onPrimaryAction ?? () {},
           onForgotPassword: () {},
           onGoogleSignIn: () {},
           onGitHubSignIn: () {},
@@ -97,5 +99,44 @@ void main() {
         AppSizes.fontBody,
       );
     });
+  });
+
+  testWidgets('keeps the login surface usable at 1280x720', (
+    WidgetTester tester,
+  ) async {
+    int primaryActionCalls = 0;
+
+    await pumpLoginScreen(
+      tester,
+      width: 1280,
+      height: 720,
+      onPrimaryAction: () => primaryActionCalls += 1,
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('login-email-field')), findsOneWidget);
+    expect(find.byKey(const ValueKey('login-password-field')), findsOneWidget);
+    expect(find.text('ENTER SYSTEM'), findsOneWidget);
+    expect(find.text('Forgot Password?'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with GitHub'), findsOneWidget);
+    expect(find.text('Create Account'), findsOneWidget);
+
+    for (final Key key in const <Key>[
+      ValueKey('login-email-field'),
+      ValueKey('login-password-field'),
+    ]) {
+      final Rect rect = tester.getRect(find.byKey(key));
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(1280));
+    }
+
+    final Finder primaryAction = find.text('ENTER SYSTEM');
+    expect(primaryAction.hitTestable(), findsOneWidget);
+    await tester.tap(primaryAction);
+    await tester.pump();
+
+    expect(primaryActionCalls, 1);
+    expect(tester.takeException(), isNull);
   });
 }
