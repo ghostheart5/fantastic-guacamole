@@ -3,12 +3,16 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart'
+    hide BillingClient;
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -55,6 +59,96 @@ void main() {
       expect(
         plans.firstWhere((plan) => plan.id == 'annual').isAvailable,
         isFalse,
+      );
+
+      repository.dispose();
+    },
+  );
+
+  test(
+    'getAvailablePlans derives the longest valid Google Play trial',
+    () async {
+      const PricingPhaseWrapper paidPhase = PricingPhaseWrapper(
+        billingCycleCount: 0,
+        billingPeriod: 'P1M',
+        formattedPrice: r'$9.99',
+        priceAmountMicros: 9990000,
+        priceCurrencyCode: 'USD',
+        recurrenceMode: RecurrenceMode.infiniteRecurring,
+      );
+      const PricingPhaseWrapper invalidCycle = PricingPhaseWrapper(
+        billingCycleCount: 0,
+        billingPeriod: 'P1W',
+        formattedPrice: r'$0.00',
+        priceAmountMicros: 0,
+        priceCurrencyCode: 'USD',
+        recurrenceMode: RecurrenceMode.finiteRecurring,
+      );
+      const PricingPhaseWrapper invalidPeriod = PricingPhaseWrapper(
+        billingCycleCount: 1,
+        billingPeriod: 'not-a-period',
+        formattedPrice: r'$0.00',
+        priceAmountMicros: 0,
+        priceCurrencyCode: 'USD',
+        recurrenceMode: RecurrenceMode.finiteRecurring,
+      );
+      const PricingPhaseWrapper longestTrial = PricingPhaseWrapper(
+        billingCycleCount: 1,
+        billingPeriod: 'P1Y2M3W4D',
+        formattedPrice: r'$0.00',
+        priceAmountMicros: 0,
+        priceCurrencyCode: 'USD',
+        recurrenceMode: RecurrenceMode.finiteRecurring,
+      );
+      const ProductDetailsWrapper wrapper = ProductDetailsWrapper(
+        description: 'Premium access',
+        name: 'ChronoSpark Premium',
+        productId: 'chronospark_premium_monthly',
+        productType: ProductType.subs,
+        title: 'ChronoSpark Premium',
+        subscriptionOfferDetails: <SubscriptionOfferDetailsWrapper>[
+          SubscriptionOfferDetailsWrapper(
+            basePlanId: 'monthly',
+            offerTags: <String>[],
+            offerIdToken: 'offer-token',
+            pricingPhases: <PricingPhaseWrapper>[
+              paidPhase,
+              invalidCycle,
+              invalidPeriod,
+              longestTrial,
+            ],
+          ),
+        ],
+      );
+      final GooglePlayProductDetails details =
+          GooglePlayProductDetails.fromProductDetails(wrapper).single;
+      final GooglePlayPaywallRepository repository =
+          GooglePlayPaywallRepository(
+            billingClient: _FakeBillingClient(
+              productResponse: ProductDetailsResponse(
+                productDetails: <ProductDetails>[details],
+                notFoundIDs: const <String>['chronospark_premium_annual'],
+              ),
+            ),
+            paywallTestingModeOverride: false,
+            sharedPreferencesLoader: SharedPreferences.getInstance,
+            receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+          );
+
+      final List<PaywallPlan> plans = await repository.getAvailablePlans();
+      final PaywallPlan monthly = plans.firstWhere(
+        (PaywallPlan plan) => plan.id == 'monthly',
+      );
+
+      expect(
+        monthly.benefits.first,
+        '450-day free trial for eligible new subscribers',
+      );
+      expect(
+        monthly.benefits.where(
+          (String benefit) => benefit.toLowerCase().contains('free trial'),
+        ),
+        hasLength(1),
       );
 
       repository.dispose();
@@ -721,6 +815,56 @@ void main() {
     expect(state.planId, 'annual');
     expect(entitlement.isEntitled, isTrue);
     expect(entitlement.expiresAt?.toIso8601String(), renewal.toIso8601String());
+
+    repository.dispose();
+  });
+
+  test('migrates legacy subscription state into secure storage', () async {
+    final DateTime renewal = DateTime.now().add(const Duration(days: 14));
+    final String legacyState = jsonEncode(<String, dynamic>{
+      'isActive': true,
+      'status': 'active',
+      'planId': 'annual',
+      'renewalDate': renewal.toIso8601String(),
+    });
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'paywall_subscription_state_v1': legacyState,
+    });
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
+      billingClient: _FakeBillingClient(
+        productResponse: ProductDetailsResponse(
+          productDetails: const <ProductDetails>[],
+          notFoundIDs: const <String>[],
+        ),
+      ),
+      paywallTestingModeOverride: false,
+      sharedPreferencesLoader: SharedPreferences.getInstance,
+      secureStore: secureStore,
+    );
+
+    final SubscriptionState restored = await repository
+        .getUserSubscriptionState();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    expect(restored.isActive, isTrue);
+    expect(restored.planId, 'annual');
+    expect(
+      await secureStore.readString('paywall_subscription_state_v1'),
+      legacyState,
+    );
+    expect(prefs.containsKey('paywall_subscription_state_v1'), isFalse);
+
+    final SubscriptionState cancelled = await repository.cancelSubscription();
+    final Map<String, dynamic> securedCancellation =
+        jsonDecode(
+              (await secureStore.readString('paywall_subscription_state_v1'))!,
+            )
+            as Map<String, dynamic>;
+    expect(cancelled.status, 'cancelled');
+    expect(securedCancellation['status'], 'cancelled');
 
     repository.dispose();
   });
