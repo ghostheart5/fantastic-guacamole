@@ -62,6 +62,50 @@ void main() {
     expect(repository.contains('ai_credit_purchases'), isFalse);
   });
 
+  test('monetization RPC columns and PUBLIC privilege checks are explicit', () {
+    final String rpcRepairMigration = SourceTestUtils.readText(
+      File(
+        'supabase/migrations/'
+        '20260822173103_qualify_monetization_wallet_columns.sql',
+      ),
+    );
+    final String profileSecurityTest = SourceTestUtils.readText(
+      File('supabase/tests/profile_and_metrics_security_test.sql'),
+    );
+
+    for (final String qualifiedColumn in <String>[
+      'balance = wallet.bonus_balance + case',
+      'bonus_balance = wallet.bonus_balance - bonus_used',
+      'wallet.allowance_remaining - allowance_used',
+      'balance = wallet.balance - credit_amount',
+      'lifetime_spent = wallet.lifetime_spent + credit_amount',
+      'order by subscription.updated_at desc',
+    ]) {
+      expect(rpcRepairMigration, contains(qualifiedColumn));
+    }
+
+    expect(rpcRepairMigration, contains("set search_path = ''"));
+    expect(
+      rpcRepairMigration,
+      contains(
+        'revoke all on function '
+        'public.consume_monetization_credits(integer, text, jsonb)',
+      ),
+    );
+    expect(
+      rpcRepairMigration,
+      contains(
+        'grant execute on function '
+        'public.consume_monetization_credits(integer, text, jsonb)',
+      ),
+    );
+    expect(profileSecurityTest, contains("has_function_privilege('public'"));
+    expect(
+      profileSecurityTest,
+      isNot(contains("has_function_privilege('PUBLIC'")),
+    );
+  });
+
   test('recovered task, goal, and habit links preserve account identity', () {
     final String recoveryMigration = SourceTestUtils.readText(
       File(
@@ -134,6 +178,10 @@ void main() {
     expect(
       SourceTestUtils.readText(creditTest),
       contains('negative credit consumption'),
+    );
+    expect(
+      SourceTestUtils.readText(creditTest),
+      contains('expired allowance refresh'),
     );
     expect(
       SourceTestUtils.readText(rlsTest),
