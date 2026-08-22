@@ -82,7 +82,7 @@ jobs:
         run: flutter test test --coverage --concurrency=1
 
       - name: Run app-root integration tests
-        run: flutter test integration_test --concurrency=1
+        run: xvfb-run -a flutter test integration_test -d linux
 
       - name: Enforce coverage and critical-test contracts
         shell: pwsh

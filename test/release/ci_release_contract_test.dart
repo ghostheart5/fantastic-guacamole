@@ -8,25 +8,28 @@ void main() {
   String read(String path) =>
       File.fromUri(root.uri.resolve(path)).readAsStringSync();
 
-  test(
-    'primary CI covers all Edge Functions and app-root integration tests',
-    () {
-      final String workflow = read('.github/workflows/ci.yml');
-      expect(workflow, contains('scripts/edge_function_gate.ps1 -RunTests'));
+  test('host CI binds app-root integration to Linux under Xvfb', () {
+    final String workflow = read('.github/workflows/ci.yml');
+    final String extended = read('.github/workflows/dart.yml');
+    const String integrationCommand =
+        'xvfb-run -a flutter test integration_test -d linux';
+    for (final String hostWorkflow in <String>[workflow, extended]) {
+      expect(hostWorkflow, contains(integrationCommand));
       expect(
-        workflow,
-        contains('flutter test integration_test --concurrency=1'),
+        hostWorkflow,
+        isNot(contains('flutter test integration_test --concurrency=1')),
       );
-      expect(workflow, contains('scripts/secret_content_guard.ps1'));
-      expect(workflow, contains('scripts/dependency_audit.ps1'));
-      expect(workflow, contains('supabase@2.115.0 test db'));
-      expect(workflow, contains('artifacts/ci-evidence/exact-commit.json'));
-      expect(
-        workflow,
-        matches(RegExp(r'uses:\s+actions/upload-artifact@[0-9a-f]{40}\s+# v4')),
-      );
-    },
-  );
+    }
+    expect(workflow, contains('scripts/edge_function_gate.ps1 -RunTests'));
+    expect(workflow, contains('scripts/secret_content_guard.ps1'));
+    expect(workflow, contains('scripts/dependency_audit.ps1'));
+    expect(workflow, contains('supabase@2.115.0 test db'));
+    expect(workflow, contains('artifacts/ci-evidence/exact-commit.json'));
+    expect(
+      workflow,
+      matches(RegExp(r'uses:\s+actions/upload-artifact@[0-9a-f]{40}\s+# v4')),
+    );
+  });
 
   test('application release workflows use the reusable quality gate', () {
     final String android = read('.github/workflows/android-release.yml');
