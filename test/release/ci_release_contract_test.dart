@@ -21,30 +21,48 @@ void main() {
       expect(workflow, contains('scripts/dependency_audit.ps1'));
       expect(workflow, contains('supabase@2.115.0 test db'));
       expect(workflow, contains('artifacts/ci-evidence/exact-commit.json'));
-      expect(workflow, contains('actions/upload-artifact@v4'));
+      expect(
+        workflow,
+        matches(RegExp(r'uses:\s+actions/upload-artifact@[0-9a-f]{40}\s+# v4')),
+      );
     },
   );
 
-  test(
-    'production workflows fail closed and use explicit production flavor',
-    () {
-      final String android = read('.github/workflows/android-release.yml');
-      final String web = read('.github/workflows/main.yml');
-      final String linux = read('.github/workflows/linux-release.yml');
-      for (final String workflow in <String>[android, web, linux]) {
-        expect(workflow, contains('uses: ./.github/workflows/ci.yml'));
-        expect(workflow, contains('needs: quality-gate'));
-      }
-      expect(
-        android,
-        contains('::error::Required production secret is missing'),
-      );
-      expect(android, contains('CHRONOSPARK_ENFORCE_PROD_READINESS=true'));
-      expect(web, contains('CHRONOSPARK_APP_FLAVOR=prod'));
-      expect(web, contains('CHRONOSPARK_ENFORCE_PROD_READINESS=true'));
-      expect(web, isNot(contains('::warning::Missing repository secrets')));
-    },
-  );
+  test('application release workflows use the reusable quality gate', () {
+    final String android = read('.github/workflows/android-release.yml');
+    final String linux = read('.github/workflows/linux-release.yml');
+    for (final String workflow in <String>[android, linux]) {
+      expect(workflow, contains('uses: ./.github/workflows/ci.yml'));
+      expect(workflow, contains('needs: quality-gate'));
+    }
+    expect(android, contains('::error::Required production secret is missing'));
+    expect(android, contains('CHRONOSPARK_ENFORCE_PROD_READINESS=true'));
+  });
+
+  test('public Pages workflow deploys only the verified static site', () {
+    final String pages = read('.github/workflows/main.yml');
+    expect(pages, contains('Deploy ChronoSpark Public Site to GitHub Pages'));
+    expect(pages, contains("- 'site/**'"));
+    expect(pages, contains("- 'web/privacy/**'"));
+    expect(pages, contains("- 'web/delete-account/**'"));
+    expect(pages, contains('verified web app is not published here yet'));
+    expect(pages, contains('needs: build'));
+    expect(pages, contains('pages: write'));
+    expect(pages, contains('id-token: write'));
+    expect(
+      pages,
+      matches(
+        RegExp(r'uses:\s+actions/upload-pages-artifact@[0-9a-f]{40}\s+# v3'),
+      ),
+    );
+    expect(
+      pages,
+      matches(RegExp(r'uses:\s+actions/deploy-pages@[0-9a-f]{40}\s+# v4')),
+    );
+    expect(pages, isNot(contains('flutter build')));
+    expect(pages, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
+    expect(pages, isNot(contains('CHRONOSPARK_ENFORCE_PROD_READINESS=true')));
+  });
 
   test(
     'release source contracts use the current target API and Firebase identity',
