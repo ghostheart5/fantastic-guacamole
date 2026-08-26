@@ -23,7 +23,7 @@ void main() {
 
       container
           .read(syncErrorMessageProvider.notifier)
-          .set('Cloud sync failed. retry queued.');
+          .set('Cloud sync failed. Retry queued.');
 
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -35,7 +35,10 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.text('Offline Mode - Cloud sync failed. retry queued.'), findsOneWidget);
+      expect(
+        find.text('Offline Mode - Cloud sync failed. Retry queued.'),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('offline_banner_live_region')), findsOneWidget);
     });
   });
