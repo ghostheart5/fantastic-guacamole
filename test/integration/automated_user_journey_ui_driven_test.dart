@@ -38,6 +38,7 @@ import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/routines_provider.dart';
