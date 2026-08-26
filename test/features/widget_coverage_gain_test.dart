@@ -120,7 +120,7 @@ void main() {
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('Task'), findsWidgets);
+      expect(find.text('Scheduled task'), findsWidgets);
       expect(find.text('Ship launch checklist'), findsOneWidget);
 
       await tester.scrollUntilVisible(

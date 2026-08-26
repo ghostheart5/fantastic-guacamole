@@ -73,7 +73,12 @@ void main() {
       'ui': ['test/features/ui'],
       'nexus': ['test/features/nexus'],
       'creator': ['test/features/creator'],
-      'coach': ['test/features/smart_coach', 'test/features/coach'],
+      'coach': [
+        'test/features/smart_coach',
+        'test/features/coach',
+        'test/features/smart_planner',
+        'test/features/emotion',
+      ],
       'progression': ['test/features/progression'],
       'trajectory': [
         'test/features/trajectory_engine',

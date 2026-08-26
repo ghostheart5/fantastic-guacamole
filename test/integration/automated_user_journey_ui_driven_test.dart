@@ -10,15 +10,14 @@ import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
-import 'package:fantastic_guacamole/domain/usecases/create_routine.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
-import 'package:fantastic_guacamole/domain/usecases/get_routines.dart';
 import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
 import 'package:fantastic_guacamole/features/auth/application/auth_state.dart';
 import 'package:fantastic_guacamole/features/auth/domain/core/result.dart';
@@ -69,7 +68,7 @@ void main() {
         initialSession: null,
       );
       final _FakeGoalRepository goalRepository = _FakeGoalRepository();
-      final _FakeRoutineRepository routineRepository = _FakeRoutineRepository();
+      final _FakeHabitRepository habitRepository = _FakeHabitRepository();
       final _FakeTaskRepository taskRepository = _FakeTaskRepository();
       final _TimelineProbe timeline = _TimelineProbe();
       final _LogProbe logs = _LogProbe();
@@ -90,13 +89,7 @@ void main() {
           featureCreateGoalUseCaseProvider.overrideWithValue(
             CreateGoalUsecase(goalRepository),
           ),
-          domainRoutineRepositoryProvider.overrideWithValue(routineRepository),
-          getRoutinesUseCaseProvider.overrideWithValue(
-            GetRoutines(routineRepository),
-          ),
-          createRoutineUseCaseProvider.overrideWithValue(
-            CreateRoutine(routineRepository),
-          ),
+          habitRepositoryProvider.overrideWithValue(habitRepository),
           domainTaskRepositoryProvider.overrideWithValue(taskRepository),
           createTaskUseCaseProvider.overrideWithValue(
             CreateTask(taskRepository),
@@ -199,14 +192,9 @@ void main() {
           );
 
       // 4) Create Habit
-      final RoutineEntity habit = RoutineEntity(
-        id: 'habit-journey-1',
-        name: 'Daily Focus Sprint',
-        createdAt: DateTime.now(),
-        cadence: RoutineCadence.daily,
-        targetCount: 1,
-      );
-      await container.read(routinesProvider.notifier).addHabit(habit);
+      await container
+          .read(habitsProvider.notifier)
+          .addHabit(title: 'Daily Focus Sprint');
 
       // 5) Create Task
       final TaskEntity task = TaskEntity(
@@ -546,26 +534,19 @@ class _FakeGoalRepository implements IGoalRepository {
   }
 }
 
-class _FakeRoutineRepository implements IRoutineRepository {
-  final List<RoutineEntity> routines = <RoutineEntity>[];
+class _FakeHabitRepository extends HabitRepository {
+  _FakeHabitRepository() : super.unavailable();
+
+  final List<HabitRecord> habits = <HabitRecord>[];
 
   @override
-  Future<void> deleteRoutine(String id) async {
-    routines.removeWhere((RoutineEntity r) => r.id == id);
+  Future<List<HabitRecord>> getHabits() async {
+    return List<HabitRecord>.from(habits);
   }
 
   @override
-  List<RoutineEntity> getRoutines() => List<RoutineEntity>.from(routines);
-
-  @override
-  Future<void> saveRoutine(RoutineEntity routine) async {
-    routines.removeWhere((RoutineEntity r) => r.id == routine.id);
-    routines.add(routine);
-  }
-
-  @override
-  Future<void> saveRoutines(List<RoutineEntity> next) async {
-    routines
+  Future<void> saveHabits(List<HabitRecord> next) async {
+    habits
       ..clear()
       ..addAll(next);
   }
