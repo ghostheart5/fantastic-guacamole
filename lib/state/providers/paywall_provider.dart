@@ -2,7 +2,7 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
     show appPaywallRepositoryProvider;
 import 'package:fantastic_guacamole/data/di/storage_providers.dart'
-    show sharedPrefsStoreProvider;
+    show sharedPrefsStoreProvider, supabaseClientProvider;
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
@@ -34,8 +34,46 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
     entitlementProvider.future,
   );
   final bool premium = testerAccess || entitlement.isPremium;
+  if (Env.isProduction && Env.isAiProxyConfigured) {
+    final client = ref.watch(supabaseClientProvider);
+    if (client?.auth.currentUser == null) {
+      throw StateError('An authenticated session is required for AI credits.');
+    }
+    final Map<String, dynamic>? row = await client!
+        .from('monetization_wallets')
+        .select('balance,tier,period_credits,period_ends_at,updated_at')
+        .maybeSingle();
+    if (row == null) {
+      final DateTime now = DateTime.now();
+      return AiCreditWallet(
+        balance: 20,
+        tier: 'free',
+        allowance: 20,
+        resetAt: now.add(const Duration(days: 1)),
+        updatedAt: now,
+      );
+    }
+    return serverAiCreditWallet(row);
+  }
   return ref.read(creditServiceProvider).loadWallet(premium: premium);
 });
+
+AiCreditWallet serverAiCreditWallet(Map<String, dynamic> row) {
+  final DateTime now = DateTime.now();
+  return AiCreditWallet(
+    balance: ((row['balance'] as num?)?.toInt() ?? 0).clamp(0, 1 << 31).toInt(),
+    tier: row['tier']?.toString() ?? 'free',
+    allowance: ((row['period_credits'] as num?)?.toInt() ?? 0)
+        .clamp(0, 1 << 31)
+        .toInt(),
+    resetAt:
+        DateTime.tryParse(row['period_ends_at']?.toString() ?? '')?.toLocal() ??
+        now,
+    updatedAt:
+        DateTime.tryParse(row['updated_at']?.toString() ?? '')?.toLocal() ??
+        now,
+  );
+}
 
 final paywallRepositoryProvider = Provider<IPaywallRepository>((ref) {
   return ref.read(appPaywallRepositoryProvider);

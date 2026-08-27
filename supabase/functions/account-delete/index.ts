@@ -1,16 +1,28 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { deleteUserStorageObjects } from "../_shared/storage_cleanup.ts";
+/// <reference lib="deno.ns" />
+import {
+  accountDeletionConfigured,
+  authenticatedDeletionUser,
+  deletionIdentifiers,
+  getDeletionStatus,
+  loadAccountDeletionConfig,
+  processDeletionRequest,
+  sha256Hex,
+} from "../_shared/account_deletion_state_machine.ts";
+import {
+  DEFAULT_RECENT_SIGN_IN_SECONDS,
+  hasRecentSignIn,
+} from "./recent_sign_in_policy.ts";
 
-// Environment — injected by the Supabase runtime.
-// Set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY
-// as Supabase project secrets:
-//   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJ...
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
-  "";
-
-const ALLOWED_ORIGINS = new Set(
+const config = loadAccountDeletionConfig();
+const configuredRecentSignInSeconds = Number.parseInt(
+  Deno.env.get("ACCOUNT_DELETE_RECENT_SIGN_IN_SECONDS") ?? "",
+  10,
+);
+const recentSignInSeconds = Number.isFinite(configuredRecentSignInSeconds) &&
+    configuredRecentSignInSeconds > 0
+  ? configuredRecentSignInSeconds
+  : DEFAULT_RECENT_SIGN_IN_SECONDS;
+const allowedOrigins = new Set(
   (Deno.env.get("ALLOWED_ORIGINS") ??
     "https://chronospark.app,https://www.chronospark.app")
     .split(",")
@@ -18,155 +30,139 @@ const ALLOWED_ORIGINS = new Set(
     .filter(Boolean),
 );
 
-function cors(req: Request): Record<string, string> {
+function headers(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? "";
   return {
-    ...(ALLOWED_ORIGINS.has(origin)
+    ...(allowedOrigins.has(origin)
       ? { "Access-Control-Allow-Origin": origin }
       : {}),
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
-    "Vary": "Origin",
     "Cache-Control": "no-store",
+    "Content-Type": "application/json",
+    "Vary": "Origin",
+    "X-Content-Type-Options": "nosniff",
+    "X-ChronoSpark-Contract": "account-delete-v2",
   };
 }
 
-// Verify the caller's Bearer JWT against Supabase Auth and return their user ID.
-// Returns null if the token is missing, malformed, or invalid.
-// The userId returned here is the authoritative identity used for all deletion
-// operations — the userId field in the request body is never used to determine
-// who is deleted, preventing arbitrary user deletion from the client.
-async function authenticatedUserId(req: Request): Promise<string | null> {
-  const authorization = req.headers.get("authorization") ?? "";
-  if (
-    !authorization.startsWith("Bearer ") || !SUPABASE_URL || !SUPABASE_ANON_KEY
-  ) return null;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: SUPABASE_ANON_KEY },
-  });
-  if (!response.ok) return null;
-  const user = await response.json();
-  return typeof user?.id === "string" ? user.id : null;
+function json(
+  req: Request,
+  body: object,
+  status: number,
+): Response {
+  return new Response(JSON.stringify(body), { status, headers: headers(req) });
 }
 
-// Delete the auth.users record for userId using the service role key.
-// The delete cascades to profiles, user_daily_metrics, and purchase_bindings
-// via ON DELETE CASCADE foreign keys defined in the schema migrations.
-async function deleteAuthUser(
-  userId: string,
-): Promise<{ ok: boolean; status: number }> {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return { ok: false, status: 500 };
+interface DeletionInput {
+  action: "delete" | "status";
+  requestId?: string;
+  receipt?: string;
+}
+
+async function readInput(req: Request): Promise<DeletionInput | null> {
+  const text = await req.text();
+  if (!text.trim()) return { action: "delete" };
+  try {
+    const value = JSON.parse(text);
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+    const body = value as Record<string, unknown>;
+    const action = body.action === undefined || body.action === "delete"
+      ? "delete"
+      : body.action === "status"
+      ? "status"
+      : null;
+    if (!action) return null;
+    return {
+      action,
+      requestId: typeof body.requestId === "string"
+        ? body.requestId.trim()
+        : undefined,
+      receipt: typeof body.receipt === "string"
+        ? body.receipt.trim()
+        : undefined,
+    };
+  } catch {
+    return null;
   }
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-    method: "DELETE",
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    },
-  });
-  return { ok: res.ok, status: res.status };
 }
 
-interface DeleteResponse {
-  success?: boolean;
-  error?: string;
-}
-
-serve(async (req) => {
-  const headers = cors(req);
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers });
+    return new Response("ok", { headers: headers(req) });
+  }
+  if (req.method !== "POST") {
+    return json(req, { error: "method_not_allowed" }, 405);
+  }
+  if (!accountDeletionConfigured(config)) {
+    return json(req, { error: "not_configured" }, 503);
   }
 
   try {
-    if (req.method !== "POST") {
-      return new Response("Method not allowed", { status: 405, headers });
-    }
+    const input = await readInput(req);
+    if (!input) return json(req, { error: "invalid_request_body" }, 400);
 
-    // Authentication is required. The authenticated user's ID is the sole
-    // determinant of whose data is deleted — client body fields are ignored
-    // for the deletion target.
-    const userId = await authenticatedUserId(req);
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: "unauthorized" } satisfies DeleteResponse),
-        {
-          status: 401,
-          headers: { ...headers, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    if (!SUPABASE_SERVICE_ROLE_KEY) {
-      console.error("SUPABASE_SERVICE_ROLE_KEY is not configured");
-      return new Response(
-        JSON.stringify(
-          { error: "service not configured" } satisfies DeleteResponse,
-        ),
-        {
-          status: 500,
-          headers: { ...headers, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    // Step 1: Remove storage objects. Must happen before auth user deletion
-    // because storage RLS checks the auth user's JWT; after deletion the
-    // service role path still works, but we clean up in dependency order.
-    const storageDeleted = await deleteUserStorageObjects(userId, {
-      supabaseUrl: SUPABASE_URL,
-      serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
-    });
-    if (!storageDeleted) {
-      return new Response(
-        JSON.stringify(
-          { error: "storage deletion failed" } satisfies DeleteResponse,
-        ),
-        {
-          status: 502,
-          headers: { ...headers, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    // Step 2: Delete the auth.users record. This cascades to all tables
-    // that reference auth.users(id) with ON DELETE CASCADE:
-    //   - public.profiles
-    //   - public.user_daily_metrics
-    //   - public.purchase_bindings
-    const result = await deleteAuthUser(userId);
-
-    if (!result.ok) {
-      // 404 means the user was already deleted — treat as success so a
-      // retry does not leave the client stuck.
-      if (result.status === 404) {
-        return new Response(
-          JSON.stringify({ success: true } satisfies DeleteResponse),
-          { headers: { ...headers, "Content-Type": "application/json" } },
-        );
+    if (input.action === "status" && input.requestId && input.receipt) {
+      if (
+        !/^[0-9a-f]{64}$/.test(input.requestId) ||
+        !/^[0-9a-f]{64}$/.test(input.receipt)
+      ) {
+        return json(req, { error: "invalid_status_capability" }, 400);
       }
-      return new Response(
-        JSON.stringify({ error: "deletion failed" } satisfies DeleteResponse),
-        {
-          status: 502,
-          headers: { ...headers, "Content-Type": "application/json" },
-        },
+      const status = await getDeletionStatus(
+        input.requestId,
+        await sha256Hex(input.receipt),
+        config,
       );
+      return status
+        ? json(req, status, 200)
+        : json(req, { error: "deletion_request_not_found" }, 404);
     }
 
-    return new Response(
-      JSON.stringify({ success: true } satisfies DeleteResponse),
-      { headers: { ...headers, "Content-Type": "application/json" } },
+    const authorization = req.headers.get("authorization") ?? "";
+    const user = await authenticatedDeletionUser(authorization, config);
+    if (!user) return json(req, { error: "unauthorized" }, 401);
+    const identifiers = await deletionIdentifiers(user.id, authorization);
+
+    if (input.action === "status") {
+      const status = await getDeletionStatus(
+        identifiers.requestId,
+        identifiers.receiptHash,
+        config,
+      );
+      return status
+        ? json(req, status, 200)
+        : json(req, { error: "deletion_request_not_found" }, 404);
+    }
+
+    if (!hasRecentSignIn(user.lastSignInAt, { recentSignInSeconds })) {
+      return json(req, { error: "recent_sign_in_required" }, 428);
+    }
+    const result = await processDeletionRequest({
+      requestId: identifiers.requestId,
+      receiptHash: identifiers.receiptHash,
+      authenticatedUserId: user.id,
+      config,
+    });
+    const responseBody = {
+      ...result,
+      requestId: identifiers.requestId,
+      receipt: identifiers.receipt,
+    };
+    if (result.completed) return json(req, responseBody, 200);
+    if (result.accepted && result.retry) return json(req, responseBody, 202);
+    if (result.retry) {
+      return json(req, { error: "temporarily_unavailable" }, 503);
+    }
+    return json(req, { error: "deletion_request_rejected" }, 409);
+  } catch (error) {
+    console.error(
+      "Account deletion request failed",
+      error instanceof Error ? error.name : "unknown_error",
     );
-  } catch {
-    console.error("Account deletion request failed");
-    return new Response(
-      JSON.stringify({ error: "request failed" } satisfies DeleteResponse),
-      {
-        status: 500,
-        headers: { ...headers, "Content-Type": "application/json" },
-      },
-    );
+    return json(req, { error: "request_failed" }, 500);
   }
 });

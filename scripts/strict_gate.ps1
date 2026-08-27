@@ -70,6 +70,10 @@ Run-Step -Name 'Secret content guard' -Action {
   & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/secret_content_guard.ps1')
 }
 
+Run-Step -Name 'GitHub workflow policy validation' -Action {
+  dart run tool/validate_github_workflows.dart
+}
+
 Run-Step -Name 'Flutter analyze' -Action {
   flutter analyze --fatal-infos
 }

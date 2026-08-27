@@ -31,15 +31,55 @@ enum AiProxyOutcome {
 
   /// The proxy replied, but the reply was withheld by the safety policy.
   withheld,
+
+  /// The billing authority rejected the request because no credits remain.
+  creditsExhausted,
 }
 
 /// A proxy attempt and, when successful, its response.
 class AiProxyAttempt {
-  const AiProxyAttempt(this.outcome, [this.response]);
+  const AiProxyAttempt(
+    this.outcome, {
+    this.response,
+    this.remainingCredits,
+    this.creditsCharged,
+    this.requestId,
+  });
 
   final AiProxyOutcome outcome;
   final AIResponse? response;
+  final int? remainingCredits;
+  final int? creditsCharged;
+  final String? requestId;
 }
+
+AiProxyAttempt? aiProxyFailureFromPayload({
+  required int statusCode,
+  required Map<String, dynamic> payload,
+  required String requestId,
+}) {
+  if (statusCode == 402) {
+    return AiProxyAttempt(
+      AiProxyOutcome.creditsExhausted,
+      remainingCredits: (payload['remainingCredits'] as num?)?.toInt() ?? 0,
+      requestId: payload['requestId']?.toString() ?? requestId,
+    );
+  }
+  return statusCode == 200 ? null : const AiProxyAttempt(AiProxyOutcome.failed);
+}
+
+Map<String, dynamic> buildAiProxyRequestBody({
+  required String prompt,
+  required List<Map<String, String>> history,
+  required String system,
+  required String requestId,
+}) => <String, dynamic>{
+  'prompt': prompt.trim(),
+  'history': history,
+  'system': system,
+  'allowExternalAi': true,
+  'requestId': requestId,
+};
 
 class ChatAgent extends AiAgent {
   const ChatAgent({this.service});
@@ -114,6 +154,12 @@ class ChatAgent extends AiAgent {
       // Machine-readable provenance for callers and diagnostics.
       'source': attempt.outcome.name,
       'modelBacked': attempt.outcome == AiProxyOutcome.model,
+      'billingRejected': attempt.outcome == AiProxyOutcome.creditsExhausted,
+      if (attempt.remainingCredits != null)
+        'remainingCredits': attempt.remainingCredits,
+      if (attempt.creditsCharged != null)
+        'creditsCharged': attempt.creditsCharged,
+      if (attempt.requestId != null) 'requestId': attempt.requestId,
     };
   }
 
@@ -133,6 +179,9 @@ class ChatAgent extends AiAgent {
         return 'Note: the assistant reply was withheld by ChronoSpark safety '
             'policy, so this reply was generated on-device from your current '
             'data.';
+      case AiProxyOutcome.creditsExhausted:
+        return 'Note: external AI credits are exhausted, so this reply was '
+            'generated on-device from your current data.';
     }
   }
 
@@ -157,6 +206,10 @@ class ChatAgent extends AiAgent {
     final Map<String, dynamic> minimizedContext = _minimizeProxyContext(
       context,
     );
+    final String requestId = context['requestId']?.toString().trim() ?? '';
+    if (requestId.isEmpty) {
+      return const AiProxyAttempt(AiProxyOutcome.failed);
+    }
     final List<Map<String, String>> minimizedHistory = history
         .skip(history.length > 6 ? history.length - 6 : 0)
         .map(
@@ -175,18 +228,16 @@ class ChatAgent extends AiAgent {
               'Content-Type': 'application/json',
               if (accessToken != null) 'Authorization': 'Bearer $accessToken',
             },
-            body: jsonEncode(<String, dynamic>{
-              'prompt': prompt.trim(),
-              'history': minimizedHistory,
-              'system': _systemPrompt(personality, minimizedContext),
-              'allowExternalAi': true,
-            }),
+            body: jsonEncode(
+              buildAiProxyRequestBody(
+                prompt: prompt,
+                history: minimizedHistory,
+                system: _systemPrompt(personality, minimizedContext),
+                requestId: requestId,
+              ),
+            ),
           )
           .timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) {
-        return const AiProxyAttempt(AiProxyOutcome.failed);
-      }
-
       final Object? decoded = jsonDecode(response.body);
       if (decoded is! Map) {
         return const AiProxyAttempt(AiProxyOutcome.failed);
@@ -194,6 +245,14 @@ class ChatAgent extends AiAgent {
       final Map<String, dynamic> payload = decoded.map(
         (dynamic key, dynamic value) => MapEntry(key.toString(), value),
       );
+      final int? remainingCredits = (payload['remainingCredits'] as num?)
+          ?.toInt();
+      final AiProxyAttempt? failure = aiProxyFailureFromPayload(
+        statusCode: response.statusCode,
+        payload: payload,
+        requestId: requestId,
+      );
+      if (failure != null) return failure;
       final String message =
           payload['message']?.toString().trim() ??
           payload['reply']?.toString().trim() ??
@@ -213,7 +272,7 @@ class ChatAgent extends AiAgent {
 
       return AiProxyAttempt(
         AiProxyOutcome.model,
-        AIResponse(
+        response: AIResponse(
           message: message,
           reasoning: reasoning,
           emotion: payload['emotion']?.toString() ?? 'balanced',
@@ -221,6 +280,9 @@ class ChatAgent extends AiAgent {
           // Keep the fallback neutral and let the UI describe it as a signal.
           confidence: (payload['confidence'] as num?)?.toDouble() ?? 0.5,
         ),
+        remainingCredits: remainingCredits,
+        creditsCharged: (payload['creditsCharged'] as num?)?.toInt(),
+        requestId: payload['requestId']?.toString() ?? requestId,
       );
     } on TimeoutException {
       return const AiProxyAttempt(AiProxyOutcome.failed);

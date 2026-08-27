@@ -347,12 +347,31 @@ void _validateAndroidRelease(List<String> failures) {
   }
   final Object? jobsValue = document['jobs'];
   final Object? build = jobsValue is YamlMap ? jobsValue['build-aab'] : null;
+  final Object? databaseGate = jobsValue is YamlMap
+      ? jobsValue['database-gate']
+      : null;
   final Object? publish = jobsValue is YamlMap
       ? jobsValue['publish-release']
       : null;
   if (build is! YamlMap || publish is! YamlMap) {
     failures.add('Android release must separate build and publish jobs.');
     return;
+  }
+  if (databaseGate is! YamlMap ||
+      databaseGate['uses'] != './.github/workflows/supabase-database.yml') {
+    failures.add(
+      'Android release must call the reusable Supabase database gate.',
+    );
+  }
+  final Object? needs = build['needs'];
+  final Set<String> requiredNeeds = <String>{'quality-gate', 'database-gate'};
+  final Set<String> actualNeeds = needs is YamlList
+      ? needs.map((Object? value) => value.toString()).toSet()
+      : <String>{if (needs != null) needs.toString()};
+  if (!actualNeeds.containsAll(requiredNeeds)) {
+    failures.add(
+      'Android release build must depend on both quality-gate and database-gate.',
+    );
   }
   final Object? stepsValue = build['steps'];
   if (stepsValue is! YamlList) {
@@ -364,15 +383,21 @@ void _validateAndroidRelease(List<String> failures) {
       steps.indexWhere((YamlMap step) => step['name'] == name);
 
   final int configIndex = stepIndex('Validate production configuration');
+  final int backendIndex = stepIndex(
+    'Verify live backend, App Links, RTDN, and Play configuration',
+  );
   final int signingMaterialIndex = stepIndex('Decode keystore');
   final int buildIndex = stepIndex('Build signed AAB');
   if (configIndex < 0 ||
+      backendIndex < 0 ||
       signingMaterialIndex < 0 ||
       buildIndex < 0 ||
       configIndex >= signingMaterialIndex ||
-      configIndex >= buildIndex) {
+      backendIndex >= signingMaterialIndex ||
+      configIndex >= buildIndex ||
+      backendIndex >= buildIndex) {
     failures.add(
-      'Android production configuration must be validated before signing material is decoded and before the AAB is built.',
+      'Android production configuration and live backend must be validated before signing material is decoded and before the AAB is built.',
     );
   }
 
@@ -402,6 +427,32 @@ void _validateAndroidRelease(List<String> failures) {
   });
   if (!hasRunScopedArtifact) {
     failures.add('Android artifacts must use a run-scoped name.');
+  }
+
+  const Map<String, String> protectedMaterialSteps = <String, String>{
+    'Configure Firebase Android file': 'android/app/google-services.json',
+    'Decode keystore': 'android/app/key.jks',
+    'Write key.properties': 'android/key.properties',
+  };
+  for (final MapEntry<String, String> entry in protectedMaterialSteps.entries) {
+    final int index = stepIndex(entry.key);
+    if (index < 0) {
+      failures.add(
+        'Android release must retain the ${entry.key} protected-material step.',
+      );
+      continue;
+    }
+    final String run = steps[index]['run']?.toString() ?? '';
+    if (!run.contains(entry.value)) {
+      failures.add(
+        'Android release step ${entry.key} must write ${entry.value}.',
+      );
+    }
+    if (!RegExp(r'^\s*umask 077(?:\r?\n|$)').hasMatch(run)) {
+      failures.add(
+        'Android release step ${entry.key} must establish umask 077 before writing protected material.',
+      );
+    }
   }
 
   final bool hasCleanup = steps.any((YamlMap step) {

@@ -43,4 +43,29 @@ void main() {
     expect(shouldRetainExternalModelCredits(local), isFalse);
     expect(shouldRetainExternalModelCredits(external), isTrue);
   });
+
+  test('uses server credit state for low and exhausted prompts', () {
+    const AgentResult exhausted = AgentResult(
+      selectedAgent: 'chat',
+      workflow: 'execute',
+      payload: <String, dynamic>{
+        'billingRejected': true,
+        'remainingCredits': 0,
+      },
+    );
+    const AgentResult low = AgentResult(
+      selectedAgent: 'chat',
+      workflow: 'execute',
+      payload: <String, dynamic>{'remainingCredits': 3},
+    );
+    const AgentResult healthy = AgentResult(
+      selectedAgent: 'chat',
+      workflow: 'execute',
+      payload: <String, dynamic>{'remainingCredits': 18},
+    );
+
+    expect(serverAiCreditPrompt(exhausted)?.remainingCredits, 0);
+    expect(serverAiCreditPrompt(low)?.trigger, 'ai_credit_low');
+    expect(serverAiCreditPrompt(healthy), isNull);
+  });
 }

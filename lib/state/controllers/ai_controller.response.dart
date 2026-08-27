@@ -9,6 +9,28 @@ bool shouldReserveExternalModelCredits({
 
 bool shouldRetainExternalModelCredits(AgentResult result) => result.modelBacked;
 
+PaywallPrompt? serverAiCreditPrompt(AgentResult result) {
+  final int? remaining = (result.payload['remainingCredits'] as num?)?.toInt();
+  if (result.payload['billingRejected'] == true) {
+    return PaywallPrompt(
+      title: 'AI credits exhausted',
+      message:
+          'External assistant credits are exhausted. ChronoSpark will continue with on-device guidance.',
+      trigger: 'ai_credit_limit',
+      remainingCredits: remaining ?? 0,
+    );
+  }
+  if (remaining != null && remaining <= 5) {
+    return PaywallPrompt(
+      title: 'AI credits running low',
+      message: 'You have $remaining external assistant credits remaining.',
+      trigger: 'ai_credit_low',
+      remainingCredits: remaining,
+    );
+  }
+  return null;
+}
+
 final siEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
   ref,
 ) async {
@@ -208,7 +230,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         preferredAgent: preferredAgent,
       );
       bool externalModelAuthorized = externalModelRequested;
-      if (externalModelRequested) {
+      if (externalModelRequested && !intelligence.environment.isProduction) {
         final AiCreditSpendResult spend = await creditService.spend(
           premium: hasPremiumAccess,
           amount: creditCost,
@@ -355,6 +377,12 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         preferredAgent: preferredAgent,
         request: request,
       );
+      if (externalModelRequested && intelligence.environment.isProduction) {
+        ref.invalidate(aiCreditWalletProvider);
+        ref
+            .read(paywallPromptProvider.notifier)
+            .set(serverAiCreditPrompt(agentResult));
+      }
       if (!shouldRetainExternalModelCredits(agentResult) &&
           refundCredits != null) {
         await refundCredits();

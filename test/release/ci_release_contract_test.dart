@@ -204,10 +204,15 @@ void main() {
     () {
       final YamlMap android = workflow('android-release.yml');
       final YamlMap quality = job(android, 'quality-gate');
+      final YamlMap database = job(android, 'database-gate');
       final YamlMap build = job(android, 'build-aab');
       final YamlMap publish = job(android, 'publish-release');
       expect(quality['uses'], './.github/workflows/ci.yml');
-      expect(build['needs'], 'quality-gate');
+      expect(database['uses'], './.github/workflows/supabase-database.yml');
+      expect((build['needs'] as YamlList).toSet(), <Object?>{
+        'quality-gate',
+        'database-gate',
+      });
       expect(publish['needs'], 'build-aab');
       expect(environmentName(build), 'production');
       expect(environmentName(publish), 'production');
@@ -223,6 +228,12 @@ void main() {
       final int configIndex = buildSteps.indexOf(
         namedStep(build, 'Validate production configuration'),
       );
+      final int backendIndex = buildSteps.indexOf(
+        namedStep(
+          build,
+          'Verify live backend, App Links, RTDN, and Play configuration',
+        ),
+      );
       final int decodeIndex = buildSteps.indexOf(
         namedStep(build, 'Decode keystore'),
       );
@@ -231,6 +242,8 @@ void main() {
       );
       expect(configIndex, lessThan(decodeIndex));
       expect(configIndex, lessThan(buildIndex));
+      expect(backendIndex, lessThan(decodeIndex));
+      expect(backendIndex, lessThan(buildIndex));
       expect(
         namedStep(build, 'Validate production configuration')['run'],
         contains('scripts/validate_production_config.dart'),
@@ -239,6 +252,19 @@ void main() {
         namedStep(build, 'Validate release version and tag')['run'],
         './scripts/version_consistency_guard.ps1 -RequireTag',
       );
+
+      for (final String stepName in <String>[
+        'Configure Firebase Android file',
+        'Decode keystore',
+        'Write key.properties',
+      ]) {
+        final String run = namedStep(build, stepName)['run'].toString();
+        expect(
+          run,
+          matches(RegExp(r'^\s*umask 077(?:\r?\n|$)')),
+          reason: '$stepName must establish a restrictive mask first.',
+        );
+      }
 
       for (final YamlMap step in buildSteps) {
         expect(step['run']?.toString() ?? '', isNot(contains(r'${{ secrets.')));
@@ -304,6 +330,41 @@ void main() {
     expect(
       runner['labels'] as YamlList,
       containsAll(<String>['android', 'maestro']),
+    );
+  });
+
+  test('local secret guards cover the whole repository and fail closed', () {
+    final String repositoryGuard = read('scripts/security_secret_guard.ps1');
+    final String contentGuard = read('scripts/secret_content_guard.ps1');
+    final String strictGate = read('scripts/strict_gate.ps1');
+
+    expect(repositoryGuard, contains('--others --exclude-standard'));
+    expect(repositoryGuard, contains(r'\.env(?:\..+)?'));
+    expect(repositoryGuard, contains('jks|keystore|p12|pfx|key'));
+    expect(contentGuard, contains('--others --exclude-standard'));
+    expect(contentGuard, contains(r'gh[pousr]_'));
+    expect(contentGuard, contains('github_pat_'));
+    expect(contentGuard, contains("'.sql'"));
+    expect(contentGuard, contains("'.plist'"));
+    expect(contentGuard, contains('git log --no-textconv'));
+    expect(contentGuard, contains("throw 'git history scan failed.'"));
+    expect(
+      strictGate,
+      contains('dart run tool/validate_github_workflows.dart'),
+    );
+  });
+
+  test('repository exposes one canonical root MIT license', () {
+    expect(File('LICENSE').existsSync(), isTrue);
+    expect(File('LICENSE.md').existsSync(), isFalse);
+    expect(read('LICENSE'), startsWith('MIT License'));
+    expect(
+      read('assets/legal/license.html'),
+      contains('fantastic-guacamole/blob/main/LICENSE'),
+    );
+    expect(
+      read('.gitignore').split(RegExp(r'\r?\n')),
+      isNot(contains('pubspec.lock')),
     );
   });
 

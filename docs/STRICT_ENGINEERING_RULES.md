@@ -15,8 +15,10 @@ Run all commands from repository root:
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/critical_coverage_report.ps1`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File check_architecture.ps1`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_android_runtime_gate.ps1`
+- `dart run tool/validate_github_workflows.dart`
 
 `strict_gate.ps1` is the source-of-truth umbrella gate and must pass before push/release.
+It scans tracked and non-ignored untracked files for secret material and validates GitHub workflow policy before analysis or tests run.
 `strict_gate.ps1 -IncludeAndroidRuntime` enables runtime/device checks as part of the same gate.
 `strict_gate.ps1 -IncludeAndroidRuntime -RequireAndroidDevice` makes missing device a hard failure.
 `strict_gate.ps1 -IncludeCoverage` runs tests with coverage output and enforces coverage thresholds.
@@ -52,6 +54,9 @@ Run all commands from repository root:
 - Account deletion requires secure backend endpoint configuration and must not clear local state before confirmed server success.
 - Release endpoint env values must be valid HTTPS URLs.
 - No mock bypass flags may be enabled for production builds.
+- Secret guards must scan tracked and non-ignored untracked repository files.
+- Android signing and Firebase material must be written only after the writing step establishes `umask 077`.
+- `pubspec.lock` is committed release input and must not be ignored.
 
 ## 6) Testing and Stability Readiness
 

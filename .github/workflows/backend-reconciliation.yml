@@ -1,0 +1,49 @@
+name: Backend Reconciliation
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chronospark-production-backend-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  account-deletion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Resume pending account deletions
+        env:
+          SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          RECONCILE_SECRET: ${{ secrets.ACCOUNT_DELETE_RECONCILE_SECRET }}
+        run: |
+          set -euo pipefail
+          [ -n "$SUPABASE_URL" ] || { echo "::error::CHRONOSPARK_SUPABASE_URL is required."; exit 1; }
+          [ -n "$RECONCILE_SECRET" ] || { echo "::error::ACCOUNT_DELETE_RECONCILE_SECRET is required."; exit 1; }
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-all-errors --max-time 120 \
+            -X POST "${SUPABASE_URL%/}/functions/v1/account-delete-reconcile" \
+            -H "x-chronospark-reconcile-secret: $RECONCILE_SECRET" \
+            -H 'Content-Type: application/json' \
+            --data '{}' > "$response_file"
+          node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            for (const field of ["scanned", "completed", "deferred"]) {
+              if (!Number.isInteger(body[field]) || body[field] < 0) {
+                throw new Error(`Invalid reconciliation response field: ${field}`);
+              }
+            }
+            if (body.deferred !== 0) {
+              throw new Error(`${body.deferred} deletion request(s) remain deferred`);
+            }
+            console.log(`Deletion reconciliation passed: scanned=${body.scanned}, completed=${body.completed}`);
+          ' "$response_file"
