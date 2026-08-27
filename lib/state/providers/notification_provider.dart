@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
@@ -54,11 +55,16 @@ class NotificationActions {
 }
 
 class NotificationNotifier extends Notifier<List<NotificationEntity>> {
+  late INotificationRepository _repository;
+  int _generation = 0;
+
   @override
   List<NotificationEntity> build() {
-    final notificationRepository = ref.read(
+    final INotificationRepository notificationRepository = ref.watch(
       domainNotificationRepositoryProvider,
     );
+    _repository = notificationRepository;
+    final int generation = ++_generation;
     bool disposed = false;
     ref.onDispose(() {
       disposed = true;
@@ -68,7 +74,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
       final List<NotificationEntity> notifications =
           await notificationRepository.getNotifications();
 
-      if (disposed) {
+      if (disposed || !_isCurrent(generation, notificationRepository)) {
         return;
       }
 
@@ -98,7 +104,11 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     bool refreshPlanner = true,
     bool refreshPlan = true,
   }) async {
-    await ref.read(scheduleNotificationUseCaseProvider).call(notification);
+    final int generation = _generation;
+    final INotificationRepository repository = _repository;
+    final scheduleNotification = ref.read(scheduleNotificationUseCaseProvider);
+    await scheduleNotification.call(notification);
+    if (!_isCurrent(generation, repository)) return;
     final bool soundEnabled = ref.read(soundEnabledProvider);
     await AudioService.playNotification(soundEnabled);
     state = <NotificationEntity>[notification, ...state];
@@ -136,9 +146,10 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     // Straight to the repository: ScheduleNotification enforces
     // NotificationPolicy.canSchedule, which correctly rejects a disabled
     // entity, so the use case is not the right path for an in-app record.
-    await ref
-        .read(domainNotificationRepositoryProvider)
-        .scheduleNotification(notification);
+    final int generation = _generation;
+    final INotificationRepository repository = _repository;
+    await repository.scheduleNotification(notification);
+    if (!_isCurrent(generation, repository)) return;
     final bool soundEnabled = ref.read(soundEnabledProvider);
     await AudioService.playNotification(soundEnabled);
     state = <NotificationEntity>[notification, ...state];
@@ -208,7 +219,10 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
   }
 
   Future<void> markRead(String id) async {
-    await ref.read(domainNotificationRepositoryProvider).markRead(id);
+    final int generation = _generation;
+    final INotificationRepository repository = _repository;
+    await repository.markRead(id);
+    if (!_isCurrent(generation, repository)) return;
     state = state
         .map(
           (NotificationEntity item) => item.id == id
@@ -226,8 +240,12 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
   }
 
   Future<void> delete(String id) async {
-    await ref.read(cancelNotificationUseCaseProvider).call(id);
-    await ref.read(domainNotificationRepositoryProvider).delete(id);
+    final int generation = _generation;
+    final INotificationRepository repository = _repository;
+    final cancelNotification = ref.read(cancelNotificationUseCaseProvider);
+    await cancelNotification.call(id);
+    await repository.delete(id);
+    if (!_isCurrent(generation, repository)) return;
     String title = 'Notification';
     for (final NotificationEntity item in state) {
       if (item.id == id) {
@@ -258,6 +276,10 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     } catch (_) {
       // Avoid blocking notification scheduling if planner refresh fails.
     }
+  }
+
+  bool _isCurrent(int generation, INotificationRepository repository) {
+    return generation == _generation && identical(repository, _repository);
   }
 
   /// Factory for a real, OS-scheduled notification.

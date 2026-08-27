@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
@@ -10,6 +11,7 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,10 +52,15 @@ void main() {
     container = ProviderContainer(
       overrides: [
         hiveStoreProvider.overrideWithValue(hiveStore),
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('test-user'),
+        ),
         cloudSyncCapabilityProvider.overrideWithValue(true),
         offlineSyncQueueProvider.overrideWithValue(
           OfflineSyncQueueService(
             HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+            accountId: 'test-user',
+            enforceAccountBinding: true,
           ),
         ),
         syncServiceProvider.overrideWithValue(
@@ -92,6 +99,8 @@ void main() {
       gateway.uploadShouldAlwaysSucceed = true;
       final OfflineSyncQueueService queue = OfflineSyncQueueService(
         HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+        accountId: 'test-user',
+        enforceAccountBinding: true,
       );
       await queue.enqueue(
         actionType: 'sync_to_cloud',
@@ -116,6 +125,8 @@ void main() {
     () async {
       final OfflineSyncQueueService queue = OfflineSyncQueueService(
         HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+        accountId: 'test-user',
+        enforceAccountBinding: true,
       );
       await queue.enqueue(
         actionType: 'unknown_action',

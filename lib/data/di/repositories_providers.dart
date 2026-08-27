@@ -135,9 +135,11 @@ final notificationSchedulerProvider = Provider<NotificationScheduler>(
 final notificationsRepositoryProvider = Provider<NotificationsRepository>((
   Ref ref,
 ) {
+  final scope = ref.watch(accountStorageScopeProvider);
   return NotificationsRepository(
     ref.read(notificationSchedulerProvider),
     ref.read(secureStoreProvider),
+    accountId: scope.isWritable ? scope.rawUserId : null,
   );
 });
 

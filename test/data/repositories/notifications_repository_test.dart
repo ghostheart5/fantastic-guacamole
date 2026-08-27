@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
@@ -22,6 +23,7 @@ void main() {
     repository = NotificationsRepository(
       NotificationScheduler(),
       SecureStore(backend: backend),
+      accountId: 'account-a',
       scheduleNotification: (NotificationEntity _) async {
         scheduleCalls += 1;
       },
@@ -69,9 +71,10 @@ void main() {
   test(
     'returns empty notifications when persisted storage is corrupt',
     () async {
-      await SecureStore(
-        backend: backend,
-      ).writeString('notification_entries_v1', '{not-json');
+      await SecureStore(backend: backend).writeString(
+        AccountDataRegistry.notificationSecureKeyFor('account-a'),
+        '{not-json',
+      );
 
       final List<NotificationEntity> entries = await Logger.withMutedErrors(
         () => repository.getNotifications(),
@@ -83,7 +86,7 @@ void main() {
 
   test('skips malformed map items and keeps valid notifications', () async {
     await SecureStore(backend: backend).writeString(
-      'notification_entries_v1',
+      AccountDataRegistry.notificationSecureKeyFor('account-a'),
       jsonEncode(<Map<String, Object?>>[
         <String, Object?>{
           'id': 'ok',
@@ -206,6 +209,7 @@ void main() {
     final fallbackRepository = NotificationsRepository(
       NotificationScheduler(),
       SecureStore(backend: InMemorySecureStoreBackend()),
+      accountId: 'account-a',
     );
 
     await fallbackRepository.scheduleNotification(
@@ -230,6 +234,7 @@ void main() {
       final throwingRepository = NotificationsRepository(
         NotificationScheduler(),
         SecureStore(backend: InMemorySecureStoreBackend()),
+        accountId: 'account-a',
         scheduleNotification: (NotificationEntity _) async {
           throw Exception('schedule failed');
         },
@@ -258,4 +263,83 @@ void main() {
       expect(await throwingRepository.getNotifications(), isEmpty);
     },
   );
+
+  test('account repositories cannot read or overwrite each other', () async {
+    final SecureStore store = SecureStore(backend: backend);
+    final NotificationsRepository accountB = NotificationsRepository(
+      NotificationScheduler(),
+      store,
+      accountId: 'account-b',
+      scheduleNotification: (_) async {},
+    );
+
+    await repository.scheduleNotification(
+      NotificationEntity(
+        id: 'a-only',
+        title: 'A',
+        message: 'Private A notification',
+        scheduledAt: DateTime.utc(2026, 7, 5, 17),
+      ),
+    );
+    await accountB.scheduleNotification(
+      NotificationEntity(
+        id: 'b-only',
+        title: 'B',
+        message: 'Private B notification',
+        scheduledAt: DateTime.utc(2026, 7, 5, 18),
+      ),
+    );
+
+    expect((await repository.getNotifications()).single.id, 'a-only');
+    expect((await accountB.getNotifications()).single.id, 'b-only');
+  });
+
+  test('signed-out repository fails closed', () async {
+    final NotificationsRepository signedOut = NotificationsRepository(
+      NotificationScheduler(),
+      SecureStore(backend: backend),
+    );
+
+    await signedOut.scheduleNotification(
+      NotificationEntity(
+        id: 'ignored',
+        title: 'Ignored',
+        message: 'No owner',
+        scheduledAt: DateTime.utc(2026, 7, 5, 19),
+      ),
+    );
+
+    expect(await signedOut.getNotifications(), isEmpty);
+  });
+
+  test('concurrent repository instances preserve both mutations', () async {
+    final SecureStore store = SecureStore(backend: backend);
+    final NotificationsRepository second = NotificationsRepository(
+      NotificationScheduler(),
+      store,
+      accountId: 'account-a',
+      scheduleNotification: (_) async {},
+    );
+
+    await Future.wait(<Future<void>>[
+      repository.scheduleNotification(
+        NotificationEntity(
+          id: 'first',
+          title: 'First',
+          message: 'First',
+          scheduledAt: DateTime.utc(2026, 7, 5, 20),
+        ),
+      ),
+      second.scheduleNotification(
+        NotificationEntity(
+          id: 'second',
+          title: 'Second',
+          message: 'Second',
+          scheduledAt: DateTime.utc(2026, 7, 5, 21),
+        ),
+      ),
+    ]);
+
+    expect(await repository.getNotifications(), hasLength(2));
+  });
 }

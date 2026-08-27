@@ -25,6 +25,7 @@ class ReminderOrchestratorService {
     required this._preferences,
     required this._notifications,
     required this._scheduler,
+    required this._accountScope,
   });
 
   static const String _goalReminderEnabledKey = 'goal_reminders_enabled';
@@ -39,6 +40,7 @@ class ReminderOrchestratorService {
   final SharedPrefsStore _preferences;
   final NotificationsService _notifications;
   final NotificationScheduler _scheduler;
+  final String? _accountScope;
 
   ReminderOrchestratorPrefs loadPrefs() {
     final (int hour, int minute) = _dailyPlanningTime();
@@ -121,6 +123,7 @@ class ReminderOrchestratorService {
       body: 'Stay consistent: ${activeHabit.title}',
       hour: 20,
       minute: 0,
+      accountScope: _accountScope,
     );
   }
 
@@ -137,6 +140,7 @@ class ReminderOrchestratorService {
       body: 'Open Planner and set your top 3 execution targets.',
       hour: hour,
       minute: minute,
+      accountScope: _accountScope,
     );
   }
 

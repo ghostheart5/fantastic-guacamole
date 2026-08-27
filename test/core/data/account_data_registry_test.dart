@@ -1,0 +1,43 @@
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('device-global preferences are excluded from account cleanup', () {
+    expect(
+      AccountDataRegistry.accountPreferenceExactKeys.intersection(
+        AccountDataRegistry.deviceGlobalPreferenceKeys,
+      ),
+      isEmpty,
+    );
+  });
+
+  test('account notification keys are stable, opaque, and isolated', () {
+    final String first = AccountDataRegistry.notificationSecureKeyFor(
+      'account-a',
+    );
+    expect(first, AccountDataRegistry.notificationSecureKeyFor(' account-a '));
+    expect(
+      first,
+      isNot(AccountDataRegistry.notificationSecureKeyFor('account-b')),
+    );
+    expect(first, startsWith('notification_entries_v2.'));
+    expect(first, isNot(contains('account-a')));
+  });
+
+  test('departing owner inventory includes candidate scoped storage', () {
+    final String namespace = AccountDataRegistry.accountNamespace('owner-a');
+
+    expect(
+      AccountDataRegistry.hiveBoxesForAccount('owner-a'),
+      contains('task_occurrences_v2.$namespace'),
+    );
+    expect(
+      AccountDataRegistry.sensitivePreferenceKeysForAccount('owner-a'),
+      contains('governed_memories_v2.$namespace'),
+    );
+    expect(
+      AccountDataRegistry.secureKeyPrefixesForAccount('owner-a'),
+      contains('si_engine_state_v2.$namespace.'),
+    );
+  });
+}

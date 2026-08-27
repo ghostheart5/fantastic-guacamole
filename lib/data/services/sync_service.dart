@@ -66,6 +66,7 @@ class UnavailableCloudBackupGateway implements CloudBackupGateway {
 class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   SupabaseStorageCloudBackupGateway({
     required this._client,
+    required this.expectedUserId,
     this.bucket = _defaultBucket,
   });
 
@@ -74,6 +75,7 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   static const String _tasksObject = 'backup/tasks_backup.json';
 
   final sb.SupabaseClient _client;
+  final String expectedUserId;
   final String bucket;
 
   @override
@@ -97,7 +99,7 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   }
 
   Future<Map<String, dynamic>> _downloadObject(String baseObjectPath) async {
-    if (_client.auth.currentUser == null) {
+    if (!_hasExpectedUser) {
       return const <String, dynamic>{};
     }
     final String objectPath = _scopedPath(baseObjectPath);
@@ -137,7 +139,7 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
     String baseObjectPath,
     Map<String, dynamic> payload,
   ) async {
-    if (_client.auth.currentUser == null) {
+    if (!_hasExpectedUser) {
       return false;
     }
     final String objectPath = _scopedPath(baseObjectPath);
@@ -166,9 +168,12 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   }
 
   String _scopedPath(String objectPath) {
-    final String uid = _client.auth.currentUser!.id;
-    return '$uid/$objectPath';
+    return '$expectedUserId/$objectPath';
   }
+
+  bool get _hasExpectedUser =>
+      expectedUserId.isNotEmpty &&
+      _client.auth.currentUser?.id == expectedUserId;
 }
 
 class SyncService {

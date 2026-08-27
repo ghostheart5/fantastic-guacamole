@@ -17,6 +17,7 @@ class ReflectionReminderService {
   ReflectionReminderService({
     required this._preferences,
     required this._scheduler,
+    this._accountScope,
   });
 
   static const String enabledKey = 'reflection_reminder_enabled';
@@ -25,6 +26,7 @@ class ReflectionReminderService {
 
   final SharedPrefsStore _preferences;
   final NotificationScheduler _scheduler;
+  final String? _accountScope;
 
   ValueListenable<bool?> get permissionListenable {
     return NotificationScheduler.permissionGrantedListenable;
@@ -57,14 +59,14 @@ class ReflectionReminderService {
     await _preferences.save(enabledKey, enabled.toString());
 
     if (!enabled) {
-      await _scheduler.cancel(notificationId);
+      await _scheduler.cancel(notificationId, accountScope: _accountScope);
       return false;
     }
 
     final bool granted = await _scheduler.requestPermissions();
     if (!granted) {
       await _preferences.save(enabledKey, 'false');
-      await _scheduler.cancel(notificationId);
+      await _scheduler.cancel(notificationId, accountScope: _accountScope);
       return false;
     }
 
@@ -74,6 +76,7 @@ class ReflectionReminderService {
       body: 'Take 3 minutes to review your day and set intent for tomorrow.',
       hour: time.hour,
       minute: time.minute,
+      accountScope: _accountScope,
     );
     return true;
   }
@@ -86,6 +89,7 @@ class ReflectionReminderService {
       body: 'Take 3 minutes to review your day and set intent for tomorrow.',
       hour: time.hour,
       minute: time.minute,
+      accountScope: _accountScope,
     );
   }
 

@@ -137,7 +137,7 @@ final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
 final domainNotificationRepositoryProvider = Provider<INotificationRepository>((
   ref,
 ) {
-  return ref.read(notificationsRepositoryProvider);
+  return ref.watch(notificationsRepositoryProvider);
 });
 
 final domainGoalRepositoryProvider = Provider<IGoalRepository>((ref) {
@@ -855,13 +855,13 @@ final scheduleNotificationUseCaseProvider = Provider<ScheduleNotification>((
   ref,
 ) {
   return ScheduleNotification(
-    ref.read(domainNotificationRepositoryProvider),
+    ref.watch(domainNotificationRepositoryProvider),
     generateSiDecision: ref.read(generateSiDecisionUseCaseProvider),
   );
 });
 
 final cancelNotificationUseCaseProvider = Provider<CancelNotification>((ref) {
-  return CancelNotification(ref.read(domainNotificationRepositoryProvider));
+  return CancelNotification(ref.watch(domainNotificationRepositoryProvider));
 });
 
 final getNotesUseCaseProvider = Provider<GetNotes>((ref) {

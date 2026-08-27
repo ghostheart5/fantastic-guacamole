@@ -9,7 +9,12 @@ abstract class SharedPrefsStore {
   Future<void> clear();
 }
 
-class SharedPrefsStoreAdapter implements SharedPrefsStore {
+abstract interface class EnumerableSharedPrefsStore {
+  Future<Set<String>> keys();
+}
+
+class SharedPrefsStoreAdapter
+    implements SharedPrefsStore, EnumerableSharedPrefsStore {
   const SharedPrefsStoreAdapter();
 
   @override
@@ -35,6 +40,11 @@ class SharedPrefsStoreAdapter implements SharedPrefsStore {
   @override
   Future<void> clear() {
     return SharedPrefsService.clear();
+  }
+
+  @override
+  Future<Set<String>> keys() {
+    return SharedPrefsService.keys();
   }
 }
 
@@ -114,6 +124,11 @@ class SharedPrefsService {
   static Future<bool> contains(String key) async {
     await init();
     return _prefs?.containsKey(key) ?? false;
+  }
+
+  static Future<Set<String>> keys() async {
+    await init();
+    return Set<String>.unmodifiable(_prefs?.getKeys() ?? const <String>{});
   }
 
   static bool _looksSensitiveKey(String key) {

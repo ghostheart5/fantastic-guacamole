@@ -126,6 +126,14 @@ class _ControlledSecureStoreBackend implements SecureStoreBackend {
   }
 
   @override
+  Future<Map<String, String>> readAll() async {
+    final String? value = storedValue ?? _readValue;
+    return value == null
+        ? const <String, String>{}
+        : <String, String>{'profile': value};
+  }
+
+  @override
   Future<void> write({required String key, required String value}) async {
     writeCount += 1;
     for (final Completer<void> waiter in _writeCountWaiters) {

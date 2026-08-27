@@ -26,9 +26,13 @@ jobs:
     # maintainer-provided self-hosted runner with a prepared app/device and
     # never builds or publishes an APK/AAB.
     runs-on: [self-hosted, android, maestro]
+    timeout-minutes: 45
+    environment: production
     steps:
       - name: Checkout flow definitions
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Verify runtime prerequisites
         shell: bash

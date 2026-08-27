@@ -308,6 +308,16 @@ abstract final class Env {
     return uri != null && uri.hasAuthority && uri.scheme == 'https';
   }
 
+  static bool resolveShouldBlockStartupForProductionReadiness({
+    required bool enforceProductionReadiness,
+    required bool isProduction,
+    required Iterable<String> readinessIssues,
+  }) {
+    return enforceProductionReadiness &&
+        isProduction &&
+        readinessIssues.isNotEmpty;
+  }
+
   static String get receiptVerifyEndpoint => resolveReceiptVerifyEndpoint(
     _receiptVerifyEndpointOverride,
     supabaseUrl: supabaseUrl,

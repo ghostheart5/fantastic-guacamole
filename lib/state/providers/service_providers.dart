@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/expired_session_cleanup.dart';
@@ -43,7 +45,7 @@ final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
 });
 
 final notificationsServiceProvider = Provider<NotificationsService>((Ref ref) {
-  return NotificationsService(ref.read(notificationsRepositoryProvider));
+  return NotificationsService(ref.watch(notificationsRepositoryProvider));
 });
 
 final localUserDataCleanupServiceProvider =
@@ -59,10 +61,14 @@ final localUserDataCleanupServiceProvider =
 
 final reminderOrchestratorServiceProvider =
     Provider<ReminderOrchestratorService>((Ref ref) {
+      final scope = ref.watch(accountStorageScopeProvider);
       return ReminderOrchestratorService(
         preferences: ref.read(sharedPrefsStoreProvider),
         notifications: ref.read(notificationsServiceProvider),
         scheduler: ref.read(notificationSchedulerProvider),
+        accountScope: scope.isWritable && scope.rawUserId != null
+            ? AccountDataRegistry.accountDigest(scope.rawUserId!)
+            : null,
       );
     });
 
@@ -76,7 +82,7 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
     progression: ref.read(progressionRepositoryProvider),
     memories: ref.watch(memoryRepositoryProvider),
     plan: ref.read(planRepositoryProvider),
-    notifications: ref.read(notificationsRepositoryProvider),
+    notifications: ref.watch(notificationsRepositoryProvider),
     profile: ref.read(profileRepositoryProvider),
   );
 });
@@ -101,9 +107,13 @@ final externalUrlServiceProvider = Provider<ExternalUrlService>((_) {
 final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((
   Ref ref,
 ) {
+  final scope = ref.watch(accountStorageScopeProvider);
   return ReflectionReminderService(
     preferences: ref.read(sharedPrefsStoreProvider),
     scheduler: ref.read(notificationSchedulerProvider),
+    accountScope: scope.isWritable && scope.rawUserId != null
+        ? AccountDataRegistry.accountDigest(scope.rawUserId!)
+        : null,
   );
 });
 
@@ -143,7 +153,7 @@ final staleNotificationCleanupProvider = Provider<StaleNotificationCleanup>((
   Ref ref,
 ) {
   return StaleNotificationCleanup(
-    repository: ref.read(notificationsRepositoryProvider),
+    repository: ref.watch(notificationsRepositoryProvider),
     retentionPolicy: ref.read(retentionPolicyProvider),
   );
 });
@@ -163,6 +173,8 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
   final FirebaseSupabaseBridgeRepository bridgeRepository = ref.read(
     firebaseSupabaseBridgeRepositoryProvider,
   );
+  String? observedOwnerId = client?.auth.currentUser?.id;
+  Future<void> authTransitionTail = Future<void>.value();
 
   Future<void> syncIfPossible({required String source}) async {
     try {
@@ -191,11 +203,29 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
   }
 
   ref.listen<AsyncValue<User?>>(authUserProvider, (_, next) {
-    final User? user = next.asData?.value;
-    if (user == null) {
-      return;
-    }
-    unawaited(syncIfPossible(source: 'auth-state-change'));
+    if (next is! AsyncData<User?>) return;
+    final User? user = next.value;
+    authTransitionTail = authTransitionTail
+        .then((_) async {
+          final String? departingOwnerId = observedOwnerId;
+          if (departingOwnerId != null && departingOwnerId != user?.id) {
+            await ref
+                .read(localUserDataCleanupServiceProvider)
+                .clearForAccountSwitch(departingOwnerId);
+          }
+          observedOwnerId = user?.id;
+          if (user != null) {
+            await syncIfPossible(source: 'auth-state-change');
+          }
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          Logger.errorCategory(
+            'AccountCleanup',
+            'Departing-account cleanup failed.',
+            error,
+            stackTrace,
+          );
+        });
   });
 
   // Crashes today are anonymous; tying them to the signed-in user (cleared on

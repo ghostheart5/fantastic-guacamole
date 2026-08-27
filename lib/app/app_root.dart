@@ -20,9 +20,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class AppRoot extends ConsumerStatefulWidget {
-  const AppRoot({super.key, this.startupError});
+  const AppRoot({
+    super.key,
+    this.startupError,
+    this.productionReadinessBlocked = false,
+  });
 
   final String? startupError;
+  final bool productionReadinessBlocked;
 
   @override
   ConsumerState<AppRoot> createState() => _AppRootState();
@@ -34,6 +39,15 @@ class _AppRootState extends ConsumerState<AppRoot> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.productionReadinessBlocked) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: AppConfig.fromEnv().appName,
+        theme: appTheme,
+        home: const _ProductionReadinessLock(),
+      );
+    }
+
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
     final AuthSessionBoundary accountBoundary = ref.watch(
       authSessionBoundaryProvider,
@@ -426,6 +440,59 @@ class _AppRootState extends ConsumerState<AppRoot> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ProductionReadinessLock extends StatelessWidget {
+  const _ProductionReadinessLock();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF050D1A),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Semantics(
+              liveRegion: true,
+              label:
+                  'ChronoSpark cannot start safely. Please install the latest version and try again.',
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    Icons.shield_outlined,
+                    size: 48,
+                    color: Color(0xFF00E5FF),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'ChronoSpark cannot start safely',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'This version is missing required setup. To protect your account and data, the app will remain closed. Please install the latest version and try again.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

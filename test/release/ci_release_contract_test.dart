@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yaml/yaml.dart';
 
 void main() {
   final Directory root = Directory.current;
@@ -8,124 +9,302 @@ void main() {
   String read(String path) =>
       File.fromUri(root.uri.resolve(path)).readAsStringSync();
 
-  test('host CI isolates each app-root integration file under Xvfb', () {
-    final String workflow = read('.github/workflows/ci.yml');
-    final String extended = read('.github/workflows/dart.yml');
-    final String linuxRunner = read('scripts/run_linux_integration_tests.sh');
-    const String integrationCommand =
-        'bash ./scripts/run_linux_integration_tests.sh';
-    for (final String hostWorkflow in <String>[workflow, extended]) {
-      expect(hostWorkflow, contains('libgtk-3-dev'));
-      expect(hostWorkflow, contains('libgstreamer1.0-dev'));
-      expect(hostWorkflow, contains('libgstreamer-plugins-base1.0-dev'));
-      expect(hostWorkflow, contains('libsecret-1-dev'));
-      expect(hostWorkflow, contains('liblzma-dev'));
-      expect(hostWorkflow, contains(integrationCommand));
-      expect(
-        hostWorkflow,
-        isNot(contains('flutter test integration_test -d linux')),
+  YamlMap workflow(String name) =>
+      loadYaml(read('.github/workflows/$name')) as YamlMap;
+
+  YamlMap jobs(YamlMap document) => document['jobs'] as YamlMap;
+
+  YamlMap job(YamlMap document, String name) => jobs(document)[name] as YamlMap;
+
+  List<YamlMap> steps(YamlMap job) =>
+      (job['steps'] as YamlList).whereType<YamlMap>().toList();
+
+  YamlMap namedStep(YamlMap job, String name) =>
+      steps(job).singleWhere((YamlMap step) => step['name'] == name);
+
+  String? environmentName(YamlMap job) {
+    final Object? environment = job['environment'];
+    if (environment is String) {
+      return environment;
+    }
+    if (environment is YamlMap) {
+      return environment['name']?.toString();
+    }
+    return null;
+  }
+
+  bool containsSecret(Object? value) {
+    if (value is String) {
+      return value.contains(r'${{ secrets.');
+    }
+    if (value is YamlMap) {
+      return value.entries.any(
+        (MapEntry<Object?, Object?> entry) =>
+            containsSecret(entry.key) || containsSecret(entry.value),
       );
     }
-    expect(linuxRunner, contains('integration_test/*_test.dart'));
-    expect(
-      linuxRunner,
-      contains(r'xvfb-run -a flutter test "$test_file" --no-pub -d linux'),
-    );
-    expect(linuxRunner, contains(r'failures=$((failures + 1))'));
-    expect(workflow, contains('scripts/edge_function_gate.ps1 -RunTests'));
-    expect(workflow, contains('scripts/secret_content_guard.ps1'));
-    expect(workflow, contains('scripts/dependency_audit.ps1'));
-    expect(workflow, contains('supabase@2.115.0 test db'));
-    expect(workflow, contains('artifacts/ci-evidence/exact-commit.json'));
-    expect(
-      workflow,
-      matches(RegExp(r'uses:\s+actions/upload-artifact@[0-9a-f]{40}\s+# v6')),
-    );
-  });
-
-  test('GitHub-hosted workflows pin Node 24 artifact actions', () {
-    final String workflows = Directory('.github/workflows')
-        .listSync()
-        .whereType<File>()
-        .where((File file) => file.path.endsWith('.yml'))
-        .map((File file) => file.readAsStringSync())
-        .join('\n');
-    expect(
-      workflows,
-      isNot(
-        contains('actions/checkout@11d5960a326750d5838078e36cf38b85af677262'),
-      ),
-    );
-    expect(
-      workflows,
-      isNot(
-        contains(
-          'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
-        ),
-      ),
-    );
-    expect(
-      workflows,
-      isNot(
-        contains(
-          'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093',
-        ),
-      ),
-    );
-    expect(
-      workflows,
-      contains(
-        'actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5',
-      ),
-    );
-    expect(
-      workflows,
-      contains(
-        'actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6',
-      ),
-    );
-    expect(
-      workflows,
-      contains(
-        'actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7',
-      ),
-    );
-  });
-
-  test('application release workflows use the reusable quality gate', () {
-    final String android = read('.github/workflows/android-release.yml');
-    final String linux = read('.github/workflows/linux-release.yml');
-    for (final String workflow in <String>[android, linux]) {
-      expect(workflow, contains('uses: ./.github/workflows/ci.yml'));
-      expect(workflow, contains('needs: quality-gate'));
+    if (value is YamlList) {
+      return value.any(containsSecret);
     }
-    expect(android, contains('::error::Required production secret is missing'));
-    expect(android, contains('CHRONOSPARK_ENFORCE_PROD_READINESS=true'));
+    return false;
+  }
+
+  test('primary CI parses workflow-only changes and runs the policy guard', () {
+    final YamlMap ci = workflow('ci.yml');
+    final YamlMap triggers = ci['on'] as YamlMap;
+    final YamlMap push = triggers['push'] as YamlMap;
+    final YamlMap pullRequest = triggers['pull_request'] as YamlMap;
+    expect(push.containsKey('paths-ignore'), isFalse);
+    expect(pullRequest.containsKey('paths-ignore'), isFalse);
+    expect(triggers.containsKey('workflow_call'), isTrue);
+
+    final YamlMap testJob = job(ci, 'test');
+    final List<YamlMap> testSteps = steps(testJob);
+    expect(
+      testSteps.map((YamlMap step) => step['run']),
+      contains('dart run tool/validate_github_workflows.dart'),
+    );
+    expect(
+      testSteps.map((YamlMap step) => step['run']),
+      contains('bash ./scripts/run_linux_integration_tests.sh'),
+    );
+    expect(
+      testSteps.map((YamlMap step) => step['run']),
+      contains('./scripts/version_consistency_guard_contract.ps1'),
+    );
+    expect(
+      testSteps.map((YamlMap step) => step['run']),
+      contains('./scripts/edge_function_gate.ps1 -RunTests'),
+    );
   });
 
-  test('public Pages workflow deploys only the verified static site', () {
-    final String pages = read('.github/workflows/main.yml');
-    expect(pages, contains('Deploy ChronoSpark Public Site to GitHub Pages'));
-    expect(pages, contains("- 'site/**'"));
-    expect(pages, contains("- 'web/privacy/**'"));
-    expect(pages, contains("- 'web/delete-account/**'"));
-    expect(pages, contains('verified web app is not published here yet'));
-    expect(pages, contains('needs: build'));
-    expect(pages, contains('pages: write'));
-    expect(pages, contains('id-token: write'));
+  test(
+    'external actions and mutable toolchain inputs are structurally pinned',
+    () {
+      final List<File> workflowFiles = Directory('.github/workflows')
+          .listSync()
+          .whereType<File>()
+          .where(
+            (File file) =>
+                file.path.endsWith('.yml') || file.path.endsWith('.yaml'),
+          )
+          .toList();
+      final List<String> allUses = <String>[];
+
+      for (final File file in workflowFiles) {
+        final YamlMap document = loadYaml(file.readAsStringSync()) as YamlMap;
+        for (final MapEntry<Object?, Object?> entry in jobs(document).entries) {
+          final YamlMap currentJob = entry.value as YamlMap;
+          expect(currentJob['runs-on'], anyOf(isNull, isNot('ubuntu-latest')));
+          if (currentJob.containsKey('runs-on')) {
+            expect(currentJob['timeout-minutes'], isA<int>());
+          }
+
+          final Object? jobUses = currentJob['uses'];
+          if (jobUses is String) {
+            allUses.add(jobUses);
+          }
+          final Object? stepValues = currentJob['steps'];
+          if (stepValues is! YamlList) {
+            continue;
+          }
+          for (final YamlMap step in stepValues.whereType<YamlMap>()) {
+            final Object? usesValue = step['uses'];
+            if (usesValue is! String) {
+              continue;
+            }
+            allUses.add(usesValue);
+            if (usesValue.startsWith('actions/checkout@')) {
+              expect((step['with'] as YamlMap)['persist-credentials'], isFalse);
+            }
+            if (usesValue.startsWith('subosito/flutter-action@')) {
+              expect((step['with'] as YamlMap)['flutter-version'], '3.44.6');
+            }
+          }
+        }
+      }
+
+      for (final String uses in allUses) {
+        if (uses.startsWith('./')) {
+          continue;
+        }
+        if (uses.startsWith('docker://')) {
+          expect(
+            uses,
+            matches(RegExp(r'^docker://[^@\s]+@sha256:[0-9a-f]{64}$')),
+          );
+        } else {
+          expect(uses, matches(RegExp(r'^[^@\s]+@[0-9a-f]{40}$')));
+        }
+      }
+
+      expect(
+        allUses,
+        contains('actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09'),
+      );
+      expect(
+        allUses,
+        contains(
+          'actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f',
+        ),
+      );
+      expect(
+        allUses,
+        contains(
+          'actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131',
+        ),
+      );
+    },
+  );
+
+  test('secret-bearing and publishing jobs use protected environments', () {
+    final Set<String> protectedJobs = <String>{};
+    for (final File file
+        in Directory('.github/workflows').listSync().whereType<File>().where(
+          (File file) => file.path.endsWith('.yml'),
+        )) {
+      final String fileName = file.uri.pathSegments.last;
+      final YamlMap document = loadYaml(file.readAsStringSync()) as YamlMap;
+      final YamlMap workflowPermissions = document['permissions'] as YamlMap;
+      for (final MapEntry<Object?, Object?> entry in jobs(document).entries) {
+        final String jobName = entry.key.toString();
+        final YamlMap currentJob = entry.value as YamlMap;
+        final Object? permissions =
+            currentJob['permissions'] ?? workflowPermissions;
+        final bool writes =
+            permissions is YamlMap &&
+            permissions.values.any((Object? value) => value == 'write');
+        final bool secrets = containsSecret(currentJob);
+        if (!writes && !secrets) {
+          continue;
+        }
+        protectedJobs.add('$fileName:$jobName');
+        final String expected = fileName == 'main.yml' && jobName == 'deploy'
+            ? 'github-pages'
+            : 'production';
+        expect(environmentName(currentJob), expected);
+      }
+    }
+
     expect(
-      pages,
-      matches(
-        RegExp(r'uses:\s+actions/upload-pages-artifact@[0-9a-f]{40}\s+# v3'),
-      ),
+      protectedJobs,
+      containsAll(<String>{
+        'android-release.yml:build-aab',
+        'android-release.yml:publish-release',
+        'dart.yml:build',
+        'linux-release.yml:build-and-release',
+        'maestro-runtime.yml:runtime',
+        'main.yml:deploy',
+      }),
     );
+  });
+
+  test(
+    'Android release parses quality, provenance, signing, and publish gates',
+    () {
+      final YamlMap android = workflow('android-release.yml');
+      final YamlMap quality = job(android, 'quality-gate');
+      final YamlMap build = job(android, 'build-aab');
+      final YamlMap publish = job(android, 'publish-release');
+      expect(quality['uses'], './.github/workflows/ci.yml');
+      expect(build['needs'], 'quality-gate');
+      expect(publish['needs'], 'build-aab');
+      expect(environmentName(build), 'production');
+      expect(environmentName(publish), 'production');
+
+      final List<YamlMap> buildSteps = steps(build);
+      final YamlMap checkout = buildSteps.singleWhere(
+        (YamlMap step) =>
+            step['uses']?.toString().startsWith('actions/checkout@') == true,
+      );
+      expect((checkout['with'] as YamlMap)['fetch-depth'], 0);
+      expect((checkout['with'] as YamlMap)['persist-credentials'], isFalse);
+
+      final int configIndex = buildSteps.indexOf(
+        namedStep(build, 'Validate production configuration'),
+      );
+      final int decodeIndex = buildSteps.indexOf(
+        namedStep(build, 'Decode keystore'),
+      );
+      final int buildIndex = buildSteps.indexOf(
+        namedStep(build, 'Build signed AAB'),
+      );
+      expect(configIndex, lessThan(decodeIndex));
+      expect(configIndex, lessThan(buildIndex));
+      expect(
+        namedStep(build, 'Validate production configuration')['run'],
+        contains('scripts/validate_production_config.dart'),
+      );
+      expect(
+        namedStep(build, 'Validate release version and tag')['run'],
+        './scripts/version_consistency_guard.ps1 -RequireTag',
+      );
+
+      for (final YamlMap step in buildSteps) {
+        expect(step['run']?.toString() ?? '', isNot(contains(r'${{ secrets.')));
+      }
+      final YamlMap cleanup = namedStep(
+        build,
+        'Remove runner-only sensitive material',
+      );
+      expect(cleanup['if'], 'always()');
+      expect(cleanup['run'], contains('android/app/key.jks'));
+
+      final YamlMap upload = namedStep(build, 'Upload AAB artifact');
+      final YamlMap uploadWith = upload['with'] as YamlMap;
+      expect(
+        uploadWith['name'],
+        r'chronospark-release-${{ github.run_id }}-${{ github.run_attempt }}',
+      );
+      expect(uploadWith['if-no-files-found'], 'error');
+      final YamlMap download = namedStep(
+        publish,
+        'Download verified AAB artifact',
+      );
+      expect((download['with'] as YamlMap)['name'], uploadWith['name']);
+      expect(
+        namedStep(publish, 'Create GitHub Release')['uses'],
+        matches(RegExp(r'^softprops/action-gh-release@[0-9a-f]{40}$')),
+      );
+    },
+  );
+
+  test('public Pages workflow parses as static-site-only deployment', () {
+    final YamlMap pages = workflow('main.yml');
+    final YamlMap triggers = pages['on'] as YamlMap;
+    final YamlMap push = triggers['push'] as YamlMap;
+    expect((push['branches'] as YamlList), contains('main'));
+    expect((push['paths'] as YamlList), contains('site/**'));
+    expect((push['paths'] as YamlList), contains('web/delete-account/**'));
+
+    final YamlMap build = job(pages, 'build');
+    final YamlMap deploy = job(pages, 'deploy');
+    expect(deploy['needs'], 'build');
+    expect(environmentName(deploy), 'github-pages');
+    expect((deploy['permissions'] as YamlMap)['pages'], 'write');
+    expect((deploy['permissions'] as YamlMap)['id-token'], 'write');
     expect(
-      pages,
-      matches(RegExp(r'uses:\s+actions/deploy-pages@[0-9a-f]{40}\s+# v4')),
+      namedStep(deploy, 'Deploy public site')['uses'],
+      matches(RegExp(r'^actions/deploy-pages@[0-9a-f]{40}$')),
     );
-    expect(pages, isNot(contains('flutter build')));
-    expect(pages, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
-    expect(pages, isNot(contains('CHRONOSPARK_ENFORCE_PROD_READINESS=true')));
+    final String buildCommands = steps(
+      build,
+    ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n');
+    expect(
+      buildCommands,
+      contains('verified web app is not published here yet'),
+    );
+    expect(buildCommands, isNot(contains('flutter build')));
+    expect(buildCommands, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
+  });
+
+  test('actionlint knows the legitimate self-hosted labels', () {
+    final YamlMap config = loadYaml(read('.github/actionlint.yaml')) as YamlMap;
+    final YamlMap runner = config['self-hosted-runner'] as YamlMap;
+    expect(
+      runner['labels'] as YamlList,
+      containsAll(<String>['android', 'maestro']),
+    );
   });
 
   test(
@@ -144,37 +323,55 @@ void main() {
     },
   );
 
-  test(
-    'advanced CodeQL workflow stays retired while default setup owns scanning',
-    () {
-      final File advancedWorkflow = File.fromUri(
-        root.uri.resolve('.github/workflows/codeql.yml'),
-      );
-      final String workflows = Directory('.github/workflows')
-          .listSync()
-          .whereType<File>()
-          .where(
-            (File file) =>
-                file.path.endsWith('.yml') || file.path.endsWith('.yaml'),
-          )
-          .map((File file) => file.readAsStringSync())
-          .join('\n');
+  test('advanced CodeQL workflow stays retired under default setup', () {
+    expect(File('.github/workflows/codeql.yml').existsSync(), isFalse);
+    final List<String> actionNames = <String>[];
+    for (final File file in Directory(
+      '.github/workflows',
+    ).listSync().whereType<File>()) {
+      final YamlMap document = loadYaml(file.readAsStringSync()) as YamlMap;
+      for (final Object? value in jobs(document).values) {
+        final YamlMap currentJob = value as YamlMap;
+        final Object? stepValues = currentJob['steps'];
+        if (stepValues is YamlList) {
+          actionNames.addAll(
+            stepValues.whereType<YamlMap>().map(
+              (YamlMap step) => step['uses']?.toString() ?? '',
+            ),
+          );
+        }
+      }
+    }
+    expect(
+      actionNames.where(
+        (String uses) => uses.startsWith('github/codeql-action/'),
+      ),
+      isEmpty,
+    );
+  });
 
-      expect(advancedWorkflow.existsSync(), isFalse);
-      expect(workflows, isNot(contains('github/codeql-action/')));
-    },
-  );
-
-  test(
-    'runtime and golden workflows cannot mutate source or build a candidate',
-    () {
-      final String maestro = read('.github/workflows/maestro-runtime.yml');
-      final String goldens = read('.github/workflows/update-goldens.yml');
-      expect(maestro, contains('self-hosted, android, maestro'));
-      expect(maestro, isNot(contains('flutter build')));
-      expect(goldens, contains('contents: read'));
-      expect(goldens, contains('Upload golden update for review'));
-      expect(goldens, isNot(contains('git push')));
-    },
-  );
+  test('runtime and golden workflows remain evidence-only', () {
+    final YamlMap maestro = job(workflow('maestro-runtime.yml'), 'runtime');
+    final YamlMap goldens = job(
+      workflow('update-goldens.yml'),
+      'update-goldens',
+    );
+    expect(
+      maestro['runs-on'] as YamlList,
+      containsAll(<String>['self-hosted', 'android', 'maestro']),
+    );
+    expect(
+      steps(
+        maestro,
+      ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n'),
+      isNot(contains('flutter build')),
+    );
+    expect(
+      steps(
+        goldens,
+      ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n'),
+      isNot(contains('git push')),
+    );
+    expect(namedStep(goldens, 'Upload golden update for review'), isNotNull);
+  });
 }

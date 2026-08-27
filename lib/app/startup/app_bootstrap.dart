@@ -204,6 +204,7 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
 
 class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   bool _ready = false;
+  bool _productionReadinessBlocked = false;
   String? _startupError;
 
   @override
@@ -227,6 +228,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       hasOnboarded: false,
       hasSeenWelcome: false,
       startupError: null,
+      productionReadinessBlocked: false,
     );
     String fatalIssue = '';
     try {
@@ -242,6 +244,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
             hasSeenWelcome: false,
             startupError:
                 'Startup bootstrap timed out. App started in degraded mode.',
+            productionReadinessBlocked: false,
           );
         },
       );
@@ -252,28 +255,30 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
     }
 
     String? stateBootstrapIssue;
-    try {
-      await ref
-          .read(authSessionBoundaryCoordinatorProvider)
-          .initialize()
-          .timeout(const Duration(seconds: 8));
-      final boundary = ref.read(authSessionBoundaryProvider);
-      if (boundary.isStorageReady) {
-        stateBootstrapIssue = await _runStateBootstrapSafe(ref);
-      } else if (boundary.blockingIssue != null) {
-        stateBootstrapIssue = boundary.blockingIssue;
+    if (!result.productionReadinessBlocked) {
+      try {
+        await ref
+            .read(authSessionBoundaryCoordinatorProvider)
+            .initialize()
+            .timeout(const Duration(seconds: 8));
+        final boundary = ref.read(authSessionBoundaryProvider);
+        if (boundary.isStorageReady) {
+          stateBootstrapIssue = await _runStateBootstrapSafe(ref);
+        } else if (boundary.blockingIssue != null) {
+          stateBootstrapIssue = boundary.blockingIssue;
+        }
+      } on TimeoutException {
+        stateBootstrapIssue =
+            'Account storage verification timed out. Account data remains locked.';
+      } on Object catch (error, stackTrace) {
+        Logger.errorCategory(
+          'Startup',
+          'State bootstrap failed',
+          error,
+          stackTrace,
+        );
+        stateBootstrapIssue = 'State bootstrap failed.';
       }
-    } on TimeoutException {
-      stateBootstrapIssue =
-          'Account storage verification timed out. Account data remains locked.';
-    } on Object catch (error, stackTrace) {
-      Logger.errorCategory(
-        'Startup',
-        'State bootstrap failed',
-        error,
-        stackTrace,
-      );
-      stateBootstrapIssue = 'State bootstrap failed.';
     }
 
     final String? startupError = _appendStartupIssue(
@@ -283,15 +288,20 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
     if (!mounted) {
       return;
     }
-    ref.read(onboardingCompleteProvider.notifier).set(result.hasOnboarded);
-    ref
-        .read(onboardingWelcomeCompleteProvider.notifier)
-        .set(result.hasSeenWelcome);
+    if (!result.productionReadinessBlocked) {
+      ref.read(onboardingCompleteProvider.notifier).set(result.hasOnboarded);
+      ref
+          .read(onboardingWelcomeCompleteProvider.notifier)
+          .set(result.hasSeenWelcome);
+    }
     setState(() {
       _startupError = startupError;
+      _productionReadinessBlocked = result.productionReadinessBlocked;
       _ready = true;
     });
-    AppAnalytics.track('app_open');
+    if (!result.productionReadinessBlocked) {
+      AppAnalytics.track('app_open');
+    }
   }
 
   @override
@@ -306,7 +316,10 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       );
     }
 
-    return AppRoot(startupError: _startupError);
+    return AppRoot(
+      startupError: _startupError,
+      productionReadinessBlocked: _productionReadinessBlocked,
+    );
   }
 }
 
@@ -334,11 +347,13 @@ class StartupBootstrapResult {
     required this.hasOnboarded,
     required this.hasSeenWelcome,
     required this.startupError,
+    required this.productionReadinessBlocked,
   });
 
   final bool hasOnboarded;
   final bool hasSeenWelcome;
   final String? startupError;
+  final bool productionReadinessBlocked;
 }
 
 class PrefsLoadResult {
@@ -358,6 +373,32 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   final intelligence = intelligenceService.environmentOnly();
   String? startupError;
   final Stopwatch totalBootstrap = Stopwatch()..start();
+
+  final List<String> readinessIssues = intelligenceService
+      .productionReadinessIssues();
+  final bool productionReadinessBlocked =
+      Env.resolveShouldBlockStartupForProductionReadiness(
+        enforceProductionReadiness: Env.enforceProductionReadiness,
+        isProduction: Env.isProduction,
+        readinessIssues: readinessIssues,
+      );
+  if (productionReadinessBlocked) {
+    Logger.error(
+      'Production readiness enforcement blocked startup: '
+      '${readinessIssues.length} issue(s).',
+    );
+    RuntimeDiagnostics.recordState(
+      'startup.blocked',
+      message: 'production readiness requirements were not met',
+      data: <String, Object?>{'issueCount': readinessIssues.length},
+    );
+    return const StartupBootstrapResult(
+      hasOnboarded: false,
+      hasSeenWelcome: false,
+      startupError: null,
+      productionReadinessBlocked: true,
+    );
+  }
 
   const SystemBoot();
   tzdata.initializeTimeZones();
@@ -403,8 +444,6 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   final bool hasOnboarded = prefsResult.hasOnboarded;
   final bool hasSeenWelcome = prefsResult.hasSeenWelcome;
 
-  final List<String> readinessIssues = intelligenceService
-      .productionReadinessIssues();
   if (readinessIssues.isNotEmpty) {
     Logger.warn(
       'Production readiness issues detected: ${readinessIssues.length}',
@@ -448,6 +487,7 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
     hasOnboarded: hasOnboarded,
     hasSeenWelcome: hasSeenWelcome,
     startupError: startupError,
+    productionReadinessBlocked: false,
   );
 }
 

@@ -5,6 +5,8 @@ abstract class SecureStoreBackend {
   Future<void> write({required String key, required String value});
   Future<void> delete({required String key});
   Future<void> deleteAll();
+
+  Future<Map<String, String>> readAll() async => const <String, String>{};
 }
 
 class RealSecureStoreBackend implements SecureStoreBackend {
@@ -31,6 +33,11 @@ class RealSecureStoreBackend implements SecureStoreBackend {
   Future<void> deleteAll() {
     return _storage.deleteAll();
   }
+
+  @override
+  Future<Map<String, String>> readAll() {
+    return _storage.readAll();
+  }
 }
 
 class InMemorySecureStoreBackend implements SecureStoreBackend {
@@ -54,6 +61,11 @@ class InMemorySecureStoreBackend implements SecureStoreBackend {
   @override
   Future<void> deleteAll() async {
     _memory.clear();
+  }
+
+  @override
+  Future<Map<String, String>> readAll() async {
+    return Map<String, String>.unmodifiable(_memory);
   }
 }
 
@@ -106,5 +118,9 @@ class SecureStore {
 
   Future<void> deleteAll() {
     return _backend.deleteAll();
+  }
+
+  Future<Map<String, String>> readAll() {
+    return _backend.readAll();
   }
 }

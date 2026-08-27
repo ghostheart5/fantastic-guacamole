@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
@@ -44,6 +45,145 @@ void main() {
       expect(Hive.box<String>(HiveBoxes.tasks).get('task-1'), isNotNull);
     },
   );
+
+  test(
+    'clears departing account data while preserving device-global and other-owner scoped state',
+    () async {
+      final _RecordingHiveStore hive = _RecordingHiveStore();
+      final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
+      final SecureStore secureStore = SecureStore(backend: backend);
+      final _MemoryPreferences preferences = _MemoryPreferences();
+      final _MemoryPreferences sensitivePreferences = _MemoryPreferences();
+      final String namespace = AccountDataRegistry.accountNamespace(
+        'account-a',
+      );
+
+      for (final String key in AccountDataRegistry.secureExactKeysForAccount(
+        'account-a',
+      )) {
+        await secureStore.writeString(key, 'private');
+      }
+      await secureStore.writeString(
+        AccountDataRegistry.notificationSecureKeyFor('account-a'),
+        '[]',
+      );
+      await secureStore.writeString(
+        'si_engine_state_v2.$namespace.console.thread-1',
+        'private',
+      );
+      await secureStore.writeString(
+        AccountDataRegistry.notificationSecureKeyFor('account-b'),
+        'other-owner',
+      );
+      await secureStore.writeString('hive_aes_key', 'device-global');
+
+      for (final String key
+          in AccountDataRegistry.preferenceExactKeysForAccount('account-a')) {
+        await preferences.save(key, 'private');
+      }
+      await preferences.save(
+        'chronospark.trajectory.forecast_ledger.v1.$namespace.corrupt.1',
+        'private',
+      );
+      for (final String key in AccountDataRegistry.deviceGlobalPreferenceKeys) {
+        await preferences.save(key, 'device-global');
+      }
+
+      for (final String key
+          in AccountDataRegistry.sensitivePreferenceKeysForAccount(
+            'account-a',
+          )) {
+        await sensitivePreferences.save(key, 'private');
+      }
+      final String otherMemory =
+          'governed_memories_v2.${AccountDataRegistry.accountNamespace('account-b')}';
+      await sensitivePreferences.save(otherMemory, 'other-owner');
+
+      final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+        hive: hive,
+        secureStore: secureStore,
+        preferences: preferences,
+        sensitivePreferences: sensitivePreferences,
+        notifications: NotificationScheduler(),
+      );
+
+      await service.clearForAccountSwitch('account-a');
+
+      expect(
+        hive.clearedBoxes,
+        containsAll(AccountDataRegistry.hiveBoxesForAccount('account-a')),
+      );
+      expect(
+        await secureStore.readString(
+          'si_engine_state_v2.$namespace.console.thread-1',
+        ),
+        isNull,
+      );
+      expect(await secureStore.readString('hive_aes_key'), 'device-global');
+      expect(
+        await secureStore.readString(
+          AccountDataRegistry.notificationSecureKeyFor('account-b'),
+        ),
+        'other-owner',
+      );
+      for (final String key in AccountDataRegistry.deviceGlobalPreferenceKeys) {
+        expect(preferences.load(key), 'device-global', reason: key);
+      }
+      expect(sensitivePreferences.load(otherMemory), 'other-owner');
+      expect(
+        sensitivePreferences.load('governed_memories_v2.$namespace'),
+        isNull,
+      );
+    },
+  );
+
+  test(
+    'uses the stored owner marker when cleanup omits an account ID',
+    () async {
+      final _RecordingHiveStore hive = _RecordingHiveStore();
+      final SecureStore secureStore = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final _MemoryPreferences preferences = _MemoryPreferences();
+      final String namespace = AccountDataRegistry.accountNamespace(
+        'account-a',
+      );
+      await secureStore.writeString(
+        AccountDataRegistry.accountBoundaryOwnerKey,
+        'account-a',
+      );
+      await secureStore.writeString(
+        AccountDataRegistry.notificationSecureKeyFor('account-a'),
+        '[]',
+      );
+      await preferences.save(
+        'chronospark.operating.history.v1.$namespace',
+        'private',
+      );
+
+      final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+        hive: hive,
+        secureStore: secureStore,
+        preferences: preferences,
+        sensitivePreferences: _MemoryPreferences(),
+        notifications: NotificationScheduler(),
+      );
+
+      await service.clearForAccountSwitch();
+
+      expect(hive.clearedBoxes, contains('task_occurrences_v2.$namespace'));
+      expect(
+        preferences.load('chronospark.operating.history.v1.$namespace'),
+        isNull,
+      );
+      expect(
+        await secureStore.readString(
+          AccountDataRegistry.accountBoundaryOwnerKey,
+        ),
+        isNull,
+      );
+    },
+  );
 }
 
 class _DirectHiveStore implements HiveStore {
@@ -80,7 +220,8 @@ class _DirectHiveStore implements HiveStore {
   }
 }
 
-class _MemoryPreferences implements SharedPrefsStore {
+class _MemoryPreferences
+    implements SharedPrefsStore, EnumerableSharedPrefsStore {
   final Map<String, String> _values = <String, String>{};
 
   @override
@@ -103,4 +244,29 @@ class _MemoryPreferences implements SharedPrefsStore {
   Future<void> clear() async {
     _values.clear();
   }
+
+  @override
+  Future<Set<String>> keys() async => _values.keys.toSet();
+}
+
+class _RecordingHiveStore implements HiveStore {
+  final Set<String> clearedBoxes = <String>{};
+
+  @override
+  Box<T> box<T>(String key) => throw UnimplementedError();
+
+  @override
+  Future<void> clearBox(String key) async => clearedBoxes.add(key);
+
+  @override
+  Future<void> closeBox(String key) async {}
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  bool isBoxOpen(String key) => false;
+
+  @override
+  Future<Box<T>> openBox<T>(String key) => throw UnimplementedError();
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:flutter/foundation.dart';
 
@@ -92,9 +93,11 @@ class OfflineSyncQueueService {
     this._prefs, {
     String? accountId,
     this._enforceAccountBinding = false,
+    KeyedMutationCoordinator? mutationCoordinator,
   }) : _accountId = accountId?.trim().isEmpty == true
            ? null
-           : accountId?.trim();
+           : accountId?.trim(),
+       _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
 
   static const String storageKey = 'offline_sync_queue_v1';
   static const String corruptStorageKey = 'offline_sync_queue_corrupt_v1';
@@ -103,25 +106,22 @@ class OfflineSyncQueueService {
 
   final HiveStorage<String> _prefs;
   final bool _enforceAccountBinding;
-  String? _accountId;
-  Future<void> _operationTail = Future<void>.value();
+  final String? _accountId;
+  final KeyedMutationCoordinator _mutations;
 
   String? get accountId => _accountId;
   bool get requiresAccountBinding => _enforceAccountBinding;
 
-  void rebind(String? accountId) {
-    final String? normalized = accountId?.trim();
-    _accountId = normalized == null || normalized.isEmpty ? null : normalized;
-  }
-
   String get _scopedStorageKey => !_enforceAccountBinding || _accountId == null
       ? storageKey
-      : '$storageKey:${_accountId!}';
+      : '$storageKey:$_accountId';
 
   String get _scopedCorruptStorageKey =>
       !_enforceAccountBinding || _accountId == null
       ? corruptStorageKey
-      : '$corruptStorageKey:${_accountId!}';
+      : '$corruptStorageKey:$_accountId';
+
+  String get _mutationKey => 'offline-sync-queue:$_scopedStorageKey';
 
   Future<List<OfflineSyncQueueItem>> loadQueue() async {
     // Reads stay available while replay executors run. Only read-modify-write
@@ -378,8 +378,6 @@ class OfflineSyncQueueService {
   }
 
   Future<T> _serialize<T>(Future<T> Function() operation) {
-    final Future<T> result = _operationTail.then((_) => operation());
-    _operationTail = result.then<void>((_) {}, onError: (_, _) {});
-    return result;
+    return _mutations.runExclusive<T>(_mutationKey, operation);
   }
 }

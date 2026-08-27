@@ -6,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Persists sensitive key/value data in platform secure storage (Keychain/Keystore)
 // and migrates known legacy values previously saved in SharedPreferences.
-class SensitivePrefsStore implements SharedPrefsStore {
+class SensitivePrefsStore
+    implements SharedPrefsStore, EnumerableSharedPrefsStore {
   SensitivePrefsStore._();
 
   static final SensitivePrefsStore instance = SensitivePrefsStore._();
@@ -78,6 +79,12 @@ class SensitivePrefsStore implements SharedPrefsStore {
     _values.clear();
     _initialized = true;
     await _storage.delete(key: _storageKey);
+  }
+
+  @override
+  Future<Set<String>> keys() async {
+    await init();
+    return Set<String>.unmodifiable(_values.keys);
   }
 
   Future<void> _persist() {

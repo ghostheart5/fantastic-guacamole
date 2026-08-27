@@ -56,6 +56,24 @@ void main() {
     expect(await service.queuedCount(), 2);
   });
 
+  test('serializes concurrent enqueues across service instances', () async {
+    final OfflineSyncQueueService second = OfflineSyncQueueService(
+      queueStorage,
+    );
+
+    await Future.wait(<Future<void>>[
+      service.enqueue(actionType: 'sync_to_cloud', dedupeKey: 'first'),
+      second.enqueue(actionType: 'sync_delta', dedupeKey: 'second'),
+    ]);
+
+    final List<OfflineSyncQueueItem> queue = await service.loadQueue();
+    expect(queue, hasLength(2));
+    expect(
+      queue.map((OfflineSyncQueueItem item) => item.dedupeKey),
+      containsAll(<String>['first', 'second']),
+    );
+  });
+
   test('account-bound queues cannot read or replay another account', () async {
     final OfflineSyncQueueService accountA = OfflineSyncQueueService(
       queueStorage,
@@ -286,6 +304,33 @@ void main() {
       expect(await service.queuedCount(), 0);
     },
   );
+
+  test('overlapping replay instances execute an item only once', () async {
+    final OfflineSyncQueueService second = OfflineSyncQueueService(
+      queueStorage,
+    );
+    await service.enqueue(actionType: 'sync_to_cloud', dedupeKey: 'once');
+    int executions = 0;
+
+    await Future.wait<int>(<Future<int>>[
+      service.replay(
+        executor: (_) async {
+          executions++;
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          return true;
+        },
+      ),
+      second.replay(
+        executor: (_) async {
+          executions++;
+          return true;
+        },
+      ),
+    ]);
+
+    expect(executions, 1);
+    expect(await service.queuedCount(), 0);
+  });
 }
 
 class _TestHiveStore implements HiveStore {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
@@ -182,7 +184,10 @@ class NotificationScheduler {
 
   Future<bool> requestPermissions() => init(requestPermissions: true);
 
-  Future<void> schedule(NotificationEntity notification) async {
+  Future<void> schedule(
+    NotificationEntity notification, {
+    String? accountScope,
+  }) async {
     if (!notification.isEnabled) {
       // In-app-only entries (task completion/skip feedback and similar
       // transient toasts) are persisted for the in-app notification list but
@@ -216,14 +221,16 @@ class NotificationScheduler {
       return;
     }
     await _plugin.zonedSchedule(
-      id: _notificationId(notification.id),
+      id: _notificationId(_platformKey(notification.id, accountScope)),
       title: notification.title,
       body: notification.message,
       scheduledDate: scheduledTz,
       notificationDetails: _notifDetails,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       // Carry the domain id so a tap can be routed back to what it refers to.
-      payload: notification.id,
+      payload: accountScope == null
+          ? notification.id
+          : accountPayload(accountScope, notification.id),
     );
   }
 
@@ -233,6 +240,7 @@ class NotificationScheduler {
     required String body,
     required int hour,
     required int minute,
+    String? accountScope,
   }) async {
     if (!_initialized) {
       Logger.warn(
@@ -267,18 +275,18 @@ class NotificationScheduler {
       scheduled = scheduled.add(const Duration(days: 1));
     }
     await _plugin.zonedSchedule(
-      id: _notificationId(id),
+      id: _notificationId(_platformKey(id, accountScope)),
       title: title,
       body: body,
       scheduledDate: scheduled,
       notificationDetails: _notifDetails,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
-      payload: id,
+      payload: accountScope == null ? id : accountPayload(accountScope, id),
     );
   }
 
-  Future<void> cancel(String id) async {
+  Future<void> cancel(String id, {String? accountScope}) async {
     if (!_initialized) {
       Logger.log(
         'Notifications',
@@ -289,7 +297,7 @@ class NotificationScheduler {
       );
       return;
     }
-    await _plugin.cancel(id: _notificationId(id));
+    await _plugin.cancel(id: _notificationId(_platformKey(id, accountScope)));
   }
 
   Future<void> cancelAll() async {
@@ -313,5 +321,33 @@ class NotificationScheduler {
       hash = (hash * 0x01000193) & 0x7fffffff;
     }
     return hash;
+  }
+
+  static String _platformKey(String id, String? accountScope) {
+    return accountScope == null ? id : '$accountScope:$id';
+  }
+
+  static String accountPayload(String accountScope, String notificationId) {
+    return jsonEncode(<String, Object>{
+      'v': 1,
+      'accountScope': accountScope,
+      'notificationId': notificationId,
+    });
+  }
+
+  static ({String accountScope, String notificationId})? parseAccountPayload(
+    String payload,
+  ) {
+    try {
+      final Object? decoded = jsonDecode(payload);
+      if (decoded is! Map) return null;
+      if (decoded['v'] != 1) return null;
+      final String accountScope = decoded['accountScope']?.toString() ?? '';
+      final String notificationId = decoded['notificationId']?.toString() ?? '';
+      if (accountScope.isEmpty || notificationId.isEmpty) return null;
+      return (accountScope: accountScope, notificationId: notificationId);
+    } on FormatException {
+      return null;
+    }
   }
 }

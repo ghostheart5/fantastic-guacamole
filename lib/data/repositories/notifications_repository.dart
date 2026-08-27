@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/models/notification_record.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
@@ -11,23 +13,52 @@ class NotificationsRepository implements INotificationRepository {
   NotificationsRepository(
     this._scheduler,
     this._store, {
+    String? accountId,
+    KeyedMutationCoordinator? mutationCoordinator,
     this._scheduleNotification,
     this._cancelScheduledNotification,
     this._cancelAllScheduledNotifications,
-  });
-
-  static const String _storageKey = 'notification_entries_v1';
+  }) : _accountId = accountId?.trim().isEmpty == true
+           ? null
+           : accountId?.trim(),
+       _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
 
   final NotificationScheduler _scheduler;
   final SecureStore _store;
+  final String? _accountId;
+  final KeyedMutationCoordinator _mutations;
   final Future<void> Function(NotificationEntity notification)?
   _scheduleNotification;
   final Future<void> Function(String id)? _cancelScheduledNotification;
   final Future<void> Function()? _cancelAllScheduledNotifications;
 
+  String? get accountId => _accountId;
+
+  String? get _storageKey => _accountId == null
+      ? null
+      : AccountDataRegistry.notificationSecureKeyFor(_accountId);
+
+  String? get _accountScope =>
+      _accountId == null ? null : AccountDataRegistry.accountDigest(_accountId);
+
+  String? get _mutationKey => _accountId == null
+      ? null
+      : AccountDataRegistry.notificationMutationKeyFor(_accountId);
+
   @override
   Future<List<NotificationEntity>> getNotifications() async {
-    final String? raw = await _store.readString(_storageKey);
+    final String? mutationKey = _mutationKey;
+    if (mutationKey == null) return const <NotificationEntity>[];
+    return _mutations.runExclusive<List<NotificationEntity>>(
+      mutationKey,
+      _readNotifications,
+    );
+  }
+
+  Future<List<NotificationEntity>> _readNotifications() async {
+    final String? storageKey = _storageKey;
+    if (storageKey == null) return const <NotificationEntity>[];
+    final String? raw = await _store.readString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
       return const <NotificationEntity>[];
     }
@@ -75,119 +106,102 @@ class NotificationsRepository implements INotificationRepository {
 
   @override
   Future<void> scheduleNotification(NotificationEntity notification) async {
-    await _upsert(notification);
-    try {
-      final schedule = _scheduleNotification;
-      if (schedule != null) {
-        await schedule(notification);
-      } else {
-        await _scheduler.schedule(notification);
+    await _runMutation(() async {
+      await _upsert(notification);
+      try {
+        final schedule = _scheduleNotification;
+        if (schedule != null) {
+          await schedule(notification);
+        } else {
+          await _scheduler.schedule(notification, accountScope: _accountScope);
+        }
+      } catch (error) {
+        Logger.warn(
+          'Failed to schedule notification ${notification.id}: $error',
+        );
       }
-    } catch (error) {
-      Logger.warn('Failed to schedule notification ${notification.id}: $error');
-    }
+    });
   }
 
   @override
   Future<void> cancelNotification(String id) async {
-    try {
-      final cancel = _cancelScheduledNotification;
-      if (cancel != null) {
-        await cancel(id);
-      } else {
-        await _scheduler.cancel(id);
-      }
-    } catch (error) {
-      Logger.warn('Failed to cancel scheduled notification $id: $error');
-    }
-    final List<NotificationEntity> entries = await getNotifications();
-    final NotificationEntity? existing = _find(entries, id);
-    if (existing == null) {
-      return;
-    }
-    await _upsert(
-      NotificationEntity(
-        id: existing.id,
-        title: existing.title,
-        message: existing.message,
-        scheduledAt: existing.scheduledAt,
-        isEnabled: false,
-        isRead: existing.isRead,
-      ),
-    );
+    await _runMutation(() async {
+      await _cancelPlatform(id);
+      final List<NotificationEntity> entries = await _readNotifications();
+      final NotificationEntity? existing = _find(entries, id);
+      if (existing == null) return;
+      await _upsert(_copy(existing, isEnabled: false));
+    });
   }
 
   @override
   Future<void> markRead(String id) async {
-    final List<NotificationEntity> entries = await getNotifications();
-    final NotificationEntity? existing = _find(entries, id);
-    if (existing == null) {
-      return;
-    }
-    await _upsert(
-      NotificationEntity(
-        id: existing.id,
-        title: existing.title,
-        message: existing.message,
-        scheduledAt: existing.scheduledAt,
-        isEnabled: existing.isEnabled,
-        isRead: true,
-      ),
-    );
+    await _runMutation(() async {
+      final List<NotificationEntity> entries = await _readNotifications();
+      final NotificationEntity? existing = _find(entries, id);
+      if (existing == null) return;
+      await _upsert(_copy(existing, isRead: true));
+    });
   }
 
   @override
   Future<void> delete(String id) async {
-    try {
-      final cancel = _cancelScheduledNotification;
-      if (cancel != null) {
-        await cancel(id);
-      } else {
-        await _scheduler.cancel(id);
-      }
-    } catch (error) {
-      Logger.warn(
-        'Failed to cancel scheduled notification during delete $id: $error',
+    await _runMutation(() async {
+      await _cancelPlatform(id, deleting: true);
+      final List<NotificationEntity> entries = await _readNotifications();
+      await _save(
+        entries
+            .where((NotificationEntity entry) => entry.id != id)
+            .toList(growable: false),
       );
-    }
-    final List<NotificationEntity> entries = await getNotifications();
-    await _save(
-      entries
-          .where((NotificationEntity entry) => entry.id != id)
-          .toList(growable: false),
-    );
+    });
   }
 
   Future<void> cancelAll() async {
-    try {
+    await _runMutation(() async {
+      final List<NotificationEntity> entries = await _readNotifications();
       final cancelAll = _cancelAllScheduledNotifications;
       if (cancelAll != null) {
-        await cancelAll();
+        try {
+          await cancelAll();
+        } catch (error) {
+          Logger.warn('Failed to cancel all scheduled notifications: $error');
+        }
       } else {
-        await _scheduler.cancelAll();
+        for (final NotificationEntity entry in entries) {
+          await _cancelPlatform(entry.id);
+        }
       }
-    } catch (error) {
-      Logger.warn('Failed to cancel all scheduled notifications: $error');
-    }
-    final List<NotificationEntity> entries = await getNotifications();
-    await _save(
-      entries
-          .map(
-            (NotificationEntity entry) => NotificationEntity(
-              id: entry.id,
-              title: entry.title,
-              message: entry.message,
-              scheduledAt: entry.scheduledAt,
-              isEnabled: false,
-              isRead: entry.isRead,
-            ),
-          )
-          .toList(growable: false),
-    );
+      await _save(
+        entries
+            .map((NotificationEntity entry) => _copy(entry, isEnabled: false))
+            .toList(growable: false),
+      );
+    });
+  }
+
+  Future<void> clearAccountData() async {
+    await _runMutation(() async {
+      final List<NotificationEntity> entries = await _readNotifications();
+      for (final NotificationEntity entry in entries) {
+        await _cancelPlatform(entry.id);
+      }
+      for (final String id in const <String>[
+        'habit_reminder_daily',
+        'daily_planning_reminder',
+        'reflection_reminder',
+      ]) {
+        await _cancelPlatform(id);
+      }
+      final String? storageKey = _storageKey;
+      if (storageKey != null) await _store.delete(storageKey);
+      await _store.delete(AccountDataRegistry.legacyNotificationSecureKey);
+      NotificationScheduler.tappedPayloadListenable.value = null;
+    });
   }
 
   Future<void> _upsert(NotificationEntity notification) async {
-    final List<NotificationEntity> entries = await getNotifications();
+    final List<NotificationEntity> entries = await _readNotifications();
     await _save(<NotificationEntity>[
       notification,
       ...entries.where(
@@ -197,8 +211,10 @@ class NotificationsRepository implements INotificationRepository {
   }
 
   Future<void> _save(List<NotificationEntity> entries) {
+    final String? storageKey = _storageKey;
+    if (storageKey == null) return Future<void>.value();
     return _store.writeString(
-      _storageKey,
+      storageKey,
       jsonEncode(
         entries
             .map(
@@ -207,6 +223,44 @@ class NotificationsRepository implements INotificationRepository {
             )
             .toList(growable: false),
       ),
+    );
+  }
+
+  Future<void> _runMutation(Future<void> Function() mutation) {
+    final String? mutationKey = _mutationKey;
+    if (mutationKey == null) return Future<void>.value();
+    return _mutations.runExclusive<void>(mutationKey, mutation);
+  }
+
+  Future<void> _cancelPlatform(String id, {bool deleting = false}) async {
+    try {
+      final cancel = _cancelScheduledNotification;
+      if (cancel != null) {
+        await cancel(id);
+      } else {
+        await _scheduler.cancel(id, accountScope: _accountScope);
+      }
+    } catch (error) {
+      Logger.warn(
+        deleting
+            ? 'Failed to cancel scheduled notification during delete $id: $error'
+            : 'Failed to cancel scheduled notification $id: $error',
+      );
+    }
+  }
+
+  NotificationEntity _copy(
+    NotificationEntity entry, {
+    bool? isEnabled,
+    bool? isRead,
+  }) {
+    return NotificationEntity(
+      id: entry.id,
+      title: entry.title,
+      message: entry.message,
+      scheduledAt: entry.scheduledAt,
+      isEnabled: isEnabled ?? entry.isEnabled,
+      isRead: isRead ?? entry.isRead,
     );
   }
 

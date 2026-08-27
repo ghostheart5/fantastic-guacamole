@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
@@ -18,6 +19,7 @@ import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/app_recovery_provider.dart';
@@ -169,23 +171,38 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   /// dropped, which is what happened before — no response handler existed at
   /// all, so a tap only ever opened the app on whatever tab it was last on.
   void _routeNotificationPayload(String payload) {
-    if (payload.startsWith('goal_reminder_')) {
+    String logicalPayload = payload;
+    final ({String accountScope, String notificationId})? scoped =
+        NotificationScheduler.parseAccountPayload(payload);
+    if (scoped != null) {
+      final scope = ref.read(accountStorageScopeProvider);
+      final String? accountId = scope.isWritable ? scope.rawUserId : null;
+      if (accountId == null ||
+          AccountDataRegistry.accountDigest(accountId) != scoped.accountScope) {
+        return;
+      }
+      logicalPayload = scoped.notificationId;
+    } else if (payload.trimLeft().startsWith('{')) {
+      return;
+    }
+
+    if (logicalPayload.startsWith('goal_reminder_')) {
       _goToView(AppView.goals);
       return;
     }
-    if (payload.startsWith('daily_planning_reminder')) {
+    if (logicalPayload.startsWith('daily_planning_reminder')) {
       _goToView(AppView.timeline);
       return;
     }
-    if (payload.startsWith('habit_reminder')) {
+    if (logicalPayload.startsWith('habit_reminder')) {
       _goToView(AppView.creator);
       return;
     }
-    if (payload.startsWith('reflection_reminder')) {
+    if (logicalPayload.startsWith('reflection_reminder')) {
       _goToView(AppView.timeline);
       return;
     }
-    if (payload.startsWith('streak_break_recovery_')) {
+    if (logicalPayload.startsWith('streak_break_recovery_')) {
       _goToView(AppView.progression);
       return;
     }

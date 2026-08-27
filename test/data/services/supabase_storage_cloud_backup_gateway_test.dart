@@ -16,7 +16,10 @@ void main() {
         }),
       );
       final SupabaseStorageCloudBackupGateway gateway =
-          SupabaseStorageCloudBackupGateway(client: client);
+          SupabaseStorageCloudBackupGateway(
+            client: client,
+            expectedUserId: 'user-1',
+          );
 
       expect(await gateway.downloadBackup(), isEmpty);
       expect(await gateway.downloadTasks(), isEmpty);
@@ -79,6 +82,7 @@ void main() {
         final SupabaseStorageCloudBackupGateway gateway =
             SupabaseStorageCloudBackupGateway(
               client: client,
+              expectedUserId: 'user-1',
               bucket: 'backup-bucket',
             );
 
@@ -143,7 +147,10 @@ void main() {
           password: 'correct-pass',
         );
         final SupabaseStorageCloudBackupGateway gateway =
-            SupabaseStorageCloudBackupGateway(client: client);
+            SupabaseStorageCloudBackupGateway(
+              client: client,
+              expectedUserId: 'user-1',
+            );
 
         await Logger.withMutedErrors(() async {
           expect(await gateway.downloadBackup(), isEmpty);
@@ -156,6 +163,35 @@ void main() {
           );
         });
         expect(downloadCalls, 4);
+      },
+    );
+
+    test(
+      'fails closed when the immutable owner no longer matches auth',
+      () async {
+        final sb.SupabaseClient client = _supabaseClient(
+          MockClient((http.Request request) async {
+            if (request.url.path.endsWith('/auth/v1/token')) {
+              return _authResponse();
+            }
+            fail('Mismatched-owner storage must not reach HTTP.');
+          }),
+        );
+        await client.auth.signInWithPassword(
+          email: 'sync@chronospark.app',
+          password: 'correct-pass',
+        );
+        final SupabaseStorageCloudBackupGateway gateway =
+            SupabaseStorageCloudBackupGateway(
+              client: client,
+              expectedUserId: 'different-user',
+            );
+
+        expect(await gateway.downloadBackup(), isEmpty);
+        expect(
+          await gateway.uploadBackup(<String, dynamic>{'version': 3}),
+          isFalse,
+        );
       },
     );
   });

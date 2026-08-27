@@ -14,29 +14,32 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 class AuthService implements AuthServiceContract {
   AuthService({
     required sb.SupabaseClient supabaseClient,
-    required this._store,
+    required SecureStore store,
     http.Client? httpClient,
     String? accountDeleteEndpoint,
     String? oauthGoogleRedirectUrl,
     String? oauthGitHubRedirectUrl,
-    this._onSignedOut,
+    Future<void> Function()? onSignedOut,
+    Future<void> Function(String? accountId)? onAccountSignedOut,
   }) : _auth = supabaseClient,
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
            accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
        _oauthGitHubRedirectUrl =
-           oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl;
+           oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
+       _signedOutCallback = onSignedOut,
+       _accountSignedOutCallback = onAccountSignedOut;
 
   static final http.Client _sharedHttpClient = http.Client();
 
   final sb.SupabaseClient _auth;
-  final SecureStore _store;
   final http.Client _httpClient;
   final String _accountDeleteEndpoint;
   final String _oauthGoogleRedirectUrl;
   final String _oauthGitHubRedirectUrl;
-  final Future<void> Function()? _onSignedOut;
+  final Future<void> Function()? _signedOutCallback;
+  final Future<void> Function(String? accountId)? _accountSignedOutCallback;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
@@ -252,7 +255,8 @@ class AuthService implements AuthServiceContract {
       }
     }
     await _auth.auth.signOut();
-    await _onSignedOut?.call();
+    await _accountSignedOutCallback?.call(user?.id);
+    await _signedOutCallback?.call();
   }
 
   @override
@@ -341,9 +345,9 @@ class AuthService implements AuthServiceContract {
       );
     } finally {
       if (deleted) {
-        await _store.deleteAll();
         await _auth.auth.signOut();
-        await _onSignedOut?.call();
+        await _accountSignedOutCallback?.call(user.id);
+        await _signedOutCallback?.call();
       }
     }
   }

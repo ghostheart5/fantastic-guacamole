@@ -1,10 +1,16 @@
 param(
   [string]$ExpectedTag,
-  [switch]$RequireTag
+  [switch]$RequireTag,
+  [string[]]$AuthorizedBranches = @('main', 'production'),
+  [string]$RepositoryRoot
 )
 
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $PSScriptRoot
+$root = if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+  Split-Path -Parent $PSScriptRoot
+} else {
+  (Resolve-Path -LiteralPath $RepositoryRoot).Path
+}
 $failures = New-Object System.Collections.Generic.List[string]
 
 function Add-Failure([string]$Message) { $failures.Add($Message) }
@@ -20,6 +26,67 @@ function Read-Version([string]$Path, [string]$Pattern, [string]$Label) {
     return $null
   }
   return [pscustomobject]@{ Name = $match.Groups[1].Value; Code = [int]$match.Groups[2].Value }
+}
+
+function Resolve-GitCommit([string]$Revision) {
+  $resolved = & git -C $root rev-parse --verify "$Revision`^{commit}" 2>$null
+  if ($LASTEXITCODE -ne 0 -or $null -eq $resolved) {
+    return $null
+  }
+  return ($resolved | Select-Object -First 1).Trim()
+}
+
+function Test-ReleaseTagAuthorization([string]$Tag) {
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Add-Failure 'Git is required to validate release tag provenance.'
+    return
+  }
+  & git -C $root rev-parse --is-inside-work-tree *> $null
+  if ($LASTEXITCODE -ne 0) {
+    Add-Failure "Release tag provenance cannot be validated because $root is not a Git worktree."
+    return
+  }
+
+  $tagCommit = Resolve-GitCommit "refs/tags/$Tag"
+  if ([string]::IsNullOrWhiteSpace($tagCommit)) {
+    Add-Failure "Release tag '$Tag' does not resolve to a commit in this checkout."
+    return
+  }
+
+  if ($env:GITHUB_REF_TYPE -eq 'tag' -and -not [string]::IsNullOrWhiteSpace($env:GITHUB_SHA)) {
+    $eventCommit = Resolve-GitCommit $env:GITHUB_SHA
+    if ([string]::IsNullOrWhiteSpace($eventCommit) -or $eventCommit -ne $tagCommit) {
+      Add-Failure "Release tag '$Tag' does not resolve to the GitHub event commit."
+    }
+  }
+
+  $authorized = $false
+  $foundAuthorizedRef = $false
+  foreach ($branch in $AuthorizedBranches) {
+    if ([string]::IsNullOrWhiteSpace($branch)) { continue }
+    $candidateRefs = if ($branch.StartsWith('refs/')) {
+      @($branch)
+    } else {
+      @("refs/heads/$branch", "refs/remotes/origin/$branch")
+    }
+    foreach ($candidateRef in $candidateRefs) {
+      & git -C $root show-ref --verify --quiet $candidateRef
+      if ($LASTEXITCODE -ne 0) { continue }
+      $foundAuthorizedRef = $true
+      & git -C $root merge-base --is-ancestor $tagCommit $candidateRef
+      if ($LASTEXITCODE -eq 0) {
+        $authorized = $true
+        break
+      }
+    }
+    if ($authorized) { break }
+  }
+
+  if (-not $foundAuthorizedRef) {
+    Add-Failure "No authorized release refs were found for: $($AuthorizedBranches -join ', ')."
+  } elseif (-not $authorized) {
+    Add-Failure "Release tag '$Tag' is not reachable from an authorized main/production ref."
+  }
 }
 
 $pubspec = Read-Version (Join-Path $root 'pubspec.yaml') '(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$' 'pubspec version'
@@ -52,6 +119,8 @@ if (-not [string]::IsNullOrWhiteSpace($tag)) {
     Add-Failure "Release tag '$tag' must match vMAJOR.MINOR.PATCH (optional prerelease/build suffix allowed)."
   } elseif ($null -ne $pubspec -and $pubspec.Name -ne $tagMatch.Groups[1].Value) {
     Add-Failure "Release tag $tag does not match pubspec version $($pubspec.Name)."
+  } else {
+    Test-ReleaseTagAuthorization $tag
   }
 }
 

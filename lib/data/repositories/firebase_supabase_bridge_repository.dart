@@ -1,18 +1,21 @@
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class FirebaseSupabaseBridgeRepository {
-  FirebaseSupabaseBridgeRepository({required this._store});
+  FirebaseSupabaseBridgeRepository({
+    required this._store,
+    KeyedMutationCoordinator? mutationCoordinator,
+  }) : _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
 
   static const String _cachedFirebaseMessagingTokenKey =
       'bridge.firebase_messaging_token';
   static const Duration _minSyncInterval = Duration(minutes: 2);
-  static String? _lastSyncedUserId;
-  static String? _lastSyncedToken;
-  static DateTime? _lastSyncedAt;
-
   final SecureStore _store;
+  final KeyedMutationCoordinator _mutations;
+  final Map<String, ({String token, DateTime syncedAt})> _lastSyncByOwner =
+      <String, ({String token, DateTime syncedAt})>{};
 
   Future<void> cacheFirebaseMessagingToken(String token) async {
     final String trimmed = token.trim();
@@ -64,45 +67,52 @@ class FirebaseSupabaseBridgeRepository {
       return;
     }
 
-    final DateTime now = DateTime.now().toUtc();
-    if (_lastSyncedUserId == user.id &&
-        _lastSyncedToken == trimmed &&
-        _lastSyncedAt != null) {
-      final Duration elapsed = now.difference(_lastSyncedAt!);
-      if (elapsed < _minSyncInterval) {
+    final String ownerId = user.id;
+    await _mutations.runExclusive<void>('push-token-owner:$ownerId', () async {
+      if (client.auth.currentUser?.id != ownerId) {
+        Logger.warn(
+          'Skipped Firebase->Supabase sync (source=$source): authenticated owner changed.',
+        );
+        return;
+      }
+
+      final DateTime now = DateTime.now().toUtc();
+      final ({String token, DateTime syncedAt})? last =
+          _lastSyncByOwner[ownerId];
+      if (last != null &&
+          last.token == trimmed &&
+          now.difference(last.syncedAt) < _minSyncInterval) {
         Logger.log(
           'Bridge',
-          'Skipped Firebase->Supabase sync (source=$source): token already synced recently.',
+          'Skipped Firebase->Supabase sync (source=$source): token already synced recently for this owner.',
         );
         return;
       }
-    }
 
-    try {
-      await client.from('user_push_tokens').upsert(<String, dynamic>{
-        'user_id': user.id,
-        'token': trimmed,
-        'source': source,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }, onConflict: 'user_id,token');
-      _lastSyncedUserId = user.id;
-      _lastSyncedToken = trimmed;
-      _lastSyncedAt = now;
-      Logger.log(
-        'Bridge',
-        'Synced Firebase messaging token into Supabase auth metadata (source=$source).',
-      );
-    } on Exception catch (error) {
-      if (_isOverRateLimit(error)) {
-        Logger.warn(
-          'Skipped Firebase->Supabase metadata update due to auth rate limit (source=$source): $error',
+      try {
+        await client.from('user_push_tokens').upsert(<String, dynamic>{
+          'user_id': ownerId,
+          'token': trimmed,
+          'source': source,
+          'updated_at': now.toIso8601String(),
+        }, onConflict: 'user_id,token');
+        _lastSyncByOwner[ownerId] = (token: trimmed, syncedAt: now);
+        Logger.log(
+          'Bridge',
+          'Synced Firebase messaging token for the authenticated Supabase owner (source=$source).',
         );
-        return;
+      } on Exception catch (error) {
+        if (_isOverRateLimit(error)) {
+          Logger.warn(
+            'Skipped Firebase->Supabase token update due to rate limit (source=$source): $error',
+          );
+          return;
+        }
+        Logger.warn(
+          'Firebase->Supabase token sync failed non-fatally (source=$source): $error',
+        );
       }
-      Logger.warn(
-        'Firebase->Supabase metadata sync failed non-fatally (source=$source): $error',
-      );
-    }
+    });
   }
 
   bool _isOverRateLimit(Object error) {

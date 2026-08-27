@@ -2,9 +2,14 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 
 class MockAuthService implements AuthServiceContract {
-  MockAuthService({this._onSignedOut});
+  MockAuthService({
+    Future<void> Function()? onSignedOut,
+    Future<void> Function(String? accountId)? onAccountSignedOut,
+  }) : _signedOutCallback = onSignedOut,
+       _accountSignedOutCallback = onAccountSignedOut;
 
-  final Future<void> Function()? _onSignedOut;
+  final Future<void> Function()? _signedOutCallback;
+  final Future<void> Function(String? accountId)? _accountSignedOutCallback;
 
   User? _currentUser;
 
@@ -85,12 +90,17 @@ class MockAuthService implements AuthServiceContract {
 
   @override
   Future<void> signOut() async {
+    final String? accountId = _currentUser?.id;
     _currentUser = null;
-    await _onSignedOut?.call();
+    await _accountSignedOutCallback?.call(accountId);
+    await _signedOutCallback?.call();
   }
 
   @override
   Future<void> deleteCurrentAccount({required String password}) async {
+    final String? accountId = _currentUser?.id;
     _currentUser = null;
+    await _accountSignedOutCallback?.call(accountId);
+    await _signedOutCallback?.call();
   }
 }

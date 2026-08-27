@@ -1,4 +1,6 @@
-import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -13,136 +15,79 @@ class LocalUserDataCleanupService {
     required this._preferences,
     required this._sensitivePreferences,
     required this._notifications,
-  });
+    KeyedMutationCoordinator? mutationCoordinator,
+  }) : _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
 
   final HiveStore _hive;
   final SecureStore _secureStore;
   final SharedPrefsStore _preferences;
   final SharedPrefsStore _sensitivePreferences;
   final NotificationScheduler _notifications;
+  final KeyedMutationCoordinator _mutations;
 
-  static const List<String> _userBoxes = <String>[
-    HiveBoxes.tasks,
-    HiveBoxes.goals,
-    HiveBoxes.habits,
-    HiveBoxes.projects,
-    HiveBoxes.routines,
-    HiveBoxes.subtasks,
-    HiveBoxes.progression,
-    HiveBoxes.dailyPlans,
-    HiveBoxes.offlineQueue,
-    HiveBoxes.notifications,
-    HiveBoxes.timeline,
-    'profile_box',
-  ];
-
-  static const List<String> _userSecureKeys = <String>[
-    'identity_profile_v1',
-    'si_engine_state_v1',
-    'workspace_entity_v1',
-    'workspace_creator_v1',
-    'workspace_temporal_v1',
-    'workspace_si_v1',
-    'timeline_payload_v1',
-    'ai_learning',
-    'learning_state_v1',
-    'neural_dump',
-    'profile_state_v2',
-    'profile_entity_v1',
-    'paywall_subscription_state_v1',
-    'entitlement_owner_user_id_v1',
-    'bridge.firebase_messaging_token',
-    'notification_entries_v1',
-    'chrono_log_entries_v2',
-    'calendar_entries_v1',
-    'milestones_v1',
-    'creator_latest_receipt_v1:local',
-    'auth_session_box',
-    'auth_credentials_box',
-  ];
-
-  static const List<String> _userSensitivePreferenceKeys = <String>[
-    'memories_v1',
-    'timeline_events_v1',
-    'goals_v1',
-    'goals_v2',
-  ];
-
-  static const List<String> _userPreferenceKeys = <String>[
-    'user_preferences_json',
-    'personalization_profile_v1',
-    'observed_planning_patterns_v1',
-    'behavior_state_v1',
-    'signals_v1',
-    'ins'
-        'ights_v1',
-    'notes_v1',
-    'settings_entity_v1',
-    'ai_credit_wallet',
-    'self_opt_config_v1',
-    'self_opt_last_adjust',
-    'cloud_sync_enabled_v1',
-    'goal_reminders_enabled',
-    'habit_reminders_enabled',
-    'daily_planning_reminder_enabled',
-    'daily_planning_reminder_time',
-    'reflection_reminder_enabled',
-    'reflection_reminder_time',
-    'global_metrics_cache',
-    'global_metrics_cache_ts',
-    'lma_date',
-    'lma_tasks_created',
-    'lma_tasks_completed',
-    'lma_momentum_peak',
-    'rec_last_route',
-    'rec_active_task',
-    'rec_draft_title',
-    'last_route',
-    'active_task_id',
-    'draft_task_title',
-    'primary_goal_type',
-    'offline_sync_queue_v1',
-    'paywall_auto_restore_prompted_v1',
-    'paywall_subscription_state_v1',
-    'settings',
-    'local_test_cloud_backup',
-    'local_test_cloud_tasks',
-    'extended_domain.'
-        'coa'
-        'ch_messages',
-    'extended_domain.planner_messages',
-    'extended_domain.si_queries',
-    'extended_domain.user_intents',
-    'extended_domain.reflection_entries',
-    'extended_domain.'
-        'jour'
-        'nal_entries',
-    'extended_domain.analytics_metrics',
-    'extended_domain.app_notifications',
-    'extended_domain.rewards',
-    'extended_domain.settings',
-    'extended_domain.sync_states',
-    'extended_domain.offline_states',
-    'extended_domain.app_errors',
-    'extended_domain.recovery_states',
-  ];
-
-  Future<void> clearForAccountSwitch() async {
-    await _hive.init();
-    for (final String boxName in _userBoxes) {
-      final bool wasOpen = _hive.isBoxOpen(boxName);
-      final box = await _hive.openBox<String>(boxName);
-      await box.clear();
-      if (!wasOpen) await box.close();
+  Future<void> clearForAccountSwitch([String? accountId]) async {
+    final String? requestedAccountId = _normalizedAccountId(accountId);
+    final String? storedAccountId = requestedAccountId == null
+        ? _normalizedAccountId(
+            await _secureStore.readString(
+              AccountDataRegistry.accountBoundaryOwnerKey,
+            ),
+          )
+        : null;
+    final String? departingAccountId = requestedAccountId ?? storedAccountId;
+    if (departingAccountId != null) {
+      await NotificationsRepository(
+        _notifications,
+        _secureStore,
+        accountId: departingAccountId,
+        mutationCoordinator: _mutations,
+      ).clearAccountData();
+    } else {
+      await _notifications.cancelAll();
+      NotificationScheduler.tappedPayloadListenable.value = null;
     }
-    for (final String key in _userSecureKeys) {
+
+    await _hive.init();
+    final Set<String> boxes = departingAccountId == null
+        ? AccountDataRegistry.legacyAccountHiveBoxes
+        : AccountDataRegistry.hiveBoxesForAccount(departingAccountId);
+    for (final String box in boxes) {
+      await _hive.clearBox(box);
+    }
+
+    final Set<String> secureKeys = departingAccountId == null
+        ? AccountDataRegistry.accountSecureExactKeys
+        : AccountDataRegistry.secureExactKeysForAccount(departingAccountId);
+    for (final String key in secureKeys) {
       await _secureStore.delete(key);
     }
-    await _sensitivePreferences.clear();
-    for (final String key in _userPreferenceKeys) {
+    if (departingAccountId != null) {
+      await _deleteMatchingSecureKeys(
+        AccountDataRegistry.secureKeyPrefixesForAccount(departingAccountId),
+      );
+    }
+
+    await _sensitivePreferences.init();
+    final Set<String> sensitiveKeys = departingAccountId == null
+        ? AccountDataRegistry.legacySensitivePreferenceKeys
+        : AccountDataRegistry.sensitivePreferenceKeysForAccount(
+            departingAccountId,
+          );
+    for (final String key in sensitiveKeys) {
+      await _sensitivePreferences.delete(key);
+    }
+
+    final Set<String> preferenceKeys = departingAccountId == null
+        ? AccountDataRegistry.accountPreferenceExactKeys
+        : AccountDataRegistry.preferenceExactKeysForAccount(departingAccountId);
+    for (final String key in preferenceKeys) {
       await _preferences.delete(key);
     }
-    await _notifications.cancelAll();
+    if (departingAccountId != null) {
+      await _deleteMatchingPreferenceKeys(
+        AccountDataRegistry.preferenceKeyPrefixesForAccount(departingAccountId),
+      );
+    }
   }
 
   /// Detects legacy account data whose owner cannot be proven because no
@@ -150,7 +95,7 @@ class LocalUserDataCleanupService {
   /// intentionally excluded.
   Future<bool> hasUnownedAccountData() async {
     await _hive.init();
-    for (final String boxName in _userBoxes) {
+    for (final String boxName in AccountDataRegistry.legacyAccountHiveBoxes) {
       final bool wasOpen = _hive.isBoxOpen(boxName);
       // Every account-owned Hive repository serializes its payload as JSON
       // strings. Opening an already-open Box<String> as Box<dynamic> throws
@@ -160,16 +105,41 @@ class LocalUserDataCleanupService {
       if (!wasOpen) await box.close();
       if (hasValues) return true;
     }
-    for (final String key in _userSecureKeys) {
+    for (final String key in AccountDataRegistry.accountSecureExactKeys) {
       if (await _secureStore.readString(key) != null) return true;
     }
     await _sensitivePreferences.init();
-    for (final String key in _userSensitivePreferenceKeys) {
+    for (final String key
+        in AccountDataRegistry.legacySensitivePreferenceKeys) {
       if (_sensitivePreferences.load(key) != null) return true;
     }
-    for (final String key in _userPreferenceKeys) {
+    for (final String key in AccountDataRegistry.accountPreferenceExactKeys) {
       if (await SharedPrefsService.contains(key)) return true;
     }
     return false;
+  }
+
+  Future<void> _deleteMatchingSecureKeys(Set<String> prefixes) async {
+    final Set<String> keys = (await _secureStore.readAll()).keys.toSet();
+    for (final String key in keys) {
+      if (prefixes.any(key.startsWith)) await _secureStore.delete(key);
+    }
+  }
+
+  Future<void> _deleteMatchingPreferenceKeys(Set<String> prefixes) async {
+    final EnumerableSharedPrefsStore? enumerable =
+        _preferences is EnumerableSharedPrefsStore
+        ? _preferences as EnumerableSharedPrefsStore
+        : null;
+    if (enumerable == null) return;
+    final Set<String> keys = await enumerable.keys();
+    for (final String key in keys) {
+      if (prefixes.any(key.startsWith)) await _preferences.delete(key);
+    }
+  }
+
+  String? _normalizedAccountId(String? accountId) {
+    final String normalized = accountId?.trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
   }
 }

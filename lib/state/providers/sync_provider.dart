@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
@@ -64,19 +65,16 @@ final cloudSyncCapabilityProvider = Provider<bool>(
 /// inject an isolated queue while preserving the same replay semantics.
 final offlineSyncQueueProvider = Provider<OfflineSyncQueueService?>((ref) {
   final HiveStore hive = ref.read(hiveStoreProvider);
-  final client = ref.read(supabaseClientProvider);
+  final scope = ref.watch(accountStorageScopeProvider);
   return OfflineSyncQueueService(
     HiveStorage<String>(HiveBoxes.offlineQueue, hive: hive),
-    accountId: client?.auth.currentUser?.id,
+    accountId: scope.isWritable ? scope.rawUserId : null,
     enforceAccountBinding: true,
   );
 });
 
 OfflineSyncQueueService? _boundQueue(Ref ref) {
-  final OfflineSyncQueueService? queue = ref.read(offlineSyncQueueProvider);
-  final client = ref.read(supabaseClientProvider);
-  queue?.rebind(client?.auth.currentUser?.id);
-  return queue;
+  return ref.watch(offlineSyncQueueProvider);
 }
 
 final syncServiceProvider = Provider<SyncService?>((ref) {
@@ -85,6 +83,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
   );
   final BackupService? backup = ref.watch(_backupServiceProvider);
   final supabaseClient = ref.watch(supabaseClientProvider);
+  final scope = ref.watch(accountStorageScopeProvider);
   final bool userEnabled =
       ref.watch(cloudSyncPreferenceProvider).asData?.value ?? false;
   return prefsAsync.whenOrNull(
@@ -95,7 +94,12 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
             gateway: Env.isMockMode
                 ? LocalTestCloudBackupGateway(prefs)
                 : (Env.enableCloudSync && userEnabled && supabaseClient != null)
-                ? SupabaseStorageCloudBackupGateway(client: supabaseClient)
+                ? SupabaseStorageCloudBackupGateway(
+                    client: supabaseClient,
+                    expectedUserId: scope.isWritable
+                        ? scope.rawUserId ?? ''
+                        : '',
+                  )
                 : const UnavailableCloudBackupGateway(),
             secureStore: ref.read(secureStoreProvider),
           ),
@@ -248,6 +252,19 @@ Future<bool> _executeQueuedSyncAction(
   Ref ref,
   OfflineSyncQueueItem item,
 ) async {
+  final scope = ref.read(accountStorageScopeProvider);
+  final String? currentAccountId = scope.isWritable ? scope.rawUserId : null;
+  final String? authenticatedUserId = ref
+      .read(supabaseClientProvider)
+      ?.auth
+      .currentUser
+      ?.id;
+  if (item.accountId == null || item.accountId != currentAccountId) {
+    return false;
+  }
+  if (authenticatedUserId != null && item.accountId != authenticatedUserId) {
+    return false;
+  }
   final SyncService? syncService = ref.read(syncServiceProvider);
   if (syncService == null) {
     return false;

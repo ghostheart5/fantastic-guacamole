@@ -849,12 +849,14 @@ void main() {
     );
 
     test(
-      'deleteCurrentAccount clears local state only after confirmed backend success',
+      'deleteCurrentAccount cleans the departing owner after backend success',
       () async {
         final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
         final SecureStore store = SecureStore(backend: backend);
         await store.writeString('session-cache', 'present');
+        await store.writeString('device-global-key', 'preserved');
         int deleteCalls = 0;
+        String? cleanedAccountId;
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
@@ -881,6 +883,10 @@ void main() {
           store: store,
           httpClient: client,
           accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+          onAccountSignedOut: (String? accountId) async {
+            cleanedAccountId = accountId;
+            await store.delete('session-cache');
+          },
         );
 
         await service.signIn(
@@ -890,7 +896,9 @@ void main() {
         await service.deleteCurrentAccount(password: 'correct-pass');
 
         expect(deleteCalls, 1);
+        expect(cleanedAccountId, 'user-1');
         expect(await store.readString('session-cache'), isNull);
+        expect(await store.readString('device-global-key'), 'preserved');
         expect(service.currentUser, isNull);
       },
     );

@@ -13,13 +13,17 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: production
 
     permissions:
       contents: read
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       # Pinning by commit SHA keeps CI builds reproducible and avoids
       # unexpected behavior changes from upstream action updates.
@@ -27,6 +31,7 @@ jobs:
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           channel: stable
+          flutter-version: '3.44.6'
 
       # .env is declared as a Flutter asset in pubspec.yaml and must exist on
       # the CI runner before flutter pub get runs. It is git-ignored, so we
@@ -40,6 +45,9 @@ jobs:
 
       - name: Ensure dependency lockfile is reproducible
         run: git diff --exit-code -- pubspec.lock
+
+      - name: Validate GitHub workflow controls
+        run: dart run tool/validate_github_workflows.dart
 
       - name: Run security secret guard
         shell: pwsh
