@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(44);
 
 select has_table('public', 'monetization_wallets', 'wallet table exists');
 select has_table('public', 'monetization_credit_transactions', 'credit ledger exists');
@@ -113,6 +113,22 @@ select is(
   true,
   'verified purchase token binds to one account'
 );
+select is(
+  (public.bind_verified_purchase_token(
+    repeat('c', 64), '44444444-4444-4444-8444-444444444444',
+    'chronospark_premium_monthly'
+  )->>'bound')::boolean,
+  false,
+  'verified purchase token cannot be rebound to another account'
+);
+select throws_ok(
+  $$update public.purchase_bindings
+    set user_id = user_id
+    where token_hash = repeat('c', 64)$$,
+  '42501',
+  null,
+  'service role cannot directly mutate the immutable binding tuple'
+);
 
 select is(
   (public.reconcile_google_play_subscription(
@@ -150,8 +166,41 @@ select is(
    where user_id = '33333333-3333-4333-8333-333333333333'),
   'initialization, resets, spends, and refunds conserve the ledger balance'
 );
+select is(
+  (public.reconcile_google_play_voided_purchase(
+    repeat('c', 64), 'voided:test:subscription', 'order-test',
+    '{"source":"test"}'::jsonb
+  )->>'applied')::boolean,
+  true,
+  'voided purchase reconciliation can lock the immutable binding'
+);
 
 reset role;
+
+select ok(
+  has_column_privilege(
+    'service_role', 'public.purchase_bindings', 'created_at', 'UPDATE'
+  ),
+  'service role has one non-binding update column for row locking'
+);
+select ok(
+  not has_column_privilege(
+    'service_role', 'public.purchase_bindings', 'token_hash', 'UPDATE'
+  ),
+  'service role cannot update the purchase token hash'
+);
+select ok(
+  not has_column_privilege(
+    'service_role', 'public.purchase_bindings', 'user_id', 'UPDATE'
+  ),
+  'service role cannot reassign a purchase binding to another account'
+);
+select ok(
+  not has_column_privilege(
+    'service_role', 'public.purchase_bindings', 'product_id', 'UPDATE'
+  ),
+  'service role cannot change the bound product'
+);
 
 select ok(
   has_function_privilege(

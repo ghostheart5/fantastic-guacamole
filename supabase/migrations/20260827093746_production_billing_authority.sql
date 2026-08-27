@@ -158,6 +158,7 @@ grant select on table public.monetization_entitlement_events to authenticated;
 grant select on table public.ai_usage_requests to authenticated;
 
 grant select, insert on table public.purchase_bindings to service_role;
+grant update (created_at) on table public.purchase_bindings to service_role;
 grant select, insert, update, delete on table public.monetization_subscription_statuses to service_role;
 grant select, insert, update, delete on table public.monetization_wallets to service_role;
 grant select, insert on table public.monetization_credit_transactions to service_role;
