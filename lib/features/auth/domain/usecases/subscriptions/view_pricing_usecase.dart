@@ -1,3 +1,0 @@
-class ViewPricingUsecase {
-  const ViewPricingUsecase();
-}

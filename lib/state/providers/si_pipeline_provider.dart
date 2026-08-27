@@ -1,185 +1,130 @@
-import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
+import 'package:fantastic_guacamole/domain/usecases/assemble_si_decision_output.dart';
+import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
-import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
-import 'package:fantastic_guacamole/state/providers/app_integration_actions_provider.dart';
+import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
-import 'package:fantastic_guacamole/state/services/app_integration_actions.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
-import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
-import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
-
-final nexusStartupSummaryProvider = Provider<NexusStartupSummary>((Ref ref) {
-  final ProfileState profile = ref.watch(profileProvider);
-  final siState = ref.watch(siStateProvider);
-  final EmotionalState emotion = ref.watch(emotionProvider);
-
-  final String startupDirective = switch (emotion) {
-    EmotionalState.focused || EmotionalState.positive =>
-      'Prime objective locked. Execute one decisive action now.',
-    EmotionalState.calm =>
-      'Signal is stable. Start with one high-value task block.',
-    EmotionalState.fatigued || EmotionalState.scattered =>
-      'Stabilize first. Take one lightweight win to recover momentum.',
-    _ => 'Systems warming. Choose one concrete action to anchor momentum.',
-  };
-
-  return NexusStartupSummary(
-    profile: profile,
-    energy: siState.energy,
-    fatigue: siState.fatigue,
-    completedToday: siState.completedToday,
-    emotionLabel: emotion.name,
-    startupDirective: startupDirective,
-  );
-});
 
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
 ) async {
-  // Keep SI aggregation synchronized with task lifecycle invalidations.
-  ref.watch(tasksProvider);
-
-  SISourceStatus tasksStatus = SISourceStatus.ready;
-  String? tasksError;
-  List<Task> tasks = const <Task>[];
-  List<TaskEntity> taskEntities = const <TaskEntity>[];
-  List<PlannerInput> plannerInputs = const <PlannerInput>[];
-
-  try {
-    taskEntities = await _loadAllActiveTaskEntities(ref);
-    plannerInputs = PlannerInputAdapter.fromTaskEntities(taskEntities);
-    tasks = PlannerInputAdapter.toLegacyTasks(plannerInputs);
-    tasksStatus = tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready;
-  } on Object catch (error) {
-    tasksStatus = SISourceStatus.error;
-    tasksError = error.toString();
-    tasks = const <Task>[];
-    taskEntities = const <TaskEntity>[];
-    plannerInputs = const <PlannerInput>[];
-  }
-
-  List<GoalEntity> goals = const <GoalEntity>[];
-  SISourceStatus goalsStatus = SISourceStatus.ready;
-  String? goalsError;
-
-  try {
-    goals = ref.watch(goalsProvider);
-    goalsStatus = goals.isEmpty ? SISourceStatus.empty : SISourceStatus.ready;
-  } on Object catch (error) {
-    goalsStatus = SISourceStatus.error;
-    goalsError = error.toString();
-    goals = const <GoalEntity>[];
-  }
-
-  InsightsBundle insights;
-  SISourceStatus insightsStatus = SISourceStatus.ready;
-  String? insightsError;
-
-  try {
-    insights = ref.watch(insightsBundleProvider);
-    insightsStatus = insights.items.isEmpty
-        ? SISourceStatus.empty
-        : SISourceStatus.ready;
-  } on Object catch (error) {
-    insightsStatus = SISourceStatus.error;
-    insightsError = error.toString();
-    insights = const InsightsBundle(items: [], summary: '', healthScore: 0);
-  }
-
+  final List<TaskEntity> taskEntities = await _loadAllActiveTaskEntities(ref);
+  final List<PlannerInput> plannerInputs = PlannerInputAdapter.fromTaskEntities(
+    taskEntities,
+  );
+  final List<Task> tasks = PlannerInputAdapter.toLegacyTasks(plannerInputs);
+  final goals = ref.watch(goalsProvider);
+  final signalBundle = ref.watch(signalsBundleProvider);
   final logs = ref.watch(logsProvider).entries;
   final timeline = ref.watch(timelineProvider);
-  final memories = ref.watch(memoriesProvider);
-  final SISourceStatus memoriesStatus = memories.isEmpty
-      ? SISourceStatus.empty
-      : SISourceStatus.ready;
-
+  // Shared assistant aggregation must never bridge durable memory across
+  // surfaces. Surface-private recall is requested explicitly at its gateway.
+  const List<MemoryEntity> memories = <MemoryEntity>[];
   final notifications = ref.watch(notificationProvider);
   final profile = ref.watch(profileProvider);
   final siState = ref.watch(siStateProvider);
   final EmotionalState emotion = ref.watch(emotionProvider);
   final trajectory = ref.watch(trajectorySummaryProvider);
-  final CoreValuesAlignment coreValues = ref.watch(coreValuesAlignmentProvider);
-  final SoulMapAlignment soulMap = ref.watch(soulMapAlignmentProvider);
-  final execution = ref.watch(executionSignalsProvider);
   final double energy = ref.watch(energyProvider);
-
-  final SiStateEntity planningState = SiStateEntity(
-    energy: energy,
-    focus: (energy * (1 - siState.fatigue)).clamp(0.0, 1.0).toDouble(),
-    fatigue: siState.fatigue,
-    avoidOverwhelm: siState.fatigue >= .75,
-    primaryInstinct: siState.fatigue >= .75 ? 'safety_first' : 'progress_first',
+  final DateTime observedAt = DateTime.now();
+  // Habits feed Smart Planner and SI. Read non-blocking: if habit storage has
+  // not resolved (or failed), aggregation continues with none rather than
+  // stalling the whole SI pipeline on it.
+  final AsyncValue<List<HabitEntity>> habitsAsync = ref.watch(habitsProvider);
+  final SISourceStatus habitsHealth = habitsAsync.isLoading
+      ? SISourceStatus.loading
+      : habitsAsync.hasError
+      ? SISourceStatus.error
+      : (habitsAsync.asData?.value.isEmpty ?? true)
+      ? SISourceStatus.empty
+      : SISourceStatus.ready;
+  final List<HabitEntity> habits = habitsAsync.maybeWhen(
+    data: (List<HabitEntity> value) => value,
+    orElse: () => const <HabitEntity>[],
   );
-  final DecisionRecommendation planningDecision = const DecisionEngine()
-      .recommend(
+
+  final List<String> planPreview = ref
+      .read(generateAdaptivePlanUseCaseProvider)
+      .call(
         inputs: plannerInputs,
-        state: planningState,
-        learning: ref.watch(learningProvider),
-      );
-  final List<String> planPreview = planningDecision.plan.blocks
+        energy: energy,
+        policy: ref.watch(adaptivePlanPolicyProvider),
+      )
       .take(3)
       .map((block) => block.title)
       .toList(growable: false);
 
-  final bool friction = trajectory.pressureIndex >= 60 || energy < 0.35;
-  final bool overwhelm =
-      trajectory.pressureIndex >= 75 || trajectory.behaviorDivergence >= 50;
+  int countToday(Set<String> sources) => logs
+      .where(
+        (entry) =>
+            sources.contains(entry.source.trim().toLowerCase()) &&
+            entry.timestamp.year == observedAt.year &&
+            entry.timestamp.month == observedAt.month &&
+            entry.timestamp.day == observedAt.day,
+      )
+      .length;
 
-  final String streakHealth = profile.streak >= 10
-      ? 'strong'
-      : profile.streak >= 3
-      ? 'stable'
-      : 'fragile';
+  // Signal thresholds live in the domain layer so this provider orchestrates
+  // rather than owning core SI logic.
+  final SiSignals planningSignals = ref
+      .read(extractSiSignalsUseCaseProvider)
+      .call(
+        pressureIndex: trajectory.pressureIndex.toDouble(),
+        behaviorDivergence: trajectory.behaviorDivergence.toDouble(),
+        energy: energy,
+        streak: profile.streak,
+        hasGoals: goals.isNotEmpty,
+        skippedTaskCount: logs
+            .where((entry) => entry.source == 'task_skipped')
+            .length,
+        emotion: emotion.name,
+        signalsSummary: signalBundle.summary,
+      );
 
-  final bool goalDrift =
-      goals.isNotEmpty && trajectory.behaviorDivergence >= 40;
-
-  final bool taskAvoidance =
-      execution.skippedToday >= 2 ||
-      (execution.skippedToday + execution.delayedToday) >= 3;
-
-  final bool emotionalStrain =
-      emotion == EmotionalState.anxious ||
-      emotion == EmotionalState.scattered ||
-      emotion == EmotionalState.negative ||
-      emotion == EmotionalState.fatigued;
-
-  final bool emotionalStability =
-      emotion == EmotionalState.calm ||
-      emotion == EmotionalState.focused ||
-      emotion == EmotionalState.positive;
-
-  final Set<String> patterns = <String>{};
-
-  if (insights.summary.toLowerCase().contains('overload')) {
-    patterns.add('overload_pattern');
+  LearningEntity learning = const LearningEntity();
+  SISourceStatus learningHealth = SISourceStatus.empty;
+  try {
+    final LearningEntity? storedLearning = await ref
+        .read(domainLearningRepositoryProvider)
+        .getState();
+    if (storedLearning != null) {
+      learning = storedLearning;
+      learningHealth = SISourceStatus.ready;
+    }
+  } on Object {
+    learningHealth = SISourceStatus.error;
   }
-
-  if (emotionalStrain) {
-    patterns.add('emotional_strain');
-  }
-
-  if (emotionalStability) {
-    patterns.add('emotional_stability');
-  }
+  final DecisionRecommendation planningDecision = const DecisionEngine()
+      .recommend(
+        inputs: plannerInputs,
+        state: SiStateEntity(
+          energy: siState.energy,
+          attention: (1 - siState.fatigue).clamp(0.0, 1.0),
+          fatigue: siState.fatigue,
+          mood: emotion.name,
+          avoidOverwhelm: planningSignals.overwhelm,
+          frictionScore: planningSignals.friction ? .8 : .2,
+          highFriction: planningSignals.friction,
+          lastUpdated: observedAt,
+        ),
+        learning: learning,
+        now: observedAt,
+      );
 
   return SIStateAggregation(
     tasks: tasks,
     goals: goals,
-    insights: insights,
+    signals: signalBundle,
     logs: logs,
     timeline: timeline,
     memories: memories,
@@ -188,31 +133,43 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     profile: profile,
     siState: siState,
     trajectory: trajectory,
-    coreValues: coreValues,
-    soulMap: soulMap,
+    planningDecision: planningDecision,
     sourceHealth: SISourceHealth(
-      tasks: tasksStatus,
-      goals: goalsStatus,
-      insights: insightsStatus,
-      memories: memoriesStatus,
-      tasksError: tasksError,
-      goalsError: goalsError,
-      insightsError: insightsError,
+      tasks: tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      goals: goals.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      memories: memories.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      habits: habitsHealth,
+      logs: logs.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      timeline: timeline.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      learning: learningHealth,
+      // A real work-window/calendar source is not wired yet. Keep this
+      // explicit so the UI and confidence model cannot call an assumed day
+      // observed availability.
+      availability: SISourceStatus.unavailable,
+      observedAt: observedAt,
     ),
-    signals: SISignalExtraction(
-      friction: friction,
-      overwhelm: overwhelm,
-      streakHealth: streakHealth,
-      goalDrift: goalDrift,
-      taskAvoidance: taskAvoidance,
-      executionCompletedToday: execution.completedToday,
-      executionSkippedToday: execution.skippedToday,
-      executionDelayedToday: execution.delayedToday,
-      executionStability7d: execution.completionStability7d,
-      emotion: emotion.name,
-      emotionalStrain: emotionalStrain,
-      emotionalStability: emotionalStability,
-      emotionalPatterns: patterns.toList(growable: false),
+    habits: habits,
+    planningEvidence: SIPlanningEvidence(
+      friction: planningSignals.friction,
+      overwhelm: planningSignals.overwhelm,
+      streakHealth: planningSignals.streakHealth,
+      goalDrift: planningSignals.goalDrift,
+      taskAvoidance: planningSignals.taskAvoidance,
+      emotion: planningSignals.emotion,
+      emotionalStrain: planningSignals.emotionalStrain,
+      emotionalStability: planningSignals.emotionalStability,
+      emotionalPatterns: planningSignals.emotionalPatterns,
+      executionCompletedToday: countToday(const <String>{
+        'completed_task',
+        'task_completed',
+        'goal_completed',
+      }),
+      executionSkippedToday: countToday(const <String>{'task_skipped'}),
+      executionDelayedToday: countToday(const <String>{
+        'task_rescheduled',
+        'task_delayed',
+        'task_not_completed',
+      }),
     ),
   );
 });
@@ -221,12 +178,10 @@ Future<List<TaskEntity>> _loadAllActiveTaskEntities(Ref ref) async {
   final List<TaskEntity> entities = await ref
       .read(domainTaskRepositoryProvider)
       .getAllTasks();
-
   return entities
       .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
       .toList(growable: false);
 }
-
 
 final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
   Ref ref,
@@ -234,9 +189,6 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
   final SIStateAggregation aggregation = await ref.watch(
     siStateAggregationProvider.future,
   );
-
-  final Task? nextTask = await ref.watch(domainSiDecisionProvider.future);
-
   final int timelineHealthScore = ref.watch(timelineHealthScoreProvider);
   final int timelineRiskScore = ref.watch(timelineRiskScoreProvider);
   final int timelineOverdueCount = ref.watch(timelineOverdueProvider).length;
@@ -247,107 +199,63 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
   final int timelineRecommendationCount = ref
       .watch(timelineRecommendationsProvider)
       .length;
+  final String? rankedTaskTitle =
+      aggregation.planningDecision.selectedTask?.title;
 
-  final CoreValuesAlignment coreValues = ref.watch(coreValuesAlignmentProvider);
-  final CoreValueType neglectedValue = coreValues.mostNeglected;
-  final CoreValueType strongestValue = coreValues.strongest;
-  final int neglectedScore = coreValues.scores[neglectedValue]?.score ?? 0;
-
-  final List<String> warnings = <String>[
-    if (aggregation.signals.overwhelm) 'Overwhelm risk is elevated.',
-    if (aggregation.signals.goalDrift)
-      'Goal drift detected in recent trajectory.',
-    if (aggregation.signals.taskAvoidance) 'Task avoidance pattern detected.',
-    if (aggregation.signals.taskAvoidance)
-      'Execution friction: ${aggregation.signals.executionSummary}.',
-    if (aggregation.signals.emotionalStrain)
-      'Emotional strain detected (${aggregation.signals.emotion}).',
-    if (timelineOverdueCount > 0)
-      'Timeline has $timelineOverdueCount overdue item${timelineOverdueCount == 1 ? '' : 's'}.',
-    if (timelineRiskEventsCount > 0)
-      'Timeline risk signals active ($timelineRiskEventsCount).',
-    if (timelineHealthScore < 70)
-      'Timeline health is $timelineHealthScore% with elevated risk $timelineRiskScore%.',
-    if (neglectedScore < 60)
-      'Core value drift detected in ${coreValueTitle(neglectedValue)} ($neglectedScore%).',
-  ];
-
-  final String nextAction =
-      nextTask?.title ??
-      (aggregation.tasks.isEmpty
-          ? 'Capture one high-value task.'
-          : aggregation.tasks.first.title);
-
-  final List<String> planAdjustments = <String>[
-    if (aggregation.signals.overwhelm)
-      'Reduce today to one critical task block.',
-    if (aggregation.tasks.length > 5)
-      'Split remaining tasks into tomorrow queue.',
-    if (aggregation.planPreview.isEmpty)
-      'Generate a 3-block adaptive plan for today.',
-    if (timelineOverdueCount > 0)
-      'Resolve one overdue timeline item before adding new commitments.',
-    if (timelineUpcomingCount >= 5)
-      'Pre-plan upcoming deadlines now to prevent rollover pressure.',
-    if (aggregation.signals.taskAvoidance)
-      'Recover one skipped/delayed task before adding a new commitment.',
-    'Schedule one action that strengthens ${coreValueTitle(neglectedValue)}.',
-  ];
-
-  final List<String> insightPrompts = <String>[
-    if (aggregation.signals.friction)
-      'What is creating the most friction right now?',
-    if (aggregation.signals.goalDrift) 'Which goal has drifted and why?',
-    if (aggregation.signals.emotionalStrain)
-      'What would reduce emotional load in the next hour?',
-    if (aggregation.signals.emotionalStability)
-      'How can you convert this stable state into one decisive action?',
-    if (aggregation.memories.isNotEmpty)
-      'What memory should inform this decision?',
-    if (timelineOverdueCount > 0)
-      'Which overdue timeline item should be recovered first?',
-    if (timelineUpcomingCount > 0)
-      'What is the next timeline deadline this week?',
-    if (timelineRecommendationCount > 0)
-      'What timeline recommendation should be applied now?',
-    'How do we strengthen ${coreValueTitle(neglectedValue)} this week?',
-  ];
-
-  final String progressionFeedback = aggregation.profile.streak >= 7
-      ? 'Streak momentum is strong. Protect it with one decisive completion.'
-      : aggregation.profile.streak >= 3
-      ? 'Consistency is building. Keep the chain alive today.'
-      : 'Rebuild momentum with one immediate win.';
-
-  final String memoryHint = _buildMemoryHint(aggregation.memories);
-
-  final String coachMessage = warnings.isEmpty
-      ? 'Trajectory is stable (timeline health $timelineHealthScore%). Strongest value is ${coreValueTitle(strongestValue)}. Execute the next action and keep momentum. $memoryHint'
-      : 'Signals show pressure (timeline risk $timelineRiskScore%). Reinforce ${coreValueTitle(neglectedValue)} with one focused action now.';
+  // Decision rules live in the domain layer; this provider supplies the
+  // already-derived signals and counts and maps the result to the view model.
+  final SiDecisionDraft draft = ref
+      .read(assembleSiDecisionOutputUseCaseProvider)
+      .call(
+        friction: aggregation.planningEvidence.friction,
+        overwhelm: aggregation.planningEvidence.overwhelm,
+        goalDrift: aggregation.planningEvidence.goalDrift,
+        taskAvoidance: aggregation.planningEvidence.taskAvoidance,
+        emotionalStrain: aggregation.planningEvidence.emotionalStrain,
+        emotionalStability: aggregation.planningEvidence.emotionalStability,
+        emotion: aggregation.planningEvidence.emotion,
+        timelineHealthScore: timelineHealthScore,
+        timelineRiskScore: timelineRiskScore,
+        timelineOverdueCount: timelineOverdueCount,
+        timelineUpcomingCount: timelineUpcomingCount,
+        timelineRiskEventsCount: timelineRiskEventsCount,
+        timelineRecommendationCount: timelineRecommendationCount,
+        nextTaskTitle: rankedTaskTitle,
+        firstTaskTitle: aggregation.tasks.isEmpty
+            ? null
+            : aggregation.tasks.first.title,
+        taskCount: aggregation.tasks.length,
+        planPreviewIsEmpty: aggregation.planPreview.isEmpty,
+        hasMemories: aggregation.memories.isNotEmpty,
+        memoryHint: _buildMemoryHint(aggregation.memories),
+        streak: aggregation.profile.streak,
+        activeHabitCount: aggregation.activeHabitCount,
+      );
 
   return SIDecisionOutput(
-    nextAction: nextAction,
-    coachMessage: coachMessage,
-    suggestedPlanAdjustments: planAdjustments,
-    insightPrompts: insightPrompts,
-    progressionFeedback: progressionFeedback,
-    warnings: warnings,
+    nextAction: draft.nextAction,
+    plannerMessage: draft.plannerMessage,
+    suggestedPlanAdjustments: draft.suggestedPlanAdjustments,
+    signalPrompts: draft.signalPrompts,
+    progressionFeedback: draft.progressionFeedback,
+    warnings: draft.warnings,
   );
 });
 
-final smartCoachScreenModelProvider = FutureProvider<SmartCoachScreenModel>((
-  Ref ref,
-) async {
-  final SIStateAggregation aggregation = await ref.watch(
-    siStateAggregationProvider.future,
-  );
-
-  final SIDecisionOutput decision = await ref.watch(
-    siDecisionOutputProvider.future,
-  );
-
-  return SmartCoachScreenModel(aggregation: aggregation, decision: decision);
-});
+final smartPlannerScreenModelProvider = FutureProvider<SmartPlannerScreenModel>(
+  (Ref ref) async {
+    final SIStateAggregation aggregation = await ref.watch(
+      siStateAggregationProvider.future,
+    );
+    final SIDecisionOutput decision = await ref.watch(
+      siDecisionOutputProvider.future,
+    );
+    return SmartPlannerScreenModel(
+      aggregation: aggregation,
+      decision: decision,
+    );
+  },
+);
 
 final nexusScreenModelProvider = FutureProvider<NexusScreenModel>((
   Ref ref,
@@ -355,11 +263,9 @@ final nexusScreenModelProvider = FutureProvider<NexusScreenModel>((
   final SIStateAggregation aggregation = await ref.watch(
     siStateAggregationProvider.future,
   );
-
   final SIDecisionOutput decision = await ref.watch(
     siDecisionOutputProvider.future,
   );
-
   return NexusScreenModel(aggregation: aggregation, decision: decision);
 });
 
@@ -369,100 +275,30 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
   final SIStateAggregation aggregation = await ref.watch(
     siStateAggregationProvider.future,
   );
-
   final SIDecisionOutput decision = await ref.watch(
     siDecisionOutputProvider.future,
   );
-
-  final CoreValuesAlignment coreValues = aggregation.coreValues;
-  final SoulMapAlignment soulMap = aggregation.soulMap;
-  final intelligence = ref.watch(intelligenceStateProvider);
-  final latestSnapshot = ref.watch(latestSiSnapshotProvider);
-  final AppIntegrationSnapshot integrationSnapshot = await ref
-      .watch(appIntegrationActionsProvider)
-      .fetchIntegrationSnapshot();
-  final Object? state = await ref.watch(siEngineStateProvider.future);
-
-  final List<String> chunks = <String>[
-    intelligence.environment.appFlavor.toUpperCase(),
-  ];
-
-  if (state == null) {
-    if (latestSnapshot != null) {
-      chunks.add('MEM ${latestSnapshot.completed}/${latestSnapshot.skipped}');
-    }
-  }
-
-  if (state is Map<String, dynamic>) {
-    final String personality = state['personality']?.toString() ?? '';
-    final String emotion = state['emotion']?.toString() ?? '';
-    final String confidence = state['confidence'] is num
-        ? '${((state['confidence'] as num) * 100).round()}%'
-        : '';
-
-    chunks.addAll(<String>[
-      if (personality.isNotEmpty) personality,
-      if (emotion.isNotEmpty) emotion,
-      if (confidence.isNotEmpty) confidence,
-      if (latestSnapshot != null)
-        'MEM ${latestSnapshot.completed}/${latestSnapshot.skipped}',
-    ]);
-  }
-
-  final String engineSnapshot = chunks.join(' · ').toUpperCase();
-  final String integrationSurfaceSnapshot = buildIntegrationSurfaceSnapshot(
-    integrationSnapshot,
-  );
-
-  final String valuesSnapshot =
-      'VALUES ${coreValues.overall}% · LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
-
-  final String soulMapSnapshot =
-      'SOULMAP ${soulMap.overall}% · LOW ${soulMapDimensionTitle(soulMap.weakest).toUpperCase()} ${soulMap.scores[soulMap.weakest]?.score ?? 0}%';
+  final String engineSnapshot =
+      'Sources available: tasks ${aggregation.tasks.length}, goals ${aggregation.goals.length}, Timeline ${aggregation.timeline.length}, memories ${aggregation.memories.length}';
 
   return SIConsoleScreenModel(
     aggregation: aggregation,
     decision: decision,
-    engineSnapshot: '$engineSnapshot · $valuesSnapshot · $soulMapSnapshot',
-    integrationSnapshot: integrationSurfaceSnapshot,
+    engineSnapshot: engineSnapshot,
   );
 });
-
-String buildIntegrationSurfaceSnapshot(AppIntegrationSnapshot snapshot) {
-  final String userTag = snapshot.currentUserId == null
-      ? 'ANON'
-      : 'USER ${_shortUserId(snapshot.currentUserId!)}';
-  final String syncTag = snapshot.syncErrorMessage == null
-      ? 'SYNC OK'
-      : 'SYNC WARN';
-  final String stackTag = snapshot.monetizationStatus.stackType.name
-      .toUpperCase();
-
-  return '$userTag · SUPABASE ${snapshot.supabaseHealth.badgeLabel.toUpperCase()} · $syncTag · Q ${snapshot.offlineQueueCount} · MONO $stackTag';
-}
-
-String _shortUserId(String userId) {
-  if (userId.length <= 6) {
-    return userId;
-  }
-  return userId.substring(0, 6);
-}
 
 String _buildMemoryHint(List<MemoryEntity> memories) {
   if (memories.isEmpty) {
     return 'Memory context is still light, capture one preference or reflection today.';
   }
-
   final MemoryEntity first = memories.first;
   final String text = first.text.trim();
-
   if (text.isEmpty) {
     return 'Recent memory context is available for personalization.';
   }
-
   final String trimmed = text.length <= 80
       ? text
       : '${text.substring(0, 79)}...';
-
   return 'Recall: "$trimmed"';
 }

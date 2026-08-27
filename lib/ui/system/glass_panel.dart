@@ -25,7 +25,7 @@ class GlassPanel extends StatelessWidget {
         padding: padding,
         decoration: BoxDecoration(
           image: const DecorationImage(
-            image: AssetImage(AppAssets.bgHome),
+            image: AssetImage(AppAssets.bgHomeOrbit),
             fit: BoxFit.cover,
           ),
           color: const Color(0x1A000000),

@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="com.android.vending.BILLING"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Optional foreground location for user-requested local context only. No background tracking. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <!-- Optional voice-to-text for coaching and the SI console; requested only after user action. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
@@ -26,12 +29,6 @@
         android:fullBackupContent="false"
         android:usesCleartextTraffic="false"
         android:enableOnBackInvokedCallback="true">
-        <meta-data
-            android:name="firebase_analytics_collection_enabled"
-            android:value="false" />
-        <meta-data
-            android:name="firebase_crashlytics_collection_enabled"
-            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -53,19 +50,6 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="https"
-                    android:host="ghostheart5.github.io"
-                    android:path="/fantastic-guacamole/app" />
-                <data
-                    android:scheme="https"
-                    android:host="ghostheart5.github.io"
-                    android:pathPrefix="/fantastic-guacamole/app/" />
-            </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -73,11 +57,16 @@
                 <data
                     android:scheme="https"
                     android:host="chronospark.app"
-                    android:path="/app" />
+                    android:pathPrefix="/app" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="chronospark.app"
-                    android:pathPrefix="/app/" />
+                    android:host="www.chronospark.app"
+                    android:pathPrefix="/app" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

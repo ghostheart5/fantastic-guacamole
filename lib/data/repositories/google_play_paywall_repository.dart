@@ -6,7 +6,6 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
-import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
@@ -23,6 +22,19 @@ const Map<String, String> _kProductIds = <String, String>{
   'annual': 'chronospark_premium_annual',
 };
 const String _kPrefsKey = 'paywall_subscription_state_v1';
+
+/// Local validity window per plan.
+///
+/// The renewal date gates local re-entitlement on launch, so an annual
+/// subscriber given a 30-day window would be locked out ~11 months early.
+const Duration _kMonthlyPeriod = Duration(days: 30);
+const Duration _kAnnualPeriod = Duration(days: 365);
+
+DateTime _renewalDateFor(String? planId) {
+  return DateTime.now().add(
+    planId == 'annual' ? _kAnnualPeriod : _kMonthlyPeriod,
+  );
+}
 
 abstract class BillingClient {
   Stream<List<PurchaseDetails>> get purchaseStream;
@@ -101,7 +113,6 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
     status: 'locked',
     source: 'google_play',
   );
-  static const Duration _verificationGrace = Duration(hours: 6);
 
   final Map<String, Completer<SubscriptionState>> _pending =
       <String, Completer<SubscriptionState>>{};
@@ -116,12 +127,12 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       title: 'Premium Monthly',
       priceLabel: 'from \$9.99 / month',
       description:
-          'Best for active users who want full smart planning and recurring credits.',
+          'Best for active users who want full Smart Planner guidance and recurring credits.',
       aiCreditsIncluded: 300,
       benefits: <String>[
         '300 smart guidance credits every month',
         'Priority smart suggestions',
-        'Advanced memory and insights',
+        'Advanced memory and signals',
       ],
       isFeatured: true,
     ),
@@ -278,8 +289,8 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
           ? 'Premium gates are bypassed in this build.'
           : (billingReady
                 ? (Env.isAiProxyConfigured
-                      ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
-                      : 'Unlock smart credits, premium coaching, deeper memory, and advanced tools.')
+                      ? 'Unlock AI credits, premium planning guidance, deeper memory, and advanced tools.'
+                      : 'Unlock smart credits, premium planning guidance, deeper memory, and advanced tools.')
                 : 'Purchases are temporarily unavailable while billing verification is being finalized.'),
       plans: await getAvailablePlans(),
       isUnlocked: _paywallTestingMode || _state.isActive,
@@ -314,7 +325,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         status: 'unlocked_for_testing',
         source: 'testing_mode',
         planId: planId,
-        renewalDate: DateTime.now().add(const Duration(days: 30)),
+        renewalDate: _renewalDateFor(planId),
         isTesting: true,
       );
       return _state;
@@ -378,7 +389,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         status: 'unlocked_for_testing',
         source: 'testing_mode',
         planId: _state.planId ?? 'annual',
-        renewalDate: DateTime.now().add(const Duration(days: 30)),
+        renewalDate: _renewalDateFor(_state.planId ?? 'annual'),
         isTesting: true,
       );
       return _state;
@@ -434,30 +445,18 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
                 : 'active',
             source: 'google_play',
             planId: planId,
-            renewalDate: DateTime.now().add(const Duration(days: 30)),
+            renewalDate: _renewalDateFor(planId),
           );
           await _persistState();
           _pending[purchase.productID]?.complete(_state);
           _pending['__restore__']?.complete(_state);
         } else {
-          final String planId = _kProductIds.entries
-              .firstWhere(
-                (MapEntry<String, String> entry) =>
-                    entry.value == purchase.productID,
-                orElse: () => const MapEntry<String, String>('monthly', ''),
-              )
-              .key;
-          final SubscriptionState failed = SubscriptionState(
-            isActive: true,
-            status: 'pending_verification',
-            source: 'google_play_grace',
-            planId: planId,
-            renewalDate: DateTime.now().add(_verificationGrace),
+          const SubscriptionState failed = SubscriptionState(
+            isActive: false,
+            status: 'verification_failed',
+            source: 'google_play',
           );
-          _state = failed;
-          await _persistState();
-          _pending[purchase.productID]?.complete(_state);
-          _pending['__restore__']?.complete(_state);
+          _pending[purchase.productID]?.complete(failed);
         }
         _pending.remove(purchase.productID);
         _pending.remove('__restore__');
@@ -558,24 +557,19 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       }
       if (prefs.containsKey(_kPrefsKey)) {
         await _secureStore.writeString(_kPrefsKey, raw);
-        await SharedPrefsService.deleteWithPrefs(prefs, _kPrefsKey);
+        await prefs.remove(_kPrefsKey);
       }
       final Map<String, dynamic> map = jsonDecode(raw) as Map<String, dynamic>;
       final DateTime? renewal = map['renewalDate'] != null
           ? DateTime.tryParse(map['renewalDate'] as String)
           : null;
-      final String status = map['status'] as String? ?? 'locked';
       final bool isActive =
           map['isActive'] == true &&
           (renewal == null || renewal.isAfter(DateTime.now()));
       _state = SubscriptionState(
         isActive: isActive,
-        status: status,
-        source:
-            (map['source'] as String?) ??
-            (status == 'pending_verification'
-                ? 'google_play_grace'
-                : 'google_play'),
+        status: map['status'] as String? ?? 'locked',
+        source: 'google_play',
         planId: map['planId'] as String?,
         renewalDate: renewal,
       );
@@ -589,7 +583,6 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       final String encoded = jsonEncode(<String, dynamic>{
         'isActive': _state.isActive,
         'status': _state.status,
-        'source': _state.source,
         'planId': _state.planId,
         'renewalDate': _state.renewalDate?.toIso8601String(),
       });
@@ -601,11 +594,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
           return;
         }
         final SharedPreferences prefs = await _sharedPreferencesLoader();
-        await SharedPrefsService.saveStringWithPrefs(
-          prefs,
-          _kPrefsKey,
-          encoded,
-        );
+        await prefs.setString(_kPrefsKey, encoded);
         return;
       }
       await _secureStore.writeString(_kPrefsKey, encoded);

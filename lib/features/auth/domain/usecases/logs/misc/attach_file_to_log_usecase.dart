@@ -1,3 +1,0 @@
-class AttachFileToLogUsecase {
-  const AttachFileToLogUsecase();
-}

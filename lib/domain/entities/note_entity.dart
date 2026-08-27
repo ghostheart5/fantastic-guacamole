@@ -55,5 +55,21 @@ class NoteEntity {
     );
   }
 
-  NoteEntity copyWith({String? title, String? body, bool? isArchived, DateTime? updatedAt}) => NoteEntity(id: id, title: title ?? this.title, body: body ?? this.body, createdAt: createdAt, updatedAt: updatedAt ?? this.updatedAt, userId: userId, isArchived: isArchived ?? this.isArchived, goalId: goalId, taskId: taskId, habitId: habitId);
+  NoteEntity copyWith({
+    String? title,
+    String? body,
+    bool? isArchived,
+    DateTime? updatedAt,
+  }) => NoteEntity(
+    id: id,
+    title: title ?? this.title,
+    body: body ?? this.body,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    userId: userId,
+    isArchived: isArchived ?? this.isArchived,
+    goalId: goalId,
+    taskId: taskId,
+    habitId: habitId,
+  );
 }

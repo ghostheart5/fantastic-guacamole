@@ -1,3 +1,0 @@
-class AddEmotionNoteUsecase {
-  const AddEmotionNoteUsecase();
-}

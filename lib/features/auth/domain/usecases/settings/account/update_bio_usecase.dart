@@ -1,3 +1,0 @@
-class UpdateBioUsecase {
-  const UpdateBioUsecase();
-}

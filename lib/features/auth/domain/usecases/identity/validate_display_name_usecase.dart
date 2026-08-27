@@ -1,3 +1,0 @@
-class ValidateDisplayNameUsecase {
-  const ValidateDisplayNameUsecase();
-}

@@ -1,3 +1,0 @@
-﻿class LinkEmotionToSoulMapUsecase {
-  const LinkEmotionToSoulMapUsecase();
-}

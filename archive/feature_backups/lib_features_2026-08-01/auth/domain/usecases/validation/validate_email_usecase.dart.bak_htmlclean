@@ -1,3 +1,0 @@
-﻿class ValidateEmailUsecase {
-  const ValidateEmailUsecase();
-}

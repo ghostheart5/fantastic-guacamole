@@ -1,3 +1,0 @@
-class GrantAiCreditsUsecase {
-  const GrantAiCreditsUsecase();
-}

@@ -3,6 +3,9 @@ import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
+///
+/// Resolved by taskActionsProvider. Gated by TaskPolicy.isValid.
 class CreateTask {
   CreateTask(this.repo, {this.generateSiDecision});
 

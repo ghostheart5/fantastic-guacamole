@@ -23,7 +23,7 @@ class PermissionExplainers {
   static const PermissionExplainer notification = PermissionExplainer(
     title: 'Enable Notifications',
     whyItMatters:
-        'Notifications help you keep momentum by surfacing reflection and focus reminders at the right time.',
+        'Notifications help you keep momentum by surfacing reflection and execution reminders at the right time.',
     whenUsed:
         'Used only for reminders you configure in app settings. You can disable them any time.',
     primaryActionLabel: 'Allow Notifications',
@@ -32,7 +32,7 @@ class PermissionExplainers {
   static const PermissionExplainer voice = PermissionExplainer(
     title: 'Enable Voice Access',
     whyItMatters:
-        'Voice input and spoken responses let you capture thoughts hands-free in coaching and the SI console.',
+        'Voice input and spoken responses let you capture thoughts hands-free in Smart Planner and the SI Console.',
     whenUsed:
         'Used only when you tap a microphone or voice playback control. Audio is never captured during normal planning or background use.',
     primaryActionLabel: 'Allow Microphone',

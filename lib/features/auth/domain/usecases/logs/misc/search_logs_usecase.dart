@@ -1,3 +1,0 @@
-class SearchLogsUsecase {
-  const SearchLogsUsecase();
-}

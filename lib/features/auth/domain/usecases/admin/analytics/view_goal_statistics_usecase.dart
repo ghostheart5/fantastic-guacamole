@@ -1,3 +1,0 @@
-class ViewGoalStatisticsUsecase {
-  const ViewGoalStatisticsUsecase();
-}

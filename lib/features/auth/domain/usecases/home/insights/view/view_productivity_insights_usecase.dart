@@ -1,3 +1,0 @@
-class ViewProductivityInsightsUsecase {
-  const ViewProductivityInsightsUsecase();
-}

@@ -12,14 +12,12 @@ class StorageMigration {
   }
 
   static Future<void> _runInternal() async {
-    final Box<dynamic> box = Hive.isBoxOpen(StorageKeys.settings)
-        ? Hive.box<dynamic>(StorageKeys.settings)
-        : await Hive.openBox<dynamic>(StorageKeys.settings);
+    final box = await Hive.openBox<dynamic>(StorageKeys.settings);
 
     final Object? rawVersion = box.get(StorageKeys.storageVersion);
     final int currentVersion = _safeVersion(rawVersion);
 
-    Logger.log('StorageMigration', 'Current version â†’ $currentVersion');
+    Logger.log('StorageMigration', 'Current version → $currentVersion');
 
     if (currentVersion > latestVersion) {
       Logger.warn(
@@ -42,38 +40,25 @@ class StorageMigration {
   }
 
   static int _safeVersion(Object? value) {
-    if (value is int) {
-      return value;
-    }
-
-    if (value is num) {
-      return value.toInt();
-    }
-
+    if (value is int) return value;
+    if (value is num) return value.toInt();
     if (value is String) {
       return int.tryParse(value.trim()) ?? 0;
     }
-
     return 0;
   }
 
   static Future<void> _migrateV1() async {
     Logger.log('StorageMigration', 'V1: Initializing storage');
-
-    final Box<dynamic> themeBox = Hive.isBoxOpen(StorageKeys.theme)
-        ? Hive.box<dynamic>(StorageKeys.theme)
-        : await Hive.openBox<dynamic>(StorageKeys.theme);
-
+    final themeBox = await Hive.openBox<dynamic>(StorageKeys.theme);
     await themeBox.put('current_theme', 'default');
   }
 
   static Future<void> _migrateV2() async {
     Logger.log('StorageMigration', 'V2: Cleaning old notification data');
-
-    final Box<dynamic> notifBox = Hive.isBoxOpen(StorageKeys.notifications)
-        ? Hive.box<dynamic>(StorageKeys.notifications)
-        : await Hive.openBox<dynamic>(StorageKeys.notifications);
-
+    final Box<String> notifBox = Hive.isBoxOpen(StorageKeys.notifications)
+        ? Hive.box<String>(StorageKeys.notifications)
+        : await Hive.openBox<String>(StorageKeys.notifications);
     await notifBox.clear();
   }
 }

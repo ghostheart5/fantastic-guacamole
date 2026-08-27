@@ -12,7 +12,7 @@ class TestDataGenerator {
     'Write morning pages',
     'Deep work: system design',
     'Read 30 minutes',
-    'Weekly review session',
+    'Weekly review block',
     'Draft project proposal',
     'Meditate for 10 minutes',
     'Plan next sprint tasks',
@@ -27,7 +27,7 @@ class TestDataGenerator {
     'Learn new framework feature',
     'Create mind map for goals',
     'Refactor legacy module',
-    'Capture ideas in journal',
+    'Capture ideas in a reflection',
   ];
 
   static Future<void> generate(WidgetRef ref, BuildContext context) async {
@@ -35,7 +35,9 @@ class TestDataGenerator {
 
     try {
       // Seed profile XP (addXP also triggers streak logic for today)
-      ref.read(profileProvider.notifier).addXP(2400);
+      await ref
+          .read(profileProvider.notifier)
+          .awardXP(2400, source: 'test_seed');
 
       // Boost energy to 75% via SI state
       final si = ref.read(siStateProvider);
@@ -67,7 +69,7 @@ class TestDataGenerator {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Test data generated: 20 tasks | XP +2400 | energy 75%',
+              'Test data generated: 20 tasks · XP +2400 · energy 75%',
             ),
             duration: Duration(seconds: 3),
           ),

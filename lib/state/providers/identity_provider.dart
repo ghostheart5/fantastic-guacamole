@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/identity_profile_entity.dart';
 import 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -9,43 +10,51 @@ final identityStateProvider = NotifierProvider<IdentityNotifier, IdentityState>(
 
 class IdentityNotifier extends Notifier<IdentityState> {
   static const _engine = IdentityEngine();
-  bool _hydrateScheduled = false;
+  Future<void>? _hydration;
 
   @override
   IdentityState build() {
-    if (!_hydrateScheduled) {
-      _hydrateScheduled = true;
-      Future<void>.microtask(_hydrate);
-    }
+    _hydration ??= Future<void>.microtask(_hydrate);
     return const IdentityState(
       disciplineIdentity: 0.1,
-      focusIdentity: 0.1,
+      executionIdentity: 0.1,
       growthIdentity: 0.1,
     );
   }
 
   Future<void> _hydrate() async {
-    final IdentityProfileEntity? profile = await ref
-        .read(getIdentityProfileUseCaseProvider)
-        .call();
-    if (profile == null) {
-      return;
+    try {
+      final IdentityProfileEntity? profile = await ref
+          .read(getIdentityProfileUseCaseProvider)
+          .call();
+      if (profile == null || !ref.mounted) {
+        return;
+      }
+      state = IdentityState(
+        disciplineIdentity: profile.disciplineIdentity,
+        executionIdentity: profile.executionIdentity,
+        growthIdentity: profile.growthIdentity,
+      );
+    } catch (error, stackTrace) {
+      Logger.errorCategory(
+        'IdentityHydration',
+        'Failed to restore the identity profile; keeping safe defaults.',
+        error,
+        stackTrace,
+      );
     }
-    state = IdentityState(
-      disciplineIdentity: profile.disciplineIdentity,
-      focusIdentity: profile.focusIdentity,
-      growthIdentity: profile.growthIdentity,
-    );
   }
 
-  Future<void> onFocusComplete({
-    required bool sessionCompleted,
+  Future<void> onExecutionComplete({
+    required bool completionRecorded,
     required bool taskCompleted,
     required bool streakMaintained,
   }) async {
+    await (_hydration ??= Future<void>.microtask(_hydrate));
+    if (!ref.mounted) return;
     state = _engine.update(
       current: state,
-      sessionCompleted: sessionCompleted,
+      completionRecorded: completionRecorded,
       taskCompleted: taskCompleted,
       streakMaintained: streakMaintained,
     );
@@ -55,11 +64,13 @@ class IdentityNotifier extends Notifier<IdentityState> {
   String get reinforcementMessage => _engine.reinforceIdentity(state, '');
 
   String get archetype {
-    if (state.disciplineIdentity >= state.focusIdentity &&
+    if (state.disciplineIdentity >= state.executionIdentity &&
         state.disciplineIdentity >= state.growthIdentity) {
       return 'The Executor';
     }
-    if (state.focusIdentity >= state.growthIdentity) return 'The Strategist';
+    if (state.executionIdentity >= state.growthIdentity) {
+      return 'The Strategist';
+    }
     return 'The Seeker';
   }
 
@@ -69,7 +80,7 @@ class IdentityNotifier extends Notifier<IdentityState> {
         .call(
           IdentityProfileEntity(
             disciplineIdentity: state.disciplineIdentity,
-            focusIdentity: state.focusIdentity,
+            executionIdentity: state.executionIdentity,
             growthIdentity: state.growthIdentity,
           ),
         );

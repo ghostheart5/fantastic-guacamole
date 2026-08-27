@@ -1,3 +1,0 @@
-class SetPushPreferencesUsecase {
-  const SetPushPreferencesUsecase();
-}

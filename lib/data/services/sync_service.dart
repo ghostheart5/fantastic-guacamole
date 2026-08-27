@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/core/network/retry_executor.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
+import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 abstract class CloudBackupGateway {
@@ -66,17 +66,16 @@ class UnavailableCloudBackupGateway implements CloudBackupGateway {
 class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   SupabaseStorageCloudBackupGateway({
     required this._client,
-    required this._userId,
+    required this.expectedUserId,
     this.bucket = _defaultBucket,
   });
 
   static const String _defaultBucket = 'chronospark-sync';
   static const String _backupObject = 'backup/full_backup.json';
   static const String _tasksObject = 'backup/tasks_backup.json';
-  static const Duration _requestTimeout = Duration(seconds: 15);
 
   final sb.SupabaseClient _client;
-  final String _userId;
+  final String expectedUserId;
   final String bucket;
 
   @override
@@ -100,24 +99,14 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   }
 
   Future<Map<String, dynamic>> _downloadObject(String baseObjectPath) async {
+    if (!_hasExpectedUser) {
+      return const <String, dynamic>{};
+    }
     final String objectPath = _scopedPath(baseObjectPath);
     try {
-      final List<int> bytes = await runWithRetry<List<int>>(
-        maxAttempts: 3,
-        action: () {
-          return _client.storage
-              .from(bucket)
-              .download(objectPath)
-              .timeout(_requestTimeout);
-        },
-        retryIf: (Object error) {
-          if (error is sb.StorageException) {
-            final String code = (error.statusCode ?? '').toLowerCase();
-            return code.startsWith('5') || code.contains('429');
-          }
-          return true;
-        },
-      );
+      final List<int> bytes = await _client.storage
+          .from(bucket)
+          .download(objectPath);
       final Object? decoded = jsonDecode(utf8.decode(bytes));
       if (decoded is Map<String, dynamic>) {
         return decoded;
@@ -150,33 +139,23 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
     String baseObjectPath,
     Map<String, dynamic> payload,
   ) async {
+    if (!_hasExpectedUser) {
+      return false;
+    }
     final String objectPath = _scopedPath(baseObjectPath);
     try {
       final String json = jsonEncode(payload);
-      await runWithRetry<void>(
-        maxAttempts: 3,
-        action: () async {
-          await _client.storage
-              .from(bucket)
-              .uploadBinary(
-                objectPath,
-                utf8.encode(json),
-                fileOptions: const sb.FileOptions(
-                  cacheControl: '0',
-                  contentType: 'application/json',
-                  upsert: true,
-                ),
-              )
-              .timeout(_requestTimeout);
-        },
-        retryIf: (Object error) {
-          if (error is sb.StorageException) {
-            final String code = (error.statusCode ?? '').toLowerCase();
-            return code.startsWith('5') || code.contains('429');
-          }
-          return true;
-        },
-      );
+      await _client.storage
+          .from(bucket)
+          .uploadBinary(
+            objectPath,
+            utf8.encode(json),
+            fileOptions: const sb.FileOptions(
+              cacheControl: '0',
+              contentType: 'application/json',
+              upsert: true,
+            ),
+          );
       return true;
     } catch (error) {
       Logger.errorCategory(
@@ -189,75 +168,71 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   }
 
   String _scopedPath(String objectPath) {
-    return '$_userId/$objectPath';
+    return '$expectedUserId/$objectPath';
   }
+
+  bool get _hasExpectedUser =>
+      expectedUserId.isNotEmpty &&
+      _client.auth.currentUser?.id == expectedUserId;
 }
 
 class SyncService {
-  SyncService({required this.backup, required this.gateway});
+  SyncService({
+    required this.backup,
+    required this.gateway,
+    SecureStore? secureStore,
+  }) : _cipher = secureStore == null ? null : BackupCipher(secureStore);
 
   final BackupService backup;
   final CloudBackupGateway gateway;
+  final BackupCipher? _cipher;
 
-  Future<bool> syncToCloud({bool Function()? canContinue}) async {
-    if (canContinue?.call() == false) {
-      return false;
-    }
+  Future<bool> syncToCloud() async {
     final Map<String, dynamic> fullBackup = await backup.createFullBackup();
-    if (canContinue?.call() == false) {
-      return false;
-    }
-    return gateway.uploadBackup(fullBackup);
+    final Map<String, dynamic> protectedBackup = _cipher == null
+        ? fullBackup
+        : await _cipher.encryptPayload(fullBackup);
+    return gateway.uploadBackup(protectedBackup);
   }
 
-  Future<bool> restoreFromCloud({bool Function()? canContinue}) async {
-    if (canContinue?.call() == false) {
-      return false;
-    }
+  Future<bool> restoreFromCloud() async {
     final Map<String, dynamic> cloudData = await gateway.downloadBackup();
-    if (cloudData.isEmpty || canContinue?.call() == false) {
+    if (cloudData.isEmpty) {
       return false;
     }
-    await backup.restoreFullBackup(cloudData, canContinue: canContinue);
-    return canContinue?.call() != false;
+    final Map<String, dynamic> restored = _cipher == null
+        ? cloudData
+        : await _cipher.decryptPayload(cloudData);
+    await backup.restoreFullBackup(restored);
+    return true;
   }
 
-  Future<bool> syncDelta({bool Function()? canContinue}) async {
-    if (canContinue?.call() == false) {
-      return false;
-    }
-    if (Env.isProduction) {
-      Logger.warn(
-        'syncDelta is disabled in production pending full-domain merge hardening. Falling back to syncToCloud.',
-      );
-      return syncToCloud(canContinue: canContinue);
-    }
-
+  Future<bool> syncDelta() async {
     final Map<String, dynamic> localBackup = await backup.createFullBackup();
-    if (canContinue?.call() == false) {
-      return false;
-    }
-    final Map<String, dynamic> cloudBackup = await gateway.downloadBackup();
-    if (canContinue?.call() == false) {
-      return false;
-    }
+    final Map<String, dynamic> downloaded = await gateway.downloadBackup();
+    final Map<String, dynamic> cloudBackup = _cipher == null
+        ? downloaded
+        : await _cipher.decryptPayload(downloaded);
     if (cloudBackup.isEmpty) {
       return gateway.uploadBackup(localBackup);
     }
 
     final Map<String, dynamic> merged = _mergeBackups(localBackup, cloudBackup);
-    if (canContinue?.call() == false || !await gateway.uploadBackup(merged)) {
+    final Map<String, dynamic> protectedMerged = _cipher == null
+        ? merged
+        : await _cipher.encryptPayload(merged);
+    if (!await gateway.uploadBackup(protectedMerged)) {
       return false;
     }
-    if (canContinue?.call() == false) {
-      return false;
-    }
-    await backup.restoreFullBackup(merged, canContinue: canContinue);
-    return canContinue?.call() != false;
+    await backup.restoreFullBackup(merged);
+    return true;
   }
 
   Future<bool> syncTasksOnly() async {
-    return gateway.uploadTasks(await backup.backupTasks());
+    final Map<String, dynamic> tasks = await backup.backupTasks();
+    return gateway.uploadTasks(
+      _cipher == null ? tasks : await _cipher.encryptPayload(tasks),
+    );
   }
 
   Future<bool> restoreTasksOnly() async {
@@ -265,7 +240,9 @@ class SyncService {
     if (cloudTasks.isEmpty) {
       return false;
     }
-    await backup.restoreTasks(cloudTasks);
+    await backup.restoreTasks(
+      _cipher == null ? cloudTasks : await _cipher.decryptPayload(cloudTasks),
+    );
     return true;
   }
 

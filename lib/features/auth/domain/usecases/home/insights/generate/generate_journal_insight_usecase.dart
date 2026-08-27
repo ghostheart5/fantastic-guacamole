@@ -1,3 +1,0 @@
-class GenerateJournalInsightUsecase {
-  const GenerateJournalInsightUsecase();
-}

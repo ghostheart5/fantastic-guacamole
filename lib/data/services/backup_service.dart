@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/local/task_entity_mapper.dart';
@@ -14,8 +14,6 @@ class BackupService {
     required this.profileStorage,
     required this.prefs,
     this.secureProfileStore,
-    this.secureProfileStateKey = _legacySecureProfileStateKey,
-    this.allowLegacyProfileFallback = true,
   });
 
   static const String _profileStateKey = 'profile_state';
@@ -24,9 +22,7 @@ class BackupService {
   final HiveStorage<String> profileStorage;
   final SharedPrefsStorage prefs;
   final SecureStore? secureProfileStore;
-  final String secureProfileStateKey;
-  final bool allowLegacyProfileFallback;
-  static const String _legacySecureProfileStateKey = 'profile_state_v2';
+  static const String _secureProfileStateKey = 'profile_state_v2';
 
   Future<Map<String, dynamic>> createFullBackup() async {
     final List<TaskEntity> tasks = await taskRepository.getAllTasks();
@@ -35,6 +31,7 @@ class BackupService {
 
     return <String, dynamic>{
       'version': '3.0.0',
+      'manifest': accountDataBackupManifest(),
       'timestamp': DateTime.now().toIso8601String(),
       'tasks': tasks.map(TaskEntityMapper.toJson).toList(),
       'profile': profile,
@@ -72,38 +69,41 @@ class BackupService {
     return jsonEncode(await backupTasks());
   }
 
-  Future<void> restoreFullBackup(
-    Map<String, dynamic> backup, {
-    bool Function()? canContinue,
-  }) async {
-    if (canContinue?.call() == false) {
-      return;
-    }
-    await restoreTasks(backup, canContinue: canContinue);
-    if (canContinue?.call() == false) {
-      return;
-    }
+  Future<void> restoreFullBackup(Map<String, dynamic> backup) async {
+    final String? previousProfile = await _readProfile();
+    final Map<String, dynamic> previousSettings = prefs.getJson('settings');
 
-    final Map<String, dynamic>? profile =
-        _asStringKeyMap(backup['profile']) ??
-        _profileFromLegacyUser(backup['user']);
-    if (profile != null) {
-      await _writeProfile(jsonEncode(profile));
-    }
-    if (canContinue?.call() == false) {
-      return;
-    }
+    try {
+      await restoreTasks(backup);
 
-    final Map<String, dynamic>? settings = _asStringKeyMap(backup['settings']);
-    if (settings != null) {
-      await prefs.setJson('settings', settings);
+      final Map<String, dynamic>? profile =
+          _asStringKeyMap(backup['profile']) ??
+          _profileFromLegacyUser(backup['user']);
+      if (profile != null) {
+        await _writeProfile(jsonEncode(profile));
+      }
+
+      final Map<String, dynamic>? settings = _asStringKeyMap(
+        backup['settings'],
+      );
+      if (settings != null) {
+        await prefs.setJson('settings', settings);
+      }
+    } on Object {
+      try {
+        if (previousProfile != null) {
+          await _writeProfile(previousProfile);
+        }
+        await prefs.setJson('settings', previousSettings);
+      } on Object {
+        // Preserve the restore failure. Callers already surface that local data
+        // may have changed if rollback itself cannot complete.
+      }
+      rethrow;
     }
   }
 
-  Future<void> restoreTasks(
-    Map<String, dynamic> backup, {
-    bool Function()? canContinue,
-  }) async {
+  Future<void> restoreTasks(Map<String, dynamic> backup) async {
     final List<TaskEntity>? restoredTasks = _taskEntitiesFromRaw(
       backup['tasks'],
     );
@@ -112,17 +112,30 @@ class BackupService {
     }
 
     final List<TaskEntity> existing = await taskRepository.getAllTasks();
-    for (final TaskEntity task in existing) {
-      if (canContinue?.call() == false) {
-        return;
+    try {
+      for (final TaskEntity task in existing) {
+        await taskRepository.deleteTask(task.id);
       }
-      await taskRepository.deleteTask(task.id);
-    }
-    for (final TaskEntity task in restoredTasks) {
-      if (canContinue?.call() == false) {
-        return;
+      for (final TaskEntity task in restoredTasks) {
+        await taskRepository.saveTask(task);
       }
-      await taskRepository.saveTask(task);
+    } on Object {
+      // The repository has no transaction boundary. Restore the pre-restore
+      // snapshot before surfacing the failure so a partial replacement does
+      // not masquerade as an unchanged local dataset.
+      try {
+        final List<TaskEntity> partial = await taskRepository.getAllTasks();
+        for (final TaskEntity task in partial) {
+          await taskRepository.deleteTask(task.id);
+        }
+        for (final TaskEntity task in existing) {
+          await taskRepository.saveTask(task);
+        }
+      } on Object {
+        // Preserve the original restore failure; callers report that local
+        // data may have changed if rollback itself cannot complete.
+      }
+      rethrow;
     }
   }
 
@@ -149,27 +162,22 @@ class BackupService {
       return null;
     }
     try {
-      final Map<String, dynamic>? profile = _asStringKeyMap(jsonDecode(raw));
-      if (profile == null) {
-        throw const FormatException('Profile storage is not an object.');
-      }
-      return profile;
-    } on Object catch (error) {
-      throw StorageException('Profile storage is corrupted: $error');
+      return _asStringKeyMap(jsonDecode(raw));
+    } on FormatException {
+      return null;
     }
   }
 
   Future<String?> _readProfile() async {
     final SecureStore? secure = secureProfileStore;
     if (secure != null) {
-      final String? secured = await secure.readString(secureProfileStateKey);
+      final String? secured = await secure.readString(_secureProfileStateKey);
       if (secured != null) return secured;
-      if (!allowLegacyProfileFallback) return null;
     }
     await profileStorage.open();
     final String? legacy = profileStorage.get(_profileStateKey);
     if (legacy != null && secure != null) {
-      await secure.writeString(secureProfileStateKey, legacy);
+      await secure.writeString(_secureProfileStateKey, legacy);
       await profileStorage.delete(_profileStateKey);
     }
     return legacy;
@@ -178,7 +186,7 @@ class BackupService {
   Future<void> _writeProfile(String value) async {
     final SecureStore? secure = secureProfileStore;
     if (secure != null) {
-      await secure.writeString(secureProfileStateKey, value);
+      await secure.writeString(_secureProfileStateKey, value);
       return;
     }
     await profileStorage.put(_profileStateKey, value);
@@ -202,21 +210,13 @@ class BackupService {
   }
 
   List<TaskEntity>? _taskEntitiesFromRaw(dynamic rawTasks) {
-    if (rawTasks == null) {
-      return null;
-    }
     if (rawTasks is! List) {
-      throw const StorageException('Backup tasks payload is not a list.');
+      return null;
     }
 
     final List<TaskEntity> tasks = <TaskEntity>[];
-    final List<String> rejectedRecordIds = <String>[];
-    for (final dynamic value in rawTasks) {
-      if (value is! Map) {
-        rejectedRecordIds.add('<non-object>');
-        continue;
-      }
-      final Map<dynamic, dynamic> item = value;
+    for (final Map<dynamic, dynamic> item
+        in rawTasks.whereType<Map<dynamic, dynamic>>()) {
       try {
         final TaskEntity task = TaskEntityMapper.fromJson(
           item.map(
@@ -225,17 +225,14 @@ class BackupService {
         );
         if (task.id.trim().isNotEmpty) {
           tasks.add(task);
-        } else {
-          rejectedRecordIds.add('<missing-id>');
         }
-      } on Object {
-        rejectedRecordIds.add(item['id']?.toString() ?? '<missing-id>');
+      } catch (_) {
+        // Ignore individual malformed legacy records when other records remain
+        // recoverable.
       }
     }
-    if (rejectedRecordIds.isNotEmpty) {
-      throw StorageException(
-        'Backup contains malformed task records: ${rejectedRecordIds.join(', ')}.',
-      );
+    if (rawTasks.isNotEmpty && tasks.isEmpty) {
+      throw const FormatException('Backup contains no valid task records.');
     }
     return tasks;
   }

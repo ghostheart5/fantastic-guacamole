@@ -1,3 +1,0 @@
-class UnlockAppUsecase {
-  const UnlockAppUsecase();
-}

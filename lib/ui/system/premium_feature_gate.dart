@@ -64,6 +64,6 @@ class PremiumFeatureGate extends StatelessWidget {
   }
 
   String _getDefaultSubtitle() {
-    return 'Unlock this module from Settings > Billing Center.';
+    return 'Unlock this module from Settings > Billing & Access.';
   }
 }

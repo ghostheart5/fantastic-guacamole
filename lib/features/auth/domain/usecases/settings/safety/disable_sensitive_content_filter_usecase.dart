@@ -1,3 +1,0 @@
-class DisableSensitiveContentFilterUsecase {
-  const DisableSensitiveContentFilterUsecase();
-}

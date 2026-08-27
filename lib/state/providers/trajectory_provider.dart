@@ -1,7 +1,8 @@
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
-import 'package:fantastic_guacamole/state/models/session_score_view.dart';
+import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,9 +12,9 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final energy = ref.watch(energyProvider);
   final learning = ref.watch(learningProvider);
   final learningMetrics = ref.watch(learningMetricsProvider);
-  final sessionScore = ref.watch(sessionScoreProvider);
+  final completionScore = ref.watch(completionScoreProvider);
   final siState = ref.watch(siStateProvider);
-  final execution = ref.watch(executionSignalsProvider);
+  final personalization = ref.watch(personalizationProfileProvider);
 
   final int pendingTasks = tasksAsync.maybeWhen(
     data: (tasks) => tasks.length,
@@ -22,30 +23,30 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final int completedTasks = learning.completed;
   final int completedToday = siState.completedToday;
 
-  final SessionScoreView? lastScore = sessionScore;
-  final int lastSessionXp = lastScore?.xp ?? 0;
-  final double lastSessionQuality = lastScore?.quality ?? 0.0;
+  final CompletionScoreView? lastScore = completionScore;
+  final int lastCompletionXp = lastScore?.xp ?? 0;
+  final double lastCompletionQuality = lastScore?.quality ?? 0.0;
 
-  final int deferralsToday = execution.skippedToday + execution.delayedToday;
   final int pressureIndex =
       ((pendingTasks * 16) +
               ((1 - energy) * 32) +
-              ((1 - learningMetrics.momentum) * 18) +
-              (deferralsToday * 6))
+              ((1 - learningMetrics.momentum) * 18))
           .clamp(0.0, 100.0)
           .round();
 
   final int behaviorDivergence =
-      ((learningMetrics.completionRate - learningMetrics.momentum).abs() * 100 +
-              ((1 - execution.completionStability7d) * 20))
+      ((learningMetrics.completionRate - learningMetrics.momentum).abs() * 100)
           .clamp(0.0, 100.0)
           .round();
 
-  final String alert = pressureIndex >= 70
-      ? 'SI ALERT: load is high, reduce task density and clear deferrals.'
+  final bool hasTaskData = tasksAsync is AsyncData;
+  final String alert = !hasTaskData
+      ? 'SI STATUS: trajectory data is temporarily unavailable.'
+      : pressureIndex >= 70
+      ? 'SI ALERT: load is high, reduce task density.'
       : pressureIndex >= 40
-      ? 'SI ALERT: trajectory is stable but watch drift and delayed items.'
-      : 'SI ALERT: trajectory is calm.';
+      ? 'SI ALERT: trajectory is stable but watch drift.'
+      : 'SI STATUS: current load signal is low.';
 
   final String? predictionTitle = tasksAsync.maybeWhen(
     data: (tasks) => tasks.isEmpty ? null : tasks.first.title,
@@ -56,6 +57,36 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
       : ref
             .watch(predictionProvider(predictionTitle))
             .maybeWhen(data: (value) => value, orElse: () => null);
+  final TrajectorySourceState sourceState = tasksAsync.hasError
+      ? TrajectorySourceState.error
+      : tasksAsync.isLoading
+      ? TrajectorySourceState.loading
+      : pendingTasks == 0 && completedTasks == 0
+      ? TrajectorySourceState.empty
+      : predictionTitle != null && prediction == null
+      ? TrajectorySourceState.partial
+      : TrajectorySourceState.ready;
+  final TrajectoryRiskBand riskBand = pressureIndex >= 85
+      ? TrajectoryRiskBand.critical
+      : pressureIndex >= 70
+      ? TrajectoryRiskBand.elevated
+      : pressureIndex >= 40
+      ? TrajectoryRiskBand.watch
+      : TrajectoryRiskBand.low;
+  final PredictiveConfidenceProfile? predictionConfidence = prediction == null
+      ? null
+      : PredictiveConfidenceProfile(
+          sourceCompleteness: prediction.sampleSize > 0 ? 1 : .35,
+          freshness: 1,
+          sampleSufficiency: (prediction.sampleSize / 10).clamp(0.0, 1.0),
+          intervalPrecision: prediction.safeConfidence,
+          calibration: prediction.sampleSize >= 10
+              ? PredictiveCalibrationState.monitored
+              : PredictiveCalibrationState.provisional,
+        );
+  final double? intervalMargin = prediction == null
+      ? null
+      : (.08 + ((1 - prediction.safeConfidence) * .22)).clamp(.08, .3);
 
   return TrajectorySummaryView(
     pendingTasks: pendingTasks,
@@ -66,14 +97,30 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
     energy: energy,
     momentum: learningMetrics.momentum,
     adaptability: learningMetrics.adaptability,
-    lastSessionXp: lastSessionXp,
-    lastSessionQuality: lastSessionQuality,
+    lastCompletionXp: lastCompletionXp,
+    lastCompletionQuality: lastCompletionQuality,
     pressureIndex: pressureIndex,
     behaviorDivergence: behaviorDivergence,
     alert: alert,
+    sourceState: sourceState,
+    riskBand: riskBand,
+    statusDetail: alert,
     predictionTitle: predictionTitle,
     predictionOutcome: prediction?.outcome,
     predictionProbability: prediction?.probability,
     predictionExplanation: prediction?.explanation,
+    predictionLowerBound: prediction == null
+        ? null
+        : (prediction.safeProbability - intervalMargin!).clamp(0.0, 1.0),
+    predictionUpperBound: prediction == null
+        ? null
+        : (prediction.safeProbability + intervalMargin!).clamp(0.0, 1.0),
+    predictionSampleSize: prediction?.sampleSize ?? 0,
+    predictionConfidence: predictionConfidence,
+    predictionModelVersion: prediction == null
+        ? null
+        : 'observed-follow-through-v1',
+    personalizationNote:
+        'Task ordering reflects the ${personalization.priorityStrategy.name} priority preference. Trajectory scenarios remain deterministic.',
   );
 });

@@ -1,3 +1,0 @@
-class TrackOnboardingStartedUsecase {
-  const TrackOnboardingStartedUsecase();
-}

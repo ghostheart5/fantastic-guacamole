@@ -1,3 +1,0 @@
-class ManageConsentPreferencesUsecase {
-  const ManageConsentPreferencesUsecase();
-}

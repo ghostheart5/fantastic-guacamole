@@ -1,3 +1,0 @@
-class ReopenTaskUsecase {
-  const ReopenTaskUsecase();
-}

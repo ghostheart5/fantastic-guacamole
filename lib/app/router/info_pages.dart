@@ -1,38 +1,13 @@
-import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
+import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
-class UnsupportedLinkPage extends StatelessWidget {
-  const UnsupportedLinkPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Link unavailable')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Text(
-                'This link is not supported by this version of ChronoSpark.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => context.go(RoutePaths.home),
-                child: const Text('Go to Home'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class SupportPage extends StatelessWidget {
   const SupportPage({super.key});
@@ -56,8 +31,7 @@ class SupportPage extends StatelessWidget {
             '1. Open Settings in the app\n'
             '2. Use diagnostics + logs to capture context\n'
             '3. Send your issue summary and what you expected to happen\n\n'
-            'Official support page: ${AppUrls.support}\n'
-            'If the page is unavailable, use the developer contact shown on the ChronoSpark Google Play listing.\n\n'
+            'Support address: support@chronospark.app\n\n'
             'Include these details for faster help:\n'
             '- Device + OS version\n'
             '- App version\n'
@@ -103,6 +77,24 @@ class SupportPage extends StatelessWidget {
                   );
                 },
           ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.22),
+              ),
+              color: theme.colorScheme.primary.withValues(alpha: 0.06),
+            ),
+            child: Text(
+              'Response targets\n'
+              '- Critical outage: same day\n'
+              '- Login and billing issues: within 24 hours\n'
+              '- General product support: 1-2 business days',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
         ],
       ),
     );
@@ -124,7 +116,7 @@ class AboutPage extends StatelessWidget {
           Text('ChronoSpark', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 8),
           Text(
-            'An adaptive planner built for focus, momentum, and reflective execution.',
+            'An adaptive planner built for clarity, momentum, and reflective execution.',
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 18),
@@ -136,7 +128,7 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Core Surfaces',
             body:
-                'Home for quick direction, Forecast for forward planning, Logs for recent activity, and Profile for identity and progression. Deeper features like Plan, Creator, Smart Planner, Flowmap, Goals, Memories, Soul Map, and Timeline expand capability when needed.',
+                'Nexus for decisions, Trajectory Engine for possible paths, Timeline for history, and Profile for identity and progression. Smart Planner, Creator, SI Console, and Progression add depth when needed.',
           ),
           const _Section(
             title: 'Guiding Principle',
@@ -146,14 +138,142 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Privacy and Support',
             body:
-                'Official privacy policy: ${AppUrls.privacy}. Terms: ${AppUrls.terms}. Support page: ${AppUrls.support}.',
+                'Official privacy policy: ${AppUrls.privacy}. Terms: ${AppUrls.terms}. Support page: ${AppUrls.support}. Support email: ${Env.supportEmail}.',
           ),
           const _Section(
             title: 'Voice Features',
             body:
-                'Microphone access powers optional voice-to-text in coaching and the SI console. Audio is used only after you start a voice action and remains off during normal planning flows.',
+                'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
           ),
         ],
+      ),
+    );
+  }
+}
+
+class RouteErrorPage extends StatefulWidget {
+  const RouteErrorPage({
+    required this.location,
+    required this.isAuthenticated,
+    required this.welcomeComplete,
+    required this.onboardingComplete,
+    this.error,
+    super.key,
+  });
+
+  final String location;
+  final bool isAuthenticated;
+  final bool welcomeComplete;
+  final bool onboardingComplete;
+  final Object? error;
+
+  @override
+  State<RouteErrorPage> createState() => _RouteErrorPageState();
+}
+
+class _RouteErrorPageState extends State<RouteErrorPage> {
+  @override
+  void initState() {
+    super.initState();
+    _recordRouterError();
+  }
+
+  void _recordRouterError() {
+    final String sanitizedPath = Logger.redactSensitive(
+      _safePath(widget.location),
+    );
+    final String errorType = widget.error?.runtimeType.toString() ?? 'unknown';
+
+    RuntimeDiagnostics.recordState(
+      'router',
+      message: 'Unresolved route',
+      data: <String, Object?>{
+        'routeClass': _routeDecision.accessClass.name,
+        'path': sanitizedPath,
+        'errorType': errorType,
+      },
+    );
+    Logger.errorCategory(
+      'Router',
+      'Unresolved route: $sanitizedPath (errorType: $errorType)',
+    );
+  }
+
+  RouteAccessDecision get _routeDecision =>
+      RouteAccessPolicy.classify(_safePath(widget.location));
+
+  String get _recoveryRoute {
+    final RouteAccessDecision decision = _routeDecision;
+    if (decision.allowsSignedOutAccess &&
+        decision.accessClass == RouteAccessClass.publicInformation) {
+      return RoutePaths.support;
+    }
+    if (!widget.welcomeComplete) {
+      return RoutePaths.onboarding;
+    }
+    if (decision.requiresAuthentication && !widget.isAuthenticated) {
+      return RoutePaths.login;
+    }
+    if (decision.requiresCompletedOnboarding && !widget.onboardingComplete) {
+      return RoutePaths.onboarding;
+    }
+    return RoutePaths.nexus;
+  }
+
+  ChronoSparkString get _recoveryLabel {
+    return switch (_recoveryRoute) {
+      RoutePaths.login => ChronoSparkString.routerErrorReturnLogin,
+      RoutePaths.onboarding => ChronoSparkString.routerErrorReturnOnboarding,
+      RoutePaths.support => ChronoSparkString.routerErrorReturnSupport,
+      _ => ChronoSparkString.routerErrorReturnNexus,
+    };
+  }
+
+  static String _safePath(String location) {
+    final Uri? parsed = Uri.tryParse(location);
+    final String path = parsed?.path ?? location;
+    return path.isEmpty ? RoutePaths.nexus : path;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final ThemeData theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.text(ChronoSparkString.routerErrorTitle)),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    l10n.text(ChronoSparkString.routerErrorTitle),
+                    style: theme.textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.text(ChronoSparkString.routerErrorBody),
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    onPressed: () => context.go(_recoveryRoute),
+                    icon: const Icon(Icons.arrow_forward),
+                    label: Text(l10n.text(_recoveryLabel)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -1,3 +1,0 @@
-﻿class CreatePostUsecase {
-  const CreatePostUsecase();
-}

@@ -1,3 +1,0 @@
-﻿class GenerateDailyLogSummaryUsecase {
-  const GenerateDailyLogSummaryUsecase();
-}

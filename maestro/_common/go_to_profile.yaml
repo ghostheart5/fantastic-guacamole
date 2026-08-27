@@ -1,7 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: ../_common/open_navigation_map.yaml
-- tapOn:
-    id: "nav-profile"
-- assertVisible:
-    id: "screen-profile"

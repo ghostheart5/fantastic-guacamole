@@ -1,3 +1,0 @@
-class CreateAiPromptUsecase {
-  const CreateAiPromptUsecase();
-}

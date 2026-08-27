@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 
 class UserProgress {
   const UserProgress({
@@ -6,21 +6,16 @@ class UserProgress {
     required this.level,
     required this.streak,
     required this.longestStreak,
-    this.legacyLevelFloor = 1,
   });
 
   final int xp;
   final int level;
   final int streak;
   final int longestStreak;
-  final int legacyLevelFloor;
 
-  ProgressionCalculation get _calculation => const ProgressionCalculator()
-      .calculate(xp: xp, legacyLevelFloor: legacyLevelFloor);
-  int get canonicalLevel => _calculation.effectiveLevel;
-  int get xpInLevel => _calculation.xpInPolicyLevel;
-  int get xpToNext => _calculation.xpToNextLevel;
-  double get levelProgress => _calculation.progressWithinLevel;
+  int get xpInLevel => xp - ProgressionPolicy.xpForLevel(level);
+  int get xpToNext => ProgressionPolicy.xpToNextLevel(xp);
+  double get levelProgress => ProgressionPolicy.levelProgressFraction(xp);
 
   String get levelTitle {
     if (level >= 8) return 'Deep Work Mode';
@@ -29,9 +24,12 @@ class UserProgress {
   }
 
   String get streakMessage {
-    if (streak >= 10) return 'Elite consistency achieved';
+    if (streak == 0 && longestStreak > 0) {
+      return 'Your history remains. Choose a gentle restart.';
+    }
+    if (streak >= 10) return 'A sustained rhythm is taking shape';
     if (streak >= 5) return 'Consistency is building momentum';
-    if (streak >= 2) return 'Keep the chain going';
-    return 'Start your streak today';
+    if (streak >= 2) return 'Your current rhythm is building';
+    return 'Begin with one manageable action';
   }
 }

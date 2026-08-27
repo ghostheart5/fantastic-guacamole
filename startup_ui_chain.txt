@@ -1,4 +1,0 @@
-C:\Users\keegan radetski\fantastic-guacamole\lib\features\creator\ui\creator_screen.dart:235: ref.invalidate(tasksProvider);
-C:\Users\keegan radetski\fantastic-guacamole\lib\features\creator\ui\widgets\creator_entry_lists.dart:12: final tasksAsync = ref.watch(tasksProvider);
-C:\Users\keegan radetski\fantastic-guacamole\lib\features\timeline\ui\timeline_screen.dart:114: final List<GoalEntity> goals = ref.watch(goalsProvider);
-C:\Users\keegan radetski\fantastic-guacamole\lib\features\timeline\ui\timeline_screen.dart:116: ref.watch(tasksProvider).asData?.value ?? const <Task>[];

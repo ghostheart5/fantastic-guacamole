@@ -1,3 +1,0 @@
-class SetAccessibilityProfileUsecase {
-  const SetAccessibilityProfileUsecase();
-}

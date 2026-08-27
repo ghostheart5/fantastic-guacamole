@@ -1,15 +1,20 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-/// LEGACY/STALE: GoalRepository persists versioned JSON and does not use this
-/// binary adapter. Do not register or use it without a versioned migration.
-@Deprecated('Legacy GoalEntity binary adapter; do not register for new data.')
+/// Hive adapter for the legacy typed goal box.
+///
+/// Completion state is stored as an optional trailing field. Reads remain
+/// backward-compatible with records written before completion state was added:
+/// old records have no remaining bytes and are treated as active.
 class GoalEntityAdapter extends TypeAdapter<GoalEntity> {
   @override
   final int typeId = 101;
 
   @override
   GoalEntity read(BinaryReader reader) {
+    final DateTime? completedAt = reader.availableBytes > 0
+        ? reader.read() as DateTime?
+        : null;
     return GoalEntity(
       id: reader.readString(),
       title: reader.readString(),
@@ -17,6 +22,7 @@ class GoalEntityAdapter extends TypeAdapter<GoalEntity> {
       description: reader.read() as String?,
       targetDate: reader.read() as DateTime?,
       colorHex: reader.readInt(),
+      completedAt: completedAt,
     );
   }
 
@@ -28,5 +34,6 @@ class GoalEntityAdapter extends TypeAdapter<GoalEntity> {
     writer.write(obj.description);
     writer.write(obj.targetDate);
     writer.writeInt(obj.colorHex);
+    writer.write(obj.completedAt);
   }
 }

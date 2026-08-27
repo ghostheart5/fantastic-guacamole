@@ -8,26 +8,22 @@ class TaskEntityMapper {
     final int? durationMs = (json['estimatedDurationMs'] as num?)?.toInt();
     final String? recurrenceName = json['recurrenceRule']?.toString();
     final String legacyStatus = json['status']?.toString() ?? '';
-    final DateTime? createdAt = _dateTimeFromJson(json['createdAt']);
-    if (createdAt == null) {
-      throw const FormatException(
-        'Task payload requires a valid createdAt timestamp.',
-      );
-    }
     final bool legacyCompleted =
         legacyStatus == 'completed' ||
         ((json['completionCount'] as num?)?.toInt() ?? 0) > 0;
     final String id = json['id']?.toString() ?? '';
+    final DateTime createdAt =
+        _dateTimeFromJson(json['createdAt']) ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
     final String? storedOccurrenceKey = json['occurrenceKey']?.toString();
 
     return TaskEntity(
       id: id,
       title: json['title']?.toString() ?? 'Untitled Task',
-      kind: json['kind']?.toString(),
       description: json['description']?.toString(),
       createdAt: createdAt,
+      updatedAt: _dateTimeFromJson(json['updatedAt']),
       isCompleted: json['isCompleted'] as bool? ?? legacyCompleted,
-      isSkipped: json['isSkipped'] as bool? ?? false,
       priority: (json['priority'] as num?)?.toInt() ?? 3,
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
       energyRequired: (json['energyRequired'] as num?)?.toInt() ?? 3,
@@ -35,6 +31,7 @@ class TaskEntityMapper {
           ? null
           : Duration(milliseconds: durationMs),
       completedAt: _dateTimeFromJson(json['completedAt']),
+      isSkipped: json['isSkipped'] as bool? ?? false,
       skippedAt: _dateTimeFromJson(json['skippedAt']),
       scheduledFor: _dateTimeFromJson(json['scheduledFor']),
       occurrenceKey: storedOccurrenceKey == null || storedOccurrenceKey.isEmpty
@@ -58,16 +55,16 @@ class TaskEntityMapper {
   static Map<String, dynamic> toJson(TaskEntity task) => <String, dynamic>{
     'id': task.id,
     'title': task.title,
-    'kind': task.kind,
     'description': task.description,
     'createdAt': task.createdAt.toIso8601String(),
+    'updatedAt': task.updatedAt?.toIso8601String(),
     'isCompleted': task.isCompleted,
-    'isSkipped': task.isSkipped,
     'priority': task.priority,
     'difficulty': task.difficulty,
     'energyRequired': task.energyRequired,
     'estimatedDurationMs': task.estimatedDuration?.inMilliseconds,
     'completedAt': task.completedAt?.toIso8601String(),
+    'isSkipped': task.isSkipped,
     'skippedAt': task.skippedAt?.toIso8601String(),
     'scheduledFor': task.scheduledFor?.toIso8601String(),
     'occurrenceKey': task.occurrenceKey,

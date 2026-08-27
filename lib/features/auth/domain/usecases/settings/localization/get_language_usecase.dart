@@ -1,3 +1,0 @@
-class GetLanguageUsecase {
-  const GetLanguageUsecase();
-}

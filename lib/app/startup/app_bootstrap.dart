@@ -1,7 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
 
 import 'package:fantastic_guacamole/app/app_root.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
@@ -12,51 +9,29 @@ import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart'
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/observers/riverpod_observer.dart';
-import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
-import 'package:fantastic_guacamole/data/models/auth_models.dart' show User;
 import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
-import 'package:fantastic_guacamole/firebase_options.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart'
-    show supabaseClientProvider;
-import 'package:fantastic_guacamole/state/providers/auth_provider.dart'
-    show authServiceProvider;
-import 'package:fantastic_guacamole/state/providers/auth_session_lifecycle_provider.dart'
-    show authSessionLifecycleProvider;
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
-import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/sensitive_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/data/storage/storage_migration.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show
-        OnboardingStatus,
-        buildOnboardingCanonicalStatePayload,
-        creatorFirstItemCreatedProvider,
-        creatorFirstItemCreatedStorageKey,
-        creatorFirstItemCreatedStorageKeyForUser,
-        onboardingCanonicalStateStorageKeyForUser,
-        timelineFirstActionCompletedProvider,
-        timelineFirstActionCompletedStorageKey,
-        timelineFirstActionCompletedStorageKeyForUser,
-        onboardingContentVersion,
         onboardingCompleteProvider,
-        onboardingStatusProvider,
         onboardingCompleteStorageKey,
-        onboardingCompleteStorageKeyForUser,
         onboardingContentVersionStorageKey,
-        onboardingContentVersionStorageKeyForUser,
-        resolveOnboardingStatus;
+        onboardingWelcomeCompleteProvider,
+        onboardingWelcomeCompleteStorageKey;
 import 'package:fantastic_guacamole/state/core/state_bootstrap.dart'
     show stateBootstrapProvider;
-import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
-    show authUserProvider;
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show identityServiceProvider;
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
-import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_boot.dart';
+import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -64,14 +39,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
-
-const bool _isTestBuild = bool.fromEnvironment('FLUTTER_TEST');
 
 class AppBootstrapper {
   const AppBootstrapper();
@@ -80,42 +51,20 @@ class AppBootstrapper {
     runZonedGuarded(() async {
       WidgetsFlutterBinding.ensureInitialized();
       await _loadDotEnv();
-      await _initializeFirebaseEarlyForCrashHooks();
-      FirebaseMessagingBootstrap.configureBackgroundHandler();
       _runApp();
     }, _handleUncaughtZoneError);
-  }
-
-  Future<void> _initializeFirebaseEarlyForCrashHooks() async {
-    if (Env.isMockMode || Env.maestroMode || Firebase.apps.isNotEmpty) {
-      return;
-    }
-
-    try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    } on Object catch (error) {
-      Logger.warn('Early Firebase init skipped before app bootstrap: $error');
-      RuntimeDiagnostics.record(
-        'Early Firebase init skipped before app bootstrap: $error',
-      );
-    }
   }
 
   void _runApp() {
     final config = AppConfig.fromEnv();
     final intelligence = const IntelligenceService().environmentOnly();
-
     Logger.enabled = config.verboseLogs;
-
     Logger.info(
       'Startup begin. Flavor=${config.flavor.value}, '
       'mockMode=${intelligence.flags.mockMode}, '
       'paywallDisabled=${intelligence.flags.paywallDisabled}, '
       'mockLogin=${intelligence.flags.mockLoginEnabled}.',
     );
-
     RuntimeDiagnostics.recordState(
       'startup.begin',
       message: 'startup initialized',
@@ -123,60 +72,68 @@ class AppBootstrapper {
     );
 
     FlutterError.onError = (errorDetails) {
-      FlutterError.presentError(errorDetails);
-
-      final String stack = (errorDetails.stack ?? StackTrace.current)
-          .toString();
-
-      debugPrint(
-        'FLUTTER_ERROR_MARKER >>> ${errorDetails.exceptionAsString()}',
+      final String exceptionText = Logger.redactSensitive(
+        errorDetails.exceptionAsString(),
       );
-      debugPrint(stack);
-      debugPrint('FLUTTER_ERROR_MARKER <<<');
-
+      final String stack = Logger.redactSensitive(
+        (errorDetails.stack ?? StackTrace.current).toString(),
+      );
+      if (kDebugMode || Env.enableVerboseLogs) {
+        debugPrint('FLUTTER_ERROR_MARKER >>> $exceptionText');
+        debugPrint(stack);
+        debugPrint('FLUTTER_ERROR_MARKER <<<');
+      }
       RuntimeDiagnostics.record(
         _formatGlobalErrorForDiagnostics(
           prefix: 'Flutter framework error',
-          error: errorDetails.exceptionAsString(),
+          error: exceptionText,
           stack: stack,
         ),
       );
-
       ErrorBoundary.reportGlobalError(
         errorDetails.exception,
         errorDetails.stack,
       );
-
       if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-        FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+        FirebaseCrashlytics.instance.recordError(
+          Exception(exceptionText),
+          errorDetails.stack,
+          reason: 'Flutter framework error',
+          fatal: true,
+        );
       }
     };
 
     PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-      debugPrint('PLATFORM_ERROR_MARKER >>> $error');
-      debugPrint(stack.toString());
-      debugPrint('PLATFORM_ERROR_MARKER <<<');
-
+      final String errorText = Logger.redactSensitive(error.toString());
+      final String stackText = Logger.redactSensitive(stack.toString());
+      if (kDebugMode || Env.enableVerboseLogs) {
+        debugPrint('PLATFORM_ERROR_MARKER >>> $errorText');
+        debugPrint(stackText);
+        debugPrint('PLATFORM_ERROR_MARKER <<<');
+      }
       RuntimeDiagnostics.record(
         _formatGlobalErrorForDiagnostics(
           prefix: 'Platform dispatcher uncaught error',
-          error: error,
-          stack: stack.toString(),
+          error: errorText,
+          stack: stackText,
         ),
       );
-
       ErrorBoundary.reportGlobalError(error, stack);
-
       if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        FirebaseCrashlytics.instance.recordError(
+          Exception(errorText),
+          stack,
+          reason: 'Platform dispatcher uncaught error',
+          fatal: true,
+        );
       }
-
       return true;
     };
 
     runApp(
       ProviderScope(
-        observers: <ProviderObserver>[AppObserver()],
+        observers: [AppObserver()],
         child: const StartupBootstrapGate(),
       ),
     );
@@ -186,7 +143,6 @@ class AppBootstrapper {
     FlutterError.presentError(
       FlutterErrorDetails(exception: error, stack: stack),
     );
-
     RuntimeDiagnostics.record(
       _formatGlobalErrorForDiagnostics(
         prefix: 'Uncaught zone error',
@@ -194,11 +150,13 @@ class AppBootstrapper {
         stack: stack.toString(),
       ),
     );
-
     ErrorBoundary.reportGlobalError(error, stack);
-
     if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      FirebaseCrashlytics.instance.recordError(
+        Exception('Uncaught zone error (${error.runtimeType})'),
+        null,
+        fatal: true,
+      );
     }
   }
 
@@ -206,8 +164,8 @@ class AppBootstrapper {
     try {
       await dotenv.load(fileName: '.env');
       Logger.info('Loaded local .env configuration.');
-    } on Object catch (error) {
-      Logger.info('No local .env loaded: $error');
+    } on Object {
+      Logger.info('No local .env loaded.');
     }
   }
 }
@@ -224,8 +182,10 @@ String _formatGlobalErrorForDiagnostics({
         orElse: () => '',
       )
       .trim();
-
-  return '$prefix: $error\n${appLine.isEmpty ? '' : 'app: $appLine\n'}$stack';
+  if (kDebugMode || Env.enableVerboseLogs) {
+    return '$prefix (${error.runtimeType})\n${appLine.isEmpty ? '' : 'app: $appLine\n'}$stack';
+  }
+  return '$prefix (${error.runtimeType})';
 }
 
 bool get _supportsCrashlytics =>
@@ -242,225 +202,111 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
       _StartupBootstrapGateState();
 }
 
-/// Owns the single app-lifetime feed from authentication changes into the
-/// already-serialized account lifecycle coordinator.
-class AuthSessionLifecycleActivation {
-  AuthSessionLifecycleActivation({
-    required this._initialize,
-    required this._synchronize,
-    required this._authStateChanges,
-  });
-
-  final Future<int> Function(User? user) _initialize;
-  final Future<int> Function(User? user) _synchronize;
-  final Stream<User?> _authStateChanges;
-
-  Future<void>? _activation;
-  StreamSubscription<User?>? _subscription;
-
-  bool get isActive => _subscription != null;
-
-  Future<void> activate(User? currentUser) {
-    return _activation ??= _activate(currentUser);
-  }
-
-  Future<void> _activate(User? currentUser) async {
-    await _initialize(currentUser);
-    _subscription = _authStateChanges.listen(
-      _synchronizeSafely,
-      onError: (Object error, StackTrace stackTrace) {
-        Logger.errorCategory(
-          'Auth Session',
-          'Authentication lifecycle stream failed.',
-          error,
-          stackTrace,
-        );
-      },
-    );
-  }
-
-  Future<void> _synchronizeSafely(User? user) async {
-    try {
-      await _synchronize(user);
-    } on Object catch (error, stackTrace) {
-      Logger.errorCategory(
-        'Auth Session',
-        'Authentication lifecycle synchronization failed.',
-        error,
-        stackTrace,
-      );
-    }
-  }
-
-  Future<void> dispose() async {
-    final StreamSubscription<User?>? subscription = _subscription;
-    _subscription = null;
-    if (subscription != null) {
-      await subscription.cancel();
-    }
-  }
-}
-
 class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   bool _ready = false;
-  bool _startupBlocked = false;
+  bool _productionReadinessBlocked = false;
   String? _startupError;
-  String? _lastAuthUserId;
-  bool _firstInteractiveFrameLogged = false;
-  AuthSessionLifecycleActivation? _authSessionLifecycleActivation;
 
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
-
       unawaited(_bootstrap());
     });
   }
 
   Future<void> _bootstrap() async {
-    debugPrint('CHRONOSPARK_BOOTSTRAP_START');
-
-    final StartupBootstrapResult result = await _initializeStartup(ref).timeout(
-      const Duration(seconds: 45),
-      onTimeout: () {
-        Logger.error('Startup bootstrap timed out before completion.');
-        RuntimeDiagnostics.record(
-          'Startup bootstrap timed out before completion.',
-        );
-
-        return const StartupBootstrapResult(
-          hasOnboarded: false,
-          hasCreatedFirstItem: false,
-          hasCompletedTimelineFirstAction: false,
-          onboardingResolved: false,
-          startupError:
-              'Startup bootstrap timed out. App started in degraded mode.',
-        );
-      },
+    // Last-resort guard. Every stage below catches its own failures, but if
+    // anything at all escapes (an Error subtype, a bug in a stage helper) the
+    // app must still leave the loading screen. Without this, an escaping
+    // throwable means `_ready` is never set and the user sits on a spinner
+    // forever with no crash report — strictly worse than crashing.
+    StartupBootstrapResult result = const StartupBootstrapResult(
+      hasOnboarded: false,
+      hasSeenWelcome: false,
+      startupError: null,
+      productionReadinessBlocked: false,
     );
-
-    debugPrint('CHRONOSPARK_INITIALIZE_STARTUP_DONE');
-
-    if (!mounted) {
-      return;
+    String fatalIssue = '';
+    try {
+      result = await _initializeStartup(ref).timeout(
+        const Duration(seconds: 45),
+        onTimeout: () {
+          Logger.error('Startup bootstrap timed out before completion.');
+          RuntimeDiagnostics.record(
+            'Startup bootstrap timed out before completion.',
+          );
+          return const StartupBootstrapResult(
+            hasOnboarded: false,
+            hasSeenWelcome: false,
+            startupError:
+                'Startup bootstrap timed out. App started in degraded mode.',
+            productionReadinessBlocked: false,
+          );
+        },
+      );
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory('Startup', 'Bootstrap failed', error, stackTrace);
+      RuntimeDiagnostics.record('Startup bootstrap failed: $error');
+      fatalIssue = 'Startup did not complete. App started in degraded mode.';
     }
 
-    ref.invalidate(supabaseClientProvider);
-    ref.invalidate(authServiceProvider);
-    ref.invalidate(authUserProvider);
-
-    final sb.SupabaseClient? refreshedSupabaseClient = ref.read(
-      supabaseClientProvider,
-    );
-    debugPrint(
-      'CHRONOSPARK_SUPABASE_PROVIDER_REFRESHED: clientReady=${refreshedSupabaseClient != null}',
-    );
-
-    await _activateAuthSessionLifecycle();
-
-    if (!mounted) {
-      return;
-    }
-
-    final String? stateBootstrapIssue = await _runStateBootstrapSafe(ref);
-
-    if (!mounted) {
-      return;
+    String? stateBootstrapIssue;
+    if (!result.productionReadinessBlocked) {
+      try {
+        await ref
+            .read(authSessionBoundaryCoordinatorProvider)
+            .initialize()
+            .timeout(const Duration(seconds: 8));
+        final boundary = ref.read(authSessionBoundaryProvider);
+        if (boundary.isStorageReady) {
+          stateBootstrapIssue = await _runStateBootstrapSafe(ref);
+        } else if (boundary.blockingIssue != null) {
+          stateBootstrapIssue = boundary.blockingIssue;
+        }
+      } on TimeoutException {
+        stateBootstrapIssue =
+            'Account storage verification timed out. Account data remains locked.';
+      } on Object catch (error, stackTrace) {
+        Logger.errorCategory(
+          'Startup',
+          'State bootstrap failed',
+          error,
+          stackTrace,
+        );
+        stateBootstrapIssue = 'State bootstrap failed.';
+      }
     }
 
     final String? startupError = _appendStartupIssue(
-      result.startupError,
+      _appendStartupIssue(result.startupError, fatalIssue),
       stateBootstrapIssue ?? '',
     );
-
-    final bool hasOnboarded = Env.maestroMode || result.hasOnboarded;
-    final bool hasCreatedFirstItem =
-        Env.maestroMode || result.hasCreatedFirstItem;
-    final bool hasCompletedTimelineFirstAction =
-        Env.maestroMode || result.hasCompletedTimelineFirstAction;
-
-    ref.read(onboardingCompleteProvider.notifier).set(hasOnboarded);
-    ref.read(creatorFirstItemCreatedProvider.notifier).set(hasCreatedFirstItem);
-    ref
-        .read(timelineFirstActionCompletedProvider.notifier)
-        .set(hasCompletedTimelineFirstAction);
-
-    final OnboardingStatus onboardingStatus = resolveOnboardingStatus(
-      isResolved: result.onboardingResolved,
-      isComplete: hasOnboarded,
-    );
-
-    ref.read(onboardingStatusProvider.notifier).set(onboardingStatus);
-
-    _lastAuthUserId = _currentSupabaseUserId();
-
-    final String normalizedStartupError = startupError?.trim() ?? '';
-    final bool startupBlocked = _isBlockingStartupIssue(normalizedStartupError);
-
-    debugPrint('CHRONOSPARK_BOOTSTRAP_SET_READY');
-
+    if (!mounted) {
+      return;
+    }
+    if (!result.productionReadinessBlocked) {
+      ref.read(onboardingCompleteProvider.notifier).set(result.hasOnboarded);
+      ref
+          .read(onboardingWelcomeCompleteProvider.notifier)
+          .set(result.hasSeenWelcome);
+    }
     setState(() {
       _startupError = startupError;
-      _startupBlocked = startupBlocked;
+      _productionReadinessBlocked = result.productionReadinessBlocked;
       _ready = true;
     });
-
-    // Keep first-paint path minimal, then complete non-critical startup work.
-    unawaited(_runDeferredStartupStages());
-
-    if (!startupBlocked) {
+    if (!result.productionReadinessBlocked) {
       AppAnalytics.track('app_open');
     }
   }
 
-  Future<void> _activateAuthSessionLifecycle() {
-    final AuthSessionLifecycleActivation activation =
-        _authSessionLifecycleActivation ??= AuthSessionLifecycleActivation(
-          initialize: ref.read(authSessionLifecycleProvider).initialize,
-          synchronize: ref.read(authSessionLifecycleProvider).synchronize,
-          authStateChanges: ref.read(authServiceProvider).authStateChanges(),
-        );
-    return activation.activate(ref.read(authServiceProvider).currentUser);
-  }
-
-  @override
-  void dispose() {
-    final AuthSessionLifecycleActivation? activation =
-        _authSessionLifecycleActivation;
-    if (activation != null) {
-      unawaited(activation.dispose());
-    }
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    ref.listen(authUserProvider, (previous, next) {
-      final String? previousUserId = previous?.asData?.value?.id;
-      final String? nextUserId = next.asData?.value?.id;
-
-      if (previousUserId != nextUserId) {
-        unawaited(_applyFirebaseUserAttribution(nextUserId));
-      }
-
-      if (!_ready ||
-          previousUserId == nextUserId ||
-          _lastAuthUserId == nextUserId) {
-        return;
-      }
-
-      _lastAuthUserId = nextUserId;
-      unawaited(_refreshOnboardingStateFromPrefs());
-    });
-
     if (!_ready) {
-      debugPrint('CHRONOSPARK_UI_LOADING_READY_FALSE');
-
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
@@ -470,145 +316,10 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       );
     }
 
-    if (_startupBlocked) {
-      final String message = _stripBlockingStartupPrefix(_startupError ?? '');
-
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          backgroundColor: const Color(0xFF050D1A),
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  const Text(
-                    'Startup blocked',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (!_firstInteractiveFrameLogged) {
-      _firstInteractiveFrameLogged = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-
-        debugPrint('CHRONOSPARK_FIRST_INTERACTIVE_FRAME');
-        RuntimeDiagnostics.record('First interactive frame rendered.');
-      });
-    }
-
-    return AppRoot(startupError: _startupError);
-  }
-
-  Future<void> _applyFirebaseUserAttribution(String? userId) async {
-    await AppAnalytics.identifySupabaseUser(userId);
-    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      try {
-        await FirebaseCrashlytics.instance.setUserIdentifier(userId ?? '');
-      } on Object catch (error) {
-        Logger.warn('Crashlytics user attribution failed: $error');
-      }
-    }
-  }
-
-  Future<void> _refreshOnboardingStateFromPrefs() async {
-    final PrefsLoadResult prefsResult = await _loadPrefsSafe();
-
-    if (!mounted) {
-      return;
-    }
-
-    final bool hasOnboarded = Env.maestroMode || prefsResult.hasOnboarded;
-    final bool hasCreatedFirstItem =
-        Env.maestroMode || prefsResult.hasCreatedFirstItem;
-    final bool hasCompletedTimelineFirstAction =
-        Env.maestroMode || prefsResult.hasCompletedTimelineFirstAction;
-
-    ref.read(onboardingCompleteProvider.notifier).set(hasOnboarded);
-    ref.read(creatorFirstItemCreatedProvider.notifier).set(hasCreatedFirstItem);
-    ref
-        .read(timelineFirstActionCompletedProvider.notifier)
-        .set(hasCompletedTimelineFirstAction);
-
-    final OnboardingStatus onboardingStatus = resolveOnboardingStatus(
-      isResolved: prefsResult.isResolved,
-      isComplete: hasOnboarded,
+    return AppRoot(
+      startupError: _startupError,
+      productionReadinessBlocked: _productionReadinessBlocked,
     );
-
-    ref.read(onboardingStatusProvider.notifier).set(onboardingStatus);
-  }
-
-  Future<void> _runDeferredStartupStages() async {
-    final intelligence = const IntelligenceService().environmentOnly();
-
-    final List<
-      ({String stage, Future<String?> Function() action, Duration timeout})
-    >
-    deferredStages =
-        <({String stage, Future<String?> Function() action, Duration timeout})>[
-          (
-            stage: 'push_notifications_deferred',
-            action: () => _isTestBuild
-                ? Future<String?>.value(null)
-                : _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
-            timeout: const Duration(seconds: 12),
-          ),
-          (
-            stage: 'account_delete_endpoint_deferred',
-            action: () => _validateAccountDeletionEndpointSafe(
-              enforce: intelligence.environment.isProduction,
-            ),
-            timeout: const Duration(seconds: 8),
-          ),
-          (
-            stage: 'notifications_deferred',
-            action: () => _isTestBuild
-                ? Future<String?>.value(null)
-                : _initNotificationSchedulerSafe(
-                    isMockMode: intelligence.flags.mockMode,
-                  ),
-            timeout: const Duration(seconds: 10),
-          ),
-          (
-            stage: 'deep_links_deferred',
-            action: _initDeepLinksSafe,
-            timeout: const Duration(seconds: 8),
-          ),
-        ];
-
-    for (final stage in deferredStages) {
-      // Yield to keep UI event handling responsive under stress tests.
-      await Future<void>.delayed(Duration.zero);
-      final String? issue = await _measureIssueStage(
-        stage.stage,
-        stage.action,
-        timeout: stage.timeout,
-      );
-
-      if (issue != null && issue.trim().isNotEmpty) {
-        RuntimeDiagnostics.record('Deferred startup stage issue: $issue');
-      }
-    }
   }
 }
 
@@ -617,62 +328,77 @@ Future<String?> _runStateBootstrapSafe(WidgetRef ref) async {
     await ref
         .read(stateBootstrapProvider.future)
         .timeout(const Duration(seconds: 4));
-
     Logger.log('Startup', 'State bootstrap completed.');
     RuntimeDiagnostics.record('State bootstrap completed.');
-
     return null;
   } on TimeoutException {
     Logger.warn('State bootstrap timed out.');
     RuntimeDiagnostics.record('State bootstrap timed out.');
-
     return 'State bootstrap timed out.';
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.error('State bootstrap failed.', error);
-    RuntimeDiagnostics.record('State bootstrap failed: $error');
-
-    return 'State bootstrap failed: $error';
+    RuntimeDiagnostics.record('State bootstrap failed.');
+    return 'State bootstrap failed. Local data remains available; retry from the app when ready.';
   }
 }
 
 class StartupBootstrapResult {
   const StartupBootstrapResult({
     required this.hasOnboarded,
-    required this.hasCreatedFirstItem,
-    required this.hasCompletedTimelineFirstAction,
-    required this.onboardingResolved,
+    required this.hasSeenWelcome,
     required this.startupError,
+    required this.productionReadinessBlocked,
   });
 
   final bool hasOnboarded;
-  final bool hasCreatedFirstItem;
-  final bool hasCompletedTimelineFirstAction;
-  final bool onboardingResolved;
+  final bool hasSeenWelcome;
   final String? startupError;
+  final bool productionReadinessBlocked;
 }
 
 class PrefsLoadResult {
   const PrefsLoadResult({
     required this.hasOnboarded,
-    required this.hasCreatedFirstItem,
-    required this.hasCompletedTimelineFirstAction,
-    required this.isResolved,
+    required this.hasSeenWelcome,
     required this.issue,
   });
 
   final bool hasOnboarded;
-  final bool hasCreatedFirstItem;
-  final bool hasCompletedTimelineFirstAction;
-  final bool isResolved;
+  final bool hasSeenWelcome;
   final String? issue;
 }
 
 Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
-  const IntelligenceService intelligenceService = IntelligenceService();
+  const intelligenceService = IntelligenceService();
   final intelligence = intelligenceService.environmentOnly();
-
   String? startupError;
   final Stopwatch totalBootstrap = Stopwatch()..start();
+
+  final List<String> readinessIssues = intelligenceService
+      .productionReadinessIssues();
+  final bool productionReadinessBlocked =
+      Env.resolveShouldBlockStartupForProductionReadiness(
+        enforceProductionReadiness: Env.enforceProductionReadiness,
+        isProduction: Env.isProduction,
+        readinessIssues: readinessIssues,
+      );
+  if (productionReadinessBlocked) {
+    Logger.error(
+      'Production readiness enforcement blocked startup: '
+      '${readinessIssues.length} issue(s).',
+    );
+    RuntimeDiagnostics.recordState(
+      'startup.blocked',
+      message: 'production readiness requirements were not met',
+      data: <String, Object?>{'issueCount': readinessIssues.length},
+    );
+    return const StartupBootstrapResult(
+      hasOnboarded: false,
+      hasSeenWelcome: false,
+      startupError: null,
+      productionReadinessBlocked: true,
+    );
+  }
 
   const SystemBoot();
   tzdata.initializeTimeZones();
@@ -681,38 +407,42 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   final String? storageIssue = await _measureIssueStage(
     'storage',
     _initStorageSafe,
-    timeout: const Duration(seconds: 20),
   );
   startupError = _appendStartupIssue(startupError, storageIssue ?? '');
 
   final String? firebaseIssue = await _measureIssueStage(
     'firebase',
     () => _initFirebaseSafe(isMockMode: intelligence.flags.mockMode),
-    timeout: const Duration(seconds: 12),
   );
   startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
 
   final String? supabaseIssue = await _measureIssueStage(
     'supabase',
     () => _initSupabaseSafe(isMockMode: intelligence.flags.mockMode),
-    timeout: const Duration(seconds: 12),
   );
   startupError = _appendStartupIssue(startupError, supabaseIssue ?? '');
 
   final String? identityIssue = await _measureIssueStage(
     'identity',
     () => _initIdentitySafe(ref),
-    timeout: const Duration(seconds: 12),
   );
   startupError = _appendStartupIssue(startupError, identityIssue ?? '');
 
   final PrefsLoadResult prefsResult = await _measurePrefsStage(_loadPrefsSafe);
+
+  unawaited(
+    _measureIssueStage(
+      'notifications',
+      () => _initNotificationSchedulerSafe(
+        isMockMode: intelligence.flags.mockMode,
+      ),
+    ),
+  );
+  unawaited(_measureIssueStage('deep_links', _initDeepLinksSafe));
   startupError = _appendStartupIssue(startupError, prefsResult.issue ?? '');
 
   final bool hasOnboarded = prefsResult.hasOnboarded;
-
-  final List<String> readinessIssues = intelligenceService
-      .productionReadinessIssues();
+  final bool hasSeenWelcome = prefsResult.hasSeenWelcome;
 
   if (readinessIssues.isNotEmpty) {
     Logger.warn(
@@ -721,29 +451,10 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
     RuntimeDiagnostics.record(
       'Production readiness issues: ${readinessIssues.length}',
     );
-
-    if (kReleaseMode && intelligence.environment.isProduction) {
-      startupError = _appendStartupIssue(
-        startupError,
-        'Production readiness configuration is incomplete:\n- ${readinessIssues.join('\n- ')}',
-      );
-
-      final List<String> blockingIssues = blockingProductionReadinessIssues(
-        readinessIssues,
-      );
-
-      if (blockingIssues.isNotEmpty) {
-        return StartupBootstrapResult(
-          hasOnboarded: hasOnboarded,
-          hasCreatedFirstItem: prefsResult.hasCreatedFirstItem,
-          hasCompletedTimelineFirstAction:
-              prefsResult.hasCompletedTimelineFirstAction,
-          onboardingResolved: prefsResult.isResolved,
-          startupError:
-              '${_blockingStartupPrefix}Critical production startup configuration is missing:\n- ${blockingIssues.join('\n- ')}',
-        );
-      }
-    }
+    startupError = _appendStartupIssue(
+      startupError,
+      'Production readiness configuration is incomplete:\n- ${readinessIssues.join('\n- ')}',
+    );
   }
 
   Logger.info(
@@ -751,7 +462,6 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
         ? 'Startup completed successfully.'
         : 'Startup completed in degraded mode.',
   );
-
   RuntimeDiagnostics.record(
     startupError == null || startupError.trim().isEmpty
         ? 'Startup completed successfully.'
@@ -759,11 +469,9 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   );
 
   totalBootstrap.stop();
-
   Logger.info(
     'Startup bootstrap total=${totalBootstrap.elapsedMilliseconds}ms',
   );
-
   RuntimeDiagnostics.recordState(
     'startup.complete',
     message: startupError == null || startupError.trim().isEmpty
@@ -777,318 +485,70 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
 
   return StartupBootstrapResult(
     hasOnboarded: hasOnboarded,
-    hasCreatedFirstItem: prefsResult.hasCreatedFirstItem,
-    hasCompletedTimelineFirstAction:
-        prefsResult.hasCompletedTimelineFirstAction,
-    onboardingResolved: prefsResult.isResolved,
+    hasSeenWelcome: hasSeenWelcome,
     startupError: startupError,
+    productionReadinessBlocked: false,
   );
 }
 
 Future<void> _configureLocalTimezone() async {
   try {
-    final String timezoneName = await FlutterTimezone.getLocalTimezone()
-        .timeout(const Duration(seconds: 4));
-
+    final timezoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
     final tz.Location location = tz.getLocation(timezoneName);
     tz.setLocalLocation(location);
-
     Logger.log('Startup', 'Timezone configured: $timezoneName');
     RuntimeDiagnostics.record('Timezone configured: $timezoneName');
-  } on TimeoutException {
-    Logger.warn('Local timezone configuration timed out.');
-    RuntimeDiagnostics.record('Local timezone configuration timed out.');
   } catch (error) {
-    Logger.warn('Failed to configure local timezone: $error');
-    RuntimeDiagnostics.record('Failed to configure local timezone: $error');
+    Logger.warn('Failed to configure local timezone.');
+    RuntimeDiagnostics.record('Failed to configure local timezone.');
   }
 }
 
-Future<String?> _validateAccountDeletionEndpointSafe({
-  required bool enforce,
-}) async {
-  if (!enforce) {
-    Logger.log(
-      'Startup',
-      'Account deletion endpoint check skipped outside production enforcement.',
-    );
-    RuntimeDiagnostics.record(
-      'Account deletion endpoint check skipped outside production enforcement.',
-    );
-    return null;
-  }
-
-  final String endpoint = Env.accountDeleteEndpoint.trim();
-
-  if (endpoint.isEmpty) {
-    return enforce
-        ? 'Account deletion endpoint is not configured for production.'
-        : null;
-  }
-
-  final Uri? uri = parseSecureHttpsEndpoint(endpoint);
-
-  if (uri == null) {
-    return 'Account deletion endpoint is not a valid HTTPS URL.';
-  }
-
-  final http.Client client = http.Client();
-
+Future<String?> _initStorageSafe() async {
   try {
-    final http.Response response = await client
-        .head(uri)
-        .timeout(const Duration(seconds: 6));
-
-    if (response.statusCode >= 500) {
-      return 'Account deletion endpoint is unreachable (server error).';
-    }
-
+    Logger.log('Startup', 'Initializing local storage...');
+    RuntimeDiagnostics.record('Initializing local storage...');
+    await HiveService.init();
+    await SharedPrefsService.init();
+    await SensitivePrefsStore.instance.init();
+    await StorageMigration.run();
+    Logger.log('Startup', 'Local storage initialized.');
+    RuntimeDiagnostics.record('Local storage initialized.');
     return null;
-  } on TimeoutException {
-    return 'Account deletion endpoint health check timed out.';
   } on Object catch (error) {
-    return 'Account deletion endpoint health check failed: $error';
-  } finally {
-    client.close();
+    Logger.error('Local storage initialization failed.', error);
+    RuntimeDiagnostics.record('Local storage initialization failed: $error');
+    return 'Local storage could not be opened. Restart ChronoSpark and retry.';
   }
 }
 
 Future<String?> _measureIssueStage(
   String stage,
-  Future<String?> Function() action, {
-  Duration timeout = const Duration(seconds: 12),
-}) async {
+  Future<String?> Function() action,
+) async {
   final Stopwatch sw = Stopwatch()..start();
-
-  debugPrint('CHRONOSPARK_STAGE_START: $stage');
-  Logger.info('Startup stage $stage started.');
-  RuntimeDiagnostics.record('Startup stage $stage started.');
-
-  try {
-    final String? issue = await action().timeout(timeout);
-
-    sw.stop();
-
-    final String outcome = issue == null ? 'ok' : 'issue';
-
-    debugPrint(
-      'CHRONOSPARK_STAGE_DONE: $stage $outcome in ${sw.elapsedMilliseconds}ms',
-    );
-
-    Logger.info(
-      'Startup stage $stage: $outcome in ${sw.elapsedMilliseconds}ms',
-    );
-    RuntimeDiagnostics.record(
-      'Startup stage $stage: $outcome in ${sw.elapsedMilliseconds}ms',
-    );
-
-    return issue;
-  } on TimeoutException {
-    sw.stop();
-
-    final String message =
-        'Startup stage $stage timed out after ${sw.elapsedMilliseconds}ms.';
-
-    debugPrint('CHRONOSPARK_STAGE_TIMEOUT: $message');
-    Logger.warn(message);
-    RuntimeDiagnostics.record(message);
-
-    return message;
-  } on Object catch (error, stackTrace) {
-    sw.stop();
-
-    final String message =
-        'Startup stage $stage failed after ${sw.elapsedMilliseconds}ms: $error';
-
-    debugPrint('CHRONOSPARK_STAGE_FAILED: $message');
-    Logger.error(message, error);
-    RuntimeDiagnostics.record(message);
-    RuntimeDiagnostics.record(stackTrace.toString());
-
-    return message;
-  }
+  final String? issue = await action();
+  sw.stop();
+  final String outcome = issue == null ? 'ok' : 'issue';
+  Logger.info('Startup stage $stage: $outcome in ${sw.elapsedMilliseconds}ms');
+  RuntimeDiagnostics.record(
+    'Startup stage $stage: $outcome in ${sw.elapsedMilliseconds}ms',
+  );
+  return issue;
 }
 
 Future<PrefsLoadResult> _measurePrefsStage(
   Future<PrefsLoadResult> Function() action,
 ) async {
   final Stopwatch sw = Stopwatch()..start();
-
-  debugPrint('CHRONOSPARK_STAGE_START: prefs');
-
-  try {
-    final PrefsLoadResult result = await action().timeout(
-      const Duration(seconds: 10),
-    );
-
-    sw.stop();
-
-    final String outcome = result.issue == null ? 'ok' : 'issue';
-
-    debugPrint(
-      'CHRONOSPARK_STAGE_DONE: prefs $outcome in ${sw.elapsedMilliseconds}ms',
-    );
-
-    Logger.info('Startup stage prefs: $outcome in ${sw.elapsedMilliseconds}ms');
-    RuntimeDiagnostics.record(
-      'Startup stage prefs: $outcome in ${sw.elapsedMilliseconds}ms',
-    );
-
-    return result;
-  } on TimeoutException {
-    sw.stop();
-
-    final String message =
-        'Local preferences stage timed out after ${sw.elapsedMilliseconds}ms.';
-
-    debugPrint('CHRONOSPARK_STAGE_TIMEOUT: $message');
-    Logger.warn(message);
-    RuntimeDiagnostics.record(message);
-
-    return PrefsLoadResult(
-      hasOnboarded: false,
-      hasCreatedFirstItem: false,
-      hasCompletedTimelineFirstAction: false,
-      isResolved: false,
-      issue: message,
-    );
-  } on Object catch (error) {
-    sw.stop();
-
-    final String message =
-        'Local preferences stage failed after ${sw.elapsedMilliseconds}ms: $error';
-
-    debugPrint('CHRONOSPARK_STAGE_FAILED: $message');
-    Logger.error(message, error);
-    RuntimeDiagnostics.record(message);
-
-    return PrefsLoadResult(
-      hasOnboarded: false,
-      hasCreatedFirstItem: false,
-      hasCompletedTimelineFirstAction: false,
-      isResolved: false,
-      issue: message,
-    );
-  }
-}
-
-Future<String?> _initStorageSafe() async {
-  Future<String?> runStorageStep(
-    String name,
-    Future<void> Function() action, {
-    Duration timeout = const Duration(seconds: 6),
-  }) async {
-    final Stopwatch sw = Stopwatch()..start();
-
-    try {
-      debugPrint('CHRONOSPARK_STORAGE_START: $name');
-      Logger.log('Startup', 'Storage step started: $name');
-      RuntimeDiagnostics.record('Storage step started: $name');
-
-      await action().timeout(timeout);
-
-      sw.stop();
-
-      debugPrint(
-        'CHRONOSPARK_STORAGE_DONE: $name in ${sw.elapsedMilliseconds}ms',
-      );
-
-      Logger.log(
-        'Startup',
-        'Storage step completed: $name in ${sw.elapsedMilliseconds}ms',
-      );
-      RuntimeDiagnostics.record(
-        'Storage step completed: $name in ${sw.elapsedMilliseconds}ms',
-      );
-
-      return null;
-    } on TimeoutException {
-      sw.stop();
-
-      final String message =
-          'Storage step timed out: $name after ${sw.elapsedMilliseconds}ms';
-
-      debugPrint('CHRONOSPARK_STORAGE_TIMEOUT: $message');
-      Logger.warn(message);
-      RuntimeDiagnostics.record(message);
-
-      return message;
-    } on Object catch (error, stackTrace) {
-      sw.stop();
-
-      final String message =
-          'Storage step failed: $name after ${sw.elapsedMilliseconds}ms: $error';
-
-      debugPrint('CHRONOSPARK_STORAGE_FAILED: $message');
-      Logger.error(message, error);
-      RuntimeDiagnostics.record(message);
-      RuntimeDiagnostics.record(stackTrace.toString());
-
-      return message;
-    }
-  }
-
-  Logger.log('Startup', 'Initializing local storage...');
-  RuntimeDiagnostics.record('Initializing local storage...');
-
-  final List<String> issues = <String>[];
-
-  HiveService.configureSecureStore(
-    SecureStore(
-      backend: Env.isMockMode || _isTestBuild
-          ? InMemorySecureStoreBackend()
-          : RealSecureStoreBackend(storage: const FlutterSecureStorage()),
-    ),
+  final PrefsLoadResult result = await action();
+  sw.stop();
+  final String outcome = result.issue == null ? 'ok' : 'issue';
+  Logger.info('Startup stage prefs: $outcome in ${sw.elapsedMilliseconds}ms');
+  RuntimeDiagnostics.record(
+    'Startup stage prefs: $outcome in ${sw.elapsedMilliseconds}ms',
   );
-
-  final String? hiveIssue = await runStorageStep(
-    'HiveService.init',
-    () => HiveService.init(warmupBoxes: true),
-    timeout: const Duration(seconds: 8),
-  );
-  if (hiveIssue != null) {
-    issues.add(hiveIssue);
-  }
-
-  final String? sharedPrefsIssue = await runStorageStep(
-    'SharedPrefsService.init',
-    SharedPrefsService.init,
-    timeout: const Duration(seconds: 6),
-  );
-  if (sharedPrefsIssue != null) {
-    issues.add(sharedPrefsIssue);
-  }
-
-  final String? sensitivePrefsIssue = await runStorageStep(
-    'SensitivePrefsStore.instance.init',
-    SensitivePrefsStore.instance.init,
-    timeout: const Duration(seconds: 6),
-  );
-  if (sensitivePrefsIssue != null) {
-    issues.add(sensitivePrefsIssue);
-  }
-
-  final String? migrationIssue = await runStorageStep(
-    'StorageMigration.run',
-    StorageMigration.run,
-    timeout: const Duration(seconds: 8),
-  );
-  if (migrationIssue != null) {
-    issues.add(migrationIssue);
-  }
-
-  if (issues.isEmpty) {
-    Logger.log('Startup', 'Local storage initialized.');
-    RuntimeDiagnostics.record('Local storage initialized.');
-    return null;
-  }
-
-  final String message = issues.join('\n');
-
-  Logger.warn('Local storage initialized with issues:\n$message');
-  RuntimeDiagnostics.record('Local storage initialized with issues:\n$message');
-
-  return message;
+  return result;
 }
 
 Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
@@ -1100,11 +560,9 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
 
   Logger.log('Startup', 'Initializing Firebase...');
   RuntimeDiagnostics.record('Initializing Firebase...');
-
   final String? issue = await const FirebaseBootstrap().initialize(
     isMockMode: isMockMode,
   );
-
   if (issue == null) {
     Logger.log('Startup', 'Firebase initialized.');
     RuntimeDiagnostics.record('Firebase initialized.');
@@ -1113,37 +571,6 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
     Logger.error('Firebase initialization failed.', issue);
     RuntimeDiagnostics.record('Firebase initialization failed: $issue');
   }
-
-  return issue;
-}
-
-Future<String?> _initMessagingSafe({required bool isMockMode}) async {
-  if (isMockMode) {
-    Logger.log(
-      'Startup',
-      'Mock mode active: Push notifications startup skipped.',
-    );
-    RuntimeDiagnostics.record(
-      'Mock mode active: Push notifications startup skipped.',
-    );
-    return null;
-  }
-
-  Logger.log('Startup', 'Initializing Firebase Messaging...');
-  RuntimeDiagnostics.record('Initializing Firebase Messaging...');
-
-  final String? issue = await const FirebaseMessagingBootstrap().initialize(
-    isMockMode: isMockMode,
-  );
-
-  if (issue == null) {
-    Logger.log('Startup', 'Firebase Messaging initialized.');
-    RuntimeDiagnostics.record('Firebase Messaging initialized.');
-  } else {
-    Logger.warn(issue);
-    RuntimeDiagnostics.record(issue);
-  }
-
   return issue;
 }
 
@@ -1151,7 +578,6 @@ Future<void> _captureDiagnosticsContext() async {
   try {
     final DiagnosticsContext context =
         await DiagnosticsContextService.collect();
-
     RuntimeDiagnostics.recordState(
       'diagnostics.context',
       message: 'Captured app/device diagnostics context',
@@ -1185,8 +611,7 @@ Future<void> _captureDiagnosticsContext() async {
       );
     }
   } on Object catch (error, stackTrace) {
-    Logger.warn('Diagnostics context capture failed (non-fatal): $error');
-
+    Logger.warn('Diagnostics context capture failed (non-fatal).');
     if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
       FirebaseCrashlytics.instance.recordError(
         error,
@@ -1210,11 +635,9 @@ Future<String?> _initSupabaseSafe({required bool isMockMode}) async {
 
   Logger.log('Startup', 'Initializing Supabase...');
   RuntimeDiagnostics.record('Initializing Supabase...');
-
   final String? issue = await const SupabaseClientService().initialize(
     isMockMode: isMockMode,
   );
-
   if (issue == null) {
     Logger.log('Startup', 'Supabase initialized.');
     RuntimeDiagnostics.record('Supabase initialized.');
@@ -1222,7 +645,6 @@ Future<String?> _initSupabaseSafe({required bool isMockMode}) async {
     Logger.error('Supabase initialization failed.', issue);
     RuntimeDiagnostics.record('Supabase initialization failed: $issue');
   }
-
   return issue;
 }
 
@@ -1239,30 +661,24 @@ Future<String?> _initNotificationSchedulerSafe({
     );
     return null;
   }
-
   try {
     Logger.log('Startup', 'Initializing notification scheduler...');
     RuntimeDiagnostics.record('Initializing notification scheduler...');
-
     await NotificationScheduler().init().timeout(const Duration(seconds: 8));
-
     Logger.log('Startup', 'Notification scheduler initialized.');
     RuntimeDiagnostics.record('Notification scheduler initialized.');
-
     return null;
   } on TimeoutException {
     Logger.warn('Notification scheduler startup timed out (non-fatal).');
     RuntimeDiagnostics.record(
       'Notification scheduler startup timed out (non-fatal).',
     );
-
     return null;
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.warn('Notification scheduler startup failed (non-fatal): $error');
     RuntimeDiagnostics.record(
-      'Notification scheduler startup failed (non-fatal): $error',
+      'Notification scheduler startup failed (non-fatal).',
     );
-
     return null;
   }
 }
@@ -1271,28 +687,21 @@ Future<String?> _initDeepLinksSafe() async {
   try {
     Logger.log('Startup', 'Initializing deep links...');
     RuntimeDiagnostics.record('Initializing deep links...');
-
     await DeepLinkService.instance.initializeEarly().timeout(
       const Duration(seconds: 6),
     );
-
     Logger.log('Startup', 'Deep links initialized.');
     RuntimeDiagnostics.record('Deep links initialized.');
-
     return null;
   } on TimeoutException {
     Logger.warn('Deep link initialization timed out (non-fatal).');
     RuntimeDiagnostics.record(
       'Deep link initialization timed out (non-fatal).',
     );
-
     return null;
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.warn('Deep link initialization failed (non-fatal): $error');
-    RuntimeDiagnostics.record(
-      'Deep link initialization failed (non-fatal): $error',
-    );
-
+    RuntimeDiagnostics.record('Deep link initialization failed (non-fatal).');
     return null;
   }
 }
@@ -1301,368 +710,135 @@ Future<String?> _initIdentitySafe(WidgetRef ref) async {
   try {
     Logger.log('Startup', 'Bootstrapping identity...');
     RuntimeDiagnostics.record('Bootstrapping identity...');
-
     await ref
         .read(identityServiceProvider)
         .ensureIdentity()
         .timeout(const Duration(seconds: 8));
-
     Logger.log('Startup', 'Identity bootstrap completed.');
     RuntimeDiagnostics.record('Identity bootstrap completed.');
-
     return null;
   } on TimeoutException {
     Logger.warn('Identity bootstrap timed out.');
     RuntimeDiagnostics.record('Identity bootstrap timed out.');
-
     return 'Identity bootstrap timed out.';
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.error('Identity bootstrap failed.', error);
-    RuntimeDiagnostics.record('Identity bootstrap failed: $error');
-
-    return 'Identity bootstrap failed: $error';
+    RuntimeDiagnostics.record('Identity bootstrap failed.');
+    return 'Account state could not be restored. Sign in again and retry.';
   }
 }
 
 Future<PrefsLoadResult> _loadPrefsSafe() async {
   bool hasOnboarded = false;
-  bool hasCreatedFirstItem = false;
-  bool hasCompletedTimelineFirstAction = false;
+  bool hasSeenWelcome = false;
 
   try {
     Logger.log('Startup', 'Loading local preferences...');
     RuntimeDiagnostics.record('Loading local preferences...');
-
-    final SharedPreferences prefs = await SharedPreferences.getInstance()
-        .timeout(const Duration(seconds: 6));
-
-    final String? userId = _currentSupabaseUserId();
-    final bool hasAuthenticatedUser =
-        userId != null && userId.trim().isNotEmpty;
-
-    final String completeKey = userId == null
-        ? onboardingCompleteStorageKey
-        : onboardingCompleteStorageKeyForUser(userId);
-
-    final String versionKey = userId == null
-        ? onboardingContentVersionStorageKey
-        : onboardingContentVersionStorageKeyForUser(userId);
-
-    final String canonicalKey = onboardingCanonicalStateStorageKeyForUser(
-      userId,
+    final prefs = await SharedPreferences.getInstance().timeout(
+      const Duration(seconds: 6),
     );
-    final String firstItemKey = userId == null
-        ? creatorFirstItemCreatedStorageKey
-        : creatorFirstItemCreatedStorageKeyForUser(userId);
-    final String timelineFirstActionKey = userId == null
-        ? timelineFirstActionCompletedStorageKey
-        : timelineFirstActionCompletedStorageKeyForUser(userId);
-
-    int? canonicalVersion;
-
-    final String? canonicalRaw = prefs.getString(canonicalKey);
-
-    if (canonicalRaw != null && canonicalRaw.trim().isNotEmpty) {
-      try {
-        final Object? decoded = jsonDecode(canonicalRaw);
-
-        if (decoded is Map<String, dynamic>) {
-          hasOnboarded = decoded['complete'] == true;
-          canonicalVersion = (decoded['version'] as num?)?.toInt();
-        }
-      } on Object catch (error) {
-        Logger.warn('Canonical onboarding state is unreadable: $error');
-      }
+    final Object? rawOnboardingComplete = prefs.get(
+      onboardingCompleteStorageKey,
+    );
+    hasOnboarded = _coercePrefsBool(rawOnboardingComplete) ?? false;
+    if (rawOnboardingComplete is String) {
+      await prefs.setBool(onboardingCompleteStorageKey, hasOnboarded);
     }
 
-    if (canonicalVersion == null) {
-      final Object? rawOnboardingComplete =
-          prefs.get(completeKey) ?? prefs.get(onboardingCompleteStorageKey);
-
-      final bool? coercedOnboardingComplete = _coercePrefsBool(
-        rawOnboardingComplete,
-      );
-
-      final bool onboardingCompleteWasCorrupt =
-          rawOnboardingComplete != null && coercedOnboardingComplete == null;
-
-      hasOnboarded = coercedOnboardingComplete ?? false;
-
-      if (rawOnboardingComplete is String || onboardingCompleteWasCorrupt) {
-        await SharedPrefsService.saveBoolWithPrefs(
-          prefs,
-          completeKey,
-          hasOnboarded,
-        );
-      }
-    } else {
-      await SharedPrefsService.saveBoolWithPrefs(
-        prefs,
-        completeKey,
-        hasOnboarded,
-      );
+    final Object? rawWelcomeComplete = prefs.get(
+      onboardingWelcomeCompleteStorageKey,
+    );
+    hasSeenWelcome = _coercePrefsBool(rawWelcomeComplete) ?? hasOnboarded;
+    if (rawWelcomeComplete is String ||
+        (rawWelcomeComplete == null && hasOnboarded)) {
+      await prefs.setBool(onboardingWelcomeCompleteStorageKey, hasSeenWelcome);
     }
 
-    final Object? rawOnboardingVersion =
-        prefs.get(versionKey) ?? prefs.get(onboardingContentVersionStorageKey);
-
-    final int? coercedOnboardingVersion = _coercePrefsInt(rawOnboardingVersion);
-
-    final bool onboardingVersionWasCorrupt =
-        rawOnboardingVersion != null && coercedOnboardingVersion == null;
-
+    final Object? rawOnboardingVersion = prefs.get(
+      onboardingContentVersionStorageKey,
+    );
     final int storedOnboardingVersion =
-        canonicalVersion ?? (coercedOnboardingVersion ?? 0);
-
-    if (rawOnboardingVersion is String || onboardingVersionWasCorrupt) {
-      await SharedPrefsService.saveIntWithPrefs(
-        prefs,
-        versionKey,
+        _coercePrefsInt(rawOnboardingVersion) ?? 0;
+    if (rawOnboardingVersion is String) {
+      await prefs.setInt(
+        onboardingContentVersionStorageKey,
         storedOnboardingVersion,
       );
     }
-
-    const int currentOnboardingVersion = onboardingContentVersion;
+    final int currentOnboardingVersion =
+        OnboardingContentContract.currentVersion;
 
     if (storedOnboardingVersion < currentOnboardingVersion) {
-      final bool replayRequired = _requiresOnboardingReplay(
-        fromVersion: storedOnboardingVersion,
-        toVersion: currentOnboardingVersion,
-      );
-
-      if (replayRequired) {
-        hasOnboarded = false;
-
-        await SharedPrefsService.saveBoolWithPrefs(prefs, completeKey, false);
-      }
-
-      await SharedPrefsService.saveIntWithPrefs(
-        prefs,
-        versionKey,
+      hasOnboarded = false;
+      await prefs.setBool(onboardingCompleteStorageKey, false);
+      await prefs.setInt(
+        onboardingContentVersionStorageKey,
         currentOnboardingVersion,
       );
-
-      final String replayState = replayRequired ? 'required' : 'not required';
-
       Logger.log(
         'Startup',
         'Onboarding content version updated '
-            '($storedOnboardingVersion -> $currentOnboardingVersion); replay $replayState.',
+            '($storedOnboardingVersion -> $currentOnboardingVersion); replay required.',
       );
-
       RuntimeDiagnostics.record(
         'Onboarding content version updated '
-        '($storedOnboardingVersion -> $currentOnboardingVersion); replay $replayState.',
+        '($storedOnboardingVersion -> $currentOnboardingVersion); replay required.',
       );
-    }
-
-    await SharedPrefsService.saveStringWithPrefs(
-      prefs,
-      canonicalKey,
-      jsonEncode(
-        buildOnboardingCanonicalStatePayload(
-          complete: hasOnboarded,
-          version: currentOnboardingVersion,
-        ),
-      ),
-    );
-
-    final Object? rawFirstItemCreated = hasAuthenticatedUser
-        ? prefs.get(firstItemKey)
-        : (prefs.get(firstItemKey) ??
-              prefs.get(creatorFirstItemCreatedStorageKey));
-    final bool? coercedFirstItemCreated = _coercePrefsBool(rawFirstItemCreated);
-    final bool firstItemCreatedWasCorrupt =
-        rawFirstItemCreated != null && coercedFirstItemCreated == null;
-
-    if (coercedFirstItemCreated == null) {
-      // Existing onboarded authenticated users should not inherit anonymous
-      // first-item lock state after signing in.
-      hasCreatedFirstItem = hasOnboarded;
-      await SharedPrefsService.saveBoolWithPrefs(
-        prefs,
-        firstItemKey,
-        hasCreatedFirstItem,
-      );
-    } else {
-      hasCreatedFirstItem = coercedFirstItemCreated;
-      if (rawFirstItemCreated is String || firstItemCreatedWasCorrupt) {
-        await SharedPrefsService.saveBoolWithPrefs(
-          prefs,
-          firstItemKey,
-          hasCreatedFirstItem,
-        );
-      }
-    }
-
-    final Object? rawTimelineFirstAction = hasAuthenticatedUser
-        ? prefs.get(timelineFirstActionKey)
-        : (prefs.get(timelineFirstActionKey) ??
-              prefs.get(timelineFirstActionCompletedStorageKey));
-    final bool? coercedTimelineFirstAction = _coercePrefsBool(
-      rawTimelineFirstAction,
-    );
-    final bool timelineFirstActionWasCorrupt =
-        rawTimelineFirstAction != null && coercedTimelineFirstAction == null;
-
-    if (coercedTimelineFirstAction == null) {
-      // Existing users already past first-create are treated as unlocked.
-      hasCompletedTimelineFirstAction = hasCreatedFirstItem;
-      await SharedPrefsService.saveBoolWithPrefs(
-        prefs,
-        timelineFirstActionKey,
-        hasCompletedTimelineFirstAction,
-      );
-    } else {
-      hasCompletedTimelineFirstAction = coercedTimelineFirstAction;
-      if (rawTimelineFirstAction is String || timelineFirstActionWasCorrupt) {
-        await SharedPrefsService.saveBoolWithPrefs(
-          prefs,
-          timelineFirstActionKey,
-          hasCompletedTimelineFirstAction,
-        );
-      }
     }
 
     Logger.log(
       'Startup',
       'Local preferences loaded. onboardingComplete=$hasOnboarded',
     );
-
     RuntimeDiagnostics.record(
       'Local preferences loaded. onboardingComplete=$hasOnboarded',
     );
-
     return PrefsLoadResult(
       hasOnboarded: hasOnboarded,
-      hasCreatedFirstItem: hasCreatedFirstItem,
-      hasCompletedTimelineFirstAction: hasCompletedTimelineFirstAction,
-      isResolved: true,
+      hasSeenWelcome: hasSeenWelcome,
       issue: null,
     );
   } on TimeoutException {
     Logger.warn('Local preferences initialization timed out.');
     RuntimeDiagnostics.record('Local preferences initialization timed out.');
-
     return const PrefsLoadResult(
       hasOnboarded: false,
-      hasCreatedFirstItem: false,
-      hasCompletedTimelineFirstAction: false,
-      isResolved: false,
+      hasSeenWelcome: false,
       issue: 'Local preferences initialization timed out.',
     );
   } on Object catch (error) {
     Logger.error('Local preferences initialization failed.', error);
-    RuntimeDiagnostics.record(
-      'Local preferences initialization failed: $error',
-    );
-
-    return PrefsLoadResult(
+    RuntimeDiagnostics.record('Local preferences initialization failed.');
+    return const PrefsLoadResult(
       hasOnboarded: false,
-      hasCreatedFirstItem: false,
-      hasCompletedTimelineFirstAction: false,
-      isResolved: false,
-      issue: 'Local preferences initialization failed: $error',
+      hasSeenWelcome: false,
+      issue: 'Local preferences initialization failed. Retry from the app.',
     );
   }
-}
-
-const Set<int> _onboardingReplayRequiredVersions = <int>{};
-
-bool _requiresOnboardingReplay({
-  required int fromVersion,
-  required int toVersion,
-}) {
-  if (toVersion <= fromVersion) {
-    return false;
-  }
-
-  for (final int version in _onboardingReplayRequiredVersions) {
-    if (version > fromVersion && version <= toVersion) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-String? _currentSupabaseUserId() {
-  if (!Env.isSupabaseConfigured) {
-    return null;
-  }
-
-  try {
-    final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
-
-    if (userId == null || userId.trim().isEmpty) {
-      return null;
-    }
-
-    return userId.trim();
-  } on Object {
-    return null;
-  }
-}
-
-const String _blockingStartupPrefix = '[BLOCKING_STARTUP] ';
-
-bool _isBlockingStartupIssue(String message) {
-  return message.startsWith(_blockingStartupPrefix);
-}
-
-String _stripBlockingStartupPrefix(String message) {
-  if (_isBlockingStartupIssue(message)) {
-    return message.substring(_blockingStartupPrefix.length).trim();
-  }
-
-  return message;
-}
-
-List<String> blockingProductionReadinessIssues(List<String> readinessIssues) {
-  bool isBlockingIssue(String issue) {
-    final String normalized = issue.trim().toLowerCase();
-
-    return normalized == 'supabase authentication is not configured.' ||
-        normalized.startsWith('account deletion endpoint') ||
-        normalized == 'mock login bypass is enabled.' ||
-        normalized == 'global mock mode is enabled.' ||
-        normalized == 'paywall-disabled development override is enabled.' ||
-        normalized == 'tester full-access override is enabled.' ||
-        normalized ==
-            'android app links sha-256 fingerprint is not configured.' ||
-        normalized == 'ios associated domains team id is not configured.';
-  }
-
-  return readinessIssues.where(isBlockingIssue).toList(growable: false);
 }
 
 bool? _coercePrefsBool(Object? value) {
   if (value is bool) {
     return value;
   }
-
   if (value is String) {
     final String normalized = value.trim().toLowerCase();
-
     if (normalized == 'true' || normalized == '1') {
       return true;
     }
-
     if (normalized == 'false' || normalized == '0') {
       return false;
     }
   }
-
   if (value is num) {
     if (value == 1) {
       return true;
     }
-
     if (value == 0) {
       return false;
     }
   }
-
   return null;
 }
 
@@ -1670,27 +846,22 @@ int? _coercePrefsInt(Object? value) {
   if (value is int) {
     return value;
   }
-
   if (value is String) {
     return int.tryParse(value.trim());
   }
-
   if (value is num) {
     return value.toInt();
   }
-
   return null;
 }
 
 String? _appendStartupIssue(String? current, String next) {
   final String normalizedNext = next.trim();
-
   if (normalizedNext.isEmpty) {
     return current;
   }
 
   final String normalizedCurrent = current?.trim() ?? '';
-
   if (normalizedCurrent.isEmpty) {
     return normalizedNext;
   }

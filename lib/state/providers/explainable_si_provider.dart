@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/state/providers/daily_command_briefing_provider.dart';
+import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,7 +30,7 @@ class ExplainableSIState {
 
 final explainableSIProvider = Provider<ExplainableSIState>((ref) {
   final momentum = ref.watch(momentumEngineProvider);
-  final briefing = ref.watch(dailyCommandBriefingProvider);
+  final intelligence = ref.watch(dailyDecisionIntelligenceProvider);
 
   final List<ExplainableSIReason> reasons = <ExplainableSIReason>[
     ExplainableSIReason(
@@ -71,15 +71,9 @@ final explainableSIProvider = Provider<ExplainableSIState>((ref) {
     ),
   ];
 
-  final String primaryReason = momentum.score >= 70
-      ? 'High momentum and usable energy support a high-impact move.'
-      : momentum.score >= 45
-      ? 'Momentum is stable, so one clear action is the best next step.'
-      : 'Momentum is low, so recovery-first execution is recommended.';
-
   return ExplainableSIState(
-    primaryReason: primaryReason,
+    primaryReason: intelligence.rationale,
     reasons: reasons,
-    recommendation: briefing.coachAction,
+    recommendation: intelligence.recommendedAction,
   );
 });

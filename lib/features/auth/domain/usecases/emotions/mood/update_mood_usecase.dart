@@ -1,3 +1,0 @@
-class UpdateMoodUsecase {
-  const UpdateMoodUsecase();
-}

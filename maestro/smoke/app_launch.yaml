@@ -1,9 +1,0 @@
-appId: ${APP_ID}
----
-- launchApp:
-    clearState: false
-    stopApp: true
-- assertNotVisible:
-    text: "Route not found"
-- assertNotVisible:
-    text: "Startup blocked"

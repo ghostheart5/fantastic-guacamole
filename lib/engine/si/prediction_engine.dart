@@ -92,7 +92,7 @@ class PredictionEngine {
       confidence: sampleConfidence,
       sampleSize: qualities.length,
       explanation:
-          'Based on ${qualities.length} matching session(s). Confidence is ${_confidenceLabel(sampleConfidence)}.',
+          'Based on ${qualities.length} matching activity record(s). Confidence is ${_confidenceLabel(sampleConfidence)}.',
       signals: <String>[
         'avg_quality:${avgQuality.toStringAsFixed(2)}',
         'samples:${qualities.length}',
@@ -154,10 +154,10 @@ class PredictionEngine {
 
   String _outcome(double probability, int samples) {
     if (samples < config.minReliableSamples) {
-      return 'Early signal - more history needed';
+      return 'Early signal — more history needed';
     }
     if (probability >= config.highThreshold) {
-      return 'High chance of successful focus';
+      return 'High chance of sustained attention';
     }
     if (probability >= config.manageableThreshold) {
       return 'Likely manageable';
@@ -165,7 +165,7 @@ class PredictionEngine {
     if (probability >= config.lowThreshold) {
       return 'Moderate difficulty expected';
     }
-    return 'Low focus success predicted';
+    return 'Low attention stability predicted';
   }
 
   String _confidenceLabel(double value) {

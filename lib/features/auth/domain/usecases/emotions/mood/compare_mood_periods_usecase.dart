@@ -1,3 +1,0 @@
-class CompareMoodPeriodsUsecase {
-  const CompareMoodPeriodsUsecase();
-}

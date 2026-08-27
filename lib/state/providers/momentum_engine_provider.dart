@@ -1,8 +1,8 @@
-import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
+import 'dart:math' as math;
+
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,6 +16,8 @@ class MomentumEngineState {
     required this.pressurePercent,
     required this.streak,
     required this.completedToday,
+    this.trendDelta,
+    this.trendEvidence = 'baseline',
   });
 
   final int score;
@@ -26,6 +28,8 @@ class MomentumEngineState {
   final int pressurePercent;
   final int streak;
   final int completedToday;
+  final double? trendDelta;
+  final String trendEvidence;
 
   bool get isRising => trend == 'Rising';
   bool get isStable => trend == 'Stable';
@@ -37,57 +41,50 @@ final momentumEngineProvider = Provider<MomentumEngineState>((ref) {
   final siState = ref.watch(siStateProvider);
   final trajectory = ref.watch(trajectorySummaryProvider);
   final execution = ref.watch(executionSignalsProvider);
-  final habitsAsync = ref.watch(habitsProvider);
-  final List<HabitRecord> habits = habitsAsync.maybeWhen(
-    data: (items) => items,
-    orElse: () => const <HabitRecord>[],
-  );
-
   final int energyPercent = (siState.energy * 100).round().clamp(0, 100);
   final int fatiguePercent = (siState.fatigue * 100).round().clamp(0, 100);
   final int trajectoryMomentum = (trajectory.momentum * 100).round().clamp(
     0,
     100,
   );
-  final int streakBoost = (profile.streak * 2).clamp(0, 20);
-  final int completionBoost = (siState.completedToday * 6).clamp(0, 24);
-  final int executionBoost = (execution.completedToday * 5).clamp(0, 20);
-  final int routineBoost = habits.where((habit) => habit.active).length * 2;
-  final int deferralPenalty =
-      ((execution.skippedToday * 6) + (execution.delayedToday * 4)).clamp(
-        0,
-        24,
-      );
-  final int consistencyBonus = (execution.completionStability7d * 12)
-      .round()
-      .clamp(0, 12);
-  final int pressurePenalty = (fatiguePercent * 0.35).round();
-
+  final int pressurePercent = math.max(
+    fatiguePercent,
+    trajectory.pressureIndex,
+  );
+  final double executionRate = execution.completionRate7d;
+  final double deferralRate = execution.actioned7d == 0
+      ? 0
+      : (execution.skipped7d + execution.delayed7d) / execution.actioned7d;
+  final double streakContinuity = (profile.streak / 14).clamp(0.0, 1.0);
   final int score =
-      (trajectoryMomentum +
-              ((energyPercent * 0.30).round()) +
-              streakBoost +
-              completionBoost -
-              deferralPenalty +
-              executionBoost +
-              routineBoost +
-              consistencyBonus -
-              pressurePenalty)
+      ((trajectoryMomentum * .25) +
+              (energyPercent * .20) +
+              (executionRate * 100 * .30) +
+              (streakContinuity * 100 * .10) +
+              (siState.completedToday.clamp(0, 4) / 4 * 100 * .10) -
+              (deferralRate * 100 * .15) -
+              (pressurePercent * .10))
+          .round()
           .clamp(0, 100);
 
-  final String trend = score >= 70
-      ? 'Rising'
-      : score >= 45
+  final double? trendDelta = execution.completionTrendDelta;
+  final String trend = trendDelta == null
       ? 'Stable'
-      : 'Declining';
+      : trendDelta >= .10
+      ? 'Rising'
+      : trendDelta <= -.10
+      ? 'Declining'
+      : 'Stable';
 
-  final String recovery = fatiguePercent >= 75
+  final String recovery = pressurePercent >= 75
       ? 'Recovery Needed'
       : fatiguePercent >= 45
       ? 'Watch Load'
       : 'Recovered';
 
-  final String forecast = score >= 70
+  final String forecast = trendDelta == null
+      ? 'Momentum baseline established. More history is needed before claiming a direction.'
+      : score >= 70
       ? 'Momentum forecast is positive. Execute high-impact work.'
       : score >= 45
       ? 'Momentum is stable. Complete one clear action to build lift.'
@@ -99,8 +96,12 @@ final momentumEngineProvider = Provider<MomentumEngineState>((ref) {
     recovery: recovery,
     forecast: forecast,
     energyPercent: energyPercent,
-    pressurePercent: fatiguePercent,
+    pressurePercent: pressurePercent,
     streak: profile.streak,
     completedToday: siState.completedToday,
+    trendDelta: trendDelta,
+    trendEvidence: trendDelta == null
+        ? 'No prior seven-day comparison window is available.'
+        : 'Compared the current seven-day completion rate with the previous seven days.',
   );
 });

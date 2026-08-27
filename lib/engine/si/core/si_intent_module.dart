@@ -19,21 +19,20 @@ class SIIntentModule {
     IntentCandidate? hidden;
 
     if (_containsAny(normalized, const <String>[
-      'start focus',
-      'focus now',
-      'begin focus',
-      'focus session',
+      'start work',
+      'begin execution',
+      'work block',
       'deep work',
     ])) {
       primary = const IntentCandidate(
-        label: 'start_focus',
+        label: 'start_execution',
         score: 0.86,
-        why: 'Focus-session wording detected',
+        why: 'Execution-block wording detected',
       );
       secondary = const IntentCandidate(
         label: 'productivity_optimization',
         score: 0.65,
-        why: 'Focus implies performance optimization',
+        why: 'Execution request implies performance optimization',
       );
     } else if (_containsAny(normalized, const <String>[
       'what should i do',
@@ -66,16 +65,16 @@ class SIIntentModule {
         why: 'Reflection or review wording detected',
       );
     } else if (_containsAny(normalized, const <String>[
-      'insight',
+      'signal',
       'pattern',
       'why',
       'analyze',
       'summary',
     ])) {
       primary = const IntentCandidate(
-        label: 'insight_request',
+        label: 'signal_request',
         score: 0.78,
-        why: 'Insight or analysis wording detected',
+        why: 'Signal or analysis wording detected',
       );
     }
 
@@ -115,13 +114,13 @@ class SIIntentModule {
   String _predictNext(String intent) {
     switch (intent) {
       case 'get_task':
-        return 'start_focus';
-      case 'start_focus':
-        return 'insight_request';
+        return 'start_execution';
+      case 'start_execution':
+        return 'signal_request';
       case 'reflect':
-        return 'insight_request';
-      case 'insight_request':
-        return 'start_focus';
+        return 'signal_request';
+      case 'signal_request':
+        return 'start_execution';
       default:
         return 'get_task';
     }

@@ -1,3 +1,0 @@
-class SetDataVisibilityUsecase {
-  const SetDataVisibilityUsecase();
-}

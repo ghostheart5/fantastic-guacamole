@@ -1,3 +1,0 @@
-class RecordSubscriptionDecisionUsecase {
-  const RecordSubscriptionDecisionUsecase();
-}

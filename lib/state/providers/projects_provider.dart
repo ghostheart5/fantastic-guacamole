@@ -1,7 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/project_entity.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 
 final projectsProvider =
     NotifierProvider<ProjectsNotifier, List<ProjectEntity>>(
@@ -18,8 +17,6 @@ class ProjectsNotifier extends Notifier<List<ProjectEntity>> {
 
   Future<void> add(ProjectEntity project) async {
     await ref.read(createProjectUseCaseProvider).call(project);
-    await ref.read(timelineActionsProvider).connectProject(project);
-
     state = [
       project,
       ...state.where((ProjectEntity item) => item.id != project.id),

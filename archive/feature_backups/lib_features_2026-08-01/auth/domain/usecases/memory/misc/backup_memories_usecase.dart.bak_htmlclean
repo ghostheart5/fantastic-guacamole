@@ -1,3 +1,0 @@
-﻿class BackupMemoriesUsecase {
-  const BackupMemoriesUsecase();
-}

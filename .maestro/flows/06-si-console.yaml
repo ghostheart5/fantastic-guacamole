@@ -1,0 +1,19 @@
+# P2 — SI Console.
+appId: com.ghostheart5.chronospark
+tags:
+  - core
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "SI Console"
+
+- assertVisible: "SI CONSOLE.*"
+
+# The screen must expose its current source-aware contract, not only a title.
+- assertVisible: "Systems intelligence - source-aware guidance"
+- assertVisible: "Read-only evidence ready:.*"

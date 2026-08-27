@@ -1,7 +1,10 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
+///
+/// In-memory only; no data-layer persistence yet.
 class SiStateEntity {
   SiStateEntity({
     required this.energy,
-    required this.focus,
+    required this.attention,
     required this.fatigue,
     this.mood = 'neutral',
     this.confidence = 0.5,
@@ -16,7 +19,7 @@ class SiStateEntity {
   static final DateTime _epoch = DateTime.fromMillisecondsSinceEpoch(0);
 
   final double energy;
-  final double focus;
+  final double attention;
   final double fatigue;
   final String mood;
   final double confidence;
@@ -29,7 +32,7 @@ class SiStateEntity {
 
   SiStateEntity copyWith({
     double? energy,
-    double? focus,
+    double? attention,
     double? fatigue,
     String? mood,
     double? confidence,
@@ -42,7 +45,7 @@ class SiStateEntity {
   }) {
     return SiStateEntity(
       energy: energy ?? this.energy,
-      focus: focus ?? this.focus,
+      attention: attention ?? this.attention,
       fatigue: fatigue ?? this.fatigue,
       mood: mood ?? this.mood,
       confidence: (confidence ?? this.confidence).clamp(0.0, 1.0),
@@ -62,8 +65,8 @@ class SiStateEntity {
   SiStateEntity withEnergyDelta(double delta) =>
       copyWith(energy: (energy + delta).clamp(0.0, 1.0));
 
-  SiStateEntity withFocusDelta(double delta) =>
-      copyWith(focus: (focus + delta).clamp(0.0, 1.0));
+  SiStateEntity withAttentionDelta(double delta) =>
+      copyWith(attention: (attention + delta).clamp(0.0, 1.0));
 
   SiStateEntity withFatigueDelta(double delta) =>
       copyWith(fatigue: (fatigue + delta).clamp(0.0, 1.0));
@@ -72,8 +75,8 @@ class SiStateEntity {
   bool get isLowEnergy => energy < 0.3;
   bool get isHighEnergy => energy > 0.7;
 
-  bool get isLowFocus => focus < 0.3;
-  bool get isHighFocus => focus > 0.7;
+  bool get isLowAttention => attention < 0.3;
+  bool get isHighAttention => attention > 0.7;
 
   bool get isFatigued => fatigue > 0.6;
 
@@ -94,8 +97,8 @@ class SiStateEntity {
     if (energy < 0 || energy > 1) {
       throw StateError('Energy must be between 0 and 1');
     }
-    if (focus < 0 || focus > 1) {
-      throw StateError('Focus must be between 0 and 1');
+    if (attention < 0 || attention > 1) {
+      throw StateError('Attention must be between 0 and 1');
     }
     if (fatigue < 0 || fatigue > 1) {
       throw StateError('Fatigue must be between 0 and 1');

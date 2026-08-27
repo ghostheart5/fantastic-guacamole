@@ -1,16 +1,39 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Governed memories
 enum MemoryCategory {
   userPreference,
   goal,
   habit,
   task,
-  journal,
+  reflection,
   lifeArea,
-  coachingPreference,
+  planningGuidancePreference,
   value,
   importantDate,
   achievement,
-  insight,
+  signal,
   other,
+}
+
+/// The product surface where a durable memory was explicitly created.
+enum MemorySurface { smartPlanner, siConsole, creator, settings, unknown }
+
+/// The narrow reason a durable memory may be used.
+enum MemoryPurpose { guidancePreference, outcomeLearning, userNote, unknown }
+
+/// The highest sensitivity represented by the exact stored text.
+enum MemorySensitivity { standard, personal, emotional, crisis }
+
+/// Records without affirmative consent are never eligible for retrieval.
+enum MemoryConsentStatus { granted, withdrawn, legacyUnverified }
+
+extension MemorySurfaceLabel on MemorySurface {
+  String get label => switch (this) {
+    MemorySurface.smartPlanner => 'Smart Planner',
+    MemorySurface.siConsole => 'SI Console',
+    MemorySurface.creator => 'Creator',
+    MemorySurface.settings => 'Settings',
+    MemorySurface.unknown => 'Unknown',
+  };
 }
 
 class MemoryLink {
@@ -40,6 +63,15 @@ class MemoryEntity {
     this.source = 'manual',
     this.archivedAt,
     this.starred = false,
+    this.accountScopeId = '',
+    this.sourceSurface = MemorySurface.unknown,
+    this.purpose = MemoryPurpose.unknown,
+    this.sensitivity = MemorySensitivity.personal,
+    this.consentStatus = MemoryConsentStatus.legacyUnverified,
+    this.consentedAt,
+    this.expiresAt,
+    this.provenance = '',
+    this.whyStored = '',
   });
 
   final String id;
@@ -54,6 +86,17 @@ class MemoryEntity {
   final DateTime? archivedAt;
   final bool starred;
 
+  /// Opaque V2 namespace, never the user's raw account id.
+  final String accountScopeId;
+  final MemorySurface sourceSurface;
+  final MemoryPurpose purpose;
+  final MemorySensitivity sensitivity;
+  final MemoryConsentStatus consentStatus;
+  final DateTime? consentedAt;
+  final DateTime? expiresAt;
+  final String provenance;
+  final String whyStored;
+
   MemoryEntity copyWith({
     String? text,
     DateTime? date,
@@ -66,6 +109,15 @@ class MemoryEntity {
     DateTime? archivedAt,
     bool clearArchivedAt = false,
     bool? starred,
+    String? accountScopeId,
+    MemorySurface? sourceSurface,
+    MemoryPurpose? purpose,
+    MemorySensitivity? sensitivity,
+    MemoryConsentStatus? consentStatus,
+    DateTime? consentedAt,
+    DateTime? expiresAt,
+    String? provenance,
+    String? whyStored,
   }) {
     return MemoryEntity(
       id: id,
@@ -79,15 +131,46 @@ class MemoryEntity {
       source: source ?? this.source,
       archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),
       starred: starred ?? this.starred,
+      accountScopeId: accountScopeId ?? this.accountScopeId,
+      sourceSurface: sourceSurface ?? this.sourceSurface,
+      purpose: purpose ?? this.purpose,
+      sensitivity: sensitivity ?? this.sensitivity,
+      consentStatus: consentStatus ?? this.consentStatus,
+      consentedAt: consentedAt ?? this.consentedAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      provenance: provenance ?? this.provenance,
+      whyStored: whyStored ?? this.whyStored,
     );
   }
 
-  // Domain behavior
   Duration get age => DateTime.now().difference(date);
 
   bool get isRecent => age.inDays < 3;
 
   bool get isArchived => archivedAt != null;
+
+  bool isExpiredAt(DateTime now) {
+    final DateTime? expiry = expiresAt;
+    return expiry == null || !now.toUtc().isBefore(expiry.toUtc());
+  }
+
+  /// Durable recall is exact-account and exact-surface. SI durable
+  /// interpretive memory is intentionally disabled in Phase 8.
+  bool canBeRetrieved({
+    required String requestingAccountScopeId,
+    required MemorySurface requestingSurface,
+    required DateTime now,
+  }) {
+    return accountScopeId.isNotEmpty &&
+        accountScopeId == requestingAccountScopeId &&
+        sourceSurface == requestingSurface &&
+        requestingSurface != MemorySurface.siConsole &&
+        consentStatus == MemoryConsentStatus.granted &&
+        sensitivity != MemorySensitivity.emotional &&
+        sensitivity != MemorySensitivity.crisis &&
+        !isArchived &&
+        !isExpiredAt(now);
+  }
 
   MemoryEntity star() => copyWith(starred: true);
 
@@ -129,7 +212,51 @@ class MemoryEntity {
     }
   }
 
-  // Serialization
+  /// Fail-closed validation used by every durable memory write.
+  void validateForDurableStorage() {
+    validate();
+    final DateTime? consentTime = consentedAt;
+    final DateTime? expiry = expiresAt;
+    if (accountScopeId.trim().isEmpty ||
+        sourceSurface == MemorySurface.unknown ||
+        sourceSurface == MemorySurface.siConsole ||
+        purpose == MemoryPurpose.unknown ||
+        consentStatus != MemoryConsentStatus.granted ||
+        consentTime == null ||
+        expiry == null ||
+        provenance.trim().isEmpty ||
+        whyStored.trim().isEmpty) {
+      throw StateError(
+        'Durable memory requires account scope, allowed surface, purpose, consent, provenance, reason, and expiry.',
+      );
+    }
+    if (sensitivity == MemorySensitivity.emotional ||
+        sensitivity == MemorySensitivity.crisis) {
+      throw StateError('Emotional and crisis disclosures must stay ephemeral.');
+    }
+    if (!expiry.toUtc().isAfter(date.toUtc()) ||
+        expiry.toUtc().difference(date.toUtc()) > const Duration(days: 365)) {
+      throw StateError('Durable memory expiry must be within one year.');
+    }
+    if (consentTime.toUtc().isBefore(date.toUtc())) {
+      throw StateError('Consent time cannot precede memory creation.');
+    }
+  }
+
+  MemoryReceipt toReceipt() => MemoryReceipt(
+    memoryId: id,
+    storedText: text,
+    whyStored: whyStored,
+    sourceSurface: sourceSurface,
+    purpose: purpose,
+    sensitivity: sensitivity,
+    consentStatus: consentStatus,
+    createdAt: date,
+    consentedAt: consentedAt,
+    expiresAt: expiresAt,
+    provenance: provenance,
+  );
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'text': text,
@@ -142,13 +269,35 @@ class MemoryEntity {
     'source': source,
     'archivedAt': archivedAt?.toIso8601String(),
     'starred': starred,
+    'accountScopeId': accountScopeId,
+    'sourceSurface': sourceSurface.name,
+    'purpose': purpose.name,
+    'sensitivity': sensitivity.name,
+    'consentStatus': consentStatus.name,
+    'consentedAt': consentedAt?.toUtc().toIso8601String(),
+    'expiresAt': expiresAt?.toUtc().toIso8601String(),
+    'provenance': provenance,
+    'whyStored': whyStored,
   };
 
   factory MemoryEntity.fromJson(Map<String, dynamic> j) {
-    final String categoryRaw = j['category']?.toString() ?? 'other';
-    final MemoryCategory category = MemoryCategory.values.firstWhere(
-      (MemoryCategory value) => value.name == categoryRaw,
-      orElse: () => MemoryCategory.other,
+    final String storedCategory = j['category']?.toString() ?? 'other';
+    final String categoryRaw = switch (storedCategory) {
+      ('coa'
+          'chingPreference') =>
+        'planningGuidancePreference',
+      ('jour'
+          'nal') =>
+        'reflection',
+      ('ins'
+          'ight') =>
+        'signal',
+      _ => storedCategory,
+    };
+    final MemoryCategory category = _enumOr(
+      MemoryCategory.values,
+      categoryRaw,
+      MemoryCategory.other,
     );
 
     final List<String> tags = (j['tags'] as List<dynamic>? ?? const <dynamic>[])
@@ -176,9 +325,11 @@ class MemoryEntity {
     }
 
     return MemoryEntity(
-      id: j['id'] as String,
-      text: j['text'] as String,
-      date: DateTime.parse(j['date'] as String),
+      id: j['id']?.toString() ?? '',
+      text: j['text']?.toString() ?? '',
+      date:
+          DateTime.tryParse(j['date']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       category: category,
       tags: tags,
       links: links,
@@ -189,6 +340,81 @@ class MemoryEntity {
           ? null
           : DateTime.tryParse(j['archivedAt'].toString()),
       starred: j['starred'] as bool? ?? false,
+      accountScopeId: j['accountScopeId']?.toString() ?? '',
+      sourceSurface: _enumOr(
+        MemorySurface.values,
+        j['sourceSurface']?.toString(),
+        MemorySurface.unknown,
+      ),
+      purpose: _enumOr(
+        MemoryPurpose.values,
+        j['purpose']?.toString(),
+        MemoryPurpose.unknown,
+      ),
+      sensitivity: _enumOr(
+        MemorySensitivity.values,
+        j['sensitivity']?.toString(),
+        MemorySensitivity.personal,
+      ),
+      consentStatus: _enumOr(
+        MemoryConsentStatus.values,
+        j['consentStatus']?.toString(),
+        MemoryConsentStatus.legacyUnverified,
+      ),
+      consentedAt: DateTime.tryParse(j['consentedAt']?.toString() ?? ''),
+      expiresAt: DateTime.tryParse(j['expiresAt']?.toString() ?? ''),
+      provenance: j['provenance']?.toString() ?? '',
+      whyStored: j['whyStored']?.toString() ?? '',
     );
   }
+}
+
+class MemoryReceipt {
+  const MemoryReceipt({
+    required this.memoryId,
+    required this.storedText,
+    required this.whyStored,
+    required this.sourceSurface,
+    required this.purpose,
+    required this.sensitivity,
+    required this.consentStatus,
+    required this.createdAt,
+    required this.consentedAt,
+    required this.expiresAt,
+    required this.provenance,
+  });
+
+  final String memoryId;
+  final String storedText;
+  final String whyStored;
+  final MemorySurface sourceSurface;
+  final MemoryPurpose purpose;
+  final MemorySensitivity sensitivity;
+  final MemoryConsentStatus consentStatus;
+  final DateTime createdAt;
+  final DateTime? consentedAt;
+  final DateTime? expiresAt;
+  final String provenance;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'memoryId': memoryId,
+    'storedText': storedText,
+    'whyStored': whyStored,
+    'sourceSurface': sourceSurface.name,
+    'purpose': purpose.name,
+    'sensitivity': sensitivity.name,
+    'consentStatus': consentStatus.name,
+    'createdAt': createdAt.toUtc().toIso8601String(),
+    'consentedAt': consentedAt?.toUtc().toIso8601String(),
+    'expiresAt': expiresAt?.toUtc().toIso8601String(),
+    'provenance': provenance,
+    'controls': const <String>['view', 'correct', 'export', 'delete'],
+  };
+}
+
+T _enumOr<T extends Enum>(List<T> values, String? name, T fallback) {
+  for (final T value in values) {
+    if (value.name == name) return value;
+  }
+  return fallback;
 }

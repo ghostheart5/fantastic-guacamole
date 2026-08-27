@@ -35,14 +35,12 @@ class NeonInput extends StatefulWidget {
 class _NeonInputState extends State<NeonInput> {
   late final FocusNode _focusNode;
   late final bool _ownsFocusNode;
-  late final ValueNotifier<bool> _isFocused;
 
   @override
   void initState() {
     super.initState();
     _ownsFocusNode = widget.focusNode == null;
     _focusNode = widget.focusNode ?? FocusNode();
-    _isFocused = ValueNotifier<bool>(_focusNode.hasFocus);
     _focusNode.addListener(_onFocusChanged);
   }
 
@@ -63,28 +61,26 @@ class _NeonInputState extends State<NeonInput> {
     if (_ownsFocusNode) {
       _focusNode.dispose();
     }
-    _isFocused.dispose();
     super.dispose();
   }
 
   void _onFocusChanged() {
-    _isFocused.value = _focusNode.hasFocus;
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final NeonEffects effects =
         Theme.of(context).extension<NeonEffects>() ?? defaultNeonEffects;
+    final bool isFocused = _focusNode.hasFocus;
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: _isFocused,
-      builder: (context, isFocused, child) => AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        decoration: BoxDecoration(
-          borderRadius: inputRadius,
-          boxShadow: isFocused ? neonGlowCyan : const <BoxShadow>[],
-        ),
-        child: child,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      decoration: BoxDecoration(
+        borderRadius: inputRadius,
+        boxShadow: isFocused ? neonGlowCyan : const <BoxShadow>[],
       ),
       child: TextField(
         controller: widget.controller,

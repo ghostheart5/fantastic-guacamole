@@ -1,3 +1,0 @@
-class ViewSiMetricsUsecase {
-  const ViewSiMetricsUsecase();
-}

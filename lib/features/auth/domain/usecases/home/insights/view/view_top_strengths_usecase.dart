@@ -1,3 +1,0 @@
-class ViewTopStrengthsUsecase {
-  const ViewTopStrengthsUsecase();
-}

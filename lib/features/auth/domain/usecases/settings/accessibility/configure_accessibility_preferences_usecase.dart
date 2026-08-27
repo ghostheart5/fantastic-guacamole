@@ -1,3 +1,0 @@
-class ConfigureAccessibilityPreferencesUsecase {
-  const ConfigureAccessibilityPreferencesUsecase();
-}

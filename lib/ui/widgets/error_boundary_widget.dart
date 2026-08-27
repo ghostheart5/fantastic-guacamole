@@ -1,5 +1,8 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class ErrorBoundary extends StatefulWidget {
@@ -15,8 +18,10 @@ class ErrorBoundary extends StatefulWidget {
   }
 
   static void reportGlobalError(Object error, [StackTrace? stackTrace]) {
-    final String errorText = error.toString();
-    final String stackText = (stackTrace ?? StackTrace.current).toString();
+    final String errorText = Logger.redactSensitive(error.toString());
+    final String stackText = Logger.redactSensitive(
+      (stackTrace ?? StackTrace.current).toString(),
+    );
 
     // Prevent recursive ErrorBoundary / Crashlytics / FlutterError loops.
     if (_isReportingError) {
@@ -32,10 +37,12 @@ class ErrorBoundary extends StatefulWidget {
     _lastReportedError = error;
 
     try {
-      debugPrint('Global error captured: $errorText');
-      debugPrint('Global error stack start >>>');
-      debugPrint(stackText);
-      debugPrint('Global error stack end <<<');
+      if (kDebugMode || Env.enableVerboseLogs) {
+        debugPrint('Global error captured: $errorText');
+        debugPrint('Global error stack start >>>');
+        debugPrint(stackText);
+        debugPrint('Global error stack end <<<');
+      }
 
       // Do NOT update notifiers or UI during build.
       // Logger is delayed so it cannot trigger another Flutter build error.
@@ -109,6 +116,12 @@ class ErrorBoundaryState extends State<ErrorBoundary> {
       return widget.child;
     }
 
+    final String safeErrorText = PublicFailure.from(
+      effectiveError,
+      fallback:
+          'ChronoSpark recovered the failure. Your saved work is unchanged; retry when ready.',
+    ).message;
+
     return Scaffold(
       backgroundColor: const Color(0xFF050D1A),
       body: Center(
@@ -134,7 +147,7 @@ class ErrorBoundaryState extends State<ErrorBoundary> {
               ),
               const SizedBox(height: 10),
               Text(
-                effectiveError.toString(),
+                safeErrorText,
                 textAlign: TextAlign.center,
                 maxLines: 5,
                 overflow: TextOverflow.ellipsis,

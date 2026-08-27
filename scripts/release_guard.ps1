@@ -2,6 +2,8 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $failures = New-Object System.Collections.Generic.List[string]
+$requiredTargetApi = 36
+$powerShellCommand = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
 
 function Add-Failure([string]$message) {
   $script:failures.Add($message)
@@ -31,6 +33,8 @@ if (-not (Test-Path $manifest)) {
     'android.permission.INTERNET',
     'com.android.vending.BILLING',
     'android.permission.POST_NOTIFICATIONS',
+    'android.permission.ACCESS_COARSE_LOCATION',
+    'android.permission.ACCESS_FINE_LOCATION',
     'android.permission.RECORD_AUDIO',
     'android.permission.FOREGROUND_SERVICE',
     'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
@@ -41,19 +45,14 @@ if (-not (Test-Path $manifest)) {
     'android.permission.SCHEDULE_EXACT_ALARM'
   )
 
-  $permissionMatches = [regex]::Matches($manifestContent, '<uses-permission\s+android:name="([^"]+)"')
-  $removePermissionMatches = [regex]::Matches(
+  $permissionMatches = [regex]::Matches(
     $manifestContent,
-    '<uses-permission\s+android:name="([^"]+)"\s+tools:node="remove"\s*/?>'
+    '<uses-permission\b[^>]*android:name="([^"]+)"[^>]*/?>'
   )
-  $removedPermissions = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-  foreach ($rm in $removePermissionMatches) {
-    $null = $removedPermissions.Add($rm.Groups[1].Value)
-  }
-
   foreach ($pm in $permissionMatches) {
     $permissionName = $pm.Groups[1].Value
-    if ($removedPermissions.Contains($permissionName)) {
+    $declaration = $pm.Value
+    if ($declaration -match 'tools:node="remove"') {
       continue
     }
     if ($allowedPermissions -notcontains $permissionName) {
@@ -69,26 +68,20 @@ if (-not (Test-Path $androidGradle)) {
   $gradleContent = Get-Content -Path $androidGradle -Raw
 
   $compileSdk = Get-RegexIntegerValue -Text $gradleContent -Pattern 'compileSdk\s*=\s*maxOf\(flutter\.compileSdkVersion,\s*(\d+)\)'
-  if ($null -eq $compileSdk -or $compileSdk -lt 35) {
-    Add-Failure 'compileSdk floor must be >= 35.'
+  if ($null -eq $compileSdk -or $compileSdk -lt $requiredTargetApi) {
+    Add-Failure "compileSdk floor must be >= $requiredTargetApi for the 2026-08-31 Google Play policy change."
   }
 
   $targetSdk = Get-RegexIntegerValue -Text $gradleContent -Pattern 'targetSdk\s*=\s*maxOf\(flutter\.targetSdkVersion,\s*(\d+)\)'
-  if ($null -eq $targetSdk -or $targetSdk -lt 35) {
-    Add-Failure 'targetSdk floor must be >= 35.'
+  if ($null -eq $targetSdk -or $targetSdk -lt $requiredTargetApi) {
+    Add-Failure "targetSdk floor must be >= $requiredTargetApi for the 2026-08-31 Google Play policy change."
   }
 
-  if (
-    $gradleContent -notmatch 'id\("com\.google\.firebase\.crashlytics"\)' -and
-    $gradleContent -notmatch 'apply\(plugin\s*=\s*"com\.google\.firebase\.crashlytics"\)'
-  ) {
+  if ($gradleContent -notmatch '(?:id\(|apply\(plugin\s*=\s*)"com\.google\.firebase\.crashlytics"') {
     Add-Failure 'android/app/build.gradle.kts must apply Firebase Crashlytics plugin.'
   }
 
-  if (
-    $gradleContent -notmatch 'id\("com\.google\.gms\.google-services"\)' -and
-    $gradleContent -notmatch 'apply\(plugin\s*=\s*"com\.google\.gms\.google-services"\)'
-  ) {
+  if ($gradleContent -notmatch '(?:id\(|apply\(plugin\s*=\s*)"com\.google\.gms\.google-services"') {
     Add-Failure 'android/app/build.gradle.kts must apply Google services plugin.'
   }
 }
@@ -96,6 +89,11 @@ if (-not (Test-Path $androidGradle)) {
 $firebaseOptions = Join-Path $root 'lib/firebase_options.dart'
 if (-not (Test-Path $firebaseOptions)) {
   Add-Failure "Missing firebase_options.dart: $firebaseOptions"
+} else {
+  $firebaseContent = Get-Content -Path $firebaseOptions -Raw
+  if ($firebaseContent -match "iosBundleId:\s*'com\.example\.chronospark'") {
+    Add-Failure 'firebase_options.dart still contains the retired com.example.chronospark macOS identity.'
+  }
 }
 
 $mainEntrypoint = Join-Path $root 'lib/main.dart'
@@ -103,28 +101,20 @@ if (-not (Test-Path $mainEntrypoint)) {
   Add-Failure "Missing main entrypoint: $mainEntrypoint"
 } else {
   $mainContent = Get-Content -Path $mainEntrypoint -Raw
+  $startupContent = $mainContent
   $bootstrapPath = Join-Path $root 'lib/app/startup/app_bootstrap.dart'
-  if (Test-Path $bootstrapPath) {
-    $bootstrapContent = Get-Content -Path $bootstrapPath -Raw
-    if ($bootstrapContent -notmatch 'runZonedGuarded\s*\(') {
-      Add-Failure 'app_bootstrap.dart must wrap startup with runZonedGuarded.'
-    }
-    if ($bootstrapContent -notmatch 'FlutterError\.onError\s*=') {
-      Add-Failure 'app_bootstrap.dart must assign FlutterError.onError for framework crash capture.'
-    }
-    if ($bootstrapContent -notmatch 'PlatformDispatcher\.instance\.onError\s*=') {
-      Add-Failure 'app_bootstrap.dart must assign PlatformDispatcher.instance.onError for isolate/dispatcher crash capture.'
-    }
-  } else {
-    if ($mainContent -notmatch 'runZonedGuarded\s*\(') {
-      Add-Failure 'main.dart must wrap startup with runZonedGuarded.'
-    }
-    if ($mainContent -notmatch 'FlutterError\.onError\s*=') {
-      Add-Failure 'main.dart must assign FlutterError.onError for framework crash capture.'
-    }
-    if ($mainContent -notmatch 'PlatformDispatcher\.instance\.onError\s*=') {
-      Add-Failure 'main.dart must assign PlatformDispatcher.instance.onError for isolate/dispatcher crash capture.'
-    }
+  if ($mainContent -match "app/startup/app_bootstrap\.dart" -and (Test-Path $bootstrapPath)) {
+    $startupContent += "`n" + (Get-Content -Path $bootstrapPath -Raw)
+  }
+
+  if ($startupContent -notmatch 'runZonedGuarded\s*\(') {
+    Add-Failure 'The main startup path must wrap startup with runZonedGuarded.'
+  }
+  if ($startupContent -notmatch 'FlutterError\.onError\s*=') {
+    Add-Failure 'The main startup path must assign FlutterError.onError for framework crash capture.'
+  }
+  if ($startupContent -notmatch 'PlatformDispatcher\.instance\.onError\s*=') {
+    Add-Failure 'The main startup path must assign PlatformDispatcher.instance.onError for isolate/dispatcher crash capture.'
   }
 }
 
@@ -167,6 +157,14 @@ if (Test-Path $pubspec) {
   }
 } else {
   Add-Failure "Missing pubspec.yaml: $pubspec"
+}
+
+$versionGuard = Join-Path $root 'scripts/version_consistency_guard.ps1'
+if (Test-Path $versionGuard) {
+  & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File $versionGuard
+  if ($LASTEXITCODE -ne 0) { Add-Failure 'Version consistency guard failed.' }
+} else {
+  Add-Failure "Missing version consistency guard: $versionGuard"
 }
 
 if ($failures.Count -gt 0) {

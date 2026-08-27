@@ -16,33 +16,18 @@ export function verifySubscriptionLineItem(
   if (!activeSubscriptionStates.has(String(purchase.subscriptionState ?? ""))) {
     return null;
   }
-
   if (
     purchase.acknowledgementState !== undefined &&
     purchase.acknowledgementState !== "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED"
-  ) {
-    return null;
-  }
-
-  const lineItems = purchase.lineItems;
-  if (!Array.isArray(lineItems)) {
-    return null;
-  }
-
-  for (const item of lineItems) {
-    if (!item || typeof item !== "object") {
-      continue;
-    }
+  ) return null;
+  if (!Array.isArray(purchase.lineItems)) return null;
+  for (const item of purchase.lineItems) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const lineItem = item as Record<string, unknown>;
-    if (lineItem.productId !== claimedProductId) {
-      continue;
-    }
+    if (lineItem.productId !== claimedProductId) continue;
     const expiryTimeMs = Date.parse(String(lineItem.expiryTime ?? ""));
-    if (!Number.isFinite(expiryTimeMs) || expiryTimeMs <= nowMs) {
-      return null;
-    }
+    if (!Number.isFinite(expiryTimeMs) || expiryTimeMs <= nowMs) return null;
     return { productId: claimedProductId, expiryTimeMs };
   }
-
   return null;
 }

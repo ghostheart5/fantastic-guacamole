@@ -1,5 +1,0 @@
-appId: ${APP_ID}
-tags:
-  - sandbox-subscriptions
----
-- runFlow: ../subscriptions/_suite_subscriptions.yaml

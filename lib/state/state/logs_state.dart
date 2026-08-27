@@ -13,7 +13,7 @@ class LogsState {
   final List<LogEntryEntity> entries;
   final bool isLoading;
   final String? error;
-  final String? activeFilter; // null = all, or "task" / "focus" / "system"
+  final String? activeFilter; // null = all, or "task" / "execution" / "system"
 
   factory LogsState.initial() => const LogsState(entries: [], isLoading: false);
 

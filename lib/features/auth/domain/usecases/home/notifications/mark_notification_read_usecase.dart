@@ -1,3 +1,0 @@
-class MarkNotificationReadUsecase {
-  const MarkNotificationReadUsecase();
-}

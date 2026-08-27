@@ -1,3 +1,0 @@
-class ReserveUsernameUsecase {
-  const ReserveUsernameUsecase();
-}

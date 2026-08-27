@@ -1,3 +1,0 @@
-class JoinBetaProgramUsecase {
-  const JoinBetaProgramUsecase();
-}

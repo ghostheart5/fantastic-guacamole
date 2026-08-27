@@ -6,31 +6,31 @@ class SelfOptimizer {
 
   OptimizationConfig adjust(
     OptimizationConfig current,
-    List<ProductInsight> insights,
+    List<ProductRecommendation> recommendations,
   ) {
-    if (insights.isEmpty ||
-        insights.first.issue == 'No major issues detected' ||
-        insights.first.issue == 'Not enough data yet') {
+    if (recommendations.isEmpty ||
+        recommendations.first.issue == 'No major issues detected' ||
+        recommendations.first.issue == 'Not enough data yet') {
       return current;
     }
 
-    var focusMult = current.focusDurationMultiplier;
+    var executionMult = current.executionDurationMultiplier;
     var diffScale = current.taskDifficultyScale;
     var aggression = current.nextActionAggressiveness;
 
-    for (final insight in insights) {
-      if (insight.issue.contains("don't start")) {
+    for (final recommendation in recommendations) {
+      if (recommendation.issue.contains("don't start")) {
         aggression = (aggression * 0.9).clamp(0.5, 1.5);
       }
-      if (insight.issue.contains('Low momentum') ||
-          insight.issue.contains('not completed')) {
+      if (recommendation.issue.contains('Low momentum') ||
+          recommendation.issue.contains('not completed')) {
         diffScale = (diffScale * 0.85).clamp(0.5, 1.5);
         aggression = (aggression * 0.9).clamp(0.5, 1.5);
       }
     }
 
     return OptimizationConfig(
-      focusDurationMultiplier: focusMult,
+      executionDurationMultiplier: executionMult,
       taskDifficultyScale: diffScale,
       nextActionAggressiveness: aggression,
     );

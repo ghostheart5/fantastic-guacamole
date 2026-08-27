@@ -1,3 +1,0 @@
-class UpdatePreferencesUsecase {
-  const UpdatePreferencesUsecase();
-}

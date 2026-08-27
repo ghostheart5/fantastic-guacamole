@@ -1,3 +1,0 @@
-class CreateJournalLogUsecase {
-  const CreateJournalLogUsecase();
-}

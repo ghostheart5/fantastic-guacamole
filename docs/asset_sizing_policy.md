@@ -27,7 +27,7 @@ This document defines acceptable asset sizes and optimization strategies for Chr
 
 2. **Resolution Downsampling** (Priority: HIGH for backgrounds)
    - Backgrounds used as screens are 1080px wide max
-   - Current: chronocreator_bg.png 3.12 MB → likely 2000+ px
+   - Current Creator background: `creator_bg.jpg` at about 61.8 KB; already within the size budget
    - Resize to 1200x1200 max
    - Command: `convert input.png -resize 1200x1200 output.png`
 
@@ -80,7 +80,7 @@ Use `Image.asset()` with `fit`, `width`, `height` to constrain GPU memory:
 
 ```dart
 Image.asset(
-  'assets/backgrounds/chronocreator_bg.png',
+  'assets/backgrounds/creator_bg.jpg',
   fit: BoxFit.cover,
   width: 1080,
   height: 1920,
@@ -92,16 +92,14 @@ Image.asset(
 
 ### Immediate Priorities (Size > 1.5 MB)
 
-1. **chronocreator_bg.png** (3.12 MB)
-   - Likely 2000+ px raster, single-use background
-   - Target: 1.5 MB via WebP + downsampling to 1200px
-   - Estimated Savings: ~1.2 MB (38% reduction)
+The Creator background (`creator_bg.jpg`, about 61.8 KB) is already below the
+background budget and is not an immediate optimization target.
 
-2. **settings_bg.png** (1.47 MB)
+1. **settings_bg.png** (1.47 MB)
    - Target: 800 KB via WebP + quality reduction
    - Estimated Savings: ~600 KB (40% reduction)
 
-3. **nexus_bg.png** (1.42 MB)
+2. **nexus_bg.png** (1.42 MB)
    - Target: 800 KB (same approach)
    - Estimated Savings: ~600 KB
 
@@ -152,7 +150,7 @@ flutter run --profile && # Profile panel shows Time to Persistent Frame
 ## Success Metrics
 
 - **Total Assets**: < 15 MB (currently ~28 MB, target 47% reduction)
-- **Largest Background**: < 1 MB (currently 3.12 MB, target 68% reduction)
+- **Largest Background**: < 1 MB (currently 61.8 KB, target 68% reduction)
 - **Icon Assets**: < 100 KB each (currently many > 500 KB, target 80% reduction)
 - **Startup Time**: Time to Persistent Frame < 2s on mid-range device (Pixel 3a / iPhone 8)
 - **GPU Memory**: Asset decode footprint < 50 MB (critical for low-end phones)

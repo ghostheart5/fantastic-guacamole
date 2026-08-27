@@ -10,14 +10,12 @@ class TaskLifecycleEvent extends DomainEvent {
     required this.taskId,
     required this.title,
     required this.action,
-    this.actionSource = 'unknown',
     super.occurredAt,
   });
 
   final String taskId;
   final String title;
   final String action;
-  final String actionSource;
 }
 
 class GoalLifecycleEvent extends DomainEvent {
@@ -33,8 +31,8 @@ class GoalLifecycleEvent extends DomainEvent {
   final String action;
 }
 
-class InsightLifecycleEvent extends DomainEvent {
-  InsightLifecycleEvent({
+class SignalLifecycleEvent extends DomainEvent {
+  SignalLifecycleEvent({
     required this.summary,
     required this.titles,
     super.occurredAt,

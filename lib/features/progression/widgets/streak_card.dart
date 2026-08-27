@@ -9,6 +9,10 @@ class StreakCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String detail = progress.longestStreak > 0
+        ? '${progress.streakMessage}  Best streak: ${progress.longestStreak} days.'
+        : progress.streakMessage;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -50,38 +54,34 @@ class StreakCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        '${progress.streak}',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.neonViolet,
-                        ),
+                    Text(
+                      '${progress.streak}',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.neonViolet,
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'DAY STREAK',
-                          style: TextStyle(
-                            fontSize: 11,
-                            letterSpacing: 1.5,
-                            color: Colors.white38,
-                          ),
-                        ),
+                    const Text(
+                      'DAY STREAK',
+                      style: TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 1.4,
+                        color: Color(0xFFD7DFF0),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  progress.streakMessage,
-                  style: const TextStyle(fontSize: 12, color: Colors.white54),
+                  detail,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: Color(0xFFC6D0E2),
+                  ),
                 ),
               ],
             ),

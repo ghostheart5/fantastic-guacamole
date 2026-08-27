@@ -8,15 +8,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
-const bool _isTestBuild = bool.fromEnvironment('FLUTTER_TEST');
-
 final flutterSecureStorageProvider = Provider<FlutterSecureStorage>(
   (Ref ref) => const FlutterSecureStorage(),
 );
 
 final secureStoreProvider = Provider<SecureStore>((Ref ref) {
   return SecureStore(
-    backend: Env.isMockMode || _isTestBuild
+    backend: Env.isMockMode
         ? InMemorySecureStoreBackend()
         : RealSecureStoreBackend(
             storage: ref.read(flutterSecureStorageProvider),
@@ -24,10 +22,9 @@ final secureStoreProvider = Provider<SecureStore>((Ref ref) {
   );
 });
 
-final hiveStoreProvider = Provider<HiveStore>((Ref ref) {
-  HiveService.configureSecureStore(ref.read(secureStoreProvider));
-  return const HiveStoreAdapter();
-});
+final hiveStoreProvider = Provider<HiveStore>(
+  (Ref ref) => const HiveStoreAdapter(),
+);
 
 final sharedPrefsStoreProvider = Provider<SharedPrefsStore>(
   (Ref ref) => const SharedPrefsStoreAdapter(),

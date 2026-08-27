@@ -5,6 +5,8 @@ abstract class SecureStoreBackend {
   Future<void> write({required String key, required String value});
   Future<void> delete({required String key});
   Future<void> deleteAll();
+
+  Future<Map<String, String>> readAll() async => const <String, String>{};
 }
 
 class RealSecureStoreBackend implements SecureStoreBackend {
@@ -31,6 +33,11 @@ class RealSecureStoreBackend implements SecureStoreBackend {
   Future<void> deleteAll() {
     return _storage.deleteAll();
   }
+
+  @override
+  Future<Map<String, String>> readAll() {
+    return _storage.readAll();
+  }
 }
 
 class InMemorySecureStoreBackend implements SecureStoreBackend {
@@ -55,12 +62,15 @@ class InMemorySecureStoreBackend implements SecureStoreBackend {
   Future<void> deleteAll() async {
     _memory.clear();
   }
+
+  @override
+  Future<Map<String, String>> readAll() async {
+    return Map<String, String>.unmodifiable(_memory);
+  }
 }
 
 class SecureStore {
-  SecureStore({required SecureStoreBackend backend}) : this._(backend);
-
-  SecureStore._(this._backend);
+  SecureStore({required this._backend});
 
   final SecureStoreBackend _backend;
 
@@ -111,17 +121,6 @@ class SecureStore {
   }
 
   Future<Map<String, String>> readAll() {
-    final SecureStoreBackend backend = _backend;
-    if (backend is RealSecureStoreBackend) {
-      return backend._storage.readAll();
-    }
-    if (backend is InMemorySecureStoreBackend) {
-      return Future<Map<String, String>>.value(
-        Map<String, String>.unmodifiable(backend._memory),
-      );
-    }
-    throw UnsupportedError(
-      'The configured secure-store backend does not support enumeration.',
-    );
+    return _backend.readAll();
   }
 }

@@ -1,3 +1,0 @@
-class ViewInsightUsecase {
-  const ViewInsightUsecase();
-}

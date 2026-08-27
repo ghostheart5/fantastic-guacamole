@@ -1,3 +1,0 @@
-﻿class AddLogTagUsecase {
-  const AddLogTagUsecase();
-}

@@ -1,3 +1,0 @@
-class DeleteNotificationUsecase {
-  const DeleteNotificationUsecase();
-}

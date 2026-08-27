@@ -1,3 +1,0 @@
-class ImportBackupUsecase {
-  const ImportBackupUsecase();
-}

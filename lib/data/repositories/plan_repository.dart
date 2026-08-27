@@ -2,32 +2,19 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 
 class PlanRepository implements IPlanRepository {
-  PlanRepository(HiveStorage<String> store) : _store = store;
+  PlanRepository(this._store);
 
-  PlanRepository.unavailable() : _store = null;
-
-  final HiveStorage<String>? _store;
-  bool _cancelled = false;
-  Future<void> _writeQueue = Future<void>.value();
-
-  Future<void> cancelAndDrain() async {
-    _cancelled = true;
-    await _writeQueue.catchError((Object _) {});
-  }
-
-  void dispose() {
-    _cancelled = true;
-  }
+  final HiveStorage<String> _store;
 
   @override
   Future<PlanEntity?> getPlan(DateTime date) async {
-    final HiveStorage<String> store = _requireStore();
-    await store.open();
-    final String? raw = store.get(_dateKey(date));
+    await _store.open();
+    final String? raw = _store.get(_dateKey(date));
     if (raw == null || raw.trim().isEmpty) {
       return null;
     }
@@ -39,35 +26,68 @@ class PlanRepository implements IPlanRepository {
   }
 
   @override
-  Future<void> savePlan(PlanEntity plan) => _serializeWrite(() {
-    return _requireStore().put(_dateKey(plan.date), jsonEncode(_toJson(plan)));
-  });
-
-  Future<void> _serializeWrite(Future<void> Function() action) {
-    final Future<void> next = _writeQueue.then((_) {
-      if (_cancelled) {
-        throw StateError('Plan mutation canceled during account transition.');
-      }
-      return action();
-    });
-    _writeQueue = next.catchError((Object _) {});
-    return next;
+  Future<void> savePlan(PlanEntity plan) async {
+    await _store.put(_dateKey(plan.date), jsonEncode(_toJson(plan)));
   }
 
-  HiveStorage<String> _requireStore() {
-    final HiveStorage<String>? store = _store;
-    if (store == null) {
-      throw StateError(
-        'Plan storage is unavailable while the account transition is unsafe.',
-      );
+  @override
+  Future<PlanProposalEntity?> getProposal(String id) async {
+    await _store.open();
+    final String? raw = _store.get(_proposalKey(id));
+    if (raw == null || raw.trim().isEmpty) return null;
+    final Object? decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) return null;
+    return PlanProposalEntity.fromJson(_normalizeProposalJson(decoded));
+  }
+
+  @override
+  Future<void> saveProposal(PlanProposalEntity proposal) {
+    proposal.validate();
+    return _store.put(_proposalKey(proposal.id), jsonEncode(proposal.toJson()));
+  }
+
+  @override
+  Future<void> applyProposal({
+    required PlanProposalEntity proposal,
+    required PlanEntity plan,
+  }) async {
+    final PlanProposalEntity? previous = await getProposal(proposal.id);
+    await saveProposal(proposal);
+    try {
+      await savePlan(plan);
+    } on Object {
+      if (previous != null) await saveProposal(previous);
+      rethrow;
     }
-    return store;
   }
 
   static String _dateKey(DateTime date) {
     final String month = date.month.toString().padLeft(2, '0');
     final String day = date.day.toString().padLeft(2, '0');
     return '${date.year}-$month-$day';
+  }
+
+  static String _proposalKey(String id) => 'proposal:$id';
+
+  static Map<String, Object?> _normalizeProposalJson(
+    Map<String, dynamic> json,
+  ) {
+    final Map<String, Object?> normalized = Map<String, Object?>.from(json);
+    if (normalized['schemaVersion'] == null) {
+      normalized['schemaVersion'] = PlanProposalEntity.currentSchemaVersion;
+      final Object? rawBlocks = normalized['blocks'];
+      if (rawBlocks is List<dynamic>) {
+        normalized['blocks'] = rawBlocks
+            .map((dynamic raw) {
+              if (raw is! Map<dynamic, dynamic>) return raw;
+              final Map<String, Object?> block = Map<String, Object?>.from(raw);
+              block.putIfAbsent('description', () => null);
+              return block;
+            })
+            .toList(growable: false);
+      }
+    }
+    return normalized;
   }
 
   static PlanEntity _fromJson(Map<String, dynamic> json) {

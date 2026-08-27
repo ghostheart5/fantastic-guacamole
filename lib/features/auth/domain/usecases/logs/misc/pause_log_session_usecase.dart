@@ -1,3 +1,0 @@
-class PauseLogSessionUsecase {
-  const PauseLogSessionUsecase();
-}

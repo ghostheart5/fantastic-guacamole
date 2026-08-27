@@ -1,3 +1,0 @@
-class ImportMemoriesUsecase {
-  const ImportMemoriesUsecase();
-}

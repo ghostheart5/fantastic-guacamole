@@ -1,3 +1,0 @@
-class TrackOnboardingSkippedUsecase {
-  const TrackOnboardingSkippedUsecase();
-}

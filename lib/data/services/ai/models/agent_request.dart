@@ -11,7 +11,7 @@ class AgentRequest {
     this.tasks = const <Task>[],
     this.si,
     this.learning,
-    this.personality = AIPersonality.coach,
+    this.personality = AIPersonality.planner,
     this.preferredAgent,
   });
 

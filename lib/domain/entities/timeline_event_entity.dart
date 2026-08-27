@@ -1,16 +1,12 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Calendar/timeline
 enum TimelineEventType {
   reflection,
   levelUp,
   goalComplete,
   streak,
   task,
-  taskCompleted,
-  taskSkipped,
-  taskRescheduled,
   goal,
   habit,
-  habitCompleted,
-  habitSkipped,
   project,
   milestone,
   deadline,
@@ -24,7 +20,16 @@ enum TimelineEventType {
   noteDeleted,
 }
 
-enum TimelineEventStatus { planned, active, completed, overdue, atRisk, info }
+enum TimelineEventStatus {
+  planned,
+  active,
+  completed,
+  skipped,
+  canceled,
+  overdue,
+  atRisk,
+  info,
+}
 
 class TimelineEventEntity {
   const TimelineEventEntity({
@@ -37,6 +42,9 @@ class TimelineEventEntity {
     this.dueAt,
     this.phase,
     this.relatedId,
+    this.sourceFeature,
+    this.decisionId,
+    this.userOverride = false,
   });
 
   final String id;
@@ -48,6 +56,11 @@ class TimelineEventEntity {
   final DateTime? dueAt;
   final String? phase;
   final String? relatedId;
+
+  /// Provenance makes adaptive decisions auditable without storing raw prompts.
+  final String? sourceFeature;
+  final String? decisionId;
+  final bool userOverride;
 
   // Semantic helpers
   bool get isReflection => type == TimelineEventType.reflection;
@@ -62,9 +75,15 @@ class TimelineEventEntity {
   bool get isRisk =>
       type == TimelineEventType.risk || status == TimelineEventStatus.atRisk;
   bool get isRecommendation => type == TimelineEventType.recommendation;
+  bool get isNoteCreated => type == TimelineEventType.noteCreated;
+  bool get isNoteUpdated => type == TimelineEventType.noteUpdated;
+  bool get isNoteArchived => type == TimelineEventType.noteArchived;
+  bool get isNoteDeleted => type == TimelineEventType.noteDeleted;
   bool get isDeadline => type == TimelineEventType.deadline;
   bool get isForecast => type == TimelineEventType.forecast;
   bool get isOverdue => status == TimelineEventStatus.overdue;
+  bool get isSkipped => status == TimelineEventStatus.skipped;
+  bool get isCanceled => status == TimelineEventStatus.canceled;
   bool get isUpcoming {
     final DateTime? due = dueAt;
     if (due == null) {
@@ -91,20 +110,10 @@ class TimelineEventEntity {
         return 'Streak';
       case TimelineEventType.task:
         return 'Task';
-      case TimelineEventType.taskCompleted:
-        return 'Task Completed';
-      case TimelineEventType.taskSkipped:
-        return 'Task Skipped';
-      case TimelineEventType.taskRescheduled:
-        return 'Task Rescheduled';
       case TimelineEventType.goal:
         return 'Goal';
       case TimelineEventType.habit:
         return 'Habit';
-      case TimelineEventType.habitCompleted:
-        return 'Habit Completed';
-      case TimelineEventType.habitSkipped:
-        return 'Habit Skipped';
       case TimelineEventType.project:
         return 'Project';
       case TimelineEventType.milestone:
@@ -144,6 +153,36 @@ class TimelineEventEntity {
     }
   }
 
+  TimelineEventEntity copyWith({
+    TimelineEventType? type,
+    String? title,
+    String? detail,
+    DateTime? timestamp,
+    TimelineEventStatus? status,
+    DateTime? dueAt,
+    bool clearDueAt = false,
+    String? phase,
+    String? relatedId,
+    String? sourceFeature,
+    String? decisionId,
+    bool? userOverride,
+  }) {
+    return TimelineEventEntity(
+      id: id,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      detail: detail ?? this.detail,
+      timestamp: timestamp ?? this.timestamp,
+      status: status ?? this.status,
+      dueAt: clearDueAt ? null : dueAt ?? this.dueAt,
+      phase: phase ?? this.phase,
+      relatedId: relatedId ?? this.relatedId,
+      sourceFeature: sourceFeature ?? this.sourceFeature,
+      decisionId: decisionId ?? this.decisionId,
+      userOverride: userOverride ?? this.userOverride,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type.name,
@@ -154,6 +193,9 @@ class TimelineEventEntity {
     'dueAt': dueAt?.toIso8601String(),
     'phase': phase,
     'relatedId': relatedId,
+    'sourceFeature': sourceFeature,
+    'decisionId': decisionId,
+    'userOverride': userOverride,
   };
 
   factory TimelineEventEntity.fromJson(Map<String, dynamic> j) =>
@@ -175,5 +217,8 @@ class TimelineEventEntity {
             : DateTime.tryParse(j['dueAt'].toString()),
         phase: j['phase']?.toString(),
         relatedId: j['relatedId']?.toString(),
+        sourceFeature: j['sourceFeature']?.toString(),
+        decisionId: j['decisionId']?.toString(),
+        userOverride: j['userOverride'] as bool? ?? false,
       );
 }

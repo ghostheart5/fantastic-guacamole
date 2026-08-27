@@ -1,3 +1,0 @@
-class PublishAiPromptUsecase {
-  const PublishAiPromptUsecase();
-}

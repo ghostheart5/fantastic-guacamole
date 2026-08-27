@@ -5,17 +5,14 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 class ProfileService {
   const ProfileService();
 
-  ProfileViewState fromControllerState(
-    ProfileState source, {
-    bool? soundEnabled,
-  }) {
+  ProfileViewState fromControllerState(ProfileState source) {
     final ProfileModel model = ProfileModel(
       name: source.name,
       level: source.level,
       xp: source.xp,
       streak: source.streak,
       longestStreak: source.longestStreak,
-      soundEnabled: soundEnabled ?? source.soundEnabled,
+      soundEnabled: source.soundEnabled,
     );
     return ProfileViewState(profile: model, loading: false);
   }

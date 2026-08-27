@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/identity_profile_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_identity_repository.dart';
@@ -30,10 +29,8 @@ class IdentityRepository implements IIdentityRepository {
       if (decoded is Map<String, dynamic>) {
         return IdentityProfileEntity.fromJson(decoded);
       }
-    } on Object catch (error) {
-      throw StorageException('Identity profile storage is corrupted: $error');
-    }
-    throw const StorageException('Identity profile storage is not an object.');
+    } catch (_) {}
+    return null;
   }
 
   @override

@@ -1,5 +1,0 @@
-appId: ${APP_ID}
-tags:
-  - pre-release-full
----
-- runFlow: ../release/release_full_validation.yaml

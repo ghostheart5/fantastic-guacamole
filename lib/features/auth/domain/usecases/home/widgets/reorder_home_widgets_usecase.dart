@@ -1,3 +1,0 @@
-class ReorderHomeWidgetsUsecase {
-  const ReorderHomeWidgetsUsecase();
-}

@@ -1,3 +1,0 @@
-class LeaveBetaProgramUsecase {
-  const LeaveBetaProgramUsecase();
-}

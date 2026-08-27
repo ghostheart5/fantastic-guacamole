@@ -1,3 +1,0 @@
-class CreateFeatureFlagUsecase {
-  const CreateFeatureFlagUsecase();
-}

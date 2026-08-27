@@ -1,3 +1,0 @@
-class EditMotivationMessageUsecase {
-  const EditMotivationMessageUsecase();
-}

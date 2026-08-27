@@ -1,3 +1,0 @@
-class DisablePushNotificationsUsecase {
-  const DisablePushNotificationsUsecase();
-}

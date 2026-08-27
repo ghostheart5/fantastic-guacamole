@@ -1,0 +1,145 @@
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
+
+/// Removes account-owned state before another account can use this device.
+/// App-wide onboarding/theme preferences intentionally remain intact.
+class LocalUserDataCleanupService {
+  LocalUserDataCleanupService({
+    required this._hive,
+    required this._secureStore,
+    required this._preferences,
+    required this._sensitivePreferences,
+    required this._notifications,
+    KeyedMutationCoordinator? mutationCoordinator,
+  }) : _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
+
+  final HiveStore _hive;
+  final SecureStore _secureStore;
+  final SharedPrefsStore _preferences;
+  final SharedPrefsStore _sensitivePreferences;
+  final NotificationScheduler _notifications;
+  final KeyedMutationCoordinator _mutations;
+
+  Future<void> clearForAccountSwitch([String? accountId]) async {
+    final String? requestedAccountId = _normalizedAccountId(accountId);
+    final String? storedAccountId = requestedAccountId == null
+        ? _normalizedAccountId(
+            await _secureStore.readString(
+              AccountDataRegistry.accountBoundaryOwnerKey,
+            ),
+          )
+        : null;
+    final String? departingAccountId = requestedAccountId ?? storedAccountId;
+    if (departingAccountId != null) {
+      await NotificationsRepository(
+        _notifications,
+        _secureStore,
+        accountId: departingAccountId,
+        mutationCoordinator: _mutations,
+      ).clearAccountData();
+    } else {
+      await _notifications.cancelAll();
+      NotificationScheduler.tappedPayloadListenable.value = null;
+    }
+
+    await _hive.init();
+    final Set<String> boxes = departingAccountId == null
+        ? AccountDataRegistry.legacyAccountHiveBoxes
+        : AccountDataRegistry.hiveBoxesForAccount(departingAccountId);
+    for (final String box in boxes) {
+      await _hive.clearBox(box);
+    }
+
+    final Set<String> secureKeys = departingAccountId == null
+        ? AccountDataRegistry.accountSecureExactKeys
+        : AccountDataRegistry.secureExactKeysForAccount(departingAccountId);
+    for (final String key in secureKeys) {
+      await _secureStore.delete(key);
+    }
+    if (departingAccountId != null) {
+      await _deleteMatchingSecureKeys(
+        AccountDataRegistry.secureKeyPrefixesForAccount(departingAccountId),
+      );
+    }
+
+    await _sensitivePreferences.init();
+    final Set<String> sensitiveKeys = departingAccountId == null
+        ? AccountDataRegistry.legacySensitivePreferenceKeys
+        : AccountDataRegistry.sensitivePreferenceKeysForAccount(
+            departingAccountId,
+          );
+    for (final String key in sensitiveKeys) {
+      await _sensitivePreferences.delete(key);
+    }
+
+    final Set<String> preferenceKeys = departingAccountId == null
+        ? AccountDataRegistry.accountPreferenceExactKeys
+        : AccountDataRegistry.preferenceExactKeysForAccount(departingAccountId);
+    for (final String key in preferenceKeys) {
+      await _preferences.delete(key);
+    }
+    if (departingAccountId != null) {
+      await _deleteMatchingPreferenceKeys(
+        AccountDataRegistry.preferenceKeyPrefixesForAccount(departingAccountId),
+      );
+    }
+  }
+
+  /// Detects legacy account data whose owner cannot be proven because no
+  /// account marker exists. Device-wide theme/onboarding/identity keys are
+  /// intentionally excluded.
+  Future<bool> hasUnownedAccountData() async {
+    await _hive.init();
+    for (final String boxName in AccountDataRegistry.legacyAccountHiveBoxes) {
+      final bool wasOpen = _hive.isBoxOpen(boxName);
+      // Every account-owned Hive repository serializes its payload as JSON
+      // strings. Opening an already-open Box<String> as Box<dynamic> throws
+      // before ownership recovery can be offered.
+      final box = await _hive.openBox<String>(boxName);
+      final bool hasValues = box.isNotEmpty;
+      if (!wasOpen) await box.close();
+      if (hasValues) return true;
+    }
+    for (final String key in AccountDataRegistry.accountSecureExactKeys) {
+      if (await _secureStore.readString(key) != null) return true;
+    }
+    await _sensitivePreferences.init();
+    for (final String key
+        in AccountDataRegistry.legacySensitivePreferenceKeys) {
+      if (_sensitivePreferences.load(key) != null) return true;
+    }
+    for (final String key in AccountDataRegistry.accountPreferenceExactKeys) {
+      if (await SharedPrefsService.contains(key)) return true;
+    }
+    return false;
+  }
+
+  Future<void> _deleteMatchingSecureKeys(Set<String> prefixes) async {
+    final Set<String> keys = (await _secureStore.readAll()).keys.toSet();
+    for (final String key in keys) {
+      if (prefixes.any(key.startsWith)) await _secureStore.delete(key);
+    }
+  }
+
+  Future<void> _deleteMatchingPreferenceKeys(Set<String> prefixes) async {
+    final EnumerableSharedPrefsStore? enumerable =
+        _preferences is EnumerableSharedPrefsStore
+        ? _preferences as EnumerableSharedPrefsStore
+        : null;
+    if (enumerable == null) return;
+    final Set<String> keys = await enumerable.keys();
+    for (final String key in keys) {
+      if (prefixes.any(key.startsWith)) await _preferences.delete(key);
+    }
+  }
+
+  String? _normalizedAccountId(String? accountId) {
+    final String normalized = accountId?.trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
+  }
+}

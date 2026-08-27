@@ -1,266 +1,350 @@
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/level_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/streak_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/weekly_summary_card.dart';
-import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
-class ProgressionScreen extends ConsumerWidget {
+enum _ProgressionShareAction { progress, achievement }
+
+class ProgressionScreen extends ConsumerStatefulWidget {
   const ProgressionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProgressionScreen> createState() => _ProgressionScreenState();
+}
+
+class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
+  Future<bool> _confirmShare(
+    BuildContext context, {
+    required String title,
+    required String preview,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: Text(title),
+            content: Text(
+              'Review before sharing. This summary contains progress metrics, not your task or note text.\n\n$preview',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Share'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _shareProgressCard(BuildContext context, WidgetRef ref) async {
+    final profile = ref.read(profileProvider);
+    final trajectory = ref.read(trajectorySummaryProvider);
+    final String text =
+        'ChronoSpark Progress Snapshot\n'
+        'Level ${profile.level} • XP ${profile.xp} • Streak ${profile.streak}d\n'
+        'Momentum ${(trajectory.momentum * 100).round()}% • Completed tasks ${trajectory.completedTasks}\n'
+        'Building consistency with ChronoSpark: ${AppUrls.website}';
+
+    if (!await _confirmShare(
+      context,
+      title: 'Review progress snapshot',
+      preview: text,
+    )) {
+      return;
+    }
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: text,
+          title: 'ChronoSpark Progress Snapshot',
+          subject: 'My ChronoSpark progression update',
+        ),
+      );
+      AppAnalytics.track(
+        'share_progress',
+        params: <String, Object?>{'method': 'share_sheet'},
+      );
+      return;
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      AppAnalytics.track(
+        'share_progress',
+        params: <String, Object?>{'method': 'clipboard_fallback'},
+      );
+    }
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Share sheet unavailable. Progress snapshot copied to clipboard.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareAchievementCard(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final profile = ref.read(profileProvider);
+    final trajectory = ref.read(trajectorySummaryProvider);
+    final String text =
+        'ChronoSpark Achievement Unlocked\n'
+        'Level ${profile.level} achieved\n'
+        'Current streak: ${profile.streak} days\n'
+        'Momentum ${(trajectory.momentum * 100).round()}%\n'
+        'Join me in ChronoSpark: ${AppUrls.website}';
+
+    if (!await _confirmShare(
+      context,
+      title: 'Review achievement snapshot',
+      preview: text,
+    )) {
+      return;
+    }
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: text,
+          title: 'ChronoSpark Achievement',
+          subject: 'I hit a new ChronoSpark milestone',
+        ),
+      );
+      AppAnalytics.track(
+        'share_achievement',
+        params: <String, Object?>{'method': 'share_sheet'},
+      );
+      return;
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      AppAnalytics.track(
+        'share_achievement',
+        params: <String, Object?>{'method': 'clipboard_fallback'},
+      );
+    }
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Share sheet unavailable. Achievement summary copied to clipboard.',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final progression = ref.watch(progressionProvider);
-    final momentum = ref.watch(momentumEngineProvider);
     final progress = progression.progress;
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgProgression,
+      backgroundAssetPath: AppAssets.bgProgressionAscension,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    SmartPressable(
-                      onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.neonCyan.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: AppColors.neonCyan,
-                          size: 16,
-                        ),
-                      ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xF207111F),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.memoryAmber.withValues(alpha: 0.34),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [
-                                AppColors.memoryAmber,
-                                AppColors.neonCyan,
-                              ],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'Progress',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1,
-                                color: Colors.white,
-                              ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.memoryAmber.withValues(alpha: 0.1),
+                        blurRadius: 24,
+                        spreadRadius: -8,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      SmartPressable(
+                        onTap: () => goToAppView(context, ref, AppView.nexus),
+                        semanticLabel: 'Back to Nexus',
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.neonCyan.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppColors.neonCyan.withValues(alpha: 0.38),
                             ),
                           ),
-                          const Text(
-                            'Track growth, streaks, and consistency',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 0.6,
-                              color: Colors.white38,
+                          child: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white,
+                            size: 19,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [
+                                  AppColors.memoryAmber,
+                                  AppColors.neonCyan,
+                                ],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'PROGRESSION',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 2.4,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            const Text(
+                              'See what your actions are building',
+                              maxLines: 2,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.35,
+                                color: Color(0xFFD7DFF0),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton<_ProgressionShareAction>(
+                        tooltip: 'Share progression',
+                        color: const Color(0xFF101827),
+                        onSelected: (_ProgressionShareAction action) async {
+                          switch (action) {
+                            case _ProgressionShareAction.progress:
+                              await _shareProgressCard(context, ref);
+                            case _ProgressionShareAction.achievement:
+                              await _shareAchievementCard(context, ref);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => const [
+                          PopupMenuItem<_ProgressionShareAction>(
+                            value: _ProgressionShareAction.progress,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.insights_rounded,
+                                  color: AppColors.memoryAmber,
+                                ),
+                                SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    'Progress snapshot',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem<_ProgressionShareAction>(
+                            value: _ProgressionShareAction.achievement,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.emoji_events_outlined,
+                                  color: AppColors.neonCyan,
+                                ),
+                                SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    'Achievement',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.memoryAmber.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppColors.memoryAmber.withValues(
+                                alpha: 0.38,
+                              ),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.ios_share_rounded,
+                            color: AppColors.memoryAmber,
+                            size: 21,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 18),
+                LevelCard(progress: progress),
                 const SizedBox(height: 16),
                 const WeeklySummaryCard(),
-                const SizedBox(height: 10),
-                const _XpProgressChartCard(),
-                const SizedBox(height: 10),
-                LevelCard(progress: progress),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
                 StreakCard(progress: progress),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
+                const _XpProgressChartCard(),
+                const SizedBox(height: 16),
                 const _ProgressSignalsCard(),
-                const SizedBox(height: 8),
-                _MomentumEngineCard(momentum: momentum),
-                const SizedBox(height: 8),
-                const _MilestonesCard(),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 const _NarrativeCard(),
+                const SizedBox(height: 12),
+                const _AdvisorSummaryCard(),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MomentumEngineCard extends StatelessWidget {
-  const _MomentumEngineCard({required this.momentum});
-
-  final MomentumEngineState momentum;
-
-  Color get _accent {
-    if (momentum.trend == 'Rising') {
-      return AppColors.neonCyan;
-    }
-    if (momentum.trend == 'Stable') {
-      return AppColors.memoryAmber;
-    }
-    return AppColors.recallRed;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE050D1A),
-            _accent.withValues(alpha: 0.08),
-            AppColors.neonViolet.withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _accent.withValues(alpha: 0.20)),
-        boxShadow: [
-          BoxShadow(color: _accent.withValues(alpha: 0.05), blurRadius: 8),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Momentum',
-            style: TextStyle(
-              fontSize: 10,
-              letterSpacing: 1.4,
-              color: AppColors.neonCyan,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${momentum.score}%',
-                style: TextStyle(
-                  color: _accent,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text(
-                  momentum.trend.toUpperCase(),
-                  style: TextStyle(
-                    color: _accent,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            momentum.forecast,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _MomentumChip(
-                label: 'ENERGY',
-                value: '${momentum.energyPercent}%',
-                color: AppColors.neonCyan,
-              ),
-              _MomentumChip(
-                label: 'PRESSURE',
-                value: '${momentum.pressurePercent}%',
-                color: AppColors.memoryAmber,
-              ),
-              _MomentumChip(
-                label: 'RECOVERY',
-                value: momentum.recovery,
-                color: _accent,
-              ),
-              _MomentumChip(
-                label: 'TODAY',
-                value: '${momentum.completedToday}',
-                color: AppColors.neonViolet,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MomentumChip extends StatelessWidget {
-  const _MomentumChip({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Text(
-        '$label $value',
-        style: TextStyle(
-          color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.8,
         ),
       ),
     );
@@ -276,23 +360,11 @@ class _ProgressSignalsCard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE050D1A),
-            AppColors.neonCyan.withValues(alpha: 0.07),
-            AppColors.neonViolet.withValues(alpha: 0.05),
-          ],
-        ),
+        color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.05),
-            blurRadius: 8,
-          ),
-        ],
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,24 +381,24 @@ class _ProgressSignalsCard extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'Progress signals',
+                'CAPABILITY SIGNALS',
                 style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.4,
+                  fontSize: 11,
+                  letterSpacing: 2,
                   color: AppColors.neonCyan,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          _SignalRow(label: 'Momentum', value: signals.momentum),
-          const SizedBox(height: 6),
-          _SignalRow(label: 'Consistency', value: signals.consistency),
-          const SizedBox(height: 6),
-          _SignalRow(label: 'Load', value: signals.load),
-          const SizedBox(height: 6),
-          _SignalRow(label: 'Direction', value: signals.direction),
+          const SizedBox(height: 14),
+          _SignalRow(label: 'Follow-through', value: signals.momentum),
+          const SizedBox(height: 10),
+          _SignalRow(label: 'Planning reliability', value: signals.consistency),
+          const SizedBox(height: 10),
+          _SignalRow(label: 'Recovery load', value: signals.load),
+          const SizedBox(height: 10),
+          _SignalRow(label: 'Recent direction', value: signals.direction),
         ],
       ),
     );
@@ -362,19 +434,23 @@ class _SignalRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white38,
-            fontSize: 11,
-            letterSpacing: 0.5,
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFFD7DFF0),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
+        const SizedBox(width: 12),
         Text(
           value,
           style: TextStyle(
             color: _valueColor(),
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
@@ -392,53 +468,41 @@ class _NarrativeCard extends ConsumerWidget {
     final narrative = ref.watch(narrativeProvider);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE050D1A),
-            AppColors.neonViolet.withValues(alpha: 0.08),
-            AppColors.memoryAmber.withValues(alpha: 0.04),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.18)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonViolet.withValues(alpha: 0.05),
-            blurRadius: 8,
-          ),
-        ],
+        color: const Color(0xFF050D1A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Progress story',
+            'WHAT YOUR ACTIONS ARE CHANGING',
             style: TextStyle(
-              fontSize: 9,
-              letterSpacing: 1.4,
+              fontSize: 11,
+              letterSpacing: 1.8,
               color: AppColors.neonViolet,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             narrative.summary,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
-              height: 1.35,
+              height: 1.4,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             narrative.trajectory,
             style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              height: 1.35,
+              color: Color(0xFFC6D0E2),
+              fontSize: 13,
+              height: 1.4,
             ),
           ),
         ],
@@ -447,25 +511,16 @@ class _NarrativeCard extends ConsumerWidget {
   }
 }
 
-class _XpPoint {
-  const _XpPoint(this.day, this.xp);
-
-  final DateTime day;
-  final int xp;
-}
-
-class _XpProgressChartCard extends ConsumerWidget {
-  const _XpProgressChartCard();
+class _AdvisorSummaryCard extends ConsumerWidget {
+  const _AdvisorSummaryCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider);
-    final history = ref.watch(learningHistorySnapshotsProvider);
-    final List<_XpPoint> points = _buildXpPoints(profile.xp, history);
-
+    final summaryAsync = ref.watch(weeklySummaryProvider);
+    final action = _ProgressionAdvisorAction.from(ref);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(12),
@@ -475,71 +530,230 @@ class _XpProgressChartCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'XP progress',
+            'NEXT CAPABILITY TO PRACTICE',
             style: TextStyle(
-              fontSize: 10,
-              letterSpacing: 1.4,
+              fontSize: 11,
+              letterSpacing: 1.8,
               color: AppColors.memoryAmber,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
-          if (points.isEmpty) ...<Widget>[
-            const Text(
-              'No XP history recorded yet.',
-              style: TextStyle(color: Colors.white54, fontSize: 11),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.03),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Chart waiting for the first recorded checkpoint.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+          const SizedBox(height: 10),
+          summaryAsync.when(
+            data: (summary) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  summary,
+                  style: const TextStyle(
+                    color: Color(0xFFD7DFF0),
+                    fontSize: 13,
+                    height: 1.55,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: () {
+                    _recordProgressionReview(ref);
+                    action.navigate(context, ref);
+                  },
+                  icon: Icon(action.icon, size: 18),
+                  label: Text(action.label),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.memoryAmber,
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Complete a task, session, or goal to start the progression trail.',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                      height: 1.4,
+                ),
+              ],
+            ),
+            loading: () => const Text(
+              'Building a progress view from your saved Timeline and completed actions...',
+              style: TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
+            ),
+            error: (_, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Not enough saved evidence yet. Add or complete an item, then return to see a grounded progression signal.',
+                  style: TextStyle(
+                    color: Color(0xFFC6D0E2),
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    _recordProgressionReview(ref);
+                    goToAppView(context, ref, AppView.creator);
+                  },
+                  icon: const Icon(Icons.add_task_rounded, size: 18),
+                  label: const Text('Open Creator'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.memoryAmber,
+                    side: BorderSide(
+                      color: AppColors.memoryAmber.withValues(alpha: 0.7),
+                    ),
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ] else ...<Widget>[
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+void _recordProgressionReview(WidgetRef ref) {
+  unawaited(
+    ref
+        .read(adaptiveGuidanceProvider.notifier)
+        .record(GuidanceMilestone.firstProgressionReview),
+  );
+}
+
+enum _ProgressionAdvisorTarget { creator, timeline }
+
+class _ProgressionAdvisorAction {
+  const _ProgressionAdvisorAction({
+    required this.target,
+    required this.label,
+    required this.icon,
+  });
+
+  final _ProgressionAdvisorTarget target;
+  final String label;
+  final IconData icon;
+
+  static _ProgressionAdvisorAction from(WidgetRef ref) {
+    final int overdueCount = ref.watch(timelineOverdueProvider).length;
+    final int activeTasks = ref.watch(tasksProvider).asData?.value.length ?? 0;
+
+    if (overdueCount > 0) {
+      return const _ProgressionAdvisorAction(
+        target: _ProgressionAdvisorTarget.timeline,
+        label: 'Open Timeline',
+        icon: Icons.event_repeat_rounded,
+      );
+    }
+    if (activeTasks > 0) {
+      return const _ProgressionAdvisorAction(
+        target: _ProgressionAdvisorTarget.timeline,
+        label: 'Open Timeline',
+        icon: Icons.check_circle_outline_rounded,
+      );
+    }
+    return const _ProgressionAdvisorAction(
+      target: _ProgressionAdvisorTarget.creator,
+      label: 'Open Creator',
+      icon: Icons.add_task_rounded,
+    );
+  }
+
+  void navigate(BuildContext context, WidgetRef ref) {
+    switch (target) {
+      case _ProgressionAdvisorTarget.creator:
+        goToAppView(context, ref, AppView.creator);
+      case _ProgressionAdvisorTarget.timeline:
+        goToAppView(context, ref, AppView.timeline);
+    }
+  }
+}
+
+class _ProgressPoint {
+  const _ProgressPoint(this.day, this.completed);
+
+  final DateTime day;
+  final int completed;
+}
+
+class _XpProgressChartCard extends ConsumerWidget {
+  const _XpProgressChartCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(learningHistorySnapshotsProvider);
+    final List<_ProgressPoint> points = _buildProgressPoints(history);
+    final int start = points.isEmpty ? 0 : points.first.completed;
+    final int end = points.isEmpty ? 0 : points.last.completed;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF050D1A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'COMPLETION MOMENTUM',
+            style: TextStyle(
+              fontSize: 11,
+              letterSpacing: 2,
+              color: AppColors.memoryAmber,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (points.isNotEmpty) ...[
             Text(
-              'Last ${points.length} checkpoints | ${points.last.xp - points.first.xp >= 0 ? '+' : ''}${points.last.xp - points.first.xp} XP',
-              style: const TextStyle(color: Colors.white54, fontSize: 11),
+              'Last ${points.length} checkpoints • ${end - start >= 0 ? '+' : ''}${end - start} completed',
+              style: const TextStyle(
+                color: Color(0xFFC6D0E2),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 96,
-              width: double.infinity,
-              child: CustomPaint(painter: _XpLineChartPainter(points: points)),
-            ),
           ],
+          if (points.isEmpty)
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.show_chart_rounded,
+                  color: AppColors.memoryAmber,
+                  size: 20,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Your momentum trend will appear after you complete an item.',
+                    style: TextStyle(
+                      color: Color(0xFFD7DFF0),
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            SizedBox(
+              height: 110,
+              width: double.infinity,
+              child: CustomPaint(
+                painter: _ProgressLineChartPainter(points: points),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  List<_XpPoint> _buildXpPoints(
-    int currentXp,
+  List<_ProgressPoint> _buildProgressPoints(
     List<LearningHistorySnapshot> history,
   ) {
     final DateTime now = DateTime.now();
@@ -566,41 +780,35 @@ class _XpProgressChartCard extends ConsumerWidget {
       completedByDay[key] = math.max(existing, completed);
     }
 
-    if (completedByDay.isEmpty) {
-      return const <_XpPoint>[];
-    }
+    if (completedByDay.isEmpty) return <_ProgressPoint>[];
 
     final List<MapEntry<String, int>> sorted = completedByDay.entries.toList(
       growable: true,
     )..sort((a, b) => a.key.compareTo(b.key));
-    final int maxCompleted = sorted.last.value <= 0 ? 1 : sorted.last.value;
 
-    final List<_XpPoint> points = <_XpPoint>[];
-    int lastXp = 0;
+    final List<_ProgressPoint> points = <_ProgressPoint>[];
+    int lastCompleted = 0;
     for (final MapEntry<String, int> entry in sorted) {
       final DateTime day = DateTime.parse(entry.key);
-      final int estimate = ((currentXp * (entry.value / maxCompleted)))
-          .round()
-          .clamp(0, currentXp);
-      lastXp = math.max(lastXp, estimate);
-      points.add(_XpPoint(day, lastXp));
+      lastCompleted = math.max(lastCompleted, entry.value);
+      points.add(_ProgressPoint(day, lastCompleted));
     }
 
     final DateTime today = DateTime(now.year, now.month, now.day);
     if (points.isEmpty || points.last.day != today) {
-      points.add(_XpPoint(today, currentXp));
+      points.add(_ProgressPoint(today, lastCompleted));
     } else {
-      points[points.length - 1] = _XpPoint(today, currentXp);
+      points[points.length - 1] = _ProgressPoint(today, lastCompleted);
     }
 
     return points.length > 10 ? points.sublist(points.length - 10) : points;
   }
 }
 
-class _XpLineChartPainter extends CustomPainter {
-  _XpLineChartPainter({required this.points});
+class _ProgressLineChartPainter extends CustomPainter {
+  _ProgressLineChartPainter({required this.points});
 
-  final List<_XpPoint> points;
+  final List<_ProgressPoint> points;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -624,14 +832,14 @@ class _XpLineChartPainter extends CustomPainter {
       return;
     }
 
-    final int minXp = points.map((p) => p.xp).reduce(math.min);
-    final int maxXp = points.map((p) => p.xp).reduce(math.max);
-    final int span = math.max(1, maxXp - minXp);
+    final int minCompleted = points.map((p) => p.completed).reduce(math.min);
+    final int maxCompleted = points.map((p) => p.completed).reduce(math.max);
+    final int span = math.max(1, maxCompleted - minCompleted);
 
     final Path path = Path();
     for (int i = 0; i < points.length; i++) {
       final double x = (i / (points.length - 1)) * size.width;
-      final double normalized = (points[i].xp - minXp) / span;
+      final double normalized = (points[i].completed - minCompleted) / span;
       final double y = size.height - (normalized * (size.height - 8)) - 4;
       if (i == 0) {
         path.moveTo(x, y);
@@ -647,166 +855,16 @@ class _XpLineChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _XpLineChartPainter oldDelegate) {
+  bool shouldRepaint(covariant _ProgressLineChartPainter oldDelegate) {
     if (oldDelegate.points.length != points.length) {
       return true;
     }
     for (int i = 0; i < points.length; i++) {
-      if (oldDelegate.points[i].xp != points[i].xp ||
+      if (oldDelegate.points[i].completed != points[i].completed ||
           oldDelegate.points[i].day != points[i].day) {
         return true;
       }
     }
     return false;
-  }
-}
-
-class _MilestonesCard extends ConsumerWidget {
-  const _MilestonesCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final List<MilestoneEntity> milestones =
-        ref.watch(milestonesProvider).asData?.value ??
-        const <MilestoneEntity>[];
-    final List<MilestoneEntity> active = milestones
-        .where(
-          (MilestoneEntity m) =>
-              m.status != MilestoneStatus.completed &&
-              m.status != MilestoneStatus.archived,
-        )
-        .toList();
-    final int completedCount = milestones
-        .where((MilestoneEntity m) => m.status == MilestoneStatus.completed)
-        .length;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.14)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 2,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.neonViolet,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Milestones',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.4,
-                  color: AppColors.neonViolet,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '$completedCount completed',
-                style: const TextStyle(fontSize: 10, color: Colors.white38),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (active.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 10),
-              child: Text(
-                'No active milestones. Plan your next checkpoint.',
-                style: TextStyle(color: Colors.white38, fontSize: 12),
-              ),
-            )
-          else
-            ...active
-                .take(3)
-                .map(
-                  (MilestoneEntity m) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                m.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              if (m.description != null &&
-                                  m.description!.isNotEmpty)
-                                Text(
-                                  m.description!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: m.status == MilestoneStatus.overdue
-                                ? AppColors.recallRed.withValues(alpha: 0.1)
-                                : AppColors.neonViolet.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: m.status == MilestoneStatus.overdue
-                                  ? AppColors.recallRed
-                                  : AppColors.neonViolet,
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Text(
-                            m.status.toString().split('.').last.toUpperCase(),
-                            style: TextStyle(
-                              color: m.status == MilestoneStatus.overdue
-                                  ? AppColors.recallRed
-                                  : AppColors.neonViolet,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-          if (active.length > 3)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                '+ ${active.length - 3} more',
-                style: const TextStyle(color: Colors.white38, fontSize: 11),
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }

@@ -1,29 +1,31 @@
 import 'package:fantastic_guacamole/config/app_flavor.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 abstract final class Env {
   static const String appName = 'ChronoSpark';
-  static const String publicWebsiteUrl =
-      'https://ghostheart5.github.io/fantastic-guacamole';
-  static const String privacyPolicyUrl = '$publicWebsiteUrl/privacy/';
-  static const String termsOfServiceUrl = '$publicWebsiteUrl/terms/';
-  static const String supportUrl = '$publicWebsiteUrl/support/';
-  static const String deleteAccountUrl = '$publicWebsiteUrl/delete-account/';
-  static const String productionAppLinkHost = 'chronospark.app';
-  static const String productionAppLinkOrigin =
-      'https://$productionAppLinkHost';
-  static const String productionAuthCallbackUrl =
-      '$productionAppLinkOrigin/app/auth/callback';
-  static const String customSchemeAuthCallbackUrl =
-      'chronospark://auth-callback';
+
+  // Legal/support URLs have a single source of truth in [AppUrls], which is
+  // what every live screen opens. These forward to it; they previously
+  // declared chronospark.app paths that disagreed with the URLs actually used.
+  static const String privacyPolicyUrl = AppUrls.privacy;
+  static const String termsOfServiceUrl = AppUrls.terms;
+  static const String supportUrl = AppUrls.support;
+  static const String supportEmail = 'support@chronospark.app';
   static const String _appFlavorDefine = String.fromEnvironment(
     'CHRONOSPARK_APP_FLAVOR',
-    defaultValue: 'dev',
+    defaultValue: 'prod',
+  );
+  static const bool _hasAppFlavorDefine = bool.hasEnvironment(
+    'CHRONOSPARK_APP_FLAVOR',
   );
   static const bool _enableVerboseLogsDefine = bool.fromEnvironment(
     'CHRONOSPARK_VERBOSE_LOGS',
     defaultValue: false,
+  );
+  static const bool _hasEnableVerboseLogsDefine = bool.hasEnvironment(
+    'CHRONOSPARK_VERBOSE_LOGS',
   );
   static const bool _enableCrashReportingDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_CRASH_REPORTING',
@@ -35,19 +37,34 @@ abstract final class Env {
   );
   static const bool _enableMockLoginDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_MOCK_LOGIN',
+    // Fail closed. Every other risk flag defaults to false; this one used to
+    // default to true, which made MockAuthService (accepts any password) the
+    // default for any build that was not BOTH release mode AND prod flavor.
     defaultValue: false,
+  );
+  static const bool _hasEnableMockLoginDefine = bool.hasEnvironment(
+    'CHRONOSPARK_ENABLE_MOCK_LOGIN',
   );
   static const bool _enableMockModeDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_MOCK_MODE',
     defaultValue: false,
   );
+  static const bool _hasEnableMockModeDefine = bool.hasEnvironment(
+    'CHRONOSPARK_ENABLE_MOCK_MODE',
+  );
   static const bool _enablePaywallDisabledDefine = bool.fromEnvironment(
     'CHRONOSPARK_PAYWALL_DISABLED',
     defaultValue: false,
   );
+  static const bool _hasEnablePaywallDisabledDefine = bool.hasEnvironment(
+    'CHRONOSPARK_PAYWALL_DISABLED',
+  );
   static const bool _enableTesterFullAccessDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
     defaultValue: false,
+  );
+  static const bool _hasEnableTesterFullAccessDefine = bool.hasEnvironment(
+    'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
   );
   static const String _mockLoginEmailDefine = String.fromEnvironment(
     'CHRONOSPARK_MOCK_LOGIN_EMAIL',
@@ -66,19 +83,18 @@ abstract final class Env {
     'CHRONOSPARK_AI_PROXY_ENDPOINT',
     defaultValue: '',
   );
+  static const String _aiReportEndpointDefine = String.fromEnvironment(
+    'CHRONOSPARK_AI_REPORT_ENDPOINT',
+    defaultValue: '',
+  );
   static const String _accountDeleteEndpointDefine = String.fromEnvironment(
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
     defaultValue: '',
   );
   static const String _oauthRedirectUrlDefine = String.fromEnvironment(
     'CHRONOSPARK_OAUTH_REDIRECT_URL',
-    defaultValue: customSchemeAuthCallbackUrl,
+    defaultValue: 'chronospark://auth-callback',
   );
-  static const String _passwordRecoveryRedirectUrlDefine =
-      String.fromEnvironment(
-        'CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL',
-        defaultValue: _oauthRedirectUrlDefine,
-      );
   static const String _githubOauthRedirectUrlDefine = String.fromEnvironment(
     'CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL',
     defaultValue: _oauthRedirectUrlDefine,
@@ -103,19 +119,6 @@ abstract final class Env {
     'CHRONOSPARK_ENABLE_CLOUD_SYNC',
     defaultValue: false,
   );
-  static const bool _enableSupabaseAutoQueueFlushDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENABLE_SUPABASE_AUTO_QUEUE_FLUSH',
-    defaultValue: false,
-  );
-  static const bool _enableLegacyRoutineEntryPointsDefine =
-      bool.fromEnvironment(
-        'CHRONOSPARK_ENABLE_LEGACY_ROUTINE_ENTRY_POINTS',
-        defaultValue: false,
-      );
-  static const bool _enableCompletionEventTrackingDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENABLE_COMPLETION_EVENT_TRACKING',
-    defaultValue: false,
-  );
   static const String _appLinksAndroidSha256Define = String.fromEnvironment(
     'CHRONOSPARK_ANDROID_SHA256_CERT',
     defaultValue: '',
@@ -128,30 +131,42 @@ abstract final class Env {
     'CHRONOSPARK_ENFORCE_PROD_READINESS',
     defaultValue: false,
   );
-  static const bool _maestroModeDefine = bool.fromEnvironment(
-    'CHRONOSPARK_MAESTRO_MODE',
-    defaultValue: false,
-  );
 
-  static String get appFlavor =>
-      _readString('CHRONOSPARK_APP_FLAVOR', _appFlavorDefine);
-  static bool get enableVerboseLogs =>
-      _readBool('CHRONOSPARK_VERBOSE_LOGS', _enableVerboseLogsDefine);
+  static String get appFlavor => _readRiskString(
+    'CHRONOSPARK_APP_FLAVOR',
+    _appFlavorDefine,
+    defineProvided: _hasAppFlavorDefine,
+  );
+  static bool get enableVerboseLogs => _readRiskBool(
+    'CHRONOSPARK_VERBOSE_LOGS',
+    _enableVerboseLogsDefine,
+    defineProvided: _hasEnableVerboseLogsDefine,
+  );
   static bool get enableCrashReporting => _readBool(
     'CHRONOSPARK_ENABLE_CRASH_REPORTING',
     _enableCrashReportingDefine,
   );
   static bool get enableAnalytics =>
       _readBool('CHRONOSPARK_ENABLE_ANALYTICS', _enableAnalyticsDefine);
-  static bool get enableMockLogin =>
-      _readBool('CHRONOSPARK_ENABLE_MOCK_LOGIN', _enableMockLoginDefine);
-  static bool get enableMockMode =>
-      _readBool('CHRONOSPARK_ENABLE_MOCK_MODE', _enableMockModeDefine);
-  static bool get enablePaywallDisabled =>
-      _readBool('CHRONOSPARK_PAYWALL_DISABLED', _enablePaywallDisabledDefine);
-  static bool get enableTesterFullAccess => _readBool(
+  static bool get enableMockLogin => _readRiskBool(
+    'CHRONOSPARK_ENABLE_MOCK_LOGIN',
+    _enableMockLoginDefine,
+    defineProvided: _hasEnableMockLoginDefine,
+  );
+  static bool get enableMockMode => _readRiskBool(
+    'CHRONOSPARK_ENABLE_MOCK_MODE',
+    _enableMockModeDefine,
+    defineProvided: _hasEnableMockModeDefine,
+  );
+  static bool get enablePaywallDisabled => _readRiskBool(
+    'CHRONOSPARK_PAYWALL_DISABLED',
+    _enablePaywallDisabledDefine,
+    defineProvided: _hasEnablePaywallDisabledDefine,
+  );
+  static bool get enableTesterFullAccess => _readRiskBool(
     'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
     _enableTesterFullAccessDefine,
+    defineProvided: _hasEnableTesterFullAccessDefine,
   );
   static String get mockLoginEmail =>
       _readString('CHRONOSPARK_MOCK_LOGIN_EMAIL', _mockLoginEmailDefine);
@@ -163,19 +178,16 @@ abstract final class Env {
   );
   static String get aiProxyEndpoint =>
       _readString('CHRONOSPARK_AI_PROXY_ENDPOINT', _aiProxyEndpointDefine);
+  static String get aiReportEndpoint => resolveAiReportEndpoint(
+    _readString('CHRONOSPARK_AI_REPORT_ENDPOINT', _aiReportEndpointDefine),
+    supabaseUrl: supabaseUrl,
+  );
   static String get accountDeleteEndpoint => _readString(
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
-    resolveAccountDeleteEndpoint(
-      _accountDeleteEndpointDefine,
-      supabaseUrl: supabaseUrl,
-    ),
+    _accountDeleteEndpointDefine,
   );
   static String get oauthRedirectUrl =>
       _readString('CHRONOSPARK_OAUTH_REDIRECT_URL', _oauthRedirectUrlDefine);
-  static String get passwordRecoveryRedirectUrl => _readString(
-    'CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL',
-    _passwordRecoveryRedirectUrlDefine,
-  );
   static String get githubOauthRedirectUrl => _readString(
     'CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL',
     _githubOauthRedirectUrlDefine,
@@ -194,18 +206,6 @@ abstract final class Env {
       _readString('CHRONOSPARK_SUPABASE_ANON_KEY', _supabaseAnonKeyDefine);
   static bool get enableCloudSync =>
       _readBool('CHRONOSPARK_ENABLE_CLOUD_SYNC', _enableCloudSyncDefine);
-  static bool get enableSupabaseAutoQueueFlush => _readBool(
-    'CHRONOSPARK_ENABLE_SUPABASE_AUTO_QUEUE_FLUSH',
-    _enableSupabaseAutoQueueFlushDefine,
-  );
-  static bool get enableLegacyRoutineEntryPoints => _readBool(
-    'CHRONOSPARK_ENABLE_LEGACY_ROUTINE_ENTRY_POINTS',
-    _enableLegacyRoutineEntryPointsDefine,
-  );
-  static bool get enableCompletionEventTracking => _readBool(
-    'CHRONOSPARK_ENABLE_COMPLETION_EVENT_TRACKING',
-    _enableCompletionEventTrackingDefine,
-  );
   static String get appLinksAndroidSha256 => _readString(
     'CHRONOSPARK_ANDROID_SHA256_CERT',
     _appLinksAndroidSha256Define,
@@ -216,10 +216,6 @@ abstract final class Env {
     'CHRONOSPARK_ENFORCE_PROD_READINESS',
     _enforceProductionReadinessDefine,
   );
-  static bool get maestroMode =>
-      !kReleaseMode &&
-      !isProduction &&
-      _readBool('CHRONOSPARK_MAESTRO_MODE', _maestroModeDefine);
 
   static AppFlavor get flavor => AppFlavor.parse(appFlavor);
 
@@ -229,7 +225,17 @@ abstract final class Env {
   }) {
     // Production hardening is enabled only for release + production flavor.
     // QA/testing release builds can still exercise tester-only access paths.
-    return isReleaseMode && AppFlavor.parse(flavor).isProduction;
+    //
+    // Fail closed on an unrecognised flavor string in a release build: a typo
+    // such as "production" (the enum value is "prod") previously parsed to
+    // `development`, which silently disabled every production gate in a build
+    // that was otherwise shipping. An unknown flavor in a release binary is a
+    // misconfiguration, and the safe interpretation is "this is production".
+    final AppFlavor? parsed = AppFlavor.tryParse(flavor);
+    if (parsed == null) {
+      return isReleaseMode;
+    }
+    return isReleaseMode && parsed.isProduction;
   }
 
   static bool resolveIsMockMode({
@@ -252,21 +258,18 @@ abstract final class Env {
     required bool isMockMode,
     required bool enableMockLogin,
   }) {
-    return !kReleaseMode && !isProduction && (isMockMode || enableMockLogin);
+    return !isProduction && (isMockMode || enableMockLogin);
   }
 
   static bool resolveHasTesterFullAccess({
     required bool isProduction,
     required bool enableTesterFullAccess,
   }) {
-    return !kReleaseMode && !isProduction && enableTesterFullAccess;
+    return !isProduction && enableTesterFullAccess;
   }
 
   static bool get isProduction =>
       resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
-
-  static bool get hasSupabaseCredentialsPresent =>
-      supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
 
   static bool get isMockMode => resolveIsMockMode(
     isProduction: isProduction,
@@ -290,23 +293,8 @@ abstract final class Env {
     enableTesterFullAccess: enableTesterFullAccess,
   );
 
-  static bool get isSupabaseConfigured => resolveIsSupabaseConfigured(
-    supabaseUrl: supabaseUrl,
-    supabaseAnonKey: supabaseAnonKey,
-  );
-
-  static bool resolveIsSupabaseConfigured({
-    required String supabaseUrl,
-    required String supabaseAnonKey,
-  }) {
-    final String url = supabaseUrl.trim();
-    final String key = supabaseAnonKey.trim();
-    if (url.isEmpty || key.isEmpty) {
-      return false;
-    }
-    final Uri? uri = Uri.tryParse(url);
-    return uri != null && uri.hasAuthority && uri.scheme == 'https';
-  }
+  static bool get isSupabaseConfigured =>
+      supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
 
   static bool get isAiProxyConfigured =>
       resolveIsAiProxyConfigured(aiProxyEndpoint);
@@ -320,29 +308,20 @@ abstract final class Env {
     return uri != null && uri.hasAuthority && uri.scheme == 'https';
   }
 
+  static bool resolveShouldBlockStartupForProductionReadiness({
+    required bool enforceProductionReadiness,
+    required bool isProduction,
+    required Iterable<String> readinessIssues,
+  }) {
+    return enforceProductionReadiness &&
+        isProduction &&
+        readinessIssues.isNotEmpty;
+  }
+
   static String get receiptVerifyEndpoint => resolveReceiptVerifyEndpoint(
     _receiptVerifyEndpointOverride,
     supabaseUrl: supabaseUrl,
   );
-
-  static String resolveAccountDeleteEndpoint(
-    String configuredValue, {
-    required String supabaseUrl,
-  }) {
-    final String configured = configuredValue.trim();
-    if (configured.isNotEmpty) {
-      return configured;
-    }
-
-    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
-    if (supabaseUri != null &&
-        supabaseUri.hasAuthority &&
-        supabaseUri.scheme == 'https') {
-      return supabaseUri.resolve('/functions/v1/account-delete').toString();
-    }
-
-    return '';
-  }
 
   static String resolveReceiptVerifyEndpoint(
     String configuredValue, {
@@ -357,84 +336,37 @@ abstract final class Env {
     if (supabaseUri != null &&
         supabaseUri.hasAuthority &&
         supabaseUri.scheme == 'https') {
-      return supabaseUri
-          .resolve('/functions/v1/monetization-verify')
-          .toString();
+      return supabaseUri.resolve('/functions/v1/verify-receipt').toString();
+    }
+
+    return 'https://chronospark.app/verify-receipt';
+  }
+
+  static String resolveAiReportEndpoint(
+    String configuredValue, {
+    required String supabaseUrl,
+  }) {
+    final String configured = configuredValue.trim();
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+
+    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
+    if (supabaseUri != null &&
+        supabaseUri.hasAuthority &&
+        supabaseUri.scheme == 'https') {
+      return supabaseUri.resolve('/functions/v1/ai-report').toString();
     }
 
     return '';
   }
 
-  static bool resolveIsAllowedAuthRedirect(
-    String value, {
-    bool requireHttpsAppLink = false,
-  }) {
-    final Uri? uri = Uri.tryParse(value.trim());
-    if (uri == null || uri.userInfo.isNotEmpty) {
-      return false;
-    }
-
-    final bool hasUnexpectedPayload =
-        uri.query.isNotEmpty || uri.fragment.isNotEmpty;
-    if (hasUnexpectedPayload) {
-      return false;
-    }
-
-    if (uri.scheme == 'chronospark') {
-      return !requireHttpsAppLink &&
-          uri.host == 'auth-callback' &&
-          (uri.path.isEmpty || uri.path == '/');
-    }
-
-    return uri.scheme == 'https' &&
-        uri.host == productionAppLinkHost &&
-        uri.path == '/app/auth/callback';
-  }
-
-  static bool resolveIsTrustedEdgeFunctionEndpoint({
-    required String endpoint,
-    required String supabaseUrl,
-    required String functionName,
-  }) {
-    final Uri? endpointUri = Uri.tryParse(endpoint.trim());
-    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
-    if (endpointUri == null ||
-        supabaseUri == null ||
-        endpointUri.scheme != 'https' ||
-        supabaseUri.scheme != 'https' ||
-        !endpointUri.hasAuthority ||
-        !supabaseUri.hasAuthority ||
-        endpointUri.userInfo.isNotEmpty ||
-        supabaseUri.userInfo.isNotEmpty ||
-        endpointUri.query.isNotEmpty ||
-        endpointUri.fragment.isNotEmpty) {
-      return false;
-    }
-
-    return endpointUri.origin == supabaseUri.origin &&
-        endpointUri.path == '/functions/v1/$functionName';
-  }
-
-  static bool resolveIsValidAndroidSha256CertificateDigest(String value) {
-    return RegExp(
-      r'^(?:[0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}$',
-    ).hasMatch(value.trim());
-  }
-
   static List<String> productionReadinessIssues({bool force = false}) {
-    if (!force &&
-        !enforceProductionReadiness &&
-        !isProduction &&
-        !kReleaseMode) {
+    if (!force && !enforceProductionReadiness && !isProduction) {
       return const <String>[];
     }
 
     final List<String> issues = <String>[];
-    final bool requireHttpsAppLink =
-        force || enforceProductionReadiness || isProduction || kReleaseMode;
-    if (kReleaseMode && !AppFlavor.parse(appFlavor).isProduction) {
-      issues.add('Release builds must use CHRONOSPARK_APP_FLAVOR=prod.');
-    }
     if (enableCrashReporting == false) {
       issues.add('Crash reporting is disabled.');
     }
@@ -450,69 +382,39 @@ abstract final class Env {
     if (enableTesterFullAccess) {
       issues.add('Tester full-access override is enabled.');
     }
-    if (_readBool('CHRONOSPARK_MAESTRO_MODE', _maestroModeDefine)) {
-      issues.add('Maestro test mode is enabled.');
-    }
-    if (!hasSupabaseCredentialsPresent) {
+    if (!isSupabaseConfigured) {
       issues.add('Supabase authentication is not configured.');
-    } else if (!isSupabaseConfigured) {
-      issues.add('Supabase URL must be a valid HTTPS URL.');
     }
-    _validateTrustedEdgeFunctionEndpoint(
+    _validateHttpsEndpoint(
       receiptVerifyEndpoint,
       label: 'Receipt verification endpoint',
-      functionName: 'monetization-verify',
       issues: issues,
     );
-    _validateTrustedEdgeFunctionEndpoint(
+    _validateHttpsEndpoint(
       aiProxyEndpoint,
       label: 'AI proxy endpoint',
-      functionName: 'ai-proxy',
       issues: issues,
     );
-    _validateTrustedEdgeFunctionEndpoint(
+    _validateHttpsEndpoint(
       accountDeleteEndpoint,
       label: 'Account deletion endpoint',
-      functionName: 'account-delete',
-      issues: issues,
-    );
-    _validateAuthRedirect(
-      oauthRedirectUrl,
-      label: 'OAuth redirect URL',
-      requireHttpsAppLink: requireHttpsAppLink,
-      issues: issues,
-    );
-    _validateAuthRedirect(
-      passwordRecoveryRedirectUrl,
-      label: 'Password recovery redirect URL',
-      requireHttpsAppLink: requireHttpsAppLink,
-      issues: issues,
-    );
-    _validateAuthRedirect(
-      githubOauthRedirectUrl,
-      label: 'GitHub OAuth redirect URL',
-      requireHttpsAppLink: requireHttpsAppLink,
       issues: issues,
     );
     if (enableRuntimeFeatureFlags && !isFirebaseFeatureFlagRuntimeReady) {
       issues.add('Runtime feature flags require Firebase to be configured.');
     }
-    if (!resolveIsValidAndroidSha256CertificateDigest(appLinksAndroidSha256)) {
-      issues.add(
-        'Android App Links SHA-256 fingerprint must contain 32 colon-separated bytes.',
-      );
+    if (appLinksAndroidSha256.trim().isEmpty) {
+      issues.add('Android App Links SHA-256 fingerprint is not configured.');
     }
-    if (defaultTargetPlatform == TargetPlatform.iOS &&
-        appLinksIosTeamId.trim().isEmpty) {
+    if (appLinksIosTeamId.trim().isEmpty) {
       issues.add('iOS associated domains team ID is not configured.');
     }
     return issues;
   }
 
-  static void _validateTrustedEdgeFunctionEndpoint(
+  static void _validateHttpsEndpoint(
     String value, {
     required String label,
-    required String functionName,
     required List<String> issues,
   }) {
     final String endpoint = value.trim();
@@ -520,32 +422,9 @@ abstract final class Env {
       issues.add('$label is not configured.');
       return;
     }
-    if (!resolveIsTrustedEdgeFunctionEndpoint(
-      endpoint: endpoint,
-      supabaseUrl: supabaseUrl,
-      functionName: functionName,
-    )) {
-      issues.add(
-        '$label must be the HTTPS /functions/v1/$functionName endpoint on the configured Supabase origin.',
-      );
-    }
-  }
-
-  static void _validateAuthRedirect(
-    String value, {
-    required String label,
-    required bool requireHttpsAppLink,
-    required List<String> issues,
-  }) {
-    if (!resolveIsAllowedAuthRedirect(
-      value,
-      requireHttpsAppLink: requireHttpsAppLink,
-    )) {
-      issues.add(
-        requireHttpsAppLink
-            ? '$label must be the verified production App Link $productionAuthCallbackUrl.'
-            : '$label must be $customSchemeAuthCallbackUrl or $productionAuthCallbackUrl.',
-      );
+    final Uri? uri = Uri.tryParse(endpoint);
+    if (uri == null || !uri.hasAuthority || uri.scheme != 'https') {
+      issues.add('$label must be a valid HTTPS URL.');
     }
   }
 
@@ -589,5 +468,44 @@ abstract final class Env {
     } on Object {
       return null;
     }
+  }
+
+  /// Reads a security-relevant flag.
+  ///
+  /// In a release build the bundled `.env` is ignored entirely and only the
+  /// compile-time `--dart-define` is honoured. `.env` ships inside the app
+  /// bundle (see `pubspec.yaml` assets), so treating it as authoritative for
+  /// risk flags meant a stray `CHRONOSPARK_ENABLE_MOCK_LOGIN=true` — or a
+  /// repackaged bundle — could enable mock authentication in a shipped binary,
+  /// and a `--dart-define` could not override it. Debug/profile builds keep the
+  /// `.env` convenience.
+  static bool _readRiskBool(
+    String key,
+    bool fallback, {
+    required bool defineProvided,
+  }) {
+    if (kReleaseMode) {
+      return fallback;
+    }
+    if (defineProvided) {
+      return fallback;
+    }
+    return _readBool(key, fallback);
+  }
+
+  /// String counterpart of [_readRiskBool]. Used for the app flavor, which
+  /// gates every other production check.
+  static String _readRiskString(
+    String key,
+    String fallback, {
+    required bool defineProvided,
+  }) {
+    if (kReleaseMode) {
+      return fallback;
+    }
+    if (defineProvided) {
+      return fallback;
+    }
+    return _readString(key, fallback);
   }
 }

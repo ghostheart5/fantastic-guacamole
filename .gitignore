@@ -4,6 +4,8 @@
 *.pyc
 *.swp
 .DS_Store
+Thumbs.db
+Desktop.ini
 .atom/
 .build/
 .buildlog/
@@ -27,11 +29,16 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.env
 .flutter-plugins-dependencies
+node_modules/
 .pub-cache/
 .pub/
 /build/
 /coverage/
+/artifacts/dependency-audit/
+/artifacts/maestro/
+/artifacts/monkey/
 
 # Symbolication related
 app.*.symbols
@@ -49,7 +56,6 @@ app.*.map.json
 # Flutter/Dart
 .dart_tool/
 .packages
-pubspec.lock
 build/
 
 # Android
@@ -87,14 +93,6 @@ bugreport-*
 
 # Secrets
 .env
-tool/staging_validation/.core_sync_rls_approved
-key.properties
-*.jks
-*.keystore
-# Firebase app configuration may be committed; service-account credentials may not.
-**/*service-account*.json
-**/*service_account*.json
-**/*firebase-adminsdk*.json
 
 ~$*.docx
 
@@ -104,21 +102,3 @@ debug_log.txt
 lib_files.txt
 .claude/scheduled_tasks.lock
 *.code-workspace
-
-# Local audit and crash artifacts
-.archive/
-.audit/
-chronospark_auth_log.txt
-chronospark_login_crash.txt
-chronospark_runtime*.txt
-nexus_back_crash.txt
-recovery_corrupted_env_hive.diff
-audit_reports/chronospark_audit*.txt
-
-# Local backup files
-*.bak
-*.bak-*
-
-# Local Node lockfile (repo is Flutter-first)
-package-lock.json
-node_modules/

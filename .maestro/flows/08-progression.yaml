@@ -1,0 +1,15 @@
+# P2 — Progression. Same as Timeline: only reachable from the Nexus buttons.
+appId: com.ghostheart5.chronospark
+tags:
+  - core
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Progression"
+
+- assertVisible: "PROGRESSION"

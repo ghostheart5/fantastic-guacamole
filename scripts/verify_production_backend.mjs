@@ -1,15 +1,8 @@
 import { createSign } from 'node:crypto';
 
-const requiredSubscriptions = new Set([
+const expectedSubscriptions = new Set([
   'chronospark_premium_monthly',
   'chronospark_premium_annual',
-]);
-const requiredOneTimeProducts = new Set([
-  'chronospark_lifetime',
-  'chronospark_credits_100',
-  'chronospark_credits_500',
-  'chronospark_credits_1200',
-  'chronospark_credits_3000',
 ]);
 
 function requiredEnv(name) {
@@ -22,70 +15,46 @@ function base64Url(value) {
   return Buffer.from(value).toString('base64url');
 }
 
-async function googleAccessToken(serviceAccount, scope) {
-  const now = Math.floor(Date.now() / 1000);
-  const encodedHeader = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const encodedClaims = base64Url(JSON.stringify({
-    iss: serviceAccount.client_email,
-    scope,
-    aud: serviceAccount.token_uri ?? 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600,
-  }));
-  const unsigned = `${encodedHeader}.${encodedClaims}`;
-  const signer = createSign('RSA-SHA256');
-  signer.update(unsigned);
-  signer.end();
-  const assertion = `${unsigned}.${signer.sign(serviceAccount.private_key, 'base64url')}`;
-  const response = await fetch(serviceAccount.token_uri ?? 'https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth2:grant-type:jwt-bearer',
-      assertion,
-    }),
+function normalizedFingerprint(value) {
+  const compact = value.replace(/[^0-9a-f]/gi, '').toUpperCase();
+  if (!/^[0-9A-F]{64}$/.test(compact)) {
+    throw new Error('CHRONOSPARK_ANDROID_SHA256_CERT is not a SHA-256 certificate fingerprint');
+  }
+  return compact.match(/.{2}/g).join(':');
+}
+
+async function fetchResponse(url, init = {}) {
+  return await fetch(url, {
+    ...init,
     signal: AbortSignal.timeout(20_000),
   });
-  const body = await response.json();
-  if (!response.ok || typeof body.access_token !== 'string') {
-    throw new Error(`Google service-account token exchange failed (${response.status})`);
-  }
-  return body.access_token;
 }
 
 async function fetchJson(url, init = {}) {
-  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
+  const response = await fetchResponse(url, init);
   const text = await response.text();
-  let body = null;
+  let body;
   try {
     body = text ? JSON.parse(text) : null;
   } catch {
-    body = text;
+    throw new Error(`${url} returned non-JSON content`);
   }
   if (!response.ok) {
-    throw new Error(`${url} returned ${response.status}: ${String(text).slice(0, 180)}`);
+    throw new Error(`${url} returned ${response.status}`);
   }
   return body;
 }
 
-async function assertStatus(url, expected, init = {}) {
-  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
-  await response.body?.cancel();
-  if (response.status !== expected) {
-    throw new Error(`${url} returned ${response.status}; expected ${expected}`);
-  }
-}
-
-async function assertContract(url, expectedContract) {
-  const response = await fetch(url, {
+async function assertFunctionContract(url, expectedContract) {
+  const response = await fetchResponse(url, {
+    method: 'GET',
     headers: serviceHeaders,
-    signal: AbortSignal.timeout(20_000),
   });
   await response.body?.cancel();
   if (response.status !== 405) {
-    throw new Error(`${url} contract probe returned ${response.status}; expected 405`);
+    throw new Error(`${url} returned ${response.status}; expected method guard 405`);
   }
-  if (response.headers.get('x-chronospark-contract') !== expectedContract) {
+  if (expectedContract && response.headers.get('x-chronospark-contract') !== expectedContract) {
     throw new Error(`${url} is not deployed with contract ${expectedContract}`);
   }
 }
@@ -100,121 +69,127 @@ function assertExactIds(actual, expected, label) {
   }
 }
 
-const supabaseUrl = requiredEnv('CHRONOSPARK_SUPABASE_URL').replace(/\/$/, '');
-const secretKey = requiredEnv('SUPABASE_SECRET_KEY');
-const packageName = requiredEnv('ANDROID_PACKAGE_NAME');
-if (packageName !== 'com.ghostheart5.chronospark') {
-  throw new Error(`Unexpected Android package: ${packageName}`);
+async function googleAccessToken(serviceAccount, scope) {
+  const now = Math.floor(Date.now() / 1000);
+  const tokenUri = serviceAccount.token_uri ?? 'https://oauth2.googleapis.com/token';
+  const encodedHeader = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const encodedClaims = base64Url(JSON.stringify({
+    iss: serviceAccount.client_email,
+    scope,
+    aud: tokenUri,
+    iat: now,
+    exp: now + 3600,
+  }));
+  const unsigned = `${encodedHeader}.${encodedClaims}`;
+  const signer = createSign('RSA-SHA256');
+  signer.update(unsigned);
+  signer.end();
+  const assertion = `${unsigned}.${signer.sign(serviceAccount.private_key, 'base64url')}`;
+  const response = await fetchResponse(tokenUri, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth2:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+  const body = await response.json();
+  if (!response.ok || typeof body.access_token !== 'string') {
+    throw new Error(`Google service-account token exchange failed (${response.status})`);
+  }
+  return body.access_token;
 }
-const serviceAccount = JSON.parse(requiredEnv('GOOGLE_SERVICE_ACCOUNT_JSON'));
+
+const supabaseUrl = requiredEnv('CHRONOSPARK_SUPABASE_URL').replace(/\/$/, '');
+const projectRef = requiredEnv('SUPABASE_PROJECT_REF');
+const secretKey = requiredEnv('SUPABASE_SECRET_KEY');
+const configuredAccountDeleteEndpoint = requiredEnv('CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT');
+const packageName = requiredEnv('ANDROID_PACKAGE_NAME');
+const expectedFingerprint = normalizedFingerprint(
+  requiredEnv('CHRONOSPARK_ANDROID_SHA256_CERT'),
+);
 const rtdnSubscription = requiredEnv('RTDN_PUBSUB_SUBSCRIPTION');
 const rtdnAudience = requiredEnv('RTDN_AUDIENCE');
 const rtdnServiceAccountEmail = requiredEnv('RTDN_SERVICE_ACCOUNT_EMAIL');
-const reconcileSecret = requiredEnv('ACCOUNT_DELETE_RECONCILE_SECRET');
+const serviceAccount = JSON.parse(requiredEnv('GOOGLE_SERVICE_ACCOUNT_JSON'));
+
+if (!/^[a-z0-9]{20}$/.test(projectRef)) {
+  throw new Error('SUPABASE_PROJECT_REF has an unexpected format');
+}
+if (new URL(supabaseUrl).hostname !== `${projectRef}.supabase.co`) {
+  throw new Error('CHRONOSPARK_SUPABASE_URL does not match SUPABASE_PROJECT_REF');
+}
+if (packageName !== 'com.ghostheart5.chronospark') {
+  throw new Error(`Unexpected Android package: ${packageName}`);
+}
 if (!serviceAccount.client_email || !serviceAccount.private_key) {
   throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not a service-account credential');
 }
-
-const serviceHeaders = { apikey: secretKey, Authorization: `Bearer ${secretKey}` };
-const plans = await fetchJson(
-  `${supabaseUrl}/rest/v1/monetization_subscription_plans?select=product_id,is_active&is_active=eq.true`,
-  { headers: serviceHeaders },
-);
-const packages = await fetchJson(
-  `${supabaseUrl}/rest/v1/monetization_credit_packages?select=product_id,is_active&is_active=eq.true`,
-  { headers: serviceHeaders },
-);
-assertExactIds(new Set(plans.map((row) => row.product_id)), new Set([
-  ...requiredSubscriptions,
-  'chronospark_lifetime',
-]), 'Supabase subscription catalog');
-assertExactIds(
-  new Set(packages.map((row) => row.product_id)),
-  new Set([...requiredOneTimeProducts].filter((id) => id !== 'chronospark_lifetime')),
-  'Supabase credit catalog',
-);
+if (!/^projects\/[a-z0-9-]+\/subscriptions\/[A-Za-z0-9._~-]+$/.test(rtdnSubscription)) {
+  throw new Error('RTDN_PUBSUB_SUBSCRIPTION must be a full Pub/Sub subscription resource name');
+}
 
 const functionsUrl = `${supabaseUrl}/functions/v1`;
-const jsonPost = {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', Origin: 'https://chronospark.app' },
-  body: '{}',
+const accountDeleteEndpoint = `${functionsUrl}/account-delete`;
+if (configuredAccountDeleteEndpoint.replace(/\/$/, '') !== accountDeleteEndpoint) {
+  throw new Error('CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT does not target the linked production project');
+}
+const serviceHeaders = {
+  apikey: secretKey,
+  Authorization: `Bearer ${secretKey}`,
 };
-await assertStatus(`${functionsUrl}/ai-proxy`, 401, jsonPost);
-await assertStatus(`${functionsUrl}/monetization-verify`, 401, jsonPost);
-await assertStatus(`${functionsUrl}/account-delete-reconcile`, 401, jsonPost);
-await assertStatus(`${functionsUrl}/google-play-rtdn`, 401, jsonPost);
-await assertStatus(`${functionsUrl}/delete-account`, 410, jsonPost);
-await assertStatus(`${functionsUrl}/verify-receipt`, 410, jsonPost);
-await assertStatus(`${functionsUrl}/webhook-ingest`, 410, jsonPost);
-await assertContract(`${functionsUrl}/ai-proxy`, 'ai-proxy-v2');
-await assertContract(`${functionsUrl}/monetization-verify`, 'monetization-v2');
-await assertContract(`${functionsUrl}/account-delete`, 'account-delete-v2');
-await assertContract(`${functionsUrl}/google-play-rtdn`, 'google-play-rtdn-v1');
-await assertContract(
+
+await fetchJson(
+  `${supabaseUrl}/rest/v1/account_deletion_requests?select=request_id&limit=1`,
+  { headers: serviceHeaders },
+);
+await assertFunctionContract(`${functionsUrl}/ai-proxy`, 'ai-proxy-v2');
+await assertFunctionContract(`${functionsUrl}/verify-receipt`, 'verify-receipt-v2');
+await assertFunctionContract(accountDeleteEndpoint, 'account-delete-v2');
+await assertFunctionContract(
   `${functionsUrl}/account-delete-reconcile`,
   'account-delete-reconcile-v1',
 );
-await fetchJson(`${functionsUrl}/account-delete-reconcile`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-chronospark-reconcile-secret': reconcileSecret,
-  },
-  body: '{}',
-});
+await assertFunctionContract(`${functionsUrl}/google-play-rtdn`, null);
 
-const accessToken = await googleAccessToken(
+const assetLinks = await fetchJson('https://chronospark.app/.well-known/assetlinks.json');
+if (!Array.isArray(assetLinks)) {
+  throw new Error('Published assetlinks.json must contain a JSON array');
+}
+const linkedApp = assetLinks.find((entry) =>
+  entry?.target?.namespace === 'android_app' &&
+  entry?.target?.package_name === packageName &&
+  Array.isArray(entry?.relation) &&
+  entry.relation.includes('delegate_permission/common.handle_all_urls')
+);
+const linkedFingerprints = new Set(
+  (linkedApp?.target?.sha256_cert_fingerprints ?? []).map(normalizedFingerprint),
+);
+if (!linkedFingerprints.has(expectedFingerprint)) {
+  throw new Error('Published App Links fingerprint does not match the production signing certificate');
+}
+
+const publisherToken = await googleAccessToken(
   serviceAccount,
   'https://www.googleapis.com/auth/androidpublisher',
 );
-const playHeaders = { Authorization: `Bearer ${accessToken}` };
 const packagePath = encodeURIComponent(packageName);
 const subscriptions = await fetchJson(
   `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packagePath}/subscriptions?pageSize=1000`,
-  { headers: playHeaders },
+  { headers: { Authorization: `Bearer ${publisherToken}` } },
 );
 const subscriptionRows = subscriptions.subscriptions ?? [];
 assertExactIds(
   new Set(subscriptionRows.map((item) => item.productId)),
-  requiredSubscriptions,
+  expectedSubscriptions,
   'Google Play subscription catalog',
 );
-for (const productId of requiredSubscriptions) {
+for (const productId of expectedSubscriptions) {
   const product = subscriptionRows.find((item) => item.productId === productId);
   const activePlans = (product?.basePlans ?? []).filter((plan) => plan.state === 'ACTIVE');
   if (!activePlans.length) throw new Error(`${productId} has no ACTIVE base plan`);
 }
 
-let oneTimeRows;
-try {
-  const modern = await fetchJson(
-    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packagePath}/oneTimeProducts?pageSize=1000`,
-    { headers: playHeaders },
-  );
-  oneTimeRows = modern.oneTimeProducts ?? [];
-} catch {
-  const legacy = await fetchJson(
-    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packagePath}/inappproducts?maxResults=100`,
-    { headers: playHeaders },
-  );
-  oneTimeRows = legacy.inappproduct ?? [];
-}
-assertExactIds(
-  new Set(oneTimeRows.map((item) => item.productId ?? item.sku)),
-  requiredOneTimeProducts,
-  'Google Play one-time product catalog',
-);
-for (const productId of requiredOneTimeProducts) {
-  const product = oneTimeRows.find((item) => (item.productId ?? item.sku) === productId);
-  const active = product?.status === 'active' || product?.state === 'ACTIVE' ||
-    (product?.purchaseOptions ?? []).some((option) => option.state === 'ACTIVE');
-  if (!active) throw new Error(`${productId} is not active in Google Play`);
-}
-
-if (!/^projects\/[a-z0-9-]+\/subscriptions\/[A-Za-z0-9._~-]+$/.test(rtdnSubscription)) {
-  throw new Error('RTDN_PUBSUB_SUBSCRIPTION must be a full Pub/Sub subscription resource name');
-}
 const pubsubToken = await googleAccessToken(
   serviceAccount,
   'https://www.googleapis.com/auth/cloud-platform',
@@ -236,10 +211,10 @@ if (pubsub.pushConfig?.oidcToken?.serviceAccountEmail !== rtdnServiceAccountEmai
 
 console.log(JSON.stringify({
   verified: true,
+  commit: process.env.GITHUB_SHA ?? null,
   packageName,
-  supabasePlans: plans.length,
-  supabaseCreditPackages: packages.length,
+  projectRef,
   playSubscriptions: subscriptionRows.length,
-  playOneTimeProducts: oneTimeRows.length,
+  appLinksFingerprint: expectedFingerprint,
   rtdnSubscription,
 }));

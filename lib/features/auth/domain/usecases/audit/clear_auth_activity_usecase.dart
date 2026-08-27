@@ -1,3 +1,0 @@
-class ClearAuthActivityUsecase {
-  const ClearAuthActivityUsecase();
-}

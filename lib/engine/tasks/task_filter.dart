@@ -4,7 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 class TaskFilter {
   const TaskFilter._();
 
-  /// Active tasks only - not completed and not canceled.
+  /// Active tasks only — not completed and not canceled.
   static List<TaskEntity> incomplete(List<TaskEntity> tasks) => tasks
       .where((t) => !t.isCompleted && !t.isSkipped && !t.isCanceled)
       .toList();
@@ -39,7 +39,7 @@ class TaskFilter {
     }).toList();
   }
 
-  /// Tasks whose energy requirement fits [userEnergy] (0.0-1.0) within tolerance.
+  /// Tasks whose energy requirement fits [userEnergy] (0.0–1.0) within tolerance.
   static List<TaskEntity> forEnergy(
     List<TaskEntity> tasks,
     double userEnergy, {
@@ -54,7 +54,7 @@ class TaskFilter {
     double maxEnergy,
   ) => tasks.where((t) => t.energyRequired / 5.0 <= maxEnergy).toList();
 
-  /// Tasks with difficulty in [min]..[max] (inclusive, 1-5 scale).
+  /// Tasks with difficulty in [min]..[max] (inclusive, 1–5 scale).
   static List<TaskEntity> byDifficultyRange(
     List<TaskEntity> tasks,
     int min,

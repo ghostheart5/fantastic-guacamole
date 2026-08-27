@@ -1,6 +1,6 @@
 ChronoSpark Privacy Policy
 
-Effective date: July 4, 2026
+Effective date: August 17, 2026
 
 This policy explains what information ChronoSpark processes during normal use and during closed community testing.
 
@@ -10,7 +10,7 @@ ChronoSpark may process:
 
 - Account information, such as an email address and display name, when account authentication is enabled.
 - Content you create, including tasks, goals, notes, reflections, memories, settings, and conversation prompts.
-- Productivity information, including focus sessions, completion history, energy, emotion, momentum, streak, and progression data.
+- Planning information, including tasks, goals, Timeline records, completion history, energy, emotion, momentum, streak, and progression data.
 - Purchase or entitlement status when billing features are enabled.
 - Technical information, including app events, crash diagnostics, operating-system information, an app-generated device identifier, and performance data.
 
@@ -24,18 +24,20 @@ Depending on how a build is configured, ChronoSpark may use:
 
 - Firebase Analytics to record feature-usage events.
 - Firebase Crashlytics to receive crash reports and technical diagnostics.
-- Supabase for authentication and aggregated daily productivity metrics. Aggregated metrics may include focus counts, completed tasks, focus duration, momentum, date, and an app-generated device identifier.
-- A configured AI proxy and its upstream AI provider to generate conversational responses. When enabled, the newest prompt, limited recent conversation history, and relevant context such as energy, emotion, profile level, task information, or focus state may be transmitted for processing.
+- The GhostHeart5 Supabase project for authentication and aggregated daily productivity metrics. Aggregated metrics may include completed and deferred task counts, execution-block duration, momentum, date, and an app-generated device identifier.
+- A configured AI proxy and its upstream AI provider to generate optional Smart Planner or SI Console responses. External processing is opt-in; when enabled, the newest sanitized prompt, minimized recent conversation history, and only relevant context such as energy, emotion, profile level, or task information may be transmitted for processing.
 - Google Play or Apple services for purchases and entitlement restoration when billing is enabled.
 
 ChronoSpark does not place AI-provider credentials in the mobile application. Requests are sent through the configured server-side proxy.
+
+When you report a generated response, the safety report includes only that response and your selected reason. It does not include your prompt, conversation history, password, access token, or payment credentials.
 
 4. How information is used
 
 Information is used to:
 
-- Provide task, focus, progression, notification, insight, and coaching features.
-- Preserve continuity between app sessions.
+- Provide Creator, Smart Planner, Timeline, Trajectory Engine, Progression, Nexus, notification, and SI Console features.
+- Preserve continuity between app visits.
 - Generate and improve recommendations and conversational responses.
 - Authenticate accounts and restore enabled purchases.
 - Diagnose crashes, measure reliability, and understand aggregate feature usage.
@@ -46,7 +48,7 @@ ChronoSpark does not sell personal information. Information is disclosed to conf
 
 6. Closed-test builds
 
-Closed-test builds may provide Tester Access, bypass premium restrictions, use local AI fallback responses, or disable unfinished cloud-sync functionality. Tester Access creates a local test session and should not be treated as a production account.
+Closed-test builds may provide Tester Access, bypass premium restrictions, use local AI fallback responses, or disable unfinished cloud-sync functionality. Tester Access creates a local test sign-in state and should not be treated as a production account.
 
 7. Retention and deletion
 
@@ -63,4 +65,4 @@ This policy may be updated as testing and external-service configuration change.
 10. Contact
 
 Privacy and support requests:
-ghostheart131517@gmail.com
+support@chronospark.app

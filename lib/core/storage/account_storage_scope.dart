@@ -4,10 +4,7 @@ enum AccountStorageScopeState { signedOut, authenticated, unsafe }
 
 /// The only local persistence scope states usable by later repositories.
 final class AccountStorageScope {
-  const AccountStorageScope._({
-    required this.state,
-    this.namespace,
-  });
+  const AccountStorageScope._({required this.state, this.namespace});
 
   const AccountStorageScope.signedOut()
     : state = AccountStorageScopeState.signedOut,

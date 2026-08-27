@@ -1,4 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: login_with_env.yaml
-- runFlow: logout.yaml

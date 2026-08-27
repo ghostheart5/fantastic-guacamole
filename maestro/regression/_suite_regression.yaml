@@ -1,6 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: regression_navigation_chain.yaml
-- runFlow: regression_ai_surfaces.yaml
-- runFlow: regression_surface_isolation.yaml
-- runFlow: regression_monetization_chain.yaml

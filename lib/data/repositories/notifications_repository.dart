@@ -1,58 +1,64 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
-import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/notification_record.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 
-class NotificationsRepository implements SchedulingResultNotificationRepository {
+class NotificationsRepository implements INotificationRepository {
   NotificationsRepository(
     this._scheduler,
     this._store, {
-    required this.storageScope,
-    Future<void> Function(NotificationEntity notification)? platformScheduleNotification,
+    String? accountId,
+    KeyedMutationCoordinator? mutationCoordinator,
+    this._scheduleNotification,
     this._cancelScheduledNotification,
     this._cancelAllScheduledNotifications,
-  }) : _scheduleNotification = platformScheduleNotification;
-
-  static const String legacyStorageKey = 'notification_entries_v1';
-  static const String _v2KeyPrefix = 'notification_entries_v2';
+  }) : _accountId = accountId?.trim().isEmpty == true
+           ? null
+           : accountId?.trim(),
+       _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
 
   final NotificationScheduler _scheduler;
   final SecureStore _store;
-  final AccountStorageScope storageScope;
+  final String? _accountId;
+  final KeyedMutationCoordinator _mutations;
   final Future<void> Function(NotificationEntity notification)?
   _scheduleNotification;
   final Future<void> Function(String id)? _cancelScheduledNotification;
   final Future<void> Function()? _cancelAllScheduledNotifications;
 
-  String get _storageKey {
-    final String? namespace = storageScope.v2Namespace;
-    if (!storageScope.isAuthenticated || namespace == null) {
-      throw StateError(
-        'Notification persistence is unavailable outside a safe authenticated scope.',
-      );
-    }
-    return '$_v2KeyPrefix.$namespace';
-  }
+  String? get accountId => _accountId;
 
-  static String canonicalStorageKeyForScope(AccountStorageScope scope) {
-    final String? namespace = scope.v2Namespace;
-    if (!scope.isAuthenticated || namespace == null) {
-      throw StateError(
-        'Notification persistence is unavailable outside a safe authenticated scope.',
-      );
-    }
-    return '$_v2KeyPrefix.$namespace';
-  }
+  String? get _storageKey => _accountId == null
+      ? null
+      : AccountDataRegistry.notificationSecureKeyFor(_accountId);
+
+  String? get _accountScope =>
+      _accountId == null ? null : AccountDataRegistry.accountDigest(_accountId);
+
+  String? get _mutationKey => _accountId == null
+      ? null
+      : AccountDataRegistry.notificationMutationKeyFor(_accountId);
 
   @override
   Future<List<NotificationEntity>> getNotifications() async {
-    final String? raw = await _store.readString(_storageKey);
+    final String? mutationKey = _mutationKey;
+    if (mutationKey == null) return const <NotificationEntity>[];
+    return _mutations.runExclusive<List<NotificationEntity>>(
+      mutationKey,
+      _readNotifications,
+    );
+  }
+
+  Future<List<NotificationEntity>> _readNotifications() async {
+    final String? storageKey = _storageKey;
+    if (storageKey == null) return const <NotificationEntity>[];
+    final String? raw = await _store.readString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
       return const <NotificationEntity>[];
     }
@@ -62,11 +68,10 @@ class NotificationsRepository implements SchedulingResultNotificationRepository 
         throw const FormatException('Notification storage is not a list.');
       }
       final List<NotificationEntity> entries = <NotificationEntity>[];
+      int malformedCount = 0;
       for (final Object? value in decoded) {
         if (value is! Map) {
-          throw const FormatException(
-            'Notification storage contains a non-object entry.',
-          );
+          continue;
         }
         try {
           entries.add(
@@ -77,10 +82,16 @@ class NotificationsRepository implements SchedulingResultNotificationRepository 
             ).toEntity(),
           );
         } on FormatException catch (error) {
-          throw FormatException(
-            'Notification storage contains an invalid entry: $error',
-          );
+          malformedCount++;
+          if (malformedCount == 1) {
+            Logger.warn('Skipping malformed notification: $error');
+          }
         }
+      }
+      if (malformedCount > 1) {
+        Logger.warn(
+          'Skipped $malformedCount malformed notifications while reading storage.',
+        );
       }
       entries.sort(
         (NotificationEntity a, NotificationEntity b) =>
@@ -89,128 +100,108 @@ class NotificationsRepository implements SchedulingResultNotificationRepository 
       return entries;
     } on FormatException catch (error) {
       Logger.error('Stored notifications are corrupt.', error);
-      throw StorageException('Notification storage is corrupted: $error');
+      return const <NotificationEntity>[];
     }
   }
 
   @override
   Future<void> scheduleNotification(NotificationEntity notification) async {
-    try {
-      await scheduleNotificationWithResult(notification);
-    } catch (error) {
-      Logger.warn('Failed to schedule notification ${notification.id}: $error');
-    }
-  }
-
-  @override
-  Future<NotificationScheduleResult> scheduleNotificationWithResult(
-    NotificationEntity notification,
-  ) async {
-    await _upsert(notification);
-    final schedule = _scheduleNotification;
-    if (schedule != null) {
-      await schedule(notification);
-      return NotificationScheduleResult.scheduled;
-    }
-    final result = await _scheduler.scheduleWithStatus(notification);
-    if (result != NotificationScheduleResult.scheduled) {
-      Logger.warn(
-        'Notification ${notification.id} was not scheduled: $result',
-      );
-    }
-    return result;
+    await _runMutation(() async {
+      await _upsert(notification);
+      try {
+        final schedule = _scheduleNotification;
+        if (schedule != null) {
+          await schedule(notification);
+        } else {
+          await _scheduler.schedule(notification, accountScope: _accountScope);
+        }
+      } catch (error) {
+        Logger.warn(
+          'Failed to schedule notification ${notification.id}: $error',
+        );
+      }
+    });
   }
 
   @override
   Future<void> cancelNotification(String id) async {
-    final cancel = _cancelScheduledNotification;
-    if (cancel != null) {
-      await cancel(id);
-    } else {
-      await _scheduler.cancel(id);
-    }
-    final List<NotificationEntity> entries = await getNotifications();
-    final NotificationEntity? existing = _find(entries, id);
-    if (existing == null) {
-      return;
-    }
-    await _upsert(
-      NotificationEntity(
-        id: existing.id,
-        title: existing.title,
-        message: existing.message,
-        scheduledAt: existing.scheduledAt,
-        isEnabled: false,
-        isRead: existing.isRead,
-      ),
-    );
+    await _runMutation(() async {
+      await _cancelPlatform(id);
+      final List<NotificationEntity> entries = await _readNotifications();
+      final NotificationEntity? existing = _find(entries, id);
+      if (existing == null) return;
+      await _upsert(_copy(existing, isEnabled: false));
+    });
   }
 
   @override
   Future<void> markRead(String id) async {
-    final List<NotificationEntity> entries = await getNotifications();
-    final NotificationEntity? existing = _find(entries, id);
-    if (existing == null) {
-      return;
-    }
-    await _upsert(
-      NotificationEntity(
-        id: existing.id,
-        title: existing.title,
-        message: existing.message,
-        scheduledAt: existing.scheduledAt,
-        isEnabled: existing.isEnabled,
-        isRead: true,
-      ),
-    );
+    await _runMutation(() async {
+      final List<NotificationEntity> entries = await _readNotifications();
+      final NotificationEntity? existing = _find(entries, id);
+      if (existing == null) return;
+      await _upsert(_copy(existing, isRead: true));
+    });
   }
 
   @override
   Future<void> delete(String id) async {
-    final cancel = _cancelScheduledNotification;
-    if (cancel != null) {
-      await cancel(id);
-    } else {
-      await _scheduler.cancel(id);
-    }
-    final List<NotificationEntity> entries = await getNotifications();
-    await _save(
-      entries
-          .where((NotificationEntity entry) => entry.id != id)
-          .toList(growable: false),
-    );
+    await _runMutation(() async {
+      await _cancelPlatform(id, deleting: true);
+      final List<NotificationEntity> entries = await _readNotifications();
+      await _save(
+        entries
+            .where((NotificationEntity entry) => entry.id != id)
+            .toList(growable: false),
+      );
+    });
   }
 
   Future<void> cancelAll() async {
-    try {
+    await _runMutation(() async {
+      final List<NotificationEntity> entries = await _readNotifications();
       final cancelAll = _cancelAllScheduledNotifications;
       if (cancelAll != null) {
-        await cancelAll();
+        try {
+          await cancelAll();
+        } catch (error) {
+          Logger.warn('Failed to cancel all scheduled notifications: $error');
+        }
       } else {
-        await _scheduler.cancelAll();
+        for (final NotificationEntity entry in entries) {
+          await _cancelPlatform(entry.id);
+        }
       }
-    } catch (error) {
-      Logger.warn('Failed to cancel all scheduled notifications: $error');
-    }
-    final List<NotificationEntity> entries = await getNotifications();
-    await _save(
-      entries
-          .map(
-            (NotificationEntity entry) => NotificationEntity(
-              id: entry.id,
-              title: entry.title,
-              message: entry.message,
-              scheduledAt: entry.scheduledAt,
-              isEnabled: false,
-              isRead: entry.isRead,
-            ),
-          )
-          .toList(growable: false),
-    );
+      await _save(
+        entries
+            .map((NotificationEntity entry) => _copy(entry, isEnabled: false))
+            .toList(growable: false),
+      );
+    });
+  }
+
+  Future<void> clearAccountData() async {
+    await _runMutation(() async {
+      final List<NotificationEntity> entries = await _readNotifications();
+      for (final NotificationEntity entry in entries) {
+        await _cancelPlatform(entry.id);
+      }
+      for (final String id in const <String>[
+        'habit_reminder_daily',
+        'daily_planning_reminder',
+        'reflection_reminder',
+      ]) {
+        await _cancelPlatform(id);
+      }
+      final String? storageKey = _storageKey;
+      if (storageKey != null) await _store.delete(storageKey);
+      await _store.delete(AccountDataRegistry.legacyNotificationSecureKey);
+      NotificationScheduler.tappedPayloadListenable.value = null;
+    });
   }
 
   Future<void> _upsert(NotificationEntity notification) async {
-    final List<NotificationEntity> entries = await getNotifications();
+    final List<NotificationEntity> entries = await _readNotifications();
     await _save(<NotificationEntity>[
       notification,
       ...entries.where(
@@ -220,8 +211,10 @@ class NotificationsRepository implements SchedulingResultNotificationRepository 
   }
 
   Future<void> _save(List<NotificationEntity> entries) {
+    final String? storageKey = _storageKey;
+    if (storageKey == null) return Future<void>.value();
     return _store.writeString(
-      _storageKey,
+      storageKey,
       jsonEncode(
         entries
             .map(
@@ -230,6 +223,44 @@ class NotificationsRepository implements SchedulingResultNotificationRepository 
             )
             .toList(growable: false),
       ),
+    );
+  }
+
+  Future<void> _runMutation(Future<void> Function() mutation) {
+    final String? mutationKey = _mutationKey;
+    if (mutationKey == null) return Future<void>.value();
+    return _mutations.runExclusive<void>(mutationKey, mutation);
+  }
+
+  Future<void> _cancelPlatform(String id, {bool deleting = false}) async {
+    try {
+      final cancel = _cancelScheduledNotification;
+      if (cancel != null) {
+        await cancel(id);
+      } else {
+        await _scheduler.cancel(id, accountScope: _accountScope);
+      }
+    } catch (error) {
+      Logger.warn(
+        deleting
+            ? 'Failed to cancel scheduled notification during delete $id: $error'
+            : 'Failed to cancel scheduled notification $id: $error',
+      );
+    }
+  }
+
+  NotificationEntity _copy(
+    NotificationEntity entry, {
+    bool? isEnabled,
+    bool? isRead,
+  }) {
+    return NotificationEntity(
+      id: entry.id,
+      title: entry.title,
+      message: entry.message,
+      scheduledAt: entry.scheduledAt,
+      isEnabled: isEnabled ?? entry.isEnabled,
+      isRead: isRead ?? entry.isRead,
     );
   }
 

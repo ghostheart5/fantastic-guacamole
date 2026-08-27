@@ -1,3 +1,0 @@
-﻿class ViewGoalLogsUsecase {
-  const ViewGoalLogsUsecase();
-}

@@ -1,3 +1,0 @@
-class ViewMoodSummaryUsecase {
-  const ViewMoodSummaryUsecase();
-}

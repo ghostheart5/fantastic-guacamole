@@ -1,108 +1,180 @@
-import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 class VoiceService {
-  VoiceService({FlutterTts? tts}) : _tts = tts ?? FlutterTts() {
-    _tts.setStartHandler(() {
-      _isSpeaking = true;
-    });
+  const VoiceService();
 
-    _tts.setCompletionHandler(() {
-      _isSpeaking = false;
-    });
+  static const MethodChannel _tts = MethodChannel('chronospark/tts');
+  static bool _initialized = false;
+  static bool _isSpeaking = false;
 
-    _tts.setCancelHandler(() {
-      _isSpeaking = false;
-    });
-
-    _tts.setPauseHandler(() {
-      _isSpeaking = false;
-    });
-
-    _tts.setErrorHandler((message) {
-      _isSpeaking = false;
-    });
-  }
-
-  final FlutterTts _tts;
-
-  bool _isSpeaking = false;
-  String _language = 'en-US';
-  double _volume = 1.0;
-  double _rate = 0.48;
-  double _pitch = 1.0;
+  /// Serialises [speak] so two utterances cannot interleave.
+  ///
+  /// Native TTS completes the `speak` method when the utterance finishes, so
+  /// two rapid taps otherwise race stop/speak(A)/stop/speak(B) with A's
+  /// completer still pending. Every call site is fire-and-forget, so nothing
+  /// else rate-limits them.
+  static Future<void> _speakQueue = Future<void>.value();
 
   bool get isSpeaking => _isSpeaking;
 
   Future<void> speak(String text) async {
-    final String message = text.trim();
-    if (message.isEmpty) {
+    final String value = text.trim();
+    if (value.isEmpty) {
       return;
     }
-
-    await stop();
-    await _tts.setLanguage(_language);
-    await _tts.setVolume(_volume.clamp(0.0, 1.0));
-    await _tts.setSpeechRate(_rate.clamp(0.1, 1.0));
-    await _tts.setPitch(_pitch.clamp(0.5, 2.0));
-    await _tts.speak(message);
+    if (!await _ensureInitialized()) {
+      return;
+    }
+    // Chain onto the previous utterance rather than racing it. Errors are
+    // absorbed so one bad utterance cannot poison the queue for the session.
+    final Future<void> queued = _speakQueue.then((_) async {
+      try {
+        await _tts.invokeMethod<void>('stop');
+        _isSpeaking = true;
+        await _tts.invokeMethod<void>('speak', <String, Object?>{
+          'text': value,
+        });
+      } catch (_) {
+        // Do not crash UI flows when TTS is unavailable.
+      } finally {
+        _isSpeaking = false;
+      }
+    });
+    _speakQueue = queued.catchError((Object _) {});
+    return queued;
   }
 
   Future<void> speakSummary({
     required String title,
     required List<String> points,
-  }) async {
-    final String summary = <String>[
-      title,
-      ...points,
-    ].where((String value) => value.trim().isNotEmpty).join('. ');
-
-    await speak(summary);
+  }) {
+    final String cleanedTitle = title.trim();
+    final List<String> cleanedPoints = points
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (cleanedPoints.isEmpty) {
+      return speak(
+        cleanedTitle.isEmpty
+            ? 'No summary available.'
+            : '$cleanedTitle. No summary available.',
+      );
+    }
+    final StringBuffer buffer = StringBuffer();
+    if (cleanedTitle.isNotEmpty) {
+      buffer.write('$cleanedTitle. ');
+    }
+    for (int i = 0; i < cleanedPoints.length; i++) {
+      buffer.write('Point ${i + 1}. ${cleanedPoints[i]}. ');
+    }
+    return speak(buffer.toString());
   }
 
   Future<void> speakAccessibilityHint({
     required String surface,
     required List<String> controls,
-  }) async {
-    final String hint = <String>[
-      surface,
-      ...controls,
-    ].where((String value) => value.trim().isNotEmpty).join('. ');
-
-    await speak(hint);
+  }) {
+    final String surfaceName = surface.trim().isEmpty
+        ? 'this screen'
+        : surface.trim();
+    final List<String> items = controls
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (items.isEmpty) {
+      return speak('Accessibility guide for $surfaceName is unavailable.');
+    }
+    return speakSummary(
+      title: 'Accessibility guide for $surfaceName',
+      points: items,
+    );
   }
 
   Future<void> stop() async {
-    _isSpeaking = false;
-    await _tts.stop();
+    if (!_initialized) {
+      return;
+    }
+    try {
+      await _tts.invokeMethod<void>('stop');
+      _isSpeaking = false;
+    } catch (_) {
+      // Ignore platform-level failures.
+    }
   }
 
   Future<void> pause() async {
-    _isSpeaking = false;
-    await _tts.pause();
+    if (!_initialized) {
+      return;
+    }
+    try {
+      await _tts.invokeMethod<void>('pause');
+      _isSpeaking = false;
+    } catch (_) {
+      // Ignore platform-level failures.
+    }
   }
 
   Future<void> setLanguage(String language) async {
-    final String next = language.trim();
-    if (next.isEmpty) {
+    if (!await _ensureInitialized()) {
       return;
     }
-
-    _language = next;
-    await _tts.setLanguage(_language);
+    try {
+      await _tts.invokeMethod<void>('setLanguage', language);
+    } catch (_) {
+      // Ignore platform-level failures.
+    }
   }
 
   Future<void> setVolume(double volume) async {
-    _volume = volume.clamp(0.0, 1.0);
-    await _tts.setVolume(_volume);
+    if (!await _ensureInitialized()) {
+      return;
+    }
+    try {
+      await _tts.invokeMethod<void>('setVolume', volume.clamp(0.0, 1.0));
+    } catch (_) {
+      // Ignore platform-level failures.
+    }
   }
 
   Future<void> setRate(double rate) async {
-    _rate = rate.clamp(0.1, 1.0);
-    await _tts.setSpeechRate(_rate);
+    if (!await _ensureInitialized()) {
+      return;
+    }
+    try {
+      await _tts.invokeMethod<void>('setRate', rate.clamp(0.0, 1.0));
+    } catch (_) {
+      // Ignore platform-level failures.
+    }
   }
 
   Future<void> setPitch(double pitch) async {
-    _pitch = pitch.clamp(0.5, 2.0);
-    await _tts.setPitch(_pitch);
+    if (!await _ensureInitialized()) {
+      return;
+    }
+    try {
+      await _tts.invokeMethod<void>('setPitch', pitch.clamp(0.5, 2.0));
+    } catch (_) {
+      // Ignore platform-level failures.
+    }
+  }
+
+  Future<bool> _ensureInitialized() async {
+    if (_initialized) {
+      return true;
+    }
+    try {
+      await _tts.invokeMethod<void>('initialize');
+      await _tts.invokeMethod<void>('setLanguage', 'en-US');
+      _initialized = true;
+      return true;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException catch (error) {
+      debugPrint('VoiceService unavailable: $error');
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 }

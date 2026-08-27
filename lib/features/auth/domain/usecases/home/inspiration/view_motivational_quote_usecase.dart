@@ -1,3 +1,0 @@
-class ViewMotivationalQuoteUsecase {
-  const ViewMotivationalQuoteUsecase();
-}

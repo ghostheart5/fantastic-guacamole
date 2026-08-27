@@ -1,3 +1,0 @@
-class ShareEmotionReportUsecase {
-  const ShareEmotionReportUsecase();
-}

@@ -1,3 +1,0 @@
-class ViewChallengeAnalyticsUsecase {
-  const ViewChallengeAnalyticsUsecase();
-}

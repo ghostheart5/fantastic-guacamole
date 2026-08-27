@@ -1,3 +1,0 @@
-﻿class GenerateLogSummaryUsecase {
-  const GenerateLogSummaryUsecase();
-}

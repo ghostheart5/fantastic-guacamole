@@ -1,3 +1,0 @@
-class ViewDailyAffirmationUsecase {
-  const ViewDailyAffirmationUsecase();
-}

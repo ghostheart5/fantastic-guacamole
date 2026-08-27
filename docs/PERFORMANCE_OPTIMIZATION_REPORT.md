@@ -134,11 +134,8 @@ Future<void> _runDeferredStartupTasks() async {
 ```
 Total assets: 28 files | 23.76 MB
 Top 5 oversized files:
-  1. chronocreator_bg.png (3.12 MB) — background, HIGH risk
-  2. settings_bg.png (1.47 MB) — background, MEDIUM risk
-  3. theme_icon.png (1.43 MB) — icon, HIGH risk (icons should be < 200 KB)
-  4. home.png (1.42 MB) — icon, HIGH risk
-  5. temporal_bg.png (1.41 MB) — background, MEDIUM risk
+  Creator background replacement: creator_bg.jpg (61.8 KB) — within budget
+  Historical oversized-asset rankings must be regenerated before release.
 
 Recommendations:
   ⚠ Total asset size is 23.8 MB; reduce below 15 MB for faster startup
@@ -161,7 +158,7 @@ dart run scripts/analyze_assets.dart
 
 **Success Metrics:**
 - Total bundle: < 15 MB (currently 23.76 MB, 37% reduction)
-- Largest background: < 1 MB (currently 3.12 MB, 68% reduction)
+- Largest background: < 1 MB (currently 61.8 KB, 68% reduction)
 - Icon assets: < 100 KB each (currently many > 1 MB, 90% reduction)
 - Time to Persistent Frame: < 2s on mid-range device
 
@@ -169,14 +166,14 @@ dart run scripts/analyze_assets.dart
 
 ## 3. Test Coverage
 
-**All Tests Passing:** 36/36  
+**Historical scoped result (not current release status):** 36/36
 - 22 pre-existing unit + integration tests
 - 3 paywall receipt verifier deferred tests
 - 3 SI AI deferred queue tests
 - 1 deep link parser test
 - 7 workspace store service tests
 
-**No Regressions:** MainShell Selector change and post-frame scheduling verified to not break:
+**Historical scope:** MainShell Selector change and post-frame scheduling were checked against:
 - Decision computation flow
 - Paywall event handling
 - Premium entitlement sync
@@ -239,7 +236,7 @@ flutter build ios --release && du -sh build/ios/Release-iphoneos/Runner.app
 
 2. **Asset Optimization** (Recommended)
    - Execute Phase 1-3 from asset_sizing_policy.md
-   - Prioritize: chronocreator_bg.png (3.12 MB) → target 1 MB
+   - Keep `creator_bg.jpg` within its current sub-100 KB budget
    - Batch convert icons to WebP; profile decode time impact
 
 3. **CI/CD Integration** (Optional)

@@ -1,3 +1,0 @@
-class ViewInvoicesUsecase {
-  const ViewInvoicesUsecase();
-}

@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
 
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Calendar/timeline
+///
+/// Enforced by AddCalendarEntry on the persisted-calendar path.
 class CalendarPolicy {
   static const bool supportsRecurringEntries = false;
 

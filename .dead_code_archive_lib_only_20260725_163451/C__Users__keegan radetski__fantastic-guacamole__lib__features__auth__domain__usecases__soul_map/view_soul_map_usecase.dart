@@ -1,3 +1,0 @@
-﻿class ViewSoulMapUsecase {
-  const ViewSoulMapUsecase();
-}

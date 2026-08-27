@@ -11,7 +11,7 @@ User logs a habit completion or misses a habit check-in window.
    - best streak
    - streak break condition
 4. Habit repository persists updated habit + streak metadata.
-5. Progression/insight providers refresh streak-dependent signals.
+5. Progression/signal providers refresh streak-dependent signals.
 6. UI updates streak badges, summaries, and warnings.
 7. Analytics event is logged.
 

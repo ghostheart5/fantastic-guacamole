@@ -1,3 +1,0 @@
-class RecommendScheduleAdjustmentsUsecase {
-  const RecommendScheduleAdjustmentsUsecase();
-}

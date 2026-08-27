@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_theme_repository.dart';
@@ -19,41 +18,21 @@ class ThemeRepository implements IThemeRepository {
 
   @override
   Future<AppThemeEntity?> getCurrentTheme() async {
-    return await getStoredTheme() ?? AppThemeEntity.defaultTheme();
-  }
-
-  /// Reads the device-global legacy record without supplying a default.
-  ///
-  /// This is intentionally a migration/compatibility seam: callers that own
-  /// canonical settings must be able to distinguish an absent or malformed
-  /// legacy value from an explicitly stored theme.
-  Future<AppThemeEntity?> getStoredTheme() async {
     final String? raw = _store.load(_key);
     if (raw == null || raw.trim().isEmpty) {
-      return null;
+      return AppThemeEntity.defaultTheme();
     }
     try {
       final dynamic decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
-        final Object? id = decoded['id'];
-        final bool? isDark = decoded['isDark'] as bool?;
-        if (id is! String ||
-            (id != 'dark' && id != 'light') ||
-            isDark == null) {
-          Logger.warn('Theme payload is invalid and will be ignored.');
-          return null;
-        }
         return AppThemeEntity(
-          id: id,
+          id: (decoded['id'] as String?) ?? 'dark',
           name: (decoded['name'] as String?) ?? 'Dark',
-          isDark: isDark,
+          isDark: (decoded['isDark'] as bool?) ?? true,
         );
       }
-      Logger.warn('Theme payload is not a JSON object; using default theme.');
-    } on FormatException catch (error) {
-      Logger.warn('Theme payload is corrupted; using default theme: $error');
-    }
-    return null;
+    } catch (_) {}
+    return AppThemeEntity.defaultTheme();
   }
 
   @override

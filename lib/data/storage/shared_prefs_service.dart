@@ -1,7 +1,4 @@
-import 'dart:async';
-
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class SharedPrefsStore {
@@ -12,7 +9,12 @@ abstract class SharedPrefsStore {
   Future<void> clear();
 }
 
-class SharedPrefsStoreAdapter implements SharedPrefsStore {
+abstract interface class EnumerableSharedPrefsStore {
+  Future<Set<String>> keys();
+}
+
+class SharedPrefsStoreAdapter
+    implements SharedPrefsStore, EnumerableSharedPrefsStore {
   const SharedPrefsStoreAdapter();
 
   @override
@@ -39,16 +41,17 @@ class SharedPrefsStoreAdapter implements SharedPrefsStore {
   Future<void> clear() {
     return SharedPrefsService.clear();
   }
+
+  @override
+  Future<Set<String>> keys() {
+    return SharedPrefsService.keys();
+  }
 }
 
 class SharedPrefsService {
   static SharedPreferences? _prefs;
   static Future<void>? _initFuture;
-  static Object? _initError;
   static bool _didLogInitialized = false;
-  static bool _useMemoryFallback = false;
-  static final Map<String, Object?> _memoryStore = <String, Object?>{};
-  static const bool _isTestBuild = bool.fromEnvironment('FLUTTER_TEST');
   static const List<String> _sensitiveKeyMarkers = <String>[
     'token',
     'secret',
@@ -58,62 +61,18 @@ class SharedPrefsService {
   ];
 
   static Future<void> init() async {
-    if (_isTestBuild) {
-      _useMemoryFallback = true;
-      _initError = null;
-      _prefs = null;
+    final SharedPreferences? existing = _prefs;
+    if (existing != null) {
+      return;
+    }
+    final Future<void> inFlight = _initFuture ??= () async {
+      _prefs ??= await SharedPreferences.getInstance();
       if (!_didLogInitialized) {
-        Logger.log('SharedPrefsService', 'Initialized in-memory test fallback');
+        Logger.log('SharedPrefsService', 'Initialized');
         _didLogInitialized = true;
       }
-      return;
-    }
-
-    final SharedPreferences? existing = _prefs;
-    if (existing != null || _useMemoryFallback) {
-      return;
-    }
-
-    final Future<void>? inFlight = _initFuture;
-    if (inFlight != null) {
-      await inFlight;
-      return;
-    }
-
-    _initFuture = () async {
-      try {
-        _prefs ??= await SharedPreferences.getInstance();
-        _initError = null;
-        if (!_didLogInitialized) {
-          Logger.log('SharedPrefsService', 'Initialized');
-          _didLogInitialized = true;
-        }
-      } on MissingPluginException catch (error) {
-        _useMemoryFallback = true;
-        _initError = error;
-        _prefs = null;
-        if (!_didLogInitialized) {
-          Logger.warn(
-            'SharedPrefsService unavailable; using in-memory fallback: $error',
-          );
-          _didLogInitialized = true;
-        }
-      } on Object catch (error) {
-        _initError = error;
-        _useMemoryFallback = true;
-        _prefs = null;
-        if (!_didLogInitialized) {
-          Logger.warn(
-            'SharedPrefsService initialization failed; using in-memory fallback: $error',
-          );
-          _didLogInitialized = true;
-        }
-      } finally {
-        _initFuture = null;
-      }
     }();
-
-    await _initFuture;
+    await inFlight;
   }
 
   static Future<void> save(String key, String value) async {
@@ -126,182 +85,50 @@ class SharedPrefsService {
     }
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      if (_useMemoryFallback) {
-        _memoryStore[key] = value;
-        return;
-      }
-      if (_initError != null) {
-        Logger.warn(
-          'SharedPrefsService save skipped due to initialization failure: $_initError',
-        );
-      }
-      throw StateError(
-        'SharedPrefsService storage is unavailable for save($key).',
+      Logger.error(
+        'SharedPrefsService save skipped because storage is unavailable.',
       );
+      return;
     }
-    await saveStringWithPrefs(prefs, key, value);
-  }
-
-  static Future<void> saveBool(String key, bool value) async {
-    await init();
-    final SharedPreferences? prefs = _prefs;
-    if (prefs == null) {
-      if (_useMemoryFallback) {
-        _memoryStore[key] = value;
-        return;
-      }
-      throw StateError(
-        'SharedPrefsService storage is unavailable for saveBool($key).',
-      );
-    }
-    await saveBoolWithPrefs(prefs, key, value);
-  }
-
-  static Future<void> saveInt(String key, int value) async {
-    await init();
-    final SharedPreferences? prefs = _prefs;
-    if (prefs == null) {
-      if (_useMemoryFallback) {
-        _memoryStore[key] = value;
-        return;
-      }
-      throw StateError(
-        'SharedPrefsService storage is unavailable for saveInt($key).',
-      );
-    }
-    await saveIntWithPrefs(prefs, key, value);
+    await prefs.setString(key, value);
   }
 
   static String? load(String key) {
-    final SharedPreferences? prefs = _prefs;
-    if (prefs == null) {
-      if (_useMemoryFallback) {
-        final Object? value = _memoryStore[key];
-        return value is String ? value : null;
-      }
-      if (_initFuture == null) {
-        unawaited(init());
-      }
-      return null;
-    }
-    return prefs.getString(key);
-  }
-
-  static Map<String, String> getAll() {
-    final SharedPreferences? prefs = _prefs;
-    if (prefs == null) {
-      if (_useMemoryFallback) {
-        return _memoryStore.map<String, String>((String key, Object? value) {
-          return MapEntry(key, value?.toString() ?? '');
-        });
-      }
-      if (_initFuture == null) {
-        unawaited(init());
-      }
-      return const <String, String>{};
-    }
-
-    final Map<String, String> values = <String, String>{};
-    for (final String key in prefs.getKeys()) {
-      final Object? value = prefs.get(key);
-      if (value is String) {
-        values[key] = value;
-      }
-    }
-    return values;
+    return _prefs?.getString(key);
   }
 
   static Future<void> delete(String key) async {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      if (_useMemoryFallback) {
-        _memoryStore.remove(key);
-        return;
-      }
-      if (_initError != null) {
-        Logger.warn(
-          'SharedPrefsService delete skipped due to initialization failure: $_initError',
-        );
-      }
-      throw StateError(
-        'SharedPrefsService storage is unavailable for delete($key).',
+      Logger.error(
+        'SharedPrefsService delete skipped because storage is unavailable.',
       );
+      return;
     }
-    await deleteWithPrefs(prefs, key);
+    await prefs.remove(key);
   }
 
   static Future<void> clear() async {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      if (_useMemoryFallback) {
-        _memoryStore.clear();
-        return;
-      }
-      if (_initError != null) {
-        Logger.warn(
-          'SharedPrefsService clear skipped due to initialization failure: $_initError',
-        );
-      }
-      throw StateError(
-        'SharedPrefsService storage is unavailable for clear().',
+      Logger.error(
+        'SharedPrefsService clear skipped because storage is unavailable.',
       );
-    }
-    await _ensureMutationSucceeded(() => prefs.clear(), 'clear()');
-  }
-
-  static Future<void> saveStringWithPrefs(
-    SharedPreferences prefs,
-    String key,
-    String value,
-  ) {
-    return _ensureMutationSucceeded(
-      () => prefs.setString(key, value),
-      'save($key)',
-    );
-  }
-
-  static Future<void> saveBoolWithPrefs(
-    SharedPreferences prefs,
-    String key,
-    bool value,
-  ) {
-    return _ensureMutationSucceeded(
-      () => prefs.setBool(key, value),
-      'saveBool($key)',
-    );
-  }
-
-  static Future<void> saveIntWithPrefs(
-    SharedPreferences prefs,
-    String key,
-    int value,
-  ) {
-    return _ensureMutationSucceeded(
-      () => prefs.setInt(key, value),
-      'saveInt($key)',
-    );
-  }
-
-  static Future<void> deleteWithPrefs(
-    SharedPreferences prefs,
-    String key,
-  ) async {
-    if (!prefs.containsKey(key)) {
       return;
     }
-    await _ensureMutationSucceeded(() => prefs.remove(key), 'delete($key)');
+    await prefs.clear();
   }
 
-  static Future<void> _ensureMutationSucceeded(
-    Future<bool> Function() action,
-    String label,
-  ) async {
-    final bool success = await action();
-    if (!success) {
-      throw StateError('SharedPrefsService mutation failed for $label.');
-    }
+  static Future<bool> contains(String key) async {
+    await init();
+    return _prefs?.containsKey(key) ?? false;
+  }
+
+  static Future<Set<String>> keys() async {
+    await init();
+    return Set<String>.unmodifiable(_prefs?.getKeys() ?? const <String>{});
   }
 
   static bool _looksSensitiveKey(String key) {

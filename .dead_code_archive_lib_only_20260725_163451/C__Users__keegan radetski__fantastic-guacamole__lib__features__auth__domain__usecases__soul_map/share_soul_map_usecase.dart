@@ -1,3 +1,0 @@
-﻿class ShareSoulMapUsecase {
-  const ShareSoulMapUsecase();
-}

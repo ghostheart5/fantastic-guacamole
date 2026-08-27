@@ -13,34 +13,24 @@ tr th {
 
 ## Which SI engine files should be public vs internal
 
-Your `engine/si` folder is large and should be treated as a private subsystem.
+Treat `engine/si` as a private subsystem. The runtime is intentionally small and behavior-first.
 
 ### Public engine facade files
 
-These are the engine files allowed as public integration points:
+The canonical runtime entry point is:
 - engine/si/si_engine_service.dart
-- engine/si/si_engine.dart
-- engine/si/synthetic_intelligence_engine.dart
-- engine/si/ai_response.dart
-- engine/si/si_decision.dart
-- engine/si/si_output_bundle.dart
-- engine/si/models/si_state.dart
+
+Use `engine/si/api.dart` for shared SI models and deterministic offline engines already consumed outside the subsystem. Existing direct imports are frozen by `test/architecture/si_public_boundary_test.dart`; new public paths require an explicit boundary change.
+
+`si_ai_service.dart` and `synthetic_intelligence_engine.dart` remain deprecated compatibility adapters only. They must delegate to `SIEngineService`.
 
 ### Internal engine modules
 
-These should be imported inside engine only, not by UI/state/data directly:
-- si_input_fusion.dart
-- si_intent_engine.dart
-- si_reasoning.dart
-- si_meta_reasoning.dart
-- prediction_engine.dart
-- si_memory.dart
-- si_snapshot.dart
-- si_tiered_memory.dart
-- si_user_state_tracker.dart
-- si_adaptive_learning.dart
-- si_cognitive_coherence_validator.dart
-- si_self_consistency_engine.dart
-- si_policy.dart
-- si_ethics_layer.dart
+These remain internal and must not be imported by UI/state/data directly:
+- si_engine.dart
 - si_output_bundle.dart
+- si_output_validator.dart
+- prediction_engine.dart
+- core/*
+
+The removed unreachable scaffolding is recoverable through `docs/audits/si_unreachable_preservation_20260819.md`.

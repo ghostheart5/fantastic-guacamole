@@ -1,3 +1,0 @@
-﻿class IsBetaTesterUsecase {
-  const IsBetaTesterUsecase();
-}

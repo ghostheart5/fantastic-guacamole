@@ -1,3 +1,0 @@
-class ViewRetentionAnalyticsUsecase {
-  const ViewRetentionAnalyticsUsecase();
-}

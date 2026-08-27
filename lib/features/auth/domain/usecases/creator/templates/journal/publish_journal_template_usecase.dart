@@ -1,3 +1,0 @@
-class PublishJournalTemplateUsecase {
-  const PublishJournalTemplateUsecase();
-}

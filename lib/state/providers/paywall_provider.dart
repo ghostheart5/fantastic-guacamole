@@ -2,16 +2,21 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
     show appPaywallRepositoryProvider;
 import 'package:fantastic_guacamole/data/di/storage_providers.dart'
-    show sharedPrefsStoreProvider;
+    show sharedPrefsStoreProvider, supabaseClientProvider;
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
+import 'package:fantastic_guacamole/domain/usecases/cancel_subscription.dart';
+import 'package:fantastic_guacamole/domain/usecases/check_entitlement.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_available_plans.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_paywall_config.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_user_subscription_state.dart';
 import 'package:fantastic_guacamole/domain/usecases/restore_purchases.dart';
 import 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,9 +26,54 @@ final creditServiceProvider = Provider<CreditService>((ref) {
 });
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
-  final bool premium = ref.watch(appAccessProvider).hasPremiumAccess;
+  final bool testerAccess = ref.watch(appAccessProvider).hasTesterFullAccess;
+  // Wait for entitlement to resolve before touching the wallet. Loading it
+  // while access is still unknown would rebuild a premium wallet as free and
+  // reset the user's balance on every launch.
+  final EntitlementState entitlement = await ref.watch(
+    entitlementProvider.future,
+  );
+  final bool premium = testerAccess || entitlement.isPremium;
+  if (Env.isProduction && Env.isAiProxyConfigured) {
+    final client = ref.watch(supabaseClientProvider);
+    if (client?.auth.currentUser == null) {
+      throw StateError('An authenticated session is required for AI credits.');
+    }
+    final Map<String, dynamic>? row = await client!
+        .from('monetization_wallets')
+        .select('balance,tier,period_credits,period_ends_at,updated_at')
+        .maybeSingle();
+    if (row == null) {
+      final DateTime now = DateTime.now();
+      return AiCreditWallet(
+        balance: 20,
+        tier: 'free',
+        allowance: 20,
+        resetAt: now.add(const Duration(days: 1)),
+        updatedAt: now,
+      );
+    }
+    return serverAiCreditWallet(row);
+  }
   return ref.read(creditServiceProvider).loadWallet(premium: premium);
 });
+
+AiCreditWallet serverAiCreditWallet(Map<String, dynamic> row) {
+  final DateTime now = DateTime.now();
+  return AiCreditWallet(
+    balance: ((row['balance'] as num?)?.toInt() ?? 0).clamp(0, 1 << 31).toInt(),
+    tier: row['tier']?.toString() ?? 'free',
+    allowance: ((row['period_credits'] as num?)?.toInt() ?? 0)
+        .clamp(0, 1 << 31)
+        .toInt(),
+    resetAt:
+        DateTime.tryParse(row['period_ends_at']?.toString() ?? '')?.toLocal() ??
+        now,
+    updatedAt:
+        DateTime.tryParse(row['updated_at']?.toString() ?? '')?.toLocal() ??
+        now,
+  );
+}
 
 final paywallRepositoryProvider = Provider<IPaywallRepository>((ref) {
   return ref.read(appPaywallRepositoryProvider);
@@ -39,6 +89,23 @@ final startSubscriptionUseCaseProvider = Provider<StartSubscription>((ref) {
 
 final restorePurchasesUseCaseProvider = Provider<RestorePurchases>((ref) {
   return RestorePurchases(ref.read(paywallRepositoryProvider));
+});
+
+final cancelSubscriptionUseCaseProvider = Provider<CancelSubscription>((ref) {
+  return CancelSubscription(ref.read(paywallRepositoryProvider));
+});
+
+final getPaywallConfigUseCaseProvider = Provider<GetPaywallConfig>((ref) {
+  return GetPaywallConfig(ref.read(paywallRepositoryProvider));
+});
+
+final getUserSubscriptionStateUseCaseProvider =
+    Provider<GetUserSubscriptionState>((ref) {
+      return GetUserSubscriptionState(ref.read(paywallRepositoryProvider));
+    });
+
+final checkEntitlementUseCaseProvider = Provider<CheckEntitlement>((ref) {
+  return CheckEntitlement(ref.read(paywallRepositoryProvider));
 });
 
 final paywallActionsProvider = Provider<PaywallActions>((ref) {
@@ -76,8 +143,8 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
         : subscription.isTesting
         ? 'Premium gates are bypassed in this build.'
         : (aiProxyConfigured
-              ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
-              : 'Unlock smart credits, premium coaching, deeper memory, and advanced tools.'),
+              ? 'Unlock AI credits, premium planning guidance, deeper memory, and advanced tools.'
+              : 'Unlock smart credits, premium planning guidance, deeper memory, and advanced tools.'),
     plans: plans,
     isUnlocked: subscription.isActive,
   );

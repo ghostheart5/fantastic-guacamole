@@ -1,3 +1,0 @@
-class ShowHomeWidgetUsecase {
-  const ShowHomeWidgetUsecase();
-}

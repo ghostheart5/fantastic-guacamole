@@ -2,39 +2,80 @@
 import {
   accountDeletionConfigured,
   listReconcileCandidates,
+  loadAccountDeletionConfig,
   processDeletionRequest,
 } from "../_shared/account_deletion_state_machine.ts";
 
-const RECONCILE_SECRET = Deno.env.get("ACCOUNT_DELETE_RECONCILE_SECRET") ?? "";
+const config = loadAccountDeletionConfig();
+const reconcileSecret = Deno.env.get("ACCOUNT_DELETE_RECONCILE_SECRET") ?? "";
+
+function secureEquals(left: string, right: string): boolean {
+  const encoder = new TextEncoder();
+  const leftBytes = encoder.encode(left);
+  const rightBytes = encoder.encode(right);
+  const length = Math.max(leftBytes.length, rightBytes.length);
+  let difference = leftBytes.length ^ rightBytes.length;
+  for (let index = 0; index < length; index += 1) {
+    difference |= (leftBytes[index] ?? 0) ^ (rightBytes[index] ?? 0);
+  }
+  return difference === 0;
+}
+
+function response(body: Record<string, unknown>, status: number): Response {
+  return Response.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "X-ChronoSpark-Contract": "account-delete-reconcile-v1",
+    },
+  });
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
-    return new Response("Method not allowed", {
-      status: 405,
-      headers: { "X-ChronoSpark-Contract": "account-delete-reconcile-v1" },
-    });
+    return response({ error: "method_not_allowed" }, 405);
   }
-  const supplied = req.headers.get("x-chronospark-reconcile-secret") ?? "";
-  if (!RECONCILE_SECRET || supplied !== RECONCILE_SECRET) {
-    return new Response("Unauthorized", { status: 401 });
+  const suppliedSecret = req.headers.get("x-chronospark-reconcile-secret") ??
+    "";
+  if (
+    !reconcileSecret || !suppliedSecret ||
+    !secureEquals(suppliedSecret, reconcileSecret)
+  ) {
+    return response({ error: "unauthorized" }, 401);
   }
-  if (!accountDeletionConfigured()) {
-    return new Response("Not configured", { status: 503 });
+  if (!accountDeletionConfigured(config, false)) {
+    return response({ error: "not_configured" }, 503);
   }
 
   try {
-    const candidates = await listReconcileCandidates(20);
-    let completed = 0;
-    for (const input of candidates) {
-      const result = await processDeletionRequest({
-        input,
-        allowInternal: true,
-      });
-      if (result.completed === true) completed += 1;
+    const candidates = await listReconcileCandidates(config, 5);
+    if (candidates === null) {
+      return response({ error: "candidate_query_failed" }, 502);
     }
-    return Response.json({ scanned: candidates.length, completed });
-  } catch {
-    console.error("Account deletion reconciliation failed");
-    return new Response("Reconciliation failed", { status: 500 });
+    let completed = 0;
+    let deferred = 0;
+    for (const requestId of candidates) {
+      const result = await processDeletionRequest({
+        requestId,
+        allowInternal: true,
+        config,
+      });
+      if (result.completed) {
+        completed += 1;
+      } else {
+        deferred += 1;
+      }
+    }
+    return response(
+      { scanned: candidates.length, completed, deferred },
+      deferred === 0 ? 200 : 502,
+    );
+  } catch (error) {
+    console.error(
+      "Account deletion reconciliation failed",
+      error instanceof Error ? error.name : "unknown_error",
+    );
+    return response({ error: "reconciliation_failed" }, 500);
   }
 });

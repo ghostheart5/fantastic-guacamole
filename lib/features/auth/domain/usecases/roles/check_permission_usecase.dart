@@ -1,3 +1,0 @@
-class CheckPermissionUsecase {
-  const CheckPermissionUsecase();
-}

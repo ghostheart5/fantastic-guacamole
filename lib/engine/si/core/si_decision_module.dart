@@ -53,7 +53,7 @@ class SIDecisionModule {
       return 'I may need one detail before acting. ${cognition.summary}';
     }
     if (instinct.safetyFirst) {
-      return 'Let\'s keep this simple and safe. ${cognition.summary}';
+      return 'Let’s keep this simple and safe. ${cognition.summary}';
     }
     return cognition.summary;
   }
@@ -102,7 +102,7 @@ class SIDecisionModule {
 
     if (ethics.flags.contains('wellbeing_risk')) {
       result =
-          'Take a balanced approach. Focus matters, but rest and basic needs come first.';
+          'Take a balanced approach. Attention matters, but rest and basic needs come first.';
     }
     if (ethics.flags.contains('emotional_pressure_risk')) {
       result = result
@@ -120,19 +120,19 @@ class SIDecisionModule {
     if (ethics.flags.contains('overwhelm_risk') || instinct.avoidOverwhelm) {
       result = _truncate(result, 220);
     }
-    return siClean(result, fallback: 'Let\'s take one small step.');
+    return siClean(result, fallback: 'Let’s take one small step.');
   }
 
   String _action(String intent) {
     switch (intent) {
-      case 'start_focus':
-        return 'launch_focus_session';
+      case 'start_execution':
+        return 'launch_execution_block';
       case 'get_task':
         return 'present_task_recommendation';
       case 'reflect':
         return 'open_reflection_flow';
-      case 'insight_request':
-        return 'show_insight_summary';
+      case 'signal_request':
+        return 'show_signal_summary';
       default:
         return 'respond_conversationally';
     }

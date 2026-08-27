@@ -1,3 +1,0 @@
-﻿class SetLightModeUsecase {
-  const SetLightModeUsecase();
-}

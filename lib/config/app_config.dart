@@ -14,7 +14,6 @@ class AppConfig {
     required this.testerFullAccess,
     required this.cloudSyncEnabled,
     required this.supabaseConfigured,
-    required this.maestroMode,
   });
 
   final String appName;
@@ -28,7 +27,6 @@ class AppConfig {
   final bool testerFullAccess;
   final bool cloudSyncEnabled;
   final bool supabaseConfigured;
-  final bool maestroMode;
 
   bool get isProduction => Env.isProduction;
 
@@ -45,7 +43,6 @@ class AppConfig {
       testerFullAccess: Env.hasTesterFullAccess,
       cloudSyncEnabled: Env.enableCloudSync,
       supabaseConfigured: Env.isSupabaseConfigured,
-      maestroMode: Env.maestroMode,
     );
   }
 }

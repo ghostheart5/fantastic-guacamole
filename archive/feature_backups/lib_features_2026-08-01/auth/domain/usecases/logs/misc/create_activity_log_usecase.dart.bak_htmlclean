@@ -1,3 +1,0 @@
-﻿class CreateActivityLogUsecase {
-  const CreateActivityLogUsecase();
-}

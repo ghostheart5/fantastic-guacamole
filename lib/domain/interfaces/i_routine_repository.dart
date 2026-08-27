@@ -1,8 +1,11 @@
-import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Future automation
+///
+/// Bound to RoutineRepository.
 abstract class IRoutineRepository {
-  List<RoutineEntity> getRoutines();
-  Future<void> saveRoutine(RoutineEntity routine);
-  Future<void> saveRoutines(List<RoutineEntity> routines);
+  List<HabitEntity> getRoutines();
+  Future<void> saveRoutine(HabitEntity routine);
+  Future<void> saveRoutines(List<HabitEntity> routines);
   Future<void> deleteRoutine(String id);
 }

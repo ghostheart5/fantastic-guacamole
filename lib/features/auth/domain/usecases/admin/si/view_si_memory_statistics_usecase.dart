@@ -1,3 +1,0 @@
-class ViewSiMemoryStatisticsUsecase {
-  const ViewSiMemoryStatisticsUsecase();
-}

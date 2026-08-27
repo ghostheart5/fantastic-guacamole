@@ -1,6 +1,6 @@
-// Module 1 - Core Orchestrator
+// Module 1 — Core Orchestrator
 // Runs the full pipeline in order:
-//   Input -> UserState -> Intent -> Instinct -> Reasoning -> Decision -> Response -> Memory Update
+//   Input → UserState → Intent → Instinct → Reasoning → Decision → Response → Memory Update
 
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
@@ -42,7 +42,7 @@ export 'package:fantastic_guacamole/engine/si/models/si_state.dart'
         SINonTextInputs,
         SIUserState;
 
-// Full pipeline result
+// ─── Full pipeline result ─────────────────────────────────────────────────────
 
 class SIPipelineResult {
   const SIPipelineResult({
@@ -64,7 +64,7 @@ class SIPipelineResult {
   final SIMemoryUpdate memoryUpdate;
 }
 
-// Orchestrator
+// ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 class SICore {
   SICore({SIMemoryStore? memory, SIDecisionPolicy? policy})
@@ -89,7 +89,7 @@ class SICore {
 
   SIMemoryStore get memory => _memory;
 
-  // Pipeline
+  // ── Pipeline ──────────────────────────────────────────────────────────────
 
   SIPipelineResult run({
     required SIInputPacket input,
@@ -115,19 +115,19 @@ class SICore {
       latent: input.latent,
     );
 
-    // Step 1 - Input -> SIContext
+    // Step 1 — Input → SIContext
     final SIContext context = _input.process(enrichedInput, mood: mood);
 
-    // Step 2 - Intent
+    // Step 2 — Intent
     final SIIntent intent = _intent.extract(context);
 
-    // Step 3 - Instinct (hard constraint layer - established before reasoning)
+    // Step 3 — Instinct (hard constraint layer — established before reasoning)
     final InstinctGuidance instinct = _instinct.evaluate(
       context: context,
       intent: intent,
     );
 
-    // Step 4 - Reasoning
+    // Step 4 — Reasoning
     final SICognitionState cognition = _reasoning.process(
       context: context,
       intent: intent,
@@ -136,7 +136,7 @@ class SICore {
       task: task?.title ?? '',
     );
 
-    // Step 5 - Decision (constrained by instinct)
+    // Step 5 — Decision (constrained by instinct)
     final SIDecision decision = _decision.make(
       context: context,
       intent: intent,
@@ -145,7 +145,7 @@ class SICore {
       task: task,
     );
 
-    // Step 6 - Response (shaped by instinct + decision)
+    // Step 6 — Response (shaped by instinct + decision)
     final SIResponse response = _response.generate(
       decision: decision,
       instinct: instinct,
@@ -154,7 +154,7 @@ class SICore {
       previousMood: _memory.latest?.reasoning,
     );
 
-    // Step 7 - Memory update
+    // Step 7 — Memory update
     final SIMemoryUpdate memUpdate = _memoryModule.update(
       current: _memory,
       context: context,
@@ -175,7 +175,7 @@ class SICore {
     );
   }
 
-  // Convenience
+  // ── Convenience ───────────────────────────────────────────────────────────
 
   String quickResponse({
     required String text,

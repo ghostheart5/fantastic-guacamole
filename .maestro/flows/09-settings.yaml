@@ -1,0 +1,36 @@
+# P2 — Settings. Non-destructive checks only; deletion lives in flow 12.
+appId: com.ghostheart5.chronospark
+tags:
+  - core
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
+
+- scrollUntilVisible:
+    element:
+      text: "Data & account\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Data & account\\n.*"
+
+# Tester mode must expose only tester-safe account controls.
+- runFlow:
+    when:
+      visible: "Exit Tester Mode\\n.*"
+    commands:
+      - assertVisible: "Clear Local Data\\n.*"
+      - assertVisible: "Reset Tester Data\\n.*"
+      - assertNotVisible: "Delete Account\\n.*"
+
+# A real-account build must retain both sign-out and account deletion access.
+- runFlow:
+    when:
+      visible: "Log Out\\n.*"
+    commands:
+      - assertVisible: "Delete Account\\n.*"

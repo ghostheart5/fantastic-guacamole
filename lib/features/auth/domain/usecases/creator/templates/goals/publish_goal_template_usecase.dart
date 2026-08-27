@@ -1,3 +1,0 @@
-class PublishGoalTemplateUsecase {
-  const PublishGoalTemplateUsecase();
-}

@@ -1,3 +1,0 @@
-class SetGoalPreferencesUsecase {
-  const SetGoalPreferencesUsecase();
-}

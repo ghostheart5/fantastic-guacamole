@@ -6,8 +6,7 @@ import 'package:fantastic_guacamole/domain/usecases/add_log_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_logs.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
+import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/logs_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,8 +37,7 @@ class LogsActions {
     required String message,
     String? id,
     DateTime? timestamp,
-    bool updateInsights = false,
-    bool syncSoulMap = false,
+    bool updateSignals = false,
   }) {
     return _ref
         .read(logsProvider.notifier)
@@ -48,8 +46,7 @@ class LogsActions {
           message: message,
           id: id,
           timestamp: timestamp,
-          updateInsights: updateInsights,
-          syncSoulMap: syncSoulMap,
+          updateSignals: updateSignals,
         );
   }
 
@@ -81,17 +78,15 @@ class LogsActions {
           id: id,
           timestamp: timestamp,
           syncTimeline: false,
-          refreshCoach: false,
-          updateInsights: false,
-          syncSoulMap: false,
+          refreshPlanner: false,
+          updateSignals: false,
         );
   }
 
   Future<void> addCompletedTask({
     required String task,
     bool mirrored = false,
-    bool updateInsights = false,
-    bool syncSoulMap = false,
+    bool updateSignals = false,
   }) {
     if (mirrored) {
       return _ref
@@ -99,18 +94,13 @@ class LogsActions {
           .addCompletedTask(
             task,
             syncTimeline: false,
-            refreshCoach: false,
-            updateInsights: false,
-            syncSoulMap: false,
+            refreshPlanner: false,
+            updateSignals: false,
           );
     }
     return _ref
         .read(logsProvider.notifier)
-        .addCompletedTask(
-          task,
-          updateInsights: updateInsights,
-          syncSoulMap: syncSoulMap,
-        );
+        .addCompletedTask(task, updateSignals: updateSignals);
   }
 }
 
@@ -140,9 +130,8 @@ class LogsController extends Notifier<LogsState> {
     String? id,
     DateTime? timestamp,
     bool syncTimeline = true,
-    bool refreshCoach = true,
-    bool updateInsights = false,
-    bool syncSoulMap = false,
+    bool refreshPlanner = true,
+    bool updateSignals = false,
   }) async {
     final String normalizedMessage = message.trim();
     if (normalizedMessage.isEmpty) {
@@ -180,14 +169,11 @@ class LogsController extends Notifier<LogsState> {
             ),
           );
     }
-    if (updateInsights) {
-      ref.invalidate(insightsBundleProvider);
+    if (updateSignals) {
+      ref.invalidate(signalsBundleProvider);
     }
-    if (syncSoulMap) {
-      ref.invalidate(soulStateProvider);
-    }
-    if (refreshCoach) {
-      await _refreshCoachDecision();
+    if (refreshPlanner) {
+      await _refreshPlannerDecision();
     }
 
     ref
@@ -204,17 +190,15 @@ class LogsController extends Notifier<LogsState> {
   Future<void> addCompletedTask(
     String task, {
     bool syncTimeline = true,
-    bool refreshCoach = true,
-    bool updateInsights = false,
-    bool syncSoulMap = false,
+    bool refreshPlanner = true,
+    bool updateSignals = false,
   }) {
     return add(
       source: 'completed_task',
       message: task,
       syncTimeline: syncTimeline,
-      refreshCoach: refreshCoach,
-      updateInsights: updateInsights,
-      syncSoulMap: syncSoulMap,
+      refreshPlanner: refreshPlanner,
+      updateSignals: updateSignals,
     );
   }
 
@@ -222,12 +206,12 @@ class LogsController extends Notifier<LogsState> {
     state = state.copyWith(activeFilter: source, clearFilter: source == null);
   }
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking log writes if coach refresh fails.
+      // Avoid blocking log writes if planner refresh fails.
     }
   }
 }

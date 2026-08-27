@@ -1,3 +1,0 @@
-class GenerateWellnessSnapshotUsecase {
-  const GenerateWellnessSnapshotUsecase();
-}

@@ -1,3 +1,0 @@
-class RemoveAiCreditsUsecase {
-  const RemoveAiCreditsUsecase();
-}

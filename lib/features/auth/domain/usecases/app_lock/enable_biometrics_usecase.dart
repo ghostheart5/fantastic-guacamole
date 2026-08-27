@@ -1,3 +1,0 @@
-class EnableBiometricsUsecase {
-  const EnableBiometricsUsecase();
-}

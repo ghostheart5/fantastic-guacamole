@@ -1,3 +1,0 @@
-class CalculateProductivityScoreUsecase {
-  const CalculateProductivityScoreUsecase();
-}

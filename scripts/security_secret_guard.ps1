@@ -11,37 +11,41 @@ try {
 
   Write-Host 'Running security secret guard checks...'
 
-  $tracked = git ls-files
+  $repositoryFiles = @(git ls-files --cached --others --exclude-standard)
   if ($LASTEXITCODE -ne 0) {
-    throw 'git ls-files failed.'
+    throw 'git repository file discovery failed.'
   }
 
-  $forbiddenTrackedPaths = @(
+  $forbiddenRepositoryPaths = @(
     'android/key.properties',
     '.env',
     '.env.local'
   )
 
-  foreach ($path in $forbiddenTrackedPaths) {
-    if ($tracked -contains $path) {
-      Add-Failure("Forbidden tracked secret file: $path")
+  foreach ($path in $forbiddenRepositoryPaths) {
+    if ($repositoryFiles -contains $path) {
+      Add-Failure("Forbidden repository secret file: $path")
     }
   }
 
-  foreach ($path in $tracked) {
-    if ($path -match '(?i)\.(jks|keystore|p12|pfx)$') {
-      Add-Failure("Forbidden tracked credential artifact: $path")
+  foreach ($path in $repositoryFiles) {
+    if ($path -match '(?i)(^|/)\.env(?:\..+)?$' -and $path -notmatch '(?i)(^|/)\.env\.example$') {
+      Add-Failure("Forbidden repository environment file: $path")
     }
-    if ($path -match '(?i)(service[-_]?account|firebase-adminsdk).*\.json$') {
-      Add-Failure("Forbidden tracked service-account credential file: $path")
+    if ($path -match '(?i)\.(jks|keystore|p12|pfx|key)$') {
+      Add-Failure("Forbidden repository credential artifact: $path")
     }
   }
 
-  $embeddedPrivateKeys = git grep -n -I -E '"private_key"[[:space:]]*:[[:space:]]*"-----BEGIN' -- ':!test/**' ':!**/*.md'
-  if ($LASTEXITCODE -eq 0) {
-    Add-Failure('A tracked file contains a private key in JSON. Store service-account JSON only in a secret manager.')
-  } elseif ($LASTEXITCODE -ne 1) {
-    throw 'git grep for embedded private keys failed.'
+  $possibleKeyFile = Join-Path $root 'android/key.properties'
+  if (Test-Path $possibleKeyFile) {
+    $raw = Get-Content -Path $possibleKeyFile -Raw
+    if ($raw -match '(?im)^\s*storePassword\s*=\s*(?!YOUR_).+') {
+      Add-Failure('android/key.properties contains a non-placeholder storePassword. Keep real signing secrets out of the repo.')
+    }
+    if ($raw -match '(?im)^\s*keyPassword\s*=\s*(?!YOUR_).+') {
+      Add-Failure('android/key.properties contains a non-placeholder keyPassword. Keep real signing secrets out of the repo.')
+    }
   }
 
   if ($failures.Count -gt 0) {

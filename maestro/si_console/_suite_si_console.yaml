@@ -1,6 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: si_console_open.yaml
-- runFlow: si_console_command_roundtrip.yaml
-- runFlow: si_console_empty_input_guard.yaml
-- runFlow: si_console_edge_input.yaml

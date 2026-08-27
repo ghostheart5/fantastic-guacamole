@@ -38,7 +38,8 @@ class DecisionObservationEntity {
             value.name == json['type']?.toString(),
         orElse: () => DecisionObservationType.recommendationShown,
       ),
-      timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
+      timestamp:
+          DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       source: json['source']?.toString() ?? 'unknown',
       taskId: json['taskId']?.toString(),

@@ -1,3 +1,0 @@
-class RestoreAiCreditsUsecase {
-  const RestoreAiCreditsUsecase();
-}

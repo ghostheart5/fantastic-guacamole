@@ -1,3 +1,0 @@
-class UpdateAuthProfileUsecase {
-  const UpdateAuthProfileUsecase();
-}

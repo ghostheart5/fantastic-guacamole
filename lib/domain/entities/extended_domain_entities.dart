@@ -1,3 +1,9 @@
+/// CHRONOSPARK-CLASS: EXPERIMENTAL | Feature: SI Console / extended domain
+///
+/// Placeholder id+label taxonomy for future ChronoSpark surfaces. 18 types are
+/// consumed by IExtendedDomainRepository; the rest are reserved names. Do not
+/// treat the unreferenced ones as dead code, and do not add behaviour here
+/// without giving the type real fields.
 class LightweightEntity {
   const LightweightEntity({required this.id, this.label});
 
@@ -5,114 +11,114 @@ class LightweightEntity {
   final String? label;
 }
 
-// Smart Coach Entities
-class CoachMessage extends LightweightEntity {
-  const CoachMessage({required super.id, super.label});
+// Smart Planner Entities
+class PlannerMessage extends LightweightEntity {
+  const PlannerMessage({required super.id, super.label});
 }
 
-class CoachConversation extends LightweightEntity {
-  const CoachConversation({required super.id, super.label});
+class PlannerConversation extends LightweightEntity {
+  const PlannerConversation({required super.id, super.label});
 }
 
-class CoachSession extends LightweightEntity {
-  const CoachSession({required super.id, super.label});
+class PlannerExchange extends LightweightEntity {
+  const PlannerExchange({required super.id, super.label});
 }
 
-class CoachIntent extends LightweightEntity {
-  const CoachIntent({required super.id, super.label});
+class PlannerIntent extends LightweightEntity {
+  const PlannerIntent({required super.id, super.label});
 }
 
-class CoachCategory extends LightweightEntity {
-  const CoachCategory({required super.id, super.label});
+class PlannerCategory extends LightweightEntity {
+  const PlannerCategory({required super.id, super.label});
 }
 
-class CoachResponse extends LightweightEntity {
-  const CoachResponse({required super.id, super.label});
+class PlannerResponse extends LightweightEntity {
+  const PlannerResponse({required super.id, super.label});
 }
 
-class CoachSuggestion extends LightweightEntity {
-  const CoachSuggestion({required super.id, super.label});
+class PlannerSuggestion extends LightweightEntity {
+  const PlannerSuggestion({required super.id, super.label});
 }
 
-class CoachActionPlan extends LightweightEntity {
-  const CoachActionPlan({required super.id, super.label});
+class PlannerActionPlan extends LightweightEntity {
+  const PlannerActionPlan({required super.id, super.label});
 }
 
-class CoachFollowUpQuestion extends LightweightEntity {
-  const CoachFollowUpQuestion({required super.id, super.label});
+class PlannerFollowUpQuestion extends LightweightEntity {
+  const PlannerFollowUpQuestion({required super.id, super.label});
 }
 
-class CoachRecommendation extends LightweightEntity {
-  const CoachRecommendation({required super.id, super.label});
+class PlannerRecommendation extends LightweightEntity {
+  const PlannerRecommendation({required super.id, super.label});
 }
 
-class CoachInsight extends LightweightEntity {
-  const CoachInsight({required super.id, super.label});
+class PlannerSignal extends LightweightEntity {
+  const PlannerSignal({required super.id, super.label});
 }
 
-class CoachTone extends LightweightEntity {
-  const CoachTone({required super.id, super.label});
+class PlannerTone extends LightweightEntity {
+  const PlannerTone({required super.id, super.label});
 }
 
-class CoachContext extends LightweightEntity {
-  const CoachContext({required super.id, super.label});
+class PlannerContext extends LightweightEntity {
+  const PlannerContext({required super.id, super.label});
 }
 
-class CoachFeedback extends LightweightEntity {
-  const CoachFeedback({required super.id, super.label});
+class PlannerFeedback extends LightweightEntity {
+  const PlannerFeedback({required super.id, super.label});
 }
 
-// Coaching Use Case Entities
-class CoachUseCase extends LightweightEntity {
-  const CoachUseCase({required super.id, super.label});
+// PlanningGuidance Use Case Entities
+class PlannerUseCase extends LightweightEntity {
+  const PlannerUseCase({required super.id, super.label});
 }
 
-class CoachUseCaseCategory extends LightweightEntity {
-  const CoachUseCaseCategory({required super.id, super.label});
+class PlannerUseCaseCategory extends LightweightEntity {
+  const PlannerUseCaseCategory({required super.id, super.label});
 }
 
-class CoachTriggerPhrase extends LightweightEntity {
-  const CoachTriggerPhrase({required super.id, super.label});
+class PlannerTriggerPhrase extends LightweightEntity {
+  const PlannerTriggerPhrase({required super.id, super.label});
 }
 
-class CoachResponseTemplate extends LightweightEntity {
-  const CoachResponseTemplate({required super.id, super.label});
+class PlannerResponseTemplate extends LightweightEntity {
+  const PlannerResponseTemplate({required super.id, super.label});
 }
 
-class CoachRequiredContext extends LightweightEntity {
-  const CoachRequiredContext({required super.id, super.label});
+class PlannerRequiredContext extends LightweightEntity {
+  const PlannerRequiredContext({required super.id, super.label});
 }
 
-class CoachActionStep extends LightweightEntity {
-  const CoachActionStep({required super.id, super.label});
+class PlannerActionStep extends LightweightEntity {
+  const PlannerActionStep({required super.id, super.label});
 }
 
-class CoachOutcome extends LightweightEntity {
-  const CoachOutcome({required super.id, super.label});
+class PlannerOutcome extends LightweightEntity {
+  const PlannerOutcome({required super.id, super.label});
 }
 
-class WeightLossCoachingUseCase extends LightweightEntity {
-  const WeightLossCoachingUseCase({required super.id, super.label});
+class WeightLossPlanningGuidanceUseCase extends LightweightEntity {
+  const WeightLossPlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class FatigueCoachingUseCase extends LightweightEntity {
-  const FatigueCoachingUseCase({required super.id, super.label});
+class FatiguePlanningGuidanceUseCase extends LightweightEntity {
+  const FatiguePlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class StressCoachingUseCase extends LightweightEntity {
-  const StressCoachingUseCase({required super.id, super.label});
+class StressPlanningGuidanceUseCase extends LightweightEntity {
+  const StressPlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class MotivationCoachingUseCase extends LightweightEntity {
-  const MotivationCoachingUseCase({required super.id, super.label});
+class MotivationPlanningGuidanceUseCase extends LightweightEntity {
+  const MotivationPlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class FocusCoachingUseCase extends LightweightEntity {
-  const FocusCoachingUseCase({required super.id, super.label});
+class TargetedPlanningGuidanceUseCase extends LightweightEntity {
+  const TargetedPlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class SleepCoachingUseCase extends LightweightEntity {
-  const SleepCoachingUseCase({required super.id, super.label});
+class SleepPlanningGuidanceUseCase extends LightweightEntity {
+  const SleepPlanningGuidanceUseCase({required super.id, super.label});
 }
 
 // SI Console Entities
@@ -136,8 +142,8 @@ class SiAnalysis extends LightweightEntity {
   const SiAnalysis({required super.id, super.label});
 }
 
-class SiInsight extends LightweightEntity {
-  const SiInsight({required super.id, super.label});
+class SiSignal extends LightweightEntity {
+  const SiSignal({required super.id, super.label});
 }
 
 class SiRecommendation extends LightweightEntity {
@@ -351,8 +357,8 @@ class MemorySummary extends LightweightEntity {
   const MemorySummary({required super.id, super.label});
 }
 
-class MemoryInsight extends LightweightEntity {
-  const MemoryInsight({required super.id, super.label});
+class MemorySignal extends LightweightEntity {
+  const MemorySignal({required super.id, super.label});
 }
 
 class MemoryImportance extends LightweightEntity {
@@ -363,40 +369,40 @@ class MemoryRecallResult extends LightweightEntity {
   const MemoryRecallResult({required super.id, super.label});
 }
 
-class JournalEntry extends LightweightEntity {
-  const JournalEntry({required super.id, super.label});
+class ReflectionEntry extends LightweightEntity {
+  const ReflectionEntry({required super.id, super.label});
 }
 
-class JournalPrompt extends LightweightEntity {
-  const JournalPrompt({required super.id, super.label});
+class ReflectionPrompt extends LightweightEntity {
+  const ReflectionPrompt({required super.id, super.label});
 }
 
-class JournalMood extends LightweightEntity {
-  const JournalMood({required super.id, super.label});
+class ReflectionMood extends LightweightEntity {
+  const ReflectionMood({required super.id, super.label});
 }
 
-class JournalTag extends LightweightEntity {
-  const JournalTag({required super.id, super.label});
+class ReflectionTag extends LightweightEntity {
+  const ReflectionTag({required super.id, super.label});
 }
 
-class JournalReflection extends LightweightEntity {
-  const JournalReflection({required super.id, super.label});
+class ReflectionResponse extends LightweightEntity {
+  const ReflectionResponse({required super.id, super.label});
 }
 
-class JournalInsight extends LightweightEntity {
-  const JournalInsight({required super.id, super.label});
+class ReflectionSignal extends LightweightEntity {
+  const ReflectionSignal({required super.id, super.label});
 }
 
-class JournalSentiment extends LightweightEntity {
-  const JournalSentiment({required super.id, super.label});
+class ReflectionSentiment extends LightweightEntity {
+  const ReflectionSentiment({required super.id, super.label});
 }
 
-class JournalSummary extends LightweightEntity {
-  const JournalSummary({required super.id, super.label});
+class ReflectionSummary extends LightweightEntity {
+  const ReflectionSummary({required super.id, super.label});
 }
 
-class JournalAttachment extends LightweightEntity {
-  const JournalAttachment({required super.id, super.label});
+class ReflectionAttachment extends LightweightEntity {
+  const ReflectionAttachment({required super.id, super.label});
 }
 
 class AnalyticsEvent extends LightweightEntity {
@@ -471,8 +477,8 @@ class LifeBalanceScore extends LightweightEntity {
   const LifeBalanceScore({required super.id, super.label});
 }
 
-class FocusScore extends LightweightEntity {
-  const FocusScore({required super.id, super.label});
+class AttentionScore extends LightweightEntity {
+  const AttentionScore({required super.id, super.label});
 }
 
 class RiskScore extends LightweightEntity {
@@ -639,8 +645,8 @@ class DateTimeSetting extends LightweightEntity {
   const DateTimeSetting({required super.id, super.label});
 }
 
-class CoachSetting extends LightweightEntity {
-  const CoachSetting({required super.id, super.label});
+class PlannerSetting extends LightweightEntity {
+  const PlannerSetting({required super.id, super.label});
 }
 
 class SiConsoleSetting extends LightweightEntity {
@@ -763,8 +769,8 @@ class DraftState extends LightweightEntity {
   const DraftState({required super.id, super.label});
 }
 
-class LastSessionState extends LightweightEntity {
-  const LastSessionState({required super.id, super.label});
+class LastCompletionState extends LightweightEntity {
+  const LastCompletionState({required super.id, super.label});
 }
 
 class ResumePoint extends LightweightEntity {

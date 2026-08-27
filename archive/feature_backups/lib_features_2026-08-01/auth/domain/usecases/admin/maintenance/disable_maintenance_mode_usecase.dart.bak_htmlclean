@@ -1,3 +1,0 @@
-﻿class DisableMaintenanceModeUsecase {
-  const DisableMaintenanceModeUsecase();
-}

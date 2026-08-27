@@ -1,5 +1,4 @@
--- Immutable, account-owned replication records for canonical task-occurrence
--- transitions. This is deliberately separate from the mutable `tasks` table.
+-- Immutable, account-owned replication records for task-occurrence outcomes.
 create table if not exists public.task_occurrences (
   user_id uuid not null references auth.users(id) on delete cascade,
   id text not null check (btrim(id) <> ''),
@@ -33,8 +32,8 @@ create policy "task occurrences insert own"
 on public.task_occurrences for insert to authenticated
 with check ((select auth.uid()) = user_id);
 
--- Idempotent upserts may replay an identical row after an ambiguous network
--- response, but no caller may alter a recorded transition.
+-- Idempotent upserts may replay an identical row after an ambiguous response,
+-- but no caller may alter an already-recorded transition.
 create or replace function public.reject_task_occurrence_mutation()
 returns trigger
 language plpgsql

@@ -1,3 +1,0 @@
-﻿class UpdateSoulNodeUsecase {
-  const UpdateSoulNodeUsecase();
-}

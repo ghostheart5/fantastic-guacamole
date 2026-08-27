@@ -1,0 +1,60 @@
+name: Update Golden Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to update goldens on'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  update-goldens:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+
+      - name: Create .env for CI
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Regenerate golden images
+        run: |
+          flutter test \
+            test/features/auth/login_screen_golden_test.dart \
+            test/features/nexus/nexus_screen_golden_test.dart \
+            --update-goldens
+
+      - name: Capture reviewed golden diff
+        run: |
+          git diff --binary -- test/features/auth/goldens/ test/features/nexus/goldens/ > golden-update.patch
+          if [ ! -s golden-update.patch ]; then
+            echo "No golden changes detected."
+          fi
+
+      - name: Upload golden update for review
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: chronospark-golden-update-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            golden-update.patch
+            test/features/auth/goldens/**
+            test/features/nexus/goldens/**

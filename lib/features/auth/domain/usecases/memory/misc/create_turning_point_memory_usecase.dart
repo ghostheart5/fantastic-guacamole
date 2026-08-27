@@ -1,3 +1,0 @@
-class CreateTurningPointMemoryUsecase {
-  const CreateTurningPointMemoryUsecase();
-}

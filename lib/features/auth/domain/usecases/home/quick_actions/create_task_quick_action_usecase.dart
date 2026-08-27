@@ -1,3 +1,0 @@
-class CreateTaskQuickActionUsecase {
-  const CreateTaskQuickActionUsecase();
-}

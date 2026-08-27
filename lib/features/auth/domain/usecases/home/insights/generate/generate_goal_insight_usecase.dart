@@ -1,3 +1,0 @@
-class GenerateGoalInsightUsecase {
-  const GenerateGoalInsightUsecase();
-}

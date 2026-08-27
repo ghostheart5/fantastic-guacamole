@@ -1,3 +1,0 @@
-class DeleteDailyPromptUsecase {
-  const DeleteDailyPromptUsecase();
-}

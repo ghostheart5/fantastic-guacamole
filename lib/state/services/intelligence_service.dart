@@ -5,7 +5,7 @@ class IntelligenceService {
   const IntelligenceService();
 
   IntelligenceState fromRuntime({
-    required bool hasMockSession,
+    required bool hasMockSignIn,
     required bool hasAuthenticatedUser,
   }) {
     final bool isProduction = Env.isProduction;
@@ -27,7 +27,7 @@ class IntelligenceService {
       isProduction: isProduction,
       enableTesterFullAccess: Env.enableTesterFullAccess,
     );
-    final bool effectiveMockTesting = !isProduction && hasMockSession;
+    final bool effectiveMockTesting = !isProduction && hasMockSignIn;
     final bool effectivePaywallDisabled =
         isPaywallDisabled || effectiveMockTesting;
     final bool effectiveTesterFullAccess =
@@ -49,7 +49,7 @@ class IntelligenceService {
         testerFullAccess: effectiveTesterFullAccess,
       ),
       auth: AuthStateSnapshot(
-        hasMockSession: hasMockSession,
+        hasMockSignIn: hasMockSignIn,
         hasAuthenticatedUser: hasAuthenticatedUser,
       ),
       mockLogin: mockLoginConfig(),
@@ -57,7 +57,7 @@ class IntelligenceService {
   }
 
   IntelligenceState environmentOnly() {
-    return fromRuntime(hasMockSession: false, hasAuthenticatedUser: false);
+    return fromRuntime(hasMockSignIn: false, hasAuthenticatedUser: false);
   }
 
   MockLoginConfigState mockLoginConfig() {

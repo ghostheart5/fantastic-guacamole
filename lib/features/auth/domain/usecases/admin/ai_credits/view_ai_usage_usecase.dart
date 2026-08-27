@@ -1,3 +1,0 @@
-class ViewAiUsageUsecase {
-  const ViewAiUsageUsecase();
-}

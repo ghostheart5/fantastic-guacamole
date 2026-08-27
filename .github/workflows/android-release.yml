@@ -2,167 +2,79 @@ name: Android Release
 
 permissions:
   contents: read
-  actions: read
 
 on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
 
 jobs:
-  resolve-authoritative-gate:
-    runs-on: ubuntu-latest
-    outputs:
-      run_id: ${{ steps.resolve.outputs.run_id }}
-    steps:
-      - name: Resolve successful same-commit production gate
-        id: resolve
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const artifactName = `authoritative-release-gate-${context.sha}-production`;
-            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'authoritative-release-gate.yml',
-              status: 'completed',
-              per_page: 100,
-            });
-            for (const run of runs) {
-              if (run.head_sha !== context.sha || run.conclusion !== 'success') continue;
-              const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: run.id,
-                per_page: 100,
-              });
-              if (artifacts.some((artifact) => artifact.name === artifactName && !artifact.expired)) {
-                core.setOutput('run_id', String(run.id));
-                return;
-              }
-            }
-            core.setFailed(`No completed authoritative production gate exists for ${context.sha}.`);
+  quality-gate:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
 
   database-gate:
     uses: ./.github/workflows/supabase-database.yml
+    permissions:
+      contents: read
 
-  public-infrastructure-gate:
-    runs-on: ubuntu-latest
-    env:
-      PLAY_APP_SIGNING_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
-    steps:
-      - name: Verify legal pages, account deletion, and Android App Links
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          from urllib.request import Request, urlopen
-
-          def fetch(url: str) -> bytes:
-              request = Request(url, headers={'User-Agent': 'ChronoSpark-Release-Gate/1.0'})
-              with urlopen(request, timeout=20) as response:
-                  if response.status != 200:
-                      raise RuntimeError(f'{url} returned HTTP {response.status}')
-                  return response.read()
-
-          required_pages = {
-              'https://ghostheart5.github.io/fantastic-guacamole/privacy/':
-                  ('ChronoSpark Privacy Policy', 'account-deletion page'),
-              'https://ghostheart5.github.io/fantastic-guacamole/terms/':
-                  ('ChronoSpark Terms of Service', 'does not automatically cancel'),
-              'https://ghostheart5.github.io/fantastic-guacamole/support/':
-                  ('ChronoSpark Support', 'account-deletion page'),
-              'https://ghostheart5.github.io/fantastic-guacamole/delete-account/':
-                  ('Delete a ChronoSpark Account', 'Request deletion without the app'),
-              'https://chronospark.app/app/auth/callback':
-                  ('Return to ChronoSpark', 'never displays or sends authentication parameters'),
-          }
-          for url, markers in required_pages.items():
-              body = fetch(url).decode('utf-8')
-              missing = [marker for marker in markers if marker not in body]
-              if missing:
-                  raise RuntimeError(f'{url} is missing required markers: {missing}')
-
-          expected = re.sub(
-              r'[^0-9A-F]',
-              '',
-              os.environ.get('PLAY_APP_SIGNING_SHA256', '').upper(),
-          )
-          if len(expected) != 64:
-              raise RuntimeError(
-                  'CHRONOSPARK_ANDROID_SHA256_CERT must contain the Play App Signing SHA-256 fingerprint'
-              )
-
-          statements = json.loads(
-              fetch('https://chronospark.app/.well-known/assetlinks.json')
-          )
-          fingerprints = {
-              re.sub(r'[^0-9A-F]', '', fingerprint.upper())
-              for statement in statements
-              if statement.get('target', {}).get('namespace') == 'android_app'
-              and statement.get('target', {}).get('package_name')
-                  == 'com.ghostheart5.chronospark'
-              for fingerprint in statement.get('target', {}).get(
-                  'sha256_cert_fingerprints', []
-              )
-          }
-          if expected not in fingerprints:
-              raise RuntimeError(
-                  'chronospark.app does not publish the configured Play App Signing SHA-256 fingerprint'
-              )
-          PY
-
-  production-backend-gate:
-    runs-on: ubuntu-latest
+  build-aab:
+    needs: [quality-gate, database-gate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
     environment: production
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
-      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-      RTDN_PUBSUB_SUBSCRIPTION: ${{ secrets.RTDN_PUBSUB_SUBSCRIPTION }}
-      RTDN_AUDIENCE: ${{ secrets.RTDN_AUDIENCE }}
-      RTDN_SERVICE_ACCOUNT_EMAIL: ${{ secrets.RTDN_SERVICE_ACCOUNT_EMAIL }}
-      ACCOUNT_DELETE_RECONCILE_SECRET: ${{ secrets.ACCOUNT_DELETE_RECONCILE_SECRET }}
-      ANDROID_PACKAGE_NAME: com.ghostheart5.chronospark
-    steps:
-      - uses: actions/checkout@v5
+    permissions:
+      contents: read
 
-      - name: Require production verification credentials
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact release source
         run: |
           set -euo pipefail
-          for name in \
-            SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD \
-            CHRONOSPARK_SUPABASE_URL SUPABASE_SECRET_KEY GOOGLE_SERVICE_ACCOUNT_JSON \
-            RTDN_PUBSUB_SUBSCRIPTION RTDN_AUDIENCE RTDN_SERVICE_ACCOUNT_EMAIL \
-            ACCOUNT_DELETE_RECONCILE_SECRET
-          do
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          if [ "$ACTUAL_SHA" != "$GITHUB_SHA" ]; then
+            echo "::error::Release checkout $ACTUAL_SHA does not match event commit $GITHUB_SHA."
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "::error::Tracked release checkout is dirty before validation."
+            exit 1
+          fi
+
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+
+      - name: Verify deployed migrations, functions, and secret names
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
             [ -n "${!name:-}" ] || { echo "::error::$name is required for the production backend gate."; exit 1; }
           done
-
-      - name: Verify deployed migrations, functions, and Edge secrets
-        run: |
-          set -euo pipefail
           mkdir -p build/release-evidence
-          npx --yes supabase@2.113.0 link \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --password "$SUPABASE_DB_PASSWORD"
-          npx --yes supabase@2.113.0 migration list --linked \
-            > build/release-evidence/production-migrations.txt
+          supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+          supabase migration list --linked > build/release-evidence/production-migrations.txt
           python3 - <<'PY'
           import re
           from pathlib import Path
 
           text = Path('build/release-evidence/production-migrations.txt').read_text(encoding='utf-8')
-          mismatches = []
           rows = 0
+          mismatches = []
           for line in text.splitlines():
               parts = [part.strip() for part in line.replace('│', '|').split('|')]
-              if len(parts) < 3:
+              if len(parts) < 2:
                   continue
               local = parts[0] if re.fullmatch(r'\d{14}', parts[0]) else ''
               remote = parts[1] if re.fullmatch(r'\d{14}', parts[1]) else ''
@@ -176,13 +88,11 @@ jobs:
           if mismatches:
               raise SystemExit(f'::error::Production migration drift: {mismatches}')
           PY
-
-          npx --yes supabase@2.113.0 functions list \
-            --project-ref "$SUPABASE_PROJECT_REF" \
+          supabase functions list --project-ref "$SUPABASE_PROJECT_REF" \
             > build/release-evidence/production-functions.txt
           for function_name in \
-            ai-proxy monetization-verify google-play-rtdn account-delete \
-            account-delete-reconcile delete-account verify-receipt webhook-ingest
+            ai-proxy ai-report verify-receipt google-play-rtdn \
+            account-delete account-delete-reconcile
           do
             grep -Eq "(^|[[:space:]|])${function_name}([[:space:]|]|$)" \
               build/release-evidence/production-functions.txt || {
@@ -190,9 +100,7 @@ jobs:
                 exit 1
               }
           done
-
-          npx --yes supabase@2.113.0 secrets list \
-            --project-ref "$SUPABASE_PROJECT_REF" \
+          supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" \
             > build/release-evidence/production-secret-names.txt
           for secret_name in \
             ANTHROPIC_API_KEY GOOGLE_SERVICE_ACCOUNT_JSON ANDROID_PACKAGE_NAME \
@@ -205,87 +113,29 @@ jobs:
               }
           done
 
-      - name: Verify live catalog, endpoint posture, and Play configuration
-        run: node scripts/verify_production_backend.mjs > build/release-evidence/production-backend.json
+      - name: Verify live backend, App Links, RTDN, and Play configuration
+        env:
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          RTDN_PUBSUB_SUBSCRIPTION: ${{ secrets.RTDN_PUBSUB_SUBSCRIPTION }}
+          RTDN_AUDIENCE: ${{ secrets.RTDN_AUDIENCE }}
+          RTDN_SERVICE_ACCOUNT_EMAIL: ${{ secrets.RTDN_SERVICE_ACCOUNT_EMAIL }}
+          CHRONOSPARK_ANDROID_SHA256_CERT: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
+          ANDROID_PACKAGE_NAME: com.ghostheart5.chronospark
+        run: >-
+          node scripts/verify_production_backend.mjs
+          > build/release-evidence/production-backend.json
 
-      - name: Upload backend verification evidence
-        uses: actions/upload-artifact@v4
+      - name: Upload exact-commit backend evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-production-backend-${{ github.ref_name }}
-          path: build/release-evidence/
+          name: chronospark-production-backend-${{ github.sha }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 90
-
-  build-aab:
-    needs: [resolve-authoritative-gate, database-gate, public-infrastructure-gate, production-backend-gate]
-    runs-on: ubuntu-latest
-    environment: production
-    permissions:
-      contents: write
-      actions: read
-    env:
-      ANDROID_GOOGLE_SERVICES_JSON_BASE64_SECRET: ANDROID_GOOGLE_SERVICES_JSON_BASE64
-      ANDROID_GOOGLE_SERVICES_JSON_SECRET: ANDROID_GOOGLE_SERVICES_JSON
-      CHRONOSPARK_SUPABASE_URL_SECRET: CHRONOSPARK_SUPABASE_URL
-      CHRONOSPARK_SUPABASE_ANON_KEY_SECRET: CHRONOSPARK_SUPABASE_ANON_KEY
-      CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT_SECRET: CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT
-      CHRONOSPARK_AI_PROXY_ENDPOINT_SECRET: CHRONOSPARK_AI_PROXY_ENDPOINT
-      CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT_SECRET: CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT
-      CHRONOSPARK_ANDROID_SHA256_CERT_SECRET: CHRONOSPARK_ANDROID_SHA256_CERT
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Validate release source and version
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "::error::Release commit must be reachable from origin/main."
-            exit 1
-          fi
-          python3 - <<'PY'
-          import os
-          import re
-          from pathlib import Path
-
-          pubspec = Path('pubspec.yaml').read_text(encoding='utf-8')
-          version_match = re.search(
-              r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$',
-              pubspec,
-              re.MULTILINE,
-          )
-          if version_match is None:
-              raise SystemExit('::error::pubspec.yaml must contain a semantic version and numeric build number.')
-
-          version_name, version_code = version_match.groups()
-          properties = {}
-          for raw_line in Path('android/gradle.properties').read_text(encoding='utf-8').splitlines():
-              line = raw_line.strip()
-              if not line or line.startswith('#') or '=' not in line:
-                  continue
-              key, value = line.split('=', 1)
-              properties[key.strip()] = value.strip()
-
-          if properties.get('CHRONOSPARK_VERSION_NAME') != version_name:
-              raise SystemExit('::error::Android version name does not match pubspec.yaml.')
-          if properties.get('CHRONOSPARK_VERSION_CODE') != version_code:
-              raise SystemExit('::error::Android version code does not match pubspec.yaml.')
-
-          ref_type = os.environ['GITHUB_REF_TYPE']
-          ref_name = os.environ['GITHUB_REF_NAME']
-          if ref_type == 'tag':
-              pattern = rf'^v{re.escape(version_name)}(?:-(?:alpha|beta|rc|pre)[0-9A-Za-z.-]*)?$'
-              if re.fullmatch(pattern, ref_name) is None:
-                  raise SystemExit(
-                      f'::error::Release tag {ref_name!r} does not match app version v{version_name}.'
-                  )
-          elif ref_name != 'main':
-              raise SystemExit('::error::Manual production releases must run from main.')
-          PY
+          path: build/release-evidence/
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -293,30 +143,87 @@ jobs:
           channel: stable
           flutter-version: '3.44.6'
 
-      - name: Validate client configuration secrets
-        env:
-          SUPABASE_URL: ${{ secrets[env.CHRONOSPARK_SUPABASE_URL_SECRET] }}
-          SUPABASE_ANON_KEY: ${{ secrets[env.CHRONOSPARK_SUPABASE_ANON_KEY_SECRET] }}
-        run: |
-          [ -n "$SUPABASE_URL" ] || { echo "::error::CHRONOSPARK_SUPABASE_URL is required for release."; exit 1; }
-          [ -n "$SUPABASE_ANON_KEY" ] || { echo "::error::CHRONOSPARK_SUPABASE_ANON_KEY is required for release."; exit 1; }
-
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Ensure dependency lockfile is reproducible
+        run: git diff --exit-code -- pubspec.lock
 
       - name: Run security secret guard
         shell: pwsh
         run: ./scripts/security_secret_guard.ps1
 
-      - name: Analyze Dart code
-        run: flutter analyze
+      - name: Run secret content guard
+        shell: pwsh
+        run: ./scripts/secret_content_guard.ps1
 
-      - name: Run Android release guard
+      - name: Validate release version and tag
+        shell: pwsh
+        run: ./scripts/version_consistency_guard.ps1 -RequireTag
+
+      - name: Run release source guard
         shell: pwsh
         run: ./scripts/release_guard.ps1
 
+      - name: Verify formatting and analyze source
+        run: |
+          dart format --output=none --set-exit-if-changed lib test integration_test
+          flutter analyze --fatal-infos
+
+      - name: Validate Maestro contracts
+        run: dart run tool/validate_maestro_flows.dart
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.1.4
+
+      - name: Type-check and test all Edge Functions
+        shell: pwsh
+        run: ./scripts/edge_function_gate.ps1 -RunTests
+
+      - name: Run release tests before signing
+        run: flutter test test --concurrency=1
+
+      - name: Configure Firebase Android file
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          umask 077
+          if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
+          elif [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          else
+            echo "::error::ANDROID_GOOGLE_SERVICES_JSON(_BASE64) is required for a production release."
+            exit 1
+          fi
+          echo "Firebase Android configuration prepared."
+
+      - name: Validate production configuration
+        env:
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          CHRONOSPARK_SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
+          CHRONOSPARK_AI_PROXY_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
+          CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
+          CHRONOSPARK_ANDROID_SHA256_CERT: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
+          CHRONOSPARK_IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
+        run: >-
+          dart run scripts/validate_production_config.dart
+          --google-services=android/app/google-services.json
+
       - name: Decode keystore
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          umask 077
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is required."
+            exit 1
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/key.jks
 
       - name: Write key.properties
         env:
@@ -324,6 +231,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
+          umask 077
           if [ ! -s android/app/key.jks ]; then
             echo "::error::Decoded keystore is missing or empty. Check ANDROID_KEYSTORE_BASE64."
             exit 1
@@ -334,7 +242,7 @@ jobs:
           fi
           RESOLVED_ALIAS="$KEY_ALIAS"
           if [ -z "$RESOLVED_ALIAS" ]; then
-            RESOLVED_ALIAS=$(keytool -list -keystore android/app/key.jks -storepass "$STORE_PASSWORD" 2>/dev/null | awk -F, 'NR > 1 {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); if ($1 != "") {print $1; exit}}')
+            RESOLVED_ALIAS=$(keytool -list -keystore android/app/key.jks -storepass:env STORE_PASSWORD 2>/dev/null | awk -F, 'NR > 1 {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); if ($1 != "") {print $1; exit}}')
           fi
           if [ -z "$RESOLVED_ALIAS" ]; then
             echo "::error::Unable to resolve keystore alias. Set ANDROID_KEY_ALIAS secret."
@@ -350,9 +258,10 @@ jobs:
 
       - name: Verify upload key fingerprint
         env:
-          EXPECTED_UPLOAD_SHA1: "8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5"
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          EXPECTED_UPLOAD_SHA1: "13:60:98:6B:E3:45:4F:75:52:56:2E:9A:97:CE:CE:37:74:E2:FD:46"
         run: |
-          ACTUAL_SHA1=$(keytool -list -v -keystore android/app/key.jks -storepass "${{ secrets.ANDROID_STORE_PASSWORD }}" -alias "$(awk -F= '$1=="keyAlias" {print $2}' android/key.properties)" 2>/dev/null | awk -F': ' '/SHA1:/{print $2; exit}')
+          ACTUAL_SHA1=$(keytool -list -v -keystore android/app/key.jks -storepass:env STORE_PASSWORD -alias "$(awk -F= '$1=="keyAlias" {print $2}' android/key.properties)" 2>/dev/null | awk -F': ' '/SHA1:/{print $2; exit}')
           if [ -z "$ACTUAL_SHA1" ]; then
             echo "::error::Unable to read upload key SHA1 fingerprint from android/app/key.jks"
             exit 1
@@ -363,232 +272,76 @@ jobs:
             exit 1
           fi
 
-      - name: Configure optional Firebase Android file
+      - name: Create empty .env file for asset bundling
+        run: touch .env
+
+      - name: Build signed AAB
         env:
-          GOOGLE_SERVICES_JSON_B64: ${{ secrets[env.ANDROID_GOOGLE_SERVICES_JSON_BASE64_SECRET] }}
-          GOOGLE_SERVICES_JSON: ${{ secrets[env.ANDROID_GOOGLE_SERVICES_JSON_SECRET] }}
+          SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          RECEIPT_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
+          AI_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
+          DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
+          ANDROID_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
+          IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
+        run: >-
+          flutter build appbundle --release
+          --dart-define=CHRONOSPARK_APP_FLAVOR=prod
+          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
+          --dart-define="CHRONOSPARK_SUPABASE_URL=$SUPABASE_URL"
+          --dart-define="CHRONOSPARK_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
+          --dart-define="CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=$RECEIPT_ENDPOINT"
+          --dart-define="CHRONOSPARK_AI_PROXY_ENDPOINT=$AI_ENDPOINT"
+          --dart-define="CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=$DELETE_ENDPOINT"
+          --dart-define="CHRONOSPARK_ANDROID_SHA256_CERT=$ANDROID_SHA256"
+          --dart-define="CHRONOSPARK_IOS_TEAM_ID=$IOS_TEAM_ID"
+
+      - name: Verify and fingerprint release artifact
         run: |
-          if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
-            echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
-            echo "Configured android/app/google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
-          elif [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-            echo "Configured android/app/google-services.json from ANDROID_GOOGLE_SERVICES_JSON."
-          else
-            echo "::error::ANDROID_GOOGLE_SERVICES_JSON(_BASE64) is required for release builds."
-            exit 1
-          fi
-
-      - name: Verify Firebase Android configuration identity
-        run: |
-          python3 - <<'PY'
-          import json
-          import re
-          from pathlib import Path
-
-          google = json.loads(Path('android/app/google-services.json').read_text(encoding='utf-8'))
-          flutterfire = json.loads(Path('firebase.json').read_text(encoding='utf-8'))
-          dart_source = Path('lib/firebase_options.dart').read_text(encoding='utf-8')
-
-          expected_package = 'com.ghostheart5.chronospark'
-          android_config = flutterfire['flutter']['platforms']['android']['default']
-          clients = [
-              client for client in google.get('client', [])
-              if client.get('client_info', {}).get('android_client_info', {}).get('package_name')
-                  == expected_package
-          ]
-          if len(clients) != 1:
-              raise SystemExit('::error::google-services.json must contain exactly one production Android client.')
-          client = clients[0]
-          api_keys = client.get('api_key', [])
-          if len(api_keys) != 1:
-              raise SystemExit('::error::Production Firebase client must contain exactly one API key entry.')
-
-          dart_android_match = re.search(
-              r'static const FirebaseOptions android = FirebaseOptions\((.*?)\n\s*\);',
-              dart_source,
-              re.DOTALL,
+          AAB_DIR=build/app/outputs/bundle/release
+          AAB="$AAB_DIR/app-release.aab"
+          test -s "$AAB"
+          jarsigner -verify -strict "$AAB"
+          (
+            cd "$AAB_DIR"
+            sha256sum app-release.aab > app-release.aab.sha256
           )
-          if dart_android_match is None:
-              raise SystemExit('::error::Unable to locate Android FirebaseOptions.')
 
-          def dart_value(field: str) -> str:
-              match = re.search(
-                  rf"\b{re.escape(field)}:\s*'([^']+)'",
-                  dart_android_match.group(1),
-              )
-              if match is None:
-                  raise SystemExit(f'::error::Android FirebaseOptions is missing {field}.')
-              return match.group(1)
-
-          project_info = google.get('project_info', {})
-          client_info = client.get('client_info', {})
-          actual = {
-              'projectId': project_info.get('project_id'),
-              'appId': client_info.get('mobilesdk_app_id'),
-              'messagingSenderId': str(project_info.get('project_number', '')),
-              'storageBucket': project_info.get('storage_bucket'),
-              'apiKey': api_keys[0].get('current_key'),
-          }
-          expected = {
-              'projectId': android_config.get('projectId'),
-              'appId': android_config.get('appId'),
-              'messagingSenderId': dart_value('messagingSenderId'),
-              'storageBucket': dart_value('storageBucket'),
-              'apiKey': dart_value('apiKey'),
-          }
-          mismatches = sorted(key for key in expected if not actual[key] or actual[key] != expected[key])
-          if mismatches:
-              raise SystemExit(
-                  '::error::Firebase Android configuration mismatch in: ' + ', '.join(mismatches)
-              )
-          if dart_value('projectId') != expected['projectId'] or dart_value('appId') != expected['appId']:
-              raise SystemExit('::error::firebase.json and Android FirebaseOptions identify different apps.')
-          PY
-
-      - name: Validate production configuration
-        env:
-          SUPABASE_URL: ${{ secrets[env.CHRONOSPARK_SUPABASE_URL_SECRET] }}
-          SUPABASE_ANON_KEY: ${{ secrets[env.CHRONOSPARK_SUPABASE_ANON_KEY_SECRET] }}
-          RECEIPT_ENDPOINT: ${{ secrets[env.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT_SECRET] }}
-          AI_ENDPOINT: ${{ secrets[env.CHRONOSPARK_AI_PROXY_ENDPOINT_SECRET] }}
-          DELETE_ENDPOINT: ${{ secrets[env.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT_SECRET] }}
-          ANDROID_SHA256: ${{ secrets[env.CHRONOSPARK_ANDROID_SHA256_CERT_SECRET] }}
-        run: |
-          [ -n "$SUPABASE_URL" ] || { echo "::error::CHRONOSPARK_SUPABASE_URL is required for release."; exit 1; }
-          [ -n "$SUPABASE_ANON_KEY" ] || { echo "::error::CHRONOSPARK_SUPABASE_ANON_KEY is required for release."; exit 1; }
-          [ -n "$RECEIPT_ENDPOINT" ] || { echo "::error::CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT is required for release."; exit 1; }
-          [ -n "$AI_ENDPOINT" ] || { echo "::error::CHRONOSPARK_AI_PROXY_ENDPOINT is required for release."; exit 1; }
-          [ -n "$DELETE_ENDPOINT" ] || { echo "::error::CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT is required for release."; exit 1; }
-          [ -n "$ANDROID_SHA256" ] || { echo "::error::CHRONOSPARK_ANDROID_SHA256_CERT must contain the Google Play App Signing SHA-256 fingerprint."; exit 1; }
-          echo "PROD_READINESS=true" >> "$GITHUB_ENV"
-
-      - name: Verify Play signing certificate is published for App Links
-        env:
-          PLAY_APP_SIGNING_SHA256: ${{ secrets[env.CHRONOSPARK_ANDROID_SHA256_CERT_SECRET] }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          def normalize(value: str) -> str:
-              return re.sub(r'[^0-9A-F]', '', value.upper())
-
-          expected = normalize(os.environ['PLAY_APP_SIGNING_SHA256'])
-          if len(expected) != 64:
-              raise SystemExit(
-                  '::error::CHRONOSPARK_ANDROID_SHA256_CERT must be a 32-byte SHA-256 fingerprint from Play Console > App integrity.'
-              )
-
-          statements = json.loads(
-              Path('web/.well-known/assetlinks.json').read_text(encoding='utf-8')
-          )
-          fingerprints = {
-              normalize(fingerprint)
-              for statement in statements
-              if statement.get('target', {}).get('namespace') == 'android_app'
-              and statement.get('target', {}).get('package_name')
-                  == 'com.ghostheart5.chronospark'
-              for fingerprint in statement.get('target', {}).get(
-                  'sha256_cert_fingerprints', []
-              )
-          }
-          if expected not in fingerprints:
-              raise SystemExit(
-                  '::error::The Play App Signing SHA-256 fingerprint is missing from web/.well-known/assetlinks.json.'
-              )
-          PY
-
-      - name: Run tests
-        run: flutter test
-
-      - name: Download exact gated AAB and manifest
-        uses: actions/download-artifact@v4
-        with:
-          name: authoritative-release-gate-${{ github.sha }}-production
-          run-id: ${{ needs.resolve-authoritative-gate.outputs.run_id }}
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/authoritative-release-gate
-
-      - name: Verify and restore exact gated AAB
-        shell: pwsh
-        run: |
-          $gateRoot = "${{ runner.temp }}/authoritative-release-gate"
-          $manifestPath = Join-Path $gateRoot 'release-gate-manifest.json'
-          ./scripts/authoritative_release_gate.ps1 `
-            -Mode VerifyManifest `
-            -ManifestPath $manifestPath `
-            -ExpectedCommit "${{ github.sha }}"
-          $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-          if ($manifest.buildFlavor -ne 'production') {
-            throw 'Authoritative gate flavor is not production.'
-          }
-          $source = Join-Path $gateRoot $manifest.binaryPath
-          if ([IO.Path]::GetExtension($source) -ne '.aab') {
-            throw 'Authoritative production gate did not contain an AAB.'
-          }
-          $destination = 'build/app/outputs/bundle/release/app-release.aab'
-          New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
-          Copy-Item -LiteralPath $source -Destination $destination
-          $copiedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $destination).Hash.ToLowerInvariant()
-          if ($copiedHash -ne $manifest.binaryHash) {
-            throw 'Restored AAB does not match the authoritative manifest hash.'
-          }
-
-      - name: Inspect signed AAB and collect release evidence
-        env:
-          EXPECTED_UPLOAD_SHA1: "8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5"
-        run: |
-          set -euo pipefail
-          AAB="build/app/outputs/bundle/release/app-release.aab"
-          EVIDENCE_DIR="build/release-evidence"
-          mkdir -p "$EVIDENCE_DIR"
-
-          jarsigner -verify -verbose -certs "$AAB" > "$EVIDENCE_DIR/jarsigner.txt"
-          grep -q "jar verified" "$EVIDENCE_DIR/jarsigner.txt" || {
-            echo "::error::The release AAB does not have a valid JAR signature."
-            exit 1
-          }
-
-          keytool -printcert -jarfile "$AAB" > "$EVIDENCE_DIR/signer-certificate.txt"
-          ACTUAL_SHA1=$(awk -F': ' '/SHA1:/{print $2; exit}' "$EVIDENCE_DIR/signer-certificate.txt")
-          if [ "$ACTUAL_SHA1" != "$EXPECTED_UPLOAD_SHA1" ]; then
-            echo "::error::The signed AAB uses an unexpected upload certificate."
-            exit 1
-          fi
-
-          VERSION_NAME=$(awk -F= '$1=="CHRONOSPARK_VERSION_NAME" {print $2}' android/gradle.properties)
-          VERSION_CODE=$(awk -F= '$1=="CHRONOSPARK_VERSION_CODE" {print $2}' android/gradle.properties)
-          python3 scripts/validate_android_release_artifact.py \
-            --aab "$AAB" \
-            --expected-package com.ghostheart5.chronospark \
-            --expected-version-name "$VERSION_NAME" \
-            --expected-version-code "$VERSION_CODE" \
-            --minimum-target-sdk 35 \
-            --output "$EVIDENCE_DIR/release-evidence.json"
-
-          git rev-parse HEAD > "$EVIDENCE_DIR/commit.txt"
-          flutter --version > "$EVIDENCE_DIR/flutter-version.txt"
-          sha256sum "$AAB" > "$EVIDENCE_DIR/app-release.aab.sha256"
-
-      - name: Upload release evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: chronospark-release-evidence-${{ github.ref_name }}
-          path: build/release-evidence/
-          if-no-files-found: error
-          retention-days: 90
+      - name: Remove runner-only sensitive material
+        if: always()
+        run: rm -f android/app/key.jks android/key.properties android/app/google-services.json .env
 
       - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-release-${{ github.ref_name }}
-          path: build/app/outputs/bundle/release/app-release.aab
+          name: chronospark-release-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: |
+            build/app/outputs/bundle/release/app-release.aab
+            build/app/outputs/bundle/release/app-release.aab.sha256
+
+  publish-release:
+    needs: build-aab
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified AAB artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: chronospark-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-artifacts
+
+      - name: Recheck AAB artifact digest
+        working-directory: release-artifacts
+        run: sha256sum --check app-release.aab.sha256
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
-          files: build/app/outputs/bundle/release/app-release.aab
+          files: |
+            release-artifacts/app-release.aab
+            release-artifacts/app-release.aab.sha256
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}

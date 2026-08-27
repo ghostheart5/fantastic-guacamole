@@ -1,3 +1,0 @@
-class CreateMemoryReminderUsecase {
-  const CreateMemoryReminderUsecase();
-}

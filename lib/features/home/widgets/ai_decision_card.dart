@@ -90,7 +90,7 @@ class _AIDecisionCardState extends State<AIDecisionCard>
             textAlign: TextAlign.center,
           ),
           AppText(
-            'Priority ${widget.task.priority} | Energy ${widget.task.energyRequired}',
+            'Priority ${widget.task.priority}  ·  Energy ${widget.task.energyRequired}',
             style: const TextStyle(fontSize: 12, color: Colors.blueAccent),
           ),
           if (emotion != null || confidence != null) ...[
@@ -129,7 +129,7 @@ class _EmotionChip extends StatelessWidget {
 
   Color get _color {
     switch (emotion) {
-      case 'focused':
+      case 'engaged':
         return Colors.blueAccent;
       case 'confident':
         return Colors.greenAccent;
@@ -175,7 +175,7 @@ class _ConfidenceChip extends StatelessWidget {
         border: Border.all(color: Colors.white10, width: 0.5),
       ),
       child: Text(
-        '${(confidence * 100).round()}% CONF',
+        '${(confidence * 100).round()}% SIGNAL',
         style: const TextStyle(
           fontSize: 9,
           color: Colors.white38,

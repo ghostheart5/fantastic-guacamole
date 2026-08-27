@@ -1,3 +1,0 @@
-class AnalyzeTimeUsageUsecase {
-  const AnalyzeTimeUsageUsecase();
-}

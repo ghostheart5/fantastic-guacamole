@@ -1,3 +1,0 @@
-class RecommendPriorityUsecase {
-  const RecommendPriorityUsecase();
-}

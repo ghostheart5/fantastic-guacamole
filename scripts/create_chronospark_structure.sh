@@ -57,18 +57,15 @@ mkdir -p lib/domain/usecases
 mkdir -p lib/domain/logic
 
 touch lib/domain/models/task_model.dart
-touch lib/domain/models/focus_session_model.dart
 touch lib/domain/models/decision_model.dart
 
 touch lib/domain/usecases/get_best_task.dart
-touch lib/domain/usecases/start_focus_session.dart
-touch lib/domain/usecases/complete_session.dart
 
 touch lib/domain/logic/scoring_engine.dart
 touch lib/domain/logic/fatigue_engine.dart
 touch lib/domain/logic/energy_engine.dart
 touch lib/domain/logic/planning_engine.dart
-touch lib/domain/logic/insight_engine.dart
+touch lib/domain/logic/signal_engine.dart
 
 # ---------- ENGINE ----------
 mkdir -p lib/engine
@@ -78,17 +75,15 @@ touch lib/engine/si_ai_service.dart
 mkdir -p lib/features/home
 mkdir -p lib/features/plan
 mkdir -p lib/features/creator
-mkdir -p lib/features/focus
 mkdir -p lib/features/logs
 mkdir -p lib/features/reflect
 mkdir -p lib/features/settings
 mkdir -p lib/features/console
 mkdir -p lib/features/profile
 
-touch lib/features/home/smart_coach_screen.dart
+touch lib/features/home/smart_planner_screen.dart
 touch lib/features/plan/chronoflow_screen.dart
 touch lib/features/creator/creator_screen.dart
-touch lib/features/focus/focus_screen.dart
 touch lib/features/logs/logs_screen.dart
 touch lib/features/reflect/reflect_screen.dart
 touch lib/features/settings/settings_screen.dart

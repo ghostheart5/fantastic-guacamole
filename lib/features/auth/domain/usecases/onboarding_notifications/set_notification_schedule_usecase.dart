@@ -1,3 +1,0 @@
-class SetNotificationScheduleUsecase {
-  const SetNotificationScheduleUsecase();
-}

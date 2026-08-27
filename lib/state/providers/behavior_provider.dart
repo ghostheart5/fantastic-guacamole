@@ -33,14 +33,14 @@ class BehaviorNotifier extends Notifier<BehaviorState> {
     return const BehaviorState(consistency: 0.2, capacity: 0.2, stability: 0.2);
   }
 
-  Future<void> onSessionComplete({
-    required bool sessionCompleted,
+  Future<void> onCompletionRecorded({
+    required bool completionRecorded,
     required bool taskCompleted,
     double frictionScore = 0.0,
   }) async {
     state = _engine.update(
       current: state,
-      sessionCompleted: sessionCompleted,
+      completionRecorded: completionRecorded,
       taskCompleted: taskCompleted,
       frictionScore: frictionScore,
     );

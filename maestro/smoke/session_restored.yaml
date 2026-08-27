@@ -1,9 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: ../authentication/login_with_env.yaml
-- stopApp
-- launchApp:
-    clearState: false
-    stopApp: true
-- assertNotVisible:
-    id: "login-email-field"

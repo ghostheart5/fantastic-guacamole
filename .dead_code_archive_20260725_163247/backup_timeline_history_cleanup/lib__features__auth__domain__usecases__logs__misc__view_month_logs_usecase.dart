@@ -1,3 +1,0 @@
-﻿class ViewMonthLogsUsecase {
-  const ViewMonthLogsUsecase();
-}

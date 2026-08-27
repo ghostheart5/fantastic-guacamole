@@ -1,70 +1,57 @@
-import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Progression
+///
+/// Domain profile model; ProfileController is the shipping profile state.
 class ProfileEntity {
   const ProfileEntity({
     this.xp = 0,
     this.level = 1,
-    this.legacyLevelFloor = 1,
     this.streak = 0,
-    this.longestStreak = 0,
-    this.name = 'Operative',
-    this.lastActiveDate,
-    this.profileReady = false,
+    this.leveledUp = false,
   });
 
+  /// Cumulative lifetime XP. [ProgressionPolicy] is the single source of truth
+  /// for turning this into a level.
   final int xp;
   final int level;
-  final int legacyLevelFloor;
   final int streak;
-  final int longestStreak;
-  final String name;
-  final DateTime? lastActiveDate;
-  final bool profileReady;
+  final bool leveledUp;
 
-  ProfileEntity copyWith({
-    int? xp,
-    int? level,
-    int? legacyLevelFloor,
-    int? streak,
-    int? longestStreak,
-    String? name,
-    DateTime? lastActiveDate,
-    bool? profileReady,
-    bool clearLastActiveDate = false,
-  }) {
+  ProfileEntity copyWith({int? xp, int? level, int? streak, bool? leveledUp}) {
     return ProfileEntity(
       xp: xp ?? this.xp,
       level: level ?? this.level,
-      legacyLevelFloor: legacyLevelFloor ?? this.legacyLevelFloor,
       streak: streak ?? this.streak,
-      longestStreak: longestStreak ?? this.longestStreak,
-      name: name ?? this.name,
-      lastActiveDate: clearLastActiveDate
-          ? null
-          : (lastActiveDate ?? this.lastActiveDate),
-      profileReady: profileReady ?? this.profileReady,
+      leveledUp: leveledUp ?? this.leveledUp,
     );
   }
 
   // Domain logic
-  int get xpToNextLevel => const ProgressionCalculator().xpToNextLevel(xp);
+  int get xpToNextLevel => ProgressionPolicy.xpToNextLevel(xp);
 
-  ProfileEntity addXp(int amount) {
-    final ProgressionCalculation progression = const ProgressionCalculator()
-        .calculate(xp: xp + amount);
-    return copyWith(
-      xp: progression.xp,
-      level: progression.effectiveLevel,
-      legacyLevelFloor: progression.effectiveLevel > legacyLevelFloor
-          ? progression.effectiveLevel
-          : legacyLevelFloor,
-    );
+  /// Canonical XP award. Mirrors [ProgressionEntity.awardXp] and additionally
+  /// reports whether the award crossed a level threshold.
+  ProfileEntity awardXp(int amount) {
+    if (amount < 0) {
+      throw ArgumentError.value(
+        amount,
+        'amount',
+        'XP award cannot be negative',
+      );
+    }
+    final int newXp = xp + amount;
+    final int newLevel = ProgressionPolicy.levelFromXp(newXp);
+    return copyWith(xp: newXp, level: newLevel, leveledUp: newLevel > level);
   }
 
-  ProfileEntity incrementStreak() => copyWith(
-    streak: streak + 1,
-    longestStreak: streak + 1 > longestStreak ? streak + 1 : longestStreak,
-  );
+  @Deprecated(
+    'Used a per-level XP reset curve that conflicted with ProgressionPolicy. '
+    'Use awardXp, which keeps XP cumulative and derives level from the policy.',
+  )
+  ProfileEntity addXp(int amount) => awardXp(amount);
+
+  ProfileEntity incrementStreak() => copyWith(streak: streak + 1);
 
   ProfileEntity resetStreak() => copyWith(streak: 0);
 

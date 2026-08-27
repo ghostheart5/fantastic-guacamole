@@ -1,9 +1,11 @@
-import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Progression
+///
+/// Policy-backed level read model. Registered as getUserLevelUseCaseProvider;
+/// ready for the progression UI.
 class GetUserLevel {
-  static const _calculator = ProgressionCalculator();
-
-  int level(int xp) => _calculator.policyLevel(xp);
-  double progress(int xp) => _calculator.progressWithinLevel(xp);
-  int xpToNext(int xp) => _calculator.xpToNextLevel(xp);
+  int level(int xp) => ProgressionPolicy.levelFromXp(xp);
+  double progress(int xp) => ProgressionPolicy.levelProgressFraction(xp);
+  int xpToNext(int xp) => ProgressionPolicy.xpToNextLevel(xp);
 }

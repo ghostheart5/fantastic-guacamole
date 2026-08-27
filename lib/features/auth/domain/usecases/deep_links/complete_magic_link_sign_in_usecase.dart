@@ -1,3 +1,0 @@
-class CompleteMagicLinkSignInUsecase {
-  const CompleteMagicLinkSignInUsecase();
-}

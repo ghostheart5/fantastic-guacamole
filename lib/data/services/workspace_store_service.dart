@@ -3,11 +3,6 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:flutter/services.dart';
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
-
-const String _creatorSeedAssetPath = 'assets/data/creator_seed.json';
-const String _temporalSeedAssetPath = 'assets/data/temporal_seed.json';
-const String _siSeedAssetPath = 'assets/data/si_seed.json';
 
 class CreatorWorkspaceState {
   const CreatorWorkspaceState({
@@ -225,15 +220,14 @@ class WorkspaceStoreService {
         raw,
         storageKey: _creatorKey,
       );
-      if (decoded == null) {
-        throw const StorageException('Creator workspace storage is corrupted.');
-      }
-      try {
-        return CreatorWorkspaceState.fromJson(decoded);
-      } on TypeError catch (error) {
-        throw StorageException(
-          'Creator workspace storage is corrupted: $error',
-        );
+      if (decoded != null) {
+        try {
+          return CreatorWorkspaceState.fromJson(decoded);
+        } on TypeError catch (error) {
+          Logger.error(
+            'Creator workspace state invalid shape. Re-seeding defaults. $error',
+          );
+        }
       }
     }
 
@@ -253,17 +247,14 @@ class WorkspaceStoreService {
         raw,
         storageKey: _temporalKey,
       );
-      if (decoded == null) {
-        throw const StorageException(
-          'Temporal workspace storage is corrupted.',
-        );
-      }
-      try {
-        return TemporalPlannerState.fromJson(decoded);
-      } on TypeError catch (error) {
-        throw StorageException(
-          'Temporal workspace storage is corrupted: $error',
-        );
+      if (decoded != null) {
+        try {
+          return TemporalPlannerState.fromJson(decoded);
+        } on TypeError catch (error) {
+          Logger.error(
+            'Temporal workspace state invalid shape. Re-seeding defaults. $error',
+          );
+        }
       }
     }
 
@@ -283,13 +274,14 @@ class WorkspaceStoreService {
         raw,
         storageKey: _siKey,
       );
-      if (decoded == null) {
-        throw const StorageException('SI workspace storage is corrupted.');
-      }
-      try {
-        return SIWorkspaceState.fromJson(decoded);
-      } on TypeError catch (error) {
-        throw StorageException('SI workspace storage is corrupted: $error');
+      if (decoded != null) {
+        try {
+          return SIWorkspaceState.fromJson(decoded);
+        } on TypeError catch (error) {
+          Logger.error(
+            'SI workspace state invalid shape. Re-seeding defaults. $error',
+          );
+        }
       }
     }
 
@@ -339,17 +331,23 @@ class WorkspaceStoreService {
       if (decoded is Map<dynamic, dynamic>) {
         return decoded.cast<String, dynamic>();
       }
-      Logger.error('Workspace payload at $storageKey is not a JSON object.');
+      Logger.error(
+        'Workspace payload at $storageKey is not a JSON object. Re-seeding defaults.',
+      );
       return null;
     } on FormatException catch (error) {
-      Logger.error('Workspace payload at $storageKey is corrupt JSON. $error');
+      Logger.error(
+        'Workspace payload at $storageKey is corrupt JSON. Re-seeding defaults. $error',
+      );
       return null;
     }
   }
 
   Future<CreatorWorkspaceState> _loadCreatorSeed() async {
     try {
-      final String content = await rootBundle.loadString(_creatorSeedAssetPath);
+      final String content = await rootBundle.loadString(
+        'assets/data/creator_seed.json',
+      );
       return CreatorWorkspaceState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,
       );
@@ -366,7 +364,7 @@ class WorkspaceStoreService {
   Future<TemporalPlannerState> _loadTemporalSeed() async {
     try {
       final String content = await rootBundle.loadString(
-        _temporalSeedAssetPath,
+        'assets/data/temporal_seed.json',
       );
       return TemporalPlannerState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,
@@ -381,7 +379,9 @@ class WorkspaceStoreService {
 
   Future<SIWorkspaceState> _loadSiSeed() async {
     try {
-      final String content = await rootBundle.loadString(_siSeedAssetPath);
+      final String content = await rootBundle.loadString(
+        'assets/data/si_seed.json',
+      );
       return SIWorkspaceState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,
       );

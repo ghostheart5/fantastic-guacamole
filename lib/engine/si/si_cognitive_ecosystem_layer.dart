@@ -101,13 +101,13 @@ class EcosystemUpdate {
   const EcosystemUpdate({
     required this.state,
     required this.memory,
-    required this.focusNodes,
+    required this.attentionNodes,
     required this.summary,
   });
 
   final SIEcosystemState state;
   final SIMemoryStore memory;
-  final List<EcosystemNode> focusNodes;
+  final List<EcosystemNode> attentionNodes;
   final String summary;
 }
 
@@ -222,15 +222,15 @@ class SICognitiveEcosystemLayer {
       updatedAt: timestamp,
     );
 
-    final List<EcosystemNode> focus = _focusNodes(next);
+    final List<EcosystemNode> attention = _attentionNodes(next);
 
     SIMemoryStore updatedMemory = memory.pushRecord(
       MemoryTier.midTerm,
       MemoryRecord(
         content:
-            'ecosystem|nodes=${nodes.length}|edges=${edges.length}|focus=${focus.map((e) => e.label).take(3).join(",")}',
+            'ecosystem|nodes=${nodes.length}|edges=${edges.length}|attention=${attention.map((e) => e.label).take(3).join(",")}',
         timestamp: timestamp,
-        relevance: focus.isEmpty ? 0.45 : focus.first.weight,
+        relevance: attention.isEmpty ? 0.45 : attention.first.weight,
         confidence: 0.7,
         recency: 1.0,
         emotionalWeight: siClamp01(context.userState.stress),
@@ -243,10 +243,10 @@ class SICognitiveEcosystemLayer {
     return EcosystemUpdate(
       state: next,
       memory: updatedMemory,
-      focusNodes: List<EcosystemNode>.unmodifiable(focus),
-      summary: focus.isEmpty
+      attentionNodes: List<EcosystemNode>.unmodifiable(attention),
+      summary: attention.isEmpty
           ? 'Ecosystem initialized.'
-          : 'Active ecosystem nodes: ${focus.map((EcosystemNode n) => n.label).take(3).join(', ')}.',
+          : 'Active ecosystem nodes: ${attention.map((EcosystemNode n) => n.label).take(3).join(', ')}.',
     );
   }
 
@@ -289,7 +289,7 @@ class SICognitiveEcosystemLayer {
         : existing.bump(now, amount);
   }
 
-  List<EcosystemNode> _focusNodes(SIEcosystemState state) {
+  List<EcosystemNode> _attentionNodes(SIEcosystemState state) {
     final List<EcosystemNode> out = state.nodes.values.toList()
       ..sort(
         (EcosystemNode a, EcosystemNode b) => b.weight.compareTo(a.weight),

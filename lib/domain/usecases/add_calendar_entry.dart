@@ -2,6 +2,9 @@ import 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_calendar_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/calendar_policy.dart';
 
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Calendar/timeline
+///
+/// Persisted-calendar path. Gated by CalendarPolicy.isValidEntry.
 class AddCalendarEntry {
   AddCalendarEntry(this.repository);
 

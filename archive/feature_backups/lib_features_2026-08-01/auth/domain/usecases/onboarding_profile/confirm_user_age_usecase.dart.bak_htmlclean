@@ -1,3 +1,0 @@
-﻿class ConfirmUserAgeUsecase {
-  const ConfirmUserAgeUsecase();
-}

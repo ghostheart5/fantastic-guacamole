@@ -1,3 +1,0 @@
-class ExportSiReportUsecase {
-  const ExportSiReportUsecase();
-}

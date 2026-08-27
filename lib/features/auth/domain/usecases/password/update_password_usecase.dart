@@ -1,3 +1,0 @@
-class UpdatePasswordUsecase {
-  const UpdatePasswordUsecase();
-}

@@ -1,3 +1,0 @@
-class CreateCompanionUsecase {
-  const CreateCompanionUsecase();
-}

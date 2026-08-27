@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fantastic_guacamole/theme/radii.dart';
 
 class AppCard extends StatelessWidget {
   const AppCard({
@@ -13,7 +14,7 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: const RoundedRectangleBorder(borderRadius: cardRadius),
       child: Padding(padding: padding, child: child),
     );
   }

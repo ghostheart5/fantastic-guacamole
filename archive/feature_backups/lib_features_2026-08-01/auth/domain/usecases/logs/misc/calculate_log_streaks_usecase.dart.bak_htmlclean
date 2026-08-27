@@ -1,3 +1,0 @@
-﻿class CalculateLogStreaksUsecase {
-  const CalculateLogStreaksUsecase();
-}

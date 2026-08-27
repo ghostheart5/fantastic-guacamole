@@ -1,3 +1,0 @@
-class UnlockRewardUsecase {
-  const UnlockRewardUsecase();
-}

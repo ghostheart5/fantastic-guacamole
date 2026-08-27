@@ -1,3 +1,0 @@
-class RemoveImageFromLogUsecase {
-  const RemoveImageFromLogUsecase();
-}

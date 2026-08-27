@@ -1,3 +1,0 @@
-class SkipDataImportUsecase {
-  const SkipDataImportUsecase();
-}

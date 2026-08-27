@@ -1,0 +1,14 @@
+# Shared: open a surface from the shell navigation map.
+#
+# Pass TARGET using the canonical destination label, e.g. "Timeline".
+appId: com.ghostheart5.chronospark
+---
+- tapOn: "Open navigation map"
+- scrollUntilVisible:
+    element:
+      text: "${TARGET}\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "${TARGET}\\n.*"
+- waitForAnimationToEnd:
+    timeout: 5000

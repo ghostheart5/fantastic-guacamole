@@ -1,3 +1,0 @@
-﻿class GetAiSettingsUsecase {
-  const GetAiSettingsUsecase();
-}

@@ -2,9 +2,16 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 
 class AlwaysAuthenticatedAuthService implements AuthServiceContract {
-  AlwaysAuthenticatedAuthService({required this._user});
+  AlwaysAuthenticatedAuthService({
+    required this._user,
+    Future<void> Function()? onSignedOut,
+    Future<void> Function(String? accountId)? onAccountSignedOut,
+  }) : _signedOutCallback = onSignedOut,
+       _accountSignedOutCallback = onAccountSignedOut;
 
   final User _user;
+  final Future<void> Function()? _signedOutCallback;
+  final Future<void> Function(String? accountId)? _accountSignedOutCallback;
 
   @override
   Stream<User?> authStateChanges() => Stream<User?>.value(_user);
@@ -34,13 +41,7 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<void> sendPhoneOtp(String phone) async {}
-
-  @override
-  Future<UserCredential> verifyPhoneOtp({
-    required String phone,
-    required String token,
-  }) async {
+  Future<UserCredential> signInWithGitHub() async {
     return UserCredential(user: _user);
   }
 
@@ -64,21 +65,14 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
-    bool forceRefresh = false,
-  }) async {
-    final DateTime issuedAt = DateTime.now();
-    return AuthSessionSnapshot(
-      accessToken: 'mock-always-auth-token',
-      refreshToken: 'mock-always-refresh-token',
-      expiresAt: issuedAt.add(const Duration(hours: 1)),
-      issuedAt: issuedAt,
-    );
+  Future<void> signOut() async {
+    await _accountSignedOutCallback?.call(_user.id);
+    await _signedOutCallback?.call();
   }
 
   @override
-  Future<void> signOut() async {}
-
-  @override
-  Future<void> deleteCurrentAccount({required String password}) async {}
+  Future<void> deleteCurrentAccount({required String password}) async {
+    await _accountSignedOutCallback?.call(_user.id);
+    await _signedOutCallback?.call();
+  }
 }

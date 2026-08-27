@@ -1,3 +1,0 @@
-class UpdateMemoryUsecase {
-  const UpdateMemoryUsecase();
-}

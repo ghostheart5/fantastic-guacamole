@@ -1,3 +1,0 @@
-class IdentifyOpportunitiesUsecase {
-  const IdentifyOpportunitiesUsecase();
-}

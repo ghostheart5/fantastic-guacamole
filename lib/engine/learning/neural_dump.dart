@@ -6,6 +6,7 @@ class NeuralEntry {
     required this.duration,
     required this.quality,
     required this.timestamp,
+    this.completed,
   });
 
   final String task;
@@ -15,6 +16,13 @@ class NeuralEntry {
   final double quality;
   final DateTime timestamp;
 
+  /// Explicit observed task outcome. Older records predate this field and
+  /// represent completed tasks only.
+  final bool? completed;
+
+  bool get observedCompleted =>
+      completed ?? reasoning.toLowerCase().contains('completed task');
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'task': task,
@@ -23,6 +31,7 @@ class NeuralEntry {
       'duration': duration,
       'quality': quality,
       'timestamp': timestamp.toIso8601String(),
+      if (completed != null) 'completed': completed,
     };
   }
 
@@ -36,6 +45,7 @@ class NeuralEntry {
       timestamp:
           DateTime.tryParse((json['timestamp'] ?? '').toString()) ??
           DateTime.now(),
+      completed: json['completed'] as bool?,
     );
   }
 }

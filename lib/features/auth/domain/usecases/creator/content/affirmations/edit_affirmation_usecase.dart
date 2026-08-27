@@ -1,3 +1,0 @@
-class EditAffirmationUsecase {
-  const EditAffirmationUsecase();
-}

@@ -1,7 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
-import 'package:fantastic_guacamole/state/providers/settings_preference_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final currentThemeProvider =
@@ -23,17 +21,8 @@ final themeActionsProvider = Provider<ThemeActions>((ref) {
 class CurrentThemeController extends AsyncNotifier<AppThemeEntity> {
   @override
   Future<AppThemeEntity> build() async {
-    final AsyncValue<SettingsEntity> settings = ref.watch(
-      settingsPreferencesProvider,
-    );
-    final String mode = await settings.when(
-      data: (value) async => value.themeMode,
-      loading: () async =>
-          (await ref.watch(settingsPreferencesProvider.future)).themeMode,
-      error: (Object error, StackTrace stackTrace) =>
-          Error.throwWithStackTrace(error, stackTrace),
-    );
-    return mode == 'light' ? AppThemeEntity.light() : AppThemeEntity.dark();
+    return await ref.read(getCurrentThemeUseCaseProvider).call() ??
+        AppThemeEntity.defaultTheme();
   }
 
   void setTheme(AppThemeEntity theme) {
@@ -47,20 +36,22 @@ class ThemeActions {
   final Ref _ref;
 
   Future<void> save(AppThemeEntity theme) async {
-    await _ref
-        .read(settingsPreferencesProvider.notifier)
-        .setThemeMode(theme.isDark ? 'dark' : 'light');
     _ref.read(currentThemeProvider.notifier).setTheme(theme);
+    await _ref.read(saveThemeUseCaseProvider).call(theme);
     _ref.invalidate(currentThemeProvider);
     _ref.invalidate(availableThemesProvider);
   }
 
   Future<void> switchTo(String id) async {
-    switch (id) {
-      case 'light':
-        await save(AppThemeEntity.light());
-      case 'dark':
-        await save(AppThemeEntity.dark());
+    final AppThemeEntity? switched = await _ref
+        .read(switchThemeUseCaseProvider)
+        .call(id);
+    if (switched == null) {
+      // Unknown/stale theme id: preserve the user's existing saved theme
+      // rather than treating this as a successful switch.
+      return;
     }
+    _ref.invalidate(currentThemeProvider);
+    _ref.invalidate(availableThemesProvider);
   }
 }

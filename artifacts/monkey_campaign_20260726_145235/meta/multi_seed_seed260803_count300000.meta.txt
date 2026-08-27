@@ -1,6 +1,0 @@
-﻿START=2026-07-26T14:59:50.0283493-05:00
-PROFILE=multi_seed
-PACKAGE=com.ghostheart5.chronospark
-SEED=260803
-COUNT=300000
-COMMAND=adb shell monkey -p com.ghostheart5.chronospark --throttle 40 --pct-touch 50 --pct-motion 18 --pct-nav 14 --pct-majornav 8 --pct-appswitch 6 --pct-syskeys 0 --pct-anyevent 0 --monitor-native-crashes --kill-process-after-error --bugreport -v -v -s 260803 300000

@@ -1,3 +1,0 @@
-class CreateEmotionGoalUsecase {
-  const CreateEmotionGoalUsecase();
-}

@@ -1,3 +1,0 @@
-class CreateLessonLearnedMemoryUsecase {
-  const CreateLessonLearnedMemoryUsecase();
-}

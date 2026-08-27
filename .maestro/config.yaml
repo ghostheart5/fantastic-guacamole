@@ -1,0 +1,25 @@
+# ChronoSpark — Maestro E2E flows
+#
+# Shared config. Individual flows declare their own appId so they can also be
+# run standalone with `maestro test .maestro/flows/01-login.yaml`.
+
+appId: com.ghostheart5.chronospark
+
+# Tags let CI gate the release-critical set without running the whole suite:
+#   maestro test --include-tags critical .maestro/flows
+#   maestro test --exclude-tags destructive .maestro/flows
+---
+# Selector notes — read before editing any flow.
+#
+# 1. HoloButton wraps its child in Semantics(label: <original casing>) and then
+#    ExcludeSemantics. The visible text is uppercased for display, but the
+#    accessibility tree exposes the ORIGINAL casing. So target "Timeline",
+#    not "TIMELINE", for anything built from HoloButton.
+#
+# 2. Plain Text widgets are exposed as written, so screen headers really are
+#    uppercase: "NEXUS", "CREATOR", "TIMELINE", "PROGRESSION".
+#
+# 3. Two login fields carry real widget keys and are the only keyed widgets in
+#    the app: login-email-field and login-password-field. Everything else has
+#    to be matched on text, which is fragile — if these flows start failing in
+#    bulk after a copy change, that is why.

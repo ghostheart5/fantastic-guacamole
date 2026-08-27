@@ -8,70 +8,51 @@ class FirebaseAuthException implements Exception {
   String toString() => 'FirebaseAuthException($code, $message)';
 }
 
-const Duration defaultAccountDeletionRecentSignInWindow = Duration(minutes: 10);
-const Duration defaultAccountDeletionAllowedClockSkew = Duration(minutes: 2);
-
-bool isAccountDeletionSignInRecent(
-  DateTime? lastSignInAt, {
-  required DateTime now,
-  Duration recentSignInWindow = defaultAccountDeletionRecentSignInWindow,
-  Duration allowedClockSkew = defaultAccountDeletionAllowedClockSkew,
-}) {
-  if (lastSignInAt == null ||
-      recentSignInWindow <= Duration.zero ||
-      allowedClockSkew.isNegative) {
-    return false;
-  }
-
-  final Duration age = now.toUtc().difference(lastSignInAt.toUtc());
-  return age >= -allowedClockSkew && age < recentSignInWindow;
-}
-
-enum AccountDeletionReauthenticationMethod {
-  password,
-  recentGoogleSignIn,
-  recentPhoneSignIn,
-  unsupported,
-}
-
 class User {
   const User({
     required this.id,
     this.email,
     this.displayName,
     required this.emailVerified,
-    this.authenticationProvider,
-    this.authenticationProviders = const <String>[],
-    this.lastSignInAt,
+    this.appMetadata = const <String, dynamic>{},
   });
 
   final String id;
   final String? email;
   final String? displayName;
   final bool emailVerified;
-  final String? authenticationProvider;
-  final List<String> authenticationProviders;
-  final DateTime? lastSignInAt;
+  final Map<String, dynamic> appMetadata;
 
-  AccountDeletionReauthenticationMethod
-  get accountDeletionReauthenticationMethod {
-    final String primary = authenticationProvider?.trim().toLowerCase() ?? '';
-    final Set<String> providers = <String>{
-      if (primary.isNotEmpty) primary,
-      ...authenticationProviders
-          .map((String provider) => provider.trim().toLowerCase())
-          .where((String provider) => provider.isNotEmpty),
-    };
-    if (providers.length == 1 && providers.contains('email')) {
-      return AccountDeletionReauthenticationMethod.password;
+  bool get hasInternalAdvisorAccess {
+    if (appMetadata['chronospark_admin'] == true) {
+      return true;
     }
-    if (providers.length == 1 && providers.contains('google')) {
-      return AccountDeletionReauthenticationMethod.recentGoogleSignIn;
+    return _metadataRoles(appMetadata['chronospark_roles']).any(_isAdminRole) ||
+        _metadataRoles(appMetadata['roles']).any(_isAdminRole) ||
+        _isAdminRole(appMetadata['role']?.toString());
+  }
+
+  static Iterable<String> _metadataRoles(Object? raw) {
+    if (raw is Iterable) {
+      return raw
+          .map((Object? value) => value?.toString().trim().toLowerCase() ?? '')
+          .where((String value) => value.isNotEmpty);
     }
-    if (providers.length == 1 && providers.contains('phone')) {
-      return AccountDeletionReauthenticationMethod.recentPhoneSignIn;
+    if (raw is String) {
+      return raw
+          .split(',')
+          .map((String value) => value.trim().toLowerCase())
+          .where((String value) => value.isNotEmpty);
     }
-    return AccountDeletionReauthenticationMethod.unsupported;
+    return const <String>[];
+  }
+
+  static bool _isAdminRole(String? raw) {
+    final String value = raw?.trim().toLowerCase() ?? '';
+    return value == 'admin' ||
+        value == 'developer' ||
+        value == 'product_admin' ||
+        value == 'qa_admin';
   }
 }
 
@@ -79,18 +60,4 @@ class UserCredential {
   const UserCredential({this.user});
 
   final User? user;
-}
-
-class AuthSessionSnapshot {
-  const AuthSessionSnapshot({
-    required this.accessToken,
-    required this.refreshToken,
-    required this.expiresAt,
-    required this.issuedAt,
-  });
-
-  final String accessToken;
-  final String refreshToken;
-  final DateTime expiresAt;
-  final DateTime issuedAt;
 }

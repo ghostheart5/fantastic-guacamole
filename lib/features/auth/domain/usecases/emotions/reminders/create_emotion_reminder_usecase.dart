@@ -1,3 +1,0 @@
-class CreateEmotionReminderUsecase {
-  const CreateEmotionReminderUsecase();
-}

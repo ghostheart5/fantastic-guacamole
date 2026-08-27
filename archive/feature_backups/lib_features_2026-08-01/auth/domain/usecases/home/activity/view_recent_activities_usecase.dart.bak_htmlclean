@@ -1,3 +1,0 @@
-﻿class ViewRecentActivitiesUsecase {
-  const ViewRecentActivitiesUsecase();
-}

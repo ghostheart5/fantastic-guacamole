@@ -16,10 +16,9 @@ Scope: required major system FlowMaps
 | 7 | Streaks FlowMap | PASS | docs/flowmaps/streaks_flowmap.md, docs/flowmaps/habit_streak_flowmap.md |
 | 8 | Timeline FlowMap | PASS | docs/flowmaps/timeline_flowmap.md |
 | 9 | Milestones FlowMap | PASS | docs/flowmaps/milestones_flowmap.md |
-| 10 | Smart Coach FlowMap | PASS | docs/flowmaps/smart_coach_flowmap.md |
+| 10 | Smart Planner FlowMap | PASS | docs/flowmaps/smart_planner_flowmap.md |
 | 11 | SI Console FlowMap | PASS | docs/flowmaps/si_console_flowmap.md |
 | 12 | Memory Engine FlowMap | PASS | docs/flowmaps/memory_engine_flowmap.md |
-| 13 | SoulMap FlowMap | PASS | docs/flowmaps/soulmap_flowmap.md |
 | 14 | Offline Sync FlowMap | PASS | docs/flowmaps/offline_sync_flowmap.md |
 | 15 | Analytics FlowMap | PASS | docs/flowmaps/analytics_flowmap.md |
 | 16 | Error Handling FlowMap | PASS | docs/flowmaps/error_handling_flowmap.md |
@@ -32,10 +31,9 @@ Scope: required major system FlowMaps
 - Missing: 0
 - Added in this audit:
   - milestones_flowmap.md
-  - soulmap_flowmap.md
   - streaks_flowmap.md
 
 ## Notes
 
 - Streaks are represented by both a dedicated streaks flow and detailed habit-streak operational flow.
-- Milestones and SoulMap flows are now explicitly documented to match existing provider-level implementations.
+- Milestones are explicitly documented to match the provider-level implementation.

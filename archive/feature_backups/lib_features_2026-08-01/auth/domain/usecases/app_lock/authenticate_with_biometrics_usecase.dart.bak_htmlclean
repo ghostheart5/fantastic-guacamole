@@ -1,3 +1,0 @@
-﻿class AuthenticateWithBiometricsUsecase {
-  const AuthenticateWithBiometricsUsecase();
-}

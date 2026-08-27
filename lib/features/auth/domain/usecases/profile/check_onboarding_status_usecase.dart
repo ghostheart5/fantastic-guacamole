@@ -1,3 +1,0 @@
-class CheckOnboardingStatusUsecase {
-  const CheckOnboardingStatusUsecase();
-}

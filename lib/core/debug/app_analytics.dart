@@ -5,58 +5,18 @@ import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
 class AppAnalytics {
   const AppAnalytics._();
 
-  @visibleForTesting
-  static Future<void> Function(String? userId)? userAttributionOverride;
-
-  @visibleForTesting
-  static Future<void> Function(String screenName)? screenViewOverride;
-
-  static Future<void> identifySupabaseUser(String? userId) async {
-    final String? normalized = userId?.trim().isEmpty == true
-        ? null
-        : userId?.trim();
-    if (userAttributionOverride != null) {
-      await userAttributionOverride!(normalized);
-      return;
-    }
-    if (!_canUseFirebaseAnalytics || Firebase.apps.isEmpty) {
-      return;
-    }
-    try {
-      await FirebaseAnalytics.instance.setUserId(id: normalized);
-      await FirebaseAnalytics.instance.setUserProperty(
-        name: 'auth_source',
-        value: normalized == null ? 'signed_out' : 'supabase',
-      );
-    } on Object catch (error) {
-      Logger.warn('Firebase Analytics user attribution failed: $error');
-    }
-  }
-
-  static Future<void> trackScreen(String screenName) async {
-    final String normalized = screenName.trim();
-    if (normalized.isEmpty) {
-      return;
-    }
-    if (screenViewOverride != null) {
-      await screenViewOverride!(normalized);
-      return;
-    }
-    if (!_canUseFirebaseAnalytics || Firebase.apps.isEmpty) {
-      return;
-    }
-    try {
-      await FirebaseAnalytics.instance.logScreenView(screenName: normalized);
-    } on Object catch (error) {
-      Logger.warn('Firebase Analytics screen view failed: $error');
-    }
-  }
+  /// Firebase rejects event names longer than 40 characters and parameter
+  /// names longer than 40, values longer than 100, and more than 25 params
+  /// per event. Exceeding any of these previously produced an unhandled async
+  /// rejection because the dispatch was unawaited with no error handler.
+  static const int _maxEventNameLength = 40;
+  static const int _maxParamNameLength = 40;
+  static const int _maxParamValueLength = 100;
+  static const int _maxParams = 25;
 
   static void track(
     String event, {
@@ -66,67 +26,93 @@ class AppAnalytics {
         .environmentOnly()
         .flags
         .analyticsEnabled;
-
-    if (!analyticsEnabled) {
-      return;
-    }
+    if (!analyticsEnabled) return;
 
     Logger.log('Analytics', event);
     RuntimeDiagnostics.record('Analytics: $event');
 
-    if (!_canUseFirebaseAnalytics) {
-      RuntimeDiagnostics.record(
-        'Analytics skipped on unsupported platform: $defaultTargetPlatform',
+    if (Firebase.apps.isNotEmpty) {
+      final String name = _sanitizeEventName(event);
+      if (name.isEmpty) {
+        return;
+      }
+      final Map<String, Object>? analyticsParams = _sanitizeParams(params);
+      unawaited(
+        FirebaseAnalytics.instance
+            .logEvent(name: name, parameters: analyticsParams)
+            // Analytics must never surface as an unhandled zone error. A
+            // rejected dispatch is logged and dropped.
+            .catchError((Object error) {
+              Logger.warn('Analytics event "$name" failed: $error');
+            }),
       );
-      return;
     }
-
-    if (Firebase.apps.isEmpty) {
-      RuntimeDiagnostics.record(
-        'Analytics skipped because Firebase is not initialized.',
-      );
-      return;
-    }
-
-    final Map<String, Object>? analyticsParams = params.isEmpty
-        ? null
-        : Map<String, Object>.fromEntries(
-            params.entries.map(
-              (MapEntry<String, Object?> entry) => MapEntry<String, Object>(
-                entry.key,
-                entry.value?.toString() ?? '',
-              ),
-            ),
-          );
-
-    unawaited(
-      FirebaseAnalytics.instance
-          .logEvent(name: event, parameters: analyticsParams)
-          .catchError((Object error, StackTrace stackTrace) {
-            if (error is PlatformException || error is MissingPluginException) {
-              Logger.warn(
-                'Firebase Analytics unavailable for event "$event": $error',
-              );
-              RuntimeDiagnostics.record(
-                'Firebase Analytics unavailable for event "$event": $error',
-              );
-              return;
-            }
-
-            Logger.warn('Firebase Analytics failed for event "$event": $error');
-            RuntimeDiagnostics.record(
-              'Firebase Analytics failed for event "$event": $error',
-            );
-          }),
-    );
   }
 
-  static bool get _canUseFirebaseAnalytics {
-    if (kIsWeb) {
-      return true;
-    }
+  /// Firebase event names must start with a letter and contain only letters,
+  /// digits and underscores. Returns an empty string if nothing usable remains.
+  static String _sanitizeEventName(String event) {
+    final String cleaned = event
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9_]'), '_')
+        .replaceAll(RegExp(r'_+'), '_');
+    final String trimmed = cleaned.startsWith(RegExp('[A-Za-z]'))
+        ? cleaned
+        : 'event_$cleaned';
+    return trimmed.length > _maxEventNameLength
+        ? trimmed.substring(0, _maxEventNameLength)
+        : trimmed;
+  }
 
-    return defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS;
+  /// Caps parameter count, name length and value length.
+  ///
+  /// Values are user-authored in several call sites (goal and task titles), so
+  /// they are truncated rather than trusted.
+  static Map<String, Object>? _sanitizeParams(Map<String, Object?> params) {
+    if (params.isEmpty) {
+      return null;
+    }
+    final Map<String, Object> result = <String, Object>{};
+    for (final MapEntry<String, Object?> entry in params.entries) {
+      if (result.length >= _maxParams) {
+        break;
+      }
+      final String key = entry.key.trim().replaceAll(
+        RegExp(r'[^A-Za-z0-9_]'),
+        '_',
+      );
+      if (key.isEmpty) {
+        continue;
+      }
+      // Analytics is an aggregate product signal, not a user-data export.
+      // Never forward identifiers or free-form content even if a new call
+      // site accidentally supplies them.
+      final String loweredKey = key.toLowerCase();
+      if (loweredKey.endsWith('_id') ||
+          loweredKey.contains('email') ||
+          loweredKey.contains('prompt') ||
+          loweredKey.contains('content') ||
+          loweredKey.contains('message') ||
+          loweredKey.contains('error') ||
+          loweredKey.contains('title') ||
+          loweredKey.contains('text')) {
+        continue;
+      }
+      final String cappedKey = key.length > _maxParamNameLength
+          ? key.substring(0, _maxParamNameLength)
+          : key;
+      final String value = entry.value?.toString() ?? '';
+      final Object? rawValue = entry.value;
+      final bool approvedStringField = RegExp(
+        r'^(method|status|source|feature|step|step_index|type|mode|outcome|state|result|view|action|category|permission|route|selected_goal_type)$',
+      ).hasMatch(loweredKey);
+      if (rawValue is String && !approvedStringField) {
+        continue;
+      }
+      result[cappedKey] = value.length > _maxParamValueLength
+          ? value.substring(0, _maxParamValueLength)
+          : value;
+    }
+    return result.isEmpty ? null : result;
   }
 }

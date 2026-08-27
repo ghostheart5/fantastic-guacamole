@@ -1,3 +1,0 @@
-class LinkTaskToMilestoneUsecase {
-  const LinkTaskToMilestoneUsecase();
-}

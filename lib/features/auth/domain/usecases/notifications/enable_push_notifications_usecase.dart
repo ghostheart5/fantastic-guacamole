@@ -1,3 +1,0 @@
-class EnablePushNotificationsUsecase {
-  const EnablePushNotificationsUsecase();
-}

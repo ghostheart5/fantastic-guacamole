@@ -1,28 +1,19 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
-import 'package:fantastic_guacamole/app/router/navigation_policy.dart';
+import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
-import 'package:fantastic_guacamole/features/monetization/presentation/screens/credit_history_screen.dart';
-import 'package:fantastic_guacamole/features/monetization/presentation/screens/credit_store_screen.dart';
-import 'package:fantastic_guacamole/features/monetization/presentation/screens/paywall_screen.dart';
-import 'package:fantastic_guacamole/features/monetization/presentation/plan_comparison_screen.dart';
-import 'package:fantastic_guacamole/features/monetization/presentation/screens/subscription_management_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
-import 'package:fantastic_guacamole/features/notes/ui/notes_screen.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
-import 'package:fantastic_guacamole/features/permissions/notification_permission_recovery_screen.dart';
-import 'package:fantastic_guacamole/features/settings/ui/completion_events_debug_screen.dart';
-import 'package:fantastic_guacamole/state/core/app_providers.dart'
-    show OnboardingStatus;
+import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
-import 'package:fantastic_guacamole/state/providers/authenticated_data_readiness_provider.dart';
-import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
-import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/foundation.dart';
@@ -38,76 +29,157 @@ final _appRouterRefreshListenableProvider =
       return listenable;
     });
 
+const String restoreSavedTabQueryParameter = 'restoreSavedTab';
+
 class _AppRouterRefreshListenable extends ChangeNotifier {
   _AppRouterRefreshListenable(this._ref) {
     _ref.listen<bool>(authenticatedGuardProvider, (_, _) => notifyListeners());
-    _ref.listen<AuthenticatedDataReadiness>(
-      authenticatedDataReadinessProvider,
-      (_, _) => notifyListeners(),
-    );
-    _ref.listen<OnboardingStatus>(
-      onboardingStatusGuardProvider,
+    _ref.listen<bool>(
+      onboardingCompleteGuardProvider,
       (_, _) => notifyListeners(),
     );
     _ref.listen<bool>(
-      profileCompleteGuardProvider,
-      (_, _) => notifyListeners(),
-    );
-    _ref.listen<bool>(
-      creatorFirstItemCreatedGuardProvider,
-      (_, _) => notifyListeners(),
-    );
-    _ref.listen<bool>(
-      timelineFirstActionCompletedGuardProvider,
+      onboardingWelcomeCompleteGuardProvider,
       (_, _) => notifyListeners(),
     );
     _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
     _ref.listen(mockLoginConfigProvider, (_, _) => notifyListeners());
+    _ref.listen(internalAdvisorAccessProvider, (_, _) => notifyListeners());
   }
 
   final Ref _ref;
 
   bool get isAuthenticated => _ref.read(authenticatedGuardProvider);
-  AuthenticatedDataReadiness get authenticatedDataReadiness => _ref.read(
-    authenticatedDataReadinessProvider,
-  );
-  OnboardingStatus get onboardingStatus =>
-      _ref.read(onboardingStatusGuardProvider);
-  bool get hasValidProfile => _ref.read(profileCompleteGuardProvider);
-  bool get hasCreatedFirstItem =>
-      _ref.read(creatorFirstItemCreatedGuardProvider);
-  bool get hasCompletedTimelineFirstAction =>
-      _ref.read(timelineFirstActionCompletedGuardProvider);
+  bool get onboardingComplete => _ref.read(onboardingCompleteGuardProvider);
+  bool get welcomeComplete => _ref.read(onboardingWelcomeCompleteGuardProvider);
+  bool get hasInternalAdvisorAccess => _ref.read(internalAdvisorAccessProvider);
 }
 
 String _resolveInitialLocation({
   required bool isAuthenticated,
-  required OnboardingStatus onboardingStatus,
-  required bool hasValidProfile,
-  required bool hasCreatedFirstItem,
-  required bool hasCompletedTimelineFirstAction,
+  required bool welcomeComplete,
+  required bool onboardingComplete,
 }) {
-  if (onboardingStatus == OnboardingStatus.unknown) {
-    return RoutePaths.bootstrap;
-  }
-  final bool onboardingComplete = onboardingStatus == OnboardingStatus.complete;
-  if (!onboardingComplete) {
-    // Keep first-run users focused on creation before secondary surfaces.
-    return isAuthenticated ? RoutePaths.creator : RoutePaths.onboarding;
+  if (!welcomeComplete) {
+    return RoutePaths.onboarding;
   }
   if (!isAuthenticated) {
     return RoutePaths.login;
   }
-  if (!hasValidProfile) {
+  if (!onboardingComplete) {
     return RoutePaths.onboarding;
   }
-  if (!hasCreatedFirstItem) {
-    return RoutePaths.creator;
+  return Uri(
+    path: RoutePaths.nexus,
+    queryParameters: <String, String>{restoreSavedTabQueryParameter: 'true'},
+  ).toString();
+}
+
+/// Pure decision logic for the top-level go_router redirect. Extracted so it
+/// can be unit-tested (including fuzzed across input combinations) without
+/// spinning up a [GoRouter]/widget tree. Returning `null` means "no top-level
+/// redirect" — the request falls through to route matching, where a
+/// per-route `redirect` (e.g. the legacy aliases below) may still apply.
+String? computeAppRedirect({
+  required bool isAuthenticated,
+  required bool welcomeComplete,
+  required bool onboardingComplete,
+  required String location,
+  Uri? uri,
+  DeepLinkMode? deepLinkMode,
+  bool isDebugBuild = kDebugMode,
+  bool hasInternalAdvisorAccess = false,
+}) {
+  final Uri requestUri = uri ?? Uri(path: location);
+  final String effectiveLocation = location.isEmpty
+      ? requestUri.path
+      : location;
+  final DeepLinkMode? effectiveDeepLinkMode =
+      deepLinkMode ?? parseDeepLinkMode(requestUri.queryParameters['mode']);
+  final String? currentReturnTo = RouteAccessPolicy.validatedReturnTo(
+    requestUri.queryParameters[RouteAccessPolicy.returnToQueryParameter],
+  );
+  final String? requestedReturnTo =
+      currentReturnTo ?? RouteAccessPolicy.returnToForRequestedUri(requestUri);
+  final RouteAccessDecision decision = RouteAccessPolicy.classify(
+    effectiveLocation,
+  );
+
+  if (decision.accessClass == RouteAccessClass.authentication) {
+    if (RouteAccessPolicy.isAuthenticationCallback(effectiveDeepLinkMode)) {
+      if (!isAuthenticated) {
+        return null;
+      }
+      if (!welcomeComplete || !onboardingComplete) {
+        return RouteAccessPolicy.withReturnTo(
+          RoutePaths.onboarding,
+          currentReturnTo,
+        );
+      }
+      return currentReturnTo ?? RoutePaths.nexus;
+    }
+    if (!welcomeComplete) {
+      return RouteAccessPolicy.withReturnTo(
+        RoutePaths.onboarding,
+        currentReturnTo,
+      );
+    }
+    if (isAuthenticated) {
+      if (!onboardingComplete) {
+        return RouteAccessPolicy.withReturnTo(
+          RoutePaths.onboarding,
+          currentReturnTo,
+        );
+      }
+      return currentReturnTo ?? RoutePaths.nexus;
+    }
+    return null;
   }
-  if (!hasCompletedTimelineFirstAction) {
-    return RoutePaths.timeline;
+
+  if (decision.allowsSignedOutAccess &&
+      decision.accessClass != RouteAccessClass.welcome) {
+    return null;
   }
-  return RoutePaths.home;
+
+  if (decision.accessClass == RouteAccessClass.welcome) {
+    if (!welcomeComplete || (isAuthenticated && !onboardingComplete)) {
+      return null;
+    }
+    if (isAuthenticated) {
+      return currentReturnTo ?? RoutePaths.nexus;
+    }
+    return RouteAccessPolicy.withReturnTo(RoutePaths.login, currentReturnTo);
+  }
+
+  if (!welcomeComplete) {
+    return RouteAccessPolicy.withReturnTo(
+      RoutePaths.onboarding,
+      requestedReturnTo,
+    );
+  }
+
+  if (decision.requiresAuthentication && !isAuthenticated) {
+    return RouteAccessPolicy.withReturnTo(RoutePaths.login, requestedReturnTo);
+  }
+
+  if (decision.requiresCompletedOnboarding && !onboardingComplete) {
+    return RouteAccessPolicy.withReturnTo(
+      RoutePaths.onboarding,
+      requestedReturnTo,
+    );
+  }
+
+  if (decision.accessClass == RouteAccessClass.privilegedInternal &&
+      (!isDebugBuild || !hasInternalAdvisorAccess)) {
+    return RoutePaths.settings;
+  }
+
+  if (effectiveLocation == RoutePaths.shell ||
+      effectiveLocation == RoutePaths.home) {
+    return RoutePaths.nexus;
+  }
+
+  return null;
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -116,258 +188,53 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
   final String initialLocation = _resolveInitialLocation(
     isAuthenticated: refresh.isAuthenticated,
-    onboardingStatus: refresh.onboardingStatus,
-    hasValidProfile: refresh.hasValidProfile,
-    hasCreatedFirstItem: refresh.hasCreatedFirstItem,
-    hasCompletedTimelineFirstAction: refresh.hasCompletedTimelineFirstAction,
+    welcomeComplete: refresh.welcomeComplete,
+    onboardingComplete: refresh.onboardingComplete,
   );
 
-  return GoRouter(
+  final GoRouter router = GoRouter(
     initialLocation: initialLocation,
     debugLogDiagnostics: false,
     refreshListenable: refresh,
-    errorBuilder: (BuildContext context, GoRouterState state) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Route not found')),
-        body: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text('Unknown route: ${state.uri}'),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => context.go(RoutePaths.home),
-                child: const Text('Go to Home'),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
+    errorBuilder: (BuildContext context, GoRouterState state) => RouteErrorPage(
+      location: state.uri.toString(),
+      error: state.error,
+      isAuthenticated: refresh.isAuthenticated,
+      welcomeComplete: refresh.welcomeComplete,
+      onboardingComplete: refresh.onboardingComplete,
+    ),
     redirect: (BuildContext context, GoRouterState state) {
-      final bool isAuthenticated = refresh.isAuthenticated;
-      final AuthenticatedDataReadiness dataReadiness =
-          refresh.authenticatedDataReadiness;
-      final OnboardingStatus onboardingStatus = refresh.onboardingStatus;
-      final String location = state.matchedLocation;
-      final StartupRouteGate startupGate = resolveStartupRouteGate(
-        location: location,
+      return computeAppRedirect(
+        isAuthenticated: refresh.isAuthenticated,
+        welcomeComplete: refresh.welcomeComplete,
+        onboardingComplete: refresh.onboardingComplete,
+        location: state.matchedLocation,
         uri: state.uri,
-        onboardingStatus: onboardingStatus,
+        hasInternalAdvisorAccess: refresh.hasInternalAdvisorAccess,
       );
-      if (startupGate == StartupRouteGate.allow) {
-        return null;
-      }
-      if (startupGate == StartupRouteGate.redirectToBootstrap) {
-        return RoutePaths.bootstrap;
-      }
-
-      final bool onboardingComplete =
-          onboardingStatus == OnboardingStatus.complete;
-      final bool hasValidProfile = ref.read(profileCompleteGuardProvider);
-      final bool hasCreatedFirstItem = ref.read(
-        creatorFirstItemCreatedGuardProvider,
-      );
-      final bool hasCompletedTimelineFirstAction = ref.read(
-        timelineFirstActionCompletedGuardProvider,
-      );
-      final bool mockLoginEnabled = ref
-          .read(intelligenceStateProvider)
-          .flags
-          .mockLoginEnabled;
-      final bool hasPremiumAccess = ref.read(premiumAccessGuardProvider);
-      final bool hasAdminAccess = ref.read(adminAccessGuardProvider);
-      final bool canAccessCompletionEvents =
-          shouldRegisterCompletionEventsRoute(
-            isReleaseMode: kReleaseMode,
-            hasAdminAccess: hasAdminAccess,
-          );
-      final bool qaSkipOnboarding =
-          !kReleaseMode &&
-          state.uri.queryParameters['qa_skip_onboarding'] == '1';
-
-      if (kDebugMode) {
-        debugPrint(
-          'CHRONOSPARK_ROUTER_REDIRECT: location=$location '
-          'auth=$isAuthenticated '
-          'onboardingStatus=$onboardingStatus '
-          'onboardingComplete=$onboardingComplete '
-          'profile=$hasValidProfile',
-        );
-      }
-      if (!onboardingComplete) {
-        if (location == RoutePaths.onboarding) {
-          return null;
-        }
-        if (qaSkipOnboarding &&
-            mockLoginEnabled &&
-            location == RoutePaths.login) {
-          return null;
-        }
-        return RoutePaths.onboarding;
-      }
-
-      if (!isAuthenticated) {
-        return location == RoutePaths.login ? null : RoutePaths.login;
-      }
-
-      if (location == RoutePaths.sessionBlocked) {
-        if (dataReadiness == AuthenticatedDataReadiness.blocked) {
-          return null;
-        }
-        if (!isAuthenticatedDataReady(dataReadiness)) {
-          return RoutePaths.bootstrap;
-        }
-        return _resolveInitialLocation(
-          isAuthenticated: true,
-          onboardingStatus: onboardingStatus,
-          hasValidProfile: hasValidProfile,
-          hasCreatedFirstItem: hasCreatedFirstItem,
-          hasCompletedTimelineFirstAction: hasCompletedTimelineFirstAction,
-        );
-      }
-
-      final String? readinessRedirect = resolveAuthenticatedDataRouteRedirect(
-        isAuthenticated: isAuthenticated,
-        readiness: dataReadiness,
-        location: location,
-      );
-      if (readinessRedirect != null) {
-        return readinessRedirect;
-      }
-
-      if (location == RoutePaths.bootstrap &&
-          isAuthenticatedDataReady(dataReadiness)) {
-        return _resolveInitialLocation(
-          isAuthenticated: true,
-          onboardingStatus: onboardingStatus,
-          hasValidProfile: hasValidProfile,
-          hasCreatedFirstItem: hasCreatedFirstItem,
-          hasCompletedTimelineFirstAction: hasCompletedTimelineFirstAction,
-        );
-      }
-
-      if (!hasValidProfile) {
-        return location == RoutePaths.onboarding ? null : RoutePaths.onboarding;
-      }
-
-      if (location == RoutePaths.onboarding || location == RoutePaths.login) {
-        if (!hasCreatedFirstItem) {
-          return RoutePaths.creator;
-        }
-        return hasCompletedTimelineFirstAction
-            ? RoutePaths.home
-            : RoutePaths.timeline;
-      }
-
-      if (location == RoutePaths.shell) {
-        if (!hasCreatedFirstItem) {
-          return RoutePaths.creator;
-        }
-        return hasCompletedTimelineFirstAction
-            ? RoutePaths.home
-            : RoutePaths.timeline;
-      }
-
-      final bool premiumOnlyLocation = location == RoutePaths.advisor;
-      if (premiumOnlyLocation && !hasPremiumAccess) {
-        return RoutePaths.paywall;
-      }
-
-      if (location == RoutePaths.advisor && !hasAdminAccess) {
-        return RoutePaths.settings;
-      }
-      if (location == RoutePaths.completionEvents &&
-          !canAccessCompletionEvents) {
-        return RoutePaths.settings;
-      }
-
-      if (location == RoutePaths.notificationPermissionRecovery &&
-          NotificationScheduler.permissionGrantedListenable.value == true) {
-        return RoutePaths.notifications;
-      }
-
-      if (location == RoutePaths.home && !hasCreatedFirstItem) {
-        return RoutePaths.creator;
-      }
-      if (hasCreatedFirstItem &&
-          !hasCompletedTimelineFirstAction &&
-          location != RoutePaths.timeline) {
-        return RoutePaths.timeline;
-      }
-
-      return null;
     },
     routes: <RouteBase>[
-      GoRoute(path: RoutePaths.shell, redirect: (_, _) => RoutePaths.home),
-
-      GoRoute(
-        path: RoutePaths.bootstrap,
-        builder: (BuildContext context, GoRouterState state) => Scaffold(
-          body: Center(
-            child: Semantics(
-              identifier: 'screen-bootstrap',
-              label: 'Preparing ChronoSpark',
-              child: const CircularProgressIndicator(),
-            ),
-          ),
-        ),
-      ),
-      GoRoute(
-        path: RoutePaths.sessionBlocked,
-        builder: (BuildContext context, GoRouterState state) {
-          final boundary = ref.read(authSessionBoundaryProvider);
-          return Scaffold(
-            body: Center(
-              child: Semantics(
-                identifier: 'screen-session-blocked',
-                label: 'Account transition needs attention',
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    boundary.blockingIssue ??
-                        'ChronoSpark cannot safely open account data yet.',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-
-      // Primary surfaces: Now, Plan, Add, Reflect, Settings.
+      // Primary surfaces: Nexus, Timeline, Creator, and Settings.
       GoRoute(
         path: RoutePaths.onboarding,
         builder: (BuildContext context, GoRouterState state) =>
             const OnboardingScreen(),
       ),
       GoRoute(
-        path: RoutePaths.home,
+        path: RoutePaths.nexus,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(),
+            _navigationShellForRoute(state),
       ),
-      GoRoute(
-        path: RoutePaths.plan,
-        builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.creator),
-      ),
+      GoRoute(path: RoutePaths.plan, redirect: (_, _) => RoutePaths.timeline),
       GoRoute(
         path: RoutePaths.creator,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.creator),
-      ),
-      GoRoute(
-        path: RoutePaths.insights,
-        builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.smartCoach),
+            _navigationShellForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.settings,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.settings),
+            _navigationShellForRoute(state),
       ),
 
       // Secondary and advanced routes.
@@ -377,61 +244,57 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const NotificationsPage(),
       ),
       GoRoute(
-        path: RoutePaths.notificationPermissionRecovery,
+        path: RoutePaths.logs,
         builder: (BuildContext context, GoRouterState state) =>
-            const NotificationPermissionRecoveryScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.timeline,
-        builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.timeline),
+            _navigationShellForRoute(state, fallback: AppView.timeline),
       ),
       GoRoute(
         path: RoutePaths.tasks,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.creator),
-      ),
-      GoRoute(
-        path: RoutePaths.notes,
-        builder: (BuildContext context, GoRouterState state) =>
-            const NotesScreen(),
+            _navigationShellForRoute(state, fallback: AppView.creator),
       ),
       GoRoute(
         path: RoutePaths.profile,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.profile),
+            _navigationShellForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.progression,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.progression),
+            _navigationShellForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.si,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.console),
+            _navigationShellForRoute(state),
+      ),
+      GoRoute(
+        path: RoutePaths.timeline,
+        builder: (BuildContext context, GoRouterState state) =>
+            _navigationShellForRoute(state),
+      ),
+      GoRoute(
+        path: RoutePaths.smartPlanner,
+        builder: (BuildContext context, GoRouterState state) =>
+            _navigationShellForRoute(state),
+      ),
+      GoRoute(
+        path: RoutePaths.trajectoryEngine,
+        builder: (BuildContext context, GoRouterState state) =>
+            _navigationShellForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.advisor,
+        redirect: (_, _) => kDebugMode && refresh.hasInternalAdvisorAccess
+            ? null
+            : RoutePaths.settings,
         builder: (BuildContext context, GoRouterState state) =>
             const ProductAdvisorScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.completionEvents,
-        builder: (BuildContext context, GoRouterState state) =>
-            const CompletionEventsDebugScreen(),
       ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.
       // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
-      GoRoute(
-        path: RoutePaths.legacyCoach,
-        redirect: (_, _) => RoutePaths.home,
-      ),
-      GoRoute(
-        path: RoutePaths.legacyTimeline,
-        redirect: (_, _) => RoutePaths.timeline,
-      ),
+      GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
       GoRoute(
         path: RoutePaths.legacyNotifications,
         redirect: (_, _) => RoutePaths.notifications,
@@ -449,6 +312,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.legacyProfile,
         redirect: (_, _) => RoutePaths.profile,
       ),
+      GoRoute(
+        path: RoutePaths.legacyInsights,
+        redirect: (_, _) => RoutePaths.smartPlanner,
+      ),
 
       GoRoute(
         path: RoutePaths.login,
@@ -456,83 +323,82 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final intelligence = ref.read(intelligenceStateProvider);
           final mockLoginConfig = ref.read(mockLoginConfigProvider);
           return AuthGate(
-            enableMockLogin: intelligence.flags.mockLoginEnabled,
+            enableMockLogin:
+                intelligence.flags.mockLoginEnabled ||
+                intelligence.flags.testerFullAccess,
             mockLoginEmail: mockLoginConfig.email,
             mockLoginPassword: mockLoginConfig.password,
-            deepLinkMode: state.uri.queryParameters['mode'],
-            child: const NavigationShell(),
+            deepLinkMode: parseDeepLinkMode(state.uri.queryParameters['mode']),
+            child: _navigationShellForRoute(state),
           );
         },
       ),
       GoRoute(
-        path: RoutePaths.unsupportedLink,
-        builder: (BuildContext context, GoRouterState state) =>
-            const UnsupportedLinkPage(),
-      ),
-      GoRoute(
         path: RoutePaths.paywall,
         builder: (BuildContext context, GoRouterState state) =>
-            const PaywallScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.planComparison,
-        builder: (BuildContext context, GoRouterState state) =>
-            const PlanComparisonScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.creditStore,
-        builder: (BuildContext context, GoRouterState state) =>
-            const CreditStoreScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.creditHistory,
-        builder: (BuildContext context, GoRouterState state) =>
-            const CreditHistoryScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.subscriptionManagement,
-        builder: (BuildContext context, GoRouterState state) =>
-            const SubscriptionManagementScreen(),
+            const PaywallPage(),
       ),
       GoRoute(
         path: RoutePaths.privacy,
-        builder: (BuildContext context, GoRouterState state) => const WebPageView(
-          title: 'Privacy Policy',
-          body:
-              'ChronoSpark publishes its authoritative privacy policy at the public HTTPS URL below. Use the hosted policy for the current data handling, retention, and support terms reviewed for release.',
-          externalUrl: AppUrls.privacy,
-          callToActionLabel: 'Open Hosted Privacy Policy',
-        ),
+        builder: (BuildContext context, GoRouterState state) {
+          final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(
+            context,
+          );
+          return WebPageView(
+            title: l10n.text(ChronoSparkString.privacyPolicyTitle),
+            body: l10n.text(ChronoSparkString.privacyPolicyBody),
+            externalUrl: AppUrls.privacy,
+            callToActionLabel: l10n.text(
+              ChronoSparkString.openHostedPrivacyPolicy,
+            ),
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.deleteAccount,
-        builder: (BuildContext context, GoRouterState state) => const WebPageView(
-          title: 'Delete Account',
-          body:
-              'ChronoSpark publishes account deletion steps at the public HTTPS URL below. Use the hosted page to submit a deletion request and review deletion/retention details.',
-          externalUrl: AppUrls.deleteAccount,
-          callToActionLabel: 'Open Hosted Delete Account Page',
-        ),
+        builder: (BuildContext context, GoRouterState state) {
+          final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(
+            context,
+          );
+          return WebPageView(
+            title: l10n.text(ChronoSparkString.deleteAccountTitle),
+            body: l10n.text(ChronoSparkString.deleteAccountBody),
+            externalUrl: AppUrls.deleteAccount,
+            callToActionLabel: l10n.text(
+              ChronoSparkString.openHostedDeleteAccountPage,
+            ),
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.terms,
-        builder: (BuildContext context, GoRouterState state) => const WebPageView(
-          title: 'Terms of Service',
-          body:
-              'ChronoSpark maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
-          externalUrl: AppUrls.terms,
-          callToActionLabel: 'Open Hosted Terms',
-        ),
+        builder: (BuildContext context, GoRouterState state) {
+          final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(
+            context,
+          );
+          return WebPageView(
+            title: l10n.text(ChronoSparkString.termsTitle),
+            body: l10n.text(ChronoSparkString.termsBody),
+            externalUrl: AppUrls.terms,
+            callToActionLabel: l10n.text(ChronoSparkString.openHostedTerms),
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.support,
-        builder: (BuildContext context, GoRouterState state) => const WebPageView(
-          title: 'Support',
-          body:
-              'ChronoSpark publishes release-facing support and account assistance at the public HTTPS URL below so store reviewers and users can reach the current support process from every build.',
-          externalUrl: AppUrls.support,
-          callToActionLabel: 'Open Hosted Support Page',
-        ),
+        builder: (BuildContext context, GoRouterState state) {
+          final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(
+            context,
+          );
+          return WebPageView(
+            title: l10n.text(ChronoSparkString.supportTitle),
+            body: l10n.text(ChronoSparkString.supportBody),
+            externalUrl: AppUrls.support,
+            callToActionLabel: l10n.text(
+              ChronoSparkString.openHostedSupportPage,
+            ),
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.about,
@@ -541,4 +407,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(router.dispose);
+  return router;
 });
+
+NavigationShell _navigationShellForRoute(
+  GoRouterState state, {
+  AppView fallback = AppView.nexus,
+}) {
+  return NavigationShell(
+    initialView: appViewFromRoutePath(state.matchedLocation) ?? fallback,
+    allowSavedTabRestore:
+        state.matchedLocation == RoutePaths.nexus &&
+        state.uri.queryParameters[restoreSavedTabQueryParameter] == 'true',
+  );
+}

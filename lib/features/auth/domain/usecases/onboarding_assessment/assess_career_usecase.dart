@@ -1,3 +1,0 @@
-class AssessCareerUsecase {
-  const AssessCareerUsecase();
-}

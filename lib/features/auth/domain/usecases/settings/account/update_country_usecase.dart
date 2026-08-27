@@ -1,3 +1,0 @@
-class UpdateCountryUsecase {
-  const UpdateCountryUsecase();
-}

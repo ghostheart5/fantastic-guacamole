@@ -1,3 +1,0 @@
-class ViewHabitStreaksUsecase {
-  const ViewHabitStreaksUsecase();
-}

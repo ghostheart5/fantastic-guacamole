@@ -1,3 +1,0 @@
-﻿class UpdatePrivacySettingsUsecase {
-  const UpdatePrivacySettingsUsecase();
-}

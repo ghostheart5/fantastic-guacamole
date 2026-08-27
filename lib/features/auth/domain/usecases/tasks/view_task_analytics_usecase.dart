@@ -1,3 +1,0 @@
-class ViewTaskAnalyticsUsecase {
-  const ViewTaskAnalyticsUsecase();
-}

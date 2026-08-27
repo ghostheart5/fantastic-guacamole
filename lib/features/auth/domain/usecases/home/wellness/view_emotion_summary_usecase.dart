@@ -1,3 +1,0 @@
-class ViewEmotionSummaryUsecase {
-  const ViewEmotionSummaryUsecase();
-}

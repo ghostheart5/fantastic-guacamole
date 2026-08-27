@@ -1,3 +1,0 @@
-class ExportInsightsUsecase {
-  const ExportInsightsUsecase();
-}

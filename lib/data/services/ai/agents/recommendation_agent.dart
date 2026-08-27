@@ -24,7 +24,7 @@ class RecommendationAgent extends AiAgent implements RecommendationEngine {
     final LearningState? learning = request['learning'] as LearningState?;
     final AIPersonality personality = request['personality'] is AIPersonality
         ? request['personality'] as AIPersonality
-        : AIPersonality.coach;
+        : AIPersonality.planner;
 
     final AIResponse response = await (service ?? SIAIService()).generate(
       tasks: tasks,

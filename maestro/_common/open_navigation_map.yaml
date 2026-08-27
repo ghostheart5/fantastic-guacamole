@@ -1,6 +1,0 @@
-appId: ${APP_ID}
----
-- tapOn:
-    id: "nav-open-map"
-- assertVisible:
-    id: "nav-timeline"

@@ -1,3 +1,0 @@
-class DisableNotificationsUsecase {
-  const DisableNotificationsUsecase();
-}

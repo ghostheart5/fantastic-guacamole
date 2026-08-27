@@ -2,10 +2,10 @@
 
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
-enum AIPersonality { coach, strategist, strict }
+enum AIPersonality { planner, strategist, strict }
 
-class AIStyleDirective {
-  const AIStyleDirective({
+class AIStyleGuidance {
+  const AIStyleGuidance({
     required this.tone,
     required this.maxWords,
     required this.useSteps,
@@ -19,14 +19,14 @@ class AIStyleDirective {
   final bool allowHumor;
   final double pressureLevel;
 
-  AIStyleDirective copyWith({
+  AIStyleGuidance copyWith({
     String? tone,
     int? maxWords,
     bool? useSteps,
     bool? allowHumor,
     double? pressureLevel,
   }) {
-    return AIStyleDirective(
+    return AIStyleGuidance(
       tone: tone ?? this.tone,
       maxWords: maxWords ?? this.maxWords,
       useSteps: useSteps ?? this.useSteps,
@@ -54,14 +54,14 @@ class AIPersonalityProfile {
 
   final SIPersona persona;
   final PersonalityTraits traits;
-  final AIStyleDirective style;
+  final AIStyleGuidance style;
   final String identity;
 
   factory AIPersonalityProfile.fromResponse(SIResponse response) {
     return AIPersonalityProfile(
       persona: response.persona,
       traits: response.traits,
-      style: AIStyleDirective(
+      style: AIStyleGuidance(
         tone: _toneFor(response.persona),
         maxWords: response.emotion == 'stressed' ? 42 : 64,
         useSteps: response.emotion == 'confused',
@@ -123,8 +123,8 @@ class AIPersonalityProfile {
         return 'calm_supportive';
       case SIPersona.assistant:
         return 'clear_direct';
-      case SIPersona.coach:
-        return 'focused_motivating';
+      case SIPersona.planner:
+        return 'direct_motivating';
       case SIPersona.companion:
         return 'warm_grounded';
       case SIPersona.analyst:
@@ -138,8 +138,8 @@ class AIPersonalityProfile {
         return 'steady guide';
       case SIPersona.assistant:
         return 'clarity assistant';
-      case SIPersona.coach:
-        return 'focus coach';
+      case SIPersona.planner:
+        return 'execution planner';
       case SIPersona.companion:
         return 'supportive companion';
       case SIPersona.analyst:

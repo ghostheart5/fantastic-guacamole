@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart';
+import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,17 +36,15 @@ class AppAccessState {
   }
 }
 
-final runtimePremiumAccessProvider =
-    NotifierProvider<RuntimePremiumAccessNotifier, bool>(
-      RuntimePremiumAccessNotifier.new,
-    );
-
-class RuntimePremiumAccessNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void set(bool value) => state = value;
-}
+/// Read-only view of [entitlementProvider].
+///
+/// Kept as a compatibility alias for existing call sites. It is deliberately
+/// *derived* rather than settable: a separately-writable premium flag was the
+/// cause of paid access being lost on relaunch, because it always rebuilt to
+/// false and nothing rehydrated it from the persisted subscription.
+final runtimePremiumAccessProvider = Provider<bool>((ref) {
+  return ref.watch(entitlementProvider).asData?.value.isPremium ?? false;
+});
 
 final appAccessProvider = Provider<AppAccessState>((ref) {
   final intelligence = ref.watch(intelligenceStateProvider);
@@ -54,13 +52,25 @@ final appAccessProvider = Provider<AppAccessState>((ref) {
       intelligence.flags.testerFullAccess ||
       intelligence.flags.mockMode ||
       intelligence.flags.paywallDisabled;
-  final bool runtimePremiumAccess = ref.watch(runtimePremiumAccessProvider);
-  final bool monetizationPremiumAccess = ref.watch(premiumAccessProvider);
+  // Unresolved entitlement reads as not premium, so access fails closed while
+  // the persisted subscription is still being read.
+  final bool entitled =
+      ref.watch(entitlementProvider).asData?.value.isPremium ?? false;
 
   return AppAccessState(
-    hasPremiumAccess:
-        testerFullAccess || runtimePremiumAccess || monetizationPremiumAccess,
+    hasPremiumAccess: testerFullAccess || entitled,
     hasTesterFullAccess: testerFullAccess,
     paywallDisabled: intelligence.flags.paywallDisabled,
   );
+});
+
+/// Trusted Product Advisor authorization.
+///
+/// This intentionally reads only server-controlled auth app metadata propagated
+/// from Supabase. User-editable profile/user metadata, premium entitlement,
+/// tester-full-access, and mock-login flags must not grant access to internal
+/// Product Advisor diagnostics.
+final internalAdvisorAccessProvider = Provider<bool>((ref) {
+  final user = ref.watch(authUserProvider).asData?.value;
+  return user?.hasInternalAdvisorAccess ?? false;
 });

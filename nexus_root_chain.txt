@@ -1,4 +1,0 @@
-C:\Users\keegan radetski\fantastic-guacamole\lib\state\controllers\momentum_controller.dart:17: final momentumProvider = NotifierProvider<MomentumController, MomentumState>(
-C:\Users\keegan radetski\fantastic-guacamole\lib\state\controllers\tester_data_reset_controller.dart:50: _ref.invalidate(momentumProvider);
-C:\Users\keegan radetski\fantastic-guacamole\lib\state\providers\advisor_provider.dart:18: final momentum = ref.watch(momentumProvider);
-C:\Users\keegan radetski\fantastic-guacamole\lib\state\providers\optimization_provider.dart:56: final momentum = ref.read(momentumProvider);

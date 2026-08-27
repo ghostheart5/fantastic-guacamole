@@ -1,6 +1,6 @@
-// Behavior Shaping Engine - progressive micro-progression
-// Session length ladder: 10->12->15->18->22->30 min
-// Tracks consistency, capacity, and stability across sessions.
+// Behavior Shaping Engine — progressive micro-progression
+// Work-block length ladder: 10→12→15→18→22→30 min
+// Tracks consistency, capacity, and stability across work blocks.
 
 class BehaviorState {
   const BehaviorState({
@@ -9,7 +9,7 @@ class BehaviorState {
     required this.stability,
   });
 
-  final double consistency; // 0.0-1.0
+  final double consistency; // 0.0–1.0
   final double capacity;
   final double stability;
 
@@ -27,11 +27,11 @@ class BehaviorState {
 class BehaviorTarget {
   const BehaviorTarget({
     required this.targetDifficulty,
-    required this.targetSessionLength,
+    required this.targetWorkBlockMinutes,
   });
 
-  final double targetDifficulty; // 1.0-5.0
-  final int targetSessionLength; // minutes
+  final double targetDifficulty; // 1.0–5.0
+  final int targetWorkBlockMinutes; // minutes
 }
 
 class BehaviorShapingEngine {
@@ -41,12 +41,12 @@ class BehaviorShapingEngine {
 
   BehaviorState update({
     required BehaviorState current,
-    required bool sessionCompleted,
+    required bool completionRecorded,
     required bool taskCompleted,
     required double frictionScore,
   }) {
     return BehaviorState(
-      consistency: (current.consistency + (sessionCompleted ? 0.05 : -0.03))
+      consistency: (current.consistency + (completionRecorded ? 0.05 : -0.03))
           .clamp(0.0, 1.0),
       capacity: (current.capacity + (taskCompleted ? 0.03 : -0.02)).clamp(
         0.0,
@@ -66,12 +66,12 @@ class BehaviorShapingEngine {
     );
     return BehaviorTarget(
       targetDifficulty: (avg * 4.0 + 1.0).clamp(1.0, 5.0),
-      targetSessionLength: _ladder[index],
+      targetWorkBlockMinutes: _ladder[index],
     );
   }
 
-  int adjustSession(int current, BehaviorState state) {
-    final int target = generateTarget(state).targetSessionLength;
+  int adjustWorkBlock(int current, BehaviorState state) {
+    final int target = generateTarget(state).targetWorkBlockMinutes;
     return current < target ? target : current.clamp(target, 60);
   }
 }

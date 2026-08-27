@@ -1,3 +1,0 @@
-class ViewCreatorProfileUsecase {
-  const ViewCreatorProfileUsecase();
-}

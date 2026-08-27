@@ -1,3 +1,0 @@
-class SetAiMemoryPreferencesUsecase {
-  const SetAiMemoryPreferencesUsecase();
-}

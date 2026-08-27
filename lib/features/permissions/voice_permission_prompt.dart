@@ -42,17 +42,17 @@ class VoicePermissionPrompt extends StatelessWidget {
             title,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Allow microphone access to use voice-to-text and spoken coaching in the SI console.',
+            'Allow microphone access to use voice-to-text and spoken Smart Planner guidance in the SI Console.',
             style: TextStyle(
               color: Colors.white70,
-              fontSize: 13.5,
-              height: 1.4,
+              fontSize: 12.5,
+              height: 1.35,
             ),
           ),
           const SizedBox(height: 10),

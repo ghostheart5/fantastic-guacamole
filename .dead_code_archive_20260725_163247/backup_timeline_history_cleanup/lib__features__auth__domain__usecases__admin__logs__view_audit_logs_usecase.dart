@@ -1,3 +1,0 @@
-﻿class ViewAuditLogsUsecase {
-  const ViewAuditLogsUsecase();
-}

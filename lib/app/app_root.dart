@@ -1,33 +1,33 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
-import 'package:fantastic_guacamole/app/router/navigation_policy.dart';
+import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
-import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
-import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
-import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
-import 'package:fantastic_guacamole/tutorial/mission/mission_overlay.dart';
-import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
-import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
-import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class AppRoot extends ConsumerStatefulWidget {
-  const AppRoot({super.key, this.startupError});
+  const AppRoot({
+    super.key,
+    this.startupError,
+    this.productionReadinessBlocked = false,
+  });
 
   final String? startupError;
+  final bool productionReadinessBlocked;
 
   @override
   ConsumerState<AppRoot> createState() => _AppRootState();
@@ -35,80 +35,44 @@ class AppRoot extends ConsumerStatefulWidget {
 
 class _AppRootState extends ConsumerState<AppRoot> {
   GoRouter? _router;
-  bool _activationFinalizationInFlight = false;
   final Set<String> _handledDeepLinks = <String>{};
-  final Set<String> _handledNotificationPayloads = <String>{};
-  String? _lastTrackedLocation;
-
-  @override
-  void initState() {
-    super.initState();
-    NotificationScheduler.notificationPayloadListenable.addListener(
-      _handleNotificationPayloadChange,
-    );
-  }
-
-  void _attachRouterListener(GoRouter router) {
-    if (identical(_router, router)) {
-      return;
-    }
-    _router?.routerDelegate.removeListener(_trackRouteChange);
-    _router = router;
-    router.routerDelegate.addListener(_trackRouteChange);
-    _trackRouteChange();
-  }
-
-  @override
-  void dispose() {
-    NotificationScheduler.notificationPayloadListenable.removeListener(
-      _handleNotificationPayloadChange,
-    );
-    _router?.routerDelegate.removeListener(_trackRouteChange);
-    super.dispose();
-  }
-
-  void _handleNotificationPayloadChange() {
-    final GoRouter? router = _router;
-    if (router != null) {
-      _handlePendingNotificationTap(router);
-    }
-  }
-
-  void _trackRouteChange() {
-    final GoRouter? router = _router;
-    if (router == null) {
-      return;
-    }
-
-    String location = '';
-
-    try {
-      location = router.state.matchedLocation;
-    } on StateError {
-      // GoRouter can briefly have no matched route during initial widget-test boot.
-      return;
-    }
-
-    if (location.trim().isEmpty) {
-      return;
-    }
-
-    if (location == _lastTrackedLocation) {
-      return;
-    }
-
-    _lastTrackedLocation = location;
-    unawaited(AppAnalytics.trackScreen(location));
-  }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.productionReadinessBlocked) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: AppConfig.fromEnv().appName,
+        theme: appTheme,
+        home: const _ProductionReadinessLock(),
+      );
+    }
+
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
+    final AuthSessionBoundary accountBoundary = ref.watch(
+      authSessionBoundaryProvider,
+    );
     final String startupMessage = widget.startupError?.trim() ?? '';
     final bool showQaDiagnostics = ref
         .watch(intelligenceStateProvider)
         .flags
         .testerFullAccess;
+    if (accountBoundary.isTransitioning ||
+        accountBoundary.blockingIssue != null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: AppConfig.fromEnv().appName,
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
+        home: _AccountDataLock(boundary: accountBoundary),
+      );
+    }
     final RemoteAnnouncement? remoteAnnouncement = ref
         .watch(remoteAnnouncementProvider)
         .asData
@@ -119,6 +83,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
       showQaDiagnostics: showQaDiagnostics,
     );
     final GoRouter router = ref.watch(appRouterProvider);
+    _router = router;
 
     ref.listen<AsyncValue<DeepLinkState>>(deepLinkStateProvider, (
       AsyncValue<DeepLinkState>? _,
@@ -131,33 +96,27 @@ class _AppRootState extends ConsumerState<AppRoot> {
       _handleDeepLink(uri, router);
     });
 
-    ref.listen<AsyncValue<MissionState>>(missionStateProvider, (
-      AsyncValue<MissionState>? _,
-      AsyncValue<MissionState> next,
-    ) {
-      final MissionState? missionState = next.asData?.value;
-      if (missionState == null || !missionState.finished) {
-        return;
-      }
-      unawaited(_finalizeMissionZeroActivation());
-    });
-
-    _attachRouterListener(router);
-    _handlePendingNotificationTap(router);
-
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: AppConfig.fromEnv().appName,
+      supportedLocales: ChronoSparkLocalizations.supportedLocales,
+      localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+        ChronoSparkLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
       routerConfig: router,
       builder: (context, child) {
-        final Widget appChild = ErrorBoundary(
-          child: Stack(
-            children: <Widget>[
-              child ?? const SizedBox.shrink(),
-              const MissionOverlay(),
-            ],
-          ),
+        final Widget appChild = Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            Positioned.fill(
+              child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
+            ),
+            const AdaptiveGuideOverlay(),
+          ],
         );
 
         if (startupBannerMessage.isEmpty &&
@@ -167,34 +126,31 @@ class _AppRootState extends ConsumerState<AppRoot> {
         }
 
         return Stack(
+          fit: StackFit.expand,
           children: [
             appChild,
             if (startupBannerMessage.isNotEmpty)
-              IgnorePointer(
-                // Keep diagnostics visible without blocking taps on page controls.
-                ignoring: true,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SafeArea(
-                    minimum: const EdgeInsets.all(16),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.redAccent.withValues(alpha: 0.35),
-                          ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  minimum: const EdgeInsets.all(16),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.redAccent.withValues(alpha: 0.35),
                         ),
-                        child: Text(
-                          startupBannerMessage,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
+                      ),
+                      child: Text(
+                        startupBannerMessage,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -271,63 +227,6 @@ class _AppRootState extends ConsumerState<AppRoot> {
     );
   }
 
-  Future<void> _finalizeMissionZeroActivation() async {
-    if (_activationFinalizationInFlight) {
-      return;
-    }
-
-    final OnboardingStatus onboardingStatus = ref.read(
-      onboardingStatusProvider,
-    );
-    if (onboardingStatus == OnboardingStatus.complete) {
-      return;
-    }
-
-    _activationFinalizationInFlight = true;
-    try {
-      await SharedPrefsService.saveBool(onboardingCompleteStorageKey, true);
-      await SharedPrefsService.saveInt(
-        onboardingContentVersionStorageKey,
-        onboardingContentVersion,
-      );
-      await SharedPrefsService.saveInt(onboardingStepStorageKey, 0);
-      await SharedPrefsService.save(
-        onboardingCanonicalStateStorageKey,
-        jsonEncode(
-          buildOnboardingCanonicalStatePayload(
-            complete: true,
-            version: onboardingContentVersion,
-          ),
-        ),
-      );
-      await SharedPrefsService.saveBool(
-        creatorFirstItemCreatedStorageKey,
-        true,
-      );
-      await SharedPrefsService.saveBool(
-        timelineFirstActionCompletedStorageKey,
-        true,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      ref.read(onboardingCompleteProvider.notifier).set(true);
-      ref
-          .read(onboardingStatusProvider.notifier)
-          .set(OnboardingStatus.complete);
-      ref.read(creatorFirstItemCreatedProvider.notifier).set(true);
-      ref.read(timelineFirstActionCompletedProvider.notifier).set(true);
-
-      if (GoRouter.maybeOf(context) != null) {
-        context.go(RoutePaths.home);
-      }
-    } finally {
-      _activationFinalizationInFlight = false;
-    }
-  }
-
   bool _showRemoteAnnouncement(RemoteAnnouncement? announcement) {
     if (announcement == null) {
       return false;
@@ -350,33 +249,107 @@ class _AppRootState extends ConsumerState<AppRoot> {
 
   void _handleDeepLink(Uri uri, GoRouter router) {
     final String deepLinkKey = uri.toString();
-
     if (_handledDeepLinks.contains(deepLinkKey)) {
       return;
     }
 
-    _handledDeepLinks.add(deepLinkKey);
-
-    final String location = resolveDeepLinkLocation(uri);
+    final String location = _resolveDeepLinkLocation(uri);
     if (location.isEmpty) {
       return;
     }
-
-    String currentUri = '';
-
-    try {
-      currentUri = router.state.uri.toString();
-    } on StateError {
-      currentUri = '';
-    }
-
-    if (currentUri == location) {
+    final String currentLocation = router.state.matchedLocation;
+    if (currentLocation == location) {
+      _handledDeepLinks.add(deepLinkKey);
       return;
     }
-
     // Deep links are handled automatically without direct user interaction.
     // Use replace to avoid creating a synthetic browser history entry.
-    router.replace<void>(location);
+    try {
+      router.replace<Object?>(location);
+      _handledDeepLinks.add(deepLinkKey);
+    } on Exception {
+      // Do not mark the link handled unless the router accepted the target.
+    }
+  }
+
+  String _resolveDeepLinkLocation(Uri uri) {
+    final String appPath = _normalizeAppPath(uri.path);
+    if (appPath.isEmpty) {
+      return '';
+    }
+
+    final Map<String, String> params = _allLinkParams(uri);
+
+    if (appPath == '/app/auth/callback') {
+      final String type = (params['type'] ?? '').toLowerCase();
+      final String mode = switch (type) {
+        'recovery' => 'recovery',
+        'signup' || 'email_change' || 'invite' => 'verify-email',
+        _ => 'auth-callback',
+      };
+      final String? returnTo = RouteAccessPolicy.validatedReturnTo(
+        params[RouteAccessPolicy.returnToQueryParameter],
+      );
+      final Map<String, String> queryParameters = <String, String>{
+        'mode': mode,
+      };
+      if (returnTo != null) {
+        queryParameters[RouteAccessPolicy.returnToQueryParameter] = returnTo;
+      }
+      return Uri(
+        path: RoutePaths.login,
+        queryParameters: queryParameters,
+      ).toString();
+    }
+
+    if (appPath == '/app' || appPath == '/app/') {
+      return RoutePaths.nexus;
+    }
+
+    final String leaf = appPath.substring('/app/'.length);
+    final String route = switch (leaf) {
+      'home' || 'nexus' => RoutePaths.nexus,
+      'plan' => RoutePaths.timeline,
+      'creator' => RoutePaths.creator,
+      'settings' => RoutePaths.settings,
+      'notifications' => RoutePaths.notifications,
+      'support' => RoutePaths.support,
+      'privacy' => RoutePaths.privacy,
+      'terms' => RoutePaths.terms,
+      _ => RoutePaths.nexus,
+    };
+    return _withAllowedLinkParts(route, uri);
+  }
+
+  String _withAllowedLinkParts(String route, Uri source) {
+    final Map<String, String> query = Map<String, String>.of(
+      source.queryParameters,
+    )..remove(RouteAccessPolicy.returnToQueryParameter);
+    return Uri(
+      path: route,
+      queryParameters: query.isEmpty ? null : query,
+      fragment: source.fragment.isEmpty ? null : source.fragment,
+    ).toString();
+  }
+
+  String _normalizeAppPath(String path) {
+    if (path == '/app' || path == '/app/' || path.startsWith('/app/')) {
+      return path;
+    }
+    final int appStart = path.indexOf('/app');
+    if (appStart >= 0) {
+      return path.substring(appStart);
+    }
+    return '';
+  }
+
+  Map<String, String> _allLinkParams(Uri uri) {
+    final Map<String, String> merged = <String, String>{...uri.queryParameters};
+    final String fragment = uri.fragment.trim();
+    if (fragment.isNotEmpty) {
+      merged.addAll(Uri.splitQueryString(fragment));
+    }
+    return merged;
   }
 
   String _startupBannerMessage(
@@ -469,38 +442,170 @@ class _AppRootState extends ConsumerState<AppRoot> {
       },
     );
   }
+}
 
-  void _handlePendingNotificationTap(GoRouter router) {
-    final String? payload =
-        NotificationScheduler.consumePendingNotificationPayload();
+class _ProductionReadinessLock extends StatelessWidget {
+  const _ProductionReadinessLock();
 
-    if (payload == null || payload.isEmpty) {
-      return;
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF050D1A),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Semantics(
+              liveRegion: true,
+              label:
+                  'ChronoSpark cannot start safely. Please install the latest version and try again.',
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    Icons.shield_outlined,
+                    size: 48,
+                    color: Color(0xFF00E5FF),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'ChronoSpark cannot start safely',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'This version is missing required setup. To protect your account and data, the app will remain closed. Please install the latest version and try again.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-    if (_handledNotificationPayloads.contains(payload)) {
-      return;
-    }
+class _AccountDataLock extends ConsumerWidget {
+  const _AccountDataLock({required this.boundary});
 
-    _handledNotificationPayloads.add(payload);
+  final AuthSessionBoundary boundary;
 
-    final String location = resolveNotificationPayloadLocation(payload);
-    if (location.isEmpty) {
-      return;
-    }
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final String? issue = boundary.canClaimPreservedData
+        ? l10n.text(ChronoSparkString.preservedDataIssue)
+        : boundary.blockingIssue;
+    return Scaffold(
+      backgroundColor: const Color(0xFF050D1A),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Semantics(
+              liveRegion: true,
+              label: issue ?? l10n.text(ChronoSparkString.securingAccountData),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (issue == null) ...<Widget>[
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 20),
+                    Text(l10n.text(ChronoSparkString.securingAccountData)),
+                  ] else ...<Widget>[
+                    const Icon(
+                      Icons.lock_person_outlined,
+                      size: 48,
+                      color: Color(0xFF00E5FF),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      issue,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (boundary.canClaimPreservedData) ...<Widget>[
+                      const SizedBox(height: 24),
+                      Text(
+                        l10n.text(ChronoSparkString.preservedDataBody),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 48,
+                        child: FilledButton(
+                          onPressed: () => ref
+                              .read(authSessionBoundaryCoordinatorProvider)
+                              .claimPreservedDataForCurrentAccount(),
+                          child: Text(
+                            l10n.text(ChronoSparkString.claimPreservedData),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (boundary.canClearPreservedData) ...<Widget>[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: () =>
+                              _confirmClearPreservedData(context, ref),
+                          child: Text(
+                            l10n.text(ChronoSparkString.clearPreservedData),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-    String currentUri = '';
-
-    try {
-      currentUri = router.state.uri.toString();
-    } on StateError {
-      currentUri = '';
-    }
-
-    if (currentUri == location) {
-      return;
-    }
-
-    router.replace<void>(location);
+  Future<void> _confirmClearPreservedData(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: Text(l10n.text(ChronoSparkString.clearPreservedDataTitle)),
+            content: Text(l10n.text(ChronoSparkString.clearPreservedDataBody)),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(l10n.text(ChronoSparkString.cancel)),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(l10n.text(ChronoSparkString.clearPreservedData)),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !context.mounted) return;
+    await ref
+        .read(authSessionBoundaryCoordinatorProvider)
+        .clearPreservedDataForCurrentAccount();
   }
 }

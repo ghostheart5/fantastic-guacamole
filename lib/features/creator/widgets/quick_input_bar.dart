@@ -13,20 +13,20 @@ class QuickInputBar extends StatefulWidget {
 
 class _QuickInputBarState extends State<QuickInputBar> {
   final _controller = TextEditingController();
-  final _hasText = ValueNotifier<bool>(false);
+  bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(() {
-      _hasText.value = _controller.text.trim().isNotEmpty;
+      final hasText = _controller.text.trim().isNotEmpty;
+      if (hasText != _hasText) setState(() => _hasText = hasText);
     });
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    _hasText.dispose();
     super.dispose();
   }
 
@@ -82,32 +82,30 @@ class _QuickInputBarState extends State<QuickInputBar> {
             ),
           ),
           const SizedBox(width: 8),
-          ValueListenableBuilder<bool>(
-            valueListenable: _hasText,
-            builder: (context, hasText, _) => AnimatedOpacity(
-              opacity: hasText ? 1.0 : 0.3,
-              duration: const Duration(milliseconds: 150),
-              child: SmartPressable(
-                onTap: hasText ? _submit : () {},
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: hasText
-                        ? AppColors.neonCyan.withValues(alpha: 0.2)
-                        : Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: hasText
-                          ? AppColors.neonCyan.withValues(alpha: 0.5)
-                          : Colors.white.withValues(alpha: 0.08),
-                    ),
+          AnimatedOpacity(
+            opacity: _hasText ? 1.0 : 0.3,
+            duration: const Duration(milliseconds: 150),
+            child: SmartPressable(
+              onTap: _hasText ? _submit : () {},
+              semanticLabel: 'Send quick task',
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _hasText
+                      ? AppColors.neonCyan.withValues(alpha: 0.2)
+                      : Colors.white.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _hasText
+                        ? AppColors.neonCyan.withValues(alpha: 0.5)
+                        : Colors.white.withValues(alpha: 0.08),
                   ),
-                  child: Icon(
-                    Icons.send_rounded,
-                    size: 15,
-                    color: hasText ? AppColors.neonCyan : Colors.white24,
-                  ),
+                ),
+                child: Icon(
+                  Icons.send_rounded,
+                  size: 15,
+                  color: _hasText ? AppColors.neonCyan : Colors.white24,
                 ),
               ),
             ),

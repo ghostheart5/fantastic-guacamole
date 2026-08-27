@@ -24,7 +24,7 @@ class EmotionSelector extends StatelessWidget {
       case EmotionalState.fatigued:
       case EmotionalState.scattered:
         return AppColors.memoryAmber;
-      case EmotionalState.focused:
+      case EmotionalState.engaged:
         return AppColors.neonViolet;
       case EmotionalState.calm:
       case EmotionalState.neutral:
@@ -40,11 +40,15 @@ class EmotionSelector extends StatelessWidget {
       children: EmotionalState.values.map((state) {
         final isSelected = state == selected;
         final color = _colorFor(state);
-        return RepaintBoundary(
-          child: SmartPressable(
-            onTap: () => onSelect(state),
+        return SmartPressable(
+          onTap: () => onSelect(state),
+          semanticLabel: 'Select ${state.name} emotional state',
+          selected: isSelected,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
+              alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: isSelected
@@ -63,7 +67,7 @@ class EmotionSelector extends StatelessWidget {
                   fontSize: 10,
                   letterSpacing: 1.5,
                   fontWeight: FontWeight.w700,
-                  color: isSelected ? color : Colors.white38,
+                  color: isSelected ? color : Colors.white60,
                 ),
               ),
             ),

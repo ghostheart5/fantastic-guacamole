@@ -1,3 +1,0 @@
-class ViewRecurringEmotionsUsecase {
-  const ViewRecurringEmotionsUsecase();
-}

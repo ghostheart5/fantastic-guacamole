@@ -1,3 +1,0 @@
-class RespondToSupportTicketUsecase {
-  const RespondToSupportTicketUsecase();
-}

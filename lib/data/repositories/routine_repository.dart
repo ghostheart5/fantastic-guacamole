@@ -1,9 +1,8 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
-import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
 
 class RoutineRepository implements IRoutineRepository {
@@ -12,122 +11,67 @@ class RoutineRepository implements IRoutineRepository {
   static const String _key = 'routines_v1';
 
   final HiveStorage<String> _store;
-  bool _corruptedSnapshot = false;
-  Future<void> _writeQueue = Future<void>.value();
 
   @override
-  List<RoutineEntity> getRoutines() {
+  List<HabitEntity> getRoutines() {
     String? raw;
     try {
       raw = _store.get(_key);
-    } on StateError catch (error) {
-      throw StorageException('Routine storage is unavailable: $error');
+    } on StateError {
+      return const <HabitEntity>[];
     }
     if (raw == null || raw.trim().isEmpty) {
-      _corruptedSnapshot = false;
-      return const <RoutineEntity>[];
+      return const <HabitEntity>[];
     }
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
-      _corruptedSnapshot = false;
       return list
-          .map((dynamic value) {
-            if (value is! Map) {
-              throw const FormatException(
-                'Routine storage contains a non-object entry.',
-              );
-            }
-            return RoutineEntity.fromJson(_validateRoutinePayload(value));
-          })
+          .whereType<Map<String, dynamic>>()
+          .map(HabitEntity.fromJson)
           .toList(growable: false);
-    } on Object catch (error) {
-      _corruptedSnapshot = true;
-      Logger.error(
-        'Routines snapshot is corrupted; writes are blocked.',
+    } catch (error, stackTrace) {
+      // Corrupted payload: return the empty/absent value so the app stays
+      // usable, but make it observable instead of silently
+      // indistinguishable from "user has no routines".
+      Logger.errorCategory(
+        'StorageCorruption',
+        'Failed to decode stored routines; returning empty result.',
         error,
+        stackTrace,
       );
-      throw StorageException('Routine storage is corrupted: $error');
+      return const <HabitEntity>[];
     }
   }
 
   @override
-  Future<void> saveRoutine(RoutineEntity routine) {
-    return _serializeWrite(() async {
-      final List<RoutineEntity> existing = getRoutines().toList(growable: true);
-      _ensureWriteAllowed();
-      final int index = existing.indexWhere(
-        (RoutineEntity item) => item.id == routine.id,
-      );
-      if (index >= 0) {
-        existing[index] = routine;
-      } else {
-        existing.insert(0, routine);
-      }
-      await _saveRoutinesUnlocked(existing);
-    });
+  Future<void> saveRoutine(HabitEntity routine) {
+    final List<HabitEntity> existing = getRoutines().toList(growable: true);
+    final int index = existing.indexWhere(
+      (HabitEntity item) => item.id == routine.id,
+    );
+    if (index >= 0) {
+      existing[index] = routine;
+    } else {
+      existing.insert(0, routine);
+    }
+    return saveRoutines(existing);
   }
 
   @override
-  Future<void> saveRoutines(List<RoutineEntity> routines) {
-    return _serializeWrite(() async {
-      getRoutines();
-      _ensureWriteAllowed();
-      await _saveRoutinesUnlocked(routines);
-    });
-  }
-
-  @override
-  Future<void> deleteRoutine(String id) {
-    return _serializeWrite(() async {
-      final List<RoutineEntity> next = getRoutines()
-          .where((RoutineEntity routine) => routine.id != id)
-          .toList(growable: false);
-      _ensureWriteAllowed();
-      await _saveRoutinesUnlocked(next);
-    });
-  }
-
-  Future<void> _serializeWrite(Future<void> Function() action) {
-    final Future<void> next = _writeQueue.then((_) => action());
-    _writeQueue = next.catchError((_) {});
-    return next;
-  }
-
-  Future<void> _saveRoutinesUnlocked(List<RoutineEntity> routines) {
+  Future<void> saveRoutines(List<HabitEntity> routines) {
     return _store.put(
       _key,
       jsonEncode(
-        routines.map((RoutineEntity routine) => routine.toJson()).toList(),
+        routines.map((HabitEntity routine) => routine.toJson()).toList(),
       ),
     );
   }
 
-  Map<String, dynamic> _validateRoutinePayload(Map<dynamic, dynamic> payload) {
-    final Map<String, dynamic> normalized = payload.map<String, dynamic>(
-      (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-    );
-
-    for (final String key in <String>[
-      'id',
-      'name',
-      'createdAt',
-      'updatedAt',
-      'cadence',
-      'targetCount',
-      'status',
-    ]) {
-      if (!normalized.containsKey(key)) {
-        throw FormatException('Routine storage is missing required $key.');
-      }
-    }
-    return normalized;
-  }
-
-  void _ensureWriteAllowed() {
-    if (_corruptedSnapshot) {
-      throw StateError(
-        'Routines storage is corrupted. Repair data before writing to avoid data loss.',
-      );
-    }
+  @override
+  Future<void> deleteRoutine(String id) {
+    final List<HabitEntity> next = getRoutines()
+        .where((HabitEntity routine) => routine.id != id)
+        .toList(growable: false);
+    return saveRoutines(next);
   }
 }

@@ -1,3 +1,0 @@
-class ViewTimeAnalyticsUsecase {
-  const ViewTimeAnalyticsUsecase();
-}

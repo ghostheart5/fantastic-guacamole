@@ -1,3 +1,0 @@
-class ViewMemoryDetailsUsecase {
-  const ViewMemoryDetailsUsecase();
-}

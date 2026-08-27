@@ -1,10 +1,16 @@
-import 'dart:async';
-
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
+import 'package:fantastic_guacamole/system/location/location_service.dart';
+import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsUiActions {
   SettingsUiActions(this._ref);
@@ -28,6 +34,40 @@ class SettingsUiActions {
 
   Future<void> setReflectionReminderTime({required TimeOfDay time}) async {
     await _reminderService.setTime(time: time);
+  }
+
+  Future<bool> requestNotificationPermission() {
+    return _reminderService.requestNotificationPermission();
+  }
+
+  /// The only user-facing entry point that can request remote push permission.
+  /// Local scheduling permission remains explicit as well; startup never calls
+  /// either operating-system prompt.
+  Future<bool> requestNotificationPermissionAndRegisterPush() async {
+    final bool localGranted = await requestNotificationPermission();
+    if (!localGranted) {
+      return false;
+    }
+    final String? issue = await const FirebaseMessagingBootstrap()
+        .requestPermissionAndToken(isMockMode: Env.isMockMode);
+    if (issue != null) {
+      // Local reminders remain enabled when remote push registration is
+      // unavailable on a platform or during a transient backend outage.
+      return localGranted;
+    }
+    final String? token = FirebaseMessagingBootstrap.latestToken;
+    final client = _ref.read(supabaseClientProvider);
+    if (token != null && token.isNotEmpty && client != null) {
+      try {
+        await _ref
+            .read(firebaseSupabaseBridgeRepositoryProvider)
+            .syncFirebaseMessagingToken(client, token, source: 'settings');
+      } on Object {
+        // Permission remains granted even if cloud token sync is temporarily
+        // unavailable; the bridge retries on a later authenticated refresh.
+      }
+    }
+    return true;
   }
 
   ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
@@ -63,6 +103,20 @@ class SettingsUiActions {
     return _ref.read(voicePermissionServiceProvider).requestPermission();
   }
 
+  Future<AppLocationResult> requestLocationPermissionAndCurrentLocation() {
+    return _ref
+        .read(appLocationServiceProvider)
+        .requestPermissionAndCurrentLocation();
+  }
+
+  Future<bool> openLocationAppSettings() {
+    return _ref.read(appLocationServiceProvider).openAppSettings();
+  }
+
+  Future<bool> openLocationSystemSettings() {
+    return _ref.read(appLocationServiceProvider).openLocationSettings();
+  }
+
   Future<bool> openSystemAppSettings() async {
     final external = _ref.read(externalUrlServiceProvider);
     const List<String> candidates = <String>['app-settings:', 'App-Prefs:root'];
@@ -81,67 +135,37 @@ final settingsUiActionsProvider = Provider<SettingsUiActions>((Ref ref) {
   return SettingsUiActions(ref);
 });
 
-@immutable
-class NotificationPermissionSnapshot {
-  const NotificationPermissionSnapshot({
-    required this.granted,
-    required this.permissionState,
-  });
+const String _cloudSyncPreferenceKey = 'cloud_sync_enabled_v1';
 
-  final bool? granted;
-  final NotificationPermissionState permissionState;
-
-  bool get isGranted => granted == true;
-
-  const NotificationPermissionSnapshot.unknown()
-    : granted = null,
-      permissionState = NotificationPermissionState.unknown;
-}
-
-class NotificationPermissionNotifier
-    extends Notifier<NotificationPermissionSnapshot> {
-  ReflectionReminderService get _reminderService {
-    return ref.read(reflectionReminderServiceProvider);
-  }
-
+class CloudSyncPreferenceNotifier extends AsyncNotifier<bool> {
   @override
-  NotificationPermissionSnapshot build() {
-    final bool? granted = _reminderService.permissionListenable.value;
-    unawaited(refresh());
-    return NotificationPermissionSnapshot(
-      granted: granted,
-      permissionState: granted == null
-          ? NotificationPermissionState.unknown
-          : (granted
-                ? NotificationPermissionState.granted
-                : NotificationPermissionState.denied),
-    );
+  Future<bool> build() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    // Cloud transfer is opt-in. A build flag only makes the capability
+    // available; it must not silently allow data transfer.
+    return prefs.getBool(_cloudSyncPreferenceKey) ?? false;
   }
 
-  Future<NotificationPermissionSnapshot> requestPermission() async {
-    await _reminderService.requestNotificationPermissionDetailed();
-    return refresh();
-  }
-
-  Future<NotificationPermissionSnapshot> refresh() async {
-    final bool? granted = _reminderService.permissionListenable.value;
-    final NotificationPermissionState permissionState = await _reminderService
-        .getNotificationPermissionState();
-    final NotificationPermissionSnapshot snapshot =
-        NotificationPermissionSnapshot(
-          granted: granted,
-          permissionState: permissionState,
-        );
-    state = snapshot;
-    return snapshot;
+  Future<void> setEnabled(bool enabled) async {
+    state = AsyncData<bool>(enabled);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_cloudSyncPreferenceKey, enabled);
+    if (!enabled) {
+      await SharedPrefsService.delete('global_metrics_cache');
+      await SharedPrefsService.delete('global_metrics_cache_ts');
+    }
   }
 }
 
-final notificationPermissionProvider =
-    NotifierProvider<
-      NotificationPermissionNotifier,
-      NotificationPermissionSnapshot
-    >(NotificationPermissionNotifier.new);
+final cloudSyncPreferenceProvider =
+    AsyncNotifierProvider<CloudSyncPreferenceNotifier, bool>(
+      CloudSyncPreferenceNotifier.new,
+    );
+
+final notificationPermissionListenableProvider =
+    Provider<ValueListenable<bool?>>((ref) {
+      return ref.read(reflectionReminderServiceProvider).permissionListenable;
+    });
 
 class VoicePermissionStatusNotifier extends Notifier<bool?> {
   @override
@@ -153,4 +177,20 @@ class VoicePermissionStatusNotifier extends Notifier<bool?> {
 final voicePermissionStatusProvider =
     NotifierProvider<VoicePermissionStatusNotifier, bool?>(
       VoicePermissionStatusNotifier.new,
+    );
+
+final appLocationServiceProvider = Provider<AppLocationService>((Ref ref) {
+  return const AppLocationService();
+});
+
+class LocationPermissionStatusNotifier extends Notifier<AppLocationResult?> {
+  @override
+  AppLocationResult? build() => null;
+
+  void set(AppLocationResult result) => state = result;
+}
+
+final locationPermissionStatusProvider =
+    NotifierProvider<LocationPermissionStatusNotifier, AppLocationResult?>(
+      LocationPermissionStatusNotifier.new,
     );

@@ -1,9 +1,0 @@
-appId: com.ghostheart.chronospark
----
-- launchApp
-- runFlow: _login_if_needed.yaml
-
-- assertVisible: "Quick actions"
-- tapOn: "Planning overview"
-
-- assertVisible: "Ask about momentum, risk, or your next move..."

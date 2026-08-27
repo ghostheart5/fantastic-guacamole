@@ -1,3 +1,0 @@
-class ViewArchivedMemoriesUsecase {
-  const ViewArchivedMemoriesUsecase();
-}

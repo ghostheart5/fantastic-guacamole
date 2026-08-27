@@ -1,10 +1,9 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/task_entity_mapper.dart';
-import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/models/paged_result.dart';
@@ -12,26 +11,12 @@ import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 /// ChronoSpark TaskRepository
 /// Implements ITaskRepository using `HiveStorage<String>` (JSON-serialised TaskEntity).
 class TaskRepository implements ITaskRepository {
-  TaskRepository({required this._storage, this._syncDispatcher});
+  TaskRepository({required this._storage});
 
-  /// A transition-safe instance deliberately has no storage target. It exists
-  /// only so Root-05 can drain and invalidate repositories while the account
-  /// boundary is unsafe; it cannot read or write a fallback/global box.
-  TaskRepository.unavailable({this._syncDispatcher}) : _storage = null;
+  static const String quarantineKey = 'tasks_quarantine_v1';
+  static const int _maxQuarantineRecords = 100;
 
-  final HiveStorage<String>? _storage;
-  final SyncMutationDispatcher? _syncDispatcher;
-  bool _cancelled = false;
-  Future<void> _writeQueue = Future<void>.value();
-
-  Future<void> cancelAndDrain() async {
-    _cancelled = true;
-    await _writeQueue.catchError((Object _) {});
-  }
-
-  void dispose() {
-    _cancelled = true;
-  }
+  final HiveStorage<String> _storage;
 
   // ------------------------------------------------------------------
   // ITaskRepository
@@ -66,102 +51,77 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<TaskEntity?> getTaskById(String id) async {
     try {
-      final HiveStorage<String> storage = _requireStorage();
-      await storage.open();
-      final String? raw = storage.get(id);
+      await _storage.open();
+      final String? raw = _storage.get(id);
       if (raw == null) return null;
-      return _decodeTaskPayload(raw, logMalformed: true);
+      final TaskEntity task = TaskEntityMapper.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      return task.isCanceled ? null : task;
     } catch (e) {
       throw StorageException('Failed to get task $id: $e');
     }
   }
 
   @override
-  Future<void> saveTask(TaskEntity task) => _serializeWrite(() async {
+  Future<void> saveTask(TaskEntity task) async {
     try {
-      await _requireStorage().put(
-        task.id,
-        jsonEncode(TaskEntityMapper.toJson(task)),
-      );
-      await _syncDispatcher?.enqueueUpsert(
-        tableName: 'tasks',
-        recordId: task.id,
-        payload: _taskSyncPayload(task),
-      );
+      await _storage.put(task.id, jsonEncode(TaskEntityMapper.toJson(task)));
     } catch (e) {
       throw StorageException('Failed to save task ${task.id}: $e');
     }
-  });
+  }
 
   @override
-  Future<void> deleteTask(String id) => _serializeWrite(() async {
+  Future<void> deleteTask(String id) async {
     try {
-      await _requireStorage().delete(id);
-      await _syncDispatcher?.enqueueDelete(tableName: 'tasks', recordId: id);
+      await _storage.open();
+      final String? raw = _storage.get(id);
+      if (raw == null) return;
+      final TaskEntity task = TaskEntityMapper.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      if (task.isCanceled) return;
+      // A timestamped tombstone is deliberately retained in account-scoped
+      // storage. Backup merge can then propagate deletion to another device
+      // instead of resurrecting an older cloud copy.
+      await _storage.put(
+        id,
+        jsonEncode(TaskEntityMapper.toJson(task.cancel())),
+      );
     } catch (e) {
       throw StorageException('Failed to delete task $id: $e');
     }
-  });
-
-  Future<void> _serializeWrite(Future<void> Function() action) {
-    if (_cancelled) {
-      return Future<void>.error(
-        StateError('Task mutation canceled during account transition.'),
-      );
-    }
-    final Future<void> next = _writeQueue.then((_) => action());
-    _writeQueue = next.catchError((Object _) {});
-    return next;
-  }
-
-  Map<String, dynamic> _taskSyncPayload(TaskEntity task) {
-    return <String, dynamic>{
-      'id': task.id,
-      'title': task.title,
-      'kind': task.kind,
-      'description': task.description,
-      'priority': task.priority,
-      'difficulty': task.difficulty,
-      'energy_required': task.energyRequired,
-      'estimated_duration_ms': task.estimatedDuration?.inMilliseconds,
-      'created_at': task.createdAt.toUtc().toIso8601String(),
-      'is_completed': task.isCompleted,
-      'completed_at': task.completedAt?.toUtc().toIso8601String(),
-      'scheduled_for': task.scheduledFor?.toUtc().toIso8601String(),
-      'due_date': task.dueDate?.toUtc().toIso8601String(),
-      'goal_id': task.goalId,
-      'is_canceled': task.isCanceled,
-      'subtasks': task.subtasks,
-      'recurrence_rule': task.recurrenceRule.name,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-      'deleted_at': null,
-    };
   }
 
   Future<List<TaskEntity>> _loadSortedTasks() async {
-    final HiveStorage<String> storage = _requireStorage();
-    await storage.open();
-    final Map<dynamic, String> map = storage.getAll();
-
+    await _storage.open();
+    final Map<dynamic, String> map = _storage.getAll();
     final List<TaskEntity> tasks = <TaskEntity>[];
-    int malformedCount = 0;
-    for (final String raw in map.values) {
-      final TaskEntity? task = _decodeTaskPayload(raw);
-      if (task == null) {
-        malformedCount++;
-        if (malformedCount == 1) {
-          Logger.warn('Skipping malformed task payload.');
-        }
+    final List<Map<String, dynamic>> malformed = <Map<String, dynamic>>[];
+    for (final MapEntry<dynamic, String> entry in map.entries) {
+      if (entry.key == quarantineKey) {
         continue;
       }
-      tasks.add(task);
+      try {
+        tasks.add(
+          TaskEntityMapper.fromJson(
+            jsonDecode(entry.value) as Map<String, dynamic>,
+          ),
+        );
+      } on Object {
+        malformed.add(<String, dynamic>{
+          'key': entry.key.toString(),
+          'raw': entry.value,
+          'quarantinedAt': DateTime.now().toUtc().toIso8601String(),
+        });
+      }
     }
-    if (malformedCount > 1) {
-      Logger.warn('Skipped $malformedCount malformed task payloads.');
-    }
-    if (malformedCount > 0) {
-      throw const FormatException(
-        'Task storage contains malformed payloads. Repair is required.',
+    if (malformed.isNotEmpty) {
+      await _quarantineMalformed(malformed);
+      Logger.warn(
+        'Quarantined ${malformed.length} malformed task record(s) while '
+        'preserving valid tasks.',
       );
     }
     tasks.sort(
@@ -170,29 +130,41 @@ class TaskRepository implements ITaskRepository {
     return tasks;
   }
 
-  HiveStorage<String> _requireStorage() {
-    final HiveStorage<String>? storage = _storage;
-    if (storage == null) {
-      throw StateError(
-        'Task storage is unavailable while the account transition is unsafe.',
-      );
-    }
-    return storage;
-  }
-
-  TaskEntity? _decodeTaskPayload(String raw, {bool logMalformed = false}) {
-    try {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('Task payload is not a JSON object.');
+  Future<void> _quarantineMalformed(
+    List<Map<String, dynamic>> malformed,
+  ) async {
+    final List<dynamic> records = <dynamic>[];
+    final String? existingRaw = _storage.get(quarantineKey);
+    if (existingRaw != null) {
+      try {
+        final Object? decoded = jsonDecode(existingRaw);
+        if (decoded is List<dynamic>) {
+          records.addAll(decoded.whereType<Map<String, dynamic>>());
+        }
+      } on Object {
+        records.add(<String, dynamic>{
+          'key': quarantineKey,
+          'raw': existingRaw,
+          'quarantinedAt': DateTime.now().toUtc().toIso8601String(),
+        });
       }
-      return TaskEntityMapper.fromJson(decoded);
-    } on Object catch (error) {
-      if (logMalformed) {
-        Logger.warn('Task payload is corrupted and cannot be read: $error');
-      }
-      return null;
     }
+    for (final Map<String, dynamic> candidate in malformed) {
+      final bool alreadyCaptured = records
+          .whereType<Map<dynamic, dynamic>>()
+          .any(
+            (Map<dynamic, dynamic> record) =>
+                record['key'] == candidate['key'] &&
+                record['raw'] == candidate['raw'],
+          );
+      if (!alreadyCaptured) {
+        records.add(candidate);
+      }
+    }
+    final int start = records.length > _maxQuarantineRecords
+        ? records.length - _maxQuarantineRecords
+        : 0;
+    await _storage.put(quarantineKey, jsonEncode(records.sublist(start)));
   }
 
   PagedResult<T> _pageItems<T>(

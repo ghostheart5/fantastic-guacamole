@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 
@@ -19,23 +18,9 @@ class CreditService {
     final String? raw = _prefs.load(_walletKey);
     final DateTime now = DateTime.now();
 
-    late AiCreditWallet wallet;
-    if (raw == null || raw.trim().isEmpty) {
-      wallet = _createWallet(premium: premium, now: now);
-    } else {
-      try {
-        final dynamic decoded = jsonDecode(raw);
-        if (decoded is! Map<String, dynamic>) {
-          throw const FormatException(
-            'Credit wallet storage is not an object.',
-          );
-        } else {
-          wallet = _decodeWallet(decoded);
-        }
-      } on Object catch (error) {
-        throw StorageException('Credit wallet storage is corrupted: $error');
-      }
-    }
+    AiCreditWallet wallet = raw == null || raw.trim().isEmpty
+        ? _createWallet(premium: premium, now: now)
+        : AiCreditWallet.fromJson(jsonDecode(raw) as Map<String, dynamic>);
 
     if (premium && wallet.tier != 'premium') {
       wallet = _createWallet(premium: true, now: now);
@@ -79,35 +64,34 @@ class CreditService {
     return AiCreditSpendResult(wallet: updated, allowed: true);
   }
 
+  /// Returns credits taken by [spend] for work that produced no result.
+  ///
+  /// Credits are debited before the request is issued, so a timeout, a proxy
+  /// failure, or a superseded request would otherwise bill the user for a
+  /// response they never received. The refund is clamped to the wallet
+  /// allowance so a repeated refund cannot mint credits.
+  Future<AiCreditWallet> refund({
+    required bool premium,
+    required int amount,
+  }) async {
+    final AiCreditWallet wallet = await loadWallet(premium: premium);
+    if (amount <= 0) {
+      return wallet;
+    }
+    final AiCreditWallet updated = wallet.copyWith(
+      balance: (wallet.balance + amount).clamp(0, wallet.allowance),
+      updatedAt: DateTime.now(),
+    );
+    await _save(updated);
+    return updated;
+  }
+
   Future<void> refill({required bool premium}) async {
     await _save(_createWallet(premium: premium, now: DateTime.now()));
   }
 
   Future<void> _save(AiCreditWallet wallet) async {
     await _prefs.save(_walletKey, jsonEncode(wallet.toJson()));
-  }
-
-  AiCreditWallet _decodeWallet(Map<String, dynamic> json) {
-    final Object? balance = json['balance'];
-    final Object? tier = json['tier'];
-    final Object? allowance = json['allowance'];
-    final DateTime? resetAt = DateTime.tryParse(
-      json['resetAt']?.toString() ?? '',
-    );
-    final DateTime? updatedAt = DateTime.tryParse(
-      json['updatedAt']?.toString() ?? '',
-    );
-    if (balance is! num ||
-        tier is! String ||
-        tier.trim().isEmpty ||
-        allowance is! num ||
-        resetAt == null ||
-        updatedAt == null) {
-      throw const FormatException(
-        'Credit wallet storage has missing required fields.',
-      );
-    }
-    return AiCreditWallet.fromJson(json);
   }
 
   AiCreditWallet _createWallet({required bool premium, required DateTime now}) {

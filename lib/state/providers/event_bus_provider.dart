@@ -5,9 +5,8 @@ import 'package:fantastic_guacamole/core/eventing/event_bus.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/completion_events_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
+import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
@@ -31,18 +30,16 @@ final eventBusBootstrapProvider = Provider<void>((Ref ref) {
     bus.on<TaskLifecycleEvent>().listen((TaskLifecycleEvent _) {
       ref.invalidate(tasksProvider);
       ref.invalidate(goalProgressProvider);
-      ref.invalidate(completionEventsProvider);
       ref.invalidate(domainSiDecisionProvider);
     }),
     bus.on<GoalLifecycleEvent>().listen((GoalLifecycleEvent _) {
       ref.invalidate(goalsProvider);
       ref.invalidate(goalProgressProvider);
-      ref.invalidate(completionEventsProvider);
-      ref.invalidate(insightsBundleProvider);
+      ref.invalidate(signalsBundleProvider);
       ref.invalidate(domainSiDecisionProvider);
     }),
-    bus.on<InsightLifecycleEvent>().listen((InsightLifecycleEvent _) {
-      ref.invalidate(insightsBundleProvider);
+    bus.on<SignalLifecycleEvent>().listen((SignalLifecycleEvent _) {
+      ref.invalidate(signalsBundleProvider);
       ref.invalidate(memoriesProvider);
       ref.invalidate(soulStateProvider);
       ref.invalidate(domainSiDecisionProvider);

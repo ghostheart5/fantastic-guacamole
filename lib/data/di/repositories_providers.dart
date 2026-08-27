@@ -1,80 +1,48 @@
 // Package imports.
 import 'package:fantastic_guacamole/config/env.dart';
-import 'package:fantastic_guacamole/data/adapters/habit_occurrence_sync_adapter.dart';
-import 'package:fantastic_guacamole/data/adapters/habit_occurrence_timeline_adapter.dart';
-import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
-import 'package:fantastic_guacamole/data/adapters/task_occurrence_completion_adapter.dart';
-import 'package:fantastic_guacamole/data/adapters/task_occurrence_sync_adapter.dart';
-import 'package:fantastic_guacamole/data/adapters/task_occurrence_timeline_adapter.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
-import 'package:fantastic_guacamole/data/remote/goals_remote_gateway.dart';
-import 'package:fantastic_guacamole/data/remote/habits_remote_gateway.dart';
-import 'package:fantastic_guacamole/data/remote/habit_occurrences_remote_gateway.dart';
-import 'package:fantastic_guacamole/data/remote/settings_remote_gateway.dart';
-import 'package:fantastic_guacamole/data/remote/notes_remote_gateway.dart';
-import 'package:fantastic_guacamole/data/remote/tasks_remote_gateway.dart';
-import 'package:fantastic_guacamole/data/remote/task_occurrences_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/completion_event_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/goal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/habit_occurrence_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/identity_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/insight_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/signal_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/learning_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/log_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/memory_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/milestone_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/note_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/plan_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/profile_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/progression_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/project_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/routine_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/session_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/settings_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/subtask_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/task_occurrence_projection_work_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/workspace_repository.dart';
-import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
-import 'package:fantastic_guacamole/data/sync/sync_queue_store.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
-import 'package:fantastic_guacamole/data/storage/si_workspace_store.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
-import 'package:fantastic_guacamole/domain/entities/profile_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
-import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
-import 'package:fantastic_guacamole/state/services/habit_occurrence_reminder_adapter.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 TaskRepository taskRepository(Ref ref) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  final TaskRepository repository = scope.v2Namespace == null
-      ? TaskRepository.unavailable(
-          syncDispatcher: ref.read(syncMutationDispatcherProvider),
-        )
-      : TaskRepository(
-          storage: HiveStorage<String>(
-            HiveBoxes.accountScoped(HiveBoxes.tasks, scope),
-            hive: ref.read(hiveStoreProvider),
-          ),
-          syncDispatcher: ref.read(syncMutationDispatcherProvider),
-        );
-  ref.onDispose(repository.dispose);
-  return repository;
+  return TaskRepository(
+    storage: HiveStorage<String>(
+      HiveBoxes.tasks,
+      hive: ref.read(hiveStoreProvider),
+    ),
+  );
 }
 
 final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
@@ -82,147 +50,33 @@ final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
 final taskOccurrenceRepositoryProvider = Provider<TaskOccurrenceRepository>((
   Ref ref,
 ) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  final TaskOccurrenceRepository repository =
-      !scope.isAuthenticated || scope.v2Namespace == null
-      ? TaskOccurrenceRepository.unavailable()
-      : TaskOccurrenceRepository(
+  final scope = ref.watch(accountStorageScopeProvider);
+  final TaskOccurrenceRepository repository = scope.isWritable
+      ? TaskOccurrenceRepository(
           HiveStorage<String>(
             HiveBoxes.accountScoped(HiveBoxes.taskOccurrences, scope),
             hive: ref.read(hiveStoreProvider),
           ),
-        );
+        )
+      : TaskOccurrenceRepository.unavailable();
   ref.onDispose(repository.dispose);
   return repository;
-});
-
-final taskOccurrenceProjectionWorkRepositoryProvider =
-    Provider<TaskOccurrenceProjectionWorkRepository>((Ref ref) {
-      final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-      final TaskOccurrenceProjectionWorkRepository repository =
-          !scope.isAuthenticated || scope.v2Namespace == null
-          ? TaskOccurrenceProjectionWorkRepository.unavailable()
-          : TaskOccurrenceProjectionWorkRepository(
-              HiveStorage<String>(
-                HiveBoxes.accountScoped(
-                  HiveBoxes.taskOccurrenceProjectionWork,
-                  scope,
-                ),
-                hive: ref.read(hiveStoreProvider),
-              ),
-            );
-      ref.onDispose(repository.dispose);
-      return repository;
-    });
-
-final noteRepositoryProvider = Provider<NoteRepository>((Ref ref) {
-  final scope = ref.watch(accountStorageScopeProvider);
-  final NoteRepository repository =
-      !scope.isAuthenticated || scope.v2Namespace == null
-      ? NoteRepository.unavailable()
-      : NoteRepository(
-          HiveStorage<String>(
-            HiveBoxes.accountScoped(HiveBoxes.notes, scope),
-            hive: ref.read(hiveStoreProvider),
-          ),
-          syncDispatcher: ref.read(syncMutationDispatcherProvider),
-        );
-  ref.onDispose(repository.dispose);
-  return repository;
-});
-
-final noteTimelineAdapterProvider = Provider<NoteTimelineAdapter>((Ref ref) {
-  return NoteTimelineAdapter(ref.read(timelineRepositoryProvider));
 });
 
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  final GoalRepository repository = scope.v2Namespace == null
-      ? GoalRepository.unavailable(
-          syncDispatcher: ref.read(syncMutationDispatcherProvider),
-        )
-      : GoalRepository(
-          HiveStorage<String>(
-            HiveBoxes.accountScoped(HiveBoxes.goals, scope),
-            hive: ref.read(hiveStoreProvider),
-          ),
-          syncDispatcher: ref.read(syncMutationDispatcherProvider),
-        );
-  ref.onDispose(repository.dispose);
-  return repository;
+  return GoalRepository(
+    HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)),
+  );
 });
 
 final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  final HabitRepository repository = scope.v2Namespace == null
-      ? HabitRepository.unavailable(
-          syncDispatcher: ref.read(syncMutationDispatcherProvider),
-        )
-      : HabitRepository(
-          HiveStorage<String>(
-            HiveBoxes.accountScoped(HiveBoxes.habits, scope),
-            hive: ref.read(hiveStoreProvider),
-          ),
-          syncDispatcher: ref.read(syncMutationDispatcherProvider),
-        );
-  ref.onDispose(repository.dispose);
-  return repository;
+  return HabitRepository(
+    HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)),
+  );
 });
 
-final habitOccurrenceRepositoryProvider = Provider<HabitOccurrenceRepository>((
-  Ref ref,
-) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  final HabitOccurrenceRepository repository = scope.v2Namespace == null
-      ? HabitOccurrenceRepository.unavailable()
-      : HabitOccurrenceRepository(
-          HiveStorage<String>(
-            HiveBoxes.accountScoped(HiveBoxes.habitOccurrences, scope),
-            hive: ref.read(hiveStoreProvider),
-          ),
-        );
-  ref.onDispose(repository.dispose);
-  return repository;
-});
-
-final habitOccurrenceTimelineAdapterProvider =
-    Provider<HabitOccurrenceTimelineAdapter>((Ref ref) {
-      return HabitOccurrenceTimelineAdapter(
-        ref.read(timelineRepositoryProvider),
-      );
-    });
-
-final habitOccurrenceSyncAdapterProvider = Provider<HabitOccurrenceSyncAdapter>(
-  (Ref ref) =>
-      HabitOccurrenceSyncAdapter(ref.read(syncMutationDispatcherProvider)),
-);
-
-final taskOccurrenceTimelineAdapterProvider =
-    Provider<TaskOccurrenceTimelineAdapter>((Ref ref) {
-      return TaskOccurrenceTimelineAdapter(
-        ref.read(timelineRepositoryProvider),
-      );
-    });
-
-final taskOccurrenceCompletionAdapterProvider =
-    Provider<TaskOccurrenceCompletionAdapter>((Ref ref) {
-      return TaskOccurrenceCompletionAdapter(
-        ref.read(completionEventRepositoryProvider),
-      );
-    });
-
-final taskOccurrenceSyncAdapterProvider = Provider<TaskOccurrenceSyncAdapter>(
-  (Ref ref) =>
-      TaskOccurrenceSyncAdapter(ref.read(syncMutationDispatcherProvider)),
-);
-
-final habitOccurrenceReminderAdapterProvider =
-    Provider<HabitOccurrenceReminderAdapter>((Ref ref) {
-      return const HabitOccurrenceReminderAdapter();
-    });
-
-final insightRepositoryProvider = Provider<InsightRepository>((Ref ref) {
-  return InsightRepository(ref.read(sharedPrefsStoreProvider));
+final signalRepositoryProvider = Provider<SignalRepository>((Ref ref) {
+  return SignalRepository(ref.read(sharedPrefsStoreProvider));
 });
 
 final identityRepositoryProvider = Provider<IdentityRepository>((Ref ref) {
@@ -230,25 +84,19 @@ final identityRepositoryProvider = Provider<IdentityRepository>((Ref ref) {
 });
 
 final memoryRepositoryProvider = Provider<MemoryRepository>((Ref ref) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
   return MemoryRepository(
     ref.read(sensitivePrefsStoreProvider),
-    storageScope: scope,
+    ref.watch(accountStorageScopeProvider),
   );
 });
 
 final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  final PlanRepository repository = scope.v2Namespace == null
-      ? PlanRepository.unavailable()
-      : PlanRepository(
-          HiveStorage<String>(
-            HiveBoxes.accountScoped(HiveBoxes.dailyPlans, scope),
-            hive: ref.read(hiveStoreProvider),
-          ),
-        );
-  ref.onDispose(repository.dispose);
-  return repository;
+  return PlanRepository(
+    HiveStorage<String>(
+      HiveBoxes.dailyPlans,
+      hive: ref.read(hiveStoreProvider),
+    ),
+  );
 });
 
 final projectRepositoryProvider = Provider<ProjectRepository>((Ref ref) {
@@ -272,27 +120,11 @@ final subtaskRepositoryProvider = Provider<SubtaskRepository>((Ref ref) {
 final progressionRepositoryProvider = Provider<ProgressionRepository>((
   Ref ref,
 ) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
   return ProgressionRepository(
-    readCurrent: () async {
-      if (!_isCurrentAuthenticatedScope(ref, scope)) return null;
-      final ProfileState state = ref.read(profileProvider);
-      return ProgressionEntity(
-        xp: state.xp,
-        level: state.level,
-        streak: state.streak,
-      );
-    },
-    writeCurrent: (ProgressionEntity progression) async {
-      _requireCurrentAuthenticatedScope(ref, scope);
-      await ref
-          .read(profileProvider.notifier)
-          .setProgressionSnapshot(
-            xp: progression.xp,
-            level: progression.level,
-            streak: progression.streak,
-          );
-    },
+    HiveStorage<String>(
+      HiveBoxes.progression,
+      hive: ref.read(hiveStoreProvider),
+    ),
   );
 });
 
@@ -303,11 +135,11 @@ final notificationSchedulerProvider = Provider<NotificationScheduler>(
 final notificationsRepositoryProvider = Provider<NotificationsRepository>((
   Ref ref,
 ) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final scope = ref.watch(accountStorageScopeProvider);
   return NotificationsRepository(
     ref.read(notificationSchedulerProvider),
     ref.read(secureStoreProvider),
-    storageScope: scope,
+    accountId: scope.isWritable ? scope.rawUserId : null,
   );
 });
 
@@ -330,14 +162,10 @@ final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
   return PaywallRepository(testingModeOverride: forceLocalTestingPaywall);
 });
 
-final siEngineRepositoryProvider = Provider<ISiRepository>((Ref ref) {
-  return SiEngineRepository(ref.read(secureStoreProvider));
-});
-
-final siWorkspaceStoreProvider = Provider<SiWorkspaceStore>((Ref ref) {
-  return SiWorkspaceStore(
+final siEngineRepositoryProvider = Provider<SiEngineRepository>((Ref ref) {
+  return SiEngineRepository(
     ref.read(secureStoreProvider),
-    storageScope: ref.watch(accountStorageScopeProvider),
+    ref.watch(accountStorageScopeProvider),
   );
 });
 
@@ -349,94 +177,24 @@ final calendarRepositoryProvider = Provider<CalendarRepository>((Ref ref) {
   return CalendarRepository(ref.read(secureStoreProvider));
 });
 
-final completionEventRepositoryProvider = Provider<CompletionEventRepository>((
-  Ref ref,
-) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  final store = ref.read(sensitivePrefsStoreProvider);
-  return scope.v2Namespace == null
-      ? CompletionEventRepository.unavailable(store)
-      : CompletionEventRepository(store, scope);
-});
-
 final timelineRepositoryProvider = Provider<TimelineRepository>((Ref ref) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  final store = ref.read(sensitivePrefsStoreProvider);
-  return scope.v2Namespace == null
-      ? TimelineRepository.unavailable(store)
-      : TimelineRepository(store, scope);
+  return TimelineRepository(ref.read(sensitivePrefsStoreProvider));
 });
 
 final profileRepositoryProvider = Provider<ProfileRepository>((Ref ref) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  return ProfileRepository(
-    readCurrent: () async {
-      if (!_isCurrentAuthenticatedScope(ref, scope)) return null;
-      return _profileEntityFromState(ref.read(profileProvider));
-    },
-    writeCurrent: (ProfileEntity profile) async {
-      _requireCurrentAuthenticatedScope(ref, scope);
-      await ref
-          .read(profileProvider.notifier)
-          .applyCanonicalSnapshot(_snapshotFromProfileEntity(profile));
-    },
-  );
+  return ProfileRepository(ref.read(secureStoreProvider));
 });
 
-bool _isCurrentAuthenticatedScope(Ref ref, AccountStorageScope expected) {
-  final AccountStorageScope current = ref.read(accountStorageScopeProvider);
-  return expected.isAuthenticated &&
-      expected.v2Namespace != null &&
-      current.v2Namespace == expected.v2Namespace;
-}
-
-void _requireCurrentAuthenticatedScope(Ref ref, AccountStorageScope expected) {
-  if (!_isCurrentAuthenticatedScope(ref, expected)) {
-    throw StateError(
-      'Profile authority is unavailable for the retained scope.',
-    );
-  }
-}
-
-ProfileEntity _profileEntityFromState(ProfileState state) => ProfileEntity(
-  xp: state.xp,
-  level: state.level,
-  legacyLevelFloor: state.legacyLevelFloor,
-  streak: state.streak,
-  longestStreak: state.longestStreak,
-  name: state.name,
-  lastActiveDate: state.lastActiveDate,
-  profileReady: state.profileReady,
-);
-
-ProfileCanonicalSnapshot _snapshotFromProfileEntity(ProfileEntity profile) =>
-    ProfileCanonicalSnapshot(
-      xp: profile.xp,
-      legacyLevelFloor: profile.level > profile.legacyLevelFloor
-          ? profile.level
-          : profile.legacyLevelFloor,
-      streak: profile.streak,
-      longestStreak: profile.longestStreak,
-      name: profile.name,
-      lastActiveDate: profile.lastActiveDate,
-      profileReady: profile.profileReady,
-    );
-
 final settingsRepositoryProvider = Provider<SettingsRepository>((Ref ref) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  return SettingsRepository(
-    ref.read(sharedPrefsStoreProvider),
-    storageScope: scope,
-    syncDispatcher: ref.read(syncMutationDispatcherProvider),
-  );
+  return SettingsRepository(ref.read(sharedPrefsStoreProvider));
 });
 
 final themeRepositoryProvider = Provider<ThemeRepository>((Ref ref) {
   return ThemeRepository(ref.read(sharedPrefsStoreProvider));
 });
 
-final sessionRepositoryProvider = Provider<SessionRepository>((Ref ref) {
-  return SessionRepository(ref.read(secureStoreProvider));
+final learningRepositoryProvider = Provider<LearningRepository>((Ref ref) {
+  return LearningRepository(ref.read(secureStoreProvider));
 });
 
 final workspaceRepositoryProvider = Provider<WorkspaceRepository>((Ref ref) {
@@ -449,63 +207,10 @@ final firebaseSupabaseBridgeRepositoryProvider =
         store: ref.read(secureStoreProvider),
       );
     });
+final noteRepositoryProvider = Provider<NoteRepository>(
+  (Ref ref) => NoteRepository(ref.read(sharedPrefsStoreProvider)),
+);
 
-final syncQueueStoreProvider = Provider<SyncQueueStore>((Ref ref) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  if (!scope.isAuthenticated || scope.v2Namespace == null) {
-    return SyncQueueStore.unavailable();
-  }
-  return SyncQueueStore(
-    HiveStorage<String>(
-      HiveBoxes.accountScoped(HiveBoxes.offlineQueue, scope),
-      hive: ref.read(hiveStoreProvider),
-    ),
-    storageScope: scope,
-  );
-});
-
-final syncMutationDispatcherProvider = Provider<SyncMutationDispatcher>((
-  Ref ref,
-) {
-  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-  bool leaseActive = true;
-  ref.onDispose(() => leaseActive = false);
-  return SyncMutationDispatcher(
-    queueStore: ref.watch(syncQueueStoreProvider),
-    supabaseClient: ref.watch(supabaseClientProvider),
-    userId: scope.isAuthenticated ? scope.rawUserId : null,
-    isAuthorized: () => leaseActive,
-  );
-});
-
-final tasksRemoteGatewayProvider = Provider<TasksRemoteGateway>((Ref ref) {
-  return TasksRemoteGateway(ref.read(supabaseClientProvider));
-});
-
-final goalsRemoteGatewayProvider = Provider<GoalsRemoteGateway>((Ref ref) {
-  return GoalsRemoteGateway(ref.read(supabaseClientProvider));
-});
-
-final habitsRemoteGatewayProvider = Provider<HabitsRemoteGateway>((Ref ref) {
-  return HabitsRemoteGateway(ref.read(supabaseClientProvider));
-});
-
-final habitOccurrencesRemoteGatewayProvider =
-    Provider<HabitOccurrencesRemoteGateway>((Ref ref) {
-      return HabitOccurrencesRemoteGateway(ref.read(supabaseClientProvider));
-    });
-
-final taskOccurrencesRemoteGatewayProvider =
-    Provider<TaskOccurrencesRemoteGateway>((Ref ref) {
-      return TaskOccurrencesRemoteGateway(ref.read(supabaseClientProvider));
-    });
-
-final settingsRemoteGatewayProvider = Provider<SettingsRemoteGateway>((
-  Ref ref,
-) {
-  return SettingsRemoteGateway(ref.read(supabaseClientProvider));
-});
-
-final notesRemoteGatewayProvider = Provider<NotesRemoteGateway>((Ref ref) {
-  return NotesRemoteGateway(ref.read(supabaseClientProvider));
-});
+final milestoneRepositoryProvider = Provider<MilestoneRepository>(
+  (Ref ref) => MilestoneRepository(ref.read(secureStoreProvider)),
+);

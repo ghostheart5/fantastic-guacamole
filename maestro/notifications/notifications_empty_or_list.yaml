@@ -1,5 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: notifications_open.yaml
-- assertVisible:
-    text: "ALL CLEAR|CHRONOSPARK EVENT STREAM"

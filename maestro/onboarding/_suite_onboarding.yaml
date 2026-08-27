@@ -1,7 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: onboarding_first_launch.yaml
-- runFlow: onboarding_walkthrough.yaml
-- runFlow: onboarding_skip_path.yaml
-- runFlow: onboarding_relaunch_behavior.yaml
-- runFlow: onboarding_disabled_after_completion.yaml

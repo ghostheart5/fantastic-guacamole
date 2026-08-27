@@ -1,3 +1,0 @@
-class UnfavoriteEmotionUsecase {
-  const UnfavoriteEmotionUsecase();
-}

@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Future automation
+///
+/// Canonical Daily Rhythm model shared by habit and routine persistence.
 enum HabitCadence { daily, weekly, monthly }
 
 enum HabitStatus { active, paused, archived }
@@ -12,6 +15,7 @@ class HabitEntity {
     this.description,
     this.cadence = HabitCadence.daily,
     this.targetCount = 1,
+    this.stepTaskIds = const <String>[],
     this.status = HabitStatus.active,
   }) : updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -23,15 +27,18 @@ class HabitEntity {
   final String? description;
   final HabitCadence cadence;
   final int targetCount;
+  final List<String> stepTaskIds;
   final HabitStatus status;
 
   bool get active => status == HabitStatus.active;
+  String get name => title;
 
   HabitEntity copyWith({
     String? title,
     String? description,
     HabitCadence? cadence,
     int? targetCount,
+    List<String>? stepTaskIds,
     DateTime? updatedAt,
     String? userId,
     HabitStatus? status,
@@ -45,6 +52,7 @@ class HabitEntity {
       description: description ?? this.description,
       cadence: cadence ?? this.cadence,
       targetCount: targetCount ?? this.targetCount,
+      stepTaskIds: stepTaskIds ?? this.stepTaskIds,
       status: status ?? this.status,
     );
   }
@@ -59,6 +67,7 @@ class HabitEntity {
       'description': description,
       'cadence': cadence.name,
       'targetCount': targetCount,
+      'stepTaskIds': stepTaskIds,
       'status': status.name,
       'active': active,
     };
@@ -67,7 +76,10 @@ class HabitEntity {
   factory HabitEntity.fromJson(Map<String, dynamic> json) {
     return HabitEntity(
       id: json['id']?.toString() ?? '',
-      title: json['title']?.toString() ?? 'Untitled Habit',
+      title:
+          json['title']?.toString() ??
+          json['name']?.toString() ??
+          'Untitled Daily Rhythm',
       userId: json['userId']?.toString(),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
@@ -81,6 +93,9 @@ class HabitEntity {
         orElse: () => HabitCadence.daily,
       ),
       targetCount: ((json['targetCount'] as num?)?.toInt() ?? 1).clamp(1, 365),
+      stepTaskIds: (json['stepTaskIds'] as List<dynamic>? ?? const <dynamic>[])
+          .map((dynamic value) => value.toString())
+          .toList(growable: false),
       status: HabitStatus.values.firstWhere(
         (value) => value.name == json['status']?.toString(),
         orElse: () =>

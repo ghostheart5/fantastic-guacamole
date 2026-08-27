@@ -16,7 +16,6 @@ Policy:
 | `ICalendarRepository` | `lib/data/repositories/calendar_repository.dart` |
 | `IProfileRepository` | `lib/data/repositories/profile_repository.dart` |
 | `ISettingsRepository` | `lib/data/repositories/settings_repository.dart` |
-| `ISessionRepository` | `lib/data/repositories/session_repository.dart` |
 | `IWorkspaceRepository` | `lib/data/repositories/workspace_repository.dart` |
 | `IPaywallRepository` | `lib/data/repositories/paywall_repository.dart`, `lib/data/repositories/google_play_paywall_repository.dart` |
 | `ISiRepository` | `lib/state/providers/domain_usecase_providers.dart` (`_SiRepositoryAdapter`) |
@@ -25,7 +24,7 @@ Policy:
 
 | Interface | Owner | Notes |
 |---|---|---|
-| `IInsightRepository` | `lib/state/services/insights_service.dart` | Insights are generated in application orchestration layer. |
+| `ISignalRepository` | `lib/data/repositories/signal_repository.dart` | Stores Smart Planner and SI-generated signal outputs; it does not define a standalone feature. |
 | `ILearningRepository` | `lib/state/services/intelligence_service.dart` | Learning logic currently sits in state orchestration. |
 | `IProgressionRepository` | `lib/state/services/progression_service.dart` | Progression transformation is service-owned today. |
 | `IThemeRepository` | `lib/state/services/theme_service.dart` | Theme orchestration depends on `IThemeRepository` contract. |

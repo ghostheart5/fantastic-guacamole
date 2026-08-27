@@ -1,8 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
-import 'package:fantastic_guacamole/features/creator/models/creator_workspace_mode.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/type_selector.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
-import 'package:fantastic_guacamole/system/audio/audio_service.dart';
+import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -11,133 +10,104 @@ class DynamicForm extends StatefulWidget {
   const DynamicForm({
     super.key,
     required this.onSubmit,
-    this.workspaceMode = CreatorWorkspaceMode.tasks,
-    this.preferredType,
-    this.taskTitleController,
-    this.goalTitleController,
-    this.memoryController,
-    this.notesController,
-    this.soundEnabled = true,
-    this.advancedAudioEnabled = false,
+    this.guidedFirstTask = false,
+    this.onTitleValidityChanged,
+    this.onTypeChosen,
+    this.onPriorityChosen,
+    this.onScheduleValidityChanged,
+    this.tutorialController,
+    this.onPickerVisibilityChanged,
+    this.initialDraftId,
+    this.initialTitle,
+    this.initialDescription,
+    this.submitLabel,
+    this.clearAfterSubmit = true,
   });
 
   final Future<void> Function(CreatorFormData data) onSubmit;
-  final CreatorWorkspaceMode workspaceMode;
-  final String? preferredType;
-  final TextEditingController? taskTitleController;
-  final TextEditingController? goalTitleController;
-  final TextEditingController? memoryController;
-  final TextEditingController? notesController;
-  final bool soundEnabled;
-  final bool advancedAudioEnabled;
+  final bool guidedFirstTask;
+  final ValueChanged<bool>? onTitleValidityChanged;
+  final VoidCallback? onTypeChosen;
+  final VoidCallback? onPriorityChosen;
+  final ValueChanged<bool>? onScheduleValidityChanged;
+  final CreatorTutorialFormController? tutorialController;
+  final ValueChanged<bool>? onPickerVisibilityChanged;
+  final String? initialDraftId;
+  final String? initialTitle;
+  final String? initialDescription;
+  final String? submitLabel;
+  final bool clearAfterSubmit;
 
   @override
   State<DynamicForm> createState() => _DynamicFormState();
 }
 
 class _DynamicFormState extends State<DynamicForm> {
-  late final TextEditingController _taskTitleController;
-  late final TextEditingController _goalTitleController;
-  late final TextEditingController _memoryController;
-  late final TextEditingController _notesController;
-  late final bool _ownsTaskTitleController;
-  late final bool _ownsGoalTitleController;
-  late final bool _ownsMemoryController;
-  late final bool _ownsNotesController;
+  final _titleController = TextEditingController();
+  final _descController = TextEditingController();
   String _selectedType = 'Task';
   int _priority = 3;
   DateTime? _scheduledFor;
   RecurrenceRule _recurrenceRule = RecurrenceRule.none;
   bool _submitting = false;
   String? _errorMessage;
+  String? _appliedDraftId;
+  late final Future<void> Function() _tutorialSubmitAction;
+
+  String get _selectedTypeNoun => _selectedType.trim().toLowerCase();
+
+  String get _createActionLabel =>
+      widget.submitLabel ?? 'CREATE ${_selectedType.toUpperCase()}';
 
   @override
   void initState() {
     super.initState();
-    _ownsTaskTitleController = widget.taskTitleController == null;
-    _ownsGoalTitleController = widget.goalTitleController == null;
-    _ownsMemoryController = widget.memoryController == null;
-    _ownsNotesController = widget.notesController == null;
-    _taskTitleController =
-        widget.taskTitleController ?? TextEditingController();
-    _goalTitleController =
-        widget.goalTitleController ?? TextEditingController();
-    _memoryController = widget.memoryController ?? TextEditingController();
-    _notesController = widget.notesController ?? TextEditingController();
-
-    final String? preferred = widget.preferredType?.trim();
-    if (preferred != null && preferred.isNotEmpty) {
-      _selectedType = preferred;
-    }
+    _tutorialSubmitAction = _submit;
+    widget.tutorialController?.attach(_tutorialSubmitAction);
+    _titleController.addListener(_notifyTitleValidity);
+    _applyDraftIfNeeded();
   }
 
   @override
   void didUpdateWidget(covariant DynamicForm oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final String? previous = oldWidget.preferredType?.trim().toLowerCase();
-    final String? next = widget.preferredType?.trim();
-    if (next == null || next.isEmpty) {
-      return;
-    }
-    if (next.toLowerCase() == previous) {
-      return;
-    }
-    if (_selectedType != next) {
-      setState(() {
-        _selectedType = next;
-      });
+    if (oldWidget.initialDraftId != widget.initialDraftId) {
+      if (oldWidget.initialDraftId != null && widget.initialDraftId == null) {
+        _appliedDraftId = null;
+        _titleController.clear();
+        _descController.clear();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _notifyTitleValidity();
+        });
+      } else {
+        _applyDraftIfNeeded();
+      }
     }
   }
 
-  TextEditingController get _titleController {
-    if (widget.workspaceMode == CreatorWorkspaceMode.goals) {
-      return _goalTitleController;
-    }
-    return _taskTitleController;
+  void _applyDraftIfNeeded() {
+    final String? draftId = widget.initialDraftId;
+    if (draftId == null || draftId == _appliedDraftId) return;
+    _appliedDraftId = draftId;
+    _titleController.text = widget.initialTitle?.trim() ?? '';
+    _descController.text = widget.initialDescription?.trim() ?? '';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _notifyTitleValidity();
+    });
   }
 
-  TextEditingController get _detailController {
-    if (_selectedType.trim().toLowerCase() == 'note') {
-      return _memoryController;
-    }
-    return _notesController;
-  }
-
-  String get _entryType {
-    if (widget.workspaceMode == CreatorWorkspaceMode.tasks) {
-      return _selectedType;
-    }
-
-    return widget.workspaceMode.label;
-  }
-
-  String get _submitLabel {
-    switch (widget.workspaceMode) {
-      case CreatorWorkspaceMode.tasks:
-        return 'Create item';
-      case CreatorWorkspaceMode.goals:
-        return 'Create goal';
-      case CreatorWorkspaceMode.milestones:
-        return 'Save milestone';
-      case CreatorWorkspaceMode.plan:
-        return 'Create plan item';
-    }
+  void _notifyTitleValidity() {
+    widget.onTitleValidityChanged?.call(
+      _titleController.text.trim().isNotEmpty,
+    );
   }
 
   @override
   void dispose() {
-    if (_ownsTaskTitleController) {
-      _taskTitleController.dispose();
-    }
-    if (_ownsGoalTitleController) {
-      _goalTitleController.dispose();
-    }
-    if (_ownsMemoryController) {
-      _memoryController.dispose();
-    }
-    if (_ownsNotesController) {
-      _notesController.dispose();
-    }
+    widget.tutorialController?.detach(_tutorialSubmitAction);
+    _titleController.removeListener(_notifyTitleValidity);
+    _titleController.dispose();
+    _descController.dispose();
     super.dispose();
   }
 
@@ -145,11 +115,17 @@ class _DynamicFormState extends State<DynamicForm> {
     if (_submitting) return;
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      AudioService.playError(
-        widget.soundEnabled,
-        advancedProfileEnabled: widget.advancedAudioEnabled,
+      setState(
+        () => _errorMessage =
+            'Add a title before creating the $_selectedTypeNoun.',
       );
-      setState(() => _errorMessage = 'Add a title before creating the entry.');
+      return;
+    }
+    if (widget.guidedFirstTask && _scheduledFor == null) {
+      setState(
+        () => _errorMessage =
+            'Choose a date and time so your first $_selectedTypeNoun can appear on Timeline.',
+      );
       return;
     }
 
@@ -162,33 +138,31 @@ class _DynamicFormState extends State<DynamicForm> {
       await widget.onSubmit(
         CreatorFormData(
           title: title,
-          description: _detailController.text.trim().isEmpty
+          description: _descController.text.trim().isEmpty
               ? null
-              : _detailController.text.trim(),
-          type: _entryType,
+              : _descController.text.trim(),
+          type: _selectedType,
           priority: _priority,
           scheduledFor: _scheduledFor,
-          creatorMode: widget.workspaceMode.name,
           recurrenceRule: _recurrenceRule,
         ),
       );
       if (!mounted) return;
-      _titleController.clear();
-      _detailController.clear();
-      setState(() {
-        _priority = 3;
-        _scheduledFor = null;
-        _recurrenceRule = RecurrenceRule.none;
-      });
+      if (widget.clearAfterSubmit) {
+        _titleController.clear();
+        _descController.clear();
+        setState(() {
+          _selectedType = 'Task';
+          _priority = 3;
+          _scheduledFor = null;
+          _recurrenceRule = RecurrenceRule.none;
+        });
+      }
     } catch (_) {
       if (!mounted) return;
-      AudioService.playError(
-        widget.soundEnabled,
-        advancedProfileEnabled: widget.advancedAudioEnabled,
-      );
       setState(() {
         _errorMessage =
-            'The item could not be saved. Your entry is still here. Try again.';
+            'The $_selectedTypeNoun could not be saved. Your entry is still here—retry.';
       });
     } finally {
       if (mounted) {
@@ -217,43 +191,56 @@ class _DynamicFormState extends State<DynamicForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionLabel('ITEM DETAILS', AppColors.memoryAmber),
+          _sectionLabel('ENTRY DETAILS', AppColors.memoryAmber),
           const SizedBox(height: 14),
           _buildTextField(
             _titleController,
-            'Item title *',
-            semanticsIdentifier: 'creator-title-input',
+            'Title *',
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorTitle
+                : null,
             maxLines: 1,
           ),
           const SizedBox(height: 10),
           _buildTextField(
-            _detailController,
+            _descController,
             _selectedType.toLowerCase() == 'note'
-                ? 'Notes or details (optional)'
-                : 'Description or details (optional)',
-            semanticsIdentifier: 'creator-detail-input',
+                ? 'Notes (optional)'
+                : 'Description (optional)',
             maxLines: _selectedType.toLowerCase() == 'note' ? 5 : 3,
           ),
           const SizedBox(height: 20),
-          RepaintBoundary(
+          KeyedSubtree(
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorType
+                : null,
             child: TypeSelector(
               selected: _selectedType,
-              onSelect: (t) => setState(() {
-                _selectedType = t;
-                final String kind = t.trim().toLowerCase();
-                if ((kind == 'routine' || kind == 'habit') &&
-                    _recurrenceRule == RecurrenceRule.none) {
-                  _recurrenceRule = RecurrenceRule.daily;
-                }
-              }),
+              onSelect: (t) {
+                widget.onTypeChosen?.call();
+                setState(() {
+                  _selectedType = t;
+                  final String kind = t.trim().toLowerCase();
+                  if (kind == 'routine' &&
+                      _recurrenceRule == RecurrenceRule.none) {
+                    _recurrenceRule = RecurrenceRule.daily;
+                  }
+                });
+              },
             ),
           ),
-          const SizedBox(height: 12),
-          _QuickCheatSheet(selectedType: _selectedType),
           const SizedBox(height: 20),
-          _PriorityPicker(
-            value: _priority,
-            onChanged: (v) => setState(() => _priority = v),
+          KeyedSubtree(
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorPriority
+                : null,
+            child: _PriorityPicker(
+              value: _priority,
+              onChanged: (v) {
+                widget.onPriorityChosen?.call();
+                setState(() => _priority = v);
+              },
+            ),
           ),
           const SizedBox(height: 20),
           _RecurrencePicker(
@@ -261,9 +248,18 @@ class _DynamicFormState extends State<DynamicForm> {
             onChanged: (value) => setState(() => _recurrenceRule = value),
           ),
           const SizedBox(height: 20),
-          _ScheduleDatePicker(
-            selected: _scheduledFor,
-            onPick: (date) => setState(() => _scheduledFor = date),
+          KeyedSubtree(
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorSchedule
+                : null,
+            child: _ScheduleDatePicker(
+              selected: _scheduledFor,
+              onVisibilityChanged: widget.onPickerVisibilityChanged,
+              onPick: (date) {
+                widget.onScheduleValidityChanged?.call(true);
+                setState(() => _scheduledFor = date);
+              },
+            ),
           ),
           if (_errorMessage != null) ...[
             const SizedBox(height: 12),
@@ -273,48 +269,50 @@ class _DynamicFormState extends State<DynamicForm> {
             ),
           ],
           const SizedBox(height: 20),
-          Semantics(
-            identifier: 'creator-submit',
-            button: true,
+          KeyedSubtree(
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorSave
+                : null,
             child: SmartPressable(
               onTap: _submitting ? () {} : _submit,
+              semanticLabel: _createActionLabel.toLowerCase(),
               child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color: AppColors.memoryAmber.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.memoryAmber.withValues(alpha: 0.5),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.memoryAmber.withValues(alpha: 0.2),
-                    blurRadius: 12,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.memoryAmber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.memoryAmber.withValues(alpha: 0.5),
                   ),
-                ],
-              ),
-              child: _submitting
-                  ? const Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.memoryAmber.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
+                child: _submitting
+                    ? const Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.memoryAmber,
+                          ),
+                        ),
+                      )
+                    : Text(
+                        _createActionLabel,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          letterSpacing: 2.5,
+                          fontWeight: FontWeight.w800,
                           color: AppColors.memoryAmber,
                         ),
                       ),
-                    )
-                  : Text(
-                      _submitLabel,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        letterSpacing: 0.8,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.memoryAmber,
-                      ),
-                    ),
               ),
             ),
           ),
@@ -326,17 +324,15 @@ class _DynamicFormState extends State<DynamicForm> {
   Widget _buildTextField(
     TextEditingController controller,
     String hint, {
-    required String semanticsIdentifier,
+    Key? key,
     int maxLines = 1,
   }) {
-    return Semantics(
-      identifier: semanticsIdentifier,
-      textField: true,
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
-        decoration: InputDecoration(
+    return TextField(
+      key: key,
+      controller: controller,
+      maxLines: maxLines,
+      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
+      decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
         filled: true,
@@ -363,7 +359,6 @@ class _DynamicFormState extends State<DynamicForm> {
             color: AppColors.neonCyan.withValues(alpha: 0.5),
           ),
         ),
-        ),
       ),
     );
   }
@@ -384,70 +379,12 @@ class _DynamicFormState extends State<DynamicForm> {
           text,
           style: TextStyle(
             fontSize: 10,
-            letterSpacing: 0.8,
+            letterSpacing: 2.5,
             color: color,
             fontWeight: FontWeight.w700,
           ),
         ),
       ],
-    );
-  }
-}
-
-class _QuickCheatSheet extends StatelessWidget {
-  const _QuickCheatSheet({required this.selectedType});
-
-  final String selectedType;
-
-  @override
-  Widget build(BuildContext context) {
-    final String normalized = selectedType.trim().toLowerCase();
-    final String heading = normalized == 'habit'
-        ? 'Daily rhythm = repeatable rhythm'
-        : normalized == 'goal'
-        ? 'Goal = bigger outcome'
-        : normalized == 'note'
-        ? 'Note = capture context'
-        : 'Task = one next action';
-
-    final String body = normalized == 'habit'
-        ? 'Use daily rhythms for the small repeatable actions that shape your day.'
-        : normalized == 'goal'
-        ? 'Use goals when you want a longer outcome to work toward.'
-        : normalized == 'note'
-        ? 'Use notes for context, ideas, or reminders you want to keep nearby.'
-        : 'Use tasks for concrete actions you can finish soon.';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            heading,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            body,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -502,22 +439,28 @@ class _PriorityPicker extends StatelessWidget {
             return Expanded(
               child: SmartPressable(
                 onTap: () => onChanged(level),
-                child: Container(
-                  margin: EdgeInsets.only(right: i < 4 ? 6 : 0),
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? AppColors.recallRed.withValues(alpha: 0.7)
-                        : Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: isActive
-                        ? [
-                            BoxShadow(
-                              color: AppColors.recallRed.withValues(alpha: 0.4),
-                              blurRadius: 4,
-                            ),
-                          ]
-                        : null,
+                semanticLabel: 'Set priority level $level',
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Container(
+                    margin: EdgeInsets.only(right: i < 4 ? 6 : 0),
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? AppColors.recallRed.withValues(alpha: 0.7)
+                          : Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(3),
+                      boxShadow: isActive
+                          ? [
+                              BoxShadow(
+                                color: AppColors.recallRed.withValues(
+                                  alpha: 0.4,
+                                ),
+                                blurRadius: 4,
+                              ),
+                            ]
+                          : null,
+                    ),
                   ),
                 ),
               ),
@@ -530,28 +473,55 @@ class _PriorityPicker extends StatelessWidget {
 }
 
 class _ScheduleDatePicker extends StatelessWidget {
-  const _ScheduleDatePicker({required this.selected, required this.onPick});
+  const _ScheduleDatePicker({
+    required this.selected,
+    required this.onPick,
+    this.onVisibilityChanged,
+  });
 
   final DateTime? selected;
   final ValueChanged<DateTime?> onPick;
+  final ValueChanged<bool>? onVisibilityChanged;
+
+  Future<void> _pickDateAndTime(BuildContext context) async {
+    onVisibilityChanged?.call(true);
+    try {
+      final DateTime now = DateTime.now();
+      final DateTime? date = await showDatePicker(
+        context: context,
+        initialDate: selected ?? now,
+        firstDate: DateTime(now.year, now.month, now.day),
+        lastDate: now.add(const Duration(days: 365)),
+        builder: (context, child) => Theme(
+          data: ThemeData.dark(),
+          child: child ?? const SizedBox.shrink(),
+        ),
+      );
+      if (date == null || !context.mounted) return;
+
+      final DateTime suggested = selected ?? now.add(const Duration(hours: 1));
+      final TimeOfDay? time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(suggested),
+        builder: (context, child) => Theme(
+          data: ThemeData.dark(),
+          child: child ?? const SizedBox.shrink(),
+        ),
+      );
+      if (time == null) return;
+      onPick(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+    } finally {
+      onVisibilityChanged?.call(false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return SmartPressable(
-      onTap: () {
-        showDatePicker(
-          context: context,
-          initialDate: selected ?? DateTime.now(),
-          firstDate: DateTime.now(),
-          lastDate: DateTime.now().add(const Duration(days: 365)),
-          builder: (context, child) => Theme(
-            data: ThemeData.dark(),
-            child: child ?? const SizedBox.shrink(),
-          ),
-        ).then(onPick);
-      },
+      onTap: () => _pickDateAndTime(context),
+      semanticLabel: 'Schedule date',
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),
@@ -569,8 +539,8 @@ class _ScheduleDatePicker extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               selected == null
-                  ? 'Schedule for...'
-                  : '${selected!.day}/${selected!.month}/${selected!.year}',
+                  ? 'Schedule date and time...'
+                  : '${selected!.day}/${selected!.month}/${selected!.year}  ${TimeOfDay.fromDateTime(selected!).format(context)}',
               style: TextStyle(
                 fontSize: 13,
                 color: selected == null ? Colors.white24 : Colors.white70,
@@ -580,7 +550,11 @@ class _ScheduleDatePicker extends StatelessWidget {
             if (selected != null)
               SmartPressable(
                 onTap: () => onPick(null),
-                child: const Icon(Icons.close, size: 14, color: Colors.white38),
+                semanticLabel: 'Clear schedule date',
+                child: const Padding(
+                  padding: EdgeInsets.all(11),
+                  child: Icon(Icons.close, size: 14, color: Colors.white38),
+                ),
               ),
           ],
         ),
@@ -665,7 +639,7 @@ class _RepeatChip extends StatelessWidget {
     return SmartPressable(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: active
               ? AppColors.neonCyan.withValues(alpha: 0.12)

@@ -7,61 +7,64 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-const bool _isTestBuild = bool.fromEnvironment('FLUTTER_TEST');
-
-enum NotificationScheduleResult {
-  scheduled,
-  skippedNotInitialized,
-  skippedPermissionDenied,
-  skippedPastTime,
-}
-
-enum NotificationDestination { task, goal, timeline, siConsole, home }
-
 class NotificationScheduler {
   factory NotificationScheduler() => _instance;
 
-  NotificationScheduler._()
-    : _plugin = FlutterLocalNotificationsPlugin(),
-      _accountRemovalCancelAll = null;
-
-  /// Test-only construction seam for the platform cancellation used by the
-  /// mandatory account-removal cleanup path.
-  NotificationScheduler.withAccountRemovalCancelAll(
-    Future<void> Function() cancelAll,
-  ) : _plugin = FlutterLocalNotificationsPlugin(),
-      _accountRemovalCancelAll = cancelAll;
+  NotificationScheduler._() : _plugin = FlutterLocalNotificationsPlugin();
 
   static final NotificationScheduler _instance = NotificationScheduler._();
 
   final FlutterLocalNotificationsPlugin _plugin;
-  final Future<void> Function()? _accountRemovalCancelAll;
   bool _initialized = false;
   bool _permissionGranted = true;
-  static String? _pendingNotificationPayload;
   static final ValueNotifier<bool?> permissionGrantedListenable =
       ValueNotifier<bool?>(null);
-  static final ValueNotifier<String?> notificationPayloadListenable =
+
+  /// The payload of the most recently tapped notification.
+  ///
+  /// Set both for a tap while the app is running and for a cold launch from a
+  /// notification (see [consumeLaunchPayload]). Previously no response handler
+  /// was registered at all, so tapping a reminder did nothing beyond opening
+  /// the app and a launch-from-notification was indistinguishable from a
+  /// normal launch.
+  static final ValueNotifier<String?> tappedPayloadListenable =
       ValueNotifier<String?>(null);
 
-  static String? consumePendingNotificationPayload() {
-    final String? payload = _pendingNotificationPayload;
-    _pendingNotificationPayload = null;
-    return payload;
-  }
-
-  static void clearAccountRoutingState() {
-    _pendingNotificationPayload = null;
-    notificationPayloadListenable.value = null;
-  }
-
-  static void queueExternalNotificationPayload(String payload) {
-    final String normalized = payload.trim();
-    if (normalized.isEmpty) {
-      return;
+  /// Payload the app was launched with, if it was launched by a notification
+  /// tap. Returns null once consumed so a later read cannot re-route.
+  Future<String?> consumeLaunchPayload() async {
+    if (!_initialized) {
+      return null;
     }
-    _pendingNotificationPayload = normalized;
-    notificationPayloadListenable.value = normalized;
+    try {
+      final NotificationAppLaunchDetails? details = await _plugin
+          .getNotificationAppLaunchDetails();
+      if (details == null || !details.didNotificationLaunchApp) {
+        return null;
+      }
+      final String? payload = details.notificationResponse?.payload;
+      if (payload == null || payload.isEmpty) {
+        return null;
+      }
+      return payload;
+    } on Object catch (error) {
+      Logger.warn('Failed to read notification launch details: $error');
+      return null;
+    }
+  }
+
+  static void _handleNotificationResponse(NotificationResponse response) {
+    final String? payload = response.payload;
+    Logger.log(
+      'Notifications',
+      payload == null || payload.isEmpty
+          ? 'Notification tapped without a route payload.'
+          : 'Notification tapped; route payload withheld from diagnostics.',
+    );
+    RuntimeDiagnostics.record('Notification tapped.');
+    if (payload != null && payload.isNotEmpty) {
+      tappedPayloadListenable.value = payload;
+    }
   }
 
   static const _channel = AndroidNotificationChannel(
@@ -79,33 +82,11 @@ class NotificationScheduler {
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
+      visibility: NotificationVisibility.private,
     ),
   );
 
   Future<bool> init({bool requestPermissions = false}) async {
-    if (_isTestBuild) {
-      _initialized = false;
-      _permissionGranted = false;
-      permissionGrantedListenable.value = false;
-      Logger.log('Notifications', 'Local notifications skipped in test build.');
-      RuntimeDiagnostics.record('Local notifications skipped in test build.');
-      return false;
-    }
-
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-      _initialized = true;
-      _permissionGranted = false;
-      permissionGrantedListenable.value = false;
-
-      Logger.warn(
-        'Local notifications skipped on Windows until Windows initialization settings are configured.',
-      );
-      RuntimeDiagnostics.record(
-        'Local notifications skipped on Windows until Windows initialization settings are configured.',
-      );
-
-      return false;
-    }
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwin = DarwinInitializationSettings(
       requestAlertPermission: false,
@@ -119,15 +100,7 @@ class NotificationScheduler {
     );
     await _plugin.initialize(
       settings: settings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        final String? payload = response.payload?.trim();
-        if (payload == null || payload.isEmpty) {
-          return;
-        }
-        queueExternalNotificationPayload(payload);
-      },
-      onDidReceiveBackgroundNotificationResponse:
-          notificationTapBackgroundHandler,
+      onDidReceiveNotificationResponse: _handleNotificationResponse,
     );
     _initialized = true;
 
@@ -147,8 +120,25 @@ class NotificationScheduler {
     await androidPlugin?.createNotificationChannel(_channel);
 
     if (!requestPermissions) {
-      _permissionGranted =
-          await androidPlugin?.areNotificationsEnabled() ?? false;
+      // Query the platform we are actually on. This previously read
+      // `androidPlugin?.areNotificationsEnabled() ?? false`, so on iOS/macOS —
+      // where androidPlugin is null — it always resolved to false and every
+      // later schedule() call silently skipped. Goal, habit and daily-planning
+      // reminders never scheduled on iOS as a result.
+      if (androidPlugin != null) {
+        _permissionGranted =
+            await androidPlugin.areNotificationsEnabled() ?? false;
+      } else if (iosPlugin != null) {
+        _permissionGranted =
+            (await iosPlugin.checkPermissions())?.isAlertEnabled ?? false;
+      } else if (macosPlugin != null) {
+        _permissionGranted =
+            (await macosPlugin.checkPermissions())?.isAlertEnabled ?? false;
+      } else {
+        // No supported local-notification implementation on this platform
+        // (desktop/web). Nothing to schedule against.
+        _permissionGranted = false;
+      }
       permissionGrantedListenable.value = _permissionGranted;
       return _permissionGranted;
     }
@@ -194,13 +184,17 @@ class NotificationScheduler {
 
   Future<bool> requestPermissions() => init(requestPermissions: true);
 
-  Future<void> schedule(NotificationEntity notification) async {
-    await scheduleWithStatus(notification);
-  }
-
-  Future<NotificationScheduleResult> scheduleWithStatus(
-    NotificationEntity notification,
-  ) async {
+  Future<void> schedule(
+    NotificationEntity notification, {
+    String? accountScope,
+  }) async {
+    if (!notification.isEnabled) {
+      // In-app-only entries (task completion/skip feedback and similar
+      // transient toasts) are persisted for the in-app notification list but
+      // must never reach the OS. Without this guard every task interaction
+      // posted a real system notification one second later.
+      return;
+    }
     if (!_initialized) {
       Logger.warn(
         'Skipped schedule because notification scheduler is not initialized.',
@@ -208,7 +202,7 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because scheduler is not initialized.',
       );
-      return NotificationScheduleResult.skippedNotInitialized;
+      return;
     }
     if (!_permissionGranted) {
       Logger.log(
@@ -218,32 +212,26 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because permission is not granted.',
       );
-      return NotificationScheduleResult.skippedPermissionDenied;
+      return;
     }
     final scheduledTz = tz.TZDateTime.from(notification.scheduledAt, tz.local);
     if (scheduledTz.isBefore(tz.TZDateTime.now(tz.local))) {
-      Logger.log(
-        'Notifications',
-        'Skipped schedule for past time: ${notification.id}.',
-      );
-      RuntimeDiagnostics.record(
-        'Skipped notification schedule for past time: ${notification.id}.',
-      );
-      return NotificationScheduleResult.skippedPastTime;
+      Logger.log('Notifications', 'Skipped schedule for past time.');
+      RuntimeDiagnostics.record('Skipped notification schedule for past time.');
+      return;
     }
     await _plugin.zonedSchedule(
-      id: _notificationId(notification.id),
+      id: _notificationId(_platformKey(notification.id, accountScope)),
       title: notification.title,
       body: notification.message,
       scheduledDate: scheduledTz,
       notificationDetails: _notifDetails,
-      payload: jsonEncode(<String, String>{
-        'destination': NotificationDestination.home.name,
-        'notificationId': notification.id,
-      }),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      // Carry the domain id so a tap can be routed back to what it refers to.
+      payload: accountScope == null
+          ? notification.id
+          : accountPayload(accountScope, notification.id),
     );
-    return NotificationScheduleResult.scheduled;
   }
 
   Future<void> scheduleDailyAt({
@@ -252,28 +240,27 @@ class NotificationScheduler {
     required String body,
     required int hour,
     required int minute,
-  }) async {
-    await scheduleDailyAtWithStatus(
-      id: id,
-      title: title,
-      body: body,
-      hour: hour,
-      minute: minute,
-    );
-  }
-
-  Future<NotificationScheduleResult> scheduleDailyAtWithStatus({
-    required String id,
-    required String title,
-    required String body,
-    required int hour,
-    required int minute,
+    String? accountScope,
   }) async {
     if (!_initialized) {
-      return NotificationScheduleResult.skippedNotInitialized;
+      Logger.warn(
+        'Skipped daily schedule "$id" because the scheduler is not '
+        'initialized.',
+      );
+      RuntimeDiagnostics.record(
+        'Skipped daily notification schedule: scheduler not initialized.',
+      );
+      return;
     }
     if (!_permissionGranted) {
-      return NotificationScheduleResult.skippedPermissionDenied;
+      Logger.log(
+        'Notifications',
+        'Skipped daily schedule "$id" because permission is not granted.',
+      );
+      RuntimeDiagnostics.record(
+        'Skipped daily notification schedule: permission not granted.',
+      );
+      return;
     }
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(
@@ -288,22 +275,18 @@ class NotificationScheduler {
       scheduled = scheduled.add(const Duration(days: 1));
     }
     await _plugin.zonedSchedule(
-      id: _notificationId(id),
+      id: _notificationId(_platformKey(id, accountScope)),
       title: title,
       body: body,
       scheduledDate: scheduled,
       notificationDetails: _notifDetails,
-      payload: jsonEncode(<String, String>{
-        'destination': NotificationDestination.home.name,
-        'notificationId': id,
-      }),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
+      payload: accountScope == null ? id : accountPayload(accountScope, id),
     );
-    return NotificationScheduleResult.scheduled;
   }
 
-  Future<void> cancel(String id) async {
+  Future<void> cancel(String id, {String? accountScope}) async {
     if (!_initialized) {
       Logger.log(
         'Notifications',
@@ -314,7 +297,7 @@ class NotificationScheduler {
       );
       return;
     }
-    await _plugin.cancel(id: _notificationId(id));
+    await _plugin.cancel(id: _notificationId(_platformKey(id, accountScope)));
   }
 
   Future<void> cancelAll() async {
@@ -331,22 +314,6 @@ class NotificationScheduler {
     await _plugin.cancelAll();
   }
 
-  Future<void> cancelAllForAccountRemoval() async {
-    final Future<void> Function()? injectedCancelAll =
-        _accountRemovalCancelAll;
-    if (injectedCancelAll != null) {
-      await injectedCancelAll();
-      return;
-    }
-    if (!_initialized) {
-      await init(requestPermissions: false);
-    }
-    if (!_initialized) {
-      return;
-    }
-    await _plugin.cancelAll();
-  }
-
   static int _notificationId(String value) {
     int hash = 0x811c9dc5;
     for (final int codeUnit in value.codeUnits) {
@@ -355,14 +322,32 @@ class NotificationScheduler {
     }
     return hash;
   }
-}
 
-@pragma('vm:entry-point')
-void notificationTapBackgroundHandler(NotificationResponse response) {
-  final String? payload = response.payload?.trim();
-  if (payload == null || payload.isEmpty) {
-    return;
+  static String _platformKey(String id, String? accountScope) {
+    return accountScope == null ? id : '$accountScope:$id';
   }
-  NotificationScheduler._pendingNotificationPayload = payload;
-  NotificationScheduler.notificationPayloadListenable.value = payload;
+
+  static String accountPayload(String accountScope, String notificationId) {
+    return jsonEncode(<String, Object>{
+      'v': 1,
+      'accountScope': accountScope,
+      'notificationId': notificationId,
+    });
+  }
+
+  static ({String accountScope, String notificationId})? parseAccountPayload(
+    String payload,
+  ) {
+    try {
+      final Object? decoded = jsonDecode(payload);
+      if (decoded is! Map) return null;
+      if (decoded['v'] != 1) return null;
+      final String accountScope = decoded['accountScope']?.toString() ?? '';
+      final String notificationId = decoded['notificationId']?.toString() ?? '';
+      if (accountScope.isEmpty || notificationId.isEmpty) return null;
+      return (accountScope: accountScope, notificationId: notificationId);
+    } on FormatException {
+      return null;
+    }
+  }
 }

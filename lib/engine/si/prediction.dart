@@ -22,7 +22,7 @@ class Prediction {
   double get safeProbability => siClamp01(probability);
   double get safeConfidence => siClamp01(confidence);
 
-  bool get reliable => sampleSize >= 3 && safeConfidence >= 0.55;
+  bool get reliable => sampleSize >= 10 && safeConfidence >= 0.55;
 
   Prediction copyWith({
     String? outcome,

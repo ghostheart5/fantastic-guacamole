@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
 enum ProjectStatus { active, archived }
 
 class ProjectEntity {

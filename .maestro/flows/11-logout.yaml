@@ -1,0 +1,34 @@
+# P1 — Logout. Verifies session teardown actually revokes access.
+appId: com.ghostheart5.chronospark
+tags:
+  - auth
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
+
+- scrollUntilVisible:
+    element:
+      text: "Data & account\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Data & account\\n.*"
+
+- scrollUntilVisible:
+    element:
+      text: "(?:Exit Tester Mode|Log Out)\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "(?:Exit Tester Mode|Log Out)\\n.*"
+
+- extendedWaitUntil:
+    visible: "(?:Continue to login|ENTER SYSTEM)"
+    timeout: 20000
+
+# Signing out must not leave the app surface reachable behind the gate.
+- assertNotVisible: "Open navigation map"

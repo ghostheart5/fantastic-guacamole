@@ -1,3 +1,0 @@
-class DuplicateTaskUsecase {
-  const DuplicateTaskUsecase();
-}

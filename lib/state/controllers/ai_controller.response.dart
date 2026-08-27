@@ -1,14 +1,52 @@
 part of 'ai_controller.dart';
 
+bool shouldReserveExternalModelCredits({
+  required bool externalAiAllowed,
+  required AgentKind? preferredAgent,
+}) =>
+    externalAiAllowed &&
+    (preferredAgent == null || preferredAgent == AgentKind.chat);
+
+bool shouldRetainExternalModelCredits(AgentResult result) => result.modelBacked;
+
+PaywallPrompt? serverAiCreditPrompt(AgentResult result) {
+  final int? remaining = (result.payload['remainingCredits'] as num?)?.toInt();
+  if (result.payload['billingRejected'] == true) {
+    return PaywallPrompt(
+      title: 'AI credits exhausted',
+      message:
+          'External assistant credits are exhausted. ChronoSpark will continue with on-device guidance.',
+      trigger: 'ai_credit_limit',
+      remainingCredits: remaining ?? 0,
+    );
+  }
+  if (remaining != null && remaining <= 5) {
+    return PaywallPrompt(
+      title: 'AI credits running low',
+      message: 'You have $remaining external assistant credits remaining.',
+      trigger: 'ai_credit_low',
+      remainingCredits: remaining,
+    );
+  }
+  return null;
+}
+
 final siEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
   ref,
 ) async {
-  final scope = ref.watch(accountStorageScopeProvider);
-  if (!scope.isAuthenticated || scope.v2Namespace == null) {
-    return null;
-  }
-  final siEngineService = ref.watch(siEngineServiceProvider);
-  return siEngineService.loadState();
+  final siEngineService = ref.read(siEngineServiceProvider);
+  return siEngineService.loadState(
+    conversation: AssistantConversationScope.primarySiConsole,
+  );
+});
+
+final smartPlannerEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
+  ref,
+) async {
+  final siEngineService = ref.read(siEngineServiceProvider);
+  return siEngineService.loadState(
+    conversation: AssistantConversationScope.primarySmartPlanner,
+  );
 });
 
 final aiDecisionProvider = FutureProvider<Decision?>((ref) async {
@@ -33,24 +71,36 @@ final aiResponseProvider =
       AIResponseController.new,
     );
 
+final smartPlannerAiResponseProvider =
+    AsyncNotifierProvider<AIResponseController, AIRecommendation?>(
+      () =>
+          AIResponseController(AssistantConversationScope.primarySmartPlanner),
+    );
+
 class AIResponseController extends AsyncNotifier<AIRecommendation?>
     implements SIConsoleInterface {
+  AIResponseController([
+    this.conversation = AssistantConversationScope.primarySiConsole,
+  ]);
+
   static int _requestCounter = 0;
   String? _activeRequestId;
+  final AssistantConversationScope conversation;
 
   @override
   Future<AIRecommendation?> build() async {
     return null;
   }
 
-  Future<AIRecommendation?> executeCoachQuery({
+  Future<AIRecommendation?> executeSmartPlannerQuery({
     required String input,
     List<Map<String, String>> history = const <Map<String, String>>[],
     Map<String, dynamic> context = const <String, dynamic>{},
   }) {
+    _requireSurface(AssistantSurface.smartPlanner);
     return execute(
       inputOverride: input,
-      personalityOverride: AIPersonality.coach,
+      personalityOverride: AIPersonality.planner,
       preferredAgent: AgentKind.chat,
       history: history,
       context: context,
@@ -68,6 +118,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
     List<Map<String, String>> history = const <Map<String, String>>[],
     Map<String, dynamic> context = const <String, dynamic>{},
   }) {
+    _requireSurface(AssistantSurface.siConsole);
     return execute(
       inputOverride: input,
       personalityOverride: AIPersonality.strategist,
@@ -75,6 +126,15 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       history: history,
       context: context,
     );
+  }
+
+  void _requireSurface(AssistantSurface requiredSurface) {
+    if (conversation.surface != requiredSurface) {
+      throw StateError(
+        'Assistant runtime ${conversation.surface.storageId} cannot execute '
+        '${requiredSurface.storageId} requests.',
+      );
+    }
   }
 
   Future<AIRecommendation?> execute({
@@ -85,17 +145,49 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
     Map<String, dynamic> context = const <String, dynamic>{},
     AgentRequest? requestOverride,
   }) async {
-    if (state.isLoading) {
-      return null;
-    }
     final int seq = ++_requestCounter;
-    final String requestId = 'ai-${DateTime.now().millisecondsSinceEpoch}-$seq';
+    final String accountNamespace = _assistantAccountScopeId(ref);
+    final String conversationNamespace = base64UrlEncode(
+      utf8.encode(conversation.conversationId),
+    );
+    final String generatedRequestId =
+        'ai-$accountNamespace-${conversation.surface.storageId}-$conversationNamespace-${DateTime.now().millisecondsSinceEpoch}-$seq';
+    final String contractInput =
+        (inputOverride ??
+                ref.read(_inputProviderFor(conversation.surface)) ??
+                '')
+            .trim();
+    final Object? embeddedContract = context['assistantRequestContract'];
+    final AssistantRequestEnvelope typedRequest =
+        embeddedContract is Map<Object?, Object?>
+        ? AssistantRequestEnvelope.fromJson(
+            Map<String, Object?>.from(embeddedContract),
+          )
+        : createAssistantRequestEnvelope(
+            accountScopeId: accountNamespace,
+            conversation: conversation,
+            kind: conversation.surface == AssistantSurface.smartPlanner
+                ? AssistantRequestKind.planningGuidance
+                : AssistantRequestKind.consoleQuery,
+            input: contractInput,
+            history: history,
+            context: Map<String, Object?>.from(context),
+            requestId: generatedRequestId,
+          );
+    typedRequest.validate();
+    if (typedRequest.conversation != conversation ||
+        typedRequest.accountScopeId != accountNamespace) {
+      throw const AssistantContractException(
+        'Assistant request identity does not match the active runtime.',
+      );
+    }
+    final String requestId = typedRequest.requestId;
     final Stopwatch stopwatch = Stopwatch()..start();
     _activeRequestId = requestId;
 
     state = const AsyncLoading<AIRecommendation?>();
     ref
-        .read(aiExecutionStatusProvider.notifier)
+        .read(_executionStatusProviderFor(conversation.surface).notifier)
         .set(
           AIExecutionStatus(
             phase: 'running',
@@ -106,13 +198,18 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         );
     RuntimeDiagnostics.record('AI[$requestId] started');
 
+    // Assigned once credits have actually been debited, so both the
+    // supersede path and the failure handler below can return them.
+    Future<void> Function()? refundCredits;
+
     try {
       final List<Task> tasks = await ref.read(tasksProvider.future);
-      if (!ref.mounted || _activeRequestId != requestId) {
-        return null;
-      }
       final siEngineService = ref.read(siEngineServiceProvider);
       final agentOrchestrator = ref.read(agentOrchestratorProvider);
+      final bool hasPremiumAccess = ref
+          .read(appAccessProvider)
+          .hasPremiumAccess;
+      final CreditService creditService = ref.read(creditServiceProvider);
 
       final si = ref.read(siStateProvider);
       final learning = ref.read(learningProvider);
@@ -120,17 +217,77 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       final AIPersonality personality =
           personalityOverride ??
           ref.read(aiPersonalityProvider) ??
-          AIPersonality.coach;
-      final input = inputOverride ?? ref.read(aiInputProvider);
-      ref.read(paywallPromptProvider.notifier).set(null);
+          AIPersonality.planner;
+      final input =
+          inputOverride ?? ref.read(_inputProviderFor(conversation.surface));
+
+      final int creditCost = _aiCreditCost(
+        input: input,
+        personality: personality,
+      );
+      final bool externalModelRequested = shouldReserveExternalModelCredits(
+        externalAiAllowed: context['externalAiAllowed'] == true,
+        preferredAgent: preferredAgent,
+      );
+      bool externalModelAuthorized = externalModelRequested;
+      if (externalModelRequested && !intelligence.environment.isProduction) {
+        final AiCreditSpendResult spend = await creditService.spend(
+          premium: hasPremiumAccess,
+          amount: creditCost,
+        );
+        ref.invalidate(aiCreditWalletProvider);
+        externalModelAuthorized = spend.allowed;
+        if (spend.allowed) {
+          // Reserve only for a possible external-model call. A local or
+          // failed result releases the reservation below.
+          refundCredits = () async {
+            try {
+              await creditService.refund(
+                premium: hasPremiumAccess,
+                amount: creditCost,
+              );
+              ref.invalidate(aiCreditWalletProvider);
+            } on Object catch (error) {
+              RuntimeDiagnostics.record(
+                'AI[$requestId] credit refund failed: $error',
+              );
+            }
+          };
+        } else {
+          externalModelAuthorized = false;
+        }
+
+        if (!spend.allowed) {
+          ref
+              .read(paywallPromptProvider.notifier)
+              .set(
+                PaywallPrompt(
+                  title: 'AI credits exhausted',
+                  message:
+                      'External assistant credits are exhausted. ChronoSpark will continue with on-device guidance.',
+                  trigger: 'ai_credit_limit',
+                  remainingCredits: spend.wallet.balance,
+                ),
+              );
+        } else {
+          ref.read(paywallPromptProvider.notifier).set(null);
+        }
+      } else {
+        ref.read(paywallPromptProvider.notifier).set(null);
+      }
 
       final Map<String, dynamic>? previousState = await siEngineService
-          .loadState();
-      if (!ref.mounted || _activeRequestId != requestId) {
-        return null;
-      }
-      final List<Map<String, String>> conversationHistory =
-          List<Map<String, String>>.from(history);
+          .loadState(conversation: conversation);
+      final List<Map<String, String>> conversationHistory = history.isNotEmpty
+          ? List<Map<String, String>>.from(history)
+          : typedRequest.history
+                .map(
+                  (AssistantHistoryTurn turn) => <String, String>{
+                    'role': turn.role.name,
+                    'content': turn.content,
+                  },
+                )
+                .toList(growable: true);
       final String previousMessage =
           previousState?['message']?.toString().trim() ?? '';
       final bool alreadyContainsPrevious = conversationHistory.any(
@@ -145,7 +302,11 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         });
       }
       final List<SISnapshot> recentSnapshots = ref
-          .read(siMemoryProvider)
+          .read(
+            conversation.surface == AssistantSurface.smartPlanner
+                ? smartPlannerMemoryProvider
+                : siMemoryProvider,
+          )
           .entries
           .take(20)
           .toList(growable: false);
@@ -169,9 +330,8 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         memorySummaries: selectedMemorySummaries,
       );
       final Map<String, dynamic> conversationContext = <String, dynamic>{
-        'mode': 'coach',
+        'mode': 'planner',
         'previousMessage': previousMessage,
-        'requestId': requestId,
         'intent': intent.label,
         'grounded': <String, dynamic>{
           'taskCount': tasks.length,
@@ -186,7 +346,13 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           'mockLoginEnabled': intelligence.flags.mockLoginEnabled,
           'paywallDisabled': intelligence.flags.paywallDisabled,
         },
+        ...Map<String, dynamic>.from(typedRequest.context),
         ...context,
+        'requestId': requestId,
+        'surfaceId': conversation.surface.storageId,
+        'conversationId': conversation.conversationId,
+        'accountNamespace': accountNamespace,
+        'externalAiAllowed': externalModelAuthorized,
       };
 
       final AgentRequest request =
@@ -211,14 +377,26 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         preferredAgent: preferredAgent,
         request: request,
       );
-      if (!ref.mounted || _activeRequestId != requestId) {
+      if (externalModelRequested && intelligence.environment.isProduction) {
+        ref.invalidate(aiCreditWalletProvider);
+        ref
+            .read(paywallPromptProvider.notifier)
+            .set(serverAiCreditPrompt(agentResult));
+      }
+      if (!shouldRetainExternalModelCredits(agentResult) &&
+          refundCredits != null) {
+        await refundCredits();
+        refundCredits = null;
+      }
+      if (_activeRequestId != requestId) {
+        // Superseded by a newer request: this one delivers nothing, so it must
+        // not keep the credits it took.
+        await refundCredits?.call();
         return null;
       }
-      if ((agentResult.payload['creditsCharged'] as num?)?.toInt()
-          case final int charged when charged > 0) {
-        refreshMonetizationRemoteState(ref);
-      }
-      ref.read(aiAgentTraceProvider.notifier).set(agentResult);
+      ref
+          .read(_traceProviderFor(conversation.surface).notifier)
+          .set(agentResult);
 
       final AIResponse response = _responseFromAgentResult(
         result: agentResult,
@@ -236,6 +414,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         reasoning: response.metadata['reasoning']?.toString(),
         emotion: response.emotion,
         confidence: response.confidence,
+        processingMode: aiProcessingModeFromMetadata(response.metadata),
       );
       final double baseConfidenceSeed = (baseRecommendation.confidence ?? 0.55)
           .clamp(0.0, 1.0);
@@ -309,19 +488,21 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
             : '${selected.reasoning} | grounded_fallback:${validatedDecision.violations.join(',')}',
         emotion: selected.emotion,
         confidence: selected.confidence,
+        processingMode: baseRecommendation.processingMode,
       );
 
       final SlidingWindowRateLimiter suggestionLimiter = ref.read(
-        aiSuggestionRateLimiterProvider,
+        _suggestionRateLimiterProviderFor(conversation.surface),
       );
       if (selection.repeatedTask && !suggestionLimiter.tryAcquire()) {
-        recommendation = const AIRecommendation(
+        recommendation = AIRecommendation(
           task: null,
           message:
               'I am holding repeated nudges for a moment. Tell me if you want an alternative action and I will switch strategies.',
           reasoning: 'task_cooldown',
           emotion: 'balanced',
           confidence: 0.64,
+          processingMode: baseRecommendation.processingMode,
         );
       }
 
@@ -334,6 +515,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               '${recommendation.reasoning ?? 'policy'} | policy_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: (recommendation.confidence ?? 0.6).clamp(0.0, 1.0),
+          processingMode: recommendation.processingMode,
         );
       }
 
@@ -356,6 +538,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence,
+          processingMode: recommendation.processingMode,
         );
         usedFinalDedupFallback = true;
         finalRepeated = isSubstantiallyRepeatedResponse(
@@ -373,6 +556,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       final bool emittedGrounded =
           validatedDecision.grounded || usedGroundingFallback;
       final bool facadeValidated = siEngineService.validateOutput(
+        conversation: conversation,
         message: recommendation.message,
         confidence: (recommendation.confidence ?? 0.0),
         coherent: selection.coherent || usedGroundingFallback,
@@ -389,6 +573,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               '${recommendation.reasoning ?? 'validation'} | facade_validation_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: (recommendation.confidence ?? 0.5).clamp(0.0, 1.0),
+          processingMode: recommendation.processingMode,
         );
       }
 
@@ -413,6 +598,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence,
+          processingMode: recommendation.processingMode,
         );
         usedFinalDedupFallback = true;
       }
@@ -439,12 +625,33 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         reasoning: recommendation.reasoning,
         emotion: recommendation.emotion,
         confidence: calibratedConfidence,
+        processingMode: recommendation.processingMode,
       );
+      recommendation = recommendation.withValidatedContract(
+        request: typedRequest,
+        evidence: createAssistantEvidenceItems(
+          request: typedRequest,
+          summaries: <String>[
+            'Request kind: ${typedRequest.kind.name}',
+            'Grounded task signals available: ${tasks.length}',
+            if (selectedMemorySummaries.isNotEmpty)
+              'Surface-local memory signals used: ${selectedMemorySummaries.length}',
+            'Deterministic output validators completed',
+          ],
+          sourceId: 'assistant_runtime',
+        ),
+        status:
+            recommendation.processingMode == AIProcessingMode.onDeviceFallback
+            ? AssistantResponseStatus.fallback
+            : AssistantResponseStatus.completed,
+      );
+      recommendation.validateContractAgainst(typedRequest);
 
       stopwatch.stop();
 
       final Map<String, dynamic> generatedResponse = await siEngineService
           .generateResponse(
+            conversation: conversation,
             input: input ?? '',
             message: recommendation.message,
             emotion: recommendation.emotion ?? 'balanced',
@@ -454,9 +661,6 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               'reasoning': recommendation.reasoning ?? '',
             },
           );
-      if (!ref.mounted || _activeRequestId != requestId) {
-        return null;
-      }
       final String responseHash =
           generatedResponse['responseHash']?.toString() ?? '';
       final String responseSummary =
@@ -468,17 +672,10 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         intent: intent,
         recommendation: recommendation,
       );
-      final String retentionLabel = switch (memoryType) {
-        'task_recommendation' => 'short_term_30d',
-        'energy_insight' => 'short_term_30d',
-        'status_summary' => 'short_term_14d',
-        _ => 'short_term_14d',
-      };
       final Map<String, dynamic> memoryEvent = <String, dynamic>{
         'timestampUtc': DateTime.now().toUtc().toIso8601String(),
         'type': memoryType,
         'intent': intent.label,
-        'retentionLabel': retentionLabel,
         'summary': _summarizeInteraction(
           input: input ?? '',
           output: recommendation.message,
@@ -491,6 +688,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         memoryEvent: memoryEvent,
       );
       final Map<String, dynamic> memoryState = siEngineService.updateMemory(
+        conversation: conversation,
         currentState: previousState,
         memoryEvent: memoryEvent,
       );
@@ -505,6 +703,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       await siEngineService.saveState(<String, dynamic>{
         'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
         'requestId': requestId,
+        'surfaceId': conversation.surface.storageId,
+        'conversationId': conversation.conversationId,
+        'accountNamespace': accountNamespace,
         'durationMs': stopwatch.elapsedMilliseconds,
         'personality': personality.name,
         'input': input,
@@ -530,14 +731,28 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           'confidence': intent.confidence,
         },
         'communicationContract': communicationContract,
-      });
-      if (!ref.mounted || _activeRequestId != requestId) {
-        return null;
-      }
-      ref.invalidate(siEngineStateProvider);
+        'requestContract': typedRequest.toJson(),
+        'responseContract': recommendation.contract!.toJson(),
+        'evidenceManifest': recommendation.evidenceManifest!.toJson(),
+        'assistantEvidenceExchange': AssistantEvidenceExchange(
+          request: typedRequest,
+          response: recommendation.contract!,
+          manifest: recommendation.evidenceManifest!,
+        ).toJson(),
+      }, conversation: conversation);
+      ref.invalidate(
+        conversation.surface == AssistantSurface.smartPlanner
+            ? smartPlannerEngineStateProvider
+            : siEngineStateProvider,
+      );
 
       ref
-          .read(siMemoryProvider.notifier)
+          .read(
+            (conversation.surface == AssistantSurface.smartPlanner
+                    ? smartPlannerMemoryProvider
+                    : siMemoryProvider)
+                .notifier,
+          )
           .capture(
             SISnapshot(
               timestamp: DateTime.now(),
@@ -555,7 +770,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
 
       state = AsyncData<AIRecommendation?>(recommendation);
       ref
-          .read(aiExecutionStatusProvider.notifier)
+          .read(_executionStatusProviderFor(conversation.surface).notifier)
           .set(
             AIExecutionStatus(
               phase: 'completed',
@@ -568,51 +783,21 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         'AI[$requestId] completed in ${stopwatch.elapsedMilliseconds}ms',
       );
       return recommendation;
-    } on AiProxyCreditsExhaustedException catch (error) {
+    } on Object catch (error, stackTrace) {
+      // `on Object`, not `on Exception`: a Dart Error (a bad cast in response
+      // parsing, for example) previously escaped this handler, leaving `state`
+      // stuck in AsyncLoading forever and the execution status stuck on
+      // 'running'. Anything watching aiResponseProvider spun indefinitely.
       stopwatch.stop();
-      if (!ref.mounted || _activeRequestId != requestId) {
-        return null;
-      }
-      ref
-          .read(paywallPromptProvider.notifier)
-          .set(
-            PaywallPrompt(
-              title: 'AI credits exhausted',
-              message:
-                  'You have used your available AI credits. Upgrade to continue coaching, memory, and voice flows.',
-              trigger: 'ai_credit_limit',
-              remainingCredits: error.remainingCredits,
-            ),
-          );
-      const AIRecommendation denied = AIRecommendation(
-        task: null,
-        message:
-            'Your AI credits are exhausted for this cycle. Upgrade to keep using coaching and memory.',
-        reasoning: 'AI credits exhausted',
-        emotion: 'cautious',
-        confidence: 0.35,
-      );
-      state = const AsyncData<AIRecommendation?>(denied);
-      ref
-          .read(aiExecutionStatusProvider.notifier)
-          .set(
-            AIExecutionStatus(
-              phase: 'denied',
-              requestId: requestId,
-              durationMs: stopwatch.elapsedMilliseconds,
-              error: 'credits_exhausted',
-            ),
-          );
-      RuntimeDiagnostics.record('AI[$requestId] denied: credits exhausted');
-      return denied;
-    } on Exception catch (error, stackTrace) {
-      stopwatch.stop();
-      if (!ref.mounted || _activeRequestId != requestId) {
+      // The request produced no response, so the credits it took go back
+      // regardless of whether it was superseded.
+      await refundCredits?.call();
+      if (_activeRequestId != requestId) {
         return null;
       }
       state = AsyncError<AIRecommendation?>(error, stackTrace);
       ref
-          .read(aiExecutionStatusProvider.notifier)
+          .read(_executionStatusProviderFor(conversation.surface).notifier)
           .set(
             AIExecutionStatus(
               phase: 'failed',

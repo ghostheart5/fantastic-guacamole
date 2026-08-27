@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
 
 typedef SyntheticIntelligenceOutput = SIFinalOutputBundle;
 
+@Deprecated('Use SIEngineService. This class is a compatibility adapter.')
 class SyntheticIntelligenceEngine {
   SyntheticIntelligenceEngine({SIEngineService? service})
     : _service = service ?? SIEngineService();
@@ -25,7 +26,7 @@ class SyntheticIntelligenceEngine {
     required DateTime now,
     Object? personality,
     AIResponse? response,
-    String appState = 'coach',
+    String appState = 'planner',
     String platform = 'unknown',
     List<String> history = const <String>[],
     Map<String, dynamic> metadata = const <String, dynamic>{},
@@ -106,7 +107,7 @@ class SyntheticIntelligenceEngine {
     required DateTime now,
     Object? personality,
     AIResponse? response,
-    String appState = 'coach',
+    String appState = 'planner',
     String platform = 'unknown',
     List<String> history = const <String>[],
     Map<String, dynamic> metadata = const <String, dynamic>{},
@@ -207,7 +208,7 @@ class SyntheticIntelligenceEngine {
       'not sure',
       'unclear',
       'lost',
-      'don\'t know',
+      'don’t know',
       "don't know",
     ])) {
       confusion = 0.72;

@@ -1,3 +1,0 @@
-﻿class SelectInterestGroupsUsecase {
-  const SelectInterestGroupsUsecase();
-}

@@ -40,15 +40,7 @@ class UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<void> sendPhoneOtp(String phone) async {
-    throw _error();
-  }
-
-  @override
-  Future<UserCredential> verifyPhoneOtp({
-    required String phone,
-    required String token,
-  }) async {
+  Future<UserCredential> signInWithGitHub() async {
     throw _error();
   }
 
@@ -74,13 +66,6 @@ class UnavailableAuthService implements AuthServiceContract {
 
   @override
   Future<String?> getIdToken({bool forceRefresh = false}) async {
-    throw _error();
-  }
-
-  @override
-  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
-    bool forceRefresh = false,
-  }) async {
     throw _error();
   }
 

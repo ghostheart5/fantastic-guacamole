@@ -1,3 +1,0 @@
-﻿class UpdateProfilePhotoUsecase {
-  const UpdateProfilePhotoUsecase();
-}

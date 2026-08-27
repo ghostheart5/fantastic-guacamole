@@ -1,3 +1,0 @@
-class ViewLifeBalanceInsightsUsecase {
-  const ViewLifeBalanceInsightsUsecase();
-}

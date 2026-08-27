@@ -1,12 +1,8 @@
-import 'dart:async';
-
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
-import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,7 +34,7 @@ class NotificationActions {
   Future<void> pushMirroredDecision(String taskTitle) {
     return _ref
         .read(notificationProvider.notifier)
-        .pushDecision(taskTitle, refreshCoach: false, refreshPlan: true);
+        .pushDecision(taskTitle, refreshPlanner: false, refreshPlan: true);
   }
 
   Future<void> pushMirroredCompletionFeedback(String taskTitle) {
@@ -46,7 +42,7 @@ class NotificationActions {
         .read(notificationProvider.notifier)
         .pushCompletionFeedback(
           taskTitle,
-          refreshCoach: false,
+          refreshPlanner: false,
           refreshPlan: true,
         );
   }
@@ -54,99 +50,74 @@ class NotificationActions {
   Future<void> pushMirroredTaskSkipped(String taskTitle) {
     return _ref
         .read(notificationProvider.notifier)
-        .pushTaskSkipped(taskTitle, refreshCoach: false, refreshPlan: true);
+        .pushTaskSkipped(taskTitle, refreshPlanner: false, refreshPlan: true);
   }
 }
 
 class NotificationNotifier extends Notifier<List<NotificationEntity>> {
-  int _loadGeneration = 0;
-  Future<void> _playCategoryAwareReminderSound(
-    NotificationEntity notification,
-  ) {
-    final bool soundEnabled = ref.read(soundEnabledProvider);
-    final bool advancedAudioEnabled = ref.read(
-      advancedAudioProfileEnabledProvider,
-    );
-    final String title = notification.title.toLowerCase();
-    final String message = notification.message.toLowerCase();
-    final String combined = '$title $message';
-
-    if (combined.contains('routine') || combined.contains('habit')) {
-      return AudioService.playReminderRoutine(
-        soundEnabled,
-        advancedProfileEnabled: advancedAudioEnabled,
-      );
-    }
-
-    if (combined.contains('daily') ||
-        combined.contains('plan') ||
-        combined.contains('reflection')) {
-      return AudioService.playReminderDaily(
-        soundEnabled,
-        advancedProfileEnabled: advancedAudioEnabled,
-      );
-    }
-
-    return AudioService.playNotification(
-      soundEnabled,
-      advancedProfileEnabled: advancedAudioEnabled,
-    );
-  }
+  late INotificationRepository _repository;
+  int _generation = 0;
 
   @override
   List<NotificationEntity> build() {
-    final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-    final notificationRepository = ref.watch(
+    final INotificationRepository notificationRepository = ref.watch(
       domainNotificationRepositoryProvider,
     );
-    final int generation = ++_loadGeneration;
-    if (scope.isAuthenticated) {
-      unawaited(_reloadForScope(notificationRepository, scope, generation));
-    }
+    _repository = notificationRepository;
+    final int generation = ++_generation;
+    bool disposed = false;
+    ref.onDispose(() {
+      disposed = true;
+    });
+
+    Future<void>(() async {
+      final List<NotificationEntity> notifications =
+          await notificationRepository.getNotifications();
+
+      if (disposed || !_isCurrent(generation, notificationRepository)) {
+        return;
+      }
+
+      final Map<String, NotificationEntity> mergedById =
+          <String, NotificationEntity>{
+            for (final NotificationEntity item in notifications) item.id: item,
+          };
+
+      for (final NotificationEntity item in state) {
+        mergedById[item.id] = item;
+      }
+
+      final List<NotificationEntity> merged =
+          mergedById.values.toList(growable: false)..sort(
+            (NotificationEntity a, NotificationEntity b) =>
+                b.scheduledAt.compareTo(a.scheduledAt),
+          );
+
+      state = merged;
+    });
 
     return const <NotificationEntity>[];
   }
 
-  Future<void> _reloadForScope(
-    INotificationRepository repository,
-    AccountStorageScope scope,
-    int generation,
-  ) async {
-    try {
-      final List<NotificationEntity> notifications = await repository
-          .getNotifications();
-      if (generation != _loadGeneration ||
-          ref.read(accountStorageScopeProvider).v2Namespace !=
-              scope.v2Namespace) {
-        return;
-      }
-      state = notifications;
-    } on Object {
-      if (generation == _loadGeneration) {
-        state = const <NotificationEntity>[];
-      }
-    }
-  }
-
   Future<void> push(
     NotificationEntity notification, {
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool refreshPlan = true,
-    bool playSound = true,
   }) async {
-    await ref
-        .read(domainNotificationRepositoryProvider)
-        .scheduleNotification(notification);
-    if (playSound) {
-      await _playCategoryAwareReminderSound(notification);
-    }
+    final int generation = _generation;
+    final INotificationRepository repository = _repository;
+    final scheduleNotification = ref.read(scheduleNotificationUseCaseProvider);
+    await scheduleNotification.call(notification);
+    if (!_isCurrent(generation, repository)) return;
+    final bool soundEnabled = ref.read(soundEnabledProvider);
+    await AudioService.playNotification(soundEnabled);
     state = <NotificationEntity>[notification, ...state];
 
     if (refreshPlan) {
       ref.invalidate(tasksProvider);
     }
-    if (refreshCoach) {
-      await _refreshCoachDecision();
+    if (refreshPlanner) {
+      await _refreshPlannerDecision();
     }
     ref
         .read(eventBusProvider)
@@ -159,73 +130,99 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
         );
   }
 
+  /// Records an in-app-only notification.
+  ///
+  /// Identical to [push] except it never asks the OS to post anything. The
+  /// entity is persisted (so it appears in the in-app list) with
+  /// `isEnabled: false`, which `NotificationScheduler.schedule` treats as
+  /// "in-app only". Used for transient interaction feedback — task decision,
+  /// completion, skip — which previously each produced a real system
+  /// notification one second later.
+  Future<void> pushInApp(
+    NotificationEntity notification, {
+    bool refreshPlanner = true,
+    bool refreshPlan = true,
+  }) async {
+    // Straight to the repository: ScheduleNotification enforces
+    // NotificationPolicy.canSchedule, which correctly rejects a disabled
+    // entity, so the use case is not the right path for an in-app record.
+    final int generation = _generation;
+    final INotificationRepository repository = _repository;
+    await repository.scheduleNotification(notification);
+    if (!_isCurrent(generation, repository)) return;
+    final bool soundEnabled = ref.read(soundEnabledProvider);
+    await AudioService.playNotification(soundEnabled);
+    state = <NotificationEntity>[notification, ...state];
+
+    if (refreshPlan) {
+      ref.invalidate(tasksProvider);
+    }
+    if (refreshPlanner) {
+      await _refreshPlannerDecision();
+    }
+    ref
+        .read(eventBusProvider)
+        .emit(
+          NotificationLifecycleEvent(
+            notificationId: notification.id,
+            title: notification.title,
+            action: 'in_app',
+          ),
+        );
+  }
+
   Future<void> pushDecision(
     String taskTitle, {
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool refreshPlan = true,
   }) {
-    return push(
-      _notification(
+    return pushInApp(
+      _inAppNotification(
         title: 'Decision Alert',
-        message: 'Selected $taskTitle as the current focus target.',
+        message: 'Selected $taskTitle as the current execution target.',
       ),
-      refreshCoach: refreshCoach,
+      refreshPlanner: refreshPlanner,
       refreshPlan: refreshPlan,
     );
   }
 
   Future<void> pushCompletionFeedback(
     String taskTitle, {
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool refreshPlan = true,
   }) {
     final bool soundEnabled = ref.read(soundEnabledProvider);
-    final bool advancedAudioEnabled = ref.read(
-      advancedAudioProfileEnabledProvider,
-    );
-    final bool hapticEnabled = ref.read(hapticFeedbackEnabledProvider);
-    AudioService.playAchievement(
-      soundEnabled,
-      advancedProfileEnabled: advancedAudioEnabled,
-      hapticsEnabled: hapticEnabled,
-    );
-    return push(
-      _notification(
+    AudioService.playAchievement(soundEnabled);
+    return pushInApp(
+      _inAppNotification(
         title: 'Completion',
         message: '$taskTitle completed. Recomputing next move.',
       ),
-      refreshCoach: refreshCoach,
+      refreshPlanner: refreshPlanner,
       refreshPlan: refreshPlan,
-      playSound: false,
     );
   }
 
   Future<void> pushTaskSkipped(
     String taskTitle, {
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool refreshPlan = true,
   }) {
-    final bool soundEnabled = ref.read(soundEnabledProvider);
-    final bool advancedAudioEnabled = ref.read(
-      advancedAudioProfileEnabledProvider,
-    );
-    AudioService.playSkip(
-      soundEnabled,
-      advancedProfileEnabled: advancedAudioEnabled,
-    );
-    return push(
-      _notification(
+    return pushInApp(
+      _inAppNotification(
         title: 'Task Skipped',
         message: '$taskTitle skipped. SI will adapt the next pick.',
       ),
-      refreshCoach: refreshCoach,
+      refreshPlanner: refreshPlanner,
       refreshPlan: refreshPlan,
-      playSound: false,
     );
   }
 
   Future<void> markRead(String id) async {
-    await ref.read(domainNotificationRepositoryProvider).markRead(id);
+    final int generation = _generation;
+    final INotificationRepository repository = _repository;
+    await repository.markRead(id);
+    if (!_isCurrent(generation, repository)) return;
     state = state
         .map(
           (NotificationEntity item) => item.id == id
@@ -243,8 +240,12 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
   }
 
   Future<void> delete(String id) async {
-    await ref.read(cancelNotificationUseCaseProvider).call(id);
-    await ref.read(domainNotificationRepositoryProvider).delete(id);
+    final int generation = _generation;
+    final INotificationRepository repository = _repository;
+    final cancelNotification = ref.read(cancelNotificationUseCaseProvider);
+    await cancelNotification.call(id);
+    await repository.delete(id);
+    if (!_isCurrent(generation, repository)) return;
     String title = 'Notification';
     for (final NotificationEntity item in state) {
       if (item.id == id) {
@@ -268,15 +269,27 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
 
   void clear() => state = const <NotificationEntity>[];
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking notification scheduling if coach refresh fails.
+      // Avoid blocking notification scheduling if planner refresh fails.
     }
   }
 
+  bool _isCurrent(int generation, INotificationRepository repository) {
+    return generation == _generation && identical(repository, _repository);
+  }
+
+  /// Factory for a real, OS-scheduled notification.
+  ///
+  /// Retained deliberately: this is the correct shape for an actual reminder
+  /// (enabled, scheduled in the future) and is the counterpart to
+  /// [_inAppNotification]. It is currently unreferenced only because the three
+  /// interaction-feedback callers were moved to the in-app path; any future
+  /// reminder pushed through [push] should use this.
+  // ignore: unused_element
   NotificationEntity _notification({
     required String title,
     required String message,
@@ -287,6 +300,25 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
       title: title,
       message: message,
       scheduledAt: now.add(const Duration(seconds: 1)),
+    );
+  }
+
+  /// In-app-only counterpart of [_notification].
+  ///
+  /// `isEnabled: false` marks it as never-to-be-posted by the OS, and
+  /// `scheduledAt` is now rather than a second in the future because there is
+  /// no future delivery to schedule.
+  NotificationEntity _inAppNotification({
+    required String title,
+    required String message,
+  }) {
+    final DateTime now = DateTime.now();
+    return NotificationEntity(
+      id: 'notification-${now.microsecondsSinceEpoch}',
+      title: title,
+      message: message,
+      scheduledAt: now,
+      isEnabled: false,
     );
   }
 }

@@ -4,6 +4,31 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 
+class AdaptivePlanPolicy {
+  const AdaptivePlanPolicy({
+    this.priorityWeight = 1,
+    this.deadlineWeight = 1,
+    this.energyWeight = 1,
+    this.goalBonus = 0,
+    this.quickWinBonus = 0,
+    this.adaptDurationToEnergy = true,
+    this.fixedBreakMinutes,
+  });
+
+  final double priorityWeight;
+  final double deadlineWeight;
+  final double energyWeight;
+  final double goalBonus;
+  final double quickWinBonus;
+  final bool adaptDurationToEnergy;
+  final int? fixedBreakMinutes;
+}
+
+/// Compatibility planning helper. Production decision surfaces consume the
+/// canonical `DecisionEngine` plan instead of an alternate planning screen.
+///
+/// The persisted path remains a schedule-storage mechanism, not a second
+/// recommendation authority.
 class CalendarService {
   final Map<String, CalendarEntry> _entries = <String, CalendarEntry>{};
   final Map<String, List<TimeBlock>> _timeBlocksByDay =
@@ -15,14 +40,25 @@ class CalendarService {
     required List<PlannerInput> inputs,
     required double energy,
     DateTime? startTime,
+    AdaptivePlanPolicy policy = const AdaptivePlanPolicy(),
   }) {
     final double normalizedEnergy = energy.clamp(0.0, 1.0);
     final DateTime now = startTime ?? DateTime.now();
 
     final List<PlannerInput> ranked = List<PlannerInput>.from(inputs)
       ..sort((PlannerInput a, PlannerInput b) {
-        final double aScore = _adaptiveTaskScore(a, normalizedEnergy);
-        final double bScore = _adaptiveTaskScore(b, normalizedEnergy);
+        final double aScore = _adaptiveTaskScore(
+          a,
+          normalizedEnergy,
+          now,
+          policy,
+        );
+        final double bScore = _adaptiveTaskScore(
+          b,
+          normalizedEnergy,
+          now,
+          policy,
+        );
         return bScore.compareTo(aScore);
       });
 
@@ -43,6 +79,7 @@ class CalendarService {
         final Duration duration = _estimateAdaptiveDuration(
           task,
           normalizedEnergy,
+          adaptToEnergy: policy.adaptDurationToEnergy,
         );
         final DateTime end = cursor.add(duration);
 
@@ -57,7 +94,11 @@ class CalendarService {
         );
 
         plannedTaskDayKeys.add(taskDayKey);
-        cursorsByDay[dayKey] = end.add(_adaptiveBreak(normalizedEnergy));
+        cursorsByDay[dayKey] = end.add(
+          policy.fixedBreakMinutes == null
+              ? _adaptiveBreak(normalizedEnergy)
+              : Duration(minutes: policy.fixedBreakMinutes!),
+        );
       }
     }
 
@@ -209,12 +250,44 @@ class CalendarService {
     }
   }
 
-  double _adaptiveTaskScore(PlannerInput task, double energy) {
-    final double priorityWeight = task.priority * 10.0;
+  double _adaptiveTaskScore(
+    PlannerInput task,
+    double energy,
+    DateTime now,
+    AdaptivePlanPolicy policy,
+  ) {
+    final double priorityWeight = task.priority * 10.0 * policy.priorityWeight;
     final double normalizedRequirement = task.energyRequired / 5.0;
     final double effortFit =
-        (1 - (normalizedRequirement - energy).abs()).clamp(0.0, 1.0) * 30;
-    return priorityWeight + effortFit;
+        (1 - (normalizedRequirement - energy).abs()).clamp(0.0, 1.0) *
+        30 *
+        policy.energyWeight;
+    final Duration duration = task.estimateOrDefault;
+    final double quickWinFit = duration.inMinutes <= 15
+        ? 1
+        : duration.inMinutes <= 30
+        ? .65
+        : duration.inMinutes <= 60
+        ? .25
+        : 0;
+    final double goalContribution = (task.goalId?.trim().isNotEmpty ?? false)
+        ? policy.goalBonus
+        : 0;
+    final DateTime? due = task.dueDate;
+    final double deadlineContribution = due == null
+        ? 0
+        : due.isBefore(now)
+        ? 18 * policy.deadlineWeight
+        : due.difference(now) <= const Duration(hours: 24)
+        ? 14 * policy.deadlineWeight
+        : due.difference(now) <= const Duration(days: 3)
+        ? 7 * policy.deadlineWeight
+        : 0;
+    return priorityWeight +
+        effortFit +
+        goalContribution +
+        (quickWinFit * policy.quickWinBonus) +
+        deadlineContribution;
   }
 
   DateTime _startForPlanningDay(DateTime scheduled, DateTime now) {
@@ -227,8 +300,22 @@ class CalendarService {
     return DateTime(scheduled.year, scheduled.month, scheduled.day, 9);
   }
 
-  Duration _estimateAdaptiveDuration(PlannerInput task, double energy) {
-    final Duration base = task.estimatedDuration ?? _durationForDifficulty(task.difficulty);
+  Duration _estimateAdaptiveDuration(
+    PlannerInput task,
+    double energy, {
+    required bool adaptToEnergy,
+  }) {
+    final Duration base =
+        task.estimatedDuration ??
+        switch (task.difficulty) {
+          1 => const Duration(minutes: 15),
+          2 => const Duration(minutes: 25),
+          3 => const Duration(minutes: 45),
+          4 => const Duration(minutes: 60),
+          5 => const Duration(minutes: 90),
+          _ => const Duration(minutes: 30),
+        };
+    if (!adaptToEnergy) return base;
     if (energy >= 0.75) {
       return Duration(minutes: (base.inMinutes * 0.9).round());
     }
@@ -252,7 +339,15 @@ class CalendarService {
     final DateTime scheduled = task.scheduledFor ?? now;
     switch (task.recurrenceRule) {
       case RecurrenceRule.daily:
-        final DateTime startDate = DateTime(now.year, now.month, now.day);
+        final DateTime today = DateTime(now.year, now.month, now.day);
+        final DateTime scheduledDate = DateTime(
+          scheduled.year,
+          scheduled.month,
+          scheduled.day,
+        );
+        final DateTime startDate = scheduledDate.isAfter(today)
+            ? scheduledDate
+            : today;
         final int hour = (scheduled.hour == 0 && scheduled.minute == 0)
             ? now.hour
             : scheduled.hour;
@@ -270,10 +365,19 @@ class CalendarService {
           ),
         );
       case RecurrenceRule.weekly:
+        final DateTime today = DateTime(now.year, now.month, now.day);
+        final DateTime scheduledDate = DateTime(
+          scheduled.year,
+          scheduled.month,
+          scheduled.day,
+        );
+        final DateTime firstEligibleDate = scheduledDate.isAfter(today)
+            ? scheduledDate
+            : today;
         DateTime candidate = DateTime(
-          now.year,
-          now.month,
-          now.day,
+          firstEligibleDate.year,
+          firstEligibleDate.month,
+          firstEligibleDate.day,
           scheduled.hour,
           scheduled.minute,
         );
@@ -289,13 +393,4 @@ class CalendarService {
         return <DateTime>[scheduled];
     }
   }
-
-  Duration _durationForDifficulty(int difficulty) => switch (difficulty) {
-    1 => const Duration(minutes: 15),
-    2 => const Duration(minutes: 25),
-    3 => const Duration(minutes: 45),
-    4 => const Duration(minutes: 60),
-    5 => const Duration(minutes: 90),
-    _ => const Duration(minutes: 30),
-  };
 }

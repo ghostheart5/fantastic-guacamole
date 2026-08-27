@@ -1,3 +1,0 @@
-class GrantSubscriptionUsecase {
-  const GrantSubscriptionUsecase();
-}

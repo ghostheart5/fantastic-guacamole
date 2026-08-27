@@ -1,3 +1,0 @@
-class SaveInsightUsecase {
-  const SaveInsightUsecase();
-}

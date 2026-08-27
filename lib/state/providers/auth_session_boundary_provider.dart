@@ -8,7 +8,8 @@ class AuthSessionBoundary {
     required this.isStorageReady,
     this.blockingIssue,
     this.canRecoverBySigningOut = false,
-    this.canDiscardPreservedLegacyData = false,
+    this.canClaimPreservedData = false,
+    this.canClearPreservedData = false,
   });
 
   const AuthSessionBoundary.initial()
@@ -18,7 +19,8 @@ class AuthSessionBoundary {
       isStorageReady = false,
       blockingIssue = null,
       canRecoverBySigningOut = false,
-      canDiscardPreservedLegacyData = false;
+      canClaimPreservedData = false,
+      canClearPreservedData = false;
 
   final int generation;
   final String? userId;
@@ -26,7 +28,8 @@ class AuthSessionBoundary {
   final bool isStorageReady;
   final String? blockingIssue;
   final bool canRecoverBySigningOut;
-  final bool canDiscardPreservedLegacyData;
+  final bool canClaimPreservedData;
+  final bool canClearPreservedData;
 }
 
 final authSessionBoundaryProvider =
@@ -46,7 +49,8 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       isTransitioning: isTransitioning,
       isStorageReady: false,
       canRecoverBySigningOut: false,
-      canDiscardPreservedLegacyData: false,
+      canClaimPreservedData: false,
+      canClearPreservedData: false,
     );
     return generation;
   }
@@ -59,7 +63,8 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       isTransitioning: true,
       isStorageReady: true,
       canRecoverBySigningOut: false,
-      canDiscardPreservedLegacyData: false,
+      canClaimPreservedData: false,
+      canClearPreservedData: false,
     );
   }
 
@@ -71,7 +76,8 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       isTransitioning: false,
       isStorageReady: storageReady,
       canRecoverBySigningOut: false,
-      canDiscardPreservedLegacyData: false,
+      canClaimPreservedData: false,
+      canClearPreservedData: false,
     );
   }
 
@@ -79,7 +85,8 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
     int generation, {
     String? issue,
     bool canRecoverBySigningOut = false,
-    bool canDiscardPreservedLegacyData = false,
+    bool canClaimPreservedData = false,
+    bool canClearPreservedData = false,
   }) {
     if (state.generation != generation) return;
     state = AuthSessionBoundary(
@@ -88,7 +95,8 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       isTransitioning: false,
       isStorageReady: state.isStorageReady,
       canRecoverBySigningOut: canRecoverBySigningOut,
-      canDiscardPreservedLegacyData: canDiscardPreservedLegacyData,
+      canClaimPreservedData: canClaimPreservedData,
+      canClearPreservedData: canClearPreservedData,
       blockingIssue: issue ?? 'ChronoSpark could not isolate data safely.',
     );
   }

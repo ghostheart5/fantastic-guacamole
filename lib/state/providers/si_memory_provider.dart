@@ -6,9 +6,18 @@ final siMemoryProvider = NotifierProvider<SIMemoryController, SIMemory>(
   SIMemoryController.new,
 );
 
+/// Smart Planner has a private in-memory history. It must never read the SI
+/// Console snapshots held by [siMemoryProvider].
+final smartPlannerMemoryProvider =
+    NotifierProvider<SIMemoryController, SIMemory>(SIMemoryController.new);
+
 // Read model for the latest SI memory snapshot used by assistant-facing UI.
 final latestSiSnapshotProvider = Provider<SISnapshot?>((ref) {
   return ref.watch(siMemoryProvider).latest;
+});
+
+final latestSmartPlannerSnapshotProvider = Provider<SISnapshot?>((ref) {
+  return ref.watch(smartPlannerMemoryProvider).latest;
 });
 
 class SIMemoryController extends Notifier<SIMemory>

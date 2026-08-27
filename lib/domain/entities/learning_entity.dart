@@ -1,33 +1,32 @@
 import 'package:fantastic_guacamole/domain/entities/decision_observation_entity.dart';
+import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 
-class LearningEntity {
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Learning/adaptation
+///
+/// Adaptive weights consumed by LearningPolicy.
+class LearningEntity extends LearningState {
   const LearningEntity({
-    this.effortWeight = 1.0,
-    this.priorityWeight = 1.0,
-    this.completed = 0,
-    this.skipped = 0,
-    this.acceptedRecommendations = 0,
-    this.rejectedRecommendations = 0,
+    super.effortWeight,
+    super.priorityWeight,
+    super.completed,
+    super.skipped,
     this.taskAffinity = const <String, double>{},
     this.observations = const <DecisionObservationEntity>[],
   });
 
-  final double effortWeight;
-  final double priorityWeight;
-  final int completed;
-  final int skipped;
-  final int acceptedRecommendations;
-  final int rejectedRecommendations;
+  /// Per-task acceptance/completion affinity in the inclusive 0..1 range.
+  /// It is keyed by stable task id, never by mutable task title.
   final Map<String, double> taskAffinity;
+
+  /// Versioned outcome evidence used by planning confidence and recovery.
   final List<DecisionObservationEntity> observations;
 
+  @override
   LearningEntity copyWith({
     double? effortWeight,
     double? priorityWeight,
     int? completed,
     int? skipped,
-    int? acceptedRecommendations,
-    int? rejectedRecommendations,
     Map<String, double>? taskAffinity,
     List<DecisionObservationEntity>? observations,
   }) {
@@ -36,12 +35,49 @@ class LearningEntity {
       priorityWeight: priorityWeight ?? this.priorityWeight,
       completed: completed ?? this.completed,
       skipped: skipped ?? this.skipped,
-      acceptedRecommendations:
-          acceptedRecommendations ?? this.acceptedRecommendations,
-      rejectedRecommendations:
-          rejectedRecommendations ?? this.rejectedRecommendations,
-      taskAffinity: taskAffinity ?? this.taskAffinity,
-      observations: observations ?? this.observations,
+      taskAffinity: Map<String, double>.unmodifiable(
+        taskAffinity ?? this.taskAffinity,
+      ),
+      observations: List<DecisionObservationEntity>.unmodifiable(
+        observations ?? this.observations,
+      ),
+    );
+  }
+
+  LearningEntity recordObservation(DecisionObservationEntity observation) {
+    final List<DecisionObservationEntity> next = <DecisionObservationEntity>[
+      ...observations,
+      observation,
+    ];
+    final DateTime cutoff = observation.timestamp.subtract(
+      const Duration(days: 90),
+    );
+    next.removeWhere(
+      (DecisionObservationEntity item) => item.timestamp.isBefore(cutoff),
+    );
+
+    final String? taskId = observation.taskId;
+    if (taskId == null || taskId.trim().isEmpty) {
+      return copyWith(observations: next);
+    }
+    final double prior = taskAffinity[taskId] ?? .5;
+    final bool positive =
+        observation.type == DecisionObservationType.recommendationAccepted ||
+        observation.type == DecisionObservationType.taskCompleted;
+    final bool negative =
+        observation.type == DecisionObservationType.recommendationRejected ||
+        observation.type == DecisionObservationType.taskSkipped;
+    final double updated = positive
+        ? prior + ((1 - prior) * .2)
+        : negative
+        ? prior - (prior * .2)
+        : prior;
+    return copyWith(
+      observations: next,
+      taskAffinity: <String, double>{
+        ...taskAffinity,
+        taskId: updated.clamp(0.0, 1.0).toDouble(),
+      },
     );
   }
 
@@ -67,151 +103,61 @@ class LearningEntity {
 
   LearningEntity markSkipped() => copyWith(skipped: skipped + 1);
 
-  /// Attribution is only valid when the same task was actually shown as a
-  /// recommendation. A generic task completion is not recommendation feedback.
-  bool wasRecentlyRecommended(String taskId, {DateTime? at}) {
-    final DateTime cutoff = (at ?? DateTime.now()).subtract(
-      const Duration(days: 1),
-    );
-    return observations.any((DecisionObservationEntity observation) =>
-        observation.type == DecisionObservationType.recommendationShown &&
-        observation.taskId == taskId &&
-        observation.timestamp.isAfter(cutoff));
-  }
-
-  LearningEntity recordRecommendationOutcome({
-    required String taskId,
-    required bool accepted,
-    DateTime? timestamp,
-  }) {
-    final String id = taskId.trim();
-    if (id.isEmpty) return this;
-    final DateTime at = timestamp ?? DateTime.now();
-    final DecisionObservationType observationType = accepted
-        ? DecisionObservationType.recommendationAccepted
-        : DecisionObservationType.recommendationRejected;
-    if (_hasRecentObservation(
-      type: observationType,
-      taskId: id,
-      source: 'recommendation_feedback',
-      at: at,
-    )) {
-      return this;
+  void validate() {
+    if (effortWeight <= 0 || priorityWeight <= 0) {
+      throw StateError('Weights must be positive');
     }
-    final double current = taskAffinity[id] ?? 0.5;
-    final double target = accepted ? 1.0 : 0.0;
-    final Map<String, double> next = Map<String, double>.from(taskAffinity)
-      ..[id] = (current * 0.7 + target * 0.3).clamp(0.0, 1.0).toDouble();
-    return recordObservation(
-      type: observationType,
-      taskId: id,
-      source: 'recommendation_feedback',
-      timestamp: at,
-    ).copyWith(
-      acceptedRecommendations:
-          accepted ? acceptedRecommendations + 1 : acceptedRecommendations,
-      rejectedRecommendations:
-          accepted ? rejectedRecommendations : rejectedRecommendations + 1,
-      taskAffinity: Map<String, double>.unmodifiable(next),
-    );
-  }
-
-  LearningEntity recordObservation({
-    required DecisionObservationType type,
-    String? taskId,
-    required String source,
-    DateTime? timestamp,
-  }) {
-    final DateTime at = timestamp ?? DateTime.now();
-    if (_hasRecentObservation(
-      type: type,
-      taskId: taskId,
-      source: source,
-      at: at,
-    )) {
-      return this;
+    if (taskAffinity.values.any((double value) => value < 0 || value > 1)) {
+      throw StateError('Task affinity must be between zero and one');
     }
-    final String id = '${type.name}:${taskId ?? ''}:${at.microsecondsSinceEpoch}';
-    final List<DecisionObservationEntity> next = <DecisionObservationEntity>[
-      DecisionObservationEntity(
-        id: id,
-        type: type,
-        timestamp: at,
-        source: source,
-        taskId: taskId,
-      ),
-      ...observations,
-    ].take(200).toList(growable: false);
-    return copyWith(observations: List<DecisionObservationEntity>.unmodifiable(next));
   }
 
-  bool _hasRecentObservation({
-    required DecisionObservationType type,
-    required String? taskId,
-    required String source,
-    required DateTime at,
-  }) {
-    return observations.any((DecisionObservationEntity observation) =>
-        observation.type == type &&
-        observation.taskId == taskId &&
-        observation.source == source &&
-        at.difference(observation.timestamp).abs() < const Duration(seconds: 2));
-  }
-
+  @override
   Map<String, dynamic> toJson() => <String, dynamic>{
+    'version': 2,
     'effortWeight': effortWeight,
     'priorityWeight': priorityWeight,
     'completed': completed,
     'skipped': skipped,
-    'acceptedRecommendations': acceptedRecommendations,
-    'rejectedRecommendations': rejectedRecommendations,
     'taskAffinity': taskAffinity,
-    'observations': observations.map((item) => item.toJson()).toList(),
+    'observations': observations
+        .map((DecisionObservationEntity item) => item.toJson())
+        .toList(growable: false),
   };
 
   factory LearningEntity.fromJson(Map<String, dynamic> json) {
+    final Object? affinityValue = json['taskAffinity'];
+    final Map<String, double> affinity = affinityValue is Map
+        ? affinityValue.map<String, double>(
+            (dynamic key, dynamic value) => MapEntry(
+              key.toString(),
+              ((value as num?) ?? .5).toDouble().clamp(0.0, 1.0),
+            ),
+          )
+        : const <String, double>{};
+    final Object? observationValue = json['observations'];
+    final List<DecisionObservationEntity> observations =
+        observationValue is List
+        ? observationValue
+              .whereType<Map<dynamic, dynamic>>()
+              .map(
+                (Map<dynamic, dynamic> item) =>
+                    DecisionObservationEntity.fromJson(
+                      item.map<String, dynamic>(
+                        (dynamic key, dynamic value) =>
+                            MapEntry(key.toString(), value),
+                      ),
+                    ),
+              )
+              .toList(growable: false)
+        : const <DecisionObservationEntity>[];
     return LearningEntity(
-      effortWeight: ((json['effortWeight'] as num?) ?? 1.0).toDouble(),
-      priorityWeight: ((json['priorityWeight'] as num?) ?? 1.0).toDouble(),
+      effortWeight: ((json['effortWeight'] as num?) ?? 1).toDouble(),
+      priorityWeight: ((json['priorityWeight'] as num?) ?? 1).toDouble(),
       completed: (json['completed'] as num?)?.toInt() ?? 0,
       skipped: (json['skipped'] as num?)?.toInt() ?? 0,
-      acceptedRecommendations:
-          (json['acceptedRecommendations'] as num?)?.toInt() ?? 0,
-      rejectedRecommendations:
-          (json['rejectedRecommendations'] as num?)?.toInt() ?? 0,
-      taskAffinity: ((json['taskAffinity'] as Map<Object?, Object?>?) ?? const <Object?, Object?>{})
-          .map<String, double>((dynamic key, dynamic value) => MapEntry(
-                key.toString(),
-                ((value as num?) ?? 0.5)
-                    .toDouble()
-                    .clamp(0.0, 1.0)
-                    .toDouble(),
-              )),
-      observations: ((json['observations'] as List?) ?? const <dynamic>[])
-          .whereType<Map<Object?, Object?>>()
-          .map((Map<Object?, Object?> item) => DecisionObservationEntity.fromJson(
-                item.map<String, dynamic>(
-                  (Object? key, Object? value) => MapEntry(key.toString(), value),
-                ),
-              ))
-          .toList(growable: false),
+      taskAffinity: affinity,
+      observations: observations,
     );
-  }
-
-  void validate() {
-    if (effortWeight < 0.5 || effortWeight > 2 ||
-        priorityWeight < 0.5 || priorityWeight > 2 ||
-        completed < 0 || skipped < 0 ||
-        acceptedRecommendations < 0 || rejectedRecommendations < 0) {
-      throw StateError('Weights must be positive');
-    }
-    if (taskAffinity.entries.any((MapEntry<String, double> entry) =>
-        entry.key.trim().isEmpty || entry.value < 0 || entry.value > 1)) {
-      throw StateError('Task affinity values must be associated with valid task ids');
-    }
-    if (observations.any((DecisionObservationEntity observation) =>
-        observation.id.trim().isEmpty || observation.source.trim().isEmpty)) {
-      throw StateError('Learning observations require ids and sources');
-    }
   }
 }

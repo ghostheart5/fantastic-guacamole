@@ -1,3 +1,0 @@
-class SaveOnboardingProgressUsecase {
-  const SaveOnboardingProgressUsecase();
-}

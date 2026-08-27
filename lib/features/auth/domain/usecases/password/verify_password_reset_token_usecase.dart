@@ -1,3 +1,0 @@
-class VerifyPasswordResetTokenUsecase {
-  const VerifyPasswordResetTokenUsecase();
-}

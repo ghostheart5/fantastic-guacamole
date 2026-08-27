@@ -1,3 +1,0 @@
-class WarnUserUsecase {
-  const WarnUserUsecase();
-}

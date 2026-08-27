@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
+import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +9,8 @@ class ProductAdvisorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final insightsAsync = ref.watch(productInsightsProvider);
+    final recommendationsAsync = ref.watch(productRecommendationsProvider);
+    final configAsync = ref.watch(optimizationConfigProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF060D1B),
@@ -29,7 +31,7 @@ class ProductAdvisorScreen extends ConsumerWidget {
             colors: [AppColors.neonCyan, AppColors.neonViolet],
           ).createShader(bounds),
           child: const Text(
-            'STRATEGIC ADVISOR',
+            'ADVISOR DIAGNOSTICS',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -43,24 +45,17 @@ class ProductAdvisorScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            insightsAsync.when(
-              data: (state) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (state.isFallback)
-                    _FallbackWarningTile(message: state.warningMessage),
-                  _InsightsList(
-                    insights: state.insights
-                        .map(
-                          (insight) => _InsightView(
-                            issue: insight.issue,
-                            cause: insight.cause,
-                            recommendation: insight.recommendation,
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
-                ],
+            recommendationsAsync.when(
+              data: (recommendations) => _RecommendationsList(
+                recommendations: recommendations
+                    .map(
+                      (recommendation) => _RecommendationView(
+                        issue: recommendation.issue,
+                        cause: recommendation.cause,
+                        recommendation: recommendation.recommendation,
+                      ),
+                    )
+                    .toList(growable: false),
               ),
               loading: () => const Center(
                 child: Padding(
@@ -68,12 +63,30 @@ class ProductAdvisorScreen extends ConsumerWidget {
                   child: CircularProgressIndicator(color: AppColors.neonCyan),
                 ),
               ),
-              error: (_, _) => const _ErrorTile(),
+              error: (_, _) => const _ErrorTile(
+                message: 'Advisor diagnostics are unavailable right now.',
+              ),
+            ),
+            const SizedBox(height: 24),
+            const _SectionHeader(label: 'OPTIMIZATION STATE'),
+            const SizedBox(height: 8),
+            configAsync.when(
+              data: (config) => _OptimizerStateCard(
+                config: _OptimizationView(
+                  executionDurationMultiplier:
+                      config.executionDurationMultiplier,
+                  taskDifficultyScale: config.taskDifficultyScale,
+                  nextActionAggressiveness: config.nextActionAggressiveness,
+                ),
+              ),
+              loading: () => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
             ),
             const SizedBox(height: 16),
             _RefreshButton(
               onRefresh: () {
-                ref.invalidate(productInsightsProvider);
+                ref.invalidate(productRecommendationsProvider);
+                ref.invalidate(optimizationConfigProvider);
               },
             ),
           ],
@@ -83,31 +96,31 @@ class ProductAdvisorScreen extends ConsumerWidget {
   }
 }
 
-class _InsightsList extends StatelessWidget {
-  const _InsightsList({required this.insights});
-  final List<_InsightView> insights;
+class _RecommendationsList extends StatelessWidget {
+  const _RecommendationsList({required this.recommendations});
+  final List<_RecommendationView> recommendations;
 
   @override
   Widget build(BuildContext context) {
-    if (insights.isEmpty) {
+    if (recommendations.isEmpty) {
       return const _EmptyState();
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(label: 'PRIMARY SIGNAL'),
+        const _SectionHeader(label: 'TOP DIAGNOSTIC FINDING'),
         const SizedBox(height: 8),
-        _InsightCard(insight: insights.first, isTop: true),
-        if (insights.length > 1) ...[
+        _RecommendationCard(recommendation: recommendations.first, isTop: true),
+        if (recommendations.length > 1) ...[
           const SizedBox(height: 20),
-          const _SectionHeader(label: 'SUPPORTING SIGNALS'),
+          const _SectionHeader(label: 'ALL DIAGNOSTIC FINDINGS'),
           const SizedBox(height: 8),
-          ...insights
+          ...recommendations
               .skip(1)
               .map(
                 (i) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _InsightCard(insight: i, isTop: false),
+                  child: _RecommendationCard(recommendation: i, isTop: false),
                 ),
               ),
         ],
@@ -116,9 +129,12 @@ class _InsightsList extends StatelessWidget {
   }
 }
 
-class _InsightCard extends StatelessWidget {
-  const _InsightCard({required this.insight, required this.isTop});
-  final _InsightView insight;
+class _RecommendationCard extends StatelessWidget {
+  const _RecommendationCard({
+    required this.recommendation,
+    required this.isTop,
+  });
+  final _RecommendationView recommendation;
   final bool isTop;
 
   @override
@@ -155,7 +171,7 @@ class _InsightCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  insight.issue,
+                  recommendation.issue,
                   style: TextStyle(
                     color: accent,
                     fontSize: 13,
@@ -167,9 +183,9 @@ class _InsightCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _Label(label: 'Detected Cause', value: insight.cause),
+          _Label(label: 'Cause', value: recommendation.cause),
           const SizedBox(height: 6),
-          _Label(label: 'Recommended Move', value: insight.recommendation),
+          _Label(label: 'Repair path', value: recommendation.recommendation),
         ],
       ),
     );
@@ -204,6 +220,68 @@ class _Label extends StatelessWidget {
   }
 }
 
+class _OptimizerStateCard extends StatelessWidget {
+  const _OptimizerStateCard({required this.config});
+  final _OptimizationView config;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF050D1A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        children: [
+          _StatRow(
+            label: 'Execution Duration Multiplier',
+            value: config.executionDurationMultiplier.toStringAsFixed(2),
+          ),
+          const SizedBox(height: 8),
+          _StatRow(
+            label: 'Task Difficulty Scale',
+            value: config.taskDifficultyScale.toStringAsFixed(2),
+          ),
+          const SizedBox(height: 8),
+          _StatRow(
+            label: 'Next Action Aggressiveness',
+            value: config.nextActionAggressiveness.toStringAsFixed(2),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatRow extends StatelessWidget {
+  const _StatRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            color: AppColors.neonCyan,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.label});
   final String label;
@@ -231,7 +309,7 @@ class _EmptyState extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Text(
-          'Signal matrix warming up.\nUse ChronoSpark to generate stronger strategic guidance.',
+          'Not enough diagnostic data yet.\nKeep using the app to build product health evidence.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
         ),
@@ -241,51 +319,23 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ErrorTile extends StatelessWidget {
-  const _ErrorTile();
+  const _ErrorTile({required this.message});
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Text(
-        'Unable to load advisor insights.\nTry refreshing or check logs for details.',
-        style: TextStyle(color: Colors.red, fontSize: 12, height: 1.4),
+        'Error: $message',
+        style: const TextStyle(color: Colors.red, fontSize: 12),
       ),
     );
   }
 }
 
-class _FallbackWarningTile extends StatelessWidget {
-  const _FallbackWarningTile({this.message});
-  final String? message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.neonCyan.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.35)),
-      ),
-      child: Text(
-        message ??
-            'Advisor insights are running in fallback mode.\nSome source data could not be loaded.',
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          height: 1.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _InsightView {
-  const _InsightView({
+class _RecommendationView {
+  const _RecommendationView({
     required this.issue,
     required this.cause,
     required this.recommendation,
@@ -294,6 +344,18 @@ class _InsightView {
   final String issue;
   final String cause;
   final String recommendation;
+}
+
+class _OptimizationView {
+  const _OptimizationView({
+    required this.executionDurationMultiplier,
+    required this.taskDifficultyScale,
+    required this.nextActionAggressiveness,
+  });
+
+  final double executionDurationMultiplier;
+  final double taskDifficultyScale;
+  final double nextActionAggressiveness;
 }
 
 class _RefreshButton extends StatelessWidget {
@@ -319,7 +381,7 @@ class _RefreshButton extends StatelessWidget {
             Icon(Icons.refresh, color: AppColors.neonViolet, size: 16),
             SizedBox(width: 8),
             Text(
-              'Rescan Signals',
+              'Refresh Analysis',
               style: TextStyle(
                 color: AppColors.neonViolet,
                 fontSize: 13,

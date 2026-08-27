@@ -1,3 +1,0 @@
-class ViewRecentJournalEntriesUsecase {
-  const ViewRecentJournalEntriesUsecase();
-}

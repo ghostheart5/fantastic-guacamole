@@ -1,1 +1,0 @@
- (?ms)\s*if \(access\.hasTesterFullAccess\)\s*_NeonNavTile\(\s*title: 'Reset Tester Data'.*?\), 

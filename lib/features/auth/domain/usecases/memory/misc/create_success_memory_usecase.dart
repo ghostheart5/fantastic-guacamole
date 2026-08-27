@@ -1,3 +1,0 @@
-class CreateSuccessMemoryUsecase {
-  const CreateSuccessMemoryUsecase();
-}

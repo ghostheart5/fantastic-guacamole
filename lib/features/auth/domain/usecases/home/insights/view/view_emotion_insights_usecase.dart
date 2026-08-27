@@ -1,3 +1,0 @@
-class ViewEmotionInsightsUsecase {
-  const ViewEmotionInsightsUsecase();
-}

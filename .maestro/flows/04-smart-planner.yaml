@@ -1,0 +1,19 @@
+# P1 — Smart Planner. The core value proposition.
+appId: com.ghostheart5.chronospark
+tags:
+  - core
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+# Navigate through the shell's canonical destination map.
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Smart Planner"
+
+- assertVisible: "Back to Nexus\\nSMART PLANNER\\nBuild your next plan from real evidence"
+
+# The canonical destination must not regress to a retired product label.
+- assertNotVisible: "SMART COACH"

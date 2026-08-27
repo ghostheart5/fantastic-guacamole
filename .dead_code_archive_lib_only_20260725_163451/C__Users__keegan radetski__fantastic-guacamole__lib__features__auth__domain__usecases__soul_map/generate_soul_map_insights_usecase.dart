@@ -1,3 +1,0 @@
-﻿class GenerateSoulMapInsightsUsecase {
-  const GenerateSoulMapInsightsUsecase();
-}

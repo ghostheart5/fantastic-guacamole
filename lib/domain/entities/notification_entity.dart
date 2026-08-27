@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Notifications
 class NotificationEntity {
   const NotificationEntity({
     required this.id,

@@ -1,8 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: ../authentication/login_with_env.yaml
-- runFlow: ../_common/go_to_creator.yaml
-- tapOn:
-    id: "creator-submit"
-- assertVisible:
-    text: "title"

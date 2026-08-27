@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -10,16 +11,11 @@ class GlobalAggregationService {
   GlobalAggregationService({
     required sb.SupabaseClient? client,
     required Future<String> Function() ensureIdentity,
-    Future<List<Map<String, dynamic>>> Function(sb.SupabaseClient? client)?
-    metricsRowsLoader,
   }) : _client = client, // ignore: prefer_initializing_formals
-       _ensureIdentity = ensureIdentity, // ignore: prefer_initializing_formals
-       _metricsRowsLoader = metricsRowsLoader ?? _defaultMetricsRowsLoader;
+       _ensureIdentity = ensureIdentity; // ignore: prefer_initializing_formals
 
   final sb.SupabaseClient? _client;
   final Future<String> Function() _ensureIdentity;
-  final Future<List<Map<String, dynamic>>> Function(sb.SupabaseClient? client)
-  _metricsRowsLoader;
 
   static const _kCacheKey = 'global_metrics_cache';
   static const _kCacheTsKey = 'global_metrics_cache_ts';
@@ -27,13 +23,25 @@ class GlobalAggregationService {
   static const _kCacheMaxAgeSeconds = 86400;
 
   Future<void> push(Map<String, dynamic> dailySnapshot) async {
+    // Consent gate. This is the most privacy-sensitive call in the app — it
+    // uploads a device id, a user id and behavioural counters — and it was the
+    // only analytics path that did not consult the analytics flag at all.
+    if (!Env.enableAnalytics) {
+      return;
+    }
+    if (SharedPrefsService.load('cloud_sync_enabled_v1') != 'true') {
+      return;
+    }
     final sb.SupabaseClient? client = _client;
     final String? userId = client?.auth.currentUser?.id;
     if (!Env.isSupabaseConfigured || client == null || userId == null) {
       return;
     }
     try {
-      final deviceId = await _ensureIdentity();
+      final deviceId = sha256
+          .convert(utf8.encode('${await _ensureIdentity()}:$userId'))
+          .toString()
+          .substring(0, 32);
       await client.from(_kTable).upsert({
         'device_id': deviceId,
         'user_id': userId,
@@ -41,35 +49,33 @@ class GlobalAggregationService {
         'tasks_created': dailySnapshot['tasks_created'],
         'tasks_completed': dailySnapshot['tasks_completed'],
         'momentum_peak': dailySnapshot['momentum_peak'],
-      }, onConflict: 'user_id,date');
+      }, onConflict: 'device_id,date');
     } catch (e) {
-      if (!isExpectedNonFatalPushError(e)) {
-        Logger.error('GlobalAggregationService.push failed', e);
-      }
+      Logger.error('GlobalAggregationService.push failed', e);
     }
-  }
-
-  static bool isExpectedNonFatalPushError(Object? error) {
-    if (error is! sb.PostgrestException) return false;
-    if (error.code == '42P10') return true;
-    final message = error.message.toLowerCase();
-    return message.contains('on conflict') ||
-        message.contains('unique or exclusion constraint');
   }
 
   Future<GlobalMetrics> fetchGlobalMetrics() async {
+    if (SharedPrefsService.load('cloud_sync_enabled_v1') != 'true') {
+      return GlobalMetrics.empty();
+    }
     final cached = _loadCache();
     if (cached != null) return cached;
     final sb.SupabaseClient? client = _client;
-    if (!Env.isSupabaseConfigured && client != null) {
+    if (!Env.isSupabaseConfigured ||
+        client == null ||
+        client.auth.currentUser == null) {
       return GlobalMetrics.empty();
     }
+    final String userId = client.auth.currentUser!.id;
     try {
-      if (client != null && client.auth.currentUser == null) {
-        return GlobalMetrics.empty();
-      }
-
-      final rows = await _metricsRowsLoader(client);
+      final data = await client
+          .from(_kTable)
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(1000);
+      final rows = (data as List).cast<Map<String, dynamic>>();
       final metrics = GlobalMetrics.fromRows(rows);
       await _saveCache(metrics);
       return metrics;
@@ -101,43 +107,14 @@ class GlobalAggregationService {
   }
 
   Future<void> _saveCache(GlobalMetrics metrics) async {
-    try {
-      final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      await SharedPrefsService.save(_kCacheTsKey, ts.toString());
-      await SharedPrefsService.save(
-        _kCacheKey,
-        jsonEncode({
-          'avgTaskCompletionRate': metrics.avgTaskCompletionRate,
-          'avgMomentumPeak': metrics.avgMomentumPeak,
-        }),
-      );
-    } catch (_) {
-      // Shared preferences may be unavailable in tests or offline contexts.
-    }
-  }
-
-  static Future<List<Map<String, dynamic>>> _defaultMetricsRowsLoader(
-    sb.SupabaseClient? client,
-  ) async {
-    if (client == null || client.auth.currentUser == null) {
-      return const <Map<String, dynamic>>[];
-    }
-
-    try {
-      final response = await client
-          .from(_kTable)
-          .select()
-          .eq('user_id', client.auth.currentUser!.id);
-      return response
-          .whereType<Map<dynamic, dynamic>>()
-          .map(
-            (row) => row.map<String, dynamic>(
-              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-            ),
-          )
-          .toList(growable: false);
-    } catch (_) {
-      return const <Map<String, dynamic>>[];
-    }
+    final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await SharedPrefsService.save(_kCacheTsKey, ts.toString());
+    await SharedPrefsService.save(
+      _kCacheKey,
+      jsonEncode({
+        'avgTaskCompletionRate': metrics.avgTaskCompletionRate,
+        'avgMomentumPeak': metrics.avgMomentumPeak,
+      }),
+    );
   }
 }

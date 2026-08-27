@@ -1,3 +1,0 @@
-class UpdatePlanUsecase {
-  const UpdatePlanUsecase();
-}

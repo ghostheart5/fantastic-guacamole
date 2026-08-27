@@ -10,5 +10,3 @@ export 'package:fantastic_guacamole/theme/widgets/neon_card.dart';
 export 'package:fantastic_guacamole/theme/widgets/neon_divider.dart';
 export 'package:fantastic_guacamole/theme/widgets/neon_input.dart';
 export 'package:fantastic_guacamole/theme/widgets/neon_panel.dart';
-export 'package:fantastic_guacamole/theme/widgets/prism_metric_pill.dart';
-export 'package:fantastic_guacamole/theme/widgets/prism_metric_card.dart';

@@ -1,3 +1,0 @@
-class CreateHabitMemoryUsecase {
-  const CreateHabitMemoryUsecase();
-}

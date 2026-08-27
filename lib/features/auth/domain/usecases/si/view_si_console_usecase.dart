@@ -1,3 +1,0 @@
-class ViewSiConsoleUsecase {
-  const ViewSiConsoleUsecase();
-}

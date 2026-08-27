@@ -1,3 +1,0 @@
-class EnableCrashReportingUsecase {
-  const EnableCrashReportingUsecase();
-}

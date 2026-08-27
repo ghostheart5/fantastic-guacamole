@@ -1,3 +1,0 @@
-class EnableScreenReaderSupportUsecase {
-  const EnableScreenReaderSupportUsecase();
-}

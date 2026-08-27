@@ -1,5 +1,5 @@
 name: fantastic_guacamole
-description: "AI-powered productivity planner with adaptive focus, temporal ops, and SI guidance."
+description: "Planning and decision-support app with explainable on-device guidance, optional AI assistance, and timeline context."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 4.0.4+2026080102
+version: 4.0.0+2026071133
 environment:
   sdk: ^3.12.0
 
@@ -28,6 +28,8 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
@@ -52,12 +54,11 @@ dependencies:
   just_audio: ^0.10.5
   audio_session: ^0.2.2
   audioplayers: ^6.8.1
-  speech_to_text: ^7.0.0
-  flutter_tts: ^4.0.2
   vibration: ^3.2.0
   riverpod_annotation: ^4.0.3
   intl: ^0.20.0
   firebase_core: ^4.11.0
+  firebase_auth: ^6.5.4
   firebase_crashlytics: ^5.0.0
   firebase_analytics: ^12.0.0
   firebase_messaging: ^16.0.0
@@ -66,10 +67,10 @@ dependencies:
   crypto: ^3.0.3
   encrypt: ^5.0.3
   connectivity_plus: ^7.2.0
-  internet_connection_checker_plus: ^2.8.0
+  internet_connection_checker_plus: ^3.1.1
   path_provider: ^2.1.1
   timezone: ^0.11.1
-  flutter_timezone: ^4.1.1
+  flutter_timezone: ^5.1.0
   firebase_remote_config: ^6.5.3
   share_plus: ^13.2.0
   cached_network_image: ^3.4.1
@@ -78,22 +79,19 @@ dependencies:
   freezed_annotation: ^3.0.0
   logger: ^2.6.1
   permission_handler: ^12.0.1
+  speech_to_text: ^7.4.0
   cloud_firestore: ^6.6.0
   firebase_storage: ^13.4.3
-
-  state_notifier: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
   integration_test:
     sdk: flutter
-  patrol: ^3.13.0
-  golden_toolkit: ^0.15.0
   flutter_native_splash: ^2.4.1
   flutter_launcher_icons: ^0.14.4
-  fake_async: ^1.3.0
-  path_provider_platform_interface: ^2.1.1
-  shared_preferences_platform_interface: 2.4.2
+  # Used only by tool/validate_maestro_flows.dart to parse the Maestro flows in
+  # CI. Dev-only, so it is never bundled into the shipped app.
+  yaml: ^3.1.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -105,13 +103,6 @@ dev_dependencies:
   riverpod_generator: ^4.0.4
   freezed: ^3.0.0
   json_serializable: ^6.9.5
-  coverage: ^1.15.1
-
-dependency_overrides:
-  # path_provider_foundation 2.6.0 introduced an Objective-C native-assets
-  # hook that fails in this Windows environment when paths contain spaces.
-  # Pinning to 2.5.1 keeps the plugin-based implementation for local runs.
-  path_provider_foundation: 2.5.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -125,13 +116,12 @@ flutter:
   uses-material-design: true
   assets:
     - .env
-    - assets/animations/focus_pulse.json
     - assets/animations/level_up.json
-    - assets/animations/session_complete.json
-    - assets/audio/ai_decision.wav
+    - assets/animations/signal_pulse.json
     - assets/audio/error_soft.wav
-    - assets/audio/focus_start.wav
-    - assets/audio/task_complete.wav
+    - assets/audio/action_tick.wav
+    - assets/audio/signal_ping.wav
+    - assets/audio/milestone_lift.wav
     - assets/backgrounds/
     - assets/data/creator_seed.json
     - assets/data/si_seed.json
@@ -141,11 +131,10 @@ flutter:
     - assets/fonts/Inter-Bold.ttf
     - assets/fonts/Inter-Medium.ttf
     - assets/fonts/Inter-Regular.ttf
+    - assets/fonts/SpaceGrotesk-Variable.ttf
+    - assets/fonts/JetBrainsMono-Variable.ttf
     - assets/icons/add_task.svg
-    - assets/icons/coach.svg
-    - assets/icons/focus.svg
     - assets/icons/home.svg
-    - assets/icons/insights.svg
     - assets/icons/level.svg
     - assets/icons/logs.svg
     - assets/icons/nexus.svg
@@ -161,11 +150,11 @@ flutter:
     - assets/icons/stop.svg
     - assets/icons/streak.svg
     - assets/icons/tasks.svg
+    - assets/icons/app_icon.png
+    - assets/overlays/noise_atmosphere_v2.png
     - assets/legal/privacy_policy.txt
     - assets/legal/terms_of_service.html
     - assets/legal/terms_of_service.txt
-    - assets/tutorials/home.json
-    - assets/tutorials/tasks.json
   fonts:
     - family: Inter
       fonts:
@@ -218,4 +207,3 @@ flutter_launcher_icons:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-

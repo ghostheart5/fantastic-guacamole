@@ -1,3 +1,0 @@
-﻿class HandleAuthDeepLinkUsecase {
-  const HandleAuthDeepLinkUsecase();
-}

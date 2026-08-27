@@ -1,3 +1,0 @@
-﻿class SetJournalReminderUsecase {
-  const SetJournalReminderUsecase();
-}

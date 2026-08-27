@@ -1,3 +1,0 @@
-class ViewDailySummaryUsecase {
-  const ViewDailySummaryUsecase();
-}

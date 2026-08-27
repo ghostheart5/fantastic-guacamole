@@ -1,3 +1,0 @@
-﻿class BackupLogsUsecase {
-  const BackupLogsUsecase();
-}

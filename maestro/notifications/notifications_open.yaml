@@ -1,8 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: ../authentication/login_with_env.yaml
-- runFlow: ../_common/go_to_settings.yaml
-- tapOn:
-    text: "Notifications"
-- assertVisible:
-    text: "SIGNAL CENTER"

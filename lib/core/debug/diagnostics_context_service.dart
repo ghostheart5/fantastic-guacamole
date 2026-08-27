@@ -66,7 +66,7 @@ class DiagnosticsContextService {
       platform = 'web';
       osVersion = info.appVersion ?? 'web';
       model = info.browserName.name;
-      deviceId = info.userAgent ?? 'web';
+      deviceId = 'omitted';
       isPhysical = true;
     } else {
       switch (defaultTargetPlatform) {
@@ -75,7 +75,7 @@ class DiagnosticsContextService {
           platform = 'android';
           osVersion = 'Android ${info.version.release}';
           model = '${info.manufacturer} ${info.model}'.trim();
-          deviceId = info.id;
+          deviceId = 'omitted';
           isPhysical = info.isPhysicalDevice;
           break;
         case TargetPlatform.iOS:
@@ -83,7 +83,7 @@ class DiagnosticsContextService {
           platform = 'ios';
           osVersion = '${info.systemName} ${info.systemVersion}';
           model = info.utsname.machine;
-          deviceId = info.identifierForVendor ?? 'unknown';
+          deviceId = 'omitted';
           isPhysical = info.isPhysicalDevice;
           break;
         case TargetPlatform.macOS:
@@ -91,7 +91,7 @@ class DiagnosticsContextService {
           platform = 'macos';
           osVersion = info.osRelease;
           model = info.model;
-          deviceId = info.systemGUID ?? 'unknown';
+          deviceId = 'omitted';
           isPhysical = true;
           break;
         case TargetPlatform.windows:
@@ -99,7 +99,7 @@ class DiagnosticsContextService {
           platform = 'windows';
           osVersion = info.displayVersion;
           model = info.productName;
-          deviceId = info.deviceId;
+          deviceId = 'omitted';
           isPhysical = true;
           break;
         case TargetPlatform.linux:
@@ -107,7 +107,7 @@ class DiagnosticsContextService {
           platform = 'linux';
           osVersion = info.version ?? 'linux';
           model = info.prettyName;
-          deviceId = info.machineId ?? 'unknown';
+          deviceId = 'omitted';
           isPhysical = true;
           break;
         case TargetPlatform.fuchsia:

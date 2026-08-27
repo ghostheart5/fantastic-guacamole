@@ -1,3 +1,0 @@
-class GenerateReflectionUsecase {
-  const GenerateReflectionUsecase();
-}

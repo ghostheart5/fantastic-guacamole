@@ -1,8 +1,11 @@
+import 'dart:async';
+
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
+import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
+import 'package:fantastic_guacamole/system/voice/speech_recognition_service.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:speech_to_text/speech_recognition_error.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class VoiceState {
   const VoiceState({
@@ -38,7 +41,19 @@ class VoiceState {
 }
 
 final voiceServiceProvider = Provider<VoiceService>((ref) {
-  return VoiceService();
+  return const VoiceService();
+});
+
+final speechRecognitionServiceProvider = Provider<SpeechRecognitionService>((
+  ref,
+) {
+  return PluginSpeechRecognitionService();
+});
+
+final audioInterruptionServiceProvider = Provider<AudioInterruptionService>((
+  ref,
+) {
+  return PluginAudioInterruptionService();
 });
 
 final voiceControllerProvider = NotifierProvider<VoiceController, VoiceState>(
@@ -46,27 +61,53 @@ final voiceControllerProvider = NotifierProvider<VoiceController, VoiceState>(
 );
 
 class VoiceController extends Notifier<VoiceState> {
-  final stt.SpeechToText _speech = stt.SpeechToText();
+  static const String _permissionDeniedMessage =
+      'Microphone permission is required for voice input.';
+  static const String _unavailableMessage =
+      'Speech recognition is not available on this device.';
+
+  late final SpeechRecognitionService _speechService;
 
   @override
-  VoiceState build() => const VoiceState();
+  VoiceState build() {
+    _speechService = ref.read(speechRecognitionServiceProvider);
+    ref.onDispose(() {
+      unawaited(_speechService.cancel());
+    });
+    return const VoiceState();
+  }
 
+  /// Required flow: request permission, listen, populate the caller's input
+  /// box with the transcript. Recognized text is never auto-sent or routed as
+  /// an action — the caller reads [VoiceState.recognizedText] and the user
+  /// must explicitly tap send.
   Future<void> startListening() async {
     if (state.isListening) {
       return;
     }
+    // Mutual exclusion: stop any active TTS so the mic cannot pick up
+    // ChronoSpark's own speech.
+    await ref.read(voiceServiceProvider).stop();
 
-    final bool available = await _speech.initialize(
-      onStatus: _handleStatus,
-      onError: _handleError,
-      debugLogging: false,
+    final VoicePermissionService permissionService = ref.read(
+      voicePermissionServiceProvider,
     );
+    final bool granted = await permissionService.requestPermission();
+    if (!granted) {
+      state = state.copyWith(
+        isAvailable: false,
+        isListening: false,
+        error: _permissionDeniedMessage,
+      );
+      return;
+    }
 
+    final bool available = await _speechService.initialize();
     if (!available) {
       state = state.copyWith(
         isAvailable: false,
         isListening: false,
-        error: 'Voice input is not available on this device.',
+        error: _unavailableMessage,
       );
       return;
     }
@@ -75,61 +116,39 @@ class VoiceController extends Notifier<VoiceState> {
       isAvailable: true,
       isListening: true,
       recognizedText: '',
-      lastResponse: '',
       clearError: true,
     );
 
-    await _speech.listen(
-      onResult: _handleResult,
-      listenOptions: stt.SpeechListenOptions(
-        partialResults: true,
-        cancelOnError: true,
-        listenMode: stt.ListenMode.dictation,
-      ),
+    await _speechService.listen(
+      onResult: (String text, bool isFinal) {
+        if (!state.isListening) {
+          return;
+        }
+        state = state.copyWith(recognizedText: text);
+      },
+      onDone: () {
+        // The plugin stopped listening on its own (bounded timeout or
+        // silence window) without the caller tapping again.
+        state = state.copyWith(isListening: false);
+      },
     );
   }
 
   Future<void> stopListening() async {
-    if (_speech.isListening) {
-      await _speech.stop();
+    if (!state.isListening) {
+      return;
     }
-
+    await _speechService.stop();
     state = state.copyWith(isListening: false);
   }
 
+  /// Clears the transcript once the caller has consumed it, so a stale
+  /// result cannot resurface into a later listening session.
+  void clearRecognizedText() {
+    state = state.copyWith(recognizedText: '');
+  }
+
   Future<void> stopSpeaking() async {
-    await ref.read(voiceServiceProvider).stop();
-  }
-
-  void _handleResult(SpeechRecognitionResult result) {
-    final String words = result.recognizedWords.trim();
-    final bool finalResult = result.finalResult;
-
-    state = state.copyWith(
-      recognizedText: words,
-      lastResponse: finalResult ? words : state.lastResponse,
-      isListening: finalResult ? false : state.isListening,
-      clearError: true,
-    );
-  }
-
-  void _handleStatus(String status) {
-    final String normalized = status.toLowerCase();
-
-    if (normalized == 'done' ||
-        normalized == 'notlistening' ||
-        normalized == 'not_listening') {
-      state = state.copyWith(isListening: false);
-    }
-  }
-
-  void _handleError(SpeechRecognitionError error) {
-    final String message = error.errorMsg.toString();
-
-    state = state.copyWith(
-      isListening: false,
-      isAvailable: _speech.isAvailable,
-      error: message,
-    );
+    return;
   }
 }

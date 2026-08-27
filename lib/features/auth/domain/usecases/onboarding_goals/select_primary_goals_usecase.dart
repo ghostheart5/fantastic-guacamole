@@ -1,3 +1,0 @@
-class SelectPrimaryGoalsUsecase {
-  const SelectPrimaryGoalsUsecase();
-}

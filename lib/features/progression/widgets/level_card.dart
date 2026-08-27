@@ -50,9 +50,10 @@ class LevelCard extends StatelessWidget {
                     const Text(
                       'LVL',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 10,
                         letterSpacing: 1.5,
-                        color: Colors.white38,
+                        color: Color(0xFFC6D0E2),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -65,31 +66,32 @@ class LevelCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    progress.levelTitle,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                Text(
+                  progress.levelTitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    height: 1.2,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '${progress.xpToNext} XP to Level ${progress.level + 1}',
-                    style: const TextStyle(fontSize: 12, color: Colors.white38),
+                const SizedBox(height: 6),
+                Text(
+                  '${progress.xpToNext} XP until Level ${progress.level + 1}',
+                  maxLines: 2,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.3,
+                    color: Color(0xFFC6D0E2),
                   ),
                 ),
                 const SizedBox(height: 10),
                 ProgressBar(
                   value: progress.levelProgress,
                   color: AppColors.memoryAmber,
+                  height: 8,
                 ),
               ],
             ),

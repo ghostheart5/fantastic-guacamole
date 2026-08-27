@@ -1,3 +1,0 @@
-class ArchiveLogUsecase {
-  const ArchiveLogUsecase();
-}

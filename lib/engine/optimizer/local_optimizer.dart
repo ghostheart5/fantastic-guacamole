@@ -13,7 +13,7 @@ class LocalOptimizer {
       multiplier = 1.0;
     }
     return OptimizationConfig(
-      focusDurationMultiplier: multiplier,
+      executionDurationMultiplier: multiplier,
       taskDifficultyScale: 1.0,
       nextActionAggressiveness: 1.0,
     );

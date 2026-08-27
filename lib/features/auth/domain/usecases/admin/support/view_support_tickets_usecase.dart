@@ -1,3 +1,0 @@
-class ViewSupportTicketsUsecase {
-  const ViewSupportTicketsUsecase();
-}

@@ -1,3 +1,0 @@
-class ViewLogAnalyticsUsecase {
-  const ViewLogAnalyticsUsecase();
-}

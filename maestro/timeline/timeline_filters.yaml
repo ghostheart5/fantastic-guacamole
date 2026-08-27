@@ -1,8 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: timeline_load.yaml
-- tapOn: "Today"
-- tapOn: "Week"
-- tapOn: "More filters"
-- tapOn: "Completed"
-- tapOn: "All"

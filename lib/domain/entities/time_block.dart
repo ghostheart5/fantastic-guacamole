@@ -1,44 +1,43 @@
-class TimeBlock {
+import 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
+
+/// Planner compatibility view over [CalendarEntryEntity].
+///
+/// The historical `completed` name remains available, but the block stores no
+/// state beyond the canonical calendar entity.
+@Deprecated('Use CalendarEntryEntity.')
+class TimeBlock extends CalendarEntryEntity {
   const TimeBlock({
-    required this.id,
-    required this.taskId,
-    required this.title,
-    required this.start,
-    required this.end,
-    this.completed = false,
-  });
+    required super.id,
+    required String taskId,
+    required super.title,
+    required super.start,
+    required super.end,
+    bool completed = false,
+    super.description,
+  }) : super(taskId: taskId, isCompleted: completed);
 
-  final String id;
-  final String taskId;
-  final String title;
-  final DateTime start;
-  final DateTime end;
-  final bool completed;
+  @override
+  String get taskId => super.taskId!;
 
+  @override
   TimeBlock copyWith({
     String? id,
     String? taskId,
     String? title,
+    String? description,
     DateTime? start,
     DateTime? end,
+    bool? isCompleted,
     bool? completed,
   }) {
     return TimeBlock(
       id: id ?? this.id,
       taskId: taskId ?? this.taskId,
       title: title ?? this.title,
+      description: description ?? this.description,
       start: start ?? this.start,
       end: end ?? this.end,
-      completed: completed ?? this.completed,
+      completed: completed ?? isCompleted ?? this.completed,
     );
-  }
-
-  void validate() {
-    if (id.trim().isEmpty || taskId.trim().isEmpty || title.trim().isEmpty) {
-      throw StateError('Time blocks require an id, task id, and title');
-    }
-    if (!end.isAfter(start)) {
-      throw StateError('Time blocks must end after they start');
-    }
   }
 }

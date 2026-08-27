@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
+///
+/// Enforced by smartPlannerQueryController and siConsoleQueryController.
 abstract final class CrisisDetectionPolicy {
   static const List<String> _keywords = <String>[
     'suicide',
@@ -7,15 +10,6 @@ abstract final class CrisisDetectionPolicy {
     'self-harm',
     'want to die',
     'hurt myself',
-    'dont want to live',
-    'do not want to live',
-    "don't want to live",
-    'i want to disappear',
-    'i cant go on',
-    "i can't go on",
-    'take my life',
-    'ending it all',
-    'end it all',
   ];
 
   static bool detects(String input) {

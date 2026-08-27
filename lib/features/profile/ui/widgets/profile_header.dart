@@ -7,13 +7,11 @@ class ProfileHeader extends StatelessWidget {
     super.key,
     required this.name,
     required this.level,
-    required this.onBack,
     required this.onOpenSettings,
   });
 
   final String name;
   final int level;
-  final VoidCallback onBack;
   final VoidCallback onOpenSettings;
 
   @override
@@ -34,12 +32,6 @@ class ProfileHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _HeaderIconBtn(
-            icon: Icons.arrow_back_ios_new,
-            color: Colors.white70,
-            onTap: onBack,
-          ),
-          const SizedBox(width: 12),
           Container(
             width: 64,
             height: 64,
@@ -98,11 +90,11 @@ class ProfileHeader extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Level $level',
+                      'CHRONOSPARK L$level',
                       style: const TextStyle(
                         fontSize: 9,
                         color: AppColors.neonCyan,
-                        letterSpacing: 0.8,
+                        letterSpacing: 1.5,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -115,6 +107,7 @@ class ProfileHeader extends StatelessWidget {
             icon: Icons.settings,
             color: AppColors.neonCyan,
             onTap: onOpenSettings,
+            semanticLabel: 'Open settings',
           ),
         ],
       ),
@@ -127,18 +120,22 @@ class _HeaderIconBtn extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    required this.semanticLabel,
   });
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final String semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     return SmartPressable(
       onTap: onTap,
+      semanticLabel: semanticLabel,
       child: Container(
-        width: 34,
-        height: 34,
+        width: 48,
+        height: 48,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),

@@ -1,3 +1,0 @@
-﻿class DeletePersonalDataUsecase {
-  const DeletePersonalDataUsecase();
-}

@@ -1,3 +1,0 @@
-class UnsuspendUserUsecase {
-  const UnsuspendUserUsecase();
-}

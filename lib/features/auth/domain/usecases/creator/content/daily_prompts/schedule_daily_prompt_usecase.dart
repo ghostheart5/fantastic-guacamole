@@ -1,3 +1,0 @@
-class ScheduleDailyPromptUsecase {
-  const ScheduleDailyPromptUsecase();
-}

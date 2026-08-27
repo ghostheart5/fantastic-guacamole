@@ -1,3 +1,0 @@
-class VerifyUserUsecase {
-  const VerifyUserUsecase();
-}

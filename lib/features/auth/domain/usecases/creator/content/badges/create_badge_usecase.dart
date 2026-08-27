@@ -1,3 +1,0 @@
-class CreateBadgeUsecase {
-  const CreateBadgeUsecase();
-}

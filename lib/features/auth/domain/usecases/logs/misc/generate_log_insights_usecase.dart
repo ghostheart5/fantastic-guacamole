@@ -1,3 +1,0 @@
-class GenerateLogInsightsUsecase {
-  const GenerateLogInsightsUsecase();
-}

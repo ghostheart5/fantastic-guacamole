@@ -1,3 +1,0 @@
-class EditLessonUsecase {
-  const EditLessonUsecase();
-}

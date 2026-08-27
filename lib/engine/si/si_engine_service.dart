@@ -1,10 +1,15 @@
 // lib/engine/si/si_engine_service.dart
 
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_engine.dart';
+import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
+
+export 'package:fantastic_guacamole/engine/si/models/si_state.dart'
+    show SIInputPacket;
+export 'package:fantastic_guacamole/engine/si/si_engine.dart'
+    show SIFinalOutputBundle;
 
 class SIEngineService {
   SIEngineService({
@@ -74,8 +79,19 @@ class SIEngineService {
     String? taskId,
     Map<String, dynamic> context = const <String, dynamic>{},
   }) async {
-    final bool aiProxyConfigured = Env.isAiProxyConfigured;
-    final SIFinalOutputBundle output = await handleText(input);
+    final SIFinalOutputBundle output = await handleText(
+      input,
+      context: context,
+      task: taskId == null
+          ? null
+          : Task(
+              id: taskId,
+              title: context['taskTitle']?.toString() ?? input,
+              priority: 0,
+              difficulty: 0,
+              energyRequired: 0,
+            ),
+    );
     final String resolvedMessage = output.response.message.trim().isEmpty
         ? message
         : output.response.message;
@@ -90,9 +106,13 @@ class SIEngineService {
           ? emotion
           : output.response.emotion,
       'confidence': output.response.confidence.clamp(0.0, 1.0),
-      'generationMode': aiProxyConfigured ? 'proxy_llm' : 'deterministic_local',
-      'isDeterministicLocal': !aiProxyConfigured,
+      'generationMode': output.provenance.generationMode,
+      'isDeterministicLocal':
+          output.provenance.generationMode == 'deterministic_local',
       'engineDecision': output.decision.action,
+      'responseHash': responseHashFor(resolvedMessage),
+      'responseSummary': responseSummaryFor(resolvedMessage),
+      'provenance': output.provenance.toJson(),
     };
   }
 
@@ -139,14 +159,14 @@ class SIEngineService {
     bool policyAccepted = true,
     bool grounded = true,
   }) {
-    final String text = message.trim();
-    if (text.isEmpty) {
-      return false;
-    }
-    if (confidence.isNaN || confidence < 0.3) {
-      return false;
-    }
-    return coherent && deduped && policyAccepted && grounded;
+    return _engine.validator.accepts(
+      message: message,
+      confidence: confidence,
+      coherent: coherent,
+      deduped: deduped,
+      policyAccepted: policyAccepted,
+      grounded: grounded,
+    );
   }
 
   void replaceRuntime(SIEngineRuntimeState runtime) {

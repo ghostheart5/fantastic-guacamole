@@ -16,6 +16,8 @@ class AgentResult {
   double get confidence => (payload['confidence'] as num?)?.toDouble() ?? 0.5;
   int get durationMs => (payload['durationMs'] as num?)?.toInt() ?? 0;
   bool get usedDefaults => payload['usedDefaults'] == true;
+  String get source => payload['source']?.toString() ?? 'local';
+  bool get modelBacked => payload['modelBacked'] == true;
   List<String> get defaultedFields =>
       (payload['defaultedFields'] as List<dynamic>?)
           ?.map((dynamic v) => v.toString())

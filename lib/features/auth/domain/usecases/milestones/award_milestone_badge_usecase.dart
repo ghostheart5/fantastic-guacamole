@@ -1,3 +1,0 @@
-class AwardMilestoneBadgeUsecase {
-  const AwardMilestoneBadgeUsecase();
-}

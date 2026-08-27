@@ -1,24 +1,10 @@
-import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/project_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/detect_timeline_conflict_usecase.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/detect_timeline_risk_usecase.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/forecast_timeline_outcomes_usecase.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/suggest_timeline_adjustments_usecase.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/surface_timeline_warnings_usecase.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
-    show
-        advancedAudioProfileEnabledProvider,
-        hapticFeedbackEnabledProvider,
-        soundEnabledProvider;
+    show soundEnabledProvider;
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/timeline_misc_usecase_providers.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,111 +17,6 @@ final timelineProvider =
       TimelineNotifier.new,
     );
 
-final timelineTodayProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
-  ref.watch(timelineProvider);
-  return ref.read(viewDailyTimelineUsecaseProvider).call(DateTime.now());
-});
-
-final timelineThisWeekProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
-  ref.watch(timelineProvider);
-  return ref.read(viewWeeklyTimelineUsecaseProvider).call(DateTime.now());
-});
-
-final timelineThisMonthProvider = Provider<List<TimelineEventEntity>>((
-  Ref ref,
-) {
-  ref.watch(timelineProvider);
-  return ref.read(viewMonthlyTimelineUsecaseProvider).call(DateTime.now());
-});
-
-final timelineThisYearProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
-  ref.watch(timelineProvider);
-  return ref.read(viewYearlyTimelineUsecaseProvider).call(DateTime.now());
-});
-
-final timelineActivityProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
-  ref.watch(timelineProvider);
-  return ref.read(viewTimelineActivityUsecaseProvider).call();
-});
-
-final timelineLifeJourneyProvider = Provider<List<TimelineEventEntity>>((
-  Ref ref,
-) {
-  ref.watch(timelineProvider);
-  return ref.read(viewLifeJourneyUsecaseProvider).call();
-});
-
-final timelineEventByIdProvider = Provider.family<TimelineEventEntity?, String>(
-  (Ref ref, String id) {
-    ref.watch(timelineProvider);
-    return ref.read(viewTimelineEventUsecaseProvider).call(id);
-  },
-);
-final timelineDeadlinesProvider = Provider<List<TimelineEventEntity>>((
-  Ref ref,
-) {
-  ref.watch(timelineProvider);
-  return ref.read(trackDeadlinesUsecaseProvider).call();
-});
-
-final timelineCompletedEventsProvider = Provider<List<TimelineEventEntity>>((
-  Ref ref,
-) {
-  ref.watch(timelineProvider);
-  return ref.read(trackCompletedEventsUsecaseProvider).call();
-});
-
-final timelineDueNextProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
-  ref.watch(timelineProvider);
-  return ref.read(showDueNextTimelineUsecaseProvider).call();
-});
-
-final timelineFallingBehindProvider = Provider<List<TimelineEventEntity>>((
-  Ref ref,
-) {
-  ref.watch(timelineProvider);
-  return ref.read(showFallingBehindTimelineUsecaseProvider).call();
-});
-
-final timelineOnTrackResultProvider = Provider((Ref ref) {
-  ref.watch(timelineProvider);
-  return ref.read(showTimelineOnTrackUsecaseProvider).call();
-});
-final timelineRiskResultProvider = Provider<TimelineRiskResult>((Ref ref) {
-  ref.watch(timelineProvider);
-  return ref.read(detectTimelineRiskUsecaseProvider).call();
-});
-
-final timelineConflictProvider = Provider<List<TimelineConflict>>((Ref ref) {
-  ref.watch(timelineProvider);
-  return ref.read(detectTimelineConflictUsecaseProvider).call();
-});
-
-final timelineForecastProvider = Provider<List<TimelineForecastResult>>((
-  Ref ref,
-) {
-  ref.watch(timelineProvider);
-  return ref.read(forecastTimelineOutcomesUsecaseProvider).call();
-});
-
-final timelinePrioritizedItemsProvider = Provider<List<TimelineEventEntity>>((
-  Ref ref,
-) {
-  ref.watch(timelineProvider);
-  return ref.read(prioritizeTimelineItemsUsecaseProvider).call();
-});
-
-final timelineWarningsProvider = Provider<List<TimelineWarning>>((Ref ref) {
-  ref.watch(timelineProvider);
-  return ref.read(surfaceTimelineWarningsUsecaseProvider).call();
-});
-
-final timelineAdjustmentsProvider = Provider<List<TimelineAdjustment>>((
-  Ref ref,
-) {
-  ref.watch(timelineProvider);
-  return ref.read(suggestTimelineAdjustmentsUsecaseProvider).call();
-});
 final timelineOverdueProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
   return ref
       .watch(timelineProvider)
@@ -209,175 +90,36 @@ class TimelineActions {
   Future<void> addMirroredEvent(TimelineEventEntity event) {
     return _ref
         .read(timelineProvider.notifier)
-        .record(
-          event,
-          refreshCoach: false,
-          syncSoulMap: false,
-          awardProgression: false,
-        );
+        .record(event, refreshPlanner: false, awardProgression: false);
   }
 
-  Future<void> addEmotion({
-    required String title,
-    required String detail,
-    String? relatedId,
-    DateTime? timestamp,
-  }) async {
-    await _ref
-        .read(addEmotionToTimelineUsecaseProvider)
-        .call(
-          title: title,
-          detail: detail,
-          relatedId: relatedId,
-          timestamp: timestamp,
-        );
-    _ref.invalidate(timelineProvider);
+  List<TimelineEventEntity> eventsInRange({
+    required DateTime start,
+    required DateTime end,
+  }) {
+    return _ref
+        .read(queryTimelineRangeUseCaseProvider)
+        .call(start: start, end: end);
   }
 
-  Future<void> addGoal({
-    required String title,
-    required String detail,
-    String? relatedId,
-    DateTime? timestamp,
-    DateTime? dueAt,
-  }) async {
-    await _ref
-        .read(addGoalToTimelineUsecaseProvider)
-        .call(
-          title: title,
-          detail: detail,
-          relatedId: relatedId,
-          timestamp: timestamp,
-          dueAt: dueAt,
-        );
-    _ref.invalidate(timelineProvider);
+  Future<void> schedule(TimelineEventEntity event) {
+    return _ref.read(timelineProvider.notifier).schedule(event);
   }
 
-  Future<void> addJournal({
-    required String title,
-    required String detail,
-    String? relatedId,
-    DateTime? timestamp,
-  }) async {
-    await _ref
-        .read(addJournalToTimelineUsecaseProvider)
-        .call(
-          title: title,
-          detail: detail,
-          relatedId: relatedId,
-          timestamp: timestamp,
-        );
-    _ref.invalidate(timelineProvider);
+  Future<void> reschedule(String id, DateTime dueAt) {
+    return _ref.read(timelineProvider.notifier).reschedule(id, dueAt);
   }
 
-  Future<void> addMemory({
-    required String title,
-    required String detail,
-    String? relatedId,
-    DateTime? timestamp,
-  }) async {
-    await _ref
-        .read(addMemoryToTimelineUsecaseProvider)
-        .call(
-          title: title,
-          detail: detail,
-          relatedId: relatedId,
-          timestamp: timestamp,
-        );
-    _ref.invalidate(timelineProvider);
+  Future<void> complete(String id) {
+    return _ref.read(timelineProvider.notifier).complete(id);
   }
 
-  Future<void> addMilestone({
-    required String title,
-    required String detail,
-    String? relatedId,
-    DateTime? timestamp,
-  }) async {
-    await _ref
-        .read(addMilestoneToTimelineUsecaseProvider)
-        .call(
-          title: title,
-          detail: detail,
-          relatedId: relatedId,
-          timestamp: timestamp,
-        );
-    _ref.invalidate(timelineProvider);
+  Future<void> skip(String id) {
+    return _ref.read(timelineProvider.notifier).skip(id);
   }
 
-  List<TimelineEventEntity> viewTimeline() {
-    return _ref.read(viewTimelineUsecaseProvider).call();
-  }
-
-  List<TimelineEventEntity> viewDaily(DateTime day) {
-    return _ref.read(viewDailyTimelineUsecaseProvider).call(day);
-  }
-
-  List<TimelineEventEntity> viewWeekly(DateTime day) {
-    return _ref.read(viewWeeklyTimelineUsecaseProvider).call(day);
-  }
-
-  List<TimelineEventEntity> viewMonthly(DateTime month) {
-    return _ref.read(viewMonthlyTimelineUsecaseProvider).call(month);
-  }
-
-  List<TimelineEventEntity> viewYearly(DateTime year) {
-    return _ref.read(viewYearlyTimelineUsecaseProvider).call(year);
-  }
-
-  TimelineEventEntity? viewEvent(String id) {
-    return _ref.read(viewTimelineEventUsecaseProvider).call(id);
-  }
-
-  List<TimelineEventEntity> viewActivity({int limit = 50}) {
-    return _ref.read(viewTimelineActivityUsecaseProvider).call(limit: limit);
-  }
-
-  List<TimelineEventEntity> viewLifeJourney() {
-    return _ref.read(viewLifeJourneyUsecaseProvider).call();
-  }
-
-  TimelineRiskResult detectRisk() {
-    return _ref.read(detectTimelineRiskUsecaseProvider).call();
-  }
-
-  List<TimelineConflict> detectConflicts() {
-    return _ref.read(detectTimelineConflictUsecaseProvider).call();
-  }
-
-  List<TimelineForecastResult> forecastOutcomes() {
-    return _ref.read(forecastTimelineOutcomesUsecaseProvider).call();
-  }
-
-  List<TimelineEventEntity> prioritizeItems({int limit = 10}) {
-    return _ref.read(prioritizeTimelineItemsUsecaseProvider).call(limit: limit);
-  }
-
-  List<TimelineWarning> surfaceWarnings() {
-    return _ref.read(surfaceTimelineWarningsUsecaseProvider).call();
-  }
-
-  List<TimelineAdjustment> suggestAdjustments() {
-    return _ref.read(suggestTimelineAdjustmentsUsecaseProvider).call();
-  }
-
-  Future<void> connectGoal(GoalEntity goal) async {
-    await _ref.read(connectTimelineToGoalsUsecaseProvider).call(goal);
-    _ref.invalidate(timelineProvider);
-  }
-
-  Future<void> connectHabit(HabitEntity habit) async {
-    await _ref.read(connectTimelineToHabitsUsecaseProvider).call(habit);
-    _ref.invalidate(timelineProvider);
-  }
-
-  Future<void> connectProject(ProjectEntity project) async {
-    await _ref.read(connectTimelineToProjectsUsecaseProvider).call(project);
-    _ref.invalidate(timelineProvider);
-  }
-
-  Future<void> connectTask(TaskEntity task) async {
-    await _ref.read(connectTimelineToTasksUsecaseProvider).call(task);
-    _ref.invalidate(timelineProvider);
+  Future<void> recover(String id, DateTime dueAt) {
+    return _ref.read(timelineProvider.notifier).recover(id, dueAt);
   }
 }
 
@@ -386,43 +128,33 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
 
   @override
   List<TimelineEventEntity> build() {
-    return ref.read(viewTimelineUsecaseProvider).call();
+    return ref.read(getTimelineEventsUseCaseProvider).call();
   }
 
   Future<void> record(
     TimelineEventEntity event, {
-    bool refreshCoach = true,
-    bool syncSoulMap = true,
+    bool refreshPlanner = true,
     bool awardProgression = false,
   }) async {
-    await ref.read(createTimelineEventUsecaseProvider).call(event);
+    await ref.read(addTimelineEventUseCaseProvider).call(event);
     final bool isMilestoneEvent =
         event.isLevelUp || event.isGoalComplete || event.isStreak;
     if (isMilestoneEvent) {
       final bool soundEnabled = ref.read(soundEnabledProvider);
-      final bool advancedAudioEnabled = ref.read(
-        advancedAudioProfileEnabledProvider,
-      );
-      final bool hapticEnabled = ref.read(hapticFeedbackEnabledProvider);
-      await AudioService.playMilestone(
-        soundEnabled,
-        advancedProfileEnabled: advancedAudioEnabled,
-        hapticsEnabled: hapticEnabled,
-      );
+      await AudioService.playMilestone(soundEnabled);
     }
     final updated = [event, ...state];
     state = updated.length > _maxEvents
         ? updated.sublist(0, _maxEvents)
         : updated;
 
-    if (syncSoulMap) {
-      ref.invalidate(soulStateProvider);
-    }
     if (awardProgression) {
-      ref.read(profileProvider.notifier).addXP(10);
+      await ref
+          .read(profileProvider.notifier)
+          .awardXP(10, source: 'timeline_event');
     }
-    if (refreshCoach) {
-      await _refreshCoachDecision();
+    if (refreshPlanner) {
+      await _refreshPlannerDecision();
     }
     ref
         .read(eventBusProvider)
@@ -436,16 +168,75 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
   }
 
   Future<void> remove(String id) async {
-    await ref.read(deleteTimelineEventUsecaseProvider).call(id);
+    await ref.read(removeTimelineEventUseCaseProvider).call(id);
     state = state.where((event) => event.id != id).toList(growable: false);
   }
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> schedule(TimelineEventEntity event) async {
+    final TimelineEventEntity scheduled = await ref
+        .read(scheduleTimelineEventUseCaseProvider)
+        .call(event);
+    state = <TimelineEventEntity>[scheduled, ...state];
+    await _afterLifecycleMutation(scheduled);
+  }
+
+  Future<void> reschedule(String id, DateTime dueAt) async {
+    final TimelineEventEntity? updated = await ref
+        .read(rescheduleTimelineEventUseCaseProvider)
+        .call(id: id, dueAt: dueAt);
+    if (updated != null) await _replaceAfterLifecycleMutation(updated);
+  }
+
+  Future<void> complete(String id) async {
+    final TimelineEventEntity? updated = await ref
+        .read(completeTimelineEventUseCaseProvider)
+        .call(id);
+    if (updated != null) await _replaceAfterLifecycleMutation(updated);
+  }
+
+  Future<void> skip(String id) async {
+    final TimelineEventEntity? updated = await ref
+        .read(skipTimelineEventUseCaseProvider)
+        .call(id);
+    if (updated != null) await _replaceAfterLifecycleMutation(updated);
+  }
+
+  Future<void> recover(String id, DateTime dueAt) async {
+    final TimelineEventEntity? updated = await ref
+        .read(recoverTimelineEventUseCaseProvider)
+        .call(id: id, dueAt: dueAt);
+    if (updated != null) await _replaceAfterLifecycleMutation(updated);
+  }
+
+  Future<void> _replaceAfterLifecycleMutation(
+    TimelineEventEntity updated,
+  ) async {
+    state = <TimelineEventEntity>[
+      for (final TimelineEventEntity event in state)
+        if (event.id == updated.id) updated else event,
+    ];
+    await _afterLifecycleMutation(updated);
+  }
+
+  Future<void> _afterLifecycleMutation(TimelineEventEntity event) async {
+    await _refreshPlannerDecision();
+    ref
+        .read(eventBusProvider)
+        .emit(
+          TimelineLifecycleEvent(
+            eventId: event.id,
+            title: event.title,
+            type: event.type.name,
+          ),
+        );
+  }
+
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking timeline writes if coach refresh fails.
+      // Avoid blocking timeline writes if planner refresh fails.
     }
   }
 }

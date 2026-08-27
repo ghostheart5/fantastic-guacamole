@@ -1,3 +1,0 @@
-class UpdateSiConfigurationUsecase {
-  const UpdateSiConfigurationUsecase();
-}

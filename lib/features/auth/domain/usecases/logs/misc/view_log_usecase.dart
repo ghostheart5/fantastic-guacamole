@@ -1,3 +1,0 @@
-class ViewLogUsecase {
-  const ViewLogUsecase();
-}

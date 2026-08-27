@@ -1,44 +1,38 @@
 import 'dart:async';
+import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
+import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
-import 'package:fantastic_guacamole/engine/scoring/session_scoring_engine.dart';
+import 'package:fantastic_guacamole/engine/scoring/completion_scoring_engine.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_filter.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
-import 'package:fantastic_guacamole/state/core/app_providers.dart'
-    show
-        advancedAudioProfileEnabledProvider,
-        soundEnabledProvider,
-        timelineFirstActionCompletedProvider,
-        timelineFirstActionCompletedStorageKey,
-        timelineFirstActionCompletedStorageKeyForUser;
-import 'package:fantastic_guacamole/state/models/session_score_view.dart';
+import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
+import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
-import 'package:fantastic_guacamole/state/providers/completion_events_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
-import 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
+import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
-import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/services/task_occurrence_coordinator.dart';
-import 'package:fantastic_guacamole/state/services/task_occurrence_projection_coordinator.dart';
-import 'package:fantastic_guacamole/system/audio/audio_service.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   final List<TaskEntity> tasks = await ref.read(getTasksUseCaseProvider).call();
@@ -47,51 +41,54 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   );
   final si = ref.watch(siStateProvider);
   final learning = ref.watch(learningProvider);
+  final personalization = ref.watch(personalizationProfileProvider);
   final SiStateEntity siState = SiStateEntity(
     energy: si.energy,
-    focus: (si.energy * (1 - si.fatigue)).clamp(0.0, 1.0),
+    attention: (si.energy * (1 - si.fatigue)).clamp(0.0, 1.0),
     fatigue: si.fatigue,
     avoidOverwhelm: si.fatigue >= 0.75,
     primaryInstinct: si.fatigue >= 0.75 ? 'safety_first' : 'progress_first',
   );
   final List<TaskEntity> candidates = TaskFilter.bySiState(tasks, siState);
-  final List<RankedTask> ranked = const TaskRanker().rank(
-    candidates,
-    learning: learning,
-    energy: si.energy,
-    fatigue: si.fatigue,
-    priorityScale: optimization.nextActionAggressiveness,
-    difficultyScale: optimization.taskDifficultyScale,
-    siState: siState,
-  );
+  final List<RankedTask> ranked = ref
+      .read(scoreTasksUseCaseProvider)
+      .call(
+        candidates,
+        learning: learning,
+        energy: si.energy,
+        fatigue: si.fatigue,
+        priorityScale: optimization.nextActionAggressiveness,
+        difficultyScale: optimization.taskDifficultyScale,
+        policy: switch (personalization.priorityStrategy) {
+          PriorityStrategy.deadlineFirst => const TaskRankingPolicy(
+            deadlineWeight: 2.25,
+          ),
+          PriorityStrategy.energyFirst => const TaskRankingPolicy(
+            energyWeight: 2.25,
+          ),
+          PriorityStrategy.goalFirst => const TaskRankingPolicy(goalBonus: 18),
+          PriorityStrategy.quickWins => const TaskRankingPolicy(
+            quickWinBonus: 18,
+          ),
+          PriorityStrategy.balanced => const TaskRankingPolicy(),
+        },
+        siState: siState,
+      );
   return ranked.map((RankedTask item) => _taskFromEntity(item.task)).toList();
 });
 
 final taskActionsProvider = Provider<TaskActions>((Ref ref) {
-  return TaskActions(
-    ref,
-    ref.watch(taskOccurrenceCoordinatorProvider),
-    ref.watch(taskOccurrenceProjectionCoordinatorProvider),
-  );
+  return TaskActions(ref);
 });
 
 class TaskActions {
-  TaskActions(this._ref, this._occurrences, this._projections);
+  const TaskActions(this._ref);
 
   final Ref _ref;
-  final TaskOccurrenceCoordinator _occurrences;
-  final TaskOccurrenceProjectionCoordinator _projections;
-  static final SessionScoringEngine _scoringEngine = SessionScoringEngine();
-  static const Duration _timelineActionDedupWindow = Duration(
-    milliseconds: 900,
-  );
-  final Map<String, DateTime> _recentTimelineActions = <String, DateTime>{};
+  static final CompletionScoringEngine _scoringEngine =
+      CompletionScoringEngine();
 
-  Future<void> createTask(
-    TaskEntity entity, {
-    bool notify = false,
-    String actionSource = 'unknown',
-  }) async {
+  Future<void> createTask(TaskEntity entity, {bool notify = false}) async {
     final String trimmed = entity.title.trim();
     if (trimmed.isEmpty) {
       return;
@@ -101,41 +98,31 @@ class TaskActions {
     final TaskEntity normalized = entity.copyWith(
       title: trimmed,
       createdAt: entity.createdAt,
-      occurrenceKey: TaskEntity.deriveOccurrenceKey(
-        taskId: entity.id,
-        createdAt: entity.createdAt,
-      ),
     );
 
     await _ref.read(createTaskUseCaseProvider).call(normalized);
-    await _ref.read(timelineActionsProvider).connectTask(normalized);
     AppAnalytics.track(
       'task_created',
-      params: <String, Object?>{
-        'task_id': normalized.id,
-        'action_source': actionSource,
-      },
+      params: <String, Object?>{'has_task_id': normalized.id.isNotEmpty},
     );
-    unawaited(
-      _recordCreationSideEffects(
-        task: normalized,
-        timestamp: now,
-        notify: notify,
-      ),
+    await _recordCreationSideEffects(
+      task: normalized,
+      timestamp: now,
+      notify: notify,
     );
 
-    _emitTaskLifecycle(
-      taskId: normalized.id,
-      title: trimmed,
-      action: 'created',
-      actionSource: actionSource,
-    );
-    await _bestEffort(
-      () => _ref
-          .read(localMetricsAccumulatorProvider)
-          .recordAutomationCheckpoint('task_created_event_emitted'),
-    );
-    _invalidateTaskGraph();
+    _ref
+        .read(eventBusProvider)
+        .emit(
+          TaskLifecycleEvent(
+            taskId: normalized.id,
+            title: trimmed,
+            action: 'created',
+          ),
+        );
+
+    _ref.invalidate(tasksProvider);
+    _ref.invalidate(goalProgressProvider);
   }
 
   Future<void> createQuickTask(String title, {bool notify = false}) async {
@@ -152,74 +139,24 @@ class TaskActions {
       difficulty: 3,
       energyRequired: 3,
     );
-    await createTask(entity, notify: notify, actionSource: 'quick_create');
+    await createTask(entity, notify: notify);
   }
 
-  Future<void> completeTask(
-    String id, {
-    bool notify = true,
-    String actionSource = 'unknown',
-  }) async {
-    if (_shouldSuppressTimelineDuplicate(
-      taskId: id,
-      action: 'completed',
-      actionSource: actionSource,
-    )) {
-      return;
-    }
-
+  Future<void> completeTask(String id, {bool notify = true}) async {
     Task? selectedTask = _taskFromCachedTasks(id);
     final Future<Task?> selectedTaskFuture = selectedTask != null
         ? Future<Task?>.value(selectedTask)
         : _taskFromRepository(id);
 
-    final TaskOccurrenceResult occurrenceResult = await _occurrences.complete(
-      id,
-    );
-    if (occurrenceResult.mutation == TaskOccurrenceMutation.conflict) {
-      return;
-    }
-    if (!_isCurrentOccurrenceScope()) {
-      _invalidateTaskGraph();
-      return;
+    final CompletionSideEffectDecision completionDecision = await _ref
+        .read(completeTaskUseCaseProvider)
+        .call(id);
+    if (completionDecision.shouldRunGuidance) {
+      unawaited(_recordGuidance(GuidanceMilestone.firstCompletion));
     }
     selectedTask ??= await selectedTaskFuture;
-    int? projectionDurationSeconds;
-    double? projectionQuality;
-    if (selectedTask != null) {
-      projectionDurationSeconds = (selectedTask.difficulty * 300).clamp(
-        60,
-        1800,
-      );
-      projectionQuality = _scoringEngine
-          .calculate(
-            seconds: projectionDurationSeconds,
-            energy: _ref.read(siStateProvider).energy,
-            taskPriority: selectedTask.priority,
-          )
-          .quality;
-    }
-    await _bestEffort(
-      () => _projections.project(
-        occurrenceResult.occurrence,
-        context: TaskOccurrenceProjectionContext(
-          taskTitle: selectedTask?.title ?? occurrenceResult.occurrence.taskId,
-          taskDifficulty: selectedTask?.difficulty ?? 3,
-          durationSeconds: projectionDurationSeconds,
-          quality: projectionQuality,
-        ),
-      ),
-    );
-    if (!_isCurrentOccurrenceScope()) {
-      _invalidateTaskGraph();
-      return;
-    }
-    _invalidateOccurrenceProjections();
-    if (occurrenceResult.mutation != TaskOccurrenceMutation.applied) {
-      return;
-    }
 
-    if (selectedTask != null) {
+    if (selectedTask != null && completionDecision.shouldRunReward) {
       final DateTime now = DateTime.now();
       final int estimatedSeconds = (selectedTask.difficulty * 300).clamp(
         60,
@@ -232,55 +169,55 @@ class TaskActions {
         taskPriority: selectedTask.priority,
       );
       _ref
-          .read(sessionScoreProvider.notifier)
+          .read(completionScoreProvider.notifier)
           .set(
-            SessionScoreView.fromScore(
+            CompletionScoreView.fromScore(
               score,
               durationSeconds: estimatedSeconds,
               taskTitle: selectedTask.title,
             ),
           );
-      _ref.read(profileProvider.notifier).addXP(score.xp);
-      _ref.read(siStateProvider.notifier).sessionComplete();
-      await _recordCompletionSideEffects(
-        task: selectedTask,
-        durationSeconds: estimatedSeconds,
-        quality: score.quality,
-        timestamp: now,
-        notify: notify,
+      await _ref
+          .read(profileProvider.notifier)
+          .awardXP(score.xp, source: 'task_completion');
+      await _ref
+          .read(observedPlanningPatternsProvider.notifier)
+          .recordCompletion(difficulty: selectedTask.difficulty);
+      _ref.read(siStateProvider.notifier).recordCompletion();
+      unawaited(
+        _recordCompletionSideEffects(
+          task: selectedTask,
+          durationSeconds: estimatedSeconds,
+          timestamp: now,
+          notify: notify,
+        ),
       );
     }
 
-    if (selectedTask == null) {
-      await _refreshCoachDecision(notify: notify);
+    if (selectedTask == null && completionDecision.shouldRunNotification) {
+      unawaited(_refreshPlannerDecision(notify: notify));
     }
 
-    if (actionSource == 'timeline') {
-      await _markTimelineFirstActionCompleted();
-    }
-
-    if (selectedTask != null) {
+    if (selectedTask != null && completionDecision.shouldRunAnalytics) {
       AppAnalytics.track(
         'task_completed',
-        params: <String, Object?>{
-          'task_id': selectedTask.id,
-          'action_source': actionSource,
-        },
+        params: <String, Object?>{'has_task_id': selectedTask.id.isNotEmpty},
       );
-      _emitTaskLifecycle(
-        taskId: selectedTask.id,
-        title: selectedTask.title,
-        action: 'completed',
-        actionSource: actionSource,
-      );
-      await _bestEffort(
-        () => _ref
-            .read(localMetricsAccumulatorProvider)
-            .recordAutomationCheckpoint('task_completed_event_emitted'),
-      );
+      if (completionDecision.shouldRunEvent) {
+        _ref
+            .read(eventBusProvider)
+            .emit(
+              TaskLifecycleEvent(
+                taskId: selectedTask.id,
+                title: selectedTask.title,
+                action: 'completed',
+              ),
+            );
+      }
     }
 
-    _invalidateTaskGraph();
+    _ref.invalidate(tasksProvider);
+    _ref.invalidate(goalProgressProvider);
   }
 
   Future<Task?> _taskFromRepository(String id) async {
@@ -290,10 +227,7 @@ class TaskActions {
     final TaskEntity? entity = await _ref
         .read(domainTaskRepositoryProvider)
         .getTaskById(id);
-    if (entity == null ||
-        entity.isCompleted ||
-        entity.isSkipped ||
-        entity.isCanceled) {
+    if (entity == null || entity.isCompleted || entity.isCanceled) {
       return null;
     }
     return _taskFromEntity(entity);
@@ -316,11 +250,7 @@ class TaskActions {
     return null;
   }
 
-  Future<void> skipTask(
-    String id, {
-    bool notify = true,
-    String actionSource = 'unknown',
-  }) async {
+  Future<void> skipTask(String id, {bool notify = true}) async {
     final List<Task> tasks = await _ref.read(tasksProvider.future);
     Task? selectedTask;
     for (final Task task in tasks) {
@@ -333,305 +263,71 @@ class TaskActions {
       throw StateError('Task not found');
     }
 
-    if (_shouldSuppressTimelineDuplicate(
-      taskId: selectedTask.id,
-      action: 'skipped',
-      actionSource: actionSource,
-    )) {
+    final DateTime now = DateTime.now();
+    final TaskOccurrenceResult occurrence = await _ref
+        .read(taskOccurrenceCoordinatorProvider)
+        .skip(selectedTask.id);
+    if (occurrence.mutation != TaskOccurrenceMutation.applied) {
+      _ref.invalidate(tasksProvider);
       return;
     }
-
-    final TaskOccurrenceResult occurrenceResult = await _occurrences.skip(
-      selectedTask.id,
-    );
-    if (occurrenceResult.mutation == TaskOccurrenceMutation.conflict) {
-      return;
-    }
-    if (!_isCurrentOccurrenceScope()) {
-      _invalidateTaskGraph();
-      return;
-    }
+    await _ref
+        .read(learningProvider.notifier)
+        .update(success: false, difficulty: selectedTask.difficulty);
     await _bestEffort(
-      () => _projections.project(
-        occurrenceResult.occurrence,
-        context: TaskOccurrenceProjectionContext(
-          taskTitle: selectedTask!.title,
-          taskDifficulty: selectedTask.difficulty,
-        ),
+      () => _ref
+          .read(skipTaskUseCaseProvider)
+          .call(taskId: selectedTask!.id, difficulty: selectedTask.difficulty),
+    );
+    await _ref.read(observedPlanningPatternsProvider.notifier).recordSkip();
+    await _bestEffort(
+      () => _recordTaskOutcomeLearning(
+        task: selectedTask!,
+        durationSeconds: 0,
+        completed: false,
+        timestamp: now,
       ),
     );
-    if (!_isCurrentOccurrenceScope()) {
-      _invalidateTaskGraph();
-      return;
-    }
-    _invalidateOccurrenceProjections();
-    if (occurrenceResult.mutation != TaskOccurrenceMutation.applied) {
-      return;
-    }
+    unawaited(_recordGuidance(GuidanceMilestone.firstTaskDeferral));
     _ref.read(siStateProvider.notifier).taskSkipped();
+    await _ref
+        .read(logsActionsProvider)
+        .addMirroredEntry(source: 'task_skipped', message: selectedTask.title);
+    await _ref
+        .read(timelineActionsProvider)
+        .addMirroredEvent(
+          TimelineEventEntity(
+            id: 'timeline-task-skipped-${now.microsecondsSinceEpoch}',
+            type: TimelineEventType.reflection,
+            title: 'Task Skipped',
+            detail: '${selectedTask.title} skipped and adaptation triggered.',
+            timestamp: now,
+            sourceFeature: 'task',
+            relatedId: selectedTask.id,
+          ),
+        );
     if (notify) {
       await _ref
           .read(notificationActionsProvider)
           .pushMirroredTaskSkipped(selectedTask.title);
     }
-    await _refreshCoachDecision(notify: notify);
+    await _refreshPlannerDecision(notify: notify);
 
-    if (actionSource == 'timeline') {
-      await _markTimelineFirstActionCompleted();
-    }
-
-    _emitTaskLifecycle(
-      taskId: selectedTask.id,
-      title: selectedTask.title,
-      action: 'skipped',
-      actionSource: actionSource,
-    );
-    await _bestEffort(
-      () => _ref
-          .read(localMetricsAccumulatorProvider)
-          .recordAutomationCheckpoint('task_skipped_event_emitted'),
-    );
-    _invalidateTaskGraph();
-  }
-
-  Future<void> delayTask(
-    String id, {
-    Duration by = const Duration(hours: 2),
-    bool notify = true,
-    String actionSource = 'unknown',
-    String delayReason = 'reschedule',
-  }) async {
-    if (id.trim().isEmpty) {
-      throw StateError('Task not found');
-    }
-    final TaskEntity? entity = await _ref
-        .read(domainTaskRepositoryProvider)
-        .getTaskById(id);
-    if (entity == null ||
-        entity.isCompleted ||
-        entity.isSkipped ||
-        entity.isCanceled) {
-      throw StateError('Task not found');
-    }
-    final DateTime now = DateTime.now();
-    final DateTime nextSchedule =
-        (entity.scheduledFor ?? now).add(by).isBefore(now)
-        ? now.add(by)
-        : (entity.scheduledFor ?? now).add(by);
-    final TaskEntity delayed = entity.copyWith(scheduledFor: nextSchedule);
-    final String normalizedDelayReason = delayReason.trim().toLowerCase();
-    final bool isNotCompleted = normalizedDelayReason == 'not_completed';
-    final String lifecycleAction = isNotCompleted ? 'not_completed' : 'delayed';
-
-    if (_shouldSuppressTimelineDuplicate(
-      taskId: delayed.id,
-      action: lifecycleAction,
-      actionSource: actionSource,
-    )) {
-      return;
-    }
-
-    final TaskOccurrenceResult occurrenceResult = await _occurrences.reschedule(
-      delayed.id,
-      scheduledFor: nextSchedule,
-    );
-    if (occurrenceResult.mutation == TaskOccurrenceMutation.conflict) {
-      return;
-    }
-    if (!_isCurrentOccurrenceScope()) {
-      _invalidateTaskGraph(includeDecision: true);
-      return;
-    }
-    await _bestEffort(
-      () => _projections.project(
-        occurrenceResult.occurrence,
-        context: TaskOccurrenceProjectionContext(
-          taskTitle: delayed.title,
-          taskDifficulty: delayed.difficulty,
-        ),
-      ),
-    );
-    if (!_isCurrentOccurrenceScope()) {
-      _invalidateTaskGraph(includeDecision: true);
-      return;
-    }
-    _invalidateOccurrenceProjections();
-    if (occurrenceResult.mutation != TaskOccurrenceMutation.applied) {
-      return;
-    }
-    if (notify) {
-      await _refreshCoachDecision(notify: true);
-    }
-
-    if (actionSource == 'timeline') {
-      await _markTimelineFirstActionCompleted();
-    }
-    _emitTaskLifecycle(
-      taskId: delayed.id,
-      title: delayed.title,
-      action: lifecycleAction,
-      actionSource: actionSource,
-    );
-    await _bestEffort(
-      () => _ref
-          .read(localMetricsAccumulatorProvider)
-          .recordAutomationCheckpoint('task_${lifecycleAction}_event_emitted'),
-    );
-    _invalidateTaskGraph(includeDecision: true);
-  }
-
-  Future<void> updateCreatorEntry({
-    required String id,
-    required String title,
-    String? description,
-    required int priority,
-  }) async {
-    final String trimmedTitle = title.trim();
-    if (id.trim().isEmpty || trimmedTitle.isEmpty) {
-      throw StateError('Creator entry is missing required fields.');
-    }
-
-    final TaskEntity? existing = await _ref
-        .read(domainTaskRepositoryProvider)
-        .getTaskById(id);
-
-    if (existing == null ||
-        existing.isCompleted ||
-        existing.isSkipped ||
-        existing.isCanceled) {
-      throw StateError('Creator entry not found.');
-    }
-
-    final String? normalizedDescription =
-        description == null || description.trim().isEmpty
-        ? null
-        : description.trim();
-
-    final TaskEntity updated = existing.copyWith(
-      title: trimmedTitle,
-      description: normalizedDescription,
-      priority: priority.clamp(1, 5),
-    );
-
-    await _ref.read(updateTaskUseCaseProvider).call(updated);
-
-    await _bestEffort(
-      () => _ref
-          .read(logsActionsProvider)
-          .addMirroredEntry(
-            source: 'creator_entry_updated',
-            message: updated.title,
-          ),
-    );
-
-    _emitTaskLifecycle(
-      taskId: updated.id,
-      title: updated.title,
-      action: 'updated',
-    );
-    await _bestEffort(
-      () => _ref
-          .read(localMetricsAccumulatorProvider)
-          .recordAutomationCheckpoint('task_updated_event_emitted'),
-    );
-    _invalidateTaskGraph(includeDecision: true);
-  }
-
-  void _emitTaskLifecycle({
-    required String taskId,
-    required String title,
-    required String action,
-    String actionSource = 'unknown',
-  }) {
     _ref
         .read(eventBusProvider)
         .emit(
           TaskLifecycleEvent(
-            taskId: taskId,
-            title: title,
-            action: action,
-            actionSource: actionSource,
+            taskId: selectedTask.id,
+            title: selectedTask.title,
+            action: 'skipped',
           ),
         );
-  }
 
-  bool _shouldSuppressTimelineDuplicate({
-    required String taskId,
-    required String action,
-    required String actionSource,
-  }) {
-    if (actionSource != 'timeline') {
-      return false;
-    }
-
-    final String normalizedTaskId = taskId.trim();
-    if (normalizedTaskId.isEmpty) {
-      return false;
-    }
-
-    final DateTime now = DateTime.now();
-    _recentTimelineActions.removeWhere(
-      (_, DateTime timestamp) => now.difference(timestamp).inSeconds > 8,
-    );
-
-    final String key = '$normalizedTaskId::$action';
-    final DateTime? previous = _recentTimelineActions[key];
-    if (previous != null &&
-        now.difference(previous) < _timelineActionDedupWindow) {
-      AppAnalytics.track(
-        'task_action_dedup_suppressed',
-        params: <String, Object?>{
-          'task_id': normalizedTaskId,
-          'action': action,
-          'action_source': actionSource,
-        },
-      );
-      return true;
-    }
-
-    _recentTimelineActions[key] = now;
-    return false;
-  }
-
-  void _invalidateTaskGraph({bool includeDecision = false}) {
     _ref.invalidate(tasksProvider);
     _ref.invalidate(goalProgressProvider);
-    unawaited(
-      _bestEffort(
-        () => _ref
-            .read(localMetricsAccumulatorProvider)
-            .recordAutomationCheckpoint('task_graph_invalidated'),
-      ),
-    );
-    if (includeDecision) {
-      _ref.invalidate(domainSiDecisionProvider);
-      unawaited(
-        _bestEffort(
-          () => _ref
-              .read(localMetricsAccumulatorProvider)
-              .recordAutomationCheckpoint('task_decision_invalidated'),
-        ),
-      );
-    }
   }
 
-  /// Timeline and completion views are read-only projections of the canonical
-  /// occurrence transition and must refresh only after its projection attempt
-  /// has settled in the captured account scope.
-  void _invalidateOccurrenceProjections() {
-    _ref.invalidate(timelineProvider);
-    _ref.invalidate(completionEventsProvider);
-    _ref.invalidate(logsProvider);
-  }
-
-  bool _isCurrentOccurrenceScope() {
-    final AccountStorageScope current = _ref.read(accountStorageScopeProvider);
-    return _occurrences.scope.isAuthenticated &&
-        current.isAuthenticated &&
-        current.v2Namespace == _occurrences.scope.v2Namespace;
-  }
-
-  Future<void> _refreshCoachDecision({required bool notify}) async {
+  Future<void> _refreshPlannerDecision({required bool notify}) async {
     try {
       final decision = await _ref
           .read(generateSiDecisionUseCaseProvider)
@@ -657,8 +353,44 @@ class TaskActions {
           .read(notificationActionsProvider)
           .pushMirroredDecision(selectedTitle);
     } catch (_) {
-      // Skip coach refresh errors to avoid blocking task mutations.
+      // Skip planner refresh errors to avoid blocking task mutations.
     }
+  }
+
+  Future<void> _recordGuidance(GuidanceMilestone milestone) async {
+    try {
+      await _ref.read(adaptiveGuidanceProvider.notifier).record(milestone);
+    } catch (_) {
+      // A persisted task outcome must not fail because guide state is absent.
+    }
+  }
+
+  Future<void> _recordTaskOutcomeLearning({
+    required Task task,
+    required int durationSeconds,
+    required bool completed,
+    required DateTime timestamp,
+  }) async {
+    const String storageKey = 'neural_dump';
+    final store = _ref.read(secureStoreProvider);
+    final String? raw = await store.readString(storageKey);
+    final Map<String, dynamic> entry = NeuralEntry(
+      task: task.title,
+      reasoning: completed
+          ? 'Observed completed task outcome.'
+          : 'Observed skipped task outcome.',
+      confidence: 1,
+      duration: durationSeconds,
+      quality: completed ? 1 : 0,
+      timestamp: timestamp,
+      completed: completed,
+    ).toJson();
+
+    final String encoded = await compute<Map<String, dynamic>, String>(
+      _appendNeuralDumpEntry,
+      <String, dynamic>{'raw': raw, 'entry': entry},
+    );
+    await store.writeString(storageKey, encoded);
   }
 
   Future<void> _recordCreationSideEffects({
@@ -666,28 +398,6 @@ class TaskActions {
     required DateTime timestamp,
     required bool notify,
   }) async {
-    final String semanticKind = (task.kind ?? '').trim().toLowerCase();
-    final String reflectionTitle = switch (semanticKind) {
-      'routine' => 'Routine Added',
-      'note' => 'Note Added',
-      _ => 'Task Added',
-    };
-    final String reflectionDetail = switch (semanticKind) {
-      'routine' => '${task.title} routine added to trajectory.',
-      'note' => '${task.title} note added to trajectory.',
-      _ => '${task.title} added to trajectory.',
-    };
-
-    final bool soundEnabled = _ref.read(soundEnabledProvider);
-    final bool advancedAudioEnabled = _ref.read(
-      advancedAudioProfileEnabledProvider,
-    );
-    await _bestEffort(
-      () => AudioService.playCreate(
-        soundEnabled,
-        advancedProfileEnabled: advancedAudioEnabled,
-      ),
-    );
     await _bestEffort(
       () => _ref.read(localMetricsAccumulatorProvider).recordTaskCreated(),
     );
@@ -703,24 +413,69 @@ class TaskActions {
             TimelineEventEntity(
               id: 'timeline-task-created-${timestamp.microsecondsSinceEpoch}',
               type: TimelineEventType.reflection,
-              title: reflectionTitle,
-              detail: reflectionDetail,
+              title: 'Task Added',
+              detail: '${task.title} added to trajectory.',
               timestamp: timestamp,
+              sourceFeature: 'creator',
+              relatedId: task.id,
             ),
           ),
     );
-    await _refreshCoachDecision(notify: notify);
+    await _refreshPlannerDecision(notify: notify);
   }
 
   Future<void> _recordCompletionSideEffects({
     required Task task,
     required int durationSeconds,
-    required double quality,
     required DateTime timestamp,
     required bool notify,
   }) async {
     await _bestEffort(
+      () => _ref
+          .read(learningProvider.notifier)
+          .update(success: true, difficulty: task.difficulty),
+    );
+    await _bestEffort(
+      () => _ref
+          .read(applyLearningFeedbackUseCaseProvider)
+          .call(
+            success: true,
+            difficulty: task.difficulty,
+            taskId: task.id,
+            source: 'task_completion',
+          )
+          .then((_) {}),
+    );
+    await _bestEffort(
       () => _ref.read(localMetricsAccumulatorProvider).recordTaskCompleted(),
+    );
+    await _bestEffort(
+      () => _recordTaskOutcomeLearning(
+        task: task,
+        durationSeconds: durationSeconds,
+        completed: true,
+        timestamp: timestamp,
+      ),
+    );
+    await _bestEffort(
+      () => _ref
+          .read(logsActionsProvider)
+          .addCompletedTask(task: task.title, mirrored: true),
+    );
+    await _bestEffort(
+      () => _ref
+          .read(timelineActionsProvider)
+          .addMirroredEvent(
+            TimelineEventEntity(
+              id: 'timeline-task-complete-${timestamp.microsecondsSinceEpoch}',
+              type: TimelineEventType.reflection,
+              title: 'Task Completed',
+              detail: '${task.title} marked complete.',
+              timestamp: timestamp,
+              sourceFeature: 'task',
+              relatedId: task.id,
+            ),
+          ),
     );
     if (notify) {
       await _bestEffort(
@@ -729,7 +484,7 @@ class TaskActions {
             .pushMirroredCompletionFeedback(task.title),
       );
     }
-    await _refreshCoachDecision(notify: notify);
+    await _refreshPlannerDecision(notify: notify);
   }
 
   Future<void> _bestEffort(Future<void> Function() operation) async {
@@ -740,35 +495,49 @@ class TaskActions {
       // must not turn a successful completion into a false failure for users.
     }
   }
-
-  Future<void> _markTimelineFirstActionCompleted() async {
-    _ref.read(timelineFirstActionCompletedProvider.notifier).set(true);
-
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
-      final String key = (userId == null || userId.trim().isEmpty)
-          ? timelineFirstActionCompletedStorageKey
-          : timelineFirstActionCompletedStorageKeyForUser(userId.trim());
-      await prefs.setBool(key, true);
-    } on Object {
-      // Do not block task actions if this local onboarding flag fails to write.
-    }
-  }
 }
 
 Task _taskFromEntity(TaskEntity task) {
   return Task(
     id: task.id,
     title: task.title,
-    description: task.description,
-    kind: task.kind,
     priority: task.priority,
     difficulty: task.difficulty,
     energyRequired: task.energyRequired,
     scheduledFor: task.scheduledFor,
+    dueDate: task.dueDate,
+    estimatedDuration: task.estimatedDuration ?? const Duration(minutes: 30),
+    isCompleted: task.isCompleted,
+    isCanceled: task.isCanceled,
+    completedAt: task.completedAt,
     goalId: task.goalId,
     subtasks: task.subtasks,
     recurrenceRule: task.recurrenceRule,
   );
+}
+
+String _appendNeuralDumpEntry(Map<String, dynamic> payload) {
+  final Object? raw = payload['raw'];
+  final Object? entry = payload['entry'];
+  final List<Map<String, dynamic>> entries = <Map<String, dynamic>>[];
+
+  if (raw is String && raw.trim().isNotEmpty) {
+    try {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is List<dynamic>) {
+        entries.addAll(decoded.whereType<Map<String, dynamic>>());
+      }
+    } catch (_) {
+      // If historical neural dump data is malformed, recover by replacing it.
+    }
+  }
+
+  if (entry is Map<String, dynamic>) {
+    entries.add(entry);
+  }
+
+  final List<Map<String, dynamic>> bounded = entries.length > 200
+      ? entries.sublist(entries.length - 200)
+      : entries;
+  return jsonEncode(bounded);
 }

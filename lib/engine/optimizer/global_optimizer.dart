@@ -7,16 +7,16 @@ class GlobalOptimizer {
     final double rate = averageTaskCompletionRate;
     final double multiplier;
     if (rate > 0.7) {
-      // Most users finish long sessions - push harder
+      // Most users finish longer work blocks — increase the challenge.
       multiplier = 1.1;
     } else if (rate > 0 && rate < 0.4) {
-      // Most users bail early - dial back
+      // Most users bail early — dial back
       multiplier = 0.9;
     } else {
       multiplier = 1.0;
     }
     return OptimizationConfig(
-      focusDurationMultiplier: multiplier,
+      executionDurationMultiplier: multiplier,
       taskDifficultyScale: 1.0,
       nextActionAggressiveness: 1.0,
     );

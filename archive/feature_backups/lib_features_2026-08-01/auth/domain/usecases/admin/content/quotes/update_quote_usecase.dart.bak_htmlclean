@@ -1,3 +1,0 @@
-﻿class UpdateQuoteUsecase {
-  const UpdateQuoteUsecase();
-}

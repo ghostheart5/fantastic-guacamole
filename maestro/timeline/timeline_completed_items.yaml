@@ -1,7 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: timeline_load.yaml
-- tapOn: "More filters"
-- tapOn: "Completed"
-- assertVisible:
-    text: "Completed"

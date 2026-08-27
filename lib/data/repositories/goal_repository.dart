@@ -1,68 +1,70 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
-import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
 class GoalRepository implements IGoalRepository {
-  GoalRepository(HiveStorage<String> store, {this._syncDispatcher})
-    : _store = store;
-
-  /// Root-05 may drain a provider during an unsafe transition. This instance
-  /// has no storage target, so it cannot reach a global or signed-out box.
-  GoalRepository.unavailable({this._syncDispatcher}) : _store = null;
+  GoalRepository(this._store);
 
   static const String _key = 'goals_v2';
 
-  final HiveStorage<String>? _store;
-  final SyncMutationDispatcher? _syncDispatcher;
-  bool _corruptedSnapshot = false;
-  bool _cancelled = false;
-  Future<void> _writeQueue = Future<void>.value();
+  /// Where an unreadable payload is quarantined before it would be overwritten.
+  static const String _corruptBackupKey = 'goals_v2_corrupt_backup';
 
-  Future<void> cancelAndDrain() async {
-    _cancelled = true;
-    await _writeQueue.catchError((Object _) {});
-  }
+  final HiveStorage<String> _store;
+  Future<void> _writeTail = Future<void>.value();
 
-  void dispose() {
-    _cancelled = true;
-  }
+  bool _lastReadCorrupted = false;
+
+  /// True when the most recent [getGoals] could not decode stored data.
+  ///
+  /// A corrupted read returns an empty list so the app stays usable, but that
+  /// empty list is NOT a valid "user has no goals" state — callers that treat
+  /// it as one and then save would destroy recoverable data. [saveGoals]
+  /// quarantines the raw payload first; this flag lets callers and tests tell
+  /// the two situations apart.
+  bool get lastReadCorrupted => _lastReadCorrupted;
 
   @override
   List<GoalEntity> getGoals() {
     String? raw;
     try {
-      raw = _requireStore().get(_key);
-    } on StateError catch (error) {
-      throw StorageException('Goal storage is unavailable: $error');
+      raw = _store.get(_key);
+    } on StateError {
+      _lastReadCorrupted = false;
+      return const <GoalEntity>[];
     }
     if (raw == null || raw.trim().isEmpty) {
-      _corruptedSnapshot = false;
+      _lastReadCorrupted = false;
       return const <GoalEntity>[];
     }
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
-      _corruptedSnapshot = false;
-      return list
+      final List<GoalEntity> goals = list
           .whereType<Map<String, dynamic>>()
           .map(GoalEntity.fromJson)
           .toList(growable: false);
-    } on Object catch (error) {
-      _corruptedSnapshot = true;
-      Logger.error('Goals snapshot is corrupted; writes are blocked.', error);
-      throw StorageException('Goal storage is corrupted: $error');
+      _lastReadCorrupted = false;
+      return goals;
+    } catch (error, stackTrace) {
+      _lastReadCorrupted = true;
+      Logger.errorCategory(
+        'StorageCorruption',
+        'Failed to decode stored goals; returning empty list without '
+            'discarding the raw payload.',
+        error,
+        stackTrace,
+      );
+      return const <GoalEntity>[];
     }
   }
 
   @override
   Future<void> saveGoal(GoalEntity goal) {
-    return _serializeWrite(() async {
+    return _enqueueWrite(() async {
       final List<GoalEntity> existing = getGoals().toList(growable: true);
-      _ensureWriteAllowed();
       final int index = existing.indexWhere(
         (GoalEntity item) => item.id == goal.id,
       );
@@ -72,91 +74,66 @@ class GoalRepository implements IGoalRepository {
         existing.insert(0, goal);
       }
       await _saveGoalsUnlocked(existing);
-      await _syncDispatcher?.enqueueUpsert(
-        tableName: 'goals',
-        recordId: goal.id,
-        payload: _goalSyncPayload(goal),
-      );
     });
   }
 
   @override
   Future<void> saveGoals(List<GoalEntity> goals) {
-    return _serializeWrite(() async {
-      getGoals();
-      _ensureWriteAllowed();
-      await _saveGoalsUnlocked(goals);
-      for (final GoalEntity goal in goals) {
-        await _syncDispatcher?.enqueueUpsert(
-          tableName: 'goals',
-          recordId: goal.id,
-          payload: _goalSyncPayload(goal),
-        );
-      }
-    });
+    final List<GoalEntity> snapshot = List<GoalEntity>.unmodifiable(goals);
+    return _enqueueWrite(() => _saveGoalsUnlocked(snapshot));
   }
 
-  @override
-  Future<void> deleteGoal(String id) {
-    return _serializeWrite(() async {
-      final List<GoalEntity> next = getGoals()
-          .where((GoalEntity goal) => goal.id != id)
-          .toList(growable: false);
-      _ensureWriteAllowed();
-      await _saveGoalsUnlocked(next);
-      await _syncDispatcher?.enqueueDelete(tableName: 'goals', recordId: id);
-    });
-  }
-
-  Future<void> _serializeWrite(Future<void> Function() action) {
-    if (_cancelled) {
-      return Future<void>.error(
-        StateError('Goal mutation canceled during account transition.'),
-      );
-    }
-    final Future<void> next = _writeQueue.then((_) => action());
-    _writeQueue = next.catchError((_) {});
-    return next;
-  }
-
-  Future<void> _saveGoalsUnlocked(List<GoalEntity> goals) {
-    return _requireStore().put(
+  Future<void> _saveGoalsUnlocked(List<GoalEntity> goals) async {
+    await _quarantineCorruptPayloadIfNeeded();
+    await _store.put(
       _key,
       jsonEncode(goals.map((GoalEntity g) => g.toJson()).toList()),
     );
   }
 
-  void _ensureWriteAllowed() {
-    if (_corruptedSnapshot) {
-      throw StateError(
-        'Goals storage is corrupted. Repair data before writing to avoid data loss.',
-      );
-    }
+  @override
+  Future<void> deleteGoal(String id) {
+    return _enqueueWrite(() async {
+      final List<GoalEntity> next = getGoals()
+          .where((GoalEntity goal) => goal.id != id)
+          .toList(growable: false);
+      await _saveGoalsUnlocked(next);
+    });
   }
 
-  HiveStorage<String> _requireStore() {
-    final HiveStorage<String>? store = _store;
-    if (store == null) {
-      throw StateError(
-        'Goal storage is unavailable while the account transition is unsafe.',
-      );
-    }
-    return store;
+  Future<void> _enqueueWrite(Future<void> Function() operation) {
+    final Future<void> next = _writeTail.then<void>(
+      (_) => operation(),
+      onError: (Object _, StackTrace _) => operation(),
+    );
+    _writeTail = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return next;
   }
 
-  Map<String, dynamic> _goalSyncPayload(GoalEntity goal) {
-    return <String, dynamic>{
-      'id': goal.id,
-      'title': goal.title,
-      'description': goal.description,
-      'target_date': goal.targetDate?.toIso8601String(),
-      'color_hex': goal.colorHex,
-      'status': goal.status.name,
-      'completed_at': goal.completedAt?.toIso8601String(),
-      'archived_at': goal.archivedAt?.toIso8601String(),
-      'created_at': goal.createdAt.toUtc().toIso8601String(),
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-      'deleted_at': null,
-    };
+  /// Copies an undecodable payload to [_corruptBackupKey] before it is
+  /// overwritten, so a decode bug never becomes permanent data loss.
+  Future<void> _quarantineCorruptPayloadIfNeeded() async {
+    if (!_lastReadCorrupted) {
+      return;
+    }
+    try {
+      final String? raw = _store.get(_key);
+      if (raw != null && raw.trim().isNotEmpty) {
+        await _store.put(_corruptBackupKey, raw);
+        Logger.errorCategory(
+          'StorageCorruption',
+          'Quarantined unreadable goals payload to "$_corruptBackupKey" '
+              'before overwrite.',
+        );
+      }
+    } catch (error, stackTrace) {
+      Logger.errorCategory(
+        'StorageCorruption',
+        'Failed to quarantine unreadable goals payload.',
+        error,
+        stackTrace,
+      );
+    }
+    _lastReadCorrupted = false;
   }
 }

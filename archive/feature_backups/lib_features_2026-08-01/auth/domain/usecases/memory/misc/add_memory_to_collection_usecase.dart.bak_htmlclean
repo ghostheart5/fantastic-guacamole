@@ -1,3 +1,0 @@
-﻿class AddMemoryToCollectionUsecase {
-  const AddMemoryToCollectionUsecase();
-}

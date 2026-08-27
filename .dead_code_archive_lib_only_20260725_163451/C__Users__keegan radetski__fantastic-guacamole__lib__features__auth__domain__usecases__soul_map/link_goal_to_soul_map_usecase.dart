@@ -1,3 +1,0 @@
-﻿class LinkGoalToSoulMapUsecase {
-  const LinkGoalToSoulMapUsecase();
-}

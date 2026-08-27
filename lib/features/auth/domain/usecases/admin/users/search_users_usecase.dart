@@ -1,3 +1,0 @@
-class SearchUsersUsecase {
-  const SearchUsersUsecase();
-}

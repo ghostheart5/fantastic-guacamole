@@ -1,182 +1,38 @@
-import 'dart:async';
-
-import 'package:fantastic_guacamole/features/creator/models/creator_workspace_mode.dart';
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
+import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
-import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
-import 'package:fantastic_guacamole/features/creator/widgets/first_run_tutorial_overlay.dart';
-import 'package:fantastic_guacamole/state/providers/first_run_tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/mission/mission_event_bridge.dart';
-import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
-import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
-import 'package:fantastic_guacamole/state/providers/voice_command_handoff_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class CreatorScreen extends ConsumerStatefulWidget {
+class CreatorScreen extends ConsumerWidget {
   const CreatorScreen({super.key});
 
   @override
-  ConsumerState<CreatorScreen> createState() => _CreatorScreenState();
-}
-
-class _CreatorScreenState extends ConsumerState<CreatorScreen> {
-  CreatorWorkspaceMode _mode = CreatorWorkspaceMode.tasks;
-  String _voicePreferredType = 'Task';
-  late final FirstRunTutorialController _tutorialController;
-  final TextEditingController _taskTitleController = TextEditingController();
-  final TextEditingController _goalTitleController = TextEditingController();
-  final TextEditingController _memoryController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
-  DateTime? _lastAppliedHandoffAt;
-
-  bool _isSupportedFirstItemKind(CreatorSavedKind kind) {
-    return kind == CreatorSavedKind.task ||
-        kind == CreatorSavedKind.routine ||
-        kind == CreatorSavedKind.goal ||
-        kind == CreatorSavedKind.note;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _tutorialController = FirstRunTutorialController();
-    _tutorialController.addListener(_handleTutorialStateChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      if (ref.read(missionTutorialEnabledProvider)) {
-        ref.read(missionEventBridgeProvider).reportCreatorOpened();
-      }
-    });
-    unawaited(_startTutorialIfNeeded());
-  }
-
-  Future<void> _startTutorialIfNeeded() async {
-    final bool hasCreatedFirstItem = ref.read(creatorFirstItemCreatedProvider);
-    if (hasCreatedFirstItem) {
-      await _tutorialController.complete();
-      return;
-    }
-    await _tutorialController.start();
-  }
-
-  TextEditingController get _titleController {
-    if (_mode == CreatorWorkspaceMode.goals) {
-      return _goalTitleController;
-    }
-    return _taskTitleController;
-  }
-
-  @override
-  void dispose() {
-    _tutorialController.removeListener(_handleTutorialStateChanged);
-    _tutorialController.dispose();
-    _taskTitleController.dispose();
-    _goalTitleController.dispose();
-    _memoryController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  void _handleTutorialStateChanged() {
-    if (!mounted) {
-      return;
-    }
-    setState(() {});
-  }
-
-  void _applyVoiceHandoff(VoiceCommandHandoff handoff) {
-    if (_lastAppliedHandoffAt == handoff.createdAt) {
-      return;
-    }
-    _lastAppliedHandoffAt = handoff.createdAt;
-
-    final CreatorWorkspaceMode targetMode = handoff.isGoalIntent
-        ? CreatorWorkspaceMode.goals
-        : CreatorWorkspaceMode.tasks;
-    _voicePreferredType = handoff.preferredType;
-    if (targetMode == CreatorWorkspaceMode.goals) {
-      _goalTitleController.text = handoff.suggestedTitle;
-      _goalTitleController.selection = TextSelection.collapsed(
-        offset: _goalTitleController.text.length,
-      );
-    } else {
-      _titleController.text = handoff.suggestedTitle;
-      _titleController.selection = TextSelection.collapsed(
-        offset: _titleController.text.length,
-      );
-    }
-
-    if (handoff.isMemoryIntent) {
-      _memoryController.text = handoff.originalText.trim();
-    }
-
-    final List<String> hints = <String>[
-      if (handoff.scheduleHint != null &&
-          handoff.scheduleHint!.trim().isNotEmpty)
-        'Schedule hint: ${handoff.scheduleHint!.trim()}',
-      if (handoff.frequencyHint != null &&
-          handoff.frequencyHint!.trim().isNotEmpty)
-        'Frequency hint: ${handoff.frequencyHint!.trim()}',
-    ];
-    if (hints.isNotEmpty) {
-      final String hintBlock = hints.join('\n');
-      if (_notesController.text.trim().isEmpty) {
-        _notesController.text = hintBlock;
-      } else if (!_notesController.text.contains(hintBlock)) {
-        _notesController.text = '${_notesController.text.trim()}\n$hintBlock';
-      }
-      _notesController.selection = TextSelection.collapsed(
-        offset: _notesController.text.length,
-      );
-    }
-
-    if (_mode != targetMode) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _mode = targetMode;
-        });
-      });
-    }
-  }
-
-  void _setQuickEntryType(String type) {
-    final String normalized = type.trim();
-    if (normalized.isEmpty) {
-      return;
-    }
-    setState(() {
-      _voicePreferredType = normalized;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final voiceHandoff = ref.watch(voiceCommandHandoffProvider);
-    final bool soundEnabled = ref.watch(soundEnabledProvider);
-    final bool advancedAudioEnabled = ref.watch(
-      advancedAudioProfileEnabledProvider,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final CreatorDraftPreview? plannerDraft = ref.watch(
+      creatorDraftPreviewProvider,
     );
-    final bool missionTutorialEnabled = ref.watch(
-      missionTutorialEnabledProvider,
+    final CreatorHandshakeState handshake = ref.watch(creatorHandshakeProvider);
+    final AdaptiveGuidanceState? guidanceState = ref
+        .watch(adaptiveGuidanceProvider)
+        .asData
+        ?.value;
+    final bool guidedFirstTask =
+        guidanceState != null &&
+        (!guidanceState.has(GuidanceMilestone.firstItem) ||
+            !guidanceState.has(GuidanceMilestone.firstSchedule));
+    final CreatorTutorialDraftNotifier tutorialDraft = ref.read(
+      creatorTutorialDraftProvider.notifier,
     );
-    if (voiceHandoff != null) {
-      _applyVoiceHandoff(voiceHandoff);
-    }
-
     return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgCreator,
+      backgroundAssetPath: AppAssets.bgCreatorIntent,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -185,258 +41,205 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (voiceHandoff != null) ...[
-                  _VoiceCommandHandoffCard(
-                    handoff: voiceHandoff,
-                    onClear: () =>
-                        ref.read(voiceCommandHandoffProvider.notifier).clear(),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: <Color>[Color(0xF207111F), Color(0xEC0B1428)],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.neonCyan.withValues(alpha: 0.38),
+                    ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                ],
-                Row(
-                  children: [
-                    SmartPressable(
-                      onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
-                      child: Container(
-                        width: 36,
-                        height: 36,
+                  child: Row(
+                    children: <Widget>[
+                      SmartPressable(
+                        onTap: () => goToAppView(context, ref, AppView.nexus),
+                        semanticLabel: 'Back to Nexus',
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: AppColors.neonCyan.withValues(alpha: 0.13),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.neonCyan.withValues(alpha: 0.55),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: AppColors.neonCyan,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 13),
+                      Container(
+                        width: 3,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: AppColors.neonCyan.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.3),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: <Color>[
+                              AppColors.neonCyan,
+                              AppColors.neonViolet,
+                            ],
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: AppColors.neonCyan,
-                          size: 16,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Container(
-                      width: 3,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.neonCyan,
-                        borderRadius: BorderRadius.circular(2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.neonCyan.withValues(alpha: 0.8),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [
-                                AppColors.neonCyan,
-                                AppColors.neonViolet,
-                              ],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'Creator',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.9,
-                                color: Colors.white,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: <Color>[
+                                  AppColors.neonCyan,
+                                  Color(0xFFB9A8FF),
+                                ],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'CREATOR',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 23,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 2.5,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                          const Text(
-                            'Create, schedule, and review items',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              letterSpacing: 0.4,
-                              color: Colors.white60,
+                            const SizedBox(height: 3),
+                            const Text(
+                              'Turn intention into connected action',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.25,
+                                letterSpacing: 0.45,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFD7DFF0),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                if (missionTutorialEnabled) ...[
-                  const _CreatorMissionPanel(),
-                  const SizedBox(height: 16),
-                ],
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF050D1A),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.neonCyan.withValues(alpha: 0.16),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'QUICK ENTRY',
-                        style: TextStyle(
-                          fontSize: 11,
-                          letterSpacing: 1.1,
-                          color: AppColors.neonCyan,
-                          fontWeight: FontWeight.w800,
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 9,
-                        runSpacing: 9,
-                        children: [
-                          _QuickEntryChip(
-                            label: 'Task',
-                            selected: _voicePreferredType == 'Task',
-                            onTap: () => _setQuickEntryType('Task'),
-                          ),
-                          _QuickEntryChip(
-                            label: 'Daily rhythm',
-                            selected: _voicePreferredType == 'Habit',
-                            onTap: () => _setQuickEntryType('Habit'),
-                          ),
-                          _QuickEntryChip(
-                            label: 'Note',
-                            selected: _voicePreferredType == 'Note',
-                            onTap: () => _setQuickEntryType('Note'),
-                          ),
-                          _QuickEntryChip(
-                            label: 'Goal',
-                            selected: _voicePreferredType == 'Goal',
-                            onTap: () => _setQuickEntryType('Goal'),
-                          ),
-                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Stack(
-                  children: [
-                    DynamicForm(
-                      workspaceMode: _mode,
-                      preferredType: _voicePreferredType,
-                      taskTitleController: _taskTitleController,
-                      goalTitleController: _goalTitleController,
-                      memoryController: _memoryController,
-                      notesController: _notesController,
-                      soundEnabled: soundEnabled,
-                      advancedAudioEnabled: advancedAudioEnabled,
-                      onSubmit: (data) async {
-                        final bool shouldAutoOpenTimeline = !ref.read(
-                          creatorFirstItemCreatedProvider,
-                        );
-                        final savedKind = await ref
-                            .read(creatorActionsProvider)
-                            .createEntry(data);
-
-                        if (_tutorialController.state.isActive) {
-                          await _tutorialController.next();
-                        }
-
-                        bool missionProgressReported = true;
-                        if (missionTutorialEnabled &&
-                            _isSupportedFirstItemKind(savedKind)) {
-                          try {
-                            await ref
-                                .read(missionEventBridgeProvider)
-                                .reportFirstItemCreated();
-                            await ref
-                                .read(missionEventBridgeProvider)
-                                .reportCreatorOpened();
-                          } on Object {
-                            missionProgressReported = false;
+                const SizedBox(height: 24),
+                if (plannerDraft != null) ...[
+                  _PlannerDraftPreviewCard(
+                    draft: plannerDraft,
+                    onDiscard: () =>
+                        ref.read(creatorDraftPreviewProvider.notifier).clear(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (handshake.isReviewing) ...[
+                  _CreatorHandshakePreviewCard(
+                    state: handshake,
+                    onToggle: (String operationId, bool selected) => ref
+                        .read(creatorHandshakeProvider.notifier)
+                        .toggleOperation(operationId, selected: selected),
+                    onEdit: () => ref
+                        .read(creatorHandshakeProvider.notifier)
+                        .cancelPreview(),
+                    onCancel: () => ref
+                        .read(creatorHandshakeProvider.notifier)
+                        .cancelPreview(),
+                    onConfirm: handshake.canConfirm
+                        ? () async {
+                            final CreatorHandshakeState result = await ref
+                                .read(creatorHandshakeProvider.notifier)
+                                .confirm();
+                            if (result.receipt != null && context.mounted) {
+                              tutorialDraft.reset();
+                              ref
+                                  .read(creatorDraftPreviewProvider.notifier)
+                                  .clear();
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Confirmed and saved exactly once. Undo is available here.',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                            }
                           }
-                        }
-
-                        if (savedKind == CreatorSavedKind.task ||
-                            savedKind == CreatorSavedKind.routine) {
-                          await ref
-                              .read(localMetricsAccumulatorProvider)
-                              .recordTaskCreated();
-                        }
-                        ref.invalidate(tasksProvider);
-                        ref.invalidate(goalProgressProvider);
-
-                        if (context.mounted) {
-                          final String saveMessage = switch (savedKind) {
-                            CreatorSavedKind.note => 'Note saved.',
-                            CreatorSavedKind.routine => 'Habit saved.',
-                            CreatorSavedKind.goal => 'Goal saved.',
-                            CreatorSavedKind.task => 'Task saved.',
-                          };
-                          final ScaffoldMessengerState messenger =
-                              ScaffoldMessenger.of(context);
-                          messenger
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  shouldAutoOpenTimeline &&
-                                          missionProgressReported
-                                      ? 'First item created. Reviewing it on your timeline...'
-                                      : saveMessage,
-                                ),
-                                duration: const Duration(seconds: 2),
-                                behavior: SnackBarBehavior.floating,
-                                action: SnackBarAction(
-                                  label: 'REVIEW TIMELINE',
-                                  onPressed: () {
-                                    if (!context.mounted) {
-                                      return;
-                                    }
-                                    ref
-                                        .read(appFlowProvider.notifier)
-                                        .toTimeline();
-                                  },
-                                ),
-                              ),
-                            );
-
-                          if (shouldAutoOpenTimeline &&
-                              missionProgressReported) {
-                            ref.read(appFlowProvider.notifier).toTimeline();
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (handshake.receipt != null) ...[
+                  _CreatorHandshakeResultCard(
+                    state: handshake,
+                    onUndo:
+                        handshake.phase == CreatorHandshakePhase.applied ||
+                            handshake.phase == CreatorHandshakePhase.idempotent
+                        ? () async {
+                            await ref
+                                .read(creatorHandshakeProvider.notifier)
+                                .undo();
                           }
-                        }
-                      },
+                        : null,
+                    onTimeline: () =>
+                        goToAppView(context, ref, AppView.timeline),
+                    onNewItem: () => ref
+                        .read(creatorHandshakeProvider.notifier)
+                        .clearResult(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Offstage(
+                  offstage: handshake.isReviewing,
+                  child: DynamicForm(
+                    key: ValueKey<String>(
+                      'creator-form-${handshake.formRevision}',
                     ),
-                    if (_tutorialController.state.isActive)
-                      FirstRunTutorialOverlay(
-                        controller: _tutorialController,
-                        title: switch (_tutorialController.state.currentStep) {
-                          0 => 'Create your first item',
-                          1 => 'Save the item',
-                          _ => 'Review it on your timeline',
-                        },
-                        body: switch (_tutorialController.state.currentStep) {
-                          0 =>
-                            'Start with one small task or habit. The goal is a safe first step.',
-                          1 => 'Tap save to place it into your system.',
-                          _ =>
-                            'Your first item will be reviewed on the timeline next.',
-                        },
-                        primaryLabel: _tutorialController.state.currentStep == 0
-                            ? 'Next'
-                            : _tutorialController.state.currentStep == 1
-                            ? 'Next'
-                            : 'Finish',
-                      ),
-                  ],
+                    initialDraftId: plannerDraft?.id,
+                    initialTitle: plannerDraft?.title,
+                    initialDescription: plannerDraft?.description,
+                    submitLabel: 'REVIEW CHANGES',
+                    clearAfterSubmit: false,
+                    guidedFirstTask: guidedFirstTask,
+                    tutorialController: ref.read(
+                      creatorTutorialFormControllerProvider,
+                    ),
+                    onPickerVisibilityChanged: ref
+                        .read(tutorialInteractionPausedProvider.notifier)
+                        .set,
+                    onTitleValidityChanged: tutorialDraft.setHasTitle,
+                    onTypeChosen: tutorialDraft.markTypeChosen,
+                    onPriorityChosen: tutorialDraft.markPriorityChosen,
+                    onScheduleValidityChanged: tutorialDraft.setHasSchedule,
+                    onSubmit: (data) => ref
+                        .read(creatorHandshakeProvider.notifier)
+                        .stage(
+                          data: data,
+                          source: plannerDraft == null
+                              ? CreatorHandshakeSource.creator
+                              : CreatorHandshakeSource.smartPlanner,
+                        ),
+                  ),
                 ),
               ],
             ),
@@ -447,276 +250,396 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
   }
 }
 
-class _QuickEntryChip extends StatelessWidget {
-  const _QuickEntryChip({
-    required this.label,
-    required this.onTap,
-    required this.selected,
+class _PlannerDraftPreviewCard extends StatelessWidget {
+  const _PlannerDraftPreviewCard({
+    required this.draft,
+    required this.onDiscard,
   });
 
-  final String label;
-  final VoidCallback onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SmartPressable(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.neonCyan.withValues(alpha: 0.14)
-              : Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected
-                ? AppColors.neonCyan.withValues(alpha: 0.45)
-                : Colors.white.withValues(alpha: 0.12),
-          ),
-        ),
-        child: Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            fontSize: 10,
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.w700,
-            color: selected ? AppColors.neonCyan : Colors.white60,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CreatorMissionPanel extends ConsumerWidget {
-  const _CreatorMissionPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final AsyncValue<MissionState> missionAsync = ref.watch(
-      missionStateProvider,
-    );
-    return missionAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (MissionState missionState) {
-        final MissionId? activeMissionId = missionState.activeMissionId;
-        String? title;
-        String? body;
-        List<String> steps = const <String>[];
-        String? note;
-
-        if (activeMissionId == MissionId.createFirstGoal) {
-          title = 'Create Something';
-          body =
-              'Start by creating one task, daily rhythm, note, or goal. Add a title, choose when it happens, then tap Create item.';
-          steps = const <String>[
-            '1. Choose a type',
-            '2. Add a title',
-            '3. Pick one-time, every day, or every week',
-            '4. Schedule it if needed',
-            '5. Tap Create item',
-          ];
-          note = 'After saving, ChronoSpark will show it on your Timeline.';
-        } else if (activeMissionId == MissionId.configureFirstItem) {
-          title = 'Choose When It Happens';
-          body =
-              'Pick one-time, every day, or every week. Add a schedule date if this item belongs on your Timeline.';
-          steps = const <String>[
-            '1. Confirm the item type',
-            '2. Check the title',
-            '3. Choose one-time, daily, or weekly',
-            '4. Schedule it if needed',
-            '5. Tap Create item',
-          ];
-          note = 'After saving, ChronoSpark will show it on your Timeline.';
-        }
-
-        if (title == null || body == null) {
-          return const SizedBox.shrink();
-        }
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFF050D1A),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.neonCyan.withValues(alpha: 0.22),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                'FIRST SETUP',
-                style: TextStyle(
-                  color: AppColors.neonCyan,
-                  fontSize: 10,
-                  letterSpacing: 1.8,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                body,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...steps.map(
-                (String step) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    step,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              if (note != null) ...<Widget>[
-                const SizedBox(height: 6),
-                Text(
-                  note,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _VoiceCommandHandoffCard extends StatelessWidget {
-  const _VoiceCommandHandoffCard({
-    required this.handoff,
-    required this.onClear,
-  });
-
-  final VoiceCommandHandoff handoff;
-  final VoidCallback onClear;
-
-  String get _label {
-    if (handoff.isTaskIntent) {
-      return 'VOICE TASK';
-    }
-    if (handoff.isGoalIntent) {
-      return 'VOICE GOAL';
-    }
-    if (handoff.isMemoryIntent) {
-      return 'VOICE MEMORY';
-    }
-    return 'VOICE COMMAND';
-  }
-
-  String get _instruction {
-    if (handoff.isTaskIntent) {
-      return 'Use this captured title to create a task.';
-    }
-    if (handoff.isGoalIntent) {
-      return 'Use this captured title to create a goal.';
-    }
-    if (handoff.isMemoryIntent) {
-      return 'Use this captured text to capture a memory.';
-    }
-    return 'Voice command routed into Creator.';
-  }
+  final CreatorDraftPreview draft;
+  final VoidCallback onDiscard;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const Key('creator-planner-draft-preview'),
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE07111F),
-            AppColors.neonCyan.withValues(alpha: 0.10),
-            AppColors.neonViolet.withValues(alpha: 0.08),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.08),
-            blurRadius: 18,
+        color: AppColors.neonCyan.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'PLANNER DRAFT PREVIEW',
+            style: TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: 10,
+              letterSpacing: 1.8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Nothing has been saved. Review and edit the prefilled form, then press REVIEW CHANGES to open Creator confirmation.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            draft.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${draft.estimatedMinutes} minute ${draft.sourceOption.name} option',
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: onDiscard,
+            icon: const Icon(Icons.close_rounded, size: 16),
+            label: const Text('Discard preview'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CreatorHandshakePreviewCard extends StatelessWidget {
+  const _CreatorHandshakePreviewCard({
+    required this.state,
+    required this.onToggle,
+    required this.onEdit,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  final CreatorHandshakeState state;
+  final void Function(String operationId, bool selected) onToggle;
+  final VoidCallback onEdit;
+  final VoidCallback onCancel;
+  final Future<void> Function()? onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final CreatorHandshakePreview preview = state.preview!;
+    return Container(
+      key: const Key('creator-handshake-preview'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF071525),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color:
+              state.phase == CreatorHandshakePhase.stale ||
+                  state.phase == CreatorHandshakePhase.expired
+              ? AppColors.memoryAmber.withValues(alpha: 0.7)
+              : AppColors.neonCyan.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'CONFIRM CREATOR CHANGES',
+            style: TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: 11,
+              letterSpacing: 1.8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Nothing is saved until you confirm the selected operation below.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+          ),
+          const SizedBox(height: 10),
+          _HandshakeBindingLine(
+            label: 'Account binding',
+            value: _short(preview.accountScopeId),
+          ),
+          _HandshakeBindingLine(
+            label: 'Domain version',
+            value: _short(preview.baseDomainRevision),
+          ),
+          _HandshakeBindingLine(
+            label: 'Displayed diff',
+            value: _short(preview.displayedDiffDigest),
+          ),
+          _HandshakeBindingLine(
+            label: 'Expires',
+            value: TimeOfDay.fromDateTime(
+              preview.expiresAt.toLocal(),
+            ).format(context),
+          ),
+          const SizedBox(height: 10),
+          ...preview.operations.map((CreatorMutationOperation operation) {
+            final CreatorTaskMutation task = operation.task;
+            final bool selected = preview.selectedOperationIds.contains(
+              operation.operationId,
+            );
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Material(
+                color: Colors.white.withValues(alpha: 0.035),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: selected
+                        ? AppColors.neonCyan.withValues(alpha: 0.35)
+                        : Colors.white12,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: CheckboxListTile(
+                  key: ValueKey<String>(
+                    'creator-operation-${operation.operationId}',
+                  ),
+                  value: selected,
+                  onChanged: state.phase == CreatorHandshakePhase.confirming
+                      ? null
+                      : (bool? value) =>
+                            onToggle(operation.operationId, value ?? false),
+                  activeColor: AppColors.neonCyan,
+                  checkColor: const Color(0xFF03101B),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+                  title: Text(
+                    operation.label.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _diff('Title', 'Not present', task.title),
+                        _diff('Type', 'Not present', task.creatorKind),
+                        _diff(
+                          'Priority',
+                          'Not present',
+                          '${task.priority} / 5',
+                        ),
+                        _diff(
+                          'Schedule',
+                          'Not present',
+                          task.scheduledFor?.toLocal().toString() ??
+                              'Unscheduled',
+                        ),
+                        _diff(
+                          'Repeat',
+                          'Not present',
+                          task.recurrenceRule.name,
+                        ),
+                        if (task.description?.isNotEmpty ?? false)
+                          _diff(
+                            'Description',
+                            'Not present',
+                            task.description!,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+          if (state.message != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              state.message!,
+              key: const Key('creator-handshake-message'),
+              style: TextStyle(
+                color:
+                    state.phase == CreatorHandshakePhase.stale ||
+                        state.phase == CreatorHandshakePhase.expired ||
+                        state.phase == CreatorHandshakePhase.conflict
+                    ? AppColors.memoryAmber
+                    : Colors.white60,
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              key: const Key('creator-confirm-selected'),
+              onPressed: onConfirm == null
+                  ? null
+                  : () async {
+                      await onConfirm!();
+                    },
+              child: Text(
+                state.phase == CreatorHandshakePhase.confirming
+                    ? 'CONFIRMING…'
+                    : 'CONFIRM SELECTED',
+              ),
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton(onPressed: onEdit, child: const Text('Edit draft')),
+              TextButton(onPressed: onCancel, child: const Text('Cancel')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _diff(String field, String before, String after) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Text(
+        '$field: $before → $after',
+        style: const TextStyle(
+          color: Colors.white60,
+          fontSize: 11,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+
+  static String _short(String value) =>
+      value.length <= 18 ? value : '${value.substring(0, 18)}…';
+}
+
+class _CreatorHandshakeResultCard extends StatelessWidget {
+  const _CreatorHandshakeResultCard({
+    required this.state,
+    required this.onUndo,
+    required this.onTimeline,
+    required this.onNewItem,
+  });
+
+  final CreatorHandshakeState state;
+  final Future<void> Function()? onUndo;
+  final VoidCallback onTimeline;
+  final VoidCallback onNewItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final CreatorHandshakeReceipt receipt = state.receipt!;
+    final bool undone = state.phase == CreatorHandshakePhase.undone;
+    return Container(
+      key: const Key('creator-handshake-result'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: (undone ? AppColors.memoryAmber : AppColors.neonCyan).withValues(
+          alpha: 0.08,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: (undone ? AppColors.memoryAmber : AppColors.neonCyan)
+              .withValues(alpha: 0.4),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _label,
-            style: const TextStyle(
-              color: AppColors.neonCyan,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            handoff.suggestedTitle,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
+            undone ? 'CREATION UNDONE' : 'CONFIRMED CREATOR RECEIPT',
+            style: TextStyle(
+              color: undone ? AppColors.memoryAmber : AppColors.neonCyan,
+              fontSize: 11,
+              letterSpacing: 1.7,
               fontWeight: FontWeight.w800,
-              height: 1.25,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            _instruction,
+            state.message ?? '',
             style: const TextStyle(
-              color: Colors.white60,
+              color: Colors.white70,
               fontSize: 12,
-              height: 1.4,
+              height: 1.5,
             ),
           ),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: onClear,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: const Text(
-                'CLEAR VOICE HANDOFF',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
+          const SizedBox(height: 8),
+          Text(
+            'Confirmation: ${receipt.confirmationTokenId}\n'
+            'Operations: ${receipt.appliedOperationIds.length}\n'
+            'Result version: ${_CreatorHandshakePreviewCard._short(receipt.resultingDomainRevision)}',
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 10,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (onUndo != null)
+                OutlinedButton.icon(
+                  key: const Key('creator-undo-confirmed'),
+                  onPressed: () async {
+                    await onUndo!();
+                  },
+                  icon: const Icon(Icons.undo_rounded, size: 16),
+                  label: const Text('Undo creation'),
                 ),
+              if (!undone)
+                ElevatedButton(
+                  onPressed: onTimeline,
+                  child: const Text('Open Timeline'),
+                ),
+              TextButton(onPressed: onNewItem, child: const Text('New item')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HandshakeBindingLine extends StatelessWidget {
+  const _HandshakeBindingLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 108,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white60,
+                fontSize: 10,
+                fontFamily: 'monospace',
               ),
             ),
           ),

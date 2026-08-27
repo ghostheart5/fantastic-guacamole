@@ -25,7 +25,7 @@ UI/app root
   -> storage/shared prefs
 
 Identity chain:
-UI/profile + insights
+UI/profile + signals
   -> state/providers/identity_provider.dart
   -> domain/usecases/get_identity_profile.dart
   -> domain/usecases/save_identity_profile.dart

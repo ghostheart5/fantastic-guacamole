@@ -1,11 +1,9 @@
-import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
 
-class LoadingOverlay extends ConsumerWidget {
+class LoadingOverlay extends StatelessWidget {
   const LoadingOverlay({
     super.key,
     required this.isLoading,
@@ -18,20 +16,7 @@ class LoadingOverlay extends ConsumerWidget {
   final String? message;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final MotionProfile motionProfile = ref.watch(motionProfileProvider);
-    final bool reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final bool shouldLoop = switch (motionProfile) {
-      MotionProfile.calm => false,
-      MotionProfile.standard => true,
-      MotionProfile.expressive => true,
-    };
-    final double lottieSize = switch (motionProfile) {
-      MotionProfile.calm => 92,
-      MotionProfile.standard => 120,
-      MotionProfile.expressive => 132,
-    };
+  Widget build(BuildContext context) {
     return Stack(
       children: [
         child,
@@ -42,20 +27,13 @@ class LoadingOverlay extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (reduceMotion)
-                    const SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    )
-                  else
-                    Lottie.asset(
-                      AppAssets.animFocusPulse,
-                      width: lottieSize,
-                      height: lottieSize,
-                      repeat: shouldLoop,
-                      fit: BoxFit.contain,
-                    ),
+                  Lottie.asset(
+                    AppAssets.animSignalPulse,
+                    width: 120,
+                    height: 120,
+                    repeat: true,
+                    fit: BoxFit.contain,
+                  ),
                   const SizedBox(height: 4),
                   const Text(
                     'SYNCING',

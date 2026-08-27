@@ -14,11 +14,11 @@ tr th {
 ## SI Assistant Layer Contract
 
 Layer 1 - Assistant UI:
-- features/home/ui/smart_coach_screen.dart
+- features/home/ui/smart_planner_screen.dart
 - features/home/widgets/ai_decision_card.dart
 - features/si_console/ui/si_console_screen.dart
-- features/plan/ui/plan_screen.dart
-- features/tasks/ui/task_screen.dart
+- features/creator/ui/creator_screen.dart
+- features/timeline/ui/timeline_screen.dart
 
 Layer 2 - Assistant state/application layer:
 - state/controllers/ai_controller.dart
@@ -40,6 +40,11 @@ Layer 3 - Assistant intelligence/data layer:
 
 Contract notes:
 - Layer 1 talks to Layer 2.
-- Layer 2 orchestrates and may route through Layer 3 entry points.
+- Layer 2 routes every runtime request through `StateSiEngineService`, which delegates to the single `SIEngineService` facade.
 - Layer 2 must not import agent/tool internals directly.
-- Layer 3 owns orchestration internals and SI engine bridge/facade wiring.
+- `SIEngineService` runs one behavior-first `SICore` pass and one terminal `SIOutputValidator` gate. No caller may run a preliminary SI pipeline.
+- Only terminally validated output is written to SI memory.
+- Every result carries deterministic decision provenance: decision id, model version, generation mode, evidence sources, validation violations, and generation time.
+- `SIAIService` and `SyntheticIntelligenceEngine` are deprecated compatibility adapters; they delegate to `SIEngineService` and own no orchestration logic.
+- Persisted SI state is local, exportable, and clearable independently from tasks, goals, notes, milestones, and Timeline data.
+- Recommendation outcomes are account-scoped and include explicit rejected feedback.

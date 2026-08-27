@@ -1,87 +1,95 @@
-import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_action_provider.dart';
-import 'package:fantastic_guacamole/state/providers/completion_events_provider.dart';
-import 'package:fantastic_guacamole/state/providers/goal_success_probability_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memory_intelligence_provider.dart';
-import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
-import 'package:fantastic_guacamole/state/providers/operator_state_provider.dart';
-import 'package:fantastic_guacamole/state/providers/opportunity_engine_provider.dart';
-import 'package:fantastic_guacamole/state/providers/predictive_risk_provider.dart';
-import 'package:fantastic_guacamole/state/providers/trajectory_drift_provider.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
+import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+enum IntelligenceOperatingMode {
+  recovery,
+  stabilization,
+  execution,
+  acceleration,
+}
 
 class IntelligenceFusionState {
   const IntelligenceFusionState({
-    required this.operatingMode,
-    required this.primaryThreat,
-    required this.primaryOpportunity,
+    required this.mode,
     required this.nextAction,
+    required this.primaryConstraint,
     required this.rationale,
-    required this.successForecast,
-    required this.driftStatus,
-    required this.memoryLesson,
-    required this.replanMove,
+    required this.evidence,
+    required this.confidence,
   });
 
-  final String operatingMode;
-  final String primaryThreat;
-  final String primaryOpportunity;
+  final IntelligenceOperatingMode mode;
   final String nextAction;
+  final String primaryConstraint;
   final String rationale;
-  final String successForecast;
-  final String driftStatus;
-  final String memoryLesson;
-  final String replanMove;
+  final List<String> evidence;
+  final double confidence;
+
+  String get operatingMode => switch (mode) {
+    IntelligenceOperatingMode.recovery => 'Recovery',
+    IntelligenceOperatingMode.stabilization => 'Stabilization',
+    IntelligenceOperatingMode.execution => 'Execution',
+    IntelligenceOperatingMode.acceleration => 'Acceleration',
+  };
 }
 
-final intelligenceFusionProvider = Provider<IntelligenceFusionState>((ref) {
-  final momentum = ref.watch(momentumEngineProvider);
-  final operator = ref.watch(operatorStateProvider);
-  final action = ref.watch(autonomousActionProvider);
-  final risk = ref.watch(predictiveRiskProvider);
-  final opportunity = ref.watch(opportunityEngineProvider);
-  final success = ref.watch(goalSuccessProbabilityProvider);
-  final drift = ref.watch(trajectoryDriftProvider);
-  final memory = ref.watch(memoryIntelligenceProvider);
-  final replans = ref.watch(adaptiveReplanningProvider);
-  final completionEvents = ref.watch(completionEventsProvider);
+/// Fuses the current operating receipt with local trajectory and execution
+/// outcomes. It never invents probabilities; confidence reflects source
+/// coverage and observed outcomes only.
+final intelligenceFusionProvider = Provider<IntelligenceFusionState>((Ref ref) {
+  final trajectory = ref.watch(trajectorySummaryProvider);
+  final ExecutionSignals execution = ref.watch(executionSignalsProvider);
+  final AsyncValue<DecisionIntelligence> decisionAsync = ref.watch(
+    decisionIntelligenceProvider,
+  );
+  final DecisionIntelligence? intelligence = decisionAsync.asData?.value;
 
-  final String primaryThreat = risk.risks.isEmpty
-      ? 'No major threat detected.'
-      : '${risk.risks.first.title}: ${risk.risks.first.summary}';
+  final IntelligenceOperatingMode mode =
+      trajectory.energy <= .3 || trajectory.pressureIndex >= 85
+      ? IntelligenceOperatingMode.recovery
+      : execution.hasDeferralPressure || trajectory.pressureIndex >= 65
+      ? IntelligenceOperatingMode.stabilization
+      : trajectory.momentum >= .7 && trajectory.pressureIndex < 55
+      ? IntelligenceOperatingMode.acceleration
+      : IntelligenceOperatingMode.execution;
 
-  final String primaryOpportunity = opportunity.opportunities.isEmpty
-      ? 'No major opportunity detected.'
-      : '${opportunity.opportunities.first.title}: ${opportunity.opportunities.first.summary}';
-
-  final String replanMove = replans.isEmpty
-      ? 'No replan required.'
-      : '${replans.first.title}: ${replans.first.immediateAction}';
-
-  final String operatingMode = switch (operator.status) {
-    OperatorStatus.recovering => 'Recovery Mode',
-    OperatorStatus.stabilizing => 'Stabilization Mode',
-    OperatorStatus.accelerating => 'Acceleration Mode',
-    OperatorStatus.executing => 'Execution Mode',
-  };
-
-  final String rationale =
-      'Momentum ${momentum.score}% ${momentum.trend}. '
-      'Success forecast ${success.probability}%. '
-      'Drift score ${drift.score}%. '
-      'Completion signal ${completionEvents.length} recent '
-      '${completionEvents.isEmpty ? 'none' : completionEvents.first.eventType.name}. '
-      '${operator.rationale}';
+  final String nextAction =
+      intelligence?.decision.recommendedAction ??
+      (trajectory.pendingTasks == 0
+          ? 'Capture one accountable action in Creator.'
+          : 'Open Smart Planner to rank the next feasible action.');
+  final String primaryConstraint =
+      intelligence?.snapshot.activeRisks.isNotEmpty == true
+      ? intelligence!.snapshot.activeRisks.first
+      : trajectory.pressureIndex >= 70
+      ? 'Current load is compressing schedule flexibility.'
+      : execution.hasDeferralPressure
+      ? 'Repeated deferral is weakening execution stability.'
+      : 'No material constraint is supported by current local evidence.';
+  final int observedOutcomes = execution.actioned7d;
+  final double coverage =
+      intelligence?.snapshot.evidenceCoverage ??
+      (trajectory.sourceState == TrajectorySourceState.ready ? .65 : .3);
+  final double confidence =
+      (coverage * .7 + (observedOutcomes.clamp(0, 7) / 7) * .3).clamp(0.0, 1.0);
 
   return IntelligenceFusionState(
-    operatingMode: operatingMode,
-    primaryThreat: primaryThreat,
-    primaryOpportunity: primaryOpportunity,
-    nextAction: action.title,
-    rationale: rationale,
-    successForecast: '${success.probability}% - ${success.summary}',
-    driftStatus: '${drift.score}% - ${drift.summary}',
-    memoryLesson: memory.lesson,
-    replanMove: replanMove,
+    mode: mode,
+    nextAction: nextAction,
+    primaryConstraint: primaryConstraint,
+    rationale:
+        intelligence?.decision.rationale ??
+        'The recommendation uses local load, momentum, and recent execution evidence.',
+    evidence: <String>[
+      'pressure=${trajectory.pressureIndex}',
+      'momentum=${trajectory.momentum.toStringAsFixed(3)}',
+      'outcomes_7d=$observedOutcomes',
+      'coverage=${coverage.toStringAsFixed(3)}',
+    ],
+    confidence: confidence,
   );
 });

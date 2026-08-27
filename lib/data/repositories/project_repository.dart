@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/project_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_project_repository.dart';
@@ -17,8 +17,8 @@ class ProjectRepository implements IProjectRepository {
     String? raw;
     try {
       raw = _store.get(_key);
-    } on StateError catch (error) {
-      throw StorageException('Project storage is unavailable: $error');
+    } on StateError {
+      return const <ProjectEntity>[];
     }
     if (raw == null || raw.trim().isEmpty) {
       return const <ProjectEntity>[];
@@ -29,8 +29,17 @@ class ProjectRepository implements IProjectRepository {
           .whereType<Map<String, dynamic>>()
           .map(ProjectEntity.fromJson)
           .toList(growable: false);
-    } on Object catch (error) {
-      throw StorageException('Project storage is corrupted: $error');
+    } catch (error, stackTrace) {
+      // Corrupted payload: return the empty/absent value so the app stays
+      // usable, but make it observable instead of silently
+      // indistinguishable from "user has no projects".
+      Logger.errorCategory(
+        'StorageCorruption',
+        'Failed to decode stored projects; returning empty result.',
+        error,
+        stackTrace,
+      );
+      return const <ProjectEntity>[];
     }
   }
 

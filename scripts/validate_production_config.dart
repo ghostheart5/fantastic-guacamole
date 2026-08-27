@@ -1,0 +1,249 @@
+import 'dart:convert';
+import 'dart:io';
+
+const List<String> requiredProductionVariables = <String>[
+  'CHRONOSPARK_SUPABASE_URL',
+  'CHRONOSPARK_SUPABASE_ANON_KEY',
+  'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
+  'CHRONOSPARK_AI_PROXY_ENDPOINT',
+  'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
+  'CHRONOSPARK_ANDROID_SHA256_CERT',
+  'CHRONOSPARK_IOS_TEAM_ID',
+];
+
+List<String> validateProductionConfiguration(
+  Map<String, String> values, {
+  String? googleServicesJson,
+}) {
+  final List<String> failures = <String>[];
+  for (final String name in requiredProductionVariables) {
+    final String value = values[name]?.trim() ?? '';
+    if (value.isEmpty) {
+      failures.add('$name is required.');
+    } else if (_looksLikePlaceholder(value)) {
+      failures.add('$name contains a placeholder or local-only value.');
+    }
+  }
+
+  final Map<String, Uri> urls = <String, Uri>{};
+  for (final String name in <String>[
+    'CHRONOSPARK_SUPABASE_URL',
+    'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
+    'CHRONOSPARK_AI_PROXY_ENDPOINT',
+    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
+  ]) {
+    final String raw = values[name]?.trim() ?? '';
+    if (raw.isEmpty) {
+      continue;
+    }
+    final Uri? uri = Uri.tryParse(raw);
+    if (uri == null ||
+        !uri.isAbsolute ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasFragment ||
+        _isLocalOrPrivateHost(uri.host)) {
+      failures.add('$name must be a public absolute HTTPS URL.');
+      continue;
+    }
+    if (name == 'CHRONOSPARK_SUPABASE_URL' &&
+        uri.path.isNotEmpty &&
+        uri.path != '/') {
+      failures.add('CHRONOSPARK_SUPABASE_URL must not include an API path.');
+    }
+    if (name != 'CHRONOSPARK_SUPABASE_URL' &&
+        (uri.path.isEmpty || uri.path == '/')) {
+      failures.add('$name must identify a non-root service endpoint.');
+    }
+    urls[name] = uri;
+  }
+
+  final Set<String> serviceEndpoints = <String>{};
+  for (final String name in <String>[
+    'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
+    'CHRONOSPARK_AI_PROXY_ENDPOINT',
+    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
+  ]) {
+    final Uri? uri = urls[name];
+    if (uri != null && !serviceEndpoints.add(uri.toString())) {
+      failures.add('$name must not reuse another production service endpoint.');
+    }
+  }
+
+  final String anonKey = values['CHRONOSPARK_SUPABASE_ANON_KEY']?.trim() ?? '';
+  if (anonKey.isNotEmpty &&
+      !_looksLikePlaceholder(anonKey) &&
+      !_isSupabasePublishableKey(anonKey)) {
+    failures.add(
+      'CHRONOSPARK_SUPABASE_ANON_KEY must be a Supabase anon JWT or publishable key.',
+    );
+  }
+
+  final String fingerprint =
+      values['CHRONOSPARK_ANDROID_SHA256_CERT']?.trim() ?? '';
+  if (fingerprint.isNotEmpty &&
+      !_looksLikePlaceholder(fingerprint) &&
+      !RegExp(
+        r'^(?:[0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}$|^[0-9A-Fa-f]{64}$',
+      ).hasMatch(fingerprint)) {
+    failures.add(
+      'CHRONOSPARK_ANDROID_SHA256_CERT must contain exactly 32 SHA-256 bytes.',
+    );
+  }
+
+  final String teamId = values['CHRONOSPARK_IOS_TEAM_ID']?.trim() ?? '';
+  if (teamId.isNotEmpty &&
+      !_looksLikePlaceholder(teamId) &&
+      !RegExp(r'^[A-Z0-9]{10}$').hasMatch(teamId)) {
+    failures.add(
+      'CHRONOSPARK_IOS_TEAM_ID must be a 10-character Apple team identifier.',
+    );
+  }
+
+  if (googleServicesJson != null) {
+    _validateGoogleServices(googleServicesJson, failures);
+  }
+  return failures;
+}
+
+void main(List<String> arguments) {
+  String? googleServicesJson;
+  for (final String argument in arguments) {
+    if (argument.startsWith('--google-services=')) {
+      final String path = argument.substring('--google-services='.length);
+      final File file = File(path);
+      if (!file.existsSync()) {
+        stderr.writeln('Production configuration guard failed:');
+        stderr.writeln(' - Android Firebase configuration file is missing.');
+        exitCode = 1;
+        return;
+      }
+      googleServicesJson = file.readAsStringSync();
+    } else {
+      stderr.writeln('Unknown argument: $argument');
+      exitCode = 64;
+      return;
+    }
+  }
+
+  final List<String> failures = validateProductionConfiguration(
+    Platform.environment,
+    googleServicesJson: googleServicesJson,
+  );
+  if (failures.isNotEmpty) {
+    stderr.writeln('Production configuration guard failed:');
+    for (final String failure in failures.toSet().toList()..sort()) {
+      stderr.writeln(' - $failure');
+    }
+    exitCode = 1;
+    return;
+  }
+  stdout.writeln('Production configuration guard passed.');
+}
+
+bool _looksLikePlaceholder(String value) {
+  final String normalized = value.toLowerCase();
+  return normalized.contains('<') ||
+      normalized.contains('>') ||
+      normalized.contains('your-domain') ||
+      normalized.contains('example.com') ||
+      normalized.contains('localhost') ||
+      normalized.contains('127.0.0.1') ||
+      normalized.contains('0.0.0.0');
+}
+
+bool _isLocalOrPrivateHost(String host) {
+  final String normalized = host.toLowerCase();
+  if (normalized == 'localhost' || normalized.endsWith('.local')) {
+    return true;
+  }
+  final List<String> parts = normalized.split('.');
+  if (parts.length != 4 ||
+      parts.any((String part) => int.tryParse(part) == null)) {
+    return false;
+  }
+  final List<int> octets = parts.map(int.parse).toList();
+  return octets[0] == 10 ||
+      octets[0] == 127 ||
+      (octets[0] == 169 && octets[1] == 254) ||
+      (octets[0] == 172 && octets[1] >= 16 && octets[1] <= 31) ||
+      (octets[0] == 192 && octets[1] == 168);
+}
+
+bool _isSupabasePublishableKey(String key) {
+  if (RegExp(r'^sb_publishable_[A-Za-z0-9_-]{20,}$').hasMatch(key)) {
+    return true;
+  }
+  final List<String> segments = key.split('.');
+  if (segments.length != 3 ||
+      segments.any(
+        (String segment) => !RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(segment),
+      )) {
+    return false;
+  }
+  try {
+    final String normalized = base64Url.normalize(segments[1]);
+    final Object? payload = jsonDecode(
+      utf8.decode(base64Url.decode(normalized)),
+    );
+    return payload is Map && payload['role'] == 'anon';
+  } on FormatException {
+    return false;
+  }
+}
+
+void _validateGoogleServices(String source, List<String> failures) {
+  Object? decoded;
+  try {
+    decoded = jsonDecode(source);
+  } on FormatException {
+    failures.add('Android Firebase configuration must be valid JSON.');
+    return;
+  }
+  if (decoded is! Map<String, dynamic>) {
+    failures.add('Android Firebase configuration must contain a JSON object.');
+    return;
+  }
+  final Object? projectInfoValue = decoded['project_info'];
+  final Map<Object?, Object?> projectInfo = projectInfoValue is Map
+      ? projectInfoValue
+      : const <Object?, Object?>{};
+  final String projectId = projectInfo['project_id']?.toString().trim() ?? '';
+  final String projectNumber =
+      projectInfo['project_number']?.toString().trim() ?? '';
+  if (projectId.isEmpty || !RegExp(r'^\d+$').hasMatch(projectNumber)) {
+    failures.add(
+      'Android Firebase configuration must identify a Firebase project.',
+    );
+  }
+
+  final Object? clientsValue = decoded['client'];
+  final Iterable<Map<Object?, Object?>> clients = clientsValue is List
+      ? clientsValue.whereType<Map<Object?, Object?>>()
+      : const <Map<Object?, Object?>>[];
+  final bool hasChronoSparkClient = clients.any((Map<Object?, Object?> client) {
+    final Object? clientInfoValue = client['client_info'];
+    final Map<Object?, Object?> clientInfo = clientInfoValue is Map
+        ? clientInfoValue
+        : const <Object?, Object?>{};
+    final Object? androidInfoValue = clientInfo['android_client_info'];
+    final Map<Object?, Object?> androidInfo = androidInfoValue is Map
+        ? androidInfoValue
+        : const <Object?, Object?>{};
+    final Object? apiKeysValue = client['api_key'];
+    final Iterable<Map<Object?, Object?>> apiKeys = apiKeysValue is List
+        ? apiKeysValue.whereType<Map<Object?, Object?>>()
+        : const <Map<Object?, Object?>>[];
+    return androidInfo['package_name'] == 'com.ghostheart5.chronospark' &&
+        apiKeys.any(
+          (Map<Object?, Object?> key) =>
+              (key['current_key']?.toString().trim() ?? '').isNotEmpty,
+        );
+  });
+  if (!hasChronoSparkClient) {
+    failures.add(
+      'Android Firebase configuration must include the ChronoSpark package and an API key.',
+    );
+  }
+}

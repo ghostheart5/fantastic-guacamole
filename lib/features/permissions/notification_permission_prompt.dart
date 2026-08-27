@@ -1,7 +1,6 @@
 import 'package:fantastic_guacamole/features/permissions/permission_denied_recovery.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_explainer.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_rationale_sheet.dart';
-import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
@@ -9,14 +8,12 @@ class NotificationPermissionPrompt extends StatelessWidget {
   const NotificationPermissionPrompt({
     super.key,
     required this.permissionGranted,
-    this.permissionState = NotificationPermissionState.unknown,
     required this.onRequestPermission,
     required this.onOpenSystemSettings,
     this.title = 'Notifications',
   });
 
   final bool? permissionGranted;
-  final NotificationPermissionState permissionState;
   final Future<bool> Function() onRequestPermission;
   final Future<void> Function() onOpenSystemSettings;
   final String title;
@@ -25,8 +22,6 @@ class NotificationPermissionPrompt extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool granted = permissionGranted == true;
     final bool denied = permissionGranted == false;
-    final bool permanentlyDenied =
-        permissionState == NotificationPermissionState.permanentlyDenied;
 
     if (granted) {
       return const SizedBox.shrink();
@@ -47,50 +42,42 @@ class NotificationPermissionPrompt extends StatelessWidget {
             title,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Enable notifications to receive scheduled focus and reflection reminders.',
+            'Enable notifications to receive scheduled execution and reflection reminders.',
             style: TextStyle(
               color: Colors.white70,
-              fontSize: 13.5,
-              height: 1.4,
+              fontSize: 12.5,
+              height: 1.35,
             ),
           ),
           const SizedBox(height: 10),
-          if (!permanentlyDenied)
-            Semantics(
-              identifier: 'notification-request-permission',
-              button: true,
-              child: FilledButton(
-                onPressed: () async {
-                  await showPermissionRationaleSheet<void>(
-                    context: context,
-                    explainer: PermissionExplainers.notification,
-                    onPrimary: () async {
-                      await onRequestPermission();
-                    },
-                  );
+          FilledButton(
+            onPressed: () async {
+              await showPermissionRationaleSheet<void>(
+                context: context,
+                explainer: PermissionExplainers.notification,
+                onPrimary: () async {
+                  await onRequestPermission();
                 },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.neonCyan,
-                  foregroundColor: Colors.black,
-                ),
-                child: const Text('Enable Notifications'),
-              ),
+              );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.neonCyan,
+              foregroundColor: Colors.black,
             ),
+            child: const Text('Enable Notifications'),
+          ),
           if (denied) ...<Widget>[
             const SizedBox(height: 10),
             PermissionDeniedRecovery(
-              title: permanentlyDenied
-                  ? 'Permission Permanently Denied'
-                  : 'Permission Denied',
-              message: permanentlyDenied
-                  ? 'Notifications are blocked by system policy. Open app settings to re-enable alerts.'
-                  : 'Notifications are disabled at system level. Open settings to re-enable alerts.',
+              title: 'Permission Denied',
+              message:
+                  'Notifications are disabled at system level. Open settings to re-enable alerts.',
               onOpenSystemSettings: onOpenSystemSettings,
             ),
           ],

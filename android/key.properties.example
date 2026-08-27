@@ -1,8 +1,5 @@
 # Copy this file to android/key.properties and fill with your release signing values.
 # Never commit the real android/key.properties or your .jks file.
-# Local example below uses app/key.jks (CI writes this path during release workflow).
-# If your local keystore filename differs (for example app/upload-keystore.jks),
-# keep android/key.properties aligned with your local keystore file path.
 storePassword=YOUR_STORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD
 keyAlias=upload

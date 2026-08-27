@@ -4,7 +4,7 @@ enum EmotionalState {
   negative,
   energized,
   fatigued,
-  focused,
+  engaged,
   scattered,
   anxious,
   calm,

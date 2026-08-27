@@ -1,3 +1,0 @@
-class FilterEmotionsUsecase {
-  const FilterEmotionsUsecase();
-}

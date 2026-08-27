@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
@@ -8,20 +9,20 @@ import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
-final mockAuthSessionProvider = NotifierProvider<MockAuthSessionNotifier, bool>(
-  MockAuthSessionNotifier.new,
+final mockSignInProvider = NotifierProvider<MockSignInNotifier, bool>(
+  MockSignInNotifier.new,
 );
 
-class MockAuthSessionNotifier extends Notifier<bool> {
+class MockSignInNotifier extends Notifier<bool> {
   @override
-  bool build() => false;
+  bool build() => Env.isMockMode && Env.hasTesterFullAccess;
 
   void set(bool value) => state = value;
 }
 
 final authUserProvider = StreamProvider<User?>((ref) {
-  final bool hasMockSession = ref.watch(mockAuthSessionProvider);
-  if (hasMockSession) {
+  final bool hasMockSignIn = ref.watch(mockSignInProvider);
+  if (hasMockSignIn) {
     final MockLoginConfigState config = ref.read(mockLoginConfigProvider);
     return Stream<User?>.value(
       User(
@@ -61,7 +62,7 @@ final mockLoginConfigProvider = Provider<MockLoginConfigState>((ref) {
 
 final intelligenceStateProvider = Provider<IntelligenceState>((ref) {
   // Exposes assistant/chat runtime intelligence to UI and controllers.
-  final bool hasMockSession = ref.watch(mockAuthSessionProvider);
+  final bool hasMockSignIn = ref.watch(mockSignInProvider);
   final bool hasAuthenticatedUser = ref
       .watch(authUserProvider)
       .maybeWhen(data: (User? user) => user != null, orElse: () => false);
@@ -69,7 +70,7 @@ final intelligenceStateProvider = Provider<IntelligenceState>((ref) {
   return ref
       .read(intelligenceServiceProvider)
       .fromRuntime(
-        hasMockSession: hasMockSession,
+        hasMockSignIn: hasMockSignIn,
         hasAuthenticatedUser: hasAuthenticatedUser,
       );
 });
@@ -94,5 +95,6 @@ User? _mapSupabaseUser(sb.User? supabaseUser) {
         ? fullName
         : ((name?.isNotEmpty ?? false) ? name : null),
     emailVerified: supabaseUser.emailConfirmedAt != null,
+    appMetadata: Map<String, dynamic>.unmodifiable(supabaseUser.appMetadata),
   );
 }

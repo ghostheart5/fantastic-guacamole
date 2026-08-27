@@ -111,10 +111,10 @@ class SIResponseModule {
       return SIPersona.assistant;
     }
     switch (decision.action) {
-      case 'launch_focus_session':
+      case 'launch_execution_block':
       case 'present_task_recommendation':
-        return SIPersona.coach;
-      case 'show_insight_summary':
+        return SIPersona.planner;
+      case 'show_signal_summary':
         return SIPersona.analyst;
       case 'open_reflection_flow':
         return SIPersona.mentor;
@@ -139,7 +139,7 @@ class SIResponseModule {
         curiosity: .55,
         empathy: .75,
       ),
-      SIPersona.coach => const PersonalityTraits(
+      SIPersona.planner => const PersonalityTraits(
         warmth: .72,
         directness: .9,
         humor: .15,
@@ -179,26 +179,26 @@ class SIResponseModule {
   ) {
     final String task = siClean(decision.task?.title);
     if (!decision.safe) {
-      return 'Let\'s take a safer route. Pause, reset, and choose one small next step.';
+      return 'Let’s take a safer route. Pause, reset, and choose one small next step.';
     }
     if (instinct.safetyFirst) {
       return task.isNotEmpty
-          ? 'Let\'s slow this down. Focus on "$task" for one short block.'
-          : 'Let\'s slow this down. Pick one small step, finish it, then reassess.';
+          ? 'Let’s slow this down. Work on "$task" for one short block.'
+          : 'Let’s slow this down. Pick one small step, finish it, then reassess.';
     }
 
     switch (decision.action) {
-      case 'launch_focus_session':
+      case 'launch_execution_block':
         return task.isNotEmpty
-            ? 'Start a focused block on "$task".'
-            : 'Start a short focus block.';
+            ? 'Start a dedicated block on "$task".'
+            : 'Start a short execution block.';
       case 'present_task_recommendation':
         return task.isNotEmpty
             ? 'Best next task: "$task".'
             : 'Add or choose one task, then I can guide the next step.';
       case 'open_reflection_flow':
         return 'Capture what happened, what worked, and what should change next.';
-      case 'show_insight_summary':
+      case 'show_signal_summary':
         return siClean(cognition?.summary, fallback: decision.reasoning);
       default:
         return siClean(
@@ -218,9 +218,9 @@ class SIResponseModule {
     if (instinct.avoidOverwhelm) return '$message\n\nOne step only.';
     switch (signal.mood) {
       case 'confused':
-        return '$message\n\nI\'ll keep it step-by-step.';
+        return '$message\n\nI’ll keep it step-by-step.';
       case 'stressed':
-        return '$message\n\nNo pressure - just the next small move.';
+        return '$message\n\nNo pressure — just the next small move.';
       case 'excited':
         return '$message\n\nUse the momentum, but keep the scope clear.';
       default:

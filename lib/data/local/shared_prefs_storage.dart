@@ -1,6 +1,4 @@
 import 'dart:convert';
-
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// ChronoSpark SharedPrefsStorage
@@ -23,10 +21,7 @@ class SharedPrefsStorage {
   String? getString(String key) {
     try {
       return prefs.getString(key);
-    } on Object catch (error) {
-      if (prefs.containsKey(key)) {
-        throw StorageException('Stored value for $key is invalid: $error');
-      }
+    } catch (_) {
       return null;
     }
   }
@@ -46,10 +41,7 @@ class SharedPrefsStorage {
   bool? getBool(String key) {
     try {
       return prefs.getBool(key);
-    } on Object catch (error) {
-      if (prefs.containsKey(key)) {
-        throw StorageException('Stored value for $key is invalid: $error');
-      }
+    } catch (_) {
       return null;
     }
   }
@@ -69,10 +61,7 @@ class SharedPrefsStorage {
   int? getInt(String key) {
     try {
       return prefs.getInt(key);
-    } on Object catch (error) {
-      if (prefs.containsKey(key)) {
-        throw StorageException('Stored value for $key is invalid: $error');
-      }
+    } catch (_) {
       return null;
     }
   }
@@ -92,10 +81,7 @@ class SharedPrefsStorage {
   double? getDouble(String key) {
     try {
       return prefs.getDouble(key);
-    } on Object catch (error) {
-      if (prefs.containsKey(key)) {
-        throw StorageException('Stored value for $key is invalid: $error');
-      }
+    } catch (_) {
       return null;
     }
   }
@@ -113,26 +99,25 @@ class SharedPrefsStorage {
   // ------------------------------------------------------------
 
   Map<String, dynamic> getJson(String key) {
-    final String? raw = getString(key);
-    if (raw == null) return <String, dynamic>{};
     try {
+      final raw = prefs.getString(key);
+      if (raw == null) return {};
       final Object? decoded = json.decode(raw);
-      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
       if (decoded is Map) {
         return decoded.map(
-          (dynamic mapKey, dynamic value) => MapEntry(mapKey.toString(), value),
+          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
         );
       }
-      throw const FormatException('Stored JSON value is not an object.');
-    } on Object catch (error) {
-      throw StorageException('Stored JSON for $key is invalid: $error');
+      return {};
+    } catch (_) {
+      return {};
     }
   }
 
   Future<void> setJson(String key, Map<String, dynamic> value) async {
-    if (prefs.containsKey(key)) {
-      getJson(key);
-    }
     await prefs.setString(key, json.encode(value));
   }
 
@@ -141,21 +126,17 @@ class SharedPrefsStorage {
   // ------------------------------------------------------------
 
   List<dynamic> getJsonList(String key) {
-    final String? raw = getString(key);
-    if (raw == null) return <dynamic>[];
     try {
+      final raw = prefs.getString(key);
+      if (raw == null) return [];
       final Object? decoded = json.decode(raw);
-      if (decoded is List<dynamic>) return decoded;
-      throw const FormatException('Stored JSON value is not a list.');
-    } on Object catch (error) {
-      throw StorageException('Stored JSON list for $key is invalid: $error');
+      return decoded is List<dynamic> ? decoded : const <dynamic>[];
+    } catch (_) {
+      return [];
     }
   }
 
   Future<void> setJsonList(String key, List<dynamic> value) async {
-    if (prefs.containsKey(key)) {
-      getJsonList(key);
-    }
     await prefs.setString(key, json.encode(value));
   }
 

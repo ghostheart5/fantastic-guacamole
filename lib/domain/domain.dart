@@ -1,30 +1,59 @@
+// ChronoSpark domain barrel.
+//
+// READ THIS BEFORE "CLEANING UP" ANYTHING IN lib/domain.
+//
+// ChronoSpark has a deliberately large domain layer because the product is
+// built around Smart Planner, SI Console, adaptive learning,
+// progression, goals, workspace, calendar, subscriptions and automation.
+// A file having no callers does NOT mean it is dead code — a lot of this is
+// planned architecture that ships ahead of its UI.
+//
+// Every file under lib/domain carries a classification banner:
+//
+//     /// CHRONOSPARK-CLASS: <CLASS> | Feature: <feature>
+//
+// where <CLASS> is one of:
+//   SHIPPING     — used by production behaviour. Must stay wired, tested,
+//                  policy-gated and input-validated.
+//   PLANNED      — intentionally kept for a ChronoSpark feature that is built
+//                  or partially built but not yet surfaced in UI. Do not
+//                  delete. Do not wire until the matching feature exists.
+//   EXPERIMENTAL — exploratory. Keep, but never treat as shipping behaviour.
+//   LEGACY       — older shape retained for compatibility/migration. Needs a
+//                  migration plan, not a delete.
+//   DEPRECATED   — no new call sites; retained so imports/migrations keep
+//                  working.
+//
+// To audit: `rg "CHRONOSPARK-CLASS: PLANNED" lib/domain`
+//
+// This barrel intentionally exports PLANNED and EXPERIMENTAL surfaces.
+
 // Entities
 export 'package:fantastic_guacamole/domain/entities/automation_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
-export 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 export 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart'
     hide MemoryCategory, MemoryLink;
 export 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+export 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 export 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/identity_profile_entity.dart';
-export 'package:fantastic_guacamole/domain/entities/insight_entity.dart';
+export 'package:fantastic_guacamole/domain/entities/signal_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
-export 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 export 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
+export 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/profile_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/project_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/rule_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/score_entity.dart';
-export 'package:fantastic_guacamole/domain/entities/session_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -39,21 +68,21 @@ export 'package:fantastic_guacamole/domain/entities/work_window_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/workspace_entity.dart';
 // Interfaces
 export 'package:fantastic_guacamole/domain/interfaces/i_calendar_repository.dart';
-export 'package:fantastic_guacamole/domain/interfaces/i_completion_event_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_entitlement_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_extended_domain_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_identity_repository.dart';
-export 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
+export 'package:fantastic_guacamole/domain/interfaces/i_signal_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
+export 'package:fantastic_guacamole/domain/interfaces/i_milestone_repository.dart';
+export 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
-export 'package:fantastic_guacamole/domain/interfaces/i_session_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_settings_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.dart';
@@ -66,12 +95,11 @@ export 'package:fantastic_guacamole/domain/policies/calendar_policy.dart';
 export 'package:fantastic_guacamole/domain/policies/learning_policy.dart';
 export 'package:fantastic_guacamole/domain/policies/notification_policy.dart';
 export 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
-export 'package:fantastic_guacamole/domain/policies/session_policy.dart';
 export 'package:fantastic_guacamole/domain/policies/si_policy.dart';
 export 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 // Use cases
 export 'package:fantastic_guacamole/domain/usecases/add_calendar_entry.dart';
-export 'package:fantastic_guacamole/domain/usecases/add_insight.dart';
+export 'package:fantastic_guacamole/domain/usecases/add_signal.dart';
 export 'package:fantastic_guacamole/domain/usecases/add_log_entry.dart';
 export 'package:fantastic_guacamole/domain/usecases/add_timeline_event.dart';
 export 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
@@ -87,21 +115,20 @@ export 'package:fantastic_guacamole/domain/usecases/create_task.dart';
 export 'package:fantastic_guacamole/domain/usecases/delete_goal.dart';
 export 'package:fantastic_guacamole/domain/usecases/delete_memory.dart';
 export 'package:fantastic_guacamole/domain/usecases/delete_task.dart';
-export 'package:fantastic_guacamole/domain/usecases/end_session.dart';
-export 'package:fantastic_guacamole/domain/usecases/generate_insight.dart';
-export 'package:fantastic_guacamole/domain/usecases/generate_insight_from_event.dart';
+export 'package:fantastic_guacamole/domain/usecases/generate_signal.dart';
+export 'package:fantastic_guacamole/domain/usecases/generate_signal_from_event.dart';
 export 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_all_themes.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_analytics_metrics.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_available_plans.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_calendar_entries.dart';
-export 'package:fantastic_guacamole/domain/usecases/get_coach_messages.dart';
+export 'package:fantastic_guacamole/domain/usecases/get_planner_messages.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_current_theme.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_extended_app_settings.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_identity_profile.dart';
-export 'package:fantastic_guacamole/domain/usecases/get_insights.dart';
-export 'package:fantastic_guacamole/domain/usecases/get_journal_entries.dart';
+export 'package:fantastic_guacamole/domain/usecases/get_signals.dart';
+export 'package:fantastic_guacamole/domain/usecases/get_reflection_entries.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_logs.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_memories.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_next_action.dart';
@@ -119,17 +146,18 @@ export 'package:fantastic_guacamole/domain/usecases/get_user_level.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_user_subscription_state.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_workspace.dart';
 export 'package:fantastic_guacamole/domain/usecases/hydrate_si_state.dart';
-export 'package:fantastic_guacamole/domain/usecases/pause_session.dart';
+export 'package:fantastic_guacamole/domain/usecases/milestone_usecases.dart';
+export 'package:fantastic_guacamole/domain/usecases/note_usecases.dart';
+export 'package:fantastic_guacamole/domain/usecases/plan_proposal_usecases.dart';
 export 'package:fantastic_guacamole/domain/usecases/remove_calendar_entry.dart';
 export 'package:fantastic_guacamole/domain/usecases/remove_timeline_event.dart';
 export 'package:fantastic_guacamole/domain/usecases/restore_purchases.dart';
-export 'package:fantastic_guacamole/domain/usecases/resume_session.dart';
 export 'package:fantastic_guacamole/domain/usecases/save_analytics_metric.dart';
-export 'package:fantastic_guacamole/domain/usecases/save_coach_message.dart';
+export 'package:fantastic_guacamole/domain/usecases/save_planner_message.dart';
 export 'package:fantastic_guacamole/domain/usecases/save_extended_app_setting.dart';
 export 'package:fantastic_guacamole/domain/usecases/save_goals.dart';
 export 'package:fantastic_guacamole/domain/usecases/save_identity_profile.dart';
-export 'package:fantastic_guacamole/domain/usecases/save_journal_entry.dart';
+export 'package:fantastic_guacamole/domain/usecases/save_reflection_entry.dart';
 export 'package:fantastic_guacamole/domain/usecases/save_memories.dart';
 export 'package:fantastic_guacamole/domain/usecases/save_memory.dart';
 export 'package:fantastic_guacamole/domain/usecases/save_si_query_extended.dart';
@@ -137,7 +165,6 @@ export 'package:fantastic_guacamole/domain/usecases/save_theme.dart';
 export 'package:fantastic_guacamole/domain/usecases/save_timeline_events.dart';
 export 'package:fantastic_guacamole/domain/usecases/schedule_notification.dart';
 export 'package:fantastic_guacamole/domain/usecases/skip_task.dart';
-export 'package:fantastic_guacamole/domain/usecases/start_session.dart';
 export 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
 export 'package:fantastic_guacamole/domain/usecases/switch_theme.dart';
 export 'package:fantastic_guacamole/domain/usecases/switch_workspace.dart';
@@ -151,14 +178,17 @@ export 'package:fantastic_guacamole/domain/usecases/update_si_state.dart';
 export 'package:fantastic_guacamole/domain/usecases/update_streak.dart';
 export 'package:fantastic_guacamole/domain/usecases/update_task.dart';
 export 'package:fantastic_guacamole/domain/usecases/update_xp.dart';
+export 'package:fantastic_guacamole/domain/usecases/timeline_lifecycle_usecases.dart';
 // Value objects
 export 'package:fantastic_guacamole/domain/value_objects/difficulty.dart';
 export 'package:fantastic_guacamole/domain/value_objects/duration_vo.dart';
 export 'package:fantastic_guacamole/domain/value_objects/energy_level.dart';
 export 'package:fantastic_guacamole/domain/value_objects/priority.dart';
-export 'package:fantastic_guacamole/domain/value_objects/session_id.dart';
 export 'package:fantastic_guacamole/domain/value_objects/streak_value.dart';
 export 'package:fantastic_guacamole/domain/value_objects/task_id.dart';
 export 'package:fantastic_guacamole/domain/value_objects/timestamp.dart';
 export 'package:fantastic_guacamole/domain/value_objects/user_id.dart';
 export 'package:fantastic_guacamole/domain/value_objects/xp_value.dart';
+export 'entities/decision_outcome_entity.dart';
+export 'interfaces/i_decision_outcome_repository.dart';
+export 'usecases/decision_outcome_usecases.dart';

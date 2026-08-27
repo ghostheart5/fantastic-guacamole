@@ -1,7 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: ../authentication/login_with_env.yaml
-- runFlow: ../_common/go_to_creator.yaml
-- runFlow: ../_common/go_to_timeline.yaml
-- runFlow: ../_common/go_to_profile.yaml
-- runFlow: ../_common/go_to_settings.yaml

@@ -29,7 +29,7 @@ class SuccessBanner extends StatelessWidget {
             width: 30,
             height: 30,
             child: Lottie.asset(
-              AppAssets.animSessionComplete,
+              AppAssets.animCompletionBurst,
               repeat: false,
               fit: BoxFit.contain,
             ),
@@ -55,7 +55,7 @@ class SuccessBanner extends StatelessWidget {
               width: 28,
               height: 28,
               child: Lottie.asset(
-                AppAssets.animSessionComplete,
+                AppAssets.animCompletionBurst,
                 repeat: false,
                 fit: BoxFit.contain,
               ),

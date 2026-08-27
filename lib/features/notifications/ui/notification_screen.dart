@@ -2,8 +2,8 @@ import 'package:fantastic_guacamole/core/extensions/date_extensions.dart';
 import 'package:fantastic_guacamole/core/extensions/string_extensions.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +17,7 @@ class NotificationsPage extends ConsumerWidget {
     final List<NotificationEntity> items = ref.watch(notificationProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgNexus,
+      backgroundAssetPath: AppAssets.bgTimelineThreads,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -93,7 +93,7 @@ class _Header extends StatelessWidget {
                     colors: [AppColors.neonCyan, AppColors.neonViolet],
                   ).createShader(bounds),
                   child: const Text(
-                    'SIGNAL CENTER',
+                    'NOTIFICATIONS',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -105,7 +105,7 @@ class _Header extends StatelessWidget {
                   ),
                 ),
                 const Text(
-                  'CHRONOSPARK EVENT STREAM',
+                  'SYSTEM ALERTS',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -260,7 +260,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            'ALL CLEAR',
+            'NO ALERTS',
             style: TextStyle(
               color: Colors.white38,
               fontSize: 11,
@@ -270,7 +270,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'No pending system signals',
+            'All clear — no pending notifications',
             style: TextStyle(color: Colors.white24, fontSize: 12),
           ),
         ],

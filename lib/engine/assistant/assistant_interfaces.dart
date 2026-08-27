@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
     as si_models;
 import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
@@ -9,11 +10,14 @@ import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 
 abstract class AssistantIntentDetector {
-  AssistantIntent detect({required String input, required String surface});
+  AssistantIntent detect({
+    required String input,
+    required AssistantSurface surface,
+  });
 }
 
 abstract class AssistantContextBuilder {
-  Map<String, dynamic> buildSmartCoachContext({
+  AssistantContext buildSmartPlannerContext({
     required String input,
     required AssistantIntent intent,
     required double energy,
@@ -23,7 +27,7 @@ abstract class AssistantContextBuilder {
     required List<String> goalSummaries,
   });
 
-  Map<String, dynamic> buildSIConsoleContext({
+  AssistantContext buildSIConsoleContext({
     required String input,
     required AssistantIntent intent,
     required List<String> matchedSurfaces,
@@ -31,19 +35,6 @@ abstract class AssistantContextBuilder {
     required List<String> timelineSummaries,
     required int taskCount,
     required int goalCount,
-  });
-
-  Map<String, dynamic> buildChronosparkModelContext({
-    required String surface,
-    required AssistantIntent intent,
-    required List<String> taskSummaries,
-    required List<String> goalSummaries,
-    required List<String> timelineSummaries,
-    required List<String> memorySummaries,
-    List<String> completionSummaries = const <String>[],
-    List<String> routineSummaries = const <String>[],
-    List<String> scheduleSummaries = const <String>[],
-    required Map<String, dynamic> signals,
   });
 }
 
@@ -69,8 +60,8 @@ abstract class RecommendationEngine {
   Future<Map<String, dynamic>> execute(Map<String, dynamic> request);
 }
 
-abstract class SmartCoachInterface {
-  Future<dynamic> requestCoaching({
+abstract class SmartPlannerInterface<TResult extends Object> {
+  Future<TResult> requestPlanningGuidance({
     required double energy,
     required EmotionalState emotion,
     required String notes,

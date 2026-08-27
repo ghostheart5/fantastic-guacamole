@@ -1,3 +1,0 @@
-class StartLogSessionUsecase {
-  const StartLogSessionUsecase();
-}

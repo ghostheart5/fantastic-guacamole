@@ -1,3 +1,0 @@
-class ViewSubscriptionDetailsUsecase {
-  const ViewSubscriptionDetailsUsecase();
-}

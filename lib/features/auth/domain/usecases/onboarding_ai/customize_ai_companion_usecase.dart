@@ -1,3 +1,0 @@
-class CustomizeAiCompanionUsecase {
-  const CustomizeAiCompanionUsecase();
-}

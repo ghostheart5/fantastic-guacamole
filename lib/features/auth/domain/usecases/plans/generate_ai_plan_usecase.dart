@@ -1,3 +1,0 @@
-class GenerateAiPlanUsecase {
-  const GenerateAiPlanUsecase();
-}

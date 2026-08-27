@@ -1,3 +1,0 @@
-class PurchaseAiCreditsUsecase {
-  const PurchaseAiCreditsUsecase();
-}

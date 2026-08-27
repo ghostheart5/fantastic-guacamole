@@ -1,3 +1,0 @@
-class GetAuthStateUsecase {
-  const GetAuthStateUsecase();
-}

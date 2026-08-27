@@ -23,16 +23,11 @@ Repository safeguards cannot configure external consoles. Before production:
 - Configure `ALLOWED_ORIGINS`, `ANDROID_PACKAGE_NAME`, `ANTHROPIC_API_KEY`, and
   `GOOGLE_SERVICE_ACCOUNT_JSON` as server-side secrets or environment values.
 - Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only.
-- Keep `chronospark://auth-callback` in the Supabase redirect allow-list only
-  for development and tester builds. Production readiness requires
-  `https://chronospark.app/app/auth/callback`, after the custom domain is live
-  and Android App Links verify successfully.
-- Publish `web/.well-known/assetlinks.json` at
-  `https://chronospark.app/.well-known/assetlinks.json` with the Google Play App
-  Signing SHA-256 certificate. A file served beneath the GitHub Pages repository
-  subpath does not verify the `chronospark.app` origin.
-- Verify the exact callback and App Link from the final Play-signed build. Do
-  not treat a checked-in fingerprint or a successful upload-key test as proof
-  of Digital Asset Links readiness.
+- Configure the OAuth redirect allow-list with the exact value supplied by the
+  release environment. The safe source default is
+  `chronospark://auth-callback`; only add a verified HTTPS callback after the
+  production domain is live and tested.
+- Verify `assetlinks.json` and Apple associated-domain files against the
+  production signing identities.
 - Rotate any credential discovered in historical diagnostic archives and
   purge those archives from published Git history.

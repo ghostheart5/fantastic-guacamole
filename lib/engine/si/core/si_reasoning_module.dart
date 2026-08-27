@@ -57,14 +57,14 @@ class SIReasoningModule {
   String _plan(String intent, InstinctGuidance instinct) {
     if (instinct.safetyFirst) return 'Stabilize before recommending action';
     switch (intent) {
-      case 'start_focus':
-        return 'Prepare one clear focus-session starting step';
+      case 'start_execution':
+        return 'Prepare one clear execution-block starting step';
       case 'get_task':
         return 'Recommend the most useful next task';
       case 'reflect':
         return 'Guide a short reflection on recent activity';
-      case 'insight_request':
-        return 'Surface one practical pattern or insight';
+      case 'signal_request':
+        return 'Surface one practical pattern or signal';
       default:
         return 'Answer conversationally and guide toward one next action';
     }
@@ -100,7 +100,7 @@ class SIReasoningModule {
     if (context.userState.emotion == 'confused') {
       return 'Use step-by-step language';
     }
-    return 'Keep it concise, supportive, and action-focused';
+    return 'Keep it concise, supportive, and action-oriented';
   }
 
   MetaReasoning _meta(
@@ -130,7 +130,7 @@ class SIReasoningModule {
       askClarification: ask,
       slowDown: slow,
       switchPersona:
-          intent.primary.label == 'insight_request' &&
+          intent.primary.label == 'signal_request' &&
           (instinct.reduceConfusion || context.userState.emotion == 'confused'),
       adjustTone: ask || slow || instinct.maintainEmotionalSafety,
       rationale: ask

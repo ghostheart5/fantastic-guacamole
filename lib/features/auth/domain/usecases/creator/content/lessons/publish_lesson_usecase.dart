@@ -1,3 +1,0 @@
-class PublishLessonUsecase {
-  const PublishLessonUsecase();
-}

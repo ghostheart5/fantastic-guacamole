@@ -1,3 +1,0 @@
-﻿class DeleteSoulMapUsecase {
-  const DeleteSoulMapUsecase();
-}

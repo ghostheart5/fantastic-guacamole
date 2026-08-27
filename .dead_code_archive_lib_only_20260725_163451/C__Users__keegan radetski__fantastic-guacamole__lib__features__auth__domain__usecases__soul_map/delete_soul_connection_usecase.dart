@@ -1,3 +1,0 @@
-﻿class DeleteSoulConnectionUsecase {
-  const DeleteSoulConnectionUsecase();
-}

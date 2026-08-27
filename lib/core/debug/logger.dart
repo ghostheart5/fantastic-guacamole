@@ -56,11 +56,20 @@ class Logger {
     }
     if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
       FirebaseCrashlytics.instance.recordError(
-        exception ?? Exception(redactSensitive(safeString(message))),
+        Exception(redactSensitive(safeString(exception ?? message))),
         stackTrace,
         reason: '$category: ${redactSensitive(safeString(message))}',
         fatal: false,
       );
+    }
+  }
+
+  // Low-noise breadcrumb for Crashlytics only — no console output, no
+  // recordError. Use for anomalous-but-not-erroneous events (e.g. an
+  // unrecognized deep-link parameter) that shouldn't be flagged as app errors.
+  static void breadcrumb(String message) {
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      FirebaseCrashlytics.instance.log(redactSensitive(safeString(message)));
     }
   }
 

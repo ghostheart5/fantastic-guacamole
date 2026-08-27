@@ -1,3 +1,0 @@
-class UnfavoriteInsightUsecase {
-  const UnfavoriteInsightUsecase();
-}

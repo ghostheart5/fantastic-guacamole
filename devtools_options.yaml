@@ -4,4 +4,3 @@ extensions:
   - provider: true
   - shared_preferences: true
   - riverpod: true
-  - patrol: true

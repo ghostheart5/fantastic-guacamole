@@ -1,8 +1,15 @@
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
 const Color primaryNeon = Color(0xFF00E5FF);
 const Color neonCyan = Color(0xFF00E5FF);
-const Color neonViolet = Color(0xFF9A4DFF);
+
+/// Forwards to [AppColors.neonViolet] so the app has one violet accent.
+///
+/// This file previously declared `0xFF9A4DFF` while `AppColors` declared
+/// `0xFF9B8AFB`, so the accent rendered differently depending on which colour
+/// file a widget imported.
+const Color neonViolet = AppColors.neonViolet;
 const Color neonMagenta = Color(0xFFFF2EC4);
 const Color backgroundDark = Color(0xFF050510);
 const Color backgroundDeep = Color(0xFF0A0F1F);

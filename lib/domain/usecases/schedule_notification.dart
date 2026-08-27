@@ -3,6 +3,9 @@ import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.
 import 'package:fantastic_guacamole/domain/policies/notification_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Notifications
+///
+/// Resolved by notificationProvider. Gated by NotificationPolicy.canSchedule.
 class ScheduleNotification {
   ScheduleNotification(this.repository, {this.generateSiDecision});
 
@@ -31,20 +34,6 @@ class ScheduleNotification {
     if (!NotificationPolicy.canSchedule(finalNotification)) {
       throw Exception('Notification cannot be scheduled');
     }
-
-    final DateTime now = DateTime.now();
-    final List<NotificationEntity> recentlySent =
-        (await repository.getNotifications())
-            .where((NotificationEntity item) => !item.scheduledAt.isAfter(now))
-            .toList(growable: false);
-    if (!NotificationPolicy.canDispatch(
-      finalNotification,
-      now: now,
-      recentlySent: recentlySent,
-    )) {
-      throw Exception('Notification dispatch blocked by policy');
-    }
-
     await repository.scheduleNotification(finalNotification);
   }
 }

@@ -11,7 +11,6 @@ class ProgressionService {
       level: profile.level,
       streak: profile.streak,
       longestStreak: profile.longestStreak,
-      legacyLevelFloor: profile.legacyLevelFloor,
     );
     return ProgressionState(progress: progress, loading: false);
   }

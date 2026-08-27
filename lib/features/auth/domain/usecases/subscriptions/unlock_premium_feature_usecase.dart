@@ -1,3 +1,0 @@
-class UnlockPremiumFeatureUsecase {
-  const UnlockPremiumFeatureUsecase();
-}

@@ -1,3 +1,0 @@
-﻿class CreateHabitQuickActionUsecase {
-  const CreateHabitQuickActionUsecase();
-}

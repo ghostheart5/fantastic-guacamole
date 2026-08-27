@@ -1,3 +1,0 @@
-class EnableUsageTrackingUsecase {
-  const EnableUsageTrackingUsecase();
-}

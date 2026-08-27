@@ -1,0 +1,47 @@
+# P0 — Subscription. Revenue-critical, and Play Billing regressions are silent.
+appId: com.ghostheart5.chronospark
+tags:
+  - critical
+  - billing
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
+
+- scrollUntilVisible:
+    element:
+      text: "(?s)SUBSCRIPTION.*Manage plan"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "(?s)SUBSCRIPTION.*Manage plan"
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Restore must always be reachable: Play requires it, and users who reinstall
+# have no other route back to what they paid for.
+- scrollUntilVisible:
+    element:
+      text: "Restore Purchases"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Restore Purchases"
+
+# QA must disclose that billing is simulated.
+- runFlow:
+    when:
+      visible: "UNLOCKED FOR TESTING"
+    commands:
+      - assertVisible: ".*Testing mode is active; purchases are simulated.*"
+
+# A production build must show trust copy and never expose test purchasing.
+- runFlow:
+    when:
+      notVisible: "UNLOCKED FOR TESTING"
+    commands:
+      - assertVisible: ".*Cancel anytime.*"
+      - assertNotVisible: "Simulate unlock"

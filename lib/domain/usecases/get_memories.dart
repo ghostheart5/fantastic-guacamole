@@ -2,6 +2,9 @@ import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Memories
+///
+/// Resolved by memoriesProvider.
 class GetMemories {
   const GetMemories(this._repository);
 

@@ -1,3 +1,0 @@
-class ResolveReportUsecase {
-  const ResolveReportUsecase();
-}

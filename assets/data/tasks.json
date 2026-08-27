@@ -1,16 +1,16 @@
 [
   {
-    "id": "1",
-    "title": "Deep Work",
-    "priority": 5,
-    "difficulty": 4,
-    "energyRequired": 4
-  },
-  {
-    "id": "2",
-    "title": "Workout",
-    "priority": 3,
+    "id": "starter-execution-block",
+    "title": "Choose one execution block",
+    "priority": 4,
     "difficulty": 2,
     "energyRequired": 3
+  },
+  {
+    "id": "starter-evidence-check",
+    "title": "Record one piece of evidence",
+    "priority": 3,
+    "difficulty": 1,
+    "energyRequired": 1
   }
 ]

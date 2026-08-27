@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
@@ -11,18 +9,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final stateBootstrapProvider = FutureProvider<void>((ref) async {
   ref.read(eventBusBootstrapProvider);
-
   final SIState si = ref.read(siStateProvider);
   final LearningState learning = ref.read(learningProvider);
   final SystemBoot boot = const SystemBoot();
 
-  final initialSnapshot = boot.initialSnapshot(si: si, learning: learning);
-
-  // Do not block app startup on SI memory capture.
-  // This provider exists to warm up state, not to prevent login/runtime.
-  unawaited(
-    Future<void>.delayed(Duration.zero).then((_) {
-      ref.read(siMemoryProvider.notifier).capture(initialSnapshot);
-    }),
-  );
+  // Riverpod forbids mutating other providers while this provider is building.
+  // Deferring by one event-loop turn avoids the initialization-time mutation.
+  await Future<void>.delayed(Duration.zero);
+  ref
+      .read(siMemoryProvider.notifier)
+      .capture(boot.initialSnapshot(si: si, learning: learning));
 });

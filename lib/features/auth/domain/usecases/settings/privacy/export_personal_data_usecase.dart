@@ -1,3 +1,0 @@
-class ExportPersonalDataUsecase {
-  const ExportPersonalDataUsecase();
-}

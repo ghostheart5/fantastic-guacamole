@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/system/external_url_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,24 +24,20 @@ class WebPageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     if (externalUrl != null) {
       return _ExternalLinkPage(
         title: title,
         body: body,
         externalUrl: externalUrl!,
-        callToActionLabel: callToActionLabel ?? 'Open Website',
+        callToActionLabel:
+            callToActionLabel ?? l10n.text(ChronoSparkString.openWebsite),
       );
     }
     if (assetPath != null) {
       return _AssetTextPage(title: title, assetPath: assetPath!);
     }
-    if (body != null) {
-      return _StaticPage(title: title, body: body!);
-    }
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: const SafeArea(child: Center(child: Text('Content unavailable.'))),
-    );
+    return _StaticPage(title: title, body: body!);
   }
 }
 
@@ -84,9 +81,11 @@ class _ExternalLinkPage extends StatelessWidget {
                     return;
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(
-                        'Unable to open the website from this device.',
+                        ChronoSparkLocalizations.of(
+                          context,
+                        ).text(ChronoSparkString.unableToOpenWebsite),
                       ),
                     ),
                   );
@@ -163,7 +162,13 @@ class _AssetTextPageState extends State<_AssetTextPage> {
       appBar: AppBar(title: Text(widget.title)),
       body: SafeArea(
         child: _error
-            ? const Center(child: Text('Could not load content.'))
+            ? Center(
+                child: Text(
+                  ChronoSparkLocalizations.of(
+                    context,
+                  ).text(ChronoSparkString.couldNotLoadContent),
+                ),
+              )
             : _content == null
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(

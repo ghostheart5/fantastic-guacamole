@@ -1,3 +1,0 @@
-class ValidatePasswordUsecase {
-  const ValidatePasswordUsecase();
-}

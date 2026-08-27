@@ -1,3 +1,0 @@
-class ClearGuestSessionUsecase {
-  const ClearGuestSessionUsecase();
-}

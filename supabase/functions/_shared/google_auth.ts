@@ -1,5 +1,9 @@
 /// <reference lib="deno.ns" />
 
+import { sha256Hex } from "./billing_backend.ts";
+
+export { sha256Hex };
+
 export interface GoogleServiceAccount {
   client_email?: string;
   private_key?: string;
@@ -73,9 +77,7 @@ export async function validateGoogleOidcPush(
   const authorization = req.headers.get("authorization") ?? "";
   if (
     !authorization.startsWith("Bearer ") || !expectedAudience || !expectedEmail
-  ) {
-    return false;
-  }
+  ) return false;
   const token = authorization.slice("Bearer ".length).trim();
   if (!token || token.length > 8192) return false;
   const response = await fetch(
@@ -92,14 +94,4 @@ export async function validateGoogleOidcPush(
     (claims?.iss === "accounts.google.com" ||
       claims?.iss === "https://accounts.google.com") &&
     Number.isFinite(expiresAt) && expiresAt > Math.floor(Date.now() / 1000);
-}
-
-export async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value),
-  );
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }

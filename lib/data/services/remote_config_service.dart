@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 
@@ -11,12 +10,10 @@ class RemoteConfigService {
   RemoteConfigService({
     Map<String, Object?> initialValues = const <String, Object?>{},
     this._firebaseRemoteConfig,
-    this._refreshOverride,
   }) : _values = Map<String, Object?>.from(initialValues);
 
   final Map<String, Object?> _values;
   final FirebaseRemoteConfig? _firebaseRemoteConfig;
-  final Future<void> Function()? _refreshOverride;
   bool _envSnapshotApplied = false;
   bool _firebaseSnapshotApplied = false;
 
@@ -28,49 +25,46 @@ class RemoteConfigService {
   }
 
   Future<void> _applyFirebaseSnapshotIfAvailable() async {
-    if (_firebaseSnapshotApplied) {
+    if (_firebaseSnapshotApplied || !Env.isFirebaseFeatureFlagRuntimeReady) {
       return;
     }
-    if (_refreshOverride == null && !Env.isFirebaseFeatureFlagRuntimeReady) {
-      return;
-    }
-    if (_refreshOverride == null && Firebase.apps.isEmpty) {
+    if (Firebase.apps.isEmpty) {
       return;
     }
 
+    final FirebaseRemoteConfig remoteConfig =
+        _firebaseRemoteConfig ?? FirebaseRemoteConfig.instance;
+    await remoteConfig.setConfigSettings(
+      RemoteConfigSettings(
+        fetchTimeout: const Duration(seconds: 8),
+        minimumFetchInterval: Env.isProduction
+            ? const Duration(hours: 4)
+            : const Duration(minutes: 5),
+      ),
+    );
+    await remoteConfig.setDefaults(_values);
     try {
-      if (_refreshOverride != null) {
-        await _refreshOverride();
-      } else {
-        final FirebaseRemoteConfig remoteConfig =
-            _firebaseRemoteConfig ?? FirebaseRemoteConfig.instance;
-        await remoteConfig.setConfigSettings(
-          RemoteConfigSettings(
-            fetchTimeout: const Duration(seconds: 8),
-            minimumFetchInterval: Env.isProduction
-                ? const Duration(hours: 4)
-                : const Duration(minutes: 5),
-          ),
-        );
-        await remoteConfig.setDefaults(_values);
-        await remoteConfig.fetchAndActivate();
-        for (final String key in remoteConfig.getAll().keys) {
-          final RemoteConfigValue value = remoteConfig.getValue(key);
-          _values[key] = value.asString();
-        }
+      await remoteConfig.fetchAndActivate();
+      for (final String key in remoteConfig.getAll().keys) {
+        final RemoteConfigValue value = remoteConfig.getValue(key);
+        _values[key] = value.asString();
       }
+      // Latch only on success. Setting this in a `finally` meant a single
+      // failed fetch permanently disabled remote config for the whole process
+      // lifetime — the app could never pick up a flag change without a
+      // restart — and the exception propagated to callers, where it surfaced
+      // as an AsyncError that was silently discarded.
+      _firebaseSnapshotApplied = true;
     } on Object catch (error, stackTrace) {
       Logger.errorCategory(
-        'Remote Config',
-        'Remote Config fetch failed; continuing with defaults or last activated values.',
+        'RemoteConfig',
+        'Remote config fetch failed; keeping defaults and allowing retry.',
         error,
         stackTrace,
       );
-      RuntimeDiagnostics.record(
-        'Remote Config degraded mode: defaults retained.',
-      );
-    } finally {
-      _firebaseSnapshotApplied = true;
+      // Deliberately not rethrown: setDefaults has already run, so the app has
+      // usable values. Leaving _firebaseSnapshotApplied false lets the next
+      // call retry.
     }
   }
 

@@ -1,3 +1,0 @@
-class ClearTempFilesUsecase {
-  const ClearTempFilesUsecase();
-}

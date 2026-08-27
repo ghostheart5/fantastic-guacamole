@@ -1,118 +1,98 @@
 # ChronoSpark
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.12%2B-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
+[![Dart](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-Supported-3DDC84?logo=android&logoColor=white)](android/)
 
-ChronoSpark is the product experience behind fantastic-guacamole: a Flutter-based personal operating system for planning, reflection, and focused execution. It blends adaptive task intelligence, temporal planning, creator workflows, and premium coaching surfaces into a single futuristic daily planner.
+ChronoSpark is a planning and decision-support system for people who want to understand the day, decide the next move, and maintain momentum through deliberate action and reflection.
 
-## What this app does
+It connects planning inputs, scheduled work, and available guidance without treating every signal as an automatic conclusion. The user remains responsible for the choices they make.
 
-- Helps you shape the day around priorities, momentum, and context
-- Supports timeline-based planning, milestone tracking, and temporal ops
-- Offers creator workflows for structured entries and richer planning loops
-- Surfaces SI guidance and coaching insights when you need decision support
-- Includes subscription-aware flows for premium capabilities and local-first persistence
+## Product flow
 
-## Quick start
+The first-use path is:
 
-### Prerequisites
+```text
+Creator → Timeline → Nexus
+```
 
-- Flutter SDK 3.12 or newer
-- A device or emulator for Android, Windows, or web
+After setup, ChronoSpark supports a flexible working cycle:
 
-### Install and run
+1. **Orient in Nexus** — review the connected context available now.
+2. **Create in Creator** — capture and manage tasks, goals, Daily Rhythms, and notes.
+3. **Plan in Timeline** — plan and review scheduled action.
+4. **Act deliberately** — follow through on the commitment you chose.
+5. **Reflect and adjust** — retain useful context and choose the next change intentionally.
+
+This is a planning cycle, not a promise that every day will be predictable or optimized.
+
+## Core features
+
+| Feature | Purpose |
+| --- | --- |
+| **Nexus** | Home surface for the current operating state and next-best action. |
+| **Smart Planner** | Explainable planning guidance and plan reconciliation. |
+| **Creator** | Structured intake for tasks, goals, Daily Rhythms, and notes. |
+| **Settings** | Preferences, account controls, privacy, support, and advanced access points. |
+| **Timeline** | Planning and review of scheduled action and operational history. |
+| **Trajectory Engine** | Forward-looking scenario comparison, assumptions, and corrections. |
+
+## Support surfaces
+
+| Surface | Purpose |
+| --- | --- |
+| **SI Console** | Advanced strategic investigation and guidance. |
+| **Progression** | Evidence-backed advancement and leverage-action review. |
+
+Smart Planner, SI Console, Trajectory Engine, and Progression provide guidance or context to evaluate. Insights, signals, forecasts, recommendations, and activity summaries are outputs inside those features, not standalone product surfaces.
+
+## Documentation
+
+The current product guides are maintained in the [ChronoSpark GitHub Wiki](https://github.com/ghostheart5/fantastic-guacamole/wiki):
+
+- [Overview](https://github.com/ghostheart5/fantastic-guacamole/wiki/Overview)
+- [Getting Started](https://github.com/ghostheart5/fantastic-guacamole/wiki/Getting-Started)
+- [Core Concepts](https://github.com/ghostheart5/fantastic-guacamole/wiki/Core-Concepts)
+- [Nexus](https://github.com/ghostheart5/fantastic-guacamole/wiki/Nexus)
+- [Creator](https://github.com/ghostheart5/fantastic-guacamole/wiki/Creator)
+- [Timeline](https://github.com/ghostheart5/fantastic-guacamole/wiki/Timeline)
+- [Smart Planner](https://github.com/ghostheart5/fantastic-guacamole/wiki/Smart-Planner)
+- [SI Console](https://github.com/ghostheart5/fantastic-guacamole/wiki/SI-CONSOLE)
+- [Trajectory Engine](https://github.com/ghostheart5/fantastic-guacamole/wiki/Trajectory-Engine)
+- [Progression](https://github.com/ghostheart5/fantastic-guacamole/wiki/Progression)
+
+Repository architecture and engineering context is summarized in [CHRONOSPARK.md](CHRONOSPARK.md).
+
+## Development
+
+### First-time setup
+
+Create the local `.env` asset before running Flutter commands:
 
 ```bash
-git clone <repo-url>
-cd fantastic-guacamole
-flutter pub get
 cp .env.example .env
-flutter run -d <device>
+flutter pub get
 ```
 
-For Windows local runs, this is also a common entry point:
+Every key may remain blank for local offline tests. See [.env.example](.env.example) for production integration values and build-time alternatives.
 
-```bash
-flutter run -d windows
-```
-
-## Configuration
-
-The app reads runtime values from [.env](.env.example) and supports a few build-time defines for Supabase, OAuth, and feature flags. At minimum, configure:
-
-- CHRONOSPARK_SUPABASE_URL
-- CHRONOSPARK_SUPABASE_ANON_KEY
-- CHRONOSPARK_OAUTH_REDIRECT_URL
-- CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL
-- CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL
-
-See [.env.example](.env.example) for the expected shape.
-
-### Supabase Auth production setup
-
-In Supabase Dashboard, configure a production SMTP provider or Send Email Auth
-Hook. The default email provider only delivers to organization members. Set the
-Site URL and redirect allowlist to the exact production values for
-`CHRONOSPARK_OAUTH_REDIRECT_URL` and
-`CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL`, including both the HTTPS App Link
-and `chronospark://auth-callback` when those builds are distributed. Verify
-signup confirmation and password recovery callbacks on a signed release build.
-
-## Supabase ownership contract
-
-ChronoSpark uses a strict platform boundary to avoid Firebase/Supabase overlap:
-
-- Auth/session owner: Supabase Auth
-- Primary app data owner: Supabase Postgres
-- Cloud file/backup owner: Supabase Storage (`chronospark-sync` bucket)
-- Serverless owner: Supabase Edge Functions
-- Notifications/telemetry owner: Firebase (FCM, Analytics, Crashlytics)
-
-### Supabase sync precedence contract
-
-To keep restore behavior deterministic across devices:
-
-- `syncToCloud` replays queued Supabase row mutations first, then uploads a backup snapshot.
-- `restoreFromCloud` treats the downloaded snapshot as canonical for local state.
-- After a successful restore, pending Supabase mutation queue entries are cleared to prevent replaying stale pre-restore writes.
-
-## Development commands
+### Common commands
 
 ```bash
 flutter analyze
 flutter test
-flutter test --coverage
+flutter run -d windows
 ```
-
-Useful test and quality commands:
-
-```bash
-flutter test test/golden
-flutter test integration_test/patrol_smoke_test.dart
-```
-
-Coverage output can be turned into HTML with:
-
-```bash
-genhtml coverage/lcov.info -o coverage/html
-```
-
-## Documentation map
-
-- Architecture reference: [CHRONOSPARK.md](CHRONOSPARK.md)
-- Layering and dependency direction: [docs/LAYER_FLOW.md](docs/LAYER_FLOW.md)
-- Build and release checks: [docs/BUILD_AUDIT_COMMANDS.md](docs/BUILD_AUDIT_COMMANDS.md)
-- Release scorecard: [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL_AUDIT_SCORECARD.md)
-- Additional audits and planning notes live in [docs](docs)
 
 ## Project structure
 
-- [lib](lib) contains the app implementation and feature modules
-- [assets](assets) holds animations, icons, fonts, tutorial content, and seed data
-- [supabase](supabase) contains edge function and integration assets
-- [test](test) and [integration_test](integration_test) hold automated coverage and smoke tests
+- `lib/` contains the application, feature, state, data, and domain layers.
+- `assets/` contains governed visual, audio, font, tutorial, and data assets.
+- `test/` and `integration_test/` contain automated verification.
+- `supabase/` contains database and Edge Function integration sources.
+- `web/` contains canonical public support, privacy, terms, and account-deletion pages.
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+ChronoSpark is licensed under the [MIT License](LICENSE).

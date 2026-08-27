@@ -1,3 +1,0 @@
-class GenerateFocusRecommendationsUsecase {
-  const GenerateFocusRecommendationsUsecase();
-}

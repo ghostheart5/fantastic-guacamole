@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Calendar/timeline
+///
+/// Persisted calendar type; the UI renders TimeBlock today.
 class CalendarEntryEntity {
   const CalendarEntryEntity({
     required this.id,
@@ -19,6 +22,12 @@ class CalendarEntryEntity {
 
   Duration get duration => end.difference(start);
 
+  bool get completed => isCompleted;
+
+  bool validate() => end.isAfter(start) && title.trim().isNotEmpty;
+
+  CalendarEntryEntity markComplete() => copyWith(isCompleted: true);
+
   CalendarEntryEntity copyWith({
     String? id,
     String? title,
@@ -36,6 +45,34 @@ class CalendarEntryEntity {
       end: end ?? this.end,
       taskId: taskId ?? this.taskId,
       isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'title': title,
+    'description': description,
+    'start': start.toIso8601String(),
+    'end': end.toIso8601String(),
+    'taskId': taskId,
+    'isCompleted': isCompleted,
+    'completed': isCompleted,
+  };
+
+  factory CalendarEntryEntity.fromJson(Map<String, dynamic> json) {
+    final DateTime start =
+        DateTime.tryParse(json['start']?.toString() ?? '') ?? DateTime.now();
+    return CalendarEntryEntity(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Untitled',
+      description: json['description']?.toString(),
+      start: start,
+      end:
+          DateTime.tryParse(json['end']?.toString() ?? '') ??
+          start.add(const Duration(minutes: 30)),
+      taskId: json['taskId']?.toString(),
+      isCompleted:
+          json['isCompleted'] as bool? ?? json['completed'] as bool? ?? false,
     );
   }
 }

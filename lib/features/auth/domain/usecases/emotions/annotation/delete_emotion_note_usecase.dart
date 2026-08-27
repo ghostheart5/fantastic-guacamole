@@ -1,3 +1,0 @@
-class DeleteEmotionNoteUsecase {
-  const DeleteEmotionNoteUsecase();
-}

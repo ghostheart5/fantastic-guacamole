@@ -1,22 +1,24 @@
+import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/debug/content_generation_analytics.dart';
-import 'package:fantastic_guacamole/core/debug/content_generation_release_gate.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/rate_limiter.dart';
 import 'package:fantastic_guacamole/core/utils/throttle.dart';
 import 'package:fantastic_guacamole/data/di/services_providers.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
-import 'package:fantastic_guacamole/data/services/ai/agents/chat_agent.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
+import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
@@ -25,47 +27,40 @@ import 'package:fantastic_guacamole/engine/learning/learning_history.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
-import 'package:fantastic_guacamole/engine/si/core/si_core.dart' as modular_si;
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
-    show SIPersona, PersonalityTraits;
+    show PersonalityTraits, SIInputPacket, SILatentInputs, SIPersona;
 import 'package:fantastic_guacamole/engine/si/si_decision.dart';
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
 import 'package:fantastic_guacamole/engine/si/si_task_core.dart';
-import 'package:fantastic_guacamole/engine/si/synthetic_intelligence_engine.dart';
-import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_memory_selection.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
+import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
-import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
+import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
-import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
-import 'package:fantastic_guacamole/state/providers/completion_events_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
+import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/learning_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
-import 'package:fantastic_guacamole/state/providers/neural_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
+import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
-import 'package:fantastic_guacamole/state/providers/routines_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
-import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
+import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'ai_controller.helpers.dart';
@@ -74,13 +69,40 @@ part 'ai_controller.response.dart';
 
 final aiControllerProvider = Provider<AIController>((ref) => AIController(ref));
 
+NotifierProvider<AIInputNotifier, String?> _inputProviderFor(
+  AssistantSurface surface,
+) => switch (surface) {
+  AssistantSurface.smartPlanner => smartPlannerAiInputProvider,
+  AssistantSurface.siConsole => aiInputProvider,
+};
+
+NotifierProvider<AIAgentTraceNotifier, AgentResult?> _traceProviderFor(
+  AssistantSurface surface,
+) => switch (surface) {
+  AssistantSurface.smartPlanner => smartPlannerAiAgentTraceProvider,
+  AssistantSurface.siConsole => aiAgentTraceProvider,
+};
+
+NotifierProvider<AIExecutionStatusNotifier, AIExecutionStatus>
+_executionStatusProviderFor(AssistantSurface surface) => switch (surface) {
+  AssistantSurface.smartPlanner => smartPlannerAiExecutionStatusProvider,
+  AssistantSurface.siConsole => aiExecutionStatusProvider,
+};
+
+Provider<SlidingWindowRateLimiter> _suggestionRateLimiterProviderFor(
+  AssistantSurface surface,
+) => switch (surface) {
+  AssistantSurface.smartPlanner => smartPlannerAiSuggestionRateLimiterProvider,
+  AssistantSurface.siConsole => aiSuggestionRateLimiterProvider,
+};
+
 /// Synchronous next-step text derived from the highest-priority pending task.
 final nextActionTextProvider = Provider<String>((ref) {
   final tasks = ref.watch(tasksProvider).asData?.value;
   if (tasks == null || tasks.isEmpty) {
     return 'Create your first task to get started.';
   }
-  return 'Focus on: ${tasks.first.title}';
+  return 'Work on: ${tasks.first.title}';
 });
 
 class AIController {
@@ -90,24 +112,70 @@ class AIController {
   AIController(this._ref);
 
   final Ref _ref;
+  static const String _neuralDumpKey = 'neural_dump';
 
-  Future<AIRecommendation?> sendMessage(String text) async {
-    final Stopwatch requestStopwatch = Stopwatch()..start();
+  AIRecommendation _typedConsoleRecommendation({
+    required AssistantRequestEnvelope request,
+    required AIRecommendation recommendation,
+    required List<String> evidence,
+    AssistantResponseStatus status = AssistantResponseStatus.completed,
+  }) {
+    final AIRecommendation typed = recommendation.contract == null
+        ? recommendation.withValidatedContract(
+            request: request,
+            evidence: createAssistantEvidenceItems(
+              request: request,
+              summaries: evidence,
+              sourceId: 'si_console',
+              kind: status == AssistantResponseStatus.fallback
+                  ? AssistantEvidenceKind.fallback
+                  : AssistantEvidenceKind.domainFact,
+            ),
+            status: status,
+          )
+        : recommendation;
+    typed.validateContractAgainst(request);
+    return typed;
+  }
+
+  Future<AIRecommendation?> sendMessage(String text) =>
+      _sendMessage(text, kind: AssistantRequestKind.consoleQuery);
+
+  Future<AIRecommendation?> _sendMessage(
+    String text, {
+    required AssistantRequestKind kind,
+  }) async {
     final String rawInput = text.trim();
-    final String? forcedSurface = _extractForcedSurface(rawInput);
-    final String input = _stripLeadingSurfaceCommand(rawInput);
+    final SIConsoleShortcutInvocation shortcutInvocation =
+        SIConsoleShortcutRegistry.parse(rawInput);
+    final String? forcedSurface = shortcutInvocation.forcedSurface;
+    final String input = forcedSurface == null
+        ? rawInput
+        : shortcutInvocation.intelligenceInput;
     if (input.isEmpty) {
       return null;
     }
+    AssistantRequestEnvelope requestContract = createAssistantRequestEnvelope(
+      accountScopeId: _assistantAccountScopeId(_ref),
+      conversation: AssistantConversationScope.primarySiConsole,
+      kind: kind,
+      input: input,
+    );
 
     final Throttle throttle = _ref.read(aiMessageThrottleProvider);
     if (!throttle.isReady) {
-      return const AIRecommendation(
-        message:
-            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
-        reasoning: 'throttled',
-        emotion: 'balanced',
-        confidence: 0.6,
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: const AIRecommendation(
+          message:
+              'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+          reasoning: 'throttled',
+          emotion: 'balanced',
+          confidence: 0.6,
+          processingMode: AIProcessingMode.onDeviceFallback,
+        ),
+        evidence: const <String>['Message throttle blocked a rapid repeat'],
+        status: AssistantResponseStatus.fallback,
       );
     }
 
@@ -116,34 +184,37 @@ class AIController {
       accepted = true;
     });
     if (!accepted) {
-      return const AIRecommendation(
-        message:
-            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
-        reasoning: 'throttled',
-        emotion: 'balanced',
-        confidence: 0.6,
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: const AIRecommendation(
+          message:
+              'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+          reasoning: 'throttled',
+          emotion: 'balanced',
+          confidence: 0.6,
+          processingMode: AIProcessingMode.onDeviceFallback,
+        ),
+        evidence: const <String>['Message throttle blocked a rapid repeat'],
+        status: AssistantResponseStatus.fallback,
       );
     }
 
     final List<TaskEntity> taskEntities = await _loadConsoleTaskEntities();
-    if (!_ref.mounted) {
-      return null;
-    }
     final List<Task> tasks = _mapTaskEntitiesToTasks(taskEntities);
     final Map<String, dynamic>? previousState = await _ref
         .read(siEngineServiceProvider)
         .loadState();
-    if (!_ref.mounted) {
-      return null;
-    }
     final si = _ref.read(siStateProvider);
     final learning = _ref.read(learningProvider);
     final profile = _ref.read(profileProvider);
+    final personalization = _ref.read(personalizationProfileProvider);
     final emotion = _ref.read(emotionProvider);
     final goals = _ref.read(goalsProvider);
-    final insightsBundle = _ref.read(insightsBundleProvider);
+    final signalsBundle = _ref.read(signalsBundleProvider);
     final logsState = _ref.read(logsProvider);
-    final memories = _ref.read(memoriesProvider);
+    // SI durable interpretive memory is disabled. This typed provider also
+    // enforces exact-account and exact-surface recall at the repository edge.
+    final memories = _ref.read(memoryRecallProvider(MemorySurface.siConsole));
     final notifications = _ref.read(notificationProvider);
     final timelineEvents = _ref.read(timelineProvider);
     final int timelineOverdueCount = _ref.read(timelineOverdueProvider).length;
@@ -176,21 +247,8 @@ class AIController {
     final List<MilestoneEntity> milestoneOverdue = _ref.read(
       milestoneOverdueProvider,
     );
-    final CoreValuesAlignment coreValuesAlignment = _ref.read(
-      coreValuesAlignmentProvider,
-    );
-    final SoulMapAlignment soulMapAlignment = _ref.read(
-      soulMapAlignmentProvider,
-    );
-    final SoulMapFutureSelfComparison soulMapComparison = _ref.read(
-      soulMapFutureSelfComparisonProvider,
-    );
     final progression = _ref.read(progressionProvider).progress;
-    final soulState = _ref.read(soulStateProvider);
     final trajectory = _ref.read(trajectorySummaryProvider);
-    final List<String> coreValues = coreValuesAlignment.selectedValues.toList(
-      growable: false,
-    )..sort();
 
     final List<Map<String, String>> history = <Map<String, String>>[];
     final dynamic rawHistory = previousState?['historySummary'];
@@ -207,10 +265,11 @@ class AIController {
     }
 
     final List<String> planPreview = _ref
-        .read(calendarServiceProvider)
-        .generateAdaptivePlan(
+        .read(generateAdaptivePlanUseCaseProvider)
+        .call(
           inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
           energy: si.energy,
+          policy: _ref.read(adaptivePlanPolicyProvider),
         )
         .take(3)
         .map((block) => block.title)
@@ -229,13 +288,6 @@ class AIController {
       input,
       matchedSurfaces,
     );
-    ContentGenerationAnalytics.trackRouteResolved(
-      surface: primarySurface,
-      intent: siIntentCategory,
-      routeType: 'si_console',
-      forcedSurface: forcedSurface != null && forcedSurface.isNotEmpty,
-      matchedSurfaceCount: matchedSurfaces.length,
-    );
     final AIRecommendation? timelineDeterministic =
         _tryDeterministicTimelineResponse(
           input: input,
@@ -252,21 +304,15 @@ class AIController {
           timelineRecommendationCount: timelineRecommendationCount,
         );
     if (timelineDeterministic != null) {
-      requestStopwatch.stop();
-      ContentGenerationAnalytics.trackResult(
-        surface: primarySurface,
-        routeType: 'deterministic_timeline',
-        usedFallback: false,
-        structured: _isStructuredSIResponse(timelineDeterministic.message),
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        qualityTag: siIntentCategory,
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: timelineDeterministic,
+        evidence: <String>[
+          'Timeline events available: ${timelineEvents.length}',
+          'Timeline health score: $timelineHealthScore',
+          'Timeline risk score: $timelineRiskScore',
+        ],
       );
-      ContentGenerationReleaseGate.evaluateRequest(
-        surface: primarySurface,
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        structured: _isStructuredSIResponse(timelineDeterministic.message),
-      );
-      return timelineDeterministic;
     }
     final AIRecommendation? trajectoryDeterministic =
         _tryDeterministicTrajectoryResponse(
@@ -281,21 +327,15 @@ class AIController {
           alert: trajectory.alert,
         );
     if (trajectoryDeterministic != null) {
-      requestStopwatch.stop();
-      ContentGenerationAnalytics.trackResult(
-        surface: primarySurface,
-        routeType: 'deterministic_trajectory',
-        usedFallback: false,
-        structured: _isStructuredSIResponse(trajectoryDeterministic.message),
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        qualityTag: siIntentCategory,
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: trajectoryDeterministic,
+        evidence: <String>[
+          'Trajectory pressure: ${trajectory.pressureIndex}',
+          'Trajectory momentum: ${trajectory.momentum}',
+          'Behavior divergence: ${trajectory.behaviorDivergence}',
+        ],
       );
-      ContentGenerationReleaseGate.evaluateRequest(
-        surface: primarySurface,
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        structured: _isStructuredSIResponse(trajectoryDeterministic.message),
-      );
-      return trajectoryDeterministic;
     }
     final AIRecommendation? milestoneDeterministic =
         _tryDeterministicMilestoneResponse(
@@ -310,164 +350,52 @@ class AIController {
           upcoming: milestoneUpcoming,
         );
     if (milestoneDeterministic != null) {
-      requestStopwatch.stop();
-      ContentGenerationAnalytics.trackResult(
-        surface: primarySurface,
-        routeType: 'deterministic_milestone',
-        usedFallback: false,
-        structured: _isStructuredSIResponse(milestoneDeterministic.message),
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        qualityTag: siIntentCategory,
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: milestoneDeterministic,
+        evidence: <String>[
+          'Milestones available: ${milestoneSummary.total}',
+          'Overdue milestones: ${milestoneSummary.overdue}',
+          'Milestone health score: ${milestoneSummary.healthScore}',
+        ],
       );
-      ContentGenerationReleaseGate.evaluateRequest(
-        surface: primarySurface,
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        structured: _isStructuredSIResponse(milestoneDeterministic.message),
-      );
-      return milestoneDeterministic;
-    }
-    final AIRecommendation? identityDeterministic =
-        _tryDeterministicSoulMapResponse(
-          input: input,
-          forcedSurface: forcedSurface,
-          matchedSurfaces: matchedSurfaces,
-          category: siIntentCategory,
-          alignment: soulMapAlignment,
-          comparison: soulMapComparison,
-        );
-    if (identityDeterministic != null) {
-      requestStopwatch.stop();
-      ContentGenerationAnalytics.trackResult(
-        surface: primarySurface,
-        routeType: 'deterministic_identity',
-        usedFallback: false,
-        structured: _isStructuredSIResponse(identityDeterministic.message),
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        qualityTag: siIntentCategory,
-      );
-      ContentGenerationReleaseGate.evaluateRequest(
-        surface: primarySurface,
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        structured: _isStructuredSIResponse(identityDeterministic.message),
-      );
-      return identityDeterministic;
-    }
-    final AIRecommendation? coreValuesDeterministic =
-        _tryDeterministicCoreValuesResponse(
-          input: input,
-          forcedSurface: forcedSurface,
-          matchedSurfaces: matchedSurfaces,
-          category: siIntentCategory,
-          alignment: coreValuesAlignment,
-        );
-    if (coreValuesDeterministic != null) {
-      requestStopwatch.stop();
-      ContentGenerationAnalytics.trackResult(
-        surface: primarySurface,
-        routeType: 'deterministic_values',
-        usedFallback: false,
-        structured: _isStructuredSIResponse(coreValuesDeterministic.message),
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        qualityTag: siIntentCategory,
-      );
-      ContentGenerationReleaseGate.evaluateRequest(
-        surface: primarySurface,
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        structured: _isStructuredSIResponse(coreValuesDeterministic.message),
-      );
-      return coreValuesDeterministic;
     }
     final AssistantIntent assistantIntent =
         const DefaultAssistantIntentDetector().detect(
           input: input,
-          surface: 'si_console',
+          surface: AssistantSurface.siConsole,
         );
-    final DefaultAssistantContextBuilder contextBuilder =
-        const DefaultAssistantContextBuilder();
-    final List<String> timelineSummaries = summarizeTimelineTitles(
-      timelineEvents,
-    );
-    final List<CompletionEventEntity> completionEvents = _ref.read(
-      completionEventsProvider,
-    );
-    final List<RoutineEntity> routines = _ref.read(routinesProvider);
-    final List<Task> scheduledTasks = tasks
-        .where((Task task) => task.scheduledFor != null)
+    final List<String> timelineSummaries = timelineEvents
+        .take(3)
+        .map((event) => event.title.trim())
+        .where((text) => text.isNotEmpty)
         .toList(growable: false);
-    final List<RoutineEntity> activeRoutines = routines
-        .where((RoutineEntity routine) => routine.active)
-        .toList(growable: false);
-    final List<String> completionSummaries = summarizeCompletionEvents(
-      completionEvents,
-    );
-    final List<String> routineSummaries = summarizeRoutineNames(activeRoutines);
-    final List<String> scheduleSummaries = summarizeScheduledTaskTitles(
-      scheduledTasks,
-    );
-    final Map<String, dynamic> chronosparkSignals =
-        buildSIConsoleChronosparkSignals(
-          profileName: profile.name,
-          profileLevel: profile.level,
-          profileXp: profile.xp,
-          profileStreak: profile.streak,
-          progressionLevel: progression.level,
-          progressionXp: progression.xp,
-          progressionStreak: progression.streak,
-          siEnergy: si.energy,
-          siFatigue: si.fatigue,
-          siCompletedToday: si.completedToday,
-          trajectoryPressure: trajectory.pressureIndex,
-          trajectoryMomentum: trajectory.momentum,
-          trajectoryDivergence: trajectory.behaviorDivergence,
-          trajectoryPrediction: trajectory.predictionOutcome,
-          completionEvents: completionEvents,
-          tasks: tasks,
-          scheduledTasks: scheduledTasks,
-          routines: routines,
-          activeRoutines: activeRoutines,
-        );
-    final Map<String, dynamic> chronosparkModelContext = contextBuilder
-        .buildChronosparkModelContext(
-          surface: 'si_console',
-          intent: assistantIntent,
-          taskSummaries: tasks
-              .take(3)
-              .map((Task task) => task.title.trim())
-              .where((String title) => title.isNotEmpty)
-              .toList(growable: false),
-          goalSummaries: goals
-              .take(3)
-              .map((goal) => goal.title.trim())
-              .where((String title) => title.isNotEmpty)
-              .toList(growable: false),
-          timelineSummaries: timelineSummaries,
-          memorySummaries: selectedMemorySummaries,
-          completionSummaries: completionSummaries,
-          routineSummaries: routineSummaries,
-          scheduleSummaries: scheduleSummaries,
-          signals: chronosparkSignals,
-        );
 
     final Map<String, dynamic> context = <String, dynamic>{
       'source': 'si_console',
+      'externalAiAllowed': personalization.externalAiAllowed,
       'mode': 'system_console',
       'intent': _deriveConsoleIntent(matchedSurfaces),
       'siIntentCategory': siIntentCategory,
       'querySurface': primarySurface,
       'matchedSurfaces': matchedSurfaces,
       'forcedSurface': forcedSurface,
+      'shortcutId': shortcutInvocation.definition?.id,
+      'shortcutArguments': shortcutInvocation.arguments,
       'responseContract': _responseContract(primarySurface, matchedSurfaces),
       'assistantIntent': assistantIntent.toJson(),
-      'assistantContext': contextBuilder.buildSIConsoleContext(
-        input: input,
-        intent: assistantIntent,
-        matchedSurfaces: matchedSurfaces,
-        memorySummaries: selectedMemorySummaries,
-        timelineSummaries: timelineSummaries,
-        taskCount: tasks.length,
-        goalCount: goals.length,
-      ),
-      'chronosparkModel': chronosparkModelContext,
+      'assistantContext': _ref
+          .read(assembleSiContextUseCaseProvider)
+          .call(
+            input: input,
+            intent: assistantIntent,
+            matchedSurfaces: matchedSurfaces,
+            memorySummaries: selectedMemorySummaries,
+            timelineSummaries: timelineSummaries,
+            taskCount: tasks.length,
+            goalCount: goals.length,
+          )
+          .toJson(),
       'name': profile.name,
       'level': profile.level,
       'xp': profile.xp,
@@ -480,14 +408,12 @@ class AIController {
         'tasks',
         'progression',
         'goals',
-        'insights',
+        'signals',
         'logs',
         'memories',
         'notifications',
         'plan',
-        'flowmap',
         'emotions',
-        'identity',
         'timeline',
         'milestones',
         'values',
@@ -514,10 +440,10 @@ class AIController {
           'count': goals.length,
           'top': goals.take(5).map((g) => g.title).toList(growable: false),
         },
-        'insights': <String, dynamic>{
-          'count': insightsBundle.items.length,
-          'summary': insightsBundle.summary,
-          'top': insightsBundle.items
+        'signals': <String, dynamic>{
+          'count': signalsBundle.items.length,
+          'summary': signalsBundle.summary,
+          'top': signalsBundle.items
               .take(5)
               .map((item) => item.title)
               .toList(growable: false),
@@ -549,7 +475,6 @@ class AIController {
           'current': emotion.name,
           'fatigue': si.fatigue,
         },
-        'identity': soulState.toJson(),
         'timeline': <String, dynamic>{
           'count': timelineEvents.length,
           'healthScore': timelineHealthScore,
@@ -585,37 +510,13 @@ class AIController {
           'momentum': trajectory.momentum,
           'prediction': trajectory.predictionOutcome,
         },
-        'identityAlignment': <String, dynamic>{
-          'overall': soulMapAlignment.overall,
-          'strongest': soulMapDimensionTitle(soulMapAlignment.strongest),
-          'weakest': soulMapDimensionTitle(soulMapAlignment.weakest),
-          'scores': soulMapAlignment.scores.map(
-            (SoulMapDimension key, SoulMapDimensionScore value) =>
-                MapEntry<String, int>(soulMapDimensionTitle(key), value.score),
-          ),
-          'recommendations': soulMapAlignment.recommendations,
-        },
-        'identityComparison': <String, dynamic>{
-          'currentSelfAlignment': soulMapComparison.currentSelfAlignment,
-          'futureSelfReadiness': soulMapComparison.futureSelfReadiness,
-          'gap': soulMapComparison.gap,
-          'stance': soulMapComparison.stance,
-          'recommendation': soulMapComparison.recommendation,
-        },
-        'coreValues': coreValues,
-        'coreValuesAlignment': <String, dynamic>{
-          'overall': coreValuesAlignment.overall,
-          'strongest': coreValueTitle(coreValuesAlignment.strongest),
-          'mostNeglected': coreValueTitle(coreValuesAlignment.mostNeglected),
-          'scores': coreValuesAlignment.scores.map(
-            (CoreValueType key, CoreValueScore value) =>
-                MapEntry<String, int>(coreValueTitle(key), value.score),
-          ),
-          'recommendations': coreValuesAlignment.recommendations,
-        },
       },
     };
 
+    requestContract = requestContract.copyWith(
+      history: AssistantRequestEnvelope.historyFromLegacy(history),
+      context: Map<String, Object?>.from(context),
+    );
     final AgentRequest request = AgentRequest(
       prompt: input,
       context: context,
@@ -634,57 +535,37 @@ class AIController {
           personalityOverride: AIPersonality.strategist,
           preferredAgent: null,
           history: history,
-          context: context,
+          context: <String, dynamic>{
+            ...context,
+            'assistantRequestContract': requestContract.toJson(),
+          },
           requestOverride: request,
         );
-    if (!_ref.mounted) {
-      return null;
-    }
 
     if (recommendation == null ||
         !_isStructuredSIResponse(recommendation.message)) {
-      final AIRecommendation fallback = _buildStructuredSIFallback(
-        query: input,
-        category: siIntentCategory,
-        tasks: taskEntities,
-        goalsCount: goals.length,
-        timelineOverdueCount: timelineOverdueCount,
-        timelineUpcomingCount: timelineUpcomingCount,
-        timelineHealthScore: timelineHealthScore,
-        timelineRiskScore: timelineRiskScore,
+      return _typedConsoleRecommendation(
+        request: requestContract,
+        recommendation: _buildStructuredSIFallback(
+          query: input,
+          category: siIntentCategory,
+          tasks: taskEntities,
+          goalsCount: goals.length,
+          timelineOverdueCount: timelineOverdueCount,
+          timelineUpcomingCount: timelineUpcomingCount,
+          timelineHealthScore: timelineHealthScore,
+          timelineRiskScore: timelineRiskScore,
+        ),
+        evidence: <String>[
+          'Active task signals: ${taskEntities.length}',
+          'Active goal signals: ${goals.length}',
+          'Timeline health score: $timelineHealthScore',
+        ],
+        status: AssistantResponseStatus.fallback,
       );
-      requestStopwatch.stop();
-      ContentGenerationAnalytics.trackResult(
-        surface: primarySurface,
-        routeType: 'ai_orchestrated',
-        usedFallback: true,
-        structured: _isStructuredSIResponse(fallback.message),
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        qualityTag: 'structured_fallback',
-      );
-      ContentGenerationReleaseGate.evaluateRequest(
-        surface: primarySurface,
-        durationMs: requestStopwatch.elapsedMilliseconds,
-        structured: _isStructuredSIResponse(fallback.message),
-      );
-      return fallback;
     }
 
-    requestStopwatch.stop();
-    ContentGenerationAnalytics.trackResult(
-      surface: primarySurface,
-      routeType: 'ai_orchestrated',
-      usedFallback:
-          recommendation.reasoning?.toLowerCase().contains('fallback') == true,
-      structured: _isStructuredSIResponse(recommendation.message),
-      durationMs: requestStopwatch.elapsedMilliseconds,
-      qualityTag: siIntentCategory,
-    );
-    ContentGenerationReleaseGate.evaluateRequest(
-      surface: primarySurface,
-      durationMs: requestStopwatch.elapsedMilliseconds,
-      structured: _isStructuredSIResponse(recommendation.message),
-    );
+    recommendation.validateContractAgainst(requestContract);
     return recommendation;
   }
 
@@ -747,7 +628,7 @@ class AIController {
       'tasks': <String>[
         'task',
         'todo',
-        'focus',
+        'attention',
         'next action',
         'priority',
         'create',
@@ -757,8 +638,8 @@ class AIController {
         'new task',
       ],
       'progression': <String>['xp', 'level', 'streak', 'progress', 'rank'],
-      'goals': <String>['goal', 'target', 'objective', 'mission'],
-      'insights': <String>['insight', 'signal', 'pattern', 'analysis'],
+      'goals': <String>['goal', 'target', 'objective', 'purpose'],
+      'signals': <String>['signal', 'signal', 'pattern', 'analysis'],
       'logs': <String>[
         'log',
         'ledger',
@@ -771,27 +652,13 @@ class AIController {
       'memories': <String>['memory', 'remember', 'recall', 'history'],
       'notifications': <String>['notification', 'alert', 'reminder', 'prompt'],
       'plan': <String>['plan', 'schedule', 'calendar', 'time block'],
-      'flowmap': <String>['flowmap', 'map', 'dependency', 'path'],
       'emotions': <String>['emotion', 'mood', 'energy', 'fatigue', 'feel'],
-      'identity': <String>[
-        'analyze my life',
-        'who am i becoming',
-        'future self',
-        'life direction',
-        'legacy',
-        'identity',
-      ],
       'timeline': <String>['timeline', 'milestone', 'event', 'chronology'],
       'milestones': <String>[
         'milestones',
         'checkpoint',
         'milestone health',
         'milestone risk',
-      ],
-      'values': <String>[
-        'core values',
-        'values alignment',
-        'most neglected value',
       ],
       'trajectory': <String>[
         'trajectory',
@@ -816,52 +683,6 @@ class AIController {
     return matched.isEmpty ? <String>['general'] : matched;
   }
 
-  String? _extractForcedSurface(String input) {
-    if (!input.startsWith('/')) {
-      return null;
-    }
-    final String token = input.split(RegExp(r'\s+')).first.toLowerCase();
-    const Map<String, String> aliases = <String, String>{
-      '/tasks': 'tasks',
-      '/task': 'tasks',
-      '/progression': 'progression',
-      '/xp': 'progression',
-      '/goals': 'goals',
-      '/goal': 'goals',
-      '/memories': 'memories',
-      '/memory': 'memories',
-      '/plan': 'plan',
-      '/planner': 'plan',
-      '/flowmap': 'flowmap',
-      '/flow': 'flowmap',
-      '/emotions': 'emotions',
-      '/emotion': 'emotions',
-      '/identity': 'identity',
-      '/alignment': 'identity',
-      '/direction': 'identity',
-      '/timeline': 'timeline',
-      '/milestones': 'milestones',
-      '/values': 'values',
-      '/trajectory': 'trajectory',
-    };
-    return aliases[token];
-  }
-
-  String _stripLeadingSurfaceCommand(String input) {
-    if (!input.startsWith('/')) {
-      return input;
-    }
-    final String? forcedSurface = _extractForcedSurface(input);
-    if (forcedSurface == null) {
-      return input;
-    }
-    final List<String> parts = input.split(RegExp(r'\s+'));
-    if (parts.length <= 1) {
-      return forcedSurface;
-    }
-    return parts.sublist(1).join(' ').trim();
-  }
-
   String _deriveConsoleIntent(List<String> matchedSurfaces) {
     if (matchedSurfaces.contains('plan')) {
       return 'planning';
@@ -875,9 +696,6 @@ class AIController {
         matchedSurfaces.contains('memories') ||
         matchedSurfaces.contains('goals')) {
       return 'summarization';
-    }
-    if (matchedSurfaces.contains('flowmap')) {
-      return 'research';
     }
     return 'chat';
   }
@@ -896,22 +714,6 @@ class AIController {
     }
     if (hasAny(<String>['milestone', 'milestones', 'checkpoint'])) {
       return 'Milestone Query';
-    }
-    if (hasAny(<String>[
-      'analyze my life',
-      'who am i becoming',
-      'future self',
-      'life direction',
-      'legacy',
-    ])) {
-      return 'Life Query';
-    }
-    if (hasAny(<String>[
-      'core values',
-      'values alignment',
-      'most neglected value',
-    ])) {
-      return 'Core Values Query';
     }
     if (hasAny(<String>['goal', 'goals', 'target', 'objective', 'milestone'])) {
       return 'Goal Query';
@@ -944,7 +746,7 @@ class AIController {
       'analytics',
       'analyze',
       'trend',
-      'insight',
+      'signal',
       'metrics',
     ])) {
       return 'Analytics Query';
@@ -968,14 +770,8 @@ class AIController {
     if (matchedSurfaces.contains('milestones')) {
       return 'Milestone Query';
     }
-    if (matchedSurfaces.contains('identity')) {
-      return 'Life Query';
-    }
-    if (matchedSurfaces.contains('values')) {
-      return 'Core Values Query';
-    }
     if (matchedSurfaces.contains('trajectory') ||
-        matchedSurfaces.contains('insights')) {
+        matchedSurfaces.contains('signals')) {
       return 'Analytics Query';
     }
     if (matchedSurfaces.contains('memories')) {
@@ -1074,13 +870,14 @@ class AIController {
         '1. ${timelineOverdueCount > 0 ? 'Close one overdue item today.' : 'Protect timeline by completing the next deadline item.'}\n'
         '2. ${timelineUpcomingCount > 0 ? 'Pre-plan the next upcoming deadline block.' : 'Create one upcoming deadline anchor.'}\n'
         '3. ${timelineRiskEventsCount > 0 ? 'Apply one timeline recommendation to reduce risk.' : 'Record a milestone after completion to keep timeline fidelity high.'}\n\n'
-        'Confidence signal: strong from timeline health, risk, and schedule activity signals.';
+        'Signal strength: deterministic timeline rules and current data.';
 
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_timeline_deterministic',
-      emotion: 'focused',
-      confidence: 0.94,
+      emotion: 'engaged',
+      confidence: 0.6,
+      processingMode: AIProcessingMode.onDevice,
     );
   }
 
@@ -1160,7 +957,7 @@ class AIController {
         : 'Reinforce alignment by completing one goal-linked task now.';
     final String nextAction3 = momentum <= 0.45
         ? 'Trigger momentum recovery with one fast, definitive completion in the next hour.'
-        : 'Maintain momentum with a second focused completion before context switching.';
+        : 'Maintain momentum with a second deliberate completion before context switching.';
 
     final String output =
         'SI ANALYSIS\n\n'
@@ -1179,13 +976,14 @@ class AIController {
         '1. $nextAction1\n'
         '2. $nextAction2\n'
         '3. $nextAction3\n\n'
-        'Confidence signal: moderate to strong from pressure, momentum, and divergence signals.';
+        'Signal strength: deterministic trajectory rules and current data.';
 
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_trajectory_deterministic',
-      emotion: 'focused',
-      confidence: 0.93,
+      emotion: 'engaged',
+      confidence: 0.6,
+      processingMode: AIProcessingMode.onDevice,
     );
   }
 
@@ -1286,13 +1084,14 @@ class AIController {
         'Milestones: ${topMilestones.isEmpty ? 'None yet.' : topMilestones}\n'
         'Overdue list: ${overdueNames.isEmpty ? 'None' : overdueNames}\n'
         'Upcoming list: ${upcomingNames.isEmpty ? 'None' : upcomingNames}\n\n'
-        'Confidence signal: strong from milestone health, risk, and checkpoint activity.';
+        'Signal strength: deterministic milestone rules and current data.';
 
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_milestone_deterministic',
-      emotion: 'focused',
-      confidence: 0.94,
+      emotion: 'engaged',
+      confidence: 0.6,
+      processingMode: AIProcessingMode.onDevice,
     );
   }
 
@@ -1324,194 +1123,6 @@ class AIController {
     return forcedMilestones ||
         surfaceMilestones ||
         (categoryMilestones && asksMilestoneOps);
-  }
-
-  AIRecommendation? _tryDeterministicCoreValuesResponse({
-    required String input,
-    required String? forcedSurface,
-    required List<String> matchedSurfaces,
-    required String category,
-    required CoreValuesAlignment alignment,
-  }) {
-    if (!_isDeterministicCoreValuesQuery(
-      input: input,
-      forcedSurface: forcedSurface,
-      matchedSurfaces: matchedSurfaces,
-      category: category,
-    )) {
-      return null;
-    }
-
-    final List<String> rows = CoreValueType.values
-        .map(
-          (CoreValueType value) =>
-              '- ${coreValueTitle(value)}: ${alignment.scores[value]?.score ?? 0}%',
-        )
-        .toList(growable: false);
-    final String strongest = coreValueTitle(alignment.strongest);
-    final String neglected = coreValueTitle(alignment.mostNeglected);
-
-    final String output =
-        'SI ANALYSIS\n\n'
-        'Query: Core Values Alignment\n\n'
-        'Current State:\n'
-        '${rows.join('\n')}\n\n'
-        '- Overall alignment: ${alignment.overall}%\n'
-        '- Strongest value: $strongest\n'
-        '- Most neglected value: $neglected\n\n'
-        'Priority Task: Execute one action that increases $neglected this week.\n'
-        'Impact: ${alignment.overall >= 70 ? 'Medium' : 'High'}\n'
-        'Timeline Effect: Core values alignment acts as your internal compass for decision quality.\n\n'
-        'Next Actions:\n'
-        '1. ${alignment.recommendations.firstWhere((String item) => item.toLowerCase().contains('schedule one action'), orElse: () => 'Schedule one action this week aligned to the neglected value.')}\n'
-        '2. Use the guiding question for $neglected before your next major decision.\n'
-        '3. Preserve momentum in $strongest while reducing the gap in $neglected.\n\n'
-        'Confidence signal: strong from values alignment coverage, but directional rather than certain.';
-
-    return AIRecommendation(
-      message: output,
-      reasoning: 'si_console_core_values_deterministic',
-      emotion: 'focused',
-      confidence: 0.95,
-    );
-  }
-
-  bool _isDeterministicCoreValuesQuery({
-    required String input,
-    required String? forcedSurface,
-    required List<String> matchedSurfaces,
-    required String category,
-  }) {
-    final String lowered = input.toLowerCase();
-    bool hasAny(List<String> values) => values.any(lowered.contains);
-
-    final bool forced = forcedSurface == 'values';
-    final bool surface = matchedSurfaces.contains('values');
-    final bool categoryMatch =
-        category == 'Core Values Query' || category == 'Life Query';
-    final bool asks = hasAny(<String>[
-      'core values',
-      'values alignment',
-      'most neglected value',
-    ]);
-
-    return forced || surface || (categoryMatch && asks);
-  }
-
-  AIRecommendation? _tryDeterministicSoulMapResponse({
-    required String input,
-    required String? forcedSurface,
-    required List<String> matchedSurfaces,
-    required String category,
-    required SoulMapAlignment alignment,
-    required SoulMapFutureSelfComparison comparison,
-  }) {
-    if (!_isDeterministicSoulMapQuery(
-      input: input,
-      forcedSurface: forcedSurface,
-      matchedSurfaces: matchedSurfaces,
-      category: category,
-    )) {
-      return null;
-    }
-
-    final int purpose = alignment.scores[SoulMapDimension.purpose]?.score ?? 0;
-    final int identity =
-        alignment.scores[SoulMapDimension.identity]?.score ?? 0;
-    final int values =
-        alignment.scores[SoulMapDimension.coreValues]?.score ?? 0;
-    final int futureSelf =
-        alignment.scores[SoulMapDimension.futureSelf]?.score ?? 0;
-    final String strongest = soulMapDimensionTitle(alignment.strongest);
-    final String weakest = soulMapDimensionTitle(alignment.weakest);
-    final String recommendation = alignment.recommendations.firstWhere(
-      (String item) =>
-          item.toLowerCase().contains('schedule one concrete action'),
-      orElse: () =>
-          'Schedule one concrete action this week to strengthen $weakest.',
-    );
-    final String lowered = input.toLowerCase();
-    final bool compareMode =
-        lowered.contains('compare') || lowered.contains('current self');
-
-    if (compareMode) {
-      final String compareOutput =
-          'SI ANALYSIS\n\n'
-          'Query: Identity Direction Current vs Future\n\n'
-          'Current State:\n'
-          '- Current Self Alignment: ${comparison.currentSelfAlignment}%\n'
-          '- Future Self Readiness: ${comparison.futureSelfReadiness}%\n'
-          '- Gap: ${comparison.gap}%\n'
-          '- Stance: ${comparison.stance}\n\n'
-          'Priority Task: Execute one action today that directly reduces the future-self gap.\n'
-          'Impact: ${comparison.gap > 20 ? 'High' : 'Medium'}\n'
-          'Timeline Effect: Gap reduction compounds identity consistency over 1/5/10 year horizons.\n\n'
-          'Next Actions:\n'
-          '1. ${comparison.recommendation}\n'
-          '2. Define one 1-year and one 5-year future-self outcome in your identity direction profile.\n'
-          '3. Audit your current top goal for alignment before quitting or recommitting.\n\n'
-          'Confidence signal: strong from current-vs-future alignment gap signals.';
-
-      return AIRecommendation(
-        message: compareOutput,
-        reasoning: 'si_console_identity_compare_deterministic',
-        emotion: 'focused',
-        confidence: 0.95,
-      );
-    }
-
-    final String output =
-        'SI ANALYSIS\n\n'
-        'Query: Identity Direction Analysis\n\n'
-        'Current State:\n'
-        '- Purpose Alignment: $purpose%\n'
-        '- Identity Alignment: $identity%\n'
-        '- Values Alignment: $values%\n'
-        '- Future Self Progress: $futureSelf%\n'
-        '- Overall Identity Alignment: ${alignment.overall}%\n'
-        '- Strongest Area: $strongest\n'
-        '- Weakest Area: $weakest\n\n'
-        'Priority Task: Execute one decision today that strengthens $weakest.\n'
-        'Impact: ${alignment.overall >= 70 ? 'Medium' : 'High'}\n'
-        'Timeline Effect: Identity alignment connects goals, values, and future direction into one decision compass.\n\n'
-        'Next Actions:\n'
-        '1. $recommendation\n'
-        '2. Test one active goal against your Future Self before committing or quitting.\n'
-        '3. Protect your strongest area ($strongest) while repairing $weakest.\n\n'
-        'Confidence signal: moderate to strong from identity, values, and future-self alignment signals.';
-
-    return AIRecommendation(
-      message: output,
-      reasoning: 'si_console_identity_deterministic',
-      emotion: 'focused',
-      confidence: 0.95,
-    );
-  }
-
-  bool _isDeterministicSoulMapQuery({
-    required String input,
-    required String? forcedSurface,
-    required List<String> matchedSurfaces,
-    required String category,
-  }) {
-    final String lowered = input.toLowerCase();
-    bool hasAny(List<String> values) => values.any(lowered.contains);
-
-    final bool forced = forcedSurface == 'identity';
-    final bool surface = matchedSurfaces.contains('identity');
-    final bool categoryMatch = category == 'Life Query';
-    final bool asks = hasAny(<String>[
-      'analyze my life',
-      'compare current self to future self',
-      'current self vs future self',
-      'who am i becoming',
-      'future self',
-      'life direction',
-      'legacy',
-      'what kind of life',
-    ]);
-
-    return forced || surface || (categoryMatch && asks);
   }
 
   AIRecommendation _buildStructuredSIFallback({
@@ -1569,8 +1180,6 @@ class AIController {
       'Goal Query' => 'Keeps core goals on measurable milestones.',
       'Milestone Query' =>
         'Improves checkpoint clarity with milestone health $timelineHealthScore% and risk $timelineRiskScore% context.',
-      'Core Values Query' =>
-        'Aligns execution decisions with your personal operating system and neglected value recovery.',
       'Timeline Query' =>
         overdue > 0
             ? 'Reduces delay risk by addressing overdue work first (health $timelineHealthScore%, risk $timelineRiskScore%).'
@@ -1603,8 +1212,9 @@ class AIController {
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_structured_fallback',
-      emotion: 'focused',
+      emotion: 'engaged',
       confidence: confidence / 100,
+      processingMode: AIProcessingMode.onDeviceFallback,
     );
   }
 
@@ -1644,6 +1254,17 @@ class AIController {
     required double quality,
     DateTime? timestamp,
   }) async {
+    final store = _ref.read(secureStoreProvider);
+    final String? raw = await store.readString(_neuralDumpKey);
+
+    final List<Map<String, dynamic>> existing =
+        (raw == null || raw.trim().isEmpty)
+        ? <Map<String, dynamic>>[]
+        : ((jsonDecode(raw) as List<dynamic>)
+              .whereType<Map<String, dynamic>>()
+              .map((Map<String, dynamic> e) => e)
+              .toList());
+
     final NeuralEntry entry = NeuralEntry(
       task: task,
       reasoning: reasoning,
@@ -1653,7 +1274,8 @@ class AIController {
       timestamp: timestamp ?? DateTime.now(),
     );
 
-    await _ref.read(neuralHistoryStoreProvider).appendNeuralEntry(entry);
+    existing.add(entry.toJson());
+    await store.writeString(_neuralDumpKey, jsonEncode(existing));
   }
 
   Future<AIRecommendation?> retryMessage(String messageId) async {
@@ -1677,7 +1299,7 @@ class AIController {
     if (input.isEmpty) {
       return null;
     }
-    return sendMessage(input);
+    return _sendMessage(input, kind: AssistantRequestKind.retry);
   }
 
   Future<void> clearConversation() async {

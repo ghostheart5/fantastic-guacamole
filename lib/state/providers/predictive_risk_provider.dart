@@ -1,7 +1,13 @@
-import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum PredictiveRiskLevel { low, medium, high }
+// CHRONOSPARK-CLASS: INTERNAL ARCHITECTURE ADAPTER
+// Not a destination or model-backed prediction. This is a compatibility view
+// over the canonical deterministic Trajectory consequence model.
+
+enum PredictiveRiskLevel { unknown, low, medium, high }
 
 class PredictiveRisk {
   const PredictiveRisk({
@@ -9,12 +15,16 @@ class PredictiveRisk {
     required this.level,
     required this.summary,
     required this.mitigation,
+    this.confidence = PredictiveConfidenceBand.low,
+    this.evidenceCodes = const <String>[],
   });
 
   final String title;
   final PredictiveRiskLevel level;
   final String summary;
   final String mitigation;
+  final PredictiveConfidenceBand confidence;
+  final List<String> evidenceCodes;
 }
 
 class PredictiveRiskState {
@@ -23,39 +33,70 @@ class PredictiveRiskState {
   final List<PredictiveRisk> risks;
 }
 
-final predictiveRiskProvider = Provider<PredictiveRiskState>((ref) {
-  final momentum = ref.watch(momentumEngineProvider);
-
-  final risks = <PredictiveRisk>[
-    PredictiveRisk(
-      title: 'Momentum Collapse Risk',
-      level: momentum.score < 45
-          ? PredictiveRiskLevel.high
-          : momentum.score < 65
-          ? PredictiveRiskLevel.medium
-          : PredictiveRiskLevel.low,
-      summary: 'Momentum may decline if execution remains inconsistent.',
-      mitigation: 'Complete one visible task before opening additional work.',
-    ),
-    PredictiveRisk(
-      title: 'Burnout Risk',
-      level: momentum.pressurePercent > 70
-          ? PredictiveRiskLevel.high
-          : momentum.pressurePercent > 45
-          ? PredictiveRiskLevel.medium
-          : PredictiveRiskLevel.low,
-      summary: 'Pressure load may exceed sustainable operating levels.',
-      mitigation: 'Reduce active commitments and schedule recovery.',
-    ),
-    PredictiveRisk(
-      title: 'Trajectory Drift Risk',
-      level: momentum.score < 50 && momentum.pressurePercent > 50
-          ? PredictiveRiskLevel.high
-          : PredictiveRiskLevel.medium,
-      summary: 'Current direction may drift away from declared goals.',
-      mitigation: 'Review priorities and focus on highest-leverage work.',
-    ),
-  ];
-
-  return PredictiveRiskState(risks: risks);
+/// Compatibility risk view backed by the same revisioned consequence model as
+/// Trajectory Engine. Unknown source state is never represented as low risk.
+final predictiveRiskProvider = Provider<PredictiveRiskState>((Ref ref) {
+  final AsyncValue<TrajectoryComparison> async = ref.watch(
+    trajectoryConsequenceProvider,
+  );
+  final TrajectoryComparison? comparison = async.isLoading
+      ? null
+      : async.asData?.value;
+  if (comparison == null || comparison.outcomes.isEmpty) {
+    return const PredictiveRiskState(
+      risks: <PredictiveRisk>[
+        PredictiveRisk(
+          title: 'Risk evidence unavailable',
+          level: PredictiveRiskLevel.unknown,
+          summary:
+              'No risk conclusion is valid until current planning evidence is reconciled.',
+          mitigation: 'Restore current evidence, then recalculate risk.',
+          confidence: PredictiveConfidenceBand.insufficientEvidence,
+          evidenceCodes: <String>['source_unavailable'],
+        ),
+      ],
+    );
+  }
+  final TrajectoryScenarioOutcome currentCourse = comparison.outcomes
+      .firstWhere(
+        (TrajectoryScenarioOutcome outcome) =>
+            outcome.intervention.type ==
+            TrajectoryInterventionType.maintainCourse,
+        orElse: () => comparison.outcomes.first,
+      );
+  final List<PredictiveRisk> risks =
+      currentCourse.risk.contributions
+          .map(
+            (TrajectoryRiskContribution contribution) => PredictiveRisk(
+              title: '${contribution.label} risk',
+              level: _riskLevel(contribution.projectedScore),
+              summary:
+                  '${contribution.explanation} Current ${contribution.currentScore}%; conditional current-course projection ${contribution.projectedScore}%.',
+              mitigation: _mitigation(contribution.code),
+              confidence: currentCourse.confidence.band,
+              evidenceCodes: <String>[
+                'baseline=${comparison.baseline.revision}',
+                'risk=${contribution.code}',
+              ],
+            ),
+          )
+          .toList(growable: false)
+        ..sort((PredictiveRisk a, PredictiveRisk b) {
+          return b.level.index.compareTo(a.level.index);
+        });
+  return PredictiveRiskState(risks: List<PredictiveRisk>.unmodifiable(risks));
 });
+
+PredictiveRiskLevel _riskLevel(int score) {
+  if (score >= 70) return PredictiveRiskLevel.high;
+  if (score >= 40) return PredictiveRiskLevel.medium;
+  return PredictiveRiskLevel.low;
+}
+
+String _mitigation(String code) => switch (code) {
+  'pressure' => 'Reduce active load or schedule a recovery block.',
+  'deferral' => 'Resolve one deferred commitment before adding another.',
+  'deadline' => 'Protect the nearest feasible deadline block on Timeline.',
+  'capacity' => 'Apply Smart Planner and reconcile displaced commitments.',
+  _ => 'Review the supporting evidence before choosing an intervention.',
+};

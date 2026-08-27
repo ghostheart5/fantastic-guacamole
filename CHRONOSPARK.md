@@ -1,160 +1,122 @@
-# ChronoSpark
+# ChronoSpark Product and Architecture Overview
 
-ChronoSpark is the product architecture behind fantastic-guacamole: a Flutter-based personal operating system for planning, reflection, execution, and momentum. The experience is designed to feel like a mission-control layer for daily life: decisive, readable, and focused on what matters now.
+ChronoSpark is a planning and decision-support system that connects planning inputs, scheduled action, available guidance, forward-looking scenarios, and evidence-backed progress.
 
-## Product intent
+The product helps people understand the day, decide the next move, and maintain momentum while keeping the user responsible for every decision.
 
-ChronoSpark is built to feel like a futuristic command surface for personal momentum:
+## Product operating model
 
-- help the user understand what matters today at a glance
-- surface structure and guidance without overwhelming the experience
-- support fast creator workflows for tasks, notes, goals, and daily rhythms
-- frame the app as a living operating system rather than a generic to-do list
-- keep onboarding, preferences, reminders, and permissions intuitive and visible
+ChronoSpark turns information into useful action through connected, non-mandatory stages:
 
-## Current product scope
+```text
+Capture → Schedule → Understand → Plan → Investigate → Anticipate → Advance
+```
 
-The app now centers on a small set of high-value experiences:
+The first-use path is:
 
-- Nexus as the central daily briefing and overview surface
-- Creator as the rapid entry point for tasks, notes, goals, and daily rhythms
-- SI Console as the mission-control guidance layer for coaching and action framing
-- Timeline and planning surfaces for sequence-based thinking over time
-- Profile, settings, and permissions for preference controls, reminders, and access management
+```text
+Creator → Timeline → Nexus
+```
 
-## What changed in the current product direction
+After activation, the features remain connected capabilities rather than a required linear sequence.
 
-The recent product work has pushed the app toward a clearer and more cohesive experience:
-
-- Nexus now functions as the main daily overview rather than a generic home screen
-- SI Console has been reframed as a strategic command layer with sharper response framing
-- Creator now supports a compact quick-entry experience with clearer entry-type guidance
-- Daily rhythms replace older habit framing in the creator flow to make the concept easier to understand
-- Settings now surface reminder automation, notification permissions, and voice access more clearly
-- Profile has been simplified to reduce clutter and keep the experience more focused
-
-## Architecture overview
-
-### Core stack
-
-- Flutter with Dart
-- Riverpod for state management and provider-driven orchestration
-- SharedPreferences, Hive, and local persistence layers for runtime state and offline resilience
-- Material 3 styling with custom animated UI, neon visual treatments, and mission-control inspired layouts
-- Firebase, Supabase, and app-level integrations for auth, storage, notifications, and runtime services
-
-### Layering model
-
-The intended dependency direction is:
-
-UI -> State/Providers -> Repositories/Data Access -> Services/Integrations -> Engine/Domain Logic
-
-This contract is documented in [docs/LAYER_FLOW.md](docs/LAYER_FLOW.md).
-
-## Primary app layers
-
-### 1. UI layer
-
-The UI layer lives under [lib/ui](lib/ui) and [lib/features](lib/features). It contains the visible product experience: Nexus, Creator, SI Console, onboarding, settings, profile, and premium-related surfaces.
-
-Key responsibilities:
-
-- render the user-facing planner experience
-- connect screens to providers and runtime state
-- present guidance, reminders, and onboarding in a more legible way
-- maintain a visually cohesive and readable product language
-
-### 2. State layer
-
-The state layer lives under [lib/state](lib/state) and [lib/core/state](lib/core/state). This is the runtime orchestration layer for planning, reminders, permissions, and app flow state.
-
-Key responsibilities:
-
-- own the active planning context and user state
-- coordinate task, note, goal, daily rhythm, and decision lifecycle events
-- connect UI actions to engine-level logic
-- persist and restore runtime state across sessions
-
-### 3. Domain and engine layer
-
-The domain and engine logic lives under [lib/domain](lib/domain), [lib/core](lib/core), and [lib/engine](lib/engine). This is where guidance logic, planning heuristics, reminders, and system behavior live.
-
-Key responsibilities:
-
-- generate contextual recommendations and planning hints
-- adapt suggestions to user behavior and timing patterns
-- manage reminder and notification-related logic
-- support planning and planning heuristics
-
-### 4. Data and integration layer
-
-The data layer is organized under [lib/data](lib/data) and [lib/config](lib/config), with supporting runtime integrations for Firebase, Supabase, persistence, and external services.
-
-Key responsibilities:
-
-- load and persist user and runtime data
-- integrate with remote services when present
-- support feature flags, environment configuration, and build-time setup
-- keep app logic separate from concrete storage and service details
-
-## Main product areas
+## Current feature canon
 
 ### Nexus
 
-Nexus is the central daily briefing surface. It is designed to answer the question “what matters today?” quickly and clearly, with a more focused top-of-fold experience.
+Nexus is the main and home surface. It presents the current operating state, relevant limitations, and a next-best action for the user to review.
 
 ### Creator
 
-Creator is the fast input surface for structured planning. It enables rapid capture of tasks, notes, goals, and daily rhythms and helps the user move from intention to record without friction.
+Creator owns structured planning inputs. It is where tasks, goals, Daily Rhythms, and notes are created and managed. Timeline is their scheduling projection rather than a second authoring surface.
+
+### Settings
+
+Settings owns preferences, account controls, privacy, support, notifications, and advanced/internal access points.
+
+### Timeline
+
+Timeline plans and reviews scheduled action, operational sequencing, and history across time.
+
+### Smart Planner
+
+Smart Planner provides explainable planning assistance and reconciles available goals, tasks, schedules, constraints, and priorities. Its output is guidance to evaluate.
 
 ### SI Console
 
-The SI Console is the app’s guidance and coaching surface. It turns the current planning context into action-oriented support and is framed as a mission-control layer for decision-making.
+SI Console is a support surface for deeper strategic investigation. It presents relevant context, limitations, and executable guidance without replacing the user's judgment.
 
-### Timeline and planning
+### Trajectory Engine
 
-Timeline and planning surfaces support time-blocking, milestone thinking, and sequence-oriented planning. These experiences are intended to help the user think in sequences, not just static lists.
+Trajectory Engine compares explicit future scenarios, assumptions, trade-offs, and possible corrections. It is decision support, not a prediction or promise.
 
-### Profile, settings, and permissions
+### Progression
 
-Profile, settings, and permission flows provide account context, reminders, notification access, voice access, and app controls in a way that is more visible and easier to understand.
+Progression is a support surface for evidence-backed advancement and leverage-action context. Levels, experience, streaks, momentum, and confidence are product signals—not guarantees or judgments of personal worth.
 
-## Key domain concepts
+## Core planning records
 
-- task: a concrete unit of work or action
-- note: a lightweight capture for ideas, context, or reflection
-- goal: a target outcome or direction for effort
-- daily rhythm: a recurring pattern or behavior that should be supported regularly
-- mission: a higher-level objective or grouping of work
-- timeline: an ordered view of planned time and effort
-- decision: an output or recommendation produced by the system
-- log: an audit trail of events and support actions
-- preference: a user-specific setting that changes experience behavior
+- **Task** — a specific action the user intends to complete.
+- **Goal** — a desired outcome or longer-term direction.
+- **Daily Rhythm** — a repeatable behavior practiced consistently.
+- **Note** — context, information, research, ideas, decisions, or reflection.
 
-## Runtime behavior
+These records can support one another, but they do not automatically become a schedule, recommendation, or commitment.
 
-ChronoSpark is organized around a few repeated runtime loops:
+## Product boundaries
 
-1. collect user activity and current planning context
-2. evaluate task pressure, timing, and intent
-3. produce guidance, reminders, or planning suggestions
-4. present those outputs through Nexus, Creator, and the SI Console
-5. persist the resulting state for the next session
+- Nexus is the home surface.
+- Insight and signal are outputs inside features, not standalone features.
+- Product Advisor is internal/admin diagnostics, not a premium product feature.
+- FlowMaps are internal architecture documentation, not user-facing product surfaces.
+- Daily Rhythms is the current public term for recurring behaviors.
+- Reflection is the current public term for reviewing and retaining useful experience.
+- Smart Planner and SI Console provide guidance, not automatic authority.
+- Trajectory Engine presents scenarios, not guaranteed predictions.
+- Progression reports available evidence, not personal value.
+- ChronoSpark does not replace professional medical, legal, financial, emergency, or other qualified advice.
 
-This loop is what makes the app feel like a system rather than a static planner.
+## Architecture
 
-## Repository map
+### Core stack
 
-- [lib](lib) contains the app implementation and feature modules
-- [assets](assets) holds UI assets, animations, tutorials, and seed content
-- [test](test) and [integration_test](integration_test) contain automated tests and smoke coverage
-- [docs](docs) contains architecture notes, audits, and release guidance
-- [supabase](supabase) holds integration assets and edge function support
+- Flutter and Dart
+- Riverpod for state management and orchestration
+- Supabase Auth, Postgres, Storage, and Edge Functions for primary cloud services
+- Firebase Cloud Messaging, Analytics, and Crashlytics for notifications and telemetry
+- Local account-scoped persistence for offline continuity and recovery
 
-## Release and engineering notes
+### Dependency direction
 
-The project includes a substantial audit and release documentation set in [docs](docs), including architecture review, release readiness, and testing information. These docs should be treated as companion material to this overview rather than as the only source of truth.
+```text
+UI → State and Providers → Repositories and Data Access → Services and Integrations → Domain and Engine Logic
+```
 
-## Summary
+The detailed dependency contract is maintained in [docs/LAYER_FLOW.md](docs/LAYER_FLOW.md).
 
-ChronoSpark is best understood as a layered, product-first planning system: a polished app shell wrapped around adaptive logic, structured planning concepts, and a long-term roadmap for everyday command-center experiences.
+### Primary source areas
+
+- `lib/features/` and `lib/ui/` contain product surfaces and shared presentation components.
+- `lib/state/` contains providers, controllers, and runtime orchestration.
+- `lib/data/` contains repositories, persistence, and service integration boundaries.
+- `lib/domain/`, `lib/core/`, and `lib/engine/` contain entities, contracts, and decision-support logic.
+- `supabase/` contains database migrations and Edge Function sources.
+- `test/` and `integration_test/` contain automated verification.
+
+## Data and intelligence principles
+
+- Account-owned data must remain isolated by verified authenticated scope.
+- Missing, stale, loading, offline, and error states must not be represented as healthy or complete evidence.
+- Recommendations should identify relevant context and limitations.
+- User-authored content should not be sent to remote intelligence services unless the applicable privacy policy and user control permit it.
+- Creation, scheduling, progression, and trajectory claims must be backed by real persistence and domain behavior.
+
+## Current public product documentation
+
+The [ChronoSpark GitHub Wiki](https://github.com/ghostheart5/fantastic-guacamole/wiki) is the current public product guide. In particular, see:
+
+- [Overview](https://github.com/ghostheart5/fantastic-guacamole/wiki/Overview)
+- [Core Concepts](https://github.com/ghostheart5/fantastic-guacamole/wiki/Core-Concepts)
+- [Daily Workflow](https://github.com/ghostheart5/fantastic-guacamole/wiki/Daily-Workflow)
+- [Trajectory Engine](https://github.com/ghostheart5/fantastic-guacamole/wiki/Trajectory-Engine)
+- [Progression](https://github.com/ghostheart5/fantastic-guacamole/wiki/Progression)

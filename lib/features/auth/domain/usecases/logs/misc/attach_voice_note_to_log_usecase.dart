@@ -1,3 +1,0 @@
-class AttachVoiceNoteToLogUsecase {
-  const AttachVoiceNoteToLogUsecase();
-}

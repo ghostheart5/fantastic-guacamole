@@ -1,3 +1,0 @@
-class CreateSubtaskUsecase {
-  const CreateSubtaskUsecase();
-}

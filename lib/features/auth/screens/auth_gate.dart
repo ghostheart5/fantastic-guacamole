@@ -1,15 +1,14 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
-import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
-import 'package:fantastic_guacamole/state/providers/authenticated_data_readiness_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
-import 'package:fantastic_guacamole/state/providers/supabase_sync_queue_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -32,48 +31,44 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
   }
   switch (code) {
     case 'invalid-email':
-      return 'Please enter a valid email address.';
+      return 'Invalid email format.';
     case 'user-not-found':
     case 'wrong-password':
-      return 'We could not complete sign-in. Please try again.';
+      return 'Credentials are incorrect.';
     case 'email-already-in-use':
       return 'An account with this email already exists.';
     case 'weak-password':
-      return 'Please choose a stronger password.';
+      return 'Password is too weak.';
     case 'too-many-requests':
-      return 'Too many attempts. Please wait and try again.';
+      return 'Rate limit engaged. Wait, then retry.';
     case 'network-request-failed':
-      return 'Sign-in is temporarily unavailable. Check your connection and try again.';
+      return 'Network link offline. Reconnect and retry.';
     case 'user-disabled':
-      return 'Your account needs attention. Please sign in again.';
+      return 'Account access disabled. Contact support.';
     case 'user-token-expired':
     case 'invalid-user-token':
-      return 'We could not restore your session. Please sign in again.';
+      return 'Sign-in expired. Local work is safe and cloud sync is paused. Sign in again to resume.';
     case 'requires-recent-login':
-      return 'Your account needs attention. Please sign in again.';
+      return 'Re-authenticate to continue securely.';
     case 'google-sign-in-cancelled':
     case 'popup-closed-by-user':
       return 'Google sign-in canceled.';
     case 'github-sign-in-cancelled':
       return 'GitHub sign-in canceled.';
     case 'no-current-user':
-      return 'We could not restore your session. Please sign in again.';
+      return 'You were signed out. Local work remains on this device; sign in again to resume account features.';
     case 'auth-unavailable':
-      return 'Sign-in is temporarily unavailable. Check your connection and try again.';
+      return 'Sign-in services are temporarily unavailable. Your local work is safe; retry when connected.';
     case 'operation-failed':
-      return 'We could not complete sign-in. Please try again.';
+      return 'The account operation could not be completed. Retry or contact support if it continues.';
     case 'operation-not-supported':
-      return 'Sign-in is temporarily unavailable. Please try again later.';
+      return 'This account operation is unavailable right now. Contact support for help.';
     case 'missing-password':
-      return 'Password is required.';
-    case 'missing-phone':
-      return 'Phone number is required.';
-    case 'missing-verification-code':
-      return 'Verification code is required.';
+      return 'Enter your password to continue.';
     case 'missing-email':
-      return 'Account email is unavailable.';
+      return 'Your account email could not be confirmed. Sign in again.';
     default:
-      return 'Authentication could not be completed. Please try again.';
+      return 'Authentication failed. Retry.';
   }
 }
 
@@ -92,7 +87,7 @@ class AuthGate extends ConsumerStatefulWidget {
   final Widget child;
   final AuthServiceContract? authService;
   final String? startupError;
-  final String? deepLinkMode;
+  final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
   final String mockLoginEmail;
   final String mockLoginPassword;
@@ -102,19 +97,15 @@ class AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<AuthGate> {
-  Future<void>? _authReadyFuture;
+  late final Future<void> _authReadyFuture;
   AuthServiceContract? _authService;
   String? _authInitError;
+  bool _mockSignInActive = false;
   bool _authReadyTimedOut = false;
-  String? _lastAutoQueueFlushUserId;
 
   @override
   void initState() {
     super.initState();
-    _startAuthInitialization();
-  }
-
-  void _startAuthInitialization() {
     _authReadyFuture = _initializeAuth().timeout(
       const Duration(seconds: 8),
       onTimeout: () {
@@ -125,25 +116,15 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     );
   }
 
-  void _retryAuthInitialization() {
-    setState(() {
-      _authService = null;
-      _authInitError = null;
-      _authReadyTimedOut = false;
-      _startAuthInitialization();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final bool mockSessionActive = ref.watch(mockAuthSessionProvider);
     final bool allowMockAccess =
         widget.enableMockLogin || (!kReleaseMode && _authInitError != null);
     final String? startupMessage = _effectiveStartupError;
     final AuthServiceContract fallbackAuthService =
         _authService ?? const _UnavailableAuthService();
 
-    if (mockSessionActive) {
+    if (_mockSignInActive) {
       return widget.child;
     }
 
@@ -159,8 +140,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               enableMockLogin: true,
               mockLoginEmail: widget.mockLoginEmail,
               mockLoginPassword: widget.mockLoginPassword,
-              onMockSignIn: _activateMockSession,
-              onOAuthCallback: _handleOAuthCallback,
+              onMockSignIn: _activateMockSignIn,
             );
           }
           return const Scaffold(
@@ -170,12 +150,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         }
 
         if (authSnapshot.hasError) {
-          return _AuthStatusMessage(
+          return const _AuthStatusMessage(
             title: 'Authentication unavailable',
             message:
                 'Auth initialization failed. Please restart and try again.',
-            actionLabel: 'Retry',
-            onAction: _retryAuthInitialization,
           );
         }
 
@@ -189,8 +167,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               enableMockLogin: true,
               mockLoginEmail: widget.mockLoginEmail,
               mockLoginPassword: widget.mockLoginPassword,
-              onMockSignIn: _activateMockSession,
-              onOAuthCallback: _handleOAuthCallback,
+              onMockSignIn: _activateMockSignIn,
             );
           }
           return _AuthStatusMessage(
@@ -198,8 +175,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             message: _authReadyTimedOut
                 ? 'Auth initialization timed out. Please retry.'
                 : 'Auth service is not ready in this runtime.',
-            actionLabel: 'Retry',
-            onAction: _retryAuthInitialization,
           );
         }
 
@@ -211,8 +186,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             enableMockLogin: allowMockAccess,
             mockLoginEmail: widget.mockLoginEmail,
             mockLoginPassword: widget.mockLoginPassword,
-            onMockSignIn: _activateMockSession,
-            onOAuthCallback: _handleOAuthCallback,
+            onMockSignIn: _activateMockSignIn,
           );
         }
 
@@ -225,11 +199,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                   authService: authService,
                   startupError: startupMessage,
                   deepLinkMode: widget.deepLinkMode,
-                  enableMockLogin: false,
+                  enableMockLogin: true,
                   mockLoginEmail: widget.mockLoginEmail,
                   mockLoginPassword: widget.mockLoginPassword,
-                  onMockSignIn: _activateMockSession,
-                  onOAuthCallback: _handleOAuthCallback,
+                  onMockSignIn: _activateMockSignIn,
                 );
               }
               return const Scaffold(
@@ -238,12 +211,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               );
             }
             if (snapshot.hasError) {
-              return _AuthStatusMessage(
+              return const _AuthStatusMessage(
                 title: 'Authentication unavailable',
                 message:
                     'Auth service reported an error. Please restart and try again.',
-                actionLabel: 'Retry',
-                onAction: _retryAuthInitialization,
               );
             }
 
@@ -256,8 +227,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 enableMockLogin: allowMockAccess,
                 mockLoginEmail: widget.mockLoginEmail,
                 mockLoginPassword: widget.mockLoginPassword,
-                onMockSignIn: _activateMockSession,
-                onOAuthCallback: _handleOAuthCallback,
+                onMockSignIn: _activateMockSignIn,
               );
             }
             if (user == null) {
@@ -268,8 +238,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 enableMockLogin: allowMockAccess,
                 mockLoginEmail: widget.mockLoginEmail,
                 mockLoginPassword: widget.mockLoginPassword,
-                onMockSignIn: _activateMockSession,
-                onOAuthCallback: _handleOAuthCallback,
+                onMockSignIn: _activateMockSignIn,
               );
             }
             if (!user.emailVerified) {
@@ -278,37 +247,11 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 email: user.email ?? '',
               );
             }
-            final AuthenticatedDataReadiness readiness = ref.watch(
-              authenticatedDataReadinessProvider,
-            );
-            if (!isAuthenticatedDataReady(readiness)) {
-              return _AuthenticatedDataReadinessGate(readiness: readiness);
-            }
-            _maybeAutoFlushSupabaseQueue(user);
             return widget.child;
           },
         );
       },
     );
-  }
-
-  void _maybeAutoFlushSupabaseQueue(User user) {
-    if (!Env.enableCloudSync || !Env.enableSupabaseAutoQueueFlush) {
-      return;
-    }
-
-    final String userId = user.id.trim();
-    if (userId.isEmpty || _lastAutoQueueFlushUserId == userId) {
-      return;
-    }
-
-    _lastAutoQueueFlushUserId = userId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      ref.invalidate(flushSupabaseSyncQueueProvider);
-    });
   }
 
   Future<void> _initializeAuth() async {
@@ -335,9 +278,15 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
       for (int attempt = 0; attempt < maxInitAttempts; attempt++) {
         if (attempt > 0) {
-          ref.invalidate(authServiceProvider);
+          // Force the providers to rebuild. authServiceProvider is a plain
+          // (non-autoDispose) Provider that reads supabaseClientProvider with
+          // `read`, not `watch`, so it caches its result on first read. Without
+          // invalidating, every retry returned the identical cached instance
+          // and the loop could never recover from a first-attempt failure — it
+          // just slept 700ms and reported the same error.
+          container.invalidate(supabaseClientProvider);
+          container.invalidate(authServiceProvider);
         }
-
         final AuthServiceContract authService = container.read(
           authServiceProvider,
         );
@@ -391,56 +340,16 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     return issues.join('\n');
   }
 
-  void _activateMockSession() {
-    if (!mounted) {
+  void _activateMockSignIn() {
+    if (_mockSignInActive || !mounted) {
       return;
     }
-    ref.read(mockAuthSessionProvider.notifier).set(true);
-  }
-
-  Future<void> _handleOAuthCallback() async {
-    try {
-      await ref.read(authControllerProvider.notifier).completeOAuthCallback();
-    } catch (_) {
-      await ref.read(authControllerProvider.notifier).restoreSession();
-    }
+    ref.read(mockSignInProvider.notifier).set(true);
+    setState(() => _mockSignInActive = true);
   }
 }
 
-class _AuthenticatedDataReadinessGate extends StatelessWidget {
-  const _AuthenticatedDataReadinessGate({required this.readiness});
-
-  final AuthenticatedDataReadiness readiness;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isBlocked = readiness == AuthenticatedDataReadiness.blocked;
-    return Scaffold(
-      backgroundColor: _authBackgroundColor,
-      body: Center(
-        child: Semantics(
-          identifier: isBlocked
-              ? 'screen-session-blocked'
-              : 'screen-session-transition',
-          label: isBlocked
-              ? 'Account transition needs attention'
-              : 'Preparing your account data',
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: isBlocked
-                ? const Text(
-                    'ChronoSpark cannot safely open account data yet.',
-                    textAlign: TextAlign.center,
-                  )
-                : const CircularProgressIndicator(),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AuthScreen extends StatefulWidget {
+class _AuthScreen extends ConsumerStatefulWidget {
   const _AuthScreen({
     required this.authService,
     required this.startupError,
@@ -449,23 +358,21 @@ class _AuthScreen extends StatefulWidget {
     required this.mockLoginEmail,
     required this.mockLoginPassword,
     required this.onMockSignIn,
-    required this.onOAuthCallback,
   });
 
   final AuthServiceContract authService;
   final String? startupError;
-  final String? deepLinkMode;
+  final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
   final String mockLoginEmail;
   final String mockLoginPassword;
   final VoidCallback onMockSignIn;
-  final Future<void> Function() onOAuthCallback;
 
   @override
-  State<_AuthScreen> createState() => _AuthScreenState();
+  ConsumerState<_AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<_AuthScreen> {
+class _AuthScreenState extends ConsumerState<_AuthScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _recoveryPasswordController =
@@ -502,8 +409,7 @@ class _AuthScreenState extends State<_AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final bool inRecoveryMode =
-        (widget.deepLinkMode ?? '').trim() == 'recovery' &&
-        !_dismissRecoveryMode;
+        widget.deepLinkMode == DeepLinkMode.recovery && !_dismissRecoveryMode;
     if (inRecoveryMode) {
       return _buildRecoveryScreen(context);
     }
@@ -520,6 +426,9 @@ class _AuthScreenState extends State<_AuthScreen> {
       mockHint: widget.enableMockLogin
           ? 'Mock login: ${widget.mockLoginEmail}  /  ${widget.mockLoginPassword}'
           : null,
+      showFirstRunGuide:
+          ref.watch(onboardingWelcomeCompleteProvider) &&
+          !ref.watch(onboardingCompleteProvider),
       onTogglePassword: () {
         setState(() => _obscuredPassword = !_obscuredPassword);
       },
@@ -529,24 +438,25 @@ class _AuthScreenState extends State<_AuthScreen> {
       onPrimaryAction: () => _runAuthAction(_handlePrimaryAction),
       onForgotPassword: () => _runAuthAction(_handleForgotPassword),
       onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
+      onGitHubSignIn: () => _runAuthAction(_handleGitHubSignIn),
       onMockLogin: null,
     );
   }
 
   Future<void> _applyDeepLinkModeHint() async {
-    final String mode = (widget.deepLinkMode ?? '').trim();
-    if (mode.isEmpty) {
+    final DeepLinkMode? mode = widget.deepLinkMode;
+    if (mode == null) {
       return;
     }
 
-    if (mode == 'recovery') {
+    if (mode == DeepLinkMode.recovery) {
       _showMessage(
         'Password reset link received. Set your new password below.',
       );
       return;
     }
 
-    if (mode == 'verify-email') {
+    if (mode == DeepLinkMode.verifyEmail) {
       try {
         await widget.authService.reloadCurrentUser();
       } catch (_) {
@@ -558,9 +468,10 @@ class _AuthScreenState extends State<_AuthScreen> {
       return;
     }
 
-    if (mode == 'auth-callback') {
-      _showMessage('Authentication callback received');
-      await widget.onOAuthCallback();
+    if (mode == DeepLinkMode.authCallback) {
+      _showMessage(
+        'Authentication callback received. Continuing sign-in flow.',
+      );
     }
   }
 
@@ -594,27 +505,17 @@ class _AuthScreenState extends State<_AuthScreen> {
         _showMessage('Use 8+ chars with upper, lower, and a number.');
         return;
       }
-
       await widget.authService.signUp(email: email, password: password);
-
-      AppAnalytics.track(
-        'sign_up',
-        params: <String, Object?>{'method': 'email'},
-      );
-
+      await widget.authService.sendEmailVerification();
       AppAnalytics.track(
         'login_event',
         params: <String, Object?>{'provider': 'email', 'mode': 'signup'},
       );
-
-      _showMessage('Account created. Check your inbox to verify your email.');
+      _showMessage('Verification link sent. Confirm inbox to proceed.');
       return;
     }
 
     await widget.authService.signIn(email: email, password: password);
-
-    AppAnalytics.track('login', params: <String, Object?>{'method': 'email'});
-
     AppAnalytics.track(
       'login_event',
       params: <String, Object?>{'provider': 'email', 'mode': 'signin'},
@@ -641,10 +542,25 @@ class _AuthScreenState extends State<_AuthScreen> {
       return;
     }
     await widget.authService.signInWithGoogle();
-    AppAnalytics.track('login', params: <String, Object?>{'method': 'google'});
     AppAnalytics.track(
       'login_event',
       params: <String, Object?>{'provider': 'google', 'mode': 'signin'},
+    );
+  }
+
+  Future<void> _handleGitHubSignIn() async {
+    if (widget.enableMockLogin) {
+      AppAnalytics.track(
+        'login_event',
+        params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
+      );
+      widget.onMockSignIn();
+      return;
+    }
+    await widget.authService.signInWithGitHub();
+    AppAnalytics.track(
+      'login_event',
+      params: <String, Object?>{'provider': 'github', 'mode': 'signin'},
     );
   }
 
@@ -826,13 +742,6 @@ class _UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
-    bool forceRefresh = false,
-  }) async {
-    throw _error();
-  }
-
-  @override
   Future<User?> reloadCurrentUser() async {
     return null;
   }
@@ -858,15 +767,7 @@ class _UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<void> sendPhoneOtp(String phone) async {
-    throw _error();
-  }
-
-  @override
-  Future<UserCredential> verifyPhoneOtp({
-    required String phone,
-    required String token,
-  }) async {
+  Future<UserCredential> signInWithGitHub() async {
     throw _error();
   }
 
@@ -927,7 +828,7 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _busy ? null : _refreshVerification,
-                  child: const Text('Verified | Continue'),
+                  child: const Text('Verified · Continue'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(
@@ -963,7 +864,7 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
           (e.code == 'user-token-expired' ||
               e.code == 'invalid-user-token' ||
               e.code == 'requires-recent-login')
-          ? 'Session expired. Sign in again.'
+          ? 'Sign-in expired. Sign in again.'
           : 'Could not refresh account state.';
       ScaffoldMessenger.of(
         context,
@@ -999,17 +900,10 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
 }
 
 class _AuthStatusMessage extends StatelessWidget {
-  const _AuthStatusMessage({
-    required this.title,
-    required this.message,
-    this.actionLabel,
-    this.onAction,
-  });
+  const _AuthStatusMessage({required this.title, required this.message});
 
   final String title;
   final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -1024,10 +918,6 @@ class _AuthStatusMessage extends StatelessWidget {
               Text(title, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               Text(message, textAlign: TextAlign.center),
-              if (actionLabel != null && onAction != null) ...<Widget>[
-                const SizedBox(height: 16),
-                FilledButton(onPressed: onAction, child: Text(actionLabel!)),
-              ],
             ],
           ),
         ),

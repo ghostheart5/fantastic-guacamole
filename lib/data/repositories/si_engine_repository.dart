@@ -1,89 +1,139 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
-import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 
-class SiEngineRepository implements ISiRepository {
-  SiEngineRepository(this._store);
+class SiEngineRepository {
+  SiEngineRepository(this._store, this._scope, {DateTime Function()? clock})
+    : _clock = clock ?? DateTime.now;
 
-  static const String _stateKey = 'si_state_entity_v1';
+  static const String _stateKeyPrefix = 'si_engine_state_v2';
+  static const String _legacyStateKey = 'si_engine_state_v1';
+  static const String _sessionExpiresAtKey = 'sessionExpiresAtUtc';
+  static const Duration sessionRetention = Duration(hours: 24);
 
   final SecureStore _store;
+  final AccountStorageScope _scope;
+  final DateTime Function() _clock;
 
-  @override
-  Future<SiStateEntity?> getCurrentState() async {
-    final String? raw = await _store.readString(_stateKey);
+  String? stateKey(AssistantConversationScope conversation) {
+    final String? accountNamespace = _scope.v2Namespace;
+    final String conversationId = conversation.conversationId.trim();
+    if (!_scope.isWritable ||
+        accountNamespace == null ||
+        conversationId.isEmpty) {
+      return null;
+    }
+    final String encodedConversation = base64UrlEncode(
+      utf8.encode(conversationId),
+    );
+    return '$_stateKeyPrefix.$accountNamespace.${conversation.surface.storageId}.$encodedConversation';
+  }
+
+  Future<Map<String, dynamic>?> loadState(
+    AssistantConversationScope conversation,
+  ) async {
+    final String? key = stateKey(conversation);
+    if (key == null) return null;
+    final String? raw = await _store.readString(key);
     if (raw == null || raw.trim().isEmpty) {
       return null;
     }
 
     try {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is! Map) {
-        throw const FormatException('Stored SI state is not a JSON object.');
+      final dynamic decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        final Map<String, dynamic>? active = _activeSession(decoded);
+        if (active == null) await _store.delete(key);
+        return active;
       }
-      return _fromJson(
-        decoded.map<String, dynamic>(
-          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-        ),
-      );
-    } on Object catch (error) {
+      if (decoded is Map<dynamic, dynamic>) {
+        final Map<String, dynamic>? active = _activeSession(
+          decoded.cast<String, dynamic>(),
+        );
+        if (active == null) await _store.delete(key);
+        return active;
+      }
+      await _store.delete(key);
+      return null;
+    } on FormatException catch (error) {
       Logger.error('Stored SI engine state is corrupt.', error);
-      throw StateError('Stored SI state is corrupt.');
+      return null;
     }
   }
 
-  @override
-  Future<void> saveState(SiStateEntity state) {
-    state.validate();
-    return _store.writeString(_stateKey, jsonEncode(_toJson(state)));
-  }
-
-  static Map<String, dynamic> _toJson(SiStateEntity state) {
-    return <String, dynamic>{
-      'energy': state.energy,
-      'focus': state.focus,
-      'fatigue': state.fatigue,
-      'mood': state.mood,
-      'confidence': state.confidence,
-      'anticipatesConfusion': state.anticipatesConfusion,
-      'primaryInstinct': state.primaryInstinct,
-      'avoidOverwhelm': state.avoidOverwhelm,
-      'frictionScore': state.frictionScore,
-      'highFriction': state.highFriction,
-      'lastUpdated': state.lastUpdated.toIso8601String(),
+  Future<void> saveState(
+    AssistantConversationScope conversation,
+    Map<String, dynamic> state,
+  ) async {
+    final String? key = stateKey(conversation);
+    if (key == null) return;
+    final Map<String, dynamic> expiringState = <String, dynamic>{
+      ...state,
+      _sessionExpiresAtKey: _clock()
+          .toUtc()
+          .add(sessionRetention)
+          .toIso8601String(),
     };
+    await _store.writeString(key, jsonEncode(expiringState));
   }
 
-  static SiStateEntity _fromJson(Map<String, dynamic> json) {
-    final double? energy = (json['energy'] as num?)?.toDouble();
-    final double? focus = (json['focus'] as num?)?.toDouble();
-    final double? fatigue = (json['fatigue'] as num?)?.toDouble();
-    final DateTime? lastUpdated = DateTime.tryParse(
-      json['lastUpdated']?.toString() ?? '',
+  Future<Map<String, dynamic>?> exportState(
+    AssistantConversationScope conversation,
+  ) async {
+    final Map<String, dynamic>? state = await loadState(conversation);
+    return state == null ? null : Map<String, dynamic>.from(state);
+  }
+
+  Future<void> clearState(AssistantConversationScope conversation) async {
+    final String? key = stateKey(conversation);
+    if (key == null) return;
+    await _store.delete(key);
+  }
+
+  /// Legacy state has no provable account or surface owner, so it is never
+  /// migrated. It may only be removed by an explicit device-wide memory clear.
+  Future<void> clearLegacyState() => _store.delete(_legacyStateKey);
+
+  Map<String, dynamic>? _activeSession(Map<String, dynamic> state) {
+    final DateTime? expiry = DateTime.tryParse(
+      state[_sessionExpiresAtKey]?.toString() ?? '',
     );
-    if (energy == null ||
-        focus == null ||
-        fatigue == null ||
-        lastUpdated == null) {
-      throw const FormatException(
-        'Stored SI state has missing required fields.',
-      );
+    // Pre-Phase-8 state has no bounded retention receipt and is never adopted.
+    if (expiry == null || !_clock().toUtc().isBefore(expiry.toUtc())) {
+      return null;
     }
-    return SiStateEntity(
-      energy: energy,
-      focus: focus,
-      fatigue: fatigue,
-      mood: json['mood']?.toString() ?? 'neutral',
-      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.5,
-      anticipatesConfusion: json['anticipatesConfusion'] as bool? ?? false,
-      primaryInstinct: json['primaryInstinct']?.toString() ?? 'progress_first',
-      avoidOverwhelm: json['avoidOverwhelm'] as bool? ?? false,
-      frictionScore: (json['frictionScore'] as num?)?.toDouble() ?? 0.0,
-      highFriction: json['highFriction'] as bool? ?? false,
-      lastUpdated: lastUpdated,
-    );
+    return state;
+  }
+}
+
+extension SiEngineEvidencePlaneRepository on SiEngineRepository {
+  String? get accountScopeId => _scope.v2Namespace;
+
+  Future<AssistantEvidenceExchange?> loadAssistantEvidenceExchange(
+    AssistantConversationScope conversation,
+  ) async {
+    final Map<String, dynamic>? state = await loadState(conversation);
+    final Object? rawExchange = state?['assistantEvidenceExchange'];
+    if (rawExchange is! Map<Object?, Object?>) return null;
+    try {
+      final AssistantEvidenceExchange exchange =
+          AssistantEvidenceExchange.fromJson(
+            Map<String, Object?>.from(rawExchange),
+          );
+      if (exchange.request.accountScopeId != accountScopeId ||
+          exchange.request.conversation != conversation) {
+        throw const EvidencePlaneException(
+          'Persisted evidence exchange does not belong to this repository scope.',
+        );
+      }
+      return exchange;
+    } on FormatException catch (error) {
+      Logger.error('Stored assistant evidence exchange is invalid.', error);
+      return null;
+    }
   }
 }

@@ -1,3 +1,0 @@
-class EditHabitTemplateUsecase {
-  const EditHabitTemplateUsecase();
-}

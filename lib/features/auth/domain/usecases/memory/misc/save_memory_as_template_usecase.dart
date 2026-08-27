@@ -1,3 +1,0 @@
-class SaveMemoryAsTemplateUsecase {
-  const SaveMemoryAsTemplateUsecase();
-}

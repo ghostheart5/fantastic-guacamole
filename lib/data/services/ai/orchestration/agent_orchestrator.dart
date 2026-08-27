@@ -191,6 +191,8 @@ class AgentOrchestrator {
         ? 'agent_native'
         : 'agent_defaulted';
     normalized['durationMs'] = durationMs;
+    normalized.putIfAbsent('source', () => 'local');
+    normalized.putIfAbsent('modelBacked', () => false);
     return normalized;
   }
 }

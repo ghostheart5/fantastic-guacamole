@@ -10,28 +10,12 @@ Future<void> showLevelUpAnimation(
   required int level,
   required String title,
 }) async {
-  final bool reduceMotion =
-      MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-  MotionProfile motionProfile = MotionProfile.standard;
-  try {
-    motionProfile = ProviderScope.containerOf(
-      context,
-      listen: false,
-    ).read(motionProfileProvider);
-  } on Object {
-    motionProfile = MotionProfile.standard;
-  }
-  final Duration transitionDuration = switch (motionProfile) {
-    MotionProfile.calm => const Duration(milliseconds: 140),
-    MotionProfile.standard => const Duration(milliseconds: 180),
-    MotionProfile.expressive => const Duration(milliseconds: 240),
-  };
   await showGeneralDialog<void>(
     context: context,
     barrierLabel: 'Level up animation',
     barrierDismissible: false,
     barrierColor: const Color(0xD907101D),
-    transitionDuration: transitionDuration,
+    transitionDuration: const Duration(milliseconds: 180),
     pageBuilder: (_, _, _) => _LevelUpOverlay(level: level, title: title),
     transitionBuilder:
         (
@@ -40,9 +24,6 @@ Future<void> showLevelUpAnimation(
           Animation<double> secondaryAnimation,
           Widget child,
         ) {
-          if (reduceMotion) {
-            return child;
-          }
           final CurvedAnimation curved = CurvedAnimation(
             parent: animation,
             curve: Curves.easeOutCubic,
@@ -72,32 +53,12 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
   @override
   void initState() {
     super.initState();
-    final container = ProviderScope.containerOf(context, listen: false);
-    final bool soundEnabled = container.read(soundEnabledProvider);
-    final bool advancedAudioEnabled = container.read(
-      advancedAudioProfileEnabledProvider,
-    );
-    final bool hapticEnabled = container.read(hapticFeedbackEnabledProvider);
-    AudioService.playAchievement(
-      soundEnabled,
-      advancedProfileEnabled: advancedAudioEnabled,
-      hapticsEnabled: hapticEnabled,
-    );
-    MotionProfile motionProfile = MotionProfile.standard;
-    try {
-      motionProfile = ProviderScope.containerOf(
-        context,
-        listen: false,
-      ).read(motionProfileProvider);
-    } on Object {
-      motionProfile = MotionProfile.standard;
-    }
-    final Duration dismissDelay = switch (motionProfile) {
-      MotionProfile.calm => const Duration(milliseconds: 760),
-      MotionProfile.standard => const Duration(milliseconds: 1050),
-      MotionProfile.expressive => const Duration(milliseconds: 1220),
-    };
-    Future<void>.delayed(dismissDelay, _dismiss);
+    final bool soundEnabled = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(soundEnabledProvider);
+    AudioService.playAchievement(soundEnabled);
+    Future<void>.delayed(const Duration(milliseconds: 1050), _dismiss);
   }
 
   void _dismiss() {
@@ -109,8 +70,6 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final bool reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return Material(
       type: MaterialType.transparency,
       child: Center(
@@ -141,13 +100,11 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
               SizedBox(
                 width: 220,
                 height: 220,
-                child: reduceMotion
-                    ? const SizedBox.shrink()
-                    : Lottie.asset(
-                        AppAssets.animLevelUp,
-                        repeat: false,
-                        fit: BoxFit.contain,
-                      ),
+                child: Lottie.asset(
+                  AppAssets.animLevelUp,
+                  repeat: false,
+                  fit: BoxFit.contain,
+                ),
               ),
               Column(
                 mainAxisSize: MainAxisSize.min,

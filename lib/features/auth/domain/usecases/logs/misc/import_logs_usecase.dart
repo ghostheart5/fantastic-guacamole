@@ -1,3 +1,0 @@
-class ImportLogsUsecase {
-  const ImportLogsUsecase();
-}

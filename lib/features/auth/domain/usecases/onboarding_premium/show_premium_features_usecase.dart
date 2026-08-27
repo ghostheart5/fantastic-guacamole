@@ -1,3 +1,0 @@
-class ShowPremiumFeaturesUsecase {
-  const ShowPremiumFeaturesUsecase();
-}

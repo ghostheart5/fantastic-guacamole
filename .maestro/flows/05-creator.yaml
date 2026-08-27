@@ -1,0 +1,73 @@
+# P1 — Creator. The only way a user gets data into the app.
+appId: com.ghostheart5.chronospark
+tags:
+  - core
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+# On a fresh account Nexus leads with the first-run call to action.
+- runFlow:
+    when:
+      visible: "Start here"
+    commands:
+      - tapOn: "Turn an intention into a path"
+
+- runFlow:
+    when:
+      notVisible: "CREATOR"
+    commands:
+      - runFlow:
+          file: ../subflows/open-from-nexus.yaml
+          env:
+            TARGET: "Creator"
+
+- assertVisible: "CREATOR"
+
+- tapOn: "Title *"
+- inputText: "Maestro smoke task"
+- hideKeyboard
+
+- scrollUntilVisible:
+    element:
+      text: "Schedule date"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Schedule date"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+
+- scrollUntilVisible:
+    element:
+      text: "REVIEW CHANGES"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "REVIEW CHANGES"
+
+# Creator is a two-step, explicitly confirmed write boundary.
+- extendedWaitUntil:
+    visible: "CONFIRM CREATOR CHANGES"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "CONFIRM SELECTED"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "CONFIRM SELECTED"
+
+- extendedWaitUntil:
+    visible: "Open Timeline"
+    timeout: 15000
+- tapOn: "Open Timeline"
+
+# The confirmed creation routes to Timeline and the task must actually be there.
+- extendedWaitUntil:
+    visible: "Maestro smoke task is due.*"
+    timeout: 15000

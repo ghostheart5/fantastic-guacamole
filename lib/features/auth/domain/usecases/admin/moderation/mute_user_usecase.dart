@@ -1,3 +1,0 @@
-class MuteUserUsecase {
-  const MuteUserUsecase();
-}

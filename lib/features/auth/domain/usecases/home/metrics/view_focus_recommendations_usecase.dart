@@ -1,3 +1,0 @@
-class ViewFocusRecommendationsUsecase {
-  const ViewFocusRecommendationsUsecase();
-}

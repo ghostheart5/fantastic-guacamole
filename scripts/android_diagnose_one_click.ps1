@@ -104,32 +104,10 @@ if (-not (Test-Path $apkPath)) {
 }
 
 Write-Host "Installing APK: $apkPath"
-$installOutput = (& $adb -s $deviceSerial install --no-streaming -r "$apkPath" 2>&1) | Out-String
+& $adb -s $deviceSerial install --no-streaming -r "$apkPath"
 if ($LASTEXITCODE -ne 0) {
-  $isSignatureMismatch = $installOutput -match 'INSTALL_FAILED_UPDATE_INCOMPATIBLE'
-  if ($isSignatureMismatch) {
-    Write-Host 'Detected signature mismatch. Performing one safe uninstall/reinstall retry...' -ForegroundColor Yellow
-    & $adb -s $deviceSerial uninstall $PackageName | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-      Write-Host 'Uninstall step failed; aborting retry.'
-      Write-Host $installOutput
-      exit 1
-    }
-
-    $retryInstallOutput = (& $adb -s $deviceSerial install --no-streaming -r "$apkPath" 2>&1) | Out-String
-    if ($LASTEXITCODE -ne 0) {
-      Write-Host 'APK install failed after uninstall/reinstall retry.'
-      Write-Host $retryInstallOutput
-      exit $LASTEXITCODE
-    }
-
-    Write-Host 'Reinstall succeeded after signature mismatch recovery.' -ForegroundColor Green
-  }
-  else {
-    Write-Host 'APK install failed.'
-    Write-Host $installOutput
-    exit $LASTEXITCODE
-  }
+  Write-Host 'APK install failed.'
+  exit $LASTEXITCODE
 }
 
 Write-Host 'Clearing logcat buffer...'

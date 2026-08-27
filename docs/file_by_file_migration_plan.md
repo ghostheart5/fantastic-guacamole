@@ -27,7 +27,7 @@
 ## Phase 4 - Feature Modularization
 
 - [lib/features/auth](../lib/features/auth): keep screen and state files together under an auth module.
-- [lib/features/home](../lib/features/home): split Smart Coach and shared cards into module-local widgets and controllers.
+- [lib/features/home](../lib/features/home): split Smart Planner and shared cards into module-local widgets and controllers.
 - [lib/features/settings](../lib/features/settings): split settings screen, actions, providers, and widgets into module-local layers.
 - [lib/onboarding](../lib/onboarding): move onboarding flow into a module with route entry points.
 - [lib/features/tasks](../lib/features/tasks): split trajectory screen, widgets, controllers, and summary models.

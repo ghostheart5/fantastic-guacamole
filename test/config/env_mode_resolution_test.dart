@@ -1,0 +1,202 @@
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+const bool _qaDefinesProvided =
+    bool.hasEnvironment('CHRONOSPARK_APP_FLAVOR') &&
+    bool.hasEnvironment('CHRONOSPARK_ENABLE_MOCK_LOGIN') &&
+    bool.hasEnvironment('CHRONOSPARK_ENABLE_MOCK_MODE') &&
+    bool.hasEnvironment('CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS') &&
+    bool.hasEnvironment('CHRONOSPARK_PAYWALL_DISABLED');
+
+void main() {
+  group('Env mode resolution', () {
+    test('production security rules require release mode and prod flavor', () {
+      expect(Env.resolveIsProduction('prod', isReleaseMode: true), isTrue);
+      expect(Env.resolveIsProduction('prod', isReleaseMode: false), isFalse);
+      expect(Env.resolveIsProduction('dev', isReleaseMode: true), isFalse);
+      expect(Env.resolveIsProduction('qa', isReleaseMode: true), isFalse);
+    });
+
+    test(
+      'mock mode is enabled only in non-production when explicitly enabled',
+      () {
+        expect(
+          Env.resolveIsMockMode(isProduction: false, enableMockMode: true),
+          isTrue,
+        );
+        expect(
+          Env.resolveIsMockMode(isProduction: false, enableMockMode: false),
+          isFalse,
+        );
+        expect(
+          Env.resolveIsMockMode(isProduction: true, enableMockMode: true),
+          isFalse,
+        );
+      },
+    );
+
+    test('paywall disabled follows dev/mock mode but never production', () {
+      expect(
+        Env.resolveIsPaywallDisabled(
+          isProduction: false,
+          enablePaywallDisabled: true,
+          isMockMode: false,
+        ),
+        isTrue,
+      );
+      expect(
+        Env.resolveIsPaywallDisabled(
+          isProduction: false,
+          enablePaywallDisabled: false,
+          isMockMode: true,
+        ),
+        isTrue,
+      );
+      expect(
+        Env.resolveIsPaywallDisabled(
+          isProduction: true,
+          enablePaywallDisabled: true,
+          isMockMode: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test(
+      'mock login is opt-in in non-production and always blocked in production',
+      () {
+        expect(
+          Env.resolveIsMockLoginEnabled(
+            isProduction: false,
+            isMockMode: false,
+            enableMockLogin: false,
+          ),
+          isFalse,
+        );
+        expect(
+          Env.resolveIsMockLoginEnabled(
+            isProduction: false,
+            isMockMode: false,
+            enableMockLogin: true,
+          ),
+          isTrue,
+        );
+        expect(
+          Env.resolveIsMockLoginEnabled(
+            isProduction: false,
+            isMockMode: true,
+            enableMockLogin: false,
+          ),
+          isTrue,
+        );
+        expect(
+          Env.resolveIsMockLoginEnabled(
+            isProduction: true,
+            isMockMode: false,
+            enableMockLogin: true,
+          ),
+          isFalse,
+        );
+        expect(
+          Env.resolveIsMockLoginEnabled(
+            isProduction: true,
+            isMockMode: false,
+            enableMockLogin: false,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test('tester full access remains production-safe', () {
+      expect(
+        Env.resolveHasTesterFullAccess(
+          isProduction: true,
+          enableTesterFullAccess: false,
+        ),
+        isFalse,
+      );
+      expect(
+        Env.resolveHasTesterFullAccess(
+          isProduction: false,
+          enableTesterFullAccess: false,
+        ),
+        isFalse,
+      );
+      expect(
+        Env.resolveHasTesterFullAccess(
+          isProduction: false,
+          enableTesterFullAccess: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test(
+      'explicit QA defines take precedence over bundled debug dotenv flags',
+      () async {
+        await dotenv.load(fileName: '.env');
+
+        expect(Env.appFlavor, 'qa');
+        expect(Env.enableMockLogin, isTrue);
+        expect(Env.enableMockMode, isTrue);
+        expect(Env.enableTesterFullAccess, isTrue);
+        expect(Env.enablePaywallDisabled, isTrue);
+        expect(Env.isMockMode, isTrue);
+        expect(Env.hasTesterFullAccess, isTrue);
+      },
+      skip: _qaDefinesProvided
+          ? false
+          : 'Run with --dart-define-from-file=tool/qa_defines.json.',
+    );
+
+    test('receipt verification endpoint derives from configuration safely', () {
+      expect(
+        Env.resolveReceiptVerifyEndpoint(
+          'https://billing.chronospark.app/verify-receipt',
+          supabaseUrl: 'https://ignored.example.supabase.co',
+        ),
+        'https://billing.chronospark.app/verify-receipt',
+      );
+      expect(
+        Env.resolveReceiptVerifyEndpoint(
+          '',
+          supabaseUrl: 'https://chronospark.supabase.co',
+        ),
+        'https://chronospark.supabase.co/functions/v1/verify-receipt',
+      );
+      expect(
+        Env.resolveReceiptVerifyEndpoint('', supabaseUrl: '   '),
+        'https://chronospark.app/verify-receipt',
+      );
+    });
+
+    test('privacy policy URL stays on the public HTTPS domain', () {
+      // Single source of truth: Env forwards to AppUrls, so the two cannot
+      // drift onto conflicting hosts.
+      expect(Env.privacyPolicyUrl, AppUrls.privacy);
+      expect(Env.termsOfServiceUrl, AppUrls.terms);
+      expect(Env.supportUrl, AppUrls.support);
+      expect(Env.privacyPolicyUrl.startsWith('https://'), isTrue);
+      expect(Env.termsOfServiceUrl.startsWith('https://'), isTrue);
+      expect(Env.supportUrl.startsWith('https://'), isTrue);
+    });
+
+    test('AI proxy configuration requires a valid HTTPS endpoint', () {
+      expect(Env.resolveIsAiProxyConfigured(''), isFalse);
+      expect(
+        Env.resolveIsAiProxyConfigured('http://localhost:8787/ai'),
+        isFalse,
+      );
+      expect(Env.resolveIsAiProxyConfigured('not-a-url'), isFalse);
+      expect(
+        Env.resolveIsAiProxyConfigured(
+          'https://chronospark.app/functions/v1/ai',
+        ),
+        isTrue,
+      );
+    });
+  });
+}

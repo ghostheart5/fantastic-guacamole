@@ -1,3 +1,0 @@
-﻿class PinMemoryUsecase {
-  const PinMemoryUsecase();
-}

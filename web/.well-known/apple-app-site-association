@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "REPLACE_WITH_TEAM_ID.com.ghostheart5.chronospark"
+        ],
+        "paths": [
+          "/app/*",
+          "/fantastic-guacamole/app/*"
+        ]
+      }
+    ]
+  }
+}

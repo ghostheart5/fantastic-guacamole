@@ -1,3 +1,0 @@
-class ManageMutedUsersUsecase {
-  const ManageMutedUsersUsecase();
-}

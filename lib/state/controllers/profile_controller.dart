@@ -1,63 +1,71 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
-import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/state/models/streak.dart';
-import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/streak_service.dart';
-import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ProfileState {
   final int xp;
   final int level;
-  final int legacyLevelFloor;
   final int streak;
   final int longestStreak;
   final bool leveledUp;
   final String name;
   final bool soundEnabled;
   final DateTime? lastActiveDate;
-  final bool profileReady;
+  final Map<String, int> xpBySource;
+
+  /// Highest level this user had reached under the pre-migration linear curve
+  /// (`(xp ~/ 50) + 1`), which granted levels far faster than the canonical
+  /// [ProgressionPolicy] curve.
+  ///
+  /// Existing users are grandfathered: their displayed level never drops.
+  /// [level] is `max(ProgressionPolicy.levelFromXp(xp), legacyLevelFloor)`, so
+  /// they keep what they earned and simply advance more slowly from here.
+  /// New users start with a floor of 1 and are unaffected.
+  ///
+  /// This is a migration artifact. Once no installs predate the migration it
+  /// can be removed and [level] becomes purely policy-derived.
+  final int legacyLevelFloor;
 
   ProfileState({
     this.xp = 0,
     this.level = 1,
-    this.legacyLevelFloor = 1,
     this.streak = 0,
     this.longestStreak = 0,
     this.leveledUp = false,
-    this.name = 'Operative',
+    this.name = 'ChronoSpark User',
     this.soundEnabled = true,
     this.lastActiveDate,
-    this.profileReady = false,
+    this.xpBySource = const <String, int>{},
+    this.legacyLevelFloor = 1,
   });
-
-  bool get hasValidProfile => profileReady && name.trim().isNotEmpty;
 
   ProfileState copyWith({
     int? xp,
     int? level,
-    int? legacyLevelFloor,
     int? streak,
     int? longestStreak,
     bool? leveledUp,
     String? name,
     bool? soundEnabled,
     DateTime? lastActiveDate,
-    bool? profileReady,
     bool clearLastActiveDate = false,
+    Map<String, int>? xpBySource,
+    int? legacyLevelFloor,
   }) {
     return ProfileState(
       xp: xp ?? this.xp,
       level: level ?? this.level,
-      legacyLevelFloor: legacyLevelFloor ?? this.legacyLevelFloor,
       streak: streak ?? this.streak,
       longestStreak: longestStreak ?? this.longestStreak,
       leveledUp: leveledUp ?? this.leveledUp,
@@ -66,178 +74,160 @@ class ProfileState {
       lastActiveDate: clearLastActiveDate
           ? null
           : (lastActiveDate ?? this.lastActiveDate),
-      profileReady: profileReady ?? this.profileReady,
+      xpBySource: xpBySource ?? this.xpBySource,
+      legacyLevelFloor: legacyLevelFloor ?? this.legacyLevelFloor,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'xp': xp,
     'level': level,
-    'legacyLevelFloor': legacyLevelFloor,
     'streak': streak,
     'longestStreak': longestStreak,
     'name': name,
     'soundEnabled': soundEnabled,
     'lastActiveDate': lastActiveDate?.toIso8601String(),
-    'profileReady': profileReady,
+    'xpBySource': xpBySource,
+    'legacyLevelFloor': legacyLevelFloor,
   };
 
   factory ProfileState.fromJson(Map<String, dynamic> json) {
     final int storedXp = (json['xp'] as num?)?.toInt() ?? 0;
     final int storedLevel = (json['level'] as num?)?.toInt() ?? 1;
-    final int legacyLevelFloor =
+
+    // Migration: a record written before the curve was unified has no
+    // 'legacyLevelFloor'. Adopt its stored level as the floor so the user
+    // never sees their level go backwards. Records written after the
+    // migration carry the floor explicitly and are left alone.
+    final int floor =
         (json['legacyLevelFloor'] as num?)?.toInt() ??
         (storedLevel > 1 ? storedLevel : 1);
-    final ProgressionCalculation progression = const ProgressionCalculator()
-        .calculate(xp: storedXp, legacyLevelFloor: legacyLevelFloor);
+    final String storedName =
+        (json['name'] as String?)?.trim().isNotEmpty == true
+        ? (json['name'] as String).trim()
+        : 'ChronoSpark User';
+
     return ProfileState(
-      xp: progression.xp,
-      level: progression.effectiveLevel,
-      legacyLevelFloor: legacyLevelFloor < 1 ? 1 : legacyLevelFloor,
+      xp: storedXp,
+      level: levelFor(xp: storedXp, floor: floor),
       streak: (json['streak'] as num?)?.toInt() ?? 0,
       longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? 'Operative',
+      // Migrate the retired built-in default without changing
+      // any real custom profile name.
+      name: storedName == 'Operative' ? 'ChronoSpark User' : storedName,
       soundEnabled: json['soundEnabled'] as bool? ?? true,
       lastActiveDate: json['lastActiveDate'] != null
           ? DateTime.tryParse(json['lastActiveDate'] as String)
           : null,
-      profileReady: json['profileReady'] as bool? ?? false,
+      xpBySource:
+          (json['xpBySource'] as Map?)?.map(
+            (key, value) =>
+                MapEntry(key.toString(), (value as num?)?.toInt() ?? 0),
+          ) ??
+          const <String, int>{},
+      legacyLevelFloor: floor,
     );
   }
-}
 
-/// The complete account-owned portion of the Profile V3 persistence contract.
-///
-/// Settings-owned preferences and transient presentation events intentionally do
-/// not belong to this snapshot.
-class ProfileCanonicalSnapshot {
-  const ProfileCanonicalSnapshot({
-    required this.xp,
-    required this.legacyLevelFloor,
-    required this.streak,
-    required this.longestStreak,
-    required this.name,
-    required this.lastActiveDate,
-    required this.profileReady,
-  });
+  /// The displayed level: the canonical curve, floored by what the user had
+  /// already earned before the migration.
+  static int levelFor({required int xp, required int floor}) {
+    final int policyLevel = ProgressionPolicy.levelFromXp(xp);
+    return policyLevel > floor ? policyLevel : floor;
+  }
 
-  final int xp;
-  final int legacyLevelFloor;
-  final int streak;
-  final int longestStreak;
-  final String name;
-  final DateTime? lastActiveDate;
-  final bool profileReady;
+  /// True while this user is still carried by the pre-migration floor rather
+  /// than by earned XP. Lets the UI explain the slower climb, and shows when
+  /// the migration artifact can be retired.
+  bool get isGrandfathered =>
+      legacyLevelFloor > ProgressionPolicy.levelFromXp(xp);
 }
 
 final profileProvider = NotifierProvider<ProfileController, ProfileState>(
   ProfileController.new,
 );
 
-enum ProfileLegacyMigrationResult { preservedAmbiguous }
-
 class ProfileController extends Notifier<ProfileState> {
-  int _initGeneration = 0;
-  int _writeGeneration = 0;
-  Future<void> _writeTail = Future<void>.value();
-  String? _activeStorageKey;
+  Future<void>? _initialization;
+  Future<void> _pendingSave = Future<void>.value();
 
   @override
   ProfileState build() {
-    final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-    _writeGeneration++;
-    final int generation = ++_initGeneration;
-    _activeStorageKey = null;
-    if (scope.isAuthenticated && scope.v2Namespace != null) {
-      final String key = canonicalStorageKeyForScope(scope);
-      _activeStorageKey = key;
-      Future<void>.microtask(() => _init(key, generation));
-    }
+    _initialization ??= Future<void>.microtask(_init);
     return ProfileState();
   }
 
-  static const _canonicalStateKey = 'profile_state_v3';
+  static const _boxKey = 'profile_box';
+  static const _stateKey = 'profile_state';
+  static const _secureStateKey = 'profile_state_v2';
+  final HiveStorage<String> _storage = HiveStorage<String>(
+    _boxKey,
+    hive: const HiveStoreAdapter(),
+  );
   static const _streakLogic = StreakService();
-  static const _progressionCalculator = ProgressionCalculator();
   static const String _streakBreakNotificationIdPrefix =
-      'reminder.profile_streak.';
+      'streak_break_recovery_';
 
   SecureStore get _secureStore => ref.read(secureStoreProvider);
 
-  static String canonicalStorageKeyForScope(AccountStorageScope scope) {
-    final String? namespace = scope.v2Namespace;
-    if (!scope.isAuthenticated || namespace == null) {
-      throw StateError(
-        'Profile persistence is unavailable outside a safe authenticated scope.',
+  Future<void> _init() async {
+    try {
+      String? raw = await _secureStore.readString(_secureStateKey);
+      if (raw == null) {
+        await _storage.open();
+        raw = _storage.get(_stateKey);
+        if (raw != null) {
+          await _secureStore.writeString(_secureStateKey, raw);
+          await _storage.delete(_stateKey);
+        }
+      }
+      if (raw == null || !ref.mounted) return;
+      state = ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (error, stackTrace) {
+      Logger.errorCategory(
+        'ProfileHydration',
+        'Failed to restore the saved profile; keeping safe defaults.',
+        error,
+        stackTrace,
       );
     }
-    return '$_canonicalStateKey.$namespace';
   }
 
-  static String canonicalStorageKeyForUser(String userId) {
-    return canonicalStorageKeyForScope(
-      AccountStorageScope.authenticated(userId),
-    );
-  }
-
-  static String streakBreakNotificationIdForScope(
-    AccountStorageScope scope,
-    DateTime logicalDate,
-  ) {
-    final String? namespace = scope.v2Namespace;
-    if (!scope.isAuthenticated || namespace == null) {
-      throw StateError('Streak-break reminders require an authenticated scope.');
-    }
-    final String day = DateTime(
-      logicalDate.year,
-      logicalDate.month,
-      logicalDate.day,
-    ).toIso8601String().split('T').first;
-    return '$_streakBreakNotificationIdPrefix$namespace.$day';
-  }
-
-  /// Global and V1-sanitized Profile records carry no per-record owner proof.
-  /// They are deliberately retained as inactive legacy data.
-  static Future<ProfileLegacyMigrationResult> migrateLegacyStorage({
-    required SecureStore secureStore,
-    required HiveStore hiveStore,
-    required String userId,
-  }) async => ProfileLegacyMigrationResult.preservedAmbiguous;
-
-  bool get _isStorageAvailable => _activeStorageKey != null;
-
-  Future<void> _init(String key, int generation) async {
-    try {
-      final String? raw = await _secureStore.readString(key);
-      if (generation != _initGeneration || key != _activeStorageKey) return;
-      if (raw == null || raw.trim().isEmpty) return;
-      state = ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
-      // A scoped read failure is fail-closed: no legacy fallback is attempted.
-    }
+  Future<void> _ensureInitialized() async {
+    await (_initialization ??= Future<void>.microtask(_init));
   }
 
   Future<void> _save() {
-    final String? key = _activeStorageKey;
-    if (key == null) return Future<void>.value();
-    final int generation = _writeGeneration;
+    final SecureStore store = _secureStore;
     final String encoded = jsonEncode(state.toJson());
-    final Future<void> previous = _writeTail.catchError((Object _) {});
-    final Future<void> write = previous.then((_) async {
-      if (generation != _writeGeneration || key != _activeStorageKey) return;
-      await _secureStore.writeString(key, encoded);
-    });
-    _writeTail = write;
-    return write;
+    final Future<void> operation = _pendingSave.then<void>(
+      (_) => store.writeString(_secureStateKey, encoded),
+      onError: (_, _) => store.writeString(_secureStateKey, encoded),
+    );
+    _pendingSave = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {
+        Logger.errorCategory(
+          'ProfilePersistence',
+          'Failed to persist the latest profile state.',
+          error,
+          stackTrace,
+        );
+      },
+    );
+    return operation;
   }
 
-  Future<void> cancelAndDrainWrites() async {
-    _writeGeneration++;
-    await _writeTail.catchError((Object _) {});
-  }
-
-  void addXP(int amount) {
-    if (!_isStorageAvailable) return;
+  Future<void> addXP(int amount) async {
+    if (amount < 0) {
+      throw ArgumentError.value(
+        amount,
+        'amount',
+        'XP award cannot be negative',
+      );
+    }
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
       Streak(
@@ -247,11 +237,15 @@ class ProfileController extends Notifier<ProfileState> {
       ),
       now,
     );
-    final ProgressionCalculation progression = _progressionCalculator.calculate(
-      xp: state.xp + amount,
-      legacyLevelFloor: state.legacyLevelFloor,
+    final int newXP = state.xp + amount;
+    // ProgressionPolicy is the single source of truth for the level curve,
+    // floored by any level the user earned before the curve was unified so a
+    // grandfathered user never regresses.
+    final int newLevel = ProfileState.levelFor(
+      xp: newXP,
+      floor: state.legacyLevelFloor,
     );
-    final bool didLevelUp = progression.effectiveLevel > state.level;
+    final bool didLevelUp = newLevel > state.level;
     final updated = _streakLogic.update(
       Streak(
         current: state.streak,
@@ -262,57 +256,55 @@ class ProfileController extends Notifier<ProfileState> {
     );
 
     state = state.copyWith(
-      xp: progression.xp,
-      level: progression.effectiveLevel,
+      xp: newXP,
+      level: newLevel,
       leveledUp: didLevelUp,
       streak: updated.current,
       longestStreak: updated.longest,
       lastActiveDate: updated.lastActiveDate,
     );
-    _save();
+    await _save();
     if (streakBroke) {
-      unawaited(scheduleStreakBreakNotification(now: now));
+      unawaited(_scheduleStreakBreakNotification(now: now));
     }
-    unawaited(_refreshCoachDecision());
+    unawaited(_refreshPlannerDecision());
+  }
+
+  /// Awards XP for a meaningful domain action and records its provenance.
+  /// Existing callers may continue using [addXP] for compatibility; new
+  /// product flows should use this method so progression remains explainable.
+  Future<void> awardXP(int amount, {required String source}) async {
+    await addXP(amount);
+    if (!ref.mounted) return;
+    final Map<String, int> sources = <String, int>{...state.xpBySource};
+    sources[source] = (sources[source] ?? 0) + amount;
+    state = state.copyWith(xpBySource: Map<String, int>.unmodifiable(sources));
+    await _save();
   }
 
   void clearLeveledUp() {
     state = state.copyWith(leveledUp: false);
   }
 
-  void updateName(String name) {
-    if (!_isStorageAvailable) return;
-    final String normalizedName = name.trim();
-    if (normalizedName.isEmpty) {
-      return;
-    }
-    state = state.copyWith(name: normalizedName, profileReady: true);
-    _save();
-  }
-
-  void ensureProfile({String? preferredName}) {
-    if (!_isStorageAvailable) return;
-    final String normalizedPreferred = preferredName?.trim() ?? '';
-    final String fallbackName = state.name.trim().isEmpty
-        ? 'Operator'
-        : state.name.trim();
+  Future<void> updateName(String name) async {
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     state = state.copyWith(
-      name: normalizedPreferred.isNotEmpty ? normalizedPreferred : fallbackName,
-      profileReady: true,
+      name: name.trim().isEmpty ? state.name : name.trim(),
     );
-    _save();
+    await _save();
   }
 
-  @Deprecated(
-    'Sound preference ownership moved to SettingsPreferenceController.',
-  )
-  void toggleSound(bool value) {
-    // Legacy in-memory compatibility only; this must not persist sound truth.
+  Future<void> toggleSound(bool value) async {
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     state = state.copyWith(soundEnabled: value);
+    await _save();
   }
 
-  void incrementStreak() {
-    if (!_isStorageAvailable) return;
+  Future<void> incrementStreak() async {
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
       Streak(
@@ -335,122 +327,47 @@ class ProfileController extends Notifier<ProfileState> {
       longestStreak: updated.longest,
       lastActiveDate: updated.lastActiveDate,
     );
-    _save();
+    await _save();
     if (streakBroke) {
-      unawaited(scheduleStreakBreakNotification(now: now));
+      unawaited(_scheduleStreakBreakNotification(now: now));
     }
-    unawaited(_refreshCoachDecision());
+    unawaited(_refreshPlannerDecision());
   }
 
-  void resetStreak() {
-    if (!_isStorageAvailable) return;
+  Future<void> resetStreak() async {
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     state = state.copyWith(streak: 0, clearLastActiveDate: true);
-    _save();
-    unawaited(_refreshCoachDecision());
-  }
-
-  Future<void> setProgressionSnapshot({
-    required int xp,
-    required int level,
-    required int streak,
-  }) async {
-    if (!_isStorageAvailable) return;
-    final int safeXp = xp < 0 ? 0 : xp;
-    final int requestedFloor = level < 1 ? 1 : level;
-    final int legacyLevelFloor = requestedFloor > state.legacyLevelFloor
-        ? requestedFloor
-        : state.legacyLevelFloor;
-    final ProgressionCalculation progression = _progressionCalculator.calculate(
-      xp: safeXp,
-      legacyLevelFloor: legacyLevelFloor,
-    );
-    final int safeStreak = streak < 0 ? 0 : streak;
-    final int nextLongest = safeStreak > state.longestStreak
-        ? safeStreak
-        : state.longestStreak;
-
-    state = state.copyWith(
-      xp: progression.xp,
-      level: progression.effectiveLevel,
-      legacyLevelFloor: legacyLevelFloor,
-      streak: safeStreak,
-      longestStreak: nextLongest,
-    );
     await _save();
-    unawaited(_refreshCoachDecision());
+    unawaited(_refreshPlannerDecision());
   }
 
-  /// Applies all persisted Profile V3 fields in one state transition and uses
-  /// the controller's existing scoped write queue.
-  Future<void> applyCanonicalSnapshot(
-    ProfileCanonicalSnapshot snapshot,
-  ) async {
-    if (!_isStorageAvailable) return;
-
-    final int safeXp = snapshot.xp < 0 ? 0 : snapshot.xp;
-    final int safeFloor = snapshot.legacyLevelFloor < 1
-        ? 1
-        : snapshot.legacyLevelFloor;
-    final int safeStreak = snapshot.streak < 0 ? 0 : snapshot.streak;
-    final int safeLongest = snapshot.longestStreak < safeStreak
-        ? safeStreak
-        : snapshot.longestStreak;
-    final ProgressionCalculation progression = _progressionCalculator
-        .calculate(xp: safeXp, legacyLevelFloor: safeFloor);
-
-    state = state.copyWith(
-      xp: progression.xp,
-      level: progression.effectiveLevel,
-      legacyLevelFloor: safeFloor,
-      streak: safeStreak,
-      longestStreak: safeLongest,
-      name: snapshot.name,
-      lastActiveDate: snapshot.lastActiveDate,
-      profileReady: snapshot.profileReady,
-    );
-    await _save();
-  }
-
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking progression updates if coach refresh fails.
+      // Avoid blocking progression updates if planner refresh fails.
     }
   }
 
-  Future<NotificationScheduleResult?> scheduleStreakBreakNotification({
-    required DateTime now,
-  }) async {
-    final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
-    if (!scope.isAuthenticated || scope.v2Namespace == null) return null;
+  Future<void> _scheduleStreakBreakNotification({required DateTime now}) async {
     final DateTime reminderAt = now.add(const Duration(hours: 2));
-    final String id = streakBreakNotificationIdForScope(scope, now);
-    final reminderOrchestrator = ref.read(reminderOrchestratorServiceProvider);
+    final DateTime day = DateTime(now.year, now.month, now.day);
+    final String id =
+        '$_streakBreakNotificationIdPrefix${day.toIso8601String().split('T').first}';
     try {
-      final NotificationScheduleResult result = await ref
+      await ref
           .read(notificationsServiceProvider)
-          .scheduleWithResult(
+          .schedule(
             id: id,
             title: 'Rebuild your streak today',
             body:
-                'Your streak chain broke. Complete one focused action now to restart momentum.',
+                'Your streak chain broke. Complete one targeted action now to restart momentum.',
             at: reminderAt,
           );
-      if (result != NotificationScheduleResult.scheduled ||
-          ref.read(accountStorageScopeProvider).v2Namespace !=
-              scope.v2Namespace) {
-        return result;
-      }
-      await reminderOrchestrator.registerScheduledReminder(
-        scope: scope,
-        id: id,
-      );
-      return result;
     } catch (_) {
       // Do not block progression updates if notifications are unavailable.
-      return null;
     }
   }
 }

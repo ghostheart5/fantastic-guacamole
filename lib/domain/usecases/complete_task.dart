@@ -1,68 +1,60 @@
-import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
-import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
+import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
+import 'package:fantastic_guacamole/domain/usecases/award_xp.dart';
+
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
+///
+/// Resolved by taskActionsProvider. Gated by TaskPolicy.canComplete; awards XP
+/// via AwardXp.
+typedef DurableCompleteMutation = Future<Object?> Function(String taskId);
 
 class CompleteTask {
-  CompleteTask(this.repository, {this.siRepo, this.progressionRepo});
+  CompleteTask(
+    this.repository, {
+    this.siRepo,
+    this.progressionRepo,
+    this.durableMutation,
+  });
 
   final ITaskRepository repository;
   final ISiRepository? siRepo;
   final IProgressionRepository? progressionRepo;
+  final DurableCompleteMutation? durableMutation;
 
-  Future<void> call(String id) async {
-    final task = await repository.getTaskById(id);
-    if (task == null) throw StateError('Task not found');
-    if (!TaskPolicy.canComplete(task)) {
-      throw StateError('Task already completed');
-    }
-
-    final now = DateTime.now();
-    await repository.saveTask(
-      task.copyWith(isCompleted: true, completedAt: now),
-    );
-
-    // If recurring, create the next occurrence
-    if (task.recurrenceRule != RecurrenceRule.none) {
-      final Duration offset = task.recurrenceRule == RecurrenceRule.daily
-          ? const Duration(days: 1)
-          : const Duration(days: 7);
-      final DateTime baseline = task.scheduledFor ?? now;
-      DateTime nextScheduledFor = baseline.add(offset);
-
-      // Preserve cadence while ensuring the next instance is actionable.
-      while (!nextScheduledFor.isAfter(now)) {
-        nextScheduledFor = nextScheduledFor.add(offset);
+  Future<CompletionSideEffectDecision> call(String id) async {
+    CompletionMutationOutcome outcome = CompletionMutationOutcome.applied;
+    final DurableCompleteMutation? mutation = durableMutation;
+    if (mutation != null) {
+      outcome = _durableOutcome(await mutation(id));
+      final CompletionSideEffectDecision decision =
+          CompletionSideEffectPolicy.decide(outcome);
+      if (!decision.shouldRunReward) return decision;
+    } else {
+      final task = await repository.getTaskById(id);
+      if (task == null) throw StateError('Task not found');
+      if (!TaskPolicy.canComplete(task)) {
+        throw StateError('Task already completed');
       }
-
-      final next = task.copyWith(
-        id: '${task.id}_${now.millisecondsSinceEpoch}',
-        isCompleted: false,
-        completedAt: null,
-        createdAt: now,
-        scheduledFor: nextScheduledFor,
+      if (task.recurrenceRule != RecurrenceRule.none) {
+        throw StateError(
+          'Recurring completion requires the durable occurrence authority.',
+        );
+      }
+      final DateTime now = DateTime.now();
+      await repository.saveTask(
+        task.copyWith(isCompleted: true, completedAt: now, updatedAt: now),
       );
-      await repository.saveTask(next);
     }
 
-    // Award flat XP
+    // Award flat XP through the single canonical path so level stays in sync.
     final IProgressionRepository? prog = progressionRepo;
     if (prog != null) {
-      final ProgressionEntity current =
-          await prog.getProgression() ?? const ProgressionEntity();
-      final int newXp = current.xp + ProgressionPolicy.taskXp;
-      final ProgressionCalculation progression = const ProgressionCalculator()
-          .calculate(xp: newXp);
-      await prog.saveProgression(
-        current.copyWith(
-          xp: progression.xp,
-          level: progression.effectiveLevel,
-        ),
-      );
+      await AwardXp(prog).call(ProgressionPolicy.taskXp);
     }
 
     // Update SI confidence
@@ -73,5 +65,21 @@ class CompleteTask {
         await si.saveState(current.withConfidenceDelta(0.05));
       }
     }
+    return CompletionSideEffectPolicy.decide(outcome);
+  }
+
+  CompletionMutationOutcome _durableOutcome(Object? raw) {
+    if (raw is CompletionMutationOutcome) return raw;
+    if (raw is bool) {
+      return raw
+          ? CompletionMutationOutcome.applied
+          : CompletionMutationOutcome.conflict;
+    }
+    final String name = raw?.toString().split('.').last ?? '';
+    for (final CompletionMutationOutcome outcome
+        in CompletionMutationOutcome.values) {
+      if (outcome.name == name) return outcome;
+    }
+    return CompletionMutationOutcome.blocked;
   }
 }

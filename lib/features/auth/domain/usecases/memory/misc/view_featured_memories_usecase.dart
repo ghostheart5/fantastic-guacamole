@@ -1,3 +1,0 @@
-class ViewFeaturedMemoriesUsecase {
-  const ViewFeaturedMemoriesUsecase();
-}

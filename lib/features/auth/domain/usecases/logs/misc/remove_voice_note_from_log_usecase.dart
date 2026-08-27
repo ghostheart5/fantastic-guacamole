@@ -1,3 +1,0 @@
-class RemoveVoiceNoteFromLogUsecase {
-  const RemoveVoiceNoteFromLogUsecase();
-}

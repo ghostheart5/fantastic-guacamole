@@ -1,3 +1,0 @@
-﻿class FavoriteInsightUsecase {
-  const FavoriteInsightUsecase();
-}

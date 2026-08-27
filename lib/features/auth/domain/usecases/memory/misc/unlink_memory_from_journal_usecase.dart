@@ -1,3 +1,0 @@
-class UnlinkMemoryFromJournalUsecase {
-  const UnlinkMemoryFromJournalUsecase();
-}

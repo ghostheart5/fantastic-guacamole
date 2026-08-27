@@ -1,3 +1,0 @@
-class SetAiResponseToneUsecase {
-  const SetAiResponseToneUsecase();
-}

@@ -34,9 +34,9 @@ class PaywallRepository implements IPaywallRepository {
     final String creditLabel = _aiProxyConfigured
         ? 'AI credits'
         : 'smart guidance credits';
-    final String coachingLabel = _aiProxyConfigured
-        ? 'AI coaching'
-        : 'smart planning';
+    final String planningGuidanceLabel = _aiProxyConfigured
+        ? 'AI planning guidance'
+        : 'Smart Planner guidance';
     final String responseLabel = _aiProxyConfigured
         ? 'Priority AI responses'
         : 'Priority smart suggestions';
@@ -47,14 +47,14 @@ class PaywallRepository implements IPaywallRepository {
         title: 'Premium Monthly',
         priceLabel: 'from \$9.99 / month',
         description:
-            'Best for active users who want full $coachingLabel and recurring credits.',
+            'Best for active users who want full $planningGuidanceLabel and recurring credits.',
         aiCreditsIncluded: 300,
         freeTrialDays: 7,
         benefits: <String>[
           '7-day free trial for eligible new subscribers',
           '300 $creditLabel every month',
           responseLabel,
-          'Advanced memory and insights',
+          'Advanced memory and signals',
         ],
         isFeatured: true,
       ),

@@ -1,3 +1,0 @@
-class DeleteLogEntryUsecase {
-  const DeleteLogEntryUsecase();
-}

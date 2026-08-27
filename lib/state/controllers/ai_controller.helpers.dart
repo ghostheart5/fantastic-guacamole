@@ -1,99 +1,21 @@
 part of 'ai_controller.dart';
 
-List<String> summarizeTimelineTitles(List<TimelineEventEntity> events) {
-  return events
-      .take(3)
-      .map((event) => event.title.trim())
-      .where((text) => text.isNotEmpty)
-      .toList(growable: false);
+String _assistantAccountScopeId(Ref ref) {
+  final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
+  return assistantAccountScopeId(
+    authenticatedNamespace: scope.v2Namespace,
+    isSignedOut: scope.state == AccountStorageScopeState.signedOut,
+  );
 }
 
-List<String> summarizeCompletionEvents(
-  List<CompletionEventEntity> completionEvents,
-) {
-  return completionEvents
-      .take(3)
-      .map(
-        (CompletionEventEntity event) =>
-            '${event.eventType.name} @ ${event.eventAt.toIso8601String()}',
-      )
-      .toList(growable: false);
-}
-
-List<String> summarizeRoutineNames(List<RoutineEntity> routines) {
-  return routines
-      .take(3)
-      .map((RoutineEntity routine) => routine.name.trim())
-      .where((String name) => name.isNotEmpty)
-      .toList(growable: false);
-}
-
-List<String> summarizeScheduledTaskTitles(List<Task> tasks) {
-  return tasks
-      .take(3)
-      .map((Task task) => task.title.trim())
-      .where((String title) => title.isNotEmpty)
-      .toList(growable: false);
-}
-
-Map<String, dynamic> buildSIConsoleChronosparkSignals({
-  required String profileName,
-  required int profileLevel,
-  required int profileXp,
-  required int profileStreak,
-  required int progressionLevel,
-  required int progressionXp,
-  required int progressionStreak,
-  required double siEnergy,
-  required double siFatigue,
-  required int siCompletedToday,
-  required int trajectoryPressure,
-  required double trajectoryMomentum,
-  required int trajectoryDivergence,
-  required String? trajectoryPrediction,
-  required List<CompletionEventEntity> completionEvents,
-  required List<Task> tasks,
-  required List<Task> scheduledTasks,
-  required List<RoutineEntity> routines,
-  required List<RoutineEntity> activeRoutines,
+int _aiCreditCost({
+  required String? input,
+  required AIPersonality personality,
 }) {
-  return <String, dynamic>{
-    'profile': <String, dynamic>{
-      'name': profileName,
-      'level': profileLevel,
-      'xp': profileXp,
-      'streak': profileStreak,
-    },
-    'progression': <String, dynamic>{
-      'level': progressionLevel,
-      'xp': progressionXp,
-      'streak': progressionStreak,
-    },
-    'si': <String, dynamic>{
-      'energy': siEnergy,
-      'fatigue': siFatigue,
-      'completedToday': siCompletedToday,
-    },
-    'trajectory': <String, dynamic>{
-      'pressure': trajectoryPressure,
-      'momentum': trajectoryMomentum,
-      'divergence': trajectoryDivergence,
-      'prediction': trajectoryPrediction,
-    },
-    'completion': <String, dynamic>{
-      'count': completionEvents.length,
-      'recentCount': completionEvents.take(3).length,
-    },
-    'schedule': <String, dynamic>{
-      'totalTasks': tasks.length,
-      'scheduledTasks': scheduledTasks.length,
-      'density': tasks.isEmpty ? 0.0 : scheduledTasks.length / tasks.length,
-    },
-    'routines': <String, dynamic>{
-      'count': routines.length,
-      'activeCount': activeRoutines.length,
-    },
-  };
+  final String text = input?.trim() ?? '';
+  final int lengthBonus = text.length > 120 ? 1 : 0;
+  final int toneBonus = personality == AIPersonality.strict ? 1 : 0;
+  return 1 + lengthBonus + toneBonus;
 }
 
 bool _recentSkipPressure(List<LearningHistoryEntry> history) {
@@ -156,7 +78,7 @@ String _leastRepeatedSafeFallback({
               'Rather than repeat the same nudge, tell me whether urgency, energy, or ease should drive the next choice.',
             ],
     'energy_check' => <String>[
-      'I do not have a materially new energy insight yet. Update your check-in or ask for a concrete recovery action.',
+      'I do not have a materially new energy signal yet. Update your check-in or ask for a concrete recovery action.',
       'Your available energy evidence has not changed enough for a different conclusion. Add a fresh check-in for a new assessment.',
       'Rather than repeat the same energy guidance, tell me what changed since the last check-in.',
     ],
@@ -191,7 +113,7 @@ String _classifyMemoryType({
     return 'task_recommendation';
   }
   if (intent.label == 'energy_check') {
-    return 'energy_insight';
+    return 'energy_signal';
   }
   if (intent.label == 'status') {
     return 'status_summary';
@@ -285,6 +207,8 @@ AIResponse _responseFromAgentResult({
     taskTitle: task?.title,
     metadata: <String, dynamic>{
       'reasoning': result.reasoning,
+      'source': result.payload['source']?.toString() ?? result.mode,
+      'modelBacked': result.payload['modelBacked'] == true,
       if (task != null) 'task': task.toJson(),
     },
   );
@@ -318,6 +242,7 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
           taskTitle: recommendation.task?.title,
           metadata: <String, dynamic>{
             'reasoning': recommendation.reasoning ?? '',
+            'processingMode': recommendation.processingMode.name,
           },
         );
   final List<Task> tasks = await ref.watch(tasksProvider.future);
@@ -328,65 +253,54 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
   );
   final String previousMessage =
       previousState?['message']?.toString().trim() ?? '';
-  final modular_si.SIPipelineResult coreResult = ref
-      .read(modularSiCoreProvider)
-      .run(
-        input: modular_si.SIInputPacket(
+  final bundle = await ref
+      .read(siEngineServiceProvider)
+      .handleUserInput(
+        SIInputPacket(
           text: input,
           history: previousMessage.isEmpty
               ? const <String>[]
               : <String>[previousMessage],
-          context: const <String, dynamic>{'appState': 'coach'},
-          latent: modular_si.SILatentInputs(
+          metadata: <String, dynamic>{
+            'completed': learning.completed,
+            'skipped': learning.skipped,
+            if (response != null) 'seedResponse': response.toJson(),
+          },
+          context: <String, dynamic>{
+            'appState': 'si_console',
+            'energy': si.energy,
+            if (response != null) 'seedReasoning': response.reasoning,
+          },
+          latent: SILatentInputs(
             frustration: si.fatigue,
             confusion: input.trim().isEmpty ? 0.5 : 0,
             confidence: response?.confidence ?? 0.5,
             hesitation: si.fatigue,
           ),
         ),
-        mood: response?.emotion ?? 'neutral',
+        conversation: AssistantConversationScope.primarySiConsole,
         task: selectedTask,
-        energy: si.energy,
-        fatigue: si.fatigue,
-        completed: learning.completed,
-        skipped: learning.skipped,
+        previousMood: response?.emotion,
       );
   final AIResponse effectiveResponse =
       response ??
       AIResponse(
-        message: coreResult.response.message,
-        emotion: coreResult.response.emotion,
-        confidence: coreResult.response.confidence,
-        personality: _profileFor(
-          personality,
-          mood: coreResult.response.emotion,
-        ),
-        action: coreResult.decision.action,
-        safe: coreResult.decision.safe,
-        taskTitle: coreResult.response.task?.title,
-        metadata: <String, dynamic>{'reasoning': coreResult.decision.reasoning},
+        message: bundle.response.message,
+        emotion: bundle.response.emotion,
+        confidence: bundle.response.confidence,
+        personality: _profileFor(personality, mood: bundle.response.emotion),
+        action: bundle.decision.action,
+        safe: bundle.decision.safe,
+        taskTitle: bundle.response.task?.title,
+        metadata: <String, dynamic>{'reasoning': bundle.decision.reasoning},
       );
   final Map<String, dynamic> coreContext = <String, dynamic>{
-    'intent': coreResult.intent.primary.label,
-    'action': coreResult.decision.action,
-    'reasoning': coreResult.cognition.summary,
-    'askClarification': coreResult.cognition.meta.askClarification,
-    'memoryCount': coreResult.memoryUpdate.store.snapshots.length,
+    'intent': bundle.core.intent.primary.label,
+    'action': bundle.decision.action,
+    'reasoning': bundle.core.cognition.summary,
+    'askClarification': bundle.core.cognition.meta.askClarification,
+    'memoryCount': bundle.memory.snapshots.length,
   };
-
-  final synthetic = SyntheticIntelligenceEngine();
-  final bundle = await synthetic.build(
-    input: input,
-    now: DateTime.now(),
-    personality: personality,
-    response: effectiveResponse,
-    appState: 'coach',
-    platform: 'flutter',
-    history: previousMessage.isEmpty
-        ? const <String>[]
-        : <String>[previousMessage],
-    context: coreContext,
-  );
 
   return <String, dynamic>{
     ...effectiveResponse.toJson(),
@@ -402,12 +316,9 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
       'reasoning': bundle.decision.reasoning,
     },
     'core_pipeline': coreContext,
+    'provenance': bundle.provenance.toJson(),
   };
 });
-
-final modularSiCoreProvider = Provider<modular_si.SICore>(
-  (_) => modular_si.SICore(),
-);
 
 AIPersonalityProfile _profileFor(
   AIPersonality personality, {
@@ -424,7 +335,7 @@ AIPersonalityProfile _profileFor(
           curiosity: 0.55,
           empathy: 0.42,
         ),
-        style: AIStyleDirective(
+        style: AIStyleGuidance(
           tone: 'precise_practical',
           maxWords: 52,
           useSteps: true,
@@ -435,7 +346,7 @@ AIPersonalityProfile _profileFor(
       );
     case AIPersonality.strategist:
       return AIPersonalityProfile(
-        persona: SIPersona.coach,
+        persona: SIPersona.planner,
         traits: const PersonalityTraits(
           warmth: 0.62,
           directness: 0.78,
@@ -443,8 +354,8 @@ AIPersonalityProfile _profileFor(
           curiosity: 0.72,
           empathy: 0.68,
         ),
-        style: AIStyleDirective(
-          tone: mood == 'stressed' ? 'calm_supportive' : 'focused_motivating',
+        style: AIStyleGuidance(
+          tone: mood == 'stressed' ? 'calm_supportive' : 'direct_motivating',
           maxWords: 60,
           useSteps: true,
           allowHumor: false,
@@ -452,7 +363,7 @@ AIPersonalityProfile _profileFor(
         ),
         identity: 'systems strategist',
       );
-    case AIPersonality.coach:
+    case AIPersonality.planner:
       return AIPersonalityProfile(
         persona: SIPersona.mentor,
         traits: const PersonalityTraits(
@@ -462,7 +373,7 @@ AIPersonalityProfile _profileFor(
           curiosity: 0.61,
           empathy: 0.88,
         ),
-        style: AIStyleDirective(
+        style: AIStyleGuidance(
           tone: mood == 'stressed' ? 'calm_supportive' : 'warm_grounded',
           maxWords: 64,
           useSteps: mood == 'confused',

@@ -17,6 +17,7 @@ class PlannerInput {
     this.estimatedDuration,
     this.scheduledFor,
     this.dueDate,
+    this.goalId,
   });
 
   final String id;
@@ -31,6 +32,7 @@ class PlannerInput {
   final Duration? estimatedDuration;
   final DateTime? scheduledFor;
   final DateTime? dueDate;
+  final String? goalId;
 
   Duration get estimateOrDefault =>
       estimatedDuration ?? const Duration(minutes: 25);
@@ -39,10 +41,15 @@ class PlannerInput {
     if (id.trim().isEmpty || title.trim().isEmpty) {
       throw StateError('Planner input requires an id and title.');
     }
-    if (priority < 1 || priority > 5 ||
-        difficulty < 1 || difficulty > 5 ||
-        energyRequired < 1 || energyRequired > 5) {
-      throw StateError('Planner input priority, difficulty, and energy must be 1-5.');
+    if (priority < 1 ||
+        priority > 5 ||
+        difficulty < 1 ||
+        difficulty > 5 ||
+        energyRequired < 1 ||
+        energyRequired > 5) {
+      throw StateError(
+        'Planner input priority, difficulty, and energy must be 1-5.',
+      );
     }
     if (estimatedDuration != null && estimatedDuration! <= Duration.zero) {
       throw StateError('Planner input estimate must be positive.');
@@ -62,6 +69,7 @@ class PlannerInput {
     estimatedDuration: estimatedDuration,
     scheduledFor: scheduledFor,
     dueDate: dueDate,
+    goalId: goalId,
     isCanceled: isCanceled,
     subtasks: prerequisiteIds,
     recurrenceRule: recurrenceRule,
@@ -85,6 +93,7 @@ class PlannerInputAdapter {
     estimatedDuration: task.estimatedDuration,
     scheduledFor: task.scheduledFor,
     dueDate: task.dueDate,
+    goalId: task.goalId,
   );
 
   static PlannerInput fromLegacyTask(Task task) => PlannerInput(
@@ -93,20 +102,21 @@ class PlannerInputAdapter {
     priority: task.priority,
     difficulty: task.difficulty,
     energyRequired: task.energyRequired,
-    isCompleted: false,
-    isCanceled: false,
+    isCompleted: task.isCompleted,
+    isCanceled: task.isCanceled,
     prerequisiteIds: List<String>.unmodifiable(task.subtasks),
     recurrenceRule: task.recurrenceRule,
     scheduledFor: task.scheduledFor,
+    dueDate: task.dueDate,
+    goalId: task.goalId,
+    estimatedDuration: task.estimatedDuration,
   );
 
-  static List<PlannerInput> fromTaskEntities(List<TaskEntity> tasks) => tasks
-      .map(fromTaskEntity)
-      .toList(growable: false);
+  static List<PlannerInput> fromTaskEntities(List<TaskEntity> tasks) =>
+      tasks.map(fromTaskEntity).toList(growable: false);
 
-  static List<PlannerInput> fromLegacyTasks(List<Task> tasks) => tasks
-      .map(fromLegacyTask)
-      .toList(growable: false);
+  static List<PlannerInput> fromLegacyTasks(List<Task> tasks) =>
+      tasks.map(fromLegacyTask).toList(growable: false);
 
   static Task toLegacyTask(PlannerInput input) => Task(
     id: input.id,
@@ -115,11 +125,15 @@ class PlannerInputAdapter {
     difficulty: input.difficulty,
     energyRequired: input.energyRequired,
     scheduledFor: input.scheduledFor,
+    dueDate: input.dueDate,
+    goalId: input.goalId,
+    estimatedDuration: input.estimatedDuration ?? const Duration(minutes: 30),
+    isCompleted: input.isCompleted,
+    isCanceled: input.isCanceled,
     subtasks: input.prerequisiteIds,
     recurrenceRule: input.recurrenceRule,
   );
 
-  static List<Task> toLegacyTasks(List<PlannerInput> inputs) => inputs
-      .map(toLegacyTask)
-      .toList(growable: false);
+  static List<Task> toLegacyTasks(List<PlannerInput> inputs) =>
+      inputs.map(toLegacyTask).toList(growable: false);
 }

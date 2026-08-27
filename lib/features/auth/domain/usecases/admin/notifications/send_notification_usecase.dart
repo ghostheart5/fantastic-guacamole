@@ -1,3 +1,0 @@
-class SendNotificationUsecase {
-  const SendNotificationUsecase();
-}

@@ -1,9 +1,7 @@
 // Dart SDK imports.
-import 'dart:async';
 import 'dart:convert';
 
 // Package imports.
-import 'package:fantastic_guacamole/core/network/retry_executor.dart';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
@@ -18,25 +16,9 @@ class ApiClient {
     Uri uri, {
     Map<String, String> headers = const <String, String>{},
   }) async {
-    final http.Response response = await runWithRetry<http.Response>(
-      action: () async {
-        final http.Response next = await _client
-            .get(uri, headers: headers)
-            .timeout(_timeout);
-        if (_isTransient(next.statusCode)) {
-          throw HttpClientException(
-            'Transient GET failure',
-            statusCode: next.statusCode,
-          );
-        }
-        return next;
-      },
-      retryIf: (Object error) {
-        return error is TimeoutException ||
-            (error is HttpClientException &&
-                _isTransient(error.statusCode ?? 0));
-      },
-    );
+    final http.Response response = await _client
+        .get(uri, headers: headers)
+        .timeout(_timeout);
     return _decodeJsonObject(response);
   }
 
@@ -49,30 +31,10 @@ class ApiClient {
       'content-type': 'application/json',
       ...headers,
     };
-    final http.Response response = await runWithRetry<http.Response>(
-      action: () async {
-        final http.Response next = await _client
-            .post(uri, headers: mergedHeaders, body: jsonEncode(body))
-            .timeout(_timeout);
-        if (_isTransient(next.statusCode)) {
-          throw HttpClientException(
-            'Transient POST failure',
-            statusCode: next.statusCode,
-          );
-        }
-        return next;
-      },
-      retryIf: (Object error) {
-        return error is TimeoutException ||
-            (error is HttpClientException &&
-                _isTransient(error.statusCode ?? 0));
-      },
-    );
+    final http.Response response = await _client
+        .post(uri, headers: mergedHeaders, body: jsonEncode(body))
+        .timeout(_timeout);
     return _decodeJsonObject(response);
-  }
-
-  bool _isTransient(int statusCode) {
-    return statusCode == 408 || statusCode == 429 || statusCode >= 500;
   }
 
   Map<String, dynamic> _decodeJsonObject(http.Response response) {
