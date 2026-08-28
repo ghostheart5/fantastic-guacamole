@@ -42,6 +42,35 @@ void main() {
       expect(service.isSpeaking, isFalse);
     });
 
+    test(
+      'speakChecked reports unavailable without a platform channel',
+      () async {
+        expect(await service.speakChecked('hello there'), isFalse);
+        expect(service.isSpeaking, isFalse);
+      },
+    );
+
+    test('speakChecked reports completed platform playback', () async {
+      final List<String> calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ttsChannel, (MethodCall call) async {
+            calls.add(call.method);
+            return null;
+          });
+
+      expect(await service.speakChecked('hello there'), isTrue);
+      expect(
+        calls,
+        containsAllInOrder(<String>[
+          'initialize',
+          'setLanguage',
+          'stop',
+          'speak',
+        ]),
+      );
+      expect(service.isSpeaking, isFalse);
+    });
+
     test('stop completes without throwing', () async {
       await service.stop();
       expect(service.isSpeaking, isFalse);

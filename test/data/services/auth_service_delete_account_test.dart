@@ -446,7 +446,8 @@ void main() {
       );
     });
 
-    test('signOut clears current session user', () async {
+    test('signOut clears the session without local account cleanup', () async {
+      int cleanupCalls = 0;
       final MockClient client = MockClient((http.Request request) async {
         if (request.url.path.endsWith('/auth/v1/token')) {
           return http.Response(
@@ -460,6 +461,9 @@ void main() {
       final AuthService service = AuthService(
         supabaseClient: _supabaseClient(client),
         store: SecureStore(backend: InMemorySecureStoreBackend()),
+        onAccountDeleted: (String accountId) async {
+          cleanupCalls += 1;
+        },
       );
 
       await service.signIn(
@@ -469,11 +473,13 @@ void main() {
       await service.signOut();
 
       expect(service.currentUser, isNull);
+      expect(cleanupCalls, 0);
     });
 
     test(
       'deleteCurrentAccount rejects missing password for signed-in user',
       () async {
+        int cleanupCalls = 0;
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
@@ -489,6 +495,9 @@ void main() {
           store: SecureStore(backend: InMemorySecureStoreBackend()),
           httpClient: client,
           accountDeleteEndpoint: 'http://not-secure.example.com/delete',
+          onAccountDeleted: (String accountId) async {
+            cleanupCalls += 1;
+          },
         );
 
         await service.signIn(
@@ -506,16 +515,21 @@ void main() {
             ),
           ),
         );
+        expect(cleanupCalls, 0);
       },
     );
 
     test('deleteCurrentAccount rejects when no user is signed in', () async {
+      int cleanupCalls = 0;
       final AuthService service = AuthService(
         supabaseClient: _supabaseClient(
           MockClient((http.Request request) async => http.Response('{}', 200)),
         ),
         store: SecureStore(backend: InMemorySecureStoreBackend()),
         accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+        onAccountDeleted: (String accountId) async {
+          cleanupCalls += 1;
+        },
       );
 
       await expectLater(
@@ -528,6 +542,7 @@ void main() {
           ),
         ),
       );
+      expect(cleanupCalls, 0);
     });
 
     test(
@@ -856,6 +871,7 @@ void main() {
         await store.writeString('session-cache', 'present');
         await store.writeString('device-global-key', 'preserved');
         int deleteCalls = 0;
+        int cleanupCalls = 0;
         String? cleanedAccountId;
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
@@ -883,7 +899,8 @@ void main() {
           store: store,
           httpClient: client,
           accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
-          onAccountSignedOut: (String? accountId) async {
+          onAccountDeleted: (String accountId) async {
+            cleanupCalls += 1;
             cleanedAccountId = accountId;
             await store.delete('session-cache');
           },
@@ -896,6 +913,7 @@ void main() {
         await service.deleteCurrentAccount(password: 'correct-pass');
 
         expect(deleteCalls, 1);
+        expect(cleanupCalls, 1);
         expect(cleanedAccountId, 'user-1');
         expect(await store.readString('session-cache'), isNull);
         expect(await store.readString('device-global-key'), 'preserved');
@@ -909,6 +927,7 @@ void main() {
         final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
         final SecureStore store = SecureStore(backend: backend);
         await store.writeString('session-cache', 'present');
+        int cleanupCalls = 0;
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
@@ -933,6 +952,9 @@ void main() {
           store: store,
           httpClient: client,
           accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+          onAccountDeleted: (String accountId) async {
+            cleanupCalls += 1;
+          },
         );
 
         await service.signIn(
@@ -952,6 +974,7 @@ void main() {
         );
 
         expect(await store.readString('session-cache'), 'present');
+        expect(cleanupCalls, 0);
         expect(service.currentUser, isNotNull);
       },
     );

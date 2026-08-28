@@ -6,6 +6,8 @@ import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
+import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 
@@ -103,119 +105,99 @@ class _LoginScreenState extends State<LoginScreen>
       curve: const Interval(0.18, 1.0, curve: Curves.easeOutCubic),
     );
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      resizeToAvoidBottomInset: true,
-      body: Stack(
-        children: [
-          // Background image
-          Positioned.fill(
-            child: Image.asset(
-              AppAssets.bgLogin,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-          ),
-
-          // Heavy dark overlay — bottom heavier for form readability
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0.0, 0.3, 0.65, 1.0],
-                  colors: [
-                    Color(0x66000000),
-                    Color(0x88000000),
-                    Color(0xCC0F172A),
-                    Color(0xFF0F172A),
-                  ],
-                ),
+    return AnimatedSystemBackground(
+      backgroundAssetPath: AppAssets.bgLogin,
+      overlayOpacity: 0.5,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: true,
+        body: Stack(
+          children: <Widget>[
+            if (landscape && wideLayout)
+              _LandscapeLoginContent(
+                formKey: _loginFormKey,
+                pulse: _pulse,
+                startupMessage: startupMessage,
+                isSubmitting: widget.isSubmitting,
+                isSignUpMode: widget.isSignUpMode,
+                allowSignUp: widget.allowSignUp,
+                emailController: widget.emailController,
+                passwordController: widget.passwordController,
+                obscurePassword: widget.obscurePassword,
+                onPrimaryAction: widget.onPrimaryAction,
+                onForgotPassword: widget.onForgotPassword,
+                onGoogleSignIn: widget.onGoogleSignIn,
+                onGitHubSignIn: widget.onGitHubSignIn,
+                onMockLogin: onMockLogin,
+                onToggleMode: widget.onToggleMode,
+                onTogglePassword: widget.onTogglePassword,
+                showMockHint: widget.showMockHint,
+                mockHint: widget.mockHint,
+                brandAnimation: brandAnimation,
+                formAnimation: formAnimation,
+              )
+            else
+              _PortraitLoginContent(
+                formKey: _loginFormKey,
+                pulse: _pulse,
+                startupMessage: startupMessage,
+                isSubmitting: widget.isSubmitting,
+                isSignUpMode: widget.isSignUpMode,
+                allowSignUp: widget.allowSignUp,
+                emailController: widget.emailController,
+                passwordController: widget.passwordController,
+                obscurePassword: widget.obscurePassword,
+                onPrimaryAction: widget.onPrimaryAction,
+                onForgotPassword: widget.onForgotPassword,
+                onGoogleSignIn: widget.onGoogleSignIn,
+                onGitHubSignIn: widget.onGitHubSignIn,
+                onMockLogin: onMockLogin,
+                onToggleMode: widget.onToggleMode,
+                onTogglePassword: widget.onTogglePassword,
+                showMockHint: widget.showMockHint,
+                mockHint: widget.mockHint,
+                brandAnimation: brandAnimation,
+                formAnimation: formAnimation,
               ),
-            ),
-          ),
 
-          if (landscape && wideLayout)
-            _LandscapeLoginContent(
-              formKey: _loginFormKey,
-              pulse: _pulse,
-              startupMessage: startupMessage,
-              isSubmitting: widget.isSubmitting,
-              isSignUpMode: widget.isSignUpMode,
-              allowSignUp: widget.allowSignUp,
-              emailController: widget.emailController,
-              passwordController: widget.passwordController,
-              obscurePassword: widget.obscurePassword,
-              onPrimaryAction: widget.onPrimaryAction,
-              onForgotPassword: widget.onForgotPassword,
-              onGoogleSignIn: widget.onGoogleSignIn,
-              onGitHubSignIn: widget.onGitHubSignIn,
-              onMockLogin: onMockLogin,
-              onToggleMode: widget.onToggleMode,
-              onTogglePassword: widget.onTogglePassword,
-              showMockHint: widget.showMockHint,
-              mockHint: widget.mockHint,
-              brandAnimation: brandAnimation,
-              formAnimation: formAnimation,
-            )
-          else
-            _PortraitLoginContent(
-              formKey: _loginFormKey,
-              pulse: _pulse,
-              startupMessage: startupMessage,
-              isSubmitting: widget.isSubmitting,
-              isSignUpMode: widget.isSignUpMode,
-              allowSignUp: widget.allowSignUp,
-              emailController: widget.emailController,
-              passwordController: widget.passwordController,
-              obscurePassword: widget.obscurePassword,
-              onPrimaryAction: widget.onPrimaryAction,
-              onForgotPassword: widget.onForgotPassword,
-              onGoogleSignIn: widget.onGoogleSignIn,
-              onGitHubSignIn: widget.onGitHubSignIn,
-              onMockLogin: onMockLogin,
-              onToggleMode: widget.onToggleMode,
-              onTogglePassword: widget.onTogglePassword,
-              showMockHint: widget.showMockHint,
-              mockHint: widget.mockHint,
-              brandAnimation: brandAnimation,
-              formAnimation: formAnimation,
-            ),
-
-          // Loading indicator
-          if (widget.isSubmitting)
-            const Positioned.fill(
-              child: ColoredBox(
-                color: Color(0x33000000),
-                child: Center(
-                  child: SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.neonCyan,
+            if (widget.isSubmitting)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x66050D1A),
+                  child: Center(
+                    child: TemporalGlassSurface(
+                      padding: EdgeInsets.all(18),
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.neonCyan,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          if (showFirstLoginGuide)
-            InteractiveTutorialOverlay(
-              targetKey: _loginFormKey,
-              stepLabel: l10n.isSpanish
-                  ? 'Configuración 2 de 4'
-                  : 'First setup 2 of 4',
-              title: l10n.isSpanish
-                  ? 'Inicia sesión o crea tu cuenta'
-                  : 'Sign in or create your account',
-              body: l10n.isSpanish
-                  ? 'Usa la cuenta real que quieres que ChronoSpark recuerde. Después de autenticarte, continuarás con tu nombre visible.'
-                  : 'Use the real account you want ChronoSpark to remember. After authentication, setup continues with your display name.',
-              primaryLabel: l10n.isSpanish ? 'Comenzar acceso' : 'Start login',
-              onPrimary: () => setState(() => _guideVisible = false),
-            ),
-        ],
+            if (showFirstLoginGuide)
+              InteractiveTutorialOverlay(
+                targetKey: _loginFormKey,
+                stepLabel: l10n.isSpanish
+                    ? 'Configuración 2 de 4'
+                    : 'First setup 2 of 4',
+                title: l10n.isSpanish
+                    ? 'Inicia sesión o crea tu cuenta'
+                    : 'Sign in or create your account',
+                body: l10n.isSpanish
+                    ? 'Usa la cuenta real que quieres que ChronoSpark recuerde. Después de autenticarte, continuarás con tu nombre visible.'
+                    : 'Use the real account you want ChronoSpark to remember. After authentication, setup continues with your display name.',
+                primaryLabel: l10n.isSpanish
+                    ? 'Comenzar acceso'
+                    : 'Start login',
+                onPrimary: () => setState(() => _guideVisible = false),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -490,10 +472,8 @@ class _LoginBrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
     final bool compact = width < Breakpoints.compact;
-    final double titleSize = compact ? 40 : 48;
-    final double titleSpacing = compact ? 2.2 : 3;
+    final double titleSize = compact ? 34 : 42;
     final double subtitleSize = compact ? AppSizes.fontXs : AppSizes.fontSm;
-    final double subtitleSpacing = compact ? 2.8 : 3.5;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -506,13 +486,13 @@ class _LoginBrandHeader extends StatelessWidget {
                 colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
               ).createShader(bounds),
               child: Text(
-                'CHRONO\nSPARK',
+                'CHRONOSPARK',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: titleSize,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: titleSpacing,
-                  height: 0.95,
+                  letterSpacing: 0,
+                  height: 1,
                   shadows: [
                     Shadow(
                       color: const Color(
@@ -530,23 +510,14 @@ class _LoginBrandHeader extends StatelessWidget {
         Text(
           'TEMPORAL INTELLIGENCE SYSTEM',
           style: TextStyle(
-            color: Colors.white38,
+            color: Colors.white70,
             fontSize: subtitleSize,
-            letterSpacing: subtitleSpacing,
+            letterSpacing: 0,
             fontWeight: FontWeight.w600,
           ),
         ),
         SizedBox(height: compact ? 10 : 12),
-        Container(
-          width: compact ? 34 : 40,
-          height: 2,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
-            ),
-            borderRadius: BorderRadius.circular(1),
-          ),
-        ),
+        const SizedBox(width: 180, child: TemporalDivider()),
       ],
     );
   }
@@ -566,7 +537,7 @@ class _LoginBrandPanel extends StatelessWidget {
         _LoginBrandHeader(pulse: pulse),
         const SizedBox(height: 18),
         const Text(
-          'Access the system, reset the key, or initialize a new profile from one place.',
+          'Your plans, signals, and history remain yours. Continue to your connected ChronoSpark workspace.',
           style: TextStyle(
             color: Colors.white70,
             fontSize: AppSizes.fontLabel,
@@ -626,31 +597,9 @@ class _LoginFormCard extends StatelessWidget {
     final double sectionGap = compact ? 10 : 14;
     final String startupText = startupMessage ?? '';
     final VoidCallback mockLoginTap = onMockLogin ?? () {};
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF0A1024).withValues(alpha: 0.88),
-            const Color(0xFF151127).withValues(alpha: 0.92),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.08),
-            blurRadius: 30,
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
+    return TemporalGlassSurface(
+      accent: isSignUpMode ? AppColors.neonViolet : AppColors.neonCyan,
+      opacity: 0.92,
       padding: EdgeInsets.all(edgePadding),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -659,13 +608,22 @@ class _LoginFormCard extends StatelessWidget {
           Text(
             isSignUpMode ? 'CREATE ACCOUNT' : 'ACCESS SYSTEM',
             style: TextStyle(
-              color: Colors.white38,
+              color: isSignUpMode ? AppColors.neonViolet : AppColors.neonCyan,
               fontSize: compact ? AppSizes.fontXs : AppSizes.fontSm,
-              letterSpacing: compact ? 2.4 : 3,
+              letterSpacing: 0,
               fontWeight: FontWeight.w700,
             ),
           ),
           SizedBox(height: compact ? 4 : 6),
+          Text(
+            isSignUpMode ? 'Create your workspace' : 'Welcome back',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 4),
           Text(
             'Secure access to your connected planning workspace.',
             style: TextStyle(
@@ -680,7 +638,7 @@ class _LoginFormCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.redAccent.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: Colors.redAccent.withValues(alpha: 0.3),
                 ),
@@ -727,17 +685,26 @@ class _LoginFormCard extends StatelessWidget {
             ),
           ),
           SizedBox(height: compact ? 6 : 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: SmartPressable(
-              onTap: onForgotPassword,
-              child: Text(
-                'Forgot Password?',
-                style: TextStyle(
-                  color: AppColors.neonCyan.withValues(alpha: 0.9),
-                  fontSize: AppSizes.fontBody,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
+          SizedBox(
+            height: AppSizes.touchTarget,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: SmartPressable(
+                onTap: onForgotPassword,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 12,
+                  ),
+                  child: Text(
+                    'Forgot Password?',
+                    style: TextStyle(
+                      color: AppColors.neonCyan.withValues(alpha: 0.9),
+                      fontSize: AppSizes.fontBody,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -749,7 +716,30 @@ class _LoginFormCard extends StatelessWidget {
             onTap: onPrimaryAction,
           ),
           if (!showMockHint) ...[
-            SizedBox(height: compact ? 8 : 10),
+            SizedBox(height: compact ? 12 : 14),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Divider(color: Colors.white.withValues(alpha: 0.18)),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    'OR CONTINUE WITH',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: AppSizes.fontXs,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Divider(color: Colors.white.withValues(alpha: 0.18)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             _SecondaryButton(
               label: 'Continue with Google',
               icon: Icons.g_mobiledata_rounded,
@@ -814,7 +804,7 @@ class _LoginFormCard extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0x1AFFC857),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0x99FFC857)),
                 ),
                 child: const Row(
@@ -836,7 +826,7 @@ class _LoginFormCard extends StatelessWidget {
                           color: Color(0xFFFFDFA3),
                           fontWeight: FontWeight.w700,
                           fontSize: AppSizes.fontCaption,
-                          letterSpacing: 1.5,
+                          letterSpacing: 0,
                         ),
                       ),
                     ),
@@ -886,10 +876,11 @@ class _NeonInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accentColor.withValues(alpha: 0.25)),
+        color: AppColors.bgSecondary.withValues(alpha: 0.84),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accentColor.withValues(alpha: 0.42)),
         boxShadow: [
           BoxShadow(
             color: accentColor.withValues(alpha: 0.08),
@@ -901,7 +892,7 @@ class _NeonInput extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       child: Row(
         children: [
-          Icon(icon, color: accentColor.withValues(alpha: 0.8), size: 18),
+          Icon(icon, color: accentColor.withValues(alpha: 0.9), size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
@@ -911,12 +902,12 @@ class _NeonInput extends StatelessWidget {
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: AppSizes.fontLabel,
-                letterSpacing: 0.3,
+                letterSpacing: 0,
               ),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 hintText: hintText,
                 hintStyle: TextStyle(
                   color: Colors.white.withValues(alpha: 0.25),
@@ -925,7 +916,11 @@ class _NeonInput extends StatelessWidget {
               ),
             ),
           ),
-          ?trailing,
+          if (trailing case final Widget value)
+            SizedBox.square(
+              dimension: AppSizes.touchTarget,
+              child: Center(child: value),
+            ),
         ],
       ),
     );
@@ -948,9 +943,9 @@ class _PrimaryButton extends StatelessWidget {
     return SmartPressable(
       onTap: onTap,
       child: Container(
-        height: 54,
+        constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(8),
           gradient: const LinearGradient(
             colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
           ),
@@ -978,7 +973,7 @@ class _PrimaryButton extends StatelessWidget {
                   color: Colors.black,
                   fontSize: AppSizes.fontBodyLg,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 2.5,
+                  letterSpacing: 0,
                 ),
               ),
       ),
@@ -1008,9 +1003,10 @@ class _SecondaryButton extends StatelessWidget {
     return SmartPressable(
       onTap: onTap,
       child: Container(
+        constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           color: isGoogleAction
               ? Colors.white.withValues(alpha: 0.06)
               : color.withValues(alpha: 0.08),
@@ -1049,7 +1045,7 @@ class _SecondaryButton extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.88),
                   fontSize: AppSizes.fontBody,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 0.3,
+                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -1104,7 +1100,7 @@ class _GitHubGlyph extends StatelessWidget {
         fontSize: size * 0.7,
         height: 1,
         fontWeight: FontWeight.w900,
-        letterSpacing: 0.2,
+        letterSpacing: 0,
       ),
     );
   }

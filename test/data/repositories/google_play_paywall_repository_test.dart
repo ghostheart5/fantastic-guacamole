@@ -65,95 +65,88 @@ void main() {
     },
   );
 
-  test(
-    'getAvailablePlans derives the longest valid Google Play trial',
-    () async {
-      const PricingPhaseWrapper paidPhase = PricingPhaseWrapper(
-        billingCycleCount: 0,
-        billingPeriod: 'P1M',
-        formattedPrice: r'$9.99',
-        priceAmountMicros: 9990000,
-        priceCurrencyCode: 'USD',
-        recurrenceMode: RecurrenceMode.infiniteRecurring,
-      );
-      const PricingPhaseWrapper invalidCycle = PricingPhaseWrapper(
-        billingCycleCount: 0,
-        billingPeriod: 'P1W',
-        formattedPrice: r'$0.00',
-        priceAmountMicros: 0,
-        priceCurrencyCode: 'USD',
-        recurrenceMode: RecurrenceMode.finiteRecurring,
-      );
-      const PricingPhaseWrapper invalidPeriod = PricingPhaseWrapper(
-        billingCycleCount: 1,
-        billingPeriod: 'not-a-period',
-        formattedPrice: r'$0.00',
-        priceAmountMicros: 0,
-        priceCurrencyCode: 'USD',
-        recurrenceMode: RecurrenceMode.finiteRecurring,
-      );
-      const PricingPhaseWrapper longestTrial = PricingPhaseWrapper(
-        billingCycleCount: 1,
-        billingPeriod: 'P1Y2M3W4D',
-        formattedPrice: r'$0.00',
-        priceAmountMicros: 0,
-        priceCurrencyCode: 'USD',
-        recurrenceMode: RecurrenceMode.finiteRecurring,
-      );
-      const ProductDetailsWrapper wrapper = ProductDetailsWrapper(
-        description: 'Premium access',
-        name: 'ChronoSpark Premium',
-        productId: 'chronospark_premium_monthly',
-        productType: ProductType.subs,
-        title: 'ChronoSpark Premium',
-        subscriptionOfferDetails: <SubscriptionOfferDetailsWrapper>[
-          SubscriptionOfferDetailsWrapper(
-            basePlanId: 'monthly',
-            offerTags: <String>[],
-            offerIdToken: 'offer-token',
-            pricingPhases: <PricingPhaseWrapper>[
-              paidPhase,
-              invalidCycle,
-              invalidPeriod,
-              longestTrial,
-            ],
-          ),
-        ],
-      );
-      final GooglePlayProductDetails details =
-          GooglePlayProductDetails.fromProductDetails(wrapper).single;
-      final GooglePlayPaywallRepository repository =
-          GooglePlayPaywallRepository(
-            billingClient: _FakeBillingClient(
-              productResponse: ProductDetailsResponse(
-                productDetails: <ProductDetails>[details],
-                notFoundIDs: const <String>['chronospark_premium_annual'],
-              ),
-            ),
-            paywallTestingModeOverride: false,
-            sharedPreferencesLoader: SharedPreferences.getInstance,
-            receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
-          );
-
-      final List<PaywallPlan> plans = await repository.getAvailablePlans();
-      final PaywallPlan monthly = plans.firstWhere(
-        (PaywallPlan plan) => plan.id == 'monthly',
-      );
-
-      expect(
-        monthly.benefits.first,
-        '450-day free trial for eligible new subscribers',
-      );
-      expect(
-        monthly.benefits.where(
-          (String benefit) => benefit.toLowerCase().contains('free trial'),
+  test('getAvailablePlans never advertises a Google Play free trial', () async {
+    const PricingPhaseWrapper paidPhase = PricingPhaseWrapper(
+      billingCycleCount: 0,
+      billingPeriod: 'P1M',
+      formattedPrice: r'$9.99',
+      priceAmountMicros: 9990000,
+      priceCurrencyCode: 'USD',
+      recurrenceMode: RecurrenceMode.infiniteRecurring,
+    );
+    const PricingPhaseWrapper invalidCycle = PricingPhaseWrapper(
+      billingCycleCount: 0,
+      billingPeriod: 'P1W',
+      formattedPrice: r'$0.00',
+      priceAmountMicros: 0,
+      priceCurrencyCode: 'USD',
+      recurrenceMode: RecurrenceMode.finiteRecurring,
+    );
+    const PricingPhaseWrapper invalidPeriod = PricingPhaseWrapper(
+      billingCycleCount: 1,
+      billingPeriod: 'not-a-period',
+      formattedPrice: r'$0.00',
+      priceAmountMicros: 0,
+      priceCurrencyCode: 'USD',
+      recurrenceMode: RecurrenceMode.finiteRecurring,
+    );
+    const PricingPhaseWrapper longestTrial = PricingPhaseWrapper(
+      billingCycleCount: 1,
+      billingPeriod: 'P1Y2M3W4D',
+      formattedPrice: r'$0.00',
+      priceAmountMicros: 0,
+      priceCurrencyCode: 'USD',
+      recurrenceMode: RecurrenceMode.finiteRecurring,
+    );
+    const ProductDetailsWrapper wrapper = ProductDetailsWrapper(
+      description: 'Premium access',
+      name: 'ChronoSpark Premium',
+      productId: 'chronospark_premium_monthly',
+      productType: ProductType.subs,
+      title: 'ChronoSpark Premium',
+      subscriptionOfferDetails: <SubscriptionOfferDetailsWrapper>[
+        SubscriptionOfferDetailsWrapper(
+          basePlanId: 'monthly',
+          offerTags: <String>[],
+          offerIdToken: 'offer-token',
+          pricingPhases: <PricingPhaseWrapper>[
+            paidPhase,
+            invalidCycle,
+            invalidPeriod,
+            longestTrial,
+          ],
         ),
-        hasLength(1),
-      );
+      ],
+    );
+    final GooglePlayProductDetails details =
+        GooglePlayProductDetails.fromProductDetails(wrapper).single;
+    final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
+      billingClient: _FakeBillingClient(
+        productResponse: ProductDetailsResponse(
+          productDetails: <ProductDetails>[details],
+          notFoundIDs: const <String>['chronospark_premium_annual'],
+        ),
+      ),
+      paywallTestingModeOverride: false,
+      sharedPreferencesLoader: SharedPreferences.getInstance,
+      receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+    );
 
-      repository.dispose();
-    },
-  );
+    final List<PaywallPlan> plans = await repository.getAvailablePlans();
+    final PaywallPlan monthly = plans.firstWhere(
+      (PaywallPlan plan) => plan.id == 'monthly',
+    );
+
+    expect(monthly.freeTrialDays, 0);
+    expect(
+      monthly.benefits.where(
+        (String benefit) => benefit.toLowerCase().contains('free trial'),
+      ),
+      isEmpty,
+    );
+
+    repository.dispose();
+  });
 
   test(
     'purchase stream errors are tolerated without crashing repository',

@@ -6,6 +6,9 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -106,46 +109,58 @@ class AboutPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('About ChronoSpark')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text('ChronoSpark', style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 8),
-          Text(
-            'An adaptive planner built for clarity, momentum, and reflective execution.',
-            style: theme.textTheme.bodyLarge,
+    return AnimatedSystemBackground(
+      backgroundAssetPath: AppAssets.bgSettingsControlPlane,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: <Widget>[
+              TemporalScreenHeader(
+                title: 'ABOUT CHRONOSPARK',
+                subtitle:
+                    'An adaptive planner built for clarity, momentum, and reflective execution.',
+                eyebrow: 'SYSTEM IDENTITY',
+                onBack: Navigator.canPop(context)
+                    ? () => Navigator.pop(context)
+                    : null,
+              ),
+              const SizedBox(height: 18),
+              const TemporalGlassSurface(
+                child: Column(
+                  children: <Widget>[
+                    _Section(
+                      title: 'What It Does',
+                      body:
+                          'ChronoSpark combines tasks, planning, logs, and AI-assisted strategy in one system so you can execute consistently without losing context.',
+                    ),
+                    _Section(
+                      title: 'Core Surfaces',
+                      body:
+                          'Nexus for decisions, Trajectory Engine for possible paths, Timeline for history, and Profile for identity and progression. Smart Planner, Creator, SI Console, and Progression add depth when needed.',
+                    ),
+                    _Section(
+                      title: 'Guiding Principle',
+                      body:
+                          'Reduce friction between intent and action. Keep planning lightweight, execution clear, and reflection actionable.',
+                    ),
+                    _Section(
+                      title: 'Privacy and Support',
+                      body:
+                          'Official privacy policy: ${AppUrls.privacy}. Terms: ${AppUrls.terms}. Support page: ${AppUrls.support}. Support email: ${Env.supportEmail}.',
+                    ),
+                    _Section(
+                      title: 'Voice Features',
+                      body:
+                          'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          const _Section(
-            title: 'What It Does',
-            body:
-                'ChronoSpark combines tasks, planning, logs, and AI-assisted strategy in one system so you can execute consistently without losing context.',
-          ),
-          const _Section(
-            title: 'Core Surfaces',
-            body:
-                'Nexus for decisions, Trajectory Engine for possible paths, Timeline for history, and Profile for identity and progression. Smart Planner, Creator, SI Console, and Progression add depth when needed.',
-          ),
-          const _Section(
-            title: 'Guiding Principle',
-            body:
-                'Reduce friction between intent and action. Keep planning lightweight, execution clear, and reflection actionable.',
-          ),
-          const _Section(
-            title: 'Privacy and Support',
-            body:
-                'Official privacy policy: ${AppUrls.privacy}. Terms: ${AppUrls.terms}. Support page: ${AppUrls.support}. Support email: ${Env.supportEmail}.',
-          ),
-          const _Section(
-            title: 'Voice Features',
-            body:
-                'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -291,20 +306,16 @@ class _Section extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: theme.colorScheme.primary.withValues(alpha: 0.18),
-          ),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          children: <Widget>[
             Text(title, style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             Text(body, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 14),
+            Divider(color: theme.colorScheme.primary.withValues(alpha: 0.18)),
           ],
         ),
       ),

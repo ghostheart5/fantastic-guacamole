@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
@@ -11,6 +10,8 @@ import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/tutorial/interactive_tutorial_overlay.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -189,50 +190,98 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     ];
     final media = MediaQuery.sizeOf(context);
     final bool landscape = media.width > media.height;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // Starfield background
-          const Positioned.fill(child: _StarfieldBackground()),
+    return AnimatedSystemBackground(
+      backgroundAssetPath: AppAssets.bgFirstSignal,
+      overlayOpacity: 0.5,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
+            PageView.builder(
+              controller: _page,
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (i) => setState(() => _current = i),
+              itemCount: _totalPages,
+              itemBuilder: (context, i) {
+                if (i < slides.length) return _SlideView(slide: slides[i]);
+                return _PersonalizationSlide(
+                  nameCtrl: _nameCtrl,
+                  nameFieldKey: _nameFieldKey,
+                );
+              },
+            ),
 
-          // Page content
-          PageView.builder(
-            controller: _page,
-            physics: const NeverScrollableScrollPhysics(),
-            onPageChanged: (i) => setState(() => _current = i),
-            itemCount: _totalPages,
-            itemBuilder: (context, i) {
-              if (i < slides.length) return _SlideView(slide: slides[i]);
-              return _PersonalizationSlide(
-                nameCtrl: _nameCtrl,
-                nameFieldKey: _nameFieldKey,
-              );
-            },
-          ),
-
-          // Bottom controls
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(24, 0, 24, landscape ? 14 : 24),
-                child: landscape
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: Row(
+            // Bottom controls
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(24, 0, 24, landscape ? 14 : 24),
+                  child: landscape
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(_totalPages, (i) {
+                                  final bool active = i == _current;
+                                  return AnimatedContainer(
+                                    duration: const Duration(milliseconds: 250),
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 3,
+                                    ),
+                                    width: active ? 20 : 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: active
+                                          ? AppColors.neonCyan
+                                          : Colors.white.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(3),
+                                      boxShadow: active
+                                          ? [
+                                              BoxShadow(
+                                                color: AppColors.neonCyan
+                                                    .withValues(alpha: 0.6),
+                                                blurRadius: 8,
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                  );
+                                }),
+                              ),
+                            ),
+                            const SizedBox(width: 18),
+                            SizedBox(
+                              width: 180,
+                              child: KeyedSubtree(
+                                key: _welcomeActionKey,
+                                child: _GradientButton(
+                                  label: _current == 0
+                                      ? continueToLogin
+                                      : continueToCreator,
+                                  onTap: _next,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Dot indicators
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: List.generate(_totalPages, (i) {
                                 final bool active = i == _current;
                                 return AnimatedContainer(
                                   duration: const Duration(milliseconds: 250),
                                   margin: const EdgeInsets.symmetric(
-                                    horizontal: 3,
+                                    horizontal: 4,
                                   ),
-                                  width: active ? 20 : 6,
+                                  width: active ? 22 : 6,
                                   height: 6,
                                   decoration: BoxDecoration(
                                     color: active
@@ -252,11 +301,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                 );
                               }),
                             ),
-                          ),
-                          const SizedBox(width: 18),
-                          SizedBox(
-                            width: 180,
-                            child: KeyedSubtree(
+                            const SizedBox(height: 20),
+
+                            // Primary action button
+                            KeyedSubtree(
                               key: _welcomeActionKey,
                               child: _GradientButton(
                                 label: _current == 0
@@ -265,92 +313,47 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                 onTap: _next,
                               ),
                             ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Dot indicators
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(_totalPages, (i) {
-                              final bool active = i == _current;
-                              return AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                width: active ? 22 : 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: active
-                                      ? AppColors.neonCyan
-                                      : Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(3),
-                                  boxShadow: active
-                                      ? [
-                                          BoxShadow(
-                                            color: AppColors.neonCyan
-                                                .withValues(alpha: 0.6),
-                                            blurRadius: 8,
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                              );
-                            }),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Primary action button
-                          KeyedSubtree(
-                            key: _welcomeActionKey,
-                            child: _GradientButton(
-                              label: _current == 0
-                                  ? continueToLogin
-                                  : continueToCreator,
-                              onTap: _next,
-                            ),
-                          ),
-                          const SizedBox(height: 17),
-                        ],
-                      ),
+                            const SizedBox(height: 17),
+                          ],
+                        ),
+                ),
               ),
             ),
-          ),
-          InteractiveTutorialOverlay(
-            targetKey: _current == 0 ? _welcomeActionKey : _nameFieldKey,
-            stepLabel: _current == 0
-                ? (l10n.isSpanish
-                      ? 'Configuración 1 de 4'
-                      : 'First setup 1 of 4')
-                : (l10n.isSpanish
-                      ? 'Configuración 3 de 4'
-                      : 'First setup 3 of 4'),
-            title: _current == 0
-                ? (l10n.isSpanish
-                      ? 'Bienvenido a ChronoSpark'
-                      : 'Welcome to ChronoSpark')
-                : l10n.text(ChronoSparkString.nameQuestion),
-            body: _current == 0
-                ? (l10n.isSpanish
-                      ? 'Comienza aquí e inicia sesión para que tu primera tarea pertenezca a tu cuenta.'
-                      : 'Start here, then sign in so your first task belongs to your account.')
-                : (l10n.isSpanish
-                      ? 'Escribe el nombre que debe usar ChronoSpark. Se guarda antes de comenzar la lección interactiva de Creador.'
-                      : 'Enter the name ChronoSpark should use. This is saved before your interactive Creator lesson begins.'),
-            primaryLabel: _submitting
-                ? (l10n.isSpanish ? 'Espera' : 'Please wait')
-                : _current == 0
-                ? (l10n.isSpanish ? 'Continuar al acceso' : 'Continue to login')
-                : (l10n.isSpanish
-                      ? 'Continuar a Creador'
-                      : 'Continue to Creator'),
-            primaryEnabled: !_submitting && (_current == 0 || hasName),
-            onPrimary: _next,
-          ),
-        ],
+            InteractiveTutorialOverlay(
+              targetKey: _current == 0 ? _welcomeActionKey : _nameFieldKey,
+              stepLabel: _current == 0
+                  ? (l10n.isSpanish
+                        ? 'Configuración 1 de 4'
+                        : 'First setup 1 of 4')
+                  : (l10n.isSpanish
+                        ? 'Configuración 3 de 4'
+                        : 'First setup 3 of 4'),
+              title: _current == 0
+                  ? (l10n.isSpanish
+                        ? 'Bienvenido a ChronoSpark'
+                        : 'Welcome to ChronoSpark')
+                  : l10n.text(ChronoSparkString.nameQuestion),
+              body: _current == 0
+                  ? (l10n.isSpanish
+                        ? 'Comienza aquí e inicia sesión para que tu primera tarea pertenezca a tu cuenta.'
+                        : 'Start here, then sign in so your first task belongs to your account.')
+                  : (l10n.isSpanish
+                        ? 'Escribe el nombre que debe usar ChronoSpark. Se guarda antes de comenzar la lección interactiva de Creador.'
+                        : 'Enter the name ChronoSpark should use. This is saved before your interactive Creator lesson begins.'),
+              primaryLabel: _submitting
+                  ? (l10n.isSpanish ? 'Espera' : 'Please wait')
+                  : _current == 0
+                  ? (l10n.isSpanish
+                        ? 'Continuar al acceso'
+                        : 'Continue to login')
+                  : (l10n.isSpanish
+                        ? 'Continuar a Creador'
+                        : 'Continue to Creator'),
+              primaryEnabled: !_submitting && (_current == 0 || hasName),
+              onPrimary: _next,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -469,7 +472,7 @@ class _SlideView extends StatelessWidget {
                             style: TextStyle(
                               color: slide.iconColor,
                               fontSize: 10,
-                              letterSpacing: 2.5,
+                              letterSpacing: 0,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -496,7 +499,7 @@ class _SlideView extends StatelessWidget {
                               color: Colors.white,
                               fontSize: 40,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
+                              letterSpacing: 0,
                               height: 1.0,
                             ),
                           ),
@@ -507,7 +510,7 @@ class _SlideView extends StatelessWidget {
                           style: TextStyle(
                             color: slide.iconColor.withValues(alpha: 0.75),
                             fontSize: 15,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -585,7 +588,7 @@ class _SlideView extends StatelessWidget {
                   style: TextStyle(
                     color: slide.iconColor,
                     fontSize: 10,
-                    letterSpacing: 2.5,
+                    letterSpacing: 0,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -604,7 +607,7 @@ class _SlideView extends StatelessWidget {
                     color: Colors.white,
                     fontSize: 36,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
+                    letterSpacing: 0,
                     height: 1.0,
                   ),
                 ),
@@ -615,7 +618,7 @@ class _SlideView extends StatelessWidget {
                 style: TextStyle(
                   color: slide.iconColor.withValues(alpha: 0.75),
                   fontSize: 13,
-                  letterSpacing: 0.5,
+                  letterSpacing: 0,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -673,15 +676,8 @@ class _PersonalizationSlide extends StatelessWidget {
           wideLayout ? (landscapeCompact ? 40 : 56) : 28,
           wideLayout ? (landscapeCompact ? 150 : 188) : 160,
         );
-        final Widget formCard = Container(
+        final Widget formCard = TemporalGlassSurface(
           width: wideLayout ? (landscapeCompact ? 440 : 460) : double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: AppColors.neonCyan.withValues(alpha: 0.18),
-            ),
-          ),
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -692,7 +688,7 @@ class _PersonalizationSlide extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white38,
                   fontSize: 10,
-                  letterSpacing: 2,
+                  letterSpacing: 0,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -700,7 +696,7 @@ class _PersonalizationSlide extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: AppColors.neonCyan.withValues(alpha: 0.25),
                   ),
@@ -758,7 +754,7 @@ class _PersonalizationSlide extends StatelessWidget {
                                 style: const TextStyle(
                                   color: AppColors.neonCyan,
                                   fontSize: 10,
-                                  letterSpacing: 2.5,
+                                  letterSpacing: 0,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -779,7 +775,7 @@ class _PersonalizationSlide extends StatelessWidget {
                                     color: Colors.white,
                                     fontSize: 42,
                                     fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.5,
+                                    letterSpacing: 0,
                                     height: 1.0,
                                   ),
                                 ),
@@ -792,7 +788,7 @@ class _PersonalizationSlide extends StatelessWidget {
                                 style: const TextStyle(
                                   color: AppColors.neonCyan,
                                   fontSize: 14,
-                                  letterSpacing: 0.5,
+                                  letterSpacing: 0,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -843,7 +839,7 @@ class _PersonalizationSlide extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 10,
-                        letterSpacing: 2.5,
+                        letterSpacing: 0,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -859,7 +855,7 @@ class _PersonalizationSlide extends StatelessWidget {
                         color: Colors.white,
                         fontSize: 36,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
+                        letterSpacing: 0,
                         height: 1.0,
                       ),
                     ),
@@ -870,7 +866,7 @@ class _PersonalizationSlide extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.neonCyan,
                       fontSize: 13,
-                      letterSpacing: 0.5,
+                      letterSpacing: 0,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -928,107 +924,15 @@ class _GradientButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF00E5FF),
           foregroundColor: Colors.black,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w900,
-            letterSpacing: 2.5,
+            letterSpacing: 0,
           ),
         ),
         child: Text(label),
       ),
     );
   }
-}
-
-class _StarfieldBackground extends StatefulWidget {
-  const _StarfieldBackground();
-
-  @override
-  State<_StarfieldBackground> createState() => _StarfieldBackgroundState();
-}
-
-class _StarfieldBackgroundState extends State<_StarfieldBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  final List<_Star> _stars = List.generate(
-    80,
-    (i) => _Star(
-      x: math.Random().nextDouble(),
-      y: math.Random().nextDouble(),
-      size: math.Random().nextDouble() * 1.8 + 0.4,
-      speed: math.Random().nextDouble() * 0.6 + 0.2,
-      phase: math.Random().nextDouble() * math.pi * 2,
-    ),
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) => CustomPaint(
-        painter: _StarPainter(_stars, _ctrl.value),
-        child: const SizedBox.expand(),
-      ),
-    );
-  }
-}
-
-class _Star {
-  const _Star({
-    required this.x,
-    required this.y,
-    required this.size,
-    required this.speed,
-    required this.phase,
-  });
-
-  final double x;
-  final double y;
-  final double size;
-  final double speed;
-  final double phase;
-}
-
-class _StarPainter extends CustomPainter {
-  const _StarPainter(this.stars, this.t);
-
-  final List<_Star> stars;
-  final double t;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint();
-    for (final star in stars) {
-      final alpha =
-          (0.35 + 0.45 * math.sin(t * math.pi * 2 * star.speed + star.phase))
-              .clamp(0.0, 1.0);
-      paint.color = Colors.white.withValues(alpha: alpha);
-      canvas.drawCircle(
-        Offset(star.x * size.width, star.y * size.height),
-        star.size,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_StarPainter old) => old.t != t;
 }

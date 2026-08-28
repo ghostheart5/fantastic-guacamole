@@ -7,8 +7,8 @@ class AnimatedSystemBackground extends StatefulWidget {
     super.key,
     this.backgroundAssetPath,
     this.showGradientOverlay = true,
-    this.showGlowOverlay = true,
-    this.overlayOpacity = 0.42,
+    this.showGlowOverlay = false,
+    this.overlayOpacity = 0.58,
     this.animate = true,
     this.child,
   });
@@ -119,13 +119,13 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
         final double t = _isAnimating ? _controller.value : 0;
         final double overlayOpacity = widget.overlayOpacity.clamp(0.0, 1.0);
         final Color color1 = Color.lerp(
-          const Color(0x3A08040E),
-          const Color(0x3A170C1F),
+          const Color(0xD9050D1A),
+          const Color(0xC9081426),
           t,
         )!;
         final Color color2 = Color.lerp(
-          const Color(0x2C221029),
-          const Color(0x2C0D0916),
+          const Color(0x73050D1A),
+          const Color(0x8A071426),
           t,
         )!;
         final Alignment begin = Alignment(-1 + (t * 0.6), -1 + (t * 0.2));
@@ -142,10 +142,10 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
                     begin: begin,
                     end: end,
                     colors: <Color>[
+                      tint(color2, overlayOpacity * 0.72),
+                      tint(color1, overlayOpacity * 0.82),
                       tint(color1, overlayOpacity),
-                      tint(color2, overlayOpacity),
-                      tint(Color.lerp(color2, color1, 0.5)!, overlayOpacity),
-                      tint(color2, overlayOpacity),
+                      tint(color2, overlayOpacity * 0.9),
                     ],
                   ),
                 ),

@@ -1261,7 +1261,7 @@ class _Section extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
@@ -1291,7 +1291,7 @@ class _Section extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 10,
-                    letterSpacing: 2.5,
+                    letterSpacing: 0,
                     color: accentColor,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1341,7 +1341,7 @@ class _PlanAndCreditsCard extends StatelessWidget {
             AppColors.neonCyan.withValues(alpha: .13),
           ],
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.neonViolet.withValues(alpha: .42)),
         boxShadow: <BoxShadow>[
           BoxShadow(
@@ -1360,7 +1360,7 @@ class _PlanAndCreditsCard extends StatelessWidget {
               color: AppColors.neonCyan,
               fontSize: 10,
               fontWeight: FontWeight.w900,
-              letterSpacing: 2,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 5),
@@ -1424,10 +1424,10 @@ class _SettingsAccessEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.black.withValues(alpha: .16),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -1437,7 +1437,7 @@ class _SettingsAccessEntry extends StatelessWidget {
                 height: 42,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: .1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: accent.withValues(alpha: .3)),
                 ),
                 child: Icon(icon, color: accent, size: 21),
@@ -1453,7 +1453,7 @@ class _SettingsAccessEntry extends StatelessWidget {
                         color: accent,
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -1521,18 +1521,18 @@ class _SettingsCategory extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: const Color(0xE8050D1A),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(8),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(8),
             side: BorderSide(color: accent.withValues(alpha: .35)),
           ),
           collapsedShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(8),
             side: BorderSide(color: accent.withValues(alpha: .2)),
           ),
           leading: Container(
@@ -1540,7 +1540,7 @@ class _SettingsCategory extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: .1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: accent, size: 20),
           ),

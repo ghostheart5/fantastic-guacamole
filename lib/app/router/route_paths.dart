@@ -30,7 +30,7 @@ class RoutePaths {
   static const timeline = '/timeline';
   static const trajectoryEngine = '/trajectory';
   static const creatorTasks = creator;
-  static const creatorGoals = creator;
+  static const creatorGoals = '$creator/goals';
   static const creatorHabits = creator;
   static const creatorNotes = creator;
 

@@ -5,13 +5,13 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   AlwaysAuthenticatedAuthService({
     required this._user,
     Future<void> Function()? onSignedOut,
-    Future<void> Function(String? accountId)? onAccountSignedOut,
+    Future<void> Function(String accountId)? onAccountDeleted,
   }) : _signedOutCallback = onSignedOut,
-       _accountSignedOutCallback = onAccountSignedOut;
+       _accountDeletedCallback = onAccountDeleted;
 
   final User _user;
   final Future<void> Function()? _signedOutCallback;
-  final Future<void> Function(String? accountId)? _accountSignedOutCallback;
+  final Future<void> Function(String accountId)? _accountDeletedCallback;
 
   @override
   Stream<User?> authStateChanges() => Stream<User?>.value(_user);
@@ -66,13 +66,12 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
 
   @override
   Future<void> signOut() async {
-    await _accountSignedOutCallback?.call(_user.id);
     await _signedOutCallback?.call();
   }
 
   @override
   Future<void> deleteCurrentAccount({required String password}) async {
-    await _accountSignedOutCallback?.call(_user.id);
+    await _accountDeletedCallback?.call(_user.id);
     await _signedOutCallback?.call();
   }
 }

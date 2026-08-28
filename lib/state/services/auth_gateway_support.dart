@@ -32,12 +32,12 @@ AuthServiceContract createAuthService({
           displayName: 'Mock Planner',
           emailVerified: true,
         ),
-        onAccountSignedOut: localDataCleanup?.clearForAccountSwitch,
+        onAccountDeleted: localDataCleanup?.clearForAccountSwitch,
       );
     }
     if (intelligence.flags.mockLoginEnabled) {
       return MockAuthService(
-        onAccountSignedOut: localDataCleanup?.clearForAccountSwitch,
+        onAccountDeleted: localDataCleanup?.clearForAccountSwitch,
       );
     }
   }
@@ -55,6 +55,6 @@ AuthServiceContract createAuthService({
   return AuthService(
     supabaseClient: supabaseClient,
     store: store,
-    onAccountSignedOut: localDataCleanup?.clearForAccountSwitch,
+    onAccountDeleted: localDataCleanup?.clearForAccountSwitch,
   );
 }

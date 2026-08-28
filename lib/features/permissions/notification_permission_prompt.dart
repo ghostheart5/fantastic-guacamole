@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/features/permissions/permission_denied_recov
 import 'package:fantastic_guacamole/features/permissions/permission_explainer.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_rationale_sheet.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 
 class NotificationPermissionPrompt extends StatelessWidget {
@@ -27,62 +28,98 @@ class NotificationPermissionPrompt extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: AppColors.neonCyan.withValues(alpha: 0.06),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Enable notifications to receive scheduled execution and reflection reminders.',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12.5,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          FilledButton(
-            onPressed: () async {
-              await showPermissionRationaleSheet<void>(
-                context: context,
-                explainer: PermissionExplainers.notification,
-                onPrimary: () async {
-                  await onRequestPermission();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        TemporalGlassSurface(
+          accent: AppColors.neonCyan,
+          opacity: 0.9,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const SizedBox.square(
+                    dimension: 48,
+                    child: Icon(
+                      Icons.notifications_active_outlined,
+                      color: AppColors.neonCyan,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const Text(
+                          'PERMISSION · NOTIFICATIONS',
+                          style: TextStyle(
+                            color: AppColors.neonCyan,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Enable notifications to receive scheduled execution and reflection reminders.',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.45,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const TemporalStatusRow(
+                icon: Icons.tune_rounded,
+                text: 'Optional and controlled from Settings.',
+              ),
+              const SizedBox(height: 14),
+              TemporalActionButton(
+                label: 'Enable Notifications',
+                icon: Icons.notifications_active_outlined,
+                onPressed: () async {
+                  await showPermissionRationaleSheet<void>(
+                    context: context,
+                    explainer: PermissionExplainers.notification,
+                    onPrimary: () async {
+                      await onRequestPermission();
+                    },
+                  );
                 },
-              );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.neonCyan,
-              foregroundColor: Colors.black,
-            ),
-            child: const Text('Enable Notifications'),
+              ),
+            ],
           ),
-          if (denied) ...<Widget>[
-            const SizedBox(height: 10),
-            PermissionDeniedRecovery(
-              title: 'Permission Denied',
-              message:
-                  'Notifications are disabled at system level. Open settings to re-enable alerts.',
-              onOpenSystemSettings: onOpenSystemSettings,
-            ),
-          ],
+        ),
+        if (denied) ...<Widget>[
+          const SizedBox(height: 10),
+          PermissionDeniedRecovery(
+            title: 'Permission Denied',
+            message:
+                'Notifications are disabled at system level. Open settings to re-enable alerts.',
+            onOpenSystemSettings: onOpenSystemSettings,
+          ),
         ],
-      ),
+      ],
     );
   }
 }

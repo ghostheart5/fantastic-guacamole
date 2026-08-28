@@ -66,6 +66,7 @@ AppView? appViewFromRoutePath(String? path) {
     RoutePaths.settings => AppView.settings,
     RoutePaths.progression ||
     RoutePaths.legacyProgression => AppView.progression,
+    RoutePaths.creatorGoals => AppView.goals,
     RoutePaths.creator ||
     RoutePaths.tasks ||
     RoutePaths.legacyTasks => AppView.creator,

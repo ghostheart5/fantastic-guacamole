@@ -47,6 +47,7 @@ abstract final class RouteAccessPolicy {
     RoutePaths.nexus,
     RoutePaths.plan,
     RoutePaths.creator,
+    RoutePaths.creatorGoals,
     RoutePaths.settings,
     RoutePaths.notifications,
     RoutePaths.logs,

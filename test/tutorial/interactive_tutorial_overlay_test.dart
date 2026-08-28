@@ -122,4 +122,40 @@ void main() {
     expect(guideTaps, 1);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('scrim preserves the deep-space screen identity', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey targetKey = GlobalKey();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: <Widget>[
+              Center(child: SizedBox(key: targetKey, width: 80, height: 40)),
+              InteractiveTutorialOverlay(
+                targetKey: targetKey,
+                title: 'Deep-space guide',
+                body: 'The current screen remains visually recognizable.',
+                primaryLabel: 'Next',
+                onPrimary: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final Iterable<ColoredBox> blockers = tester.widgetList<ColoredBox>(
+      find.byType(ColoredBox),
+    );
+    expect(
+      blockers.any((ColoredBox box) => box.color == const Color(0x94050D1A)),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }

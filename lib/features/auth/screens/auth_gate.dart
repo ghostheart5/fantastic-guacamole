@@ -10,11 +10,14 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-const Color _authBackgroundColor = Color(0xFF0C0812);
 
 bool _isNewUserDatabaseSaveFailure(String message) {
   final String normalized = message.toLowerCase();
@@ -143,10 +146,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               onMockSignIn: _activateMockSignIn,
             );
           }
-          return const Scaffold(
-            backgroundColor: _authBackgroundColor,
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const _AuthLoadingShell();
         }
 
         if (authSnapshot.hasError) {
@@ -205,10 +205,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                   onMockSignIn: _activateMockSignIn,
                 );
               }
-              return const Scaffold(
-                backgroundColor: _authBackgroundColor,
-                body: Center(child: CircularProgressIndicator()),
-              );
+              return const _AuthLoadingShell();
             }
             if (snapshot.hasError) {
               return const _AuthStatusMessage(
@@ -591,86 +588,142 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
   }
 
   Widget _buildRecoveryScreen(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _authBackgroundColor,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Icon(Icons.lock_reset, size: 64),
-                const SizedBox(height: 12),
-                const Text('Reset password to continue'),
-                const SizedBox(height: 8),
-                const Text(
-                  'Set a new strong password for your account.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _recoveryPasswordController,
-                  obscureText: _obscuredRecoveryPassword,
-                  enableSuggestions: false,
-                  autocorrect: false,
-                  decoration: InputDecoration(
-                    labelText: 'New Password',
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(
-                        () => _obscuredRecoveryPassword =
-                            !_obscuredRecoveryPassword,
-                      ),
-                      icon: Icon(
-                        _obscuredRecoveryPassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _recoveryConfirmController,
-                  obscureText: _obscuredRecoveryConfirm,
-                  enableSuggestions: false,
-                  autocorrect: false,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm Password',
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(
-                        () => _obscuredRecoveryConfirm =
-                            !_obscuredRecoveryConfirm,
-                      ),
-                      icon: Icon(
-                        _obscuredRecoveryConfirm
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _submitting
-                        ? null
-                        : () => _runAuthAction(_handleRecoveryUpdatePassword),
-                    child: const Text('Update Password'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _submitting
-                      ? null
-                      : () => setState(() => _dismissRecoveryMode = true),
-                  child: const Text('Back to Sign In'),
-                ),
-              ],
+    return _AuthGlassShell(
+      backgroundAssetPath: AppAssets.bgTemporalRecovery,
+      maxWidth: 620,
+      child: TemporalGlassSurface(
+        accent: AppColors.neonCyan,
+        opacity: 0.94,
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const TemporalStatusRow(
+              icon: Icons.link_rounded,
+              text: 'Recovery link accepted',
+              color: AppColors.neonCyan,
             ),
-          ),
+            const SizedBox(height: 18),
+            const Text(
+              'ACCOUNT RECOVERY',
+              style: TextStyle(
+                color: AppColors.neonViolet,
+                fontSize: AppSizes.fontBody,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Choose a new password',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Set a new strong password for your ChronoSpark account.',
+              style: TextStyle(color: Colors.white70, height: 1.45),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _recoveryPasswordController,
+              obscureText: _obscuredRecoveryPassword,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: const TextStyle(color: Colors.white, letterSpacing: 0),
+              decoration: _authFieldDecoration(
+                label: 'New Password',
+                icon: Icons.key_rounded,
+                accent: AppColors.neonCyan,
+                trailing: IconButton(
+                  tooltip: _obscuredRecoveryPassword
+                      ? 'Show password'
+                      : 'Hide password',
+                  constraints: const BoxConstraints.tightFor(
+                    width: AppSizes.touchTarget,
+                    height: AppSizes.touchTarget,
+                  ),
+                  onPressed: () => setState(
+                    () =>
+                        _obscuredRecoveryPassword = !_obscuredRecoveryPassword,
+                  ),
+                  icon: Icon(
+                    _obscuredRecoveryPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _recoveryConfirmController,
+              obscureText: _obscuredRecoveryConfirm,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: const TextStyle(color: Colors.white, letterSpacing: 0),
+              decoration: _authFieldDecoration(
+                label: 'Confirm Password',
+                icon: Icons.key_rounded,
+                accent: AppColors.neonViolet,
+                trailing: IconButton(
+                  tooltip: _obscuredRecoveryConfirm
+                      ? 'Show password confirmation'
+                      : 'Hide password confirmation',
+                  constraints: const BoxConstraints.tightFor(
+                    width: AppSizes.touchTarget,
+                    height: AppSizes.touchTarget,
+                  ),
+                  onPressed: () => setState(
+                    () => _obscuredRecoveryConfirm = !_obscuredRecoveryConfirm,
+                  ),
+                  icon: Icon(
+                    _obscuredRecoveryConfirm
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const TemporalDivider(color: AppColors.neonViolet),
+            const SizedBox(height: 18),
+            TemporalActionButton(
+              label: 'Update Password',
+              icon: Icons.verified_user_outlined,
+              onPressed: _submitting
+                  ? null
+                  : () => _runAuthAction(_handleRecoveryUpdatePassword),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.neonCyan,
+                  minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: _submitting
+                    ? null
+                    : () => setState(() => _dismissRecoveryMode = true),
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: const Text('Back to Sign In'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const TemporalStatusRow(
+              icon: Icons.shield_outlined,
+              text:
+                  'ChronoSpark never displays or stores your password in readable form.',
+            ),
+          ],
         ),
       ),
     );
@@ -806,47 +859,117 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _authBackgroundColor,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Icon(Icons.mark_email_unread_outlined, size: 64),
-                const SizedBox(height: 12),
-                const Text('Verify email to unlock access'),
-                const SizedBox(height: 8),
-                Text(
-                  widget.email.isEmpty
-                      ? 'Open inbox and confirm account access.'
-                      : widget.email,
-                ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: _busy ? null : _refreshVerification,
-                  child: const Text('Verified · Continue'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: _busy ? null : _resendVerification,
-                  child: const Text('Resend Verification Link'),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          await widget.authService.signOut();
-                        },
-                  child: const Text('Sign Out'),
-                ),
-              ],
+    final String email = widget.email.trim();
+    return _AuthGlassShell(
+      backgroundAssetPath: AppAssets.bgArrival,
+      maxWidth: 580,
+      child: TemporalGlassSurface(
+        accent: AppColors.neonViolet,
+        opacity: 0.94,
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Icon(
+              Icons.mark_email_unread_outlined,
+              size: 48,
+              color: AppColors.neonCyan,
             ),
-          ),
+            const SizedBox(height: 18),
+            const Text(
+              'ACCOUNT VERIFICATION',
+              style: TextStyle(
+                color: AppColors.neonViolet,
+                fontSize: AppSizes.fontBody,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Verify email to unlock access',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Open the verification link in your inbox, then return here to continue securely.',
+              style: TextStyle(color: Colors.white70, height: 1.45),
+            ),
+            if (email.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 16),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.bgSecondary.withValues(alpha: 0.86),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.alternate_email_rounded,
+                        color: AppColors.neonCyan,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          email,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            const TemporalDivider(color: AppColors.neonViolet),
+            const SizedBox(height: 18),
+            TemporalActionButton(
+              label: 'Verified · Continue',
+              icon: Icons.verified_outlined,
+              onPressed: _busy ? null : _refreshVerification,
+            ),
+            const SizedBox(height: 10),
+            TemporalActionButton(
+              label: 'Resend Verification Link',
+              icon: Icons.outgoing_mail,
+              filled: false,
+              accent: AppColors.neonViolet,
+              onPressed: _busy ? null : _resendVerification,
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                  minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        await widget.authService.signOut();
+                      },
+                child: const Text('Sign Out'),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -907,21 +1030,142 @@ class _AuthStatusMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _authBackgroundColor,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(message, textAlign: TextAlign.center),
-            ],
+    return _AuthGlassShell(
+      backgroundAssetPath: AppAssets.bgTemporalRecovery,
+      child: TemporalGlassSurface(
+        accent: AppColors.memoryAmber,
+        opacity: 0.94,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 44,
+              color: AppColors.memoryAmber,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, height: 1.45),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthLoadingShell extends StatelessWidget {
+  const _AuthLoadingShell();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _AuthGlassShell(
+      backgroundAssetPath: AppAssets.bgArrival,
+      maxWidth: 160,
+      child: TemporalGlassSurface(
+        padding: EdgeInsets.all(22),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.neonCyan,
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _AuthGlassShell extends StatelessWidget {
+  const _AuthGlassShell({
+    required this.backgroundAssetPath,
+    required this.child,
+    this.maxWidth = 520,
+  });
+
+  final String backgroundAssetPath;
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSystemBackground(
+      backgroundAssetPath: backgroundAssetPath,
+      overlayOpacity: 0.56,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: true,
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  24,
+                  20,
+                  MediaQuery.viewInsetsOf(context).bottom + 24,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: (constraints.maxHeight - 48).clamp(
+                      0,
+                      double.infinity,
+                    ),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: child,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration _authFieldDecoration({
+  required String label,
+  required IconData icon,
+  required Color accent,
+  required Widget trailing,
+}) {
+  final OutlineInputBorder border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    borderSide: BorderSide(color: accent.withValues(alpha: 0.42)),
+  );
+  return InputDecoration(
+    labelText: label,
+    labelStyle: TextStyle(color: accent, letterSpacing: 0),
+    prefixIcon: Icon(icon, color: accent),
+    suffixIcon: trailing,
+    filled: true,
+    fillColor: AppColors.bgSecondary.withValues(alpha: 0.86),
+    constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: BorderSide(color: accent, width: 1.4),
+    ),
+  );
 }

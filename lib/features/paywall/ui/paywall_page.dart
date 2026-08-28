@@ -15,6 +15,7 @@ import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -274,80 +275,29 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final bool anyError = configError || subscriptionError || walletError;
     final bool canRestore =
         paywallTestingMode || config.plans.any((plan) => plan.isAvailable);
-    final int trialDays = _resolveTrialDays(config.plans);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgSettings,
+      backgroundAssetPath: AppAssets.bgSettingsControlPlane,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                        return;
-                      }
-                      context.go(routes.settings);
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.neonCyan.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: AppColors.neonCyan.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new,
-                        color: AppColors.neonCyan,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) => const LinearGradient(
-                            colors: [AppColors.neonCyan, AppColors.neonViolet],
-                          ).createShader(bounds),
-                          child: Text(
-                            (config.title).toUpperCase(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 3,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          paywallTestingMode
-                              ? 'UNLOCKED FOR TESTING'
-                              : 'SUBSCRIPTION ACCESS',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 2,
-                            color: Colors.white38,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              TemporalScreenHeader(
+                title: 'PLAN & CREDITS',
+                subtitle:
+                    '${config.title.toUpperCase()} · Subscription access and AI credit balance.',
+                eyebrow: paywallTestingMode
+                    ? 'Unlocked for testing'
+                    : 'Temporal commerce',
+                onBack: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                    return;
+                  }
+                  context.go(routes.settings);
+                },
               ),
               const SizedBox(height: 18),
               if (anyError) ...[
@@ -374,10 +324,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                   paywallTestingMode ||
                   subscription?.isActive == true)) ...[
                 const SizedBox(height: 14),
-                _SoftGatePreviewCard(
-                  trialDays: trialDays,
-                  aiProxyConfigured: aiProxyConfigured,
-                ),
+                _SoftGatePreviewCard(aiProxyConfigured: aiProxyConfigured),
               ],
               if (prompt != null) ...[
                 const SizedBox(height: 14),
@@ -426,7 +373,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppColors.neonCyan.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: AppColors.neonCyan.withValues(alpha: 0.25),
                     ),
@@ -438,7 +385,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                       color: AppColors.neonCyan,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
+                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -451,7 +398,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: const Color(0xFF050D1A),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: plan.isFeatured
                             ? AppColors.neonViolet.withValues(alpha: 0.35)
@@ -482,7 +429,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                                   style: TextStyle(
                                     color: AppColors.neonViolet,
                                     fontSize: 10,
-                                    letterSpacing: 1.4,
+                                    letterSpacing: 0,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -563,16 +510,6 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                             ),
                           ],
                         ),
-                        if (!paywallTestingMode && plan.freeTrialDays > 0) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Includes a ${plan.freeTrialDays}-day free trial for eligible new subscribers.',
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -635,16 +572,6 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     }
     return plans.take(2).toList(growable: false);
   }
-
-  int _resolveTrialDays(List<PaywallPlan> plans) {
-    int maxDays = 0;
-    for (final PaywallPlan plan in plans) {
-      if (plan.freeTrialDays > maxDays) {
-        maxDays = plan.freeTrialDays;
-      }
-    }
-    return maxDays;
-  }
 }
 
 class _HeroCard extends StatelessWidget {
@@ -669,7 +596,7 @@ class _HeroCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isPremium
               ? AppColors.neonCyan.withValues(alpha: 0.3)
@@ -700,7 +627,7 @@ class _HeroCard extends StatelessWidget {
                   color: isPremium ? AppColors.neonCyan : AppColors.neonViolet,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1.6,
+                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -731,7 +658,7 @@ class _HeroCard extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.03),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.white10),
               ),
               child: Row(
@@ -791,7 +718,7 @@ class _CreditStat extends StatelessWidget {
           style: const TextStyle(
             color: Colors.white38,
             fontSize: 9,
-            letterSpacing: 1.2,
+            letterSpacing: 0,
           ),
         ),
         const SizedBox(height: 4),
@@ -878,7 +805,7 @@ class _ComparisonCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Column(
@@ -903,7 +830,7 @@ class _ComparisonCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     badge ?? '',
@@ -963,7 +890,7 @@ class _PaywallErrorBanner extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.recallRed.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.recallRed.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -1000,7 +927,7 @@ class _PromptBanner extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.neonViolet.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.25)),
       ),
       child: Column(
@@ -1041,12 +968,8 @@ class _PromptBanner extends StatelessWidget {
 }
 
 class _SoftGatePreviewCard extends StatelessWidget {
-  const _SoftGatePreviewCard({
-    required this.trialDays,
-    required this.aiProxyConfigured,
-  });
+  const _SoftGatePreviewCard({required this.aiProxyConfigured});
 
-  final int trialDays;
   final bool aiProxyConfigured;
 
   @override
@@ -1056,7 +979,7 @@ class _SoftGatePreviewCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white12),
       ),
       child: Column(
@@ -1071,15 +994,9 @@ class _SoftGatePreviewCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            trialDays > 0
-                ? 'Start with a $trialDays-day free trial, then keep access only if it is useful for your routine.'
-                : 'Preview premium capabilities before you commit to a recurring plan.',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.4,
-            ),
+          const Text(
+            'Preview premium capabilities before you commit to a recurring plan.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 10),
           Text(

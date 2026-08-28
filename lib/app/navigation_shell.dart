@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
@@ -30,12 +31,41 @@ import 'package:fantastic_guacamole/system/notifications/notification_scheduler.
 import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+
+@visibleForTesting
+Future<void> runGuardedBackgroundTask({
+  required String label,
+  required Future<void> Function() task,
+}) async {
+  try {
+    await task();
+  } on Object catch (error) {
+    Logger.warn('Background task "$label" failed (${error.runtimeType}).');
+  }
+}
+
+class _PrimaryDestination {
+  const _PrimaryDestination({required this.label, required this.assetPath});
+
+  final String label;
+  final String assetPath;
+}
+
+const List<_PrimaryDestination> _primaryDestinations = <_PrimaryDestination>[
+  _PrimaryDestination(label: 'Nexus', assetPath: AppAssets.iconNexus),
+  _PrimaryDestination(label: 'Trajectory', assetPath: AppAssets.iconTasks),
+  _PrimaryDestination(label: 'Timeline', assetPath: AppAssets.iconLogs),
+  _PrimaryDestination(label: 'Profile', assetPath: AppAssets.iconProfile),
+];
 
 class NavigationShell extends ConsumerStatefulWidget {
   const NavigationShell({
@@ -55,8 +85,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     with WidgetsBindingObserver {
   final PreferenceService _preferenceService = PreferenceService();
   late final SystemScheduler _systemScheduler;
-  late final DataHygieneScheduler _dataHygieneScheduler;
-  late final AudioInterruptionService _audioInterruptionService;
+  DataHygieneScheduler? _dataHygieneScheduler;
+  AudioInterruptionService? _audioInterruptionService;
+  bool _audioInterruptionStarted = false;
   late final ProviderSubscription<double> _energySubscription;
   late final ProviderSubscription<LearningState> _learningSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
@@ -66,6 +97,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   bool get _isFlutterTestBinding {
     final String bindingType = WidgetsBinding.instance.runtimeType.toString();
     return bindingType.contains('TestWidgetsFlutterBinding');
+  }
+
+  void _runBackgroundTask(String label, Future<void> Function() task) {
+    unawaited(runGuardedBackgroundTask(label: label, task: task));
   }
 
   @override
@@ -82,22 +117,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       };
     if (!_isFlutterTestBinding) {
       _systemScheduler.resume();
-    }
-    _dataHygieneScheduler = ref.read(dataHygieneSchedulerProvider);
-    if (!_isFlutterTestBinding) {
-      _dataHygieneScheduler.start();
-    }
-    _audioInterruptionService = ref.read(audioInterruptionServiceProvider);
-    if (!_isFlutterTestBinding) {
-      unawaited(
-        _audioInterruptionService.start(
-          onInterruptionBegin: _stopVoicePlayback,
-          // A wired headset's removal doesn't affect the device's own mic, so
-          // only TTS needs to stop here — otherwise it would suddenly route
-          // to the speaker.
-          onBecomingNoisy: () => ref.read(voiceServiceProvider).stop(),
-        ),
-      );
     }
     _energySubscription = ref.listenManual<double>(energyProvider, (_, _) {
       ref.invalidate(aiDecisionProvider);
@@ -117,7 +136,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView next,
     ) {
       _initializedTabIndexes.add(_tabIndexForView(next));
-      unawaited(ref.read(appRecoveryProvider).saveState(lastRoute: next.name));
+      _runBackgroundTask(
+        'route recovery save',
+        () => ref.read(appRecoveryProvider).saveState(lastRoute: next.name),
+      );
     });
     _networkOnlineSubscription = ref.listenManual<bool>(isOnlineProvider, (
       bool? previous,
@@ -132,16 +154,57 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      _initializeRuntimeServices();
       if (widget.allowSavedTabRestore) {
         _restoreDefaultLaunchTab();
       } else {
         _syncAppFlowToRouteView(widget.initialView);
       }
-      unawaited(_handleNotificationLaunch());
+      _runBackgroundTask(
+        'notification launch handling',
+        _handleNotificationLaunch,
+      );
     });
     NotificationScheduler.tappedPayloadListenable.addListener(
       _onNotificationTapped,
     );
+  }
+
+  void _initializeRuntimeServices() {
+    _dataHygieneScheduler ??= ref.read(dataHygieneSchedulerProvider);
+    _audioInterruptionService ??= ref.read(audioInterruptionServiceProvider);
+    if (_isFlutterTestBinding) {
+      return;
+    }
+    _dataHygieneScheduler!.start();
+    if (_audioInterruptionStarted) {
+      return;
+    }
+    _audioInterruptionStarted = true;
+    _runBackgroundTask(
+      'audio interruption startup',
+      _startAudioInterruptionService,
+    );
+  }
+
+  Future<void> _startAudioInterruptionService() async {
+    try {
+      await _audioInterruptionService!.start(
+        onInterruptionBegin: () => runGuardedBackgroundTask(
+          label: 'interrupted voice playback shutdown',
+          task: _stopVoicePlayback,
+        ),
+        // A wired headset's removal doesn't affect the device's own mic, so
+        // only TTS needs to stop here; otherwise it routes to the speaker.
+        onBecomingNoisy: () => runGuardedBackgroundTask(
+          label: 'noisy-route voice playback shutdown',
+          task: () => ref.read(voiceServiceProvider).stop(),
+        ),
+      );
+    } on Object {
+      _audioInterruptionStarted = false;
+      rethrow;
+    }
   }
 
   /// Routes a notification tap that arrived while the app was running.
@@ -216,8 +279,15 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       _onNotificationTapped,
     );
     _systemScheduler.shutdown();
-    _dataHygieneScheduler.shutdown();
-    unawaited(_audioInterruptionService.stop());
+    _dataHygieneScheduler?.shutdown();
+    final AudioInterruptionService? audioInterruptionService =
+        _audioInterruptionService;
+    if (audioInterruptionService != null) {
+      _runBackgroundTask(
+        'audio interruption shutdown',
+        audioInterruptionService.stop,
+      );
+    }
     _energySubscription.close();
     _learningSubscription.close();
     _viewSubscription.close();
@@ -242,26 +312,26 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     switch (state) {
       case AppLifecycleState.detached:
         _systemScheduler.shutdown();
-        _dataHygieneScheduler.shutdown();
-        unawaited(_stopVoicePlayback());
-        unawaited(_saveCurrentState());
+        _dataHygieneScheduler?.shutdown();
+        _runBackgroundTask('voice playback shutdown', _stopVoicePlayback);
+        _runBackgroundTask('lifecycle recovery save', _saveCurrentState);
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
         if (!_isFlutterTestBinding) {
           _systemScheduler.pause();
-          _dataHygieneScheduler.pause();
+          _dataHygieneScheduler?.pause();
         }
         // Otherwise a long SI response or planner summary keeps speaking over
         // whatever the user does next after backgrounding the app.
-        unawaited(_stopVoicePlayback());
-        unawaited(_saveCurrentState());
+        _runBackgroundTask('voice playback shutdown', _stopVoicePlayback);
+        _runBackgroundTask('lifecycle recovery save', _saveCurrentState);
         break;
       case AppLifecycleState.resumed:
         if (!_isFlutterTestBinding) {
+          _initializeRuntimeServices();
           _systemScheduler.resume();
-          _dataHygieneScheduler.start();
         }
         _syncAppFlowToRouteView(widget.initialView);
         break;
@@ -293,7 +363,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     try {
       final AppView view = widget.initialView;
       await ref.read(appRecoveryProvider).saveState(lastRoute: view.name);
-      unawaited(_pushDailyMetrics());
+      _runBackgroundTask('daily metrics upload', _pushDailyMetrics);
     } finally {
       _savingCurrentState = false;
     }
@@ -349,25 +419,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     ref.invalidate(offlineQueueCountProvider);
   }
 
-  BottomNavigationBarItem _navItem(
-    String assetPath,
-    String label,
-    bool active,
-  ) {
-    return BottomNavigationBarItem(
-      label: label,
-      icon: SvgPicture.asset(
-        assetPath,
-        width: 24,
-        height: 24,
-        colorFilter: ColorFilter.mode(
-          active ? const Color(0xFF00E5FF) : Colors.white70,
-          BlendMode.srcIn,
-        ),
-      ),
-    );
-  }
-
   int _tabIndexForView(AppView view) {
     return switch (view) {
       AppView.nexus => 0,
@@ -389,6 +440,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
   void _onTabSelected(int index) {
     _initializedTabIndexes.add(index);
+    _runBackgroundTask(
+      'primary tab preference save',
+      () => _preferenceService.setLastOpenedTab(index),
+    );
     _goToView(_viewForTabIndex(index));
   }
 
@@ -397,12 +452,17 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       if (!_initializedTabIndexes.contains(index)) {
         return const SizedBox.shrink();
       }
-      return switch (index) {
+      final Widget tab = switch (index) {
         1 => const TrajectoryEngineScreen(),
         2 => const TimelineScreen(),
         3 => const ProfileScreen(),
         _ => const NexusScreen(),
       };
+      final bool isActive = index == tabIndex;
+      return TickerMode(
+        enabled: isActive,
+        child: ExcludeFocus(excluding: !isActive, child: tab),
+      );
     }
 
     return IndexedStack(
@@ -411,17 +471,392 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     );
   }
 
+  Color _navigationAccent(int index) {
+    return switch (index) {
+      1 || 3 => AppColors.neonViolet,
+      _ => AppColors.neonCyan,
+    };
+  }
+
+  Widget _destinationIcon({
+    required _PrimaryDestination destination,
+    required bool selected,
+    required Color accent,
+    double size = 24,
+  }) {
+    return SvgPicture.asset(
+      destination.assetPath,
+      width: size,
+      height: size,
+      excludeFromSemantics: true,
+      colorFilter: ColorFilter.mode(
+        selected ? accent : const Color(0xFFA8B5CA),
+        BlendMode.srcIn,
+      ),
+    );
+  }
+
+  Widget _buildPhoneDestination(int index, int currentIndex) {
+    final _PrimaryDestination destination = _primaryDestinations[index];
+    final bool selected = index == currentIndex;
+    final Color accent = _navigationAccent(index);
+
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: destination.label,
+        child: Tooltip(
+          message: destination.label,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _onTabSelected(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                margin: const EdgeInsets.all(2),
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? accent.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: selected
+                        ? accent.withValues(alpha: 0.38)
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    _destinationIcon(
+                      destination: destination,
+                      selected: selected,
+                      accent: accent,
+                      size: 25,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      destination.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: selected ? accent : const Color(0xFFA8B5CA),
+                        fontSize: 11,
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhoneNavigation(int currentIndex) {
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      child: TemporalGlassSurface(
+        padding: const EdgeInsets.all(4),
+        opacity: 0.94,
+        blur: 18,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: <Widget>[
+              for (int index = 0; index < _primaryDestinations.length; index++)
+                _buildPhoneDestination(index, currentIndex),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRailDestination({
+    required int index,
+    required int currentIndex,
+    required bool extended,
+  }) {
+    final _PrimaryDestination destination = _primaryDestinations[index];
+    final bool selected = index == currentIndex;
+    final Color accent = _navigationAccent(index);
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: destination.label,
+      child: Tooltip(
+        message: destination.label,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => _onTabSelected(index),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              height: 56,
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: extended ? 12 : 8),
+              decoration: BoxDecoration(
+                color: selected
+                    ? accent.withValues(alpha: 0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: selected
+                      ? accent.withValues(alpha: 0.38)
+                      : Colors.transparent,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: extended
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: <Widget>[
+                  _destinationIcon(
+                    destination: destination,
+                    selected: selected,
+                    accent: accent,
+                    size: 26,
+                  ),
+                  if (extended) ...<Widget>[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        destination.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: selected ? accent : const Color(0xFFA8B5CA),
+                          fontSize: 14,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRailMapAction({required bool extended}) {
+    return Semantics(
+      button: true,
+      label: 'Open navigation map',
+      child: Tooltip(
+        message: 'Open navigation map',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: _showNavigationMap,
+            child: SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: extended ? 12 : 8),
+                child: Row(
+                  mainAxisAlignment: extended
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.center,
+                  children: <Widget>[
+                    const Icon(
+                      Icons.map_outlined,
+                      size: 26,
+                      color: Color(0xFFA8B5CA),
+                    ),
+                    if (extended) ...<Widget>[
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Navigation map',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xFFA8B5CA),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavigationRail({
+    required int currentIndex,
+    required bool extended,
+  }) {
+    final double width = extended ? 224 : 72;
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: SizedBox(
+        width: width,
+        height: double.infinity,
+        child: TemporalGlassSurface(
+          width: width,
+          padding: const EdgeInsets.all(8),
+          opacity: 0.94,
+          blur: 18,
+          child: SafeArea(
+            child: Column(
+              children: <Widget>[
+                const SizedBox(height: 4),
+                for (
+                  int index = 0;
+                  index < _primaryDestinations.length;
+                  index++
+                ) ...<Widget>[
+                  _buildRailDestination(
+                    index: index,
+                    currentIndex: currentIndex,
+                    extended: extended,
+                  ),
+                  if (index < _primaryDestinations.length - 1)
+                    const SizedBox(height: 8),
+                ],
+                const Spacer(),
+                Divider(
+                  height: 17,
+                  color: AppColors.panelBorder.withValues(alpha: 0.52),
+                ),
+                _buildRailMapAction(extended: extended),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhoneMapAction() {
+    return TemporalGlassSurface(
+      width: AppSizes.touchTarget,
+      padding: EdgeInsets.zero,
+      opacity: 0.94,
+      blur: 18,
+      child: SizedBox.square(
+        dimension: AppSizes.touchTarget,
+        child: IconButton(
+          tooltip: 'Open navigation map',
+          onPressed: _showNavigationMap,
+          icon: const Icon(Icons.map_outlined),
+          color: AppColors.neonCyan,
+          style: IconButton.styleFrom(
+            minimumSize: const Size.square(AppSizes.touchTarget),
+            maximumSize: const Size.square(AppSizes.touchTarget),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrimaryShell(int tabIndex) {
+    final Widget tabbedBody = _buildTabbedBody(tabIndex);
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        if (constraints.maxWidth < 600) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            floatingActionButton: _buildPhoneMapAction(),
+            body: tabbedBody,
+            bottomNavigationBar: _buildPhoneNavigation(tabIndex),
+          );
+        }
+
+        final bool extended = constraints.maxWidth >= 1024;
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _buildNavigationRail(currentIndex: tabIndex, extended: extended),
+              Expanded(child: tabbedBody),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showNavigationMap() {
     showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
       builder: (BuildContext context) {
-        Widget navItem(String title, String subtitle, AppView target) {
+        Widget navItem(
+          String title,
+          String subtitle,
+          IconData icon,
+          AppView target,
+        ) {
+          final bool selected = target == widget.initialView;
           return ListTile(
-            dense: true,
-            title: Text(title),
-            subtitle: Text(subtitle),
-            trailing: const Icon(Icons.chevron_right),
+            minVerticalPadding: 8,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            selected: selected,
+            selectedColor: AppColors.neonCyan,
+            selectedTileColor: AppColors.neonCyan.withValues(alpha: 0.08),
+            leading: Icon(
+              icon,
+              color: selected ? AppColors.neonCyan : const Color(0xFFA8B5CA),
+            ),
+            title: Text(
+              title,
+              style: TextStyle(
+                color: selected ? AppColors.neonCyan : Colors.white,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                letterSpacing: 0,
+              ),
+            ),
+            subtitle: Text(
+              subtitle,
+              style: const TextStyle(
+                color: Color(0xFFA8B5CA),
+                letterSpacing: 0,
+                height: 1.3,
+              ),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFFA8B5CA),
+            ),
             onTap: () {
               Navigator.of(context).pop();
               _goToView(target);
@@ -429,51 +864,143 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           );
         }
 
+        final double maxHeight = MediaQuery.sizeOf(context).height * 0.86;
         return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(10, 6, 10, 14),
-            children: [
-              const ListTile(
-                title: Text('Navigation Map'),
-                subtitle: Text('Core first, advanced when needed.'),
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            child: Center(
+              heightFactor: 1,
+              child: TemporalGlassSurface(
+                width: 560,
+                padding: EdgeInsets.zero,
+                opacity: 0.96,
+                blur: 20,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeight),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 8, 10),
+                          child: Row(
+                            children: <Widget>[
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(
+                                      'Navigation Map',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      'Core first, advanced when needed.',
+                                      style: TextStyle(
+                                        color: Color(0xFFA8B5CA),
+                                        letterSpacing: 0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Close navigation map',
+                                onPressed: () => Navigator.of(context).pop(),
+                                constraints: const BoxConstraints.tightFor(
+                                  width: AppSizes.touchTarget,
+                                  height: AppSizes.touchTarget,
+                                ),
+                                icon: const Icon(Icons.close_rounded),
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Divider(
+                          height: 1,
+                          color: AppColors.panelBorder.withValues(alpha: 0.52),
+                        ),
+                        Flexible(
+                          child: ListView(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+                            children: <Widget>[
+                              navItem(
+                                'Nexus',
+                                'Connected planning home',
+                                Icons.hub_outlined,
+                                AppView.nexus,
+                              ),
+                              navItem(
+                                'Trajectory Engine',
+                                'Future scenarios and execution',
+                                Icons.alt_route_rounded,
+                                AppView.trajectoryEngine,
+                              ),
+                              navItem(
+                                'Timeline',
+                                'Decision memory and context history',
+                                Icons.view_timeline_outlined,
+                                AppView.timeline,
+                              ),
+                              navItem(
+                                'Profile',
+                                'Identity and progression',
+                                Icons.person_outline_rounded,
+                                AppView.profile,
+                              ),
+                              Divider(
+                                color: AppColors.panelBorder.withValues(
+                                  alpha: 0.42,
+                                ),
+                              ),
+                              navItem(
+                                'Creator',
+                                'Turn intention into connected action',
+                                Icons.add_task_rounded,
+                                AppView.creator,
+                              ),
+                              navItem(
+                                'Smart Planner',
+                                'Reconcile constraints into a next move',
+                                Icons.event_note_outlined,
+                                AppView.smartPlanner,
+                              ),
+                              navItem(
+                                'SI Console',
+                                'Turn context into a decision brief',
+                                Icons.psychology_alt_outlined,
+                                AppView.console,
+                              ),
+                              navItem(
+                                'Progression',
+                                'See capabilities built through action',
+                                Icons.trending_up_rounded,
+                                AppView.progression,
+                              ),
+                              navItem(
+                                'Settings',
+                                'Preferences and controls',
+                                Icons.settings_outlined,
+                                AppView.settings,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              const Divider(),
-              navItem('Nexus', 'Connected planning home', AppView.nexus),
-              navItem(
-                'Trajectory Engine',
-                'Future scenarios and execution',
-                AppView.trajectoryEngine,
-              ),
-              navItem(
-                'Timeline',
-                'Decision memory and context history',
-                AppView.timeline,
-              ),
-              navItem('Profile', 'Identity and progression', AppView.profile),
-              const Divider(),
-              navItem(
-                'Creator',
-                'Turn intention into connected action',
-                AppView.creator,
-              ),
-              navItem(
-                'Smart Planner',
-                'Reconcile constraints into a next move',
-                AppView.smartPlanner,
-              ),
-              navItem(
-                'SI Console',
-                'Turn context into a decision brief',
-                AppView.console,
-              ),
-              navItem(
-                'Progression',
-                'See capabilities built through action',
-                AppView.progression,
-              ),
-              navItem('Settings', 'Preferences and controls', AppView.settings),
-            ],
+            ),
           ),
         );
       },
@@ -490,30 +1017,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.nexus ||
       AppView.profile ||
       AppView.trajectoryEngine ||
-      AppView.timeline => Scaffold(
-        floatingActionButton: FloatingActionButton.small(
-          onPressed: _showNavigationMap,
-          tooltip: 'Open navigation map',
-          child: const Icon(Icons.map_outlined),
-        ),
-        body: _buildTabbedBody(tabIndex),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: tabIndex,
-          onTap: _onTabSelected,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: const Color(0xD90B111C),
-          selectedItemColor: const Color(0xFF00E5FF),
-          unselectedItemColor: Colors.white70,
-          showSelectedLabels: true,
-          showUnselectedLabels: true,
-          items: <BottomNavigationBarItem>[
-            _navItem(AppAssets.iconNexus, 'Nexus', tabIndex == 0),
-            _navItem(AppAssets.iconTasks, 'Trajectory Engine', tabIndex == 1),
-            _navItem(AppAssets.iconLogs, 'Timeline', tabIndex == 2),
-            _navItem(AppAssets.iconProfile, 'Profile', tabIndex == 3),
-          ],
-        ),
-      ),
+      AppView.timeline => _buildPrimaryShell(tabIndex),
       AppView.smartPlanner => const SmartPlannerScreen(),
       AppView.console => const SIConsoleScreen(),
       AppView.settings => const SettingsScreen(),
@@ -530,15 +1034,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         }
         final AppView current = widget.initialView;
 
-        if (current != AppView.nexus &&
-            current != AppView.profile &&
-            current != AppView.trajectoryEngine &&
-            current != AppView.timeline) {
-          _goToView(AppView.nexus);
-          return;
-        }
-
-        if (current == AppView.profile) {
+        if (current != AppView.nexus) {
           _goToView(AppView.nexus);
           return;
         }

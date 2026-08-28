@@ -142,6 +142,45 @@ class TaskActions {
     await createTask(entity, notify: notify);
   }
 
+  Future<void> updateTask({required String id, required String title}) async {
+    final String taskId = id.trim();
+    final String trimmedTitle = title.trim();
+    if (taskId.isEmpty) {
+      throw ArgumentError.value(id, 'id', 'Task id cannot be blank.');
+    }
+    if (trimmedTitle.isEmpty) {
+      throw ArgumentError.value(title, 'title', 'Task title cannot be blank.');
+    }
+
+    final TaskEntity? existing = await _ref
+        .read(domainTaskRepositoryProvider)
+        .getTaskById(taskId);
+    if (existing == null) {
+      throw StateError('Task not found');
+    }
+
+    final TaskEntity updated = existing.copyWith(title: trimmedTitle);
+    await _ref.read(updateTaskUseCaseProvider).call(updated);
+    _publishTaskMutation(updated, action: 'updated');
+  }
+
+  Future<void> deleteTask(String id) async {
+    final String taskId = id.trim();
+    if (taskId.isEmpty) {
+      throw ArgumentError.value(id, 'id', 'Task id cannot be blank.');
+    }
+
+    final TaskEntity? existing = await _ref
+        .read(domainTaskRepositoryProvider)
+        .getTaskById(taskId);
+    if (existing == null) {
+      throw StateError('Task not found');
+    }
+
+    await _ref.read(deleteTaskUseCaseProvider).call(taskId);
+    _publishTaskMutation(existing, action: 'deleted');
+  }
+
   Future<void> completeTask(String id, {bool notify = true}) async {
     Task? selectedTask = _taskFromCachedTasks(id);
     final Future<Task?> selectedTaskFuture = selectedTask != null
@@ -355,6 +394,21 @@ class TaskActions {
     } catch (_) {
       // Skip planner refresh errors to avoid blocking task mutations.
     }
+  }
+
+  void _publishTaskMutation(TaskEntity task, {required String action}) {
+    _ref
+        .read(eventBusProvider)
+        .emit(
+          TaskLifecycleEvent(
+            taskId: task.id,
+            title: task.title,
+            action: action,
+          ),
+        );
+    _ref.invalidate(tasksProvider);
+    _ref.invalidate(goalProgressProvider);
+    _ref.invalidate(domainSiDecisionProvider);
   }
 
   Future<void> _recordGuidance(GuidanceMilestone milestone) async {

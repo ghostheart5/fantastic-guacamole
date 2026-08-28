@@ -2,13 +2,29 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final assistantReleaseConfigProvider = FutureProvider<AssistantReleaseConfig>((
   Ref ref,
-) {
-  return ref.read(featureFlagRepositoryProvider).loadAssistantReleaseConfig();
+) async {
+  final intelligence = ref.watch(intelligenceStateProvider);
+  final AssistantReleaseConfig config = await ref
+      .read(featureFlagRepositoryProvider)
+      .loadAssistantReleaseConfig();
+  if (intelligence.flags.testerFullAccess &&
+      !intelligence.environment.isProduction &&
+      config.configurationValid) {
+    return AssistantReleaseConfig(
+      stage: AssistantReleaseStage.general,
+      canaryBasisPoints: config.canaryBasisPoints,
+      shadowEvaluationEnabled: config.shadowEvaluationEnabled,
+      internalAccountDigests: config.internalAccountDigests,
+      rollbackCapabilities: config.rollbackCapabilities,
+    );
+  }
+  return config;
 });
 
 final assistantReleaseControllerProvider = Provider<AssistantReleaseController>(

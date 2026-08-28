@@ -339,11 +339,11 @@ class MainActivity : FlutterActivity() {
 
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
-                finishSpeak(utteranceId, null)
+                finishSpeak(utteranceId, "Text to speech playback failed.")
             }
 
             override fun onError(utteranceId: String?, errorCode: Int) {
-                finishSpeak(utteranceId, null)
+                finishSpeak(utteranceId, "Text to speech playback failed with error code $errorCode.")
             }
         }
     }

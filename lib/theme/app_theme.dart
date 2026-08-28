@@ -25,10 +25,10 @@ final ThemeData appTheme = ThemeData(
   textTheme: neonTextTheme,
   extensions: const <ThemeExtension<dynamic>>[defaultNeonEffects],
   appBarTheme: AppBarTheme(
-    backgroundColor: surfaceDark.withValues(alpha: 0.86),
+    backgroundColor: surfaceDark.withValues(alpha: 0.92),
     foregroundColor: hologramWhite,
     elevation: 0,
-    centerTitle: true,
+    centerTitle: false,
     shadowColor: neonCyan.withValues(alpha: 0.22),
     surfaceTintColor: Colors.transparent,
     titleTextStyle: neonTextTheme.headlineMedium?.copyWith(fontSize: 20),
@@ -60,7 +60,22 @@ final ThemeData appTheme = ThemeData(
       shadowColor: Colors.transparent,
       shape: const RoundedRectangleBorder(borderRadius: buttonRadius),
       side: BorderSide(color: hologramWhite.withValues(alpha: 0.3), width: 1.2),
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      textStyle: neonTextTheme.labelLarge,
+    ),
+  ),
+  filledButtonTheme: FilledButtonThemeData(
+    style: FilledButton.styleFrom(
+      minimumSize: const Size(48, 48),
+      shape: const RoundedRectangleBorder(borderRadius: buttonRadius),
+      textStyle: neonTextTheme.labelLarge,
+    ),
+  ),
+  outlinedButtonTheme: OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size(48, 48),
+      shape: const RoundedRectangleBorder(borderRadius: buttonRadius),
       textStyle: neonTextTheme.labelLarge,
     ),
   ),
@@ -71,7 +86,7 @@ final ThemeData appTheme = ThemeData(
       color: hologramWhite.withValues(alpha: 0.72),
     ),
     labelStyle: neonTextTheme.labelLarge,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     enabledBorder: OutlineInputBorder(
       borderRadius: inputRadius,
       borderSide: BorderSide(
@@ -126,7 +141,11 @@ final ThemeData appTheme = ThemeData(
       side: BorderSide(color: hologramWhite.withValues(alpha: 0.16), width: 1),
     ),
   ),
-  dialogTheme: const DialogThemeData(backgroundColor: surfaceElevated),
+  dialogTheme: const DialogThemeData(
+    backgroundColor: surfaceElevated,
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(borderRadius: cardRadius),
+  ),
 ).copyWith(shadowColor: neonCyan.withValues(alpha: 0.18));
 
 final ThemeData appLightTheme = ThemeData(
@@ -156,7 +175,7 @@ final ThemeData appLightTheme = ThemeData(
     backgroundColor: Colors.white.withValues(alpha: 0.92),
     foregroundColor: const Color(0xFF0A1A35),
     elevation: 0,
-    centerTitle: true,
+    centerTitle: false,
     shadowColor: primaryNeon.withValues(alpha: 0.12),
     surfaceTintColor: Colors.transparent,
     titleTextStyle: neonTextTheme.headlineMedium?.copyWith(
@@ -193,10 +212,25 @@ final ThemeData appLightTheme = ThemeData(
       shadowColor: Colors.transparent,
       shape: const RoundedRectangleBorder(borderRadius: buttonRadius),
       side: BorderSide(color: primaryNeon.withValues(alpha: 0.35), width: 1.2),
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       textStyle: neonTextTheme.labelLarge?.copyWith(
         color: const Color(0xFF07162D),
       ),
+    ),
+  ),
+  filledButtonTheme: FilledButtonThemeData(
+    style: FilledButton.styleFrom(
+      minimumSize: const Size(48, 48),
+      shape: const RoundedRectangleBorder(borderRadius: buttonRadius),
+      textStyle: neonTextTheme.labelLarge,
+    ),
+  ),
+  outlinedButtonTheme: OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size(48, 48),
+      shape: const RoundedRectangleBorder(borderRadius: buttonRadius),
+      textStyle: neonTextTheme.labelLarge,
     ),
   ),
   inputDecorationTheme: InputDecorationTheme(
@@ -208,7 +242,7 @@ final ThemeData appLightTheme = ThemeData(
     labelStyle: neonTextTheme.labelLarge?.copyWith(
       color: const Color(0xFF223A66),
     ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     enabledBorder: OutlineInputBorder(
       borderRadius: inputRadius,
       borderSide: BorderSide(
@@ -262,5 +296,9 @@ final ThemeData appLightTheme = ThemeData(
       side: BorderSide(color: primaryNeon.withValues(alpha: 0.25), width: 1),
     ),
   ),
-  dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
+  dialogTheme: const DialogThemeData(
+    backgroundColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(borderRadius: cardRadius),
+  ),
 ).copyWith(shadowColor: neonCyan.withValues(alpha: 0.1));

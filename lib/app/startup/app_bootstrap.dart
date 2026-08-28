@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/app/app_root.dart';
+import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/config/env.dart';
@@ -27,6 +28,8 @@ import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordi
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show identityServiceProvider;
+import 'package:fantastic_guacamole/state/providers/sync_provider.dart'
+    show offlineQueueCountProvider;
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
@@ -194,8 +197,101 @@ bool get _supportsCrashlytics =>
         defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS);
 
+class StartupCancellationToken {
+  bool _isCancelled = false;
+  final Completer<void> _sourceSettled = Completer<void>();
+
+  bool get isCancelled => _isCancelled;
+  bool get isSourceSettled => _sourceSettled.isCompleted;
+  Future<void> get whenSourceSettled => _sourceSettled.future;
+
+  void cancel() {
+    _isCancelled = true;
+  }
+
+  void _markSourceSettled() {
+    if (!_sourceSettled.isCompleted) {
+      _sourceSettled.complete();
+    }
+  }
+}
+
+Future<T> runStartupWithTimeout<T>({
+  required Future<T> Function(StartupCancellationToken token) initialize,
+  required Duration timeout,
+  required T Function() onTimeout,
+  StartupCancellationToken? cancellationToken,
+}) {
+  final StartupCancellationToken token =
+      cancellationToken ?? StartupCancellationToken();
+  final Future<T> source = () async {
+    try {
+      return await initialize(token);
+    } finally {
+      token._markSourceSettled();
+    }
+  }();
+  return source.timeout(
+    timeout,
+    onTimeout: () {
+      token.cancel();
+      return onTimeout();
+    },
+  );
+}
+
+bool shouldInitializeAccountBoundary({
+  required bool productionReadinessBlocked,
+  required bool startupTimedOut,
+  required bool startupSourceSettled,
+}) {
+  return !productionReadinessBlocked &&
+      (!startupTimedOut || startupSourceSettled);
+}
+
+Future<void> runStartupStorageSequence({
+  required StartupCancellationToken cancellationToken,
+  required Future<void> Function() initializeHive,
+  required Future<void> Function() initializeSharedPreferences,
+  required Future<void> Function() initializeSensitivePreferences,
+  required Future<void> Function() runStorageMigration,
+}) async {
+  await initializeHive();
+  if (cancellationToken.isCancelled) {
+    return;
+  }
+  await initializeSharedPreferences();
+  if (cancellationToken.isCancelled) {
+    return;
+  }
+  await initializeSensitivePreferences();
+  if (cancellationToken.isCancelled) {
+    return;
+  }
+  await runStorageMigration();
+}
+
+Future<void> persistOnboardingReplayRequired({
+  required Future<void> Function() markOnboardingIncomplete,
+  required Future<void> Function() storeContentVersion,
+}) async {
+  await markOnboardingIncomplete();
+  await storeContentVersion();
+}
+
 class StartupBootstrapGate extends ConsumerStatefulWidget {
-  const StartupBootstrapGate({super.key});
+  const StartupBootstrapGate({
+    super.key,
+    this.initializeStartup = _initializeStartup,
+    this.startupTimeout = const Duration(seconds: 45),
+  });
+
+  final Future<StartupBootstrapResult> Function(
+    WidgetRef ref,
+    StartupCancellationToken cancellationToken,
+  )
+  initializeStartup;
+  final Duration startupTimeout;
 
   @override
   ConsumerState<StartupBootstrapGate> createState() =>
@@ -204,6 +300,7 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
 
 class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   bool _ready = false;
+  bool _waitingForStartupQuiescence = false;
   bool _productionReadinessBlocked = false;
   String? _startupError;
 
@@ -231,10 +328,17 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       productionReadinessBlocked: false,
     );
     String fatalIssue = '';
+    bool startupTimedOut = false;
+    final StartupCancellationToken cancellationToken =
+        StartupCancellationToken();
     try {
-      result = await _initializeStartup(ref).timeout(
-        const Duration(seconds: 45),
+      result = await runStartupWithTimeout<StartupBootstrapResult>(
+        initialize: (StartupCancellationToken token) =>
+            widget.initializeStartup(ref, token),
+        timeout: widget.startupTimeout,
+        cancellationToken: cancellationToken,
         onTimeout: () {
+          startupTimedOut = true;
           Logger.error('Startup bootstrap timed out before completion.');
           RuntimeDiagnostics.record(
             'Startup bootstrap timed out before completion.',
@@ -254,8 +358,26 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       fatalIssue = 'Startup did not complete. App started in degraded mode.';
     }
 
+    if (startupTimedOut) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _waitingForStartupQuiescence = true;
+      });
+      await cancellationToken.whenSourceSettled;
+      if (!mounted) {
+        return;
+      }
+    }
+
     String? stateBootstrapIssue;
-    if (!result.productionReadinessBlocked) {
+    final bool initializeAccountBoundary = shouldInitializeAccountBoundary(
+      productionReadinessBlocked: result.productionReadinessBlocked,
+      startupTimedOut: startupTimedOut,
+      startupSourceSettled: cancellationToken.isSourceSettled,
+    );
+    if (initializeAccountBoundary) {
       try {
         await ref
             .read(authSessionBoundaryCoordinatorProvider)
@@ -293,10 +415,31 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       ref
           .read(onboardingWelcomeCompleteProvider.notifier)
           .set(result.hasSeenWelcome);
+
+      if (initializeAccountBoundary) {
+        // Prime async route guards outside AppRoot's build phase. Their first
+        // stream emissions can otherwise invalidate ProviderScope mid-build.
+        ref.read(appRouterProvider);
+        // OfflineBanner is part of the first routed frame. Mount its
+        // account-scoped queue here, after the auth boundary has settled, so
+        // Riverpod does not flush a new account listener during widget build.
+        try {
+          await ref
+              .read(offlineQueueCountProvider.future)
+              .timeout(const Duration(seconds: 2));
+        } on Object catch (error) {
+          Logger.warn('Offline queue prewarm did not complete: $error');
+        }
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) {
+          return;
+        }
+      }
     }
     setState(() {
       _startupError = startupError;
       _productionReadinessBlocked = result.productionReadinessBlocked;
+      _waitingForStartupQuiescence = false;
       _ready = true;
     });
     if (!result.productionReadinessBlocked) {
@@ -307,11 +450,41 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   @override
   Widget build(BuildContext context) {
     if (!_ready) {
-      return const MaterialApp(
+      return MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
-          backgroundColor: Color(0xFF050D1A),
-          body: Center(child: CircularProgressIndicator()),
+          backgroundColor: const Color(0xFF050D1A),
+          body: Center(
+            child: _waitingForStartupQuiescence
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(Icons.lock_outline, color: Color(0xFF00D9F5)),
+                        SizedBox(height: 16),
+                        Text(
+                          'Securing local state',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'ChronoSpark will continue when startup services have stopped safely.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFFB8C7D9),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const CircularProgressIndicator(),
+          ),
         ),
       );
     }
@@ -356,6 +529,13 @@ class StartupBootstrapResult {
   final bool productionReadinessBlocked;
 }
 
+const StartupBootstrapResult _cancelledStartupResult = StartupBootstrapResult(
+  hasOnboarded: false,
+  hasSeenWelcome: false,
+  startupError: null,
+  productionReadinessBlocked: false,
+);
+
 class PrefsLoadResult {
   const PrefsLoadResult({
     required this.hasOnboarded,
@@ -368,7 +548,16 @@ class PrefsLoadResult {
   final String? issue;
 }
 
-Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
+const PrefsLoadResult _cancelledPrefsLoadResult = PrefsLoadResult(
+  hasOnboarded: false,
+  hasSeenWelcome: false,
+  issue: null,
+);
+
+Future<StartupBootstrapResult> _initializeStartup(
+  WidgetRef ref,
+  StartupCancellationToken cancellationToken,
+) async {
   const intelligenceService = IntelligenceService();
   final intelligence = intelligenceService.environmentOnly();
   String? startupError;
@@ -402,33 +591,64 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
 
   const SystemBoot();
   tzdata.initializeTimeZones();
-  await _configureLocalTimezone();
+  await _configureLocalTimezone(cancellationToken);
+  if (cancellationToken.isCancelled) {
+    return _cancelledStartupResult;
+  }
 
   final String? storageIssue = await _measureIssueStage(
     'storage',
-    _initStorageSafe,
+    () => _initStorageSafe(cancellationToken),
+    cancellationToken: cancellationToken,
   );
+  if (cancellationToken.isCancelled) {
+    return _cancelledStartupResult;
+  }
   startupError = _appendStartupIssue(startupError, storageIssue ?? '');
 
   final String? firebaseIssue = await _measureIssueStage(
     'firebase',
-    () => _initFirebaseSafe(isMockMode: intelligence.flags.mockMode),
+    () => _initFirebaseSafe(
+      isMockMode: intelligence.flags.mockMode,
+      cancellationToken: cancellationToken,
+    ),
+    cancellationToken: cancellationToken,
   );
+  if (cancellationToken.isCancelled) {
+    return _cancelledStartupResult;
+  }
   startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
 
   final String? supabaseIssue = await _measureIssueStage(
     'supabase',
-    () => _initSupabaseSafe(isMockMode: intelligence.flags.mockMode),
+    () => _initSupabaseSafe(
+      isMockMode: intelligence.flags.mockMode,
+      cancellationToken: cancellationToken,
+    ),
+    cancellationToken: cancellationToken,
   );
+  if (cancellationToken.isCancelled) {
+    return _cancelledStartupResult;
+  }
   startupError = _appendStartupIssue(startupError, supabaseIssue ?? '');
 
   final String? identityIssue = await _measureIssueStage(
     'identity',
-    () => _initIdentitySafe(ref),
+    () => _initIdentitySafe(ref, cancellationToken),
+    cancellationToken: cancellationToken,
   );
+  if (cancellationToken.isCancelled) {
+    return _cancelledStartupResult;
+  }
   startupError = _appendStartupIssue(startupError, identityIssue ?? '');
 
-  final PrefsLoadResult prefsResult = await _measurePrefsStage(_loadPrefsSafe);
+  final PrefsLoadResult prefsResult = await _measurePrefsStage(
+    () => _loadPrefsSafe(cancellationToken),
+    cancellationToken: cancellationToken,
+  );
+  if (cancellationToken.isCancelled) {
+    return _cancelledStartupResult;
+  }
 
   unawaited(
     _measureIssueStage(
@@ -436,9 +656,16 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
       () => _initNotificationSchedulerSafe(
         isMockMode: intelligence.flags.mockMode,
       ),
+      cancellationToken: cancellationToken,
     ),
   );
-  unawaited(_measureIssueStage('deep_links', _initDeepLinksSafe));
+  unawaited(
+    _measureIssueStage(
+      'deep_links',
+      _initDeepLinksSafe,
+      cancellationToken: cancellationToken,
+    ),
+  );
   startupError = _appendStartupIssue(startupError, prefsResult.issue ?? '');
 
   final bool hasOnboarded = prefsResult.hasOnboarded;
@@ -491,31 +718,50 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   );
 }
 
-Future<void> _configureLocalTimezone() async {
+Future<void> _configureLocalTimezone(
+  StartupCancellationToken cancellationToken,
+) async {
   try {
     final timezoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
+    if (cancellationToken.isCancelled) {
+      return;
+    }
     final tz.Location location = tz.getLocation(timezoneName);
     tz.setLocalLocation(location);
     Logger.log('Startup', 'Timezone configured: $timezoneName');
     RuntimeDiagnostics.record('Timezone configured: $timezoneName');
   } catch (error) {
+    if (cancellationToken.isCancelled) {
+      return;
+    }
     Logger.warn('Failed to configure local timezone.');
     RuntimeDiagnostics.record('Failed to configure local timezone.');
   }
 }
 
-Future<String?> _initStorageSafe() async {
+Future<String?> _initStorageSafe(
+  StartupCancellationToken cancellationToken,
+) async {
   try {
     Logger.log('Startup', 'Initializing local storage...');
     RuntimeDiagnostics.record('Initializing local storage...');
-    await HiveService.init();
-    await SharedPrefsService.init();
-    await SensitivePrefsStore.instance.init();
-    await StorageMigration.run();
+    await runStartupStorageSequence(
+      cancellationToken: cancellationToken,
+      initializeHive: HiveService.init,
+      initializeSharedPreferences: SharedPrefsService.init,
+      initializeSensitivePreferences: SensitivePrefsStore.instance.init,
+      runStorageMigration: StorageMigration.run,
+    );
+    if (cancellationToken.isCancelled) {
+      return null;
+    }
     Logger.log('Startup', 'Local storage initialized.');
     RuntimeDiagnostics.record('Local storage initialized.');
     return null;
   } on Object catch (error) {
+    if (cancellationToken.isCancelled) {
+      return null;
+    }
     Logger.error('Local storage initialization failed.', error);
     RuntimeDiagnostics.record('Local storage initialization failed: $error');
     return 'Local storage could not be opened. Restart ChronoSpark and retry.';
@@ -524,10 +770,14 @@ Future<String?> _initStorageSafe() async {
 
 Future<String?> _measureIssueStage(
   String stage,
-  Future<String?> Function() action,
-) async {
+  Future<String?> Function() action, {
+  required StartupCancellationToken cancellationToken,
+}) async {
   final Stopwatch sw = Stopwatch()..start();
   final String? issue = await action();
+  if (cancellationToken.isCancelled) {
+    return issue;
+  }
   sw.stop();
   final String outcome = issue == null ? 'ok' : 'issue';
   Logger.info('Startup stage $stage: $outcome in ${sw.elapsedMilliseconds}ms');
@@ -538,10 +788,14 @@ Future<String?> _measureIssueStage(
 }
 
 Future<PrefsLoadResult> _measurePrefsStage(
-  Future<PrefsLoadResult> Function() action,
-) async {
+  Future<PrefsLoadResult> Function() action, {
+  required StartupCancellationToken cancellationToken,
+}) async {
   final Stopwatch sw = Stopwatch()..start();
   final PrefsLoadResult result = await action();
+  if (cancellationToken.isCancelled) {
+    return result;
+  }
   sw.stop();
   final String outcome = result.issue == null ? 'ok' : 'issue';
   Logger.info('Startup stage prefs: $outcome in ${sw.elapsedMilliseconds}ms');
@@ -551,7 +805,13 @@ Future<PrefsLoadResult> _measurePrefsStage(
   return result;
 }
 
-Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
+Future<String?> _initFirebaseSafe({
+  required bool isMockMode,
+  required StartupCancellationToken cancellationToken,
+}) async {
+  if (cancellationToken.isCancelled) {
+    return null;
+  }
   if (isMockMode) {
     Logger.log('Startup', 'Mock mode active: Firebase startup skipped.');
     RuntimeDiagnostics.record('Mock mode active: Firebase startup skipped.');
@@ -562,11 +822,15 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
   RuntimeDiagnostics.record('Initializing Firebase...');
   final String? issue = await const FirebaseBootstrap().initialize(
     isMockMode: isMockMode,
+    shouldContinue: () => !cancellationToken.isCancelled,
   );
+  if (cancellationToken.isCancelled) {
+    return issue;
+  }
   if (issue == null) {
     Logger.log('Startup', 'Firebase initialized.');
     RuntimeDiagnostics.record('Firebase initialized.');
-    unawaited(_captureDiagnosticsContext());
+    unawaited(_captureDiagnosticsContext(cancellationToken));
   } else {
     Logger.error('Firebase initialization failed.', issue);
     RuntimeDiagnostics.record('Firebase initialization failed: $issue');
@@ -574,10 +838,15 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
   return issue;
 }
 
-Future<void> _captureDiagnosticsContext() async {
+Future<void> _captureDiagnosticsContext(
+  StartupCancellationToken cancellationToken,
+) async {
   try {
     final DiagnosticsContext context =
         await DiagnosticsContextService.collect();
+    if (cancellationToken.isCancelled) {
+      return;
+    }
     RuntimeDiagnostics.recordState(
       'diagnostics.context',
       message: 'Captured app/device diagnostics context',
@@ -589,28 +858,46 @@ Future<void> _captureDiagnosticsContext() async {
         'app_version',
         context.version,
       );
+      if (cancellationToken.isCancelled) {
+        return;
+      }
       await FirebaseCrashlytics.instance.setCustomKey(
         'build_number',
         context.buildNumber,
       );
+      if (cancellationToken.isCancelled) {
+        return;
+      }
       await FirebaseCrashlytics.instance.setCustomKey(
         'platform',
         context.platform,
       );
+      if (cancellationToken.isCancelled) {
+        return;
+      }
       await FirebaseCrashlytics.instance.setCustomKey(
         'os_version',
         context.osVersion,
       );
+      if (cancellationToken.isCancelled) {
+        return;
+      }
       await FirebaseCrashlytics.instance.setCustomKey(
         'device_model',
         context.model,
       );
+      if (cancellationToken.isCancelled) {
+        return;
+      }
       await FirebaseCrashlytics.instance.setCustomKey(
         'is_physical_device',
         context.isPhysicalDevice,
       );
     }
   } on Object catch (error, stackTrace) {
+    if (cancellationToken.isCancelled) {
+      return;
+    }
     Logger.warn('Diagnostics context capture failed (non-fatal).');
     if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
       FirebaseCrashlytics.instance.recordError(
@@ -623,7 +910,13 @@ Future<void> _captureDiagnosticsContext() async {
   }
 }
 
-Future<String?> _initSupabaseSafe({required bool isMockMode}) async {
+Future<String?> _initSupabaseSafe({
+  required bool isMockMode,
+  required StartupCancellationToken cancellationToken,
+}) async {
+  if (cancellationToken.isCancelled) {
+    return null;
+  }
   if (isMockMode || !Env.isSupabaseConfigured) {
     Logger.log(
       'Startup',
@@ -638,6 +931,9 @@ Future<String?> _initSupabaseSafe({required bool isMockMode}) async {
   final String? issue = await const SupabaseClientService().initialize(
     isMockMode: isMockMode,
   );
+  if (cancellationToken.isCancelled) {
+    return issue;
+  }
   if (issue == null) {
     Logger.log('Startup', 'Supabase initialized.');
     RuntimeDiagnostics.record('Supabase initialized.');
@@ -706,44 +1002,65 @@ Future<String?> _initDeepLinksSafe() async {
   }
 }
 
-Future<String?> _initIdentitySafe(WidgetRef ref) async {
+Future<String?> _initIdentitySafe(
+  WidgetRef ref,
+  StartupCancellationToken cancellationToken,
+) async {
+  if (cancellationToken.isCancelled) {
+    return null;
+  }
   try {
     Logger.log('Startup', 'Bootstrapping identity...');
     RuntimeDiagnostics.record('Bootstrapping identity...');
-    await ref
-        .read(identityServiceProvider)
-        .ensureIdentity()
-        .timeout(const Duration(seconds: 8));
+    await ref.read(identityServiceProvider).ensureIdentity();
+    if (cancellationToken.isCancelled) {
+      return null;
+    }
     Logger.log('Startup', 'Identity bootstrap completed.');
     RuntimeDiagnostics.record('Identity bootstrap completed.');
     return null;
   } on TimeoutException {
+    if (cancellationToken.isCancelled) {
+      return null;
+    }
     Logger.warn('Identity bootstrap timed out.');
     RuntimeDiagnostics.record('Identity bootstrap timed out.');
     return 'Identity bootstrap timed out.';
   } on Object catch (error) {
+    if (cancellationToken.isCancelled) {
+      return null;
+    }
     Logger.error('Identity bootstrap failed.', error);
     RuntimeDiagnostics.record('Identity bootstrap failed.');
     return 'Account state could not be restored. Sign in again and retry.';
   }
 }
 
-Future<PrefsLoadResult> _loadPrefsSafe() async {
+Future<PrefsLoadResult> _loadPrefsSafe(
+  StartupCancellationToken cancellationToken,
+) async {
   bool hasOnboarded = false;
   bool hasSeenWelcome = false;
 
   try {
+    if (cancellationToken.isCancelled) {
+      return _cancelledPrefsLoadResult;
+    }
     Logger.log('Startup', 'Loading local preferences...');
     RuntimeDiagnostics.record('Loading local preferences...');
-    final prefs = await SharedPreferences.getInstance().timeout(
-      const Duration(seconds: 6),
-    );
+    final prefs = await SharedPreferences.getInstance();
+    if (cancellationToken.isCancelled) {
+      return _cancelledPrefsLoadResult;
+    }
     final Object? rawOnboardingComplete = prefs.get(
       onboardingCompleteStorageKey,
     );
     hasOnboarded = _coercePrefsBool(rawOnboardingComplete) ?? false;
     if (rawOnboardingComplete is String) {
       await prefs.setBool(onboardingCompleteStorageKey, hasOnboarded);
+      if (cancellationToken.isCancelled) {
+        return _cancelledPrefsLoadResult;
+      }
     }
 
     final Object? rawWelcomeComplete = prefs.get(
@@ -753,6 +1070,9 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
     if (rawWelcomeComplete is String ||
         (rawWelcomeComplete == null && hasOnboarded)) {
       await prefs.setBool(onboardingWelcomeCompleteStorageKey, hasSeenWelcome);
+      if (cancellationToken.isCancelled) {
+        return _cancelledPrefsLoadResult;
+      }
     }
 
     final Object? rawOnboardingVersion = prefs.get(
@@ -765,17 +1085,26 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
         onboardingContentVersionStorageKey,
         storedOnboardingVersion,
       );
+      if (cancellationToken.isCancelled) {
+        return _cancelledPrefsLoadResult;
+      }
     }
     final int currentOnboardingVersion =
         OnboardingContentContract.currentVersion;
 
     if (storedOnboardingVersion < currentOnboardingVersion) {
       hasOnboarded = false;
-      await prefs.setBool(onboardingCompleteStorageKey, false);
-      await prefs.setInt(
-        onboardingContentVersionStorageKey,
-        currentOnboardingVersion,
+      await persistOnboardingReplayRequired(
+        markOnboardingIncomplete: () =>
+            prefs.setBool(onboardingCompleteStorageKey, false),
+        storeContentVersion: () => prefs.setInt(
+          onboardingContentVersionStorageKey,
+          currentOnboardingVersion,
+        ),
       );
+      if (cancellationToken.isCancelled) {
+        return _cancelledPrefsLoadResult;
+      }
       Logger.log(
         'Startup',
         'Onboarding content version updated '
@@ -800,6 +1129,9 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       issue: null,
     );
   } on TimeoutException {
+    if (cancellationToken.isCancelled) {
+      return _cancelledPrefsLoadResult;
+    }
     Logger.warn('Local preferences initialization timed out.');
     RuntimeDiagnostics.record('Local preferences initialization timed out.');
     return const PrefsLoadResult(
@@ -808,6 +1140,9 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       issue: 'Local preferences initialization timed out.',
     );
   } on Object catch (error) {
+    if (cancellationToken.isCancelled) {
+      return _cancelledPrefsLoadResult;
+    }
     Logger.error('Local preferences initialization failed.', error);
     RuntimeDiagnostics.record('Local preferences initialization failed.');
     return const PrefsLoadResult(

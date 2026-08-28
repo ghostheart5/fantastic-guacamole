@@ -30,6 +30,9 @@ final _appRouterRefreshListenableProvider =
     });
 
 const String restoreSavedTabQueryParameter = 'restoreSavedTab';
+const ValueKey<String> _navigationShellPageKey = ValueKey<String>(
+  'chronospark-navigation-shell',
+);
 
 class _AppRouterRefreshListenable extends ChangeNotifier {
   _AppRouterRefreshListenable(this._ref) {
@@ -222,19 +225,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.nexus,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
       ),
       GoRoute(path: RoutePaths.plan, redirect: (_, _) => RoutePaths.timeline),
       GoRoute(
         path: RoutePaths.creator,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
+      ),
+      GoRoute(
+        path: RoutePaths.creatorGoals,
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.settings,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
       ),
 
       // Secondary and advanced routes.
@@ -245,43 +253,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.logs,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state, fallback: AppView.timeline),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state, fallback: AppView.timeline),
       ),
       GoRoute(
         path: RoutePaths.tasks,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state, fallback: AppView.creator),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state, fallback: AppView.creator),
       ),
       GoRoute(
         path: RoutePaths.profile,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.progression,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.si,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.timeline,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.smartPlanner,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.trajectoryEngine,
-        builder: (BuildContext context, GoRouterState state) =>
-            _navigationShellForRoute(state),
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            _navigationShellPageForRoute(state),
       ),
       GoRoute(
         path: RoutePaths.advisor,
@@ -420,5 +428,15 @@ NavigationShell _navigationShellForRoute(
     allowSavedTabRestore:
         state.matchedLocation == RoutePaths.nexus &&
         state.uri.queryParameters[restoreSavedTabQueryParameter] == 'true',
+  );
+}
+
+Page<void> _navigationShellPageForRoute(
+  GoRouterState state, {
+  AppView fallback = AppView.nexus,
+}) {
+  return NoTransitionPage<void>(
+    key: _navigationShellPageKey,
+    child: _navigationShellForRoute(state, fallback: fallback),
   );
 }

@@ -100,6 +100,33 @@ void main() {
     },
   );
 
+  test('fatigued recovery guidance uses clear actionable language', () {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+    final SmartPlannerQueryController controller = container.read(
+      smartPlannerQueryControllerProvider,
+    );
+
+    final PlannerV2Response response = controller.buildPlannerResponse(
+      input: 'im tired',
+      energy: 0.3,
+      emotion: EmotionalState.fatigued,
+      contextWasProvided: true,
+    );
+
+    expect(response.recommendedKind, PlannerOptionKind.minimum);
+    expect(response.recommendedOption.title, 'Protect your energy');
+    expect(
+      response.recommendedOption.tradeoff,
+      'This may delay one low-priority task, but it protects your energy right now.',
+    );
+    expect(
+      response.nextStep,
+      'Choose one nonessential task to postpone. Then take a five-minute quiet break.',
+    );
+    expect(response.nextStep, isNot(contains('im tired')));
+  });
+
   test('high energy and engaged self-report can recommend Stretch', () async {
     final ProviderContainer container = plannerContainer();
     addTearDown(container.dispose);
@@ -185,32 +212,30 @@ void main() {
     expect(source, contains("'persistenceMode': 'ephemeral_read_only'"));
   });
 
-  test(
-    'Planner screen has no hidden persistence, analytics, or apply hooks',
-    () {
-      final String source = File(
-        'lib/features/home/ui/smart_planner_screen.dart',
-      ).readAsStringSync();
-      const List<String> forbidden = <String>[
-        'planProposalProvider',
-        'Apply to Timeline',
-        'appendSiReflection',
-        'adaptiveGuidanceProvider',
-        'AppAnalytics.track',
-        'extendedDomainBootstrapProvider',
-        'memoriesActionsProvider',
-        'timelineActionsProvider',
-      ];
-      for (final String token in forbidden) {
-        expect(
-          source,
-          isNot(contains(token)),
-          reason: 'Forbidden hook: $token',
-        );
-      }
-      expect(source, contains('Check-in input stays ephemeral'));
-    },
-  );
+  test('Planner screen has no hidden persistence, analytics, or apply hooks', () {
+    final String source = File(
+      'lib/features/home/ui/smart_planner_screen.dart',
+    ).readAsStringSync();
+    const List<String> forbidden = <String>[
+      'planProposalProvider',
+      'Apply to Timeline',
+      'appendSiReflection',
+      'adaptiveGuidanceProvider',
+      'AppAnalytics.track',
+      'extendedDomainBootstrapProvider',
+      'memoriesActionsProvider',
+      'timelineActionsProvider',
+    ];
+    for (final String token in forbidden) {
+      expect(source, isNot(contains(token)), reason: 'Forbidden hook: $token');
+    }
+    expect(
+      source,
+      contains(
+        'Used only for this check-in. Nothing is saved unless you explicitly remember a preference.',
+      ),
+    );
+  });
 
   test('crisis detection remains active before planning', () {
     final ProviderContainer container = ProviderContainer();

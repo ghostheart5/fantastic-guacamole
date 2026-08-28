@@ -20,7 +20,7 @@ class AuthService implements AuthServiceContract {
     String? oauthGoogleRedirectUrl,
     String? oauthGitHubRedirectUrl,
     Future<void> Function()? onSignedOut,
-    Future<void> Function(String? accountId)? onAccountSignedOut,
+    Future<void> Function(String accountId)? onAccountDeleted,
   }) : _auth = supabaseClient,
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
@@ -29,7 +29,7 @@ class AuthService implements AuthServiceContract {
        _oauthGitHubRedirectUrl =
            oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
        _signedOutCallback = onSignedOut,
-       _accountSignedOutCallback = onAccountSignedOut;
+       _accountDeletedCallback = onAccountDeleted;
 
   static final http.Client _sharedHttpClient = http.Client();
 
@@ -39,7 +39,7 @@ class AuthService implements AuthServiceContract {
   final String _oauthGoogleRedirectUrl;
   final String _oauthGitHubRedirectUrl;
   final Future<void> Function()? _signedOutCallback;
-  final Future<void> Function(String? accountId)? _accountSignedOutCallback;
+  final Future<void> Function(String accountId)? _accountDeletedCallback;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
@@ -255,7 +255,6 @@ class AuthService implements AuthServiceContract {
       }
     }
     await _auth.auth.signOut();
-    await _accountSignedOutCallback?.call(user?.id);
     await _signedOutCallback?.call();
   }
 
@@ -346,7 +345,7 @@ class AuthService implements AuthServiceContract {
     } finally {
       if (deleted) {
         await _auth.auth.signOut();
-        await _accountSignedOutCallback?.call(user.id);
+        await _accountDeletedCallback?.call(user.id);
         await _signedOutCallback?.call();
       }
     }

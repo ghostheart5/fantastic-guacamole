@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -463,7 +464,7 @@ class _TimelineEventTile extends StatelessWidget {
                           ]
                         : const <Color>[Color(0xE6081223), Color(0xD9050D1A)],
                   ),
-                  borderRadius: BorderRadius.circular(emphasized ? 20 : 16),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: _color.withValues(alpha: emphasized ? .48 : .2),
                   ),
@@ -487,7 +488,7 @@ class _TimelineEventTile extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: _color.withValues(alpha: .11),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             _visualLabel.toUpperCase(),
@@ -495,7 +496,7 @@ class _TimelineEventTile extends StatelessWidget {
                               color: _color,
                               fontSize: 8,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
+                              letterSpacing: 0,
                             ),
                           ),
                         ),
@@ -560,7 +561,7 @@ class _TimelineEventTile extends StatelessWidget {
                                 : AppColors.neonCyan,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: .5,
+                            letterSpacing: 0,
                           ),
                         ),
                       ),
@@ -615,7 +616,7 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_canComplete && !_canSkip && !_canMove) {
+    if (!_canComplete && !_canSkip && !_canMove && !_isProjectedTask) {
       return const SizedBox.shrink();
     }
     return Column(
@@ -648,20 +649,44 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
                       : 'Move Tomorrow',
                 ),
               ),
+            if (_isProjectedTask)
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _editTask,
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Edit'),
+              ),
+            if (_isProjectedTask)
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _confirmDeleteTask,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.recallRed,
+                ),
+                icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                label: const Text('Delete'),
+              ),
           ],
         ),
         if (_busy) ...[
           const SizedBox(height: 8),
-          const LinearProgressIndicator(minHeight: 2),
+          Semantics(
+            label: 'Task action in progress',
+            liveRegion: true,
+            child: const LinearProgressIndicator(minHeight: 2),
+          ),
         ],
         if (_error != null) ...[
           const SizedBox(height: 8),
-          Text(
-            _error!,
-            style: const TextStyle(
-              color: AppColors.recallRed,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+          Semantics(
+            label: _error,
+            liveRegion: true,
+            excludeSemantics: true,
+            child: Text(
+              _error!,
+              style: const TextStyle(
+                color: AppColors.recallRed,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -684,6 +709,142 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
       if (!mounted) return;
       setState(() {
         _error = 'Timeline action failed. Refresh and try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _editTask() async {
+    if (_busy) return;
+    final String? taskId = widget.event.relatedId;
+    if (taskId == null) return;
+
+    String draftTitle = widget.event.title;
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final String? nextTitle = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Edit task'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            key: const Key('timeline-task-title-field'),
+            initialValue: draftTitle,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(labelText: 'Task title'),
+            validator: (String? value) => value == null || value.trim().isEmpty
+                ? 'Enter a task title.'
+                : null,
+            onChanged: (String value) => draftTitle = value,
+            onFieldSubmitted: (String value) => _submitEdit(
+              dialogContext: dialogContext,
+              formKey: formKey,
+              title: value,
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => _submitEdit(
+              dialogContext: dialogContext,
+              formKey: formKey,
+              title: draftTitle,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (nextTitle == null || !mounted) return;
+
+    await _runManagementAction(
+      action: () => ref
+          .read(taskActionsProvider)
+          .updateTask(id: taskId, title: nextTitle),
+      successMessage: 'Task updated.',
+      errorMessage: 'Task could not be updated. Refresh and try again.',
+    );
+  }
+
+  void _submitEdit({
+    required BuildContext dialogContext,
+    required GlobalKey<FormState> formKey,
+    required String title,
+  }) {
+    if (!(formKey.currentState?.validate() ?? false)) return;
+    Navigator.of(dialogContext).pop(title.trim());
+  }
+
+  Future<void> _confirmDeleteTask() async {
+    if (_busy) return;
+    final String? taskId = widget.event.relatedId;
+    if (taskId == null) return;
+
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: const Text('Delete task?'),
+            content: Text(
+              '"${widget.event.title}" will be permanently deleted. '
+              'This cannot be undone.',
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.recallRed,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Delete task'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    await _runManagementAction(
+      action: () => ref.read(taskActionsProvider).deleteTask(taskId),
+      successMessage: 'Task deleted.',
+      errorMessage: 'Task could not be deleted. Refresh and try again.',
+    );
+  }
+
+  Future<void> _runManagementAction({
+    required Future<void> Function() action,
+    required String successMessage,
+    required String errorMessage,
+  }) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await action();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = errorMessage;
       });
     } finally {
       if (mounted) {
@@ -729,89 +890,35 @@ class _TimelineHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        SmartPressable(
-          onTap: onBack,
-          semanticLabel: 'Back to Nexus',
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.neonViolet.withValues(alpha: .1),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                color: AppColors.neonViolet.withValues(alpha: .38),
-              ),
-            ),
-            child: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: AppColors.neonViolet,
-              size: 18,
+    return TemporalScreenHeader(
+      title: 'TIMELINE',
+      subtitle: 'Your time, connected into one readable stream.',
+      eyebrow: '${_windowLabel(window)} view',
+      accent: AppColors.neonViolet,
+      onBack: onBack,
+      backTooltip: 'Back to Nexus',
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            '$eventCount',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
             ),
           ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              ShaderMask(
-                shaderCallback: (Rect bounds) => const LinearGradient(
-                  colors: <Color>[AppColors.neonViolet, AppColors.neonCyan],
-                ).createShader(bounds),
-                child: const Text(
-                  'TIMELINE',
-                  style: TextStyle(
-                    fontSize: 23,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 3.2,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const Text(
-                'YOUR TIME, CONNECTED',
-                style: TextStyle(
-                  fontSize: 9,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF8390AB),
-                ),
-              ),
-            ],
+          const Text(
+            'EVENTS',
+            style: TextStyle(
+              color: Color(0xFF8B99B8),
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
           ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xB3081427),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: .1)),
-          ),
-          child: Column(
-            children: <Widget>[
-              Text(
-                '$eventCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Text(
-                _windowLabel(window).toUpperCase(),
-                style: const TextStyle(
-                  color: Color(0xFF8B99B8),
-                  fontSize: 7,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: .8,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -852,28 +959,9 @@ class _TimelineFocusCard extends StatelessWidget {
         ? '${nextDeadline!.title} is due ${DateTimeFormats.dateShort(nextDeadline!.dueAt ?? nextDeadline!.timestamp)}.'
         : 'Your recent activity remains available in the chronology below.';
 
-    return Container(
+    return TemporalGlassSurface(
+      accent: accent,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            accent.withValues(alpha: .19),
-            const Color(0xE4091428),
-            AppColors.neonViolet.withValues(alpha: .12),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: accent.withValues(alpha: .4)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: accent.withValues(alpha: .12),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
       child: Column(
         children: <Widget>[
           Row(
@@ -885,7 +973,7 @@ class _TimelineFocusCard extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: const Color(0xA9081427),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: accent.withValues(alpha: .42)),
                 ),
                 child: Column(
@@ -907,7 +995,7 @@ class _TimelineFocusCard extends StatelessWidget {
                         color: accent,
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
+                        letterSpacing: 0,
                       ),
                     ),
                   ],
@@ -924,7 +1012,7 @@ class _TimelineFocusCard extends StatelessWidget {
                         color: accent,
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.4,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -1006,7 +1094,7 @@ class _TimelineMetric extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: .15),
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: accent.withValues(alpha: .2)),
       ),
       child: Column(
@@ -1028,7 +1116,7 @@ class _TimelineMetric extends StatelessWidget {
               color: Color(0xFF8E9BBA),
               fontSize: 7,
               fontWeight: FontWeight.w900,
-              letterSpacing: .7,
+              letterSpacing: 0,
             ),
           ),
         ],
@@ -1066,13 +1154,8 @@ class _TimelineControls extends StatelessWidget {
         filter != _TimelineFilter.all ||
         searchController.text.trim().isNotEmpty;
 
-    return Container(
+    return TemporalGlassSurface(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xD9071121),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .1)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1145,7 +1228,7 @@ class _TimelineControls extends StatelessWidget {
                       filled: true,
                       fillColor: Colors.black.withValues(alpha: .18),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -1161,7 +1244,7 @@ class _TimelineControls extends StatelessWidget {
                       filled: true,
                       fillColor: Colors.black.withValues(alpha: .18),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -1211,7 +1294,7 @@ class _TimelineRangeButton extends StatelessWidget {
           color: selected
               ? AppColors.neonCyan.withValues(alpha: .18)
               : Colors.white.withValues(alpha: .035),
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: selected
                 ? AppColors.neonCyan.withValues(alpha: .55)
@@ -1262,7 +1345,7 @@ class _TimelineDayHeader extends StatelessWidget {
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11,
-                letterSpacing: 1.5,
+                letterSpacing: 0,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1273,7 +1356,7 @@ class _TimelineDayHeader extends StatelessWidget {
               color: Color(0xFF77839E),
               fontSize: 8,
               fontWeight: FontWeight.w800,
-              letterSpacing: .8,
+              letterSpacing: 0,
             ),
           ),
         ],

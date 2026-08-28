@@ -49,9 +49,8 @@ class PaywallRepository implements IPaywallRepository {
         description:
             'Best for active users who want full $planningGuidanceLabel and recurring credits.',
         aiCreditsIncluded: 300,
-        freeTrialDays: 7,
+        freeTrialDays: 0,
         benefits: <String>[
-          '7-day free trial for eligible new subscribers',
           '300 $creditLabel every month',
           responseLabel,
           'Advanced memory and signals',
@@ -65,9 +64,8 @@ class PaywallRepository implements IPaywallRepository {
         description:
             'Best value for users committed to long-term habit building.',
         aiCreditsIncluded: 360,
-        freeTrialDays: 7,
+        freeTrialDays: 0,
         benefits: <String>[
-          '7-day free trial for eligible new subscribers',
           '360 $creditLabel every month',
           'Yearly billing discount',
           'Unlimited access to premium tools',

@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
+const Color _tutorialScrimColor = Color(0x94050D1A);
+
 /// A modal guide layer that leaves only its highlighted control interactive.
 /// It is intentionally rendered above the real screen instead of embedding
 /// instructional cards in the product layout.
@@ -203,9 +205,9 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
   }
 
   Widget _blocker() {
-    return AbsorbPointer(
+    return const AbsorbPointer(
       absorbing: true,
-      child: ColoredBox(color: Colors.black.withValues(alpha: .76)),
+      child: ColoredBox(color: _tutorialScrimColor),
     );
   }
 

@@ -292,8 +292,9 @@ class SmartPlannerQueryController
         title: strategy.minimumTitle,
         description: strategy.minimumAction(subject),
         estimatedMinutes: effort.minimumMinutes,
-        tradeoff:
-            'Lowest activation cost; it creates traction but limited depth.',
+        tradeoff: topic == _PlannerTopic.recovery
+            ? 'This may delay one low-priority task, but it protects your energy right now.'
+            : 'Lowest activation cost; it creates traction but limited depth.',
       ),
       PlannerOption(
         kind: PlannerOptionKind.bestFit,
@@ -590,12 +591,12 @@ class SmartPlannerQueryController
       question: 'What existing moment could reliably cue this behavior?',
     ),
     _PlannerTopic.recovery => _PlannerStrategy(
-      minimumTitle: 'Lower the load',
+      minimumTitle: 'Protect your energy',
       bestFitTitle: 'Protect one recovery block',
       stretchTitle: 'Rebuild the day around recovery',
       mattersMost: 'Protecting capacity before demanding performance.',
-      minimumAction: (String subject) =>
-          'Remove one nonessential demand from $subject and take a brief quiet pause.',
+      minimumAction: (String _) =>
+          'Choose one nonessential task to postpone. Then take a five-minute quiet break.',
       bestFitAction: (String subject) =>
           'Create one protected recovery block, then reassess what part of $subject is still realistic.',
       stretchAction: (String subject) =>

@@ -1,8 +1,8 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
-import 'package:fantastic_guacamole/features/creator/widgets/type_selector.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 
@@ -173,25 +173,13 @@ class _DynamicFormState extends State<DynamicForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return TemporalGlassSurface(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.memoryAmber.withValues(alpha: 0.06),
-            blurRadius: 20,
-            spreadRadius: -2,
-          ),
-        ],
-      ),
+      accent: AppColors.neonCyan,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionLabel('ENTRY DETAILS', AppColors.memoryAmber),
+          _sectionLabel('ENTRY DETAILS', AppColors.neonCyan),
           const SizedBox(height: 14),
           _buildTextField(
             _titleController,
@@ -214,7 +202,7 @@ class _DynamicFormState extends State<DynamicForm> {
             key: widget.guidedFirstTask
                 ? FirstRunTutorialTargets.creatorType
                 : null,
-            child: TypeSelector(
+            child: _TypeSegmentedControl(
               selected: _selectedType,
               onSelect: (t) {
                 widget.onTypeChosen?.call();
@@ -273,47 +261,13 @@ class _DynamicFormState extends State<DynamicForm> {
             key: widget.guidedFirstTask
                 ? FirstRunTutorialTargets.creatorSave
                 : null,
-            child: SmartPressable(
-              onTap: _submitting ? () {} : _submit,
-              semanticLabel: _createActionLabel.toLowerCase(),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.memoryAmber.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.memoryAmber.withValues(alpha: 0.5),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.memoryAmber.withValues(alpha: 0.2),
-                      blurRadius: 12,
-                    ),
-                  ],
-                ),
-                child: _submitting
-                    ? const Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.memoryAmber,
-                          ),
-                        ),
-                      )
-                    : Text(
-                        _createActionLabel,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          letterSpacing: 2.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.memoryAmber,
-                        ),
-                      ),
-              ),
+            child: TemporalActionButton(
+              label: _submitting ? 'WORKING...' : _createActionLabel,
+              onPressed: _submitting ? null : _submit,
+              icon: _submitting
+                  ? Icons.hourglass_top_rounded
+                  : Icons.add_task_rounded,
+              accent: AppColors.neonCyan,
             ),
           ),
         ],
@@ -334,7 +288,7 @@ class _DynamicFormState extends State<DynamicForm> {
       style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
+        hintStyle: const TextStyle(color: Color(0xFFAEB9D0), fontSize: 14),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.04),
         contentPadding: const EdgeInsets.symmetric(
@@ -342,19 +296,19 @@ class _DynamicFormState extends State<DynamicForm> {
           vertical: 10,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(
             color: AppColors.neonCyan.withValues(alpha: 0.15),
           ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(
             color: AppColors.neonCyan.withValues(alpha: 0.15),
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(
             color: AppColors.neonCyan.withValues(alpha: 0.5),
           ),
@@ -379,9 +333,104 @@ class _DynamicFormState extends State<DynamicForm> {
           text,
           style: TextStyle(
             fontSize: 10,
-            letterSpacing: 2.5,
+            letterSpacing: 0,
             color: color,
             fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TypeSegmentedControl extends StatelessWidget {
+  const _TypeSegmentedControl({required this.selected, required this.onSelect});
+
+  static const List<String> _types = <String>[
+    'Task',
+    'Routine',
+    'Note',
+    'Goal',
+  ];
+
+  final String selected;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const Text(
+          'TYPE',
+          style: TextStyle(
+            color: AppColors.neonCyan,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.background.withValues(alpha: 0.72),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.3),
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: _types
+                  .map((String type) {
+                    final bool active = type == selected;
+                    return Expanded(
+                      child: Semantics(
+                        button: true,
+                        selected: active,
+                        label: '$type type',
+                        child: Material(
+                          color: active
+                              ? AppColors.neonCyan.withValues(alpha: 0.16)
+                              : Colors.transparent,
+                          child: InkWell(
+                            onTap: () => onSelect(type),
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 48),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  right: type == _types.last
+                                      ? BorderSide.none
+                                      : BorderSide(
+                                          color: AppColors.neonCyan.withValues(
+                                            alpha: 0.24,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              child: Text(
+                                type.toUpperCase(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: active
+                                      ? AppColors.neonCyan
+                                      : Colors.white70,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
           ),
         ),
       ],
@@ -406,7 +455,7 @@ class _PriorityPicker extends StatelessWidget {
               width: 2,
               height: 14,
               decoration: BoxDecoration(
-                color: AppColors.recallRed,
+                color: AppColors.neonCyan,
                 borderRadius: BorderRadius.circular(1),
               ),
             ),
@@ -415,57 +464,120 @@ class _PriorityPicker extends StatelessWidget {
               'PRIORITY',
               style: TextStyle(
                 fontSize: 10,
-                letterSpacing: 2.5,
-                color: AppColors.recallRed,
+                letterSpacing: 0,
+                color: AppColors.neonCyan,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const Spacer(),
             Text(
               '$value / 5',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                color: AppColors.recallRed.withValues(alpha: 0.8),
+                color: AppColors.neonCyan,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: List.generate(5, (i) {
-            final level = i + 1;
-            final isActive = level <= value;
-            return Expanded(
-              child: SmartPressable(
-                onTap: () => onChanged(level),
-                semanticLabel: 'Set priority level $level',
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Container(
-                    margin: EdgeInsets.only(right: i < 4 ? 6 : 0),
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? AppColors.recallRed.withValues(alpha: 0.7)
-                          : Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(3),
-                      boxShadow: isActive
-                          ? [
-                              BoxShadow(
-                                color: AppColors.recallRed.withValues(
-                                  alpha: 0.4,
-                                ),
-                                blurRadius: 4,
-                              ),
-                            ]
-                          : null,
+        SizedBox(
+          height: 48,
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final double trackWidth = constraints.maxWidth - 48;
+              final double activeWidth = trackWidth * (value - 1) / 4;
+              final double thumbLeft = 24 + activeWidth - 10;
+              return Stack(
+                alignment: Alignment.centerLeft,
+                children: <Widget>[
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    top: 22,
+                    child: Container(height: 4, color: Colors.white24),
+                  ),
+                  Positioned(
+                    left: 24,
+                    top: 22,
+                    child: Container(
+                      width: activeWidth,
+                      height: 4,
+                      color: AppColors.neonCyan,
                     ),
                   ),
-                ),
+                  Positioned(
+                    left: thumbLeft,
+                    top: 14,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.neonCyan,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: AppColors.neonCyan.withValues(alpha: 0.45),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Row(
+                      children: List<Widget>.generate(5, (int index) {
+                        final int level = index + 1;
+                        return Expanded(
+                          child: Semantics(
+                            button: true,
+                            selected: value == level,
+                            label: 'Set priority level $level',
+                            onTap: () => onChanged(level),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => onChanged(level),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: <Widget>[
+            Text(
+              'LOW',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                letterSpacing: 0,
               ),
-            );
-          }),
+            ),
+            Text(
+              'BALANCED',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                letterSpacing: 0,
+              ),
+            ),
+            Text(
+              'CRITICAL',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -521,10 +633,11 @@ class _ScheduleDatePicker extends StatelessWidget {
       onTap: () => _pickDateAndTime(context),
       semanticLabel: 'Schedule date',
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: AppColors.neonViolet.withValues(alpha: 0.2),
           ),
@@ -543,7 +656,9 @@ class _ScheduleDatePicker extends StatelessWidget {
                   : '${selected!.day}/${selected!.month}/${selected!.year}  ${TimeOfDay.fromDateTime(selected!).format(context)}',
               style: TextStyle(
                 fontSize: 13,
-                color: selected == null ? Colors.white24 : Colors.white70,
+                color: selected == null
+                    ? const Color(0xFFAEB9D0)
+                    : Colors.white70,
               ),
             ),
             const Spacer(),
@@ -589,7 +704,7 @@ class _RecurrencePicker extends StatelessWidget {
               'REPEAT',
               style: TextStyle(
                 fontSize: 10,
-                letterSpacing: 2.5,
+                letterSpacing: 0,
                 color: AppColors.neonCyan,
                 fontWeight: FontWeight.w700,
               ),
@@ -597,26 +712,44 @@ class _RecurrencePicker extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _RepeatChip(
-              label: 'One-time',
-              active: selected == RecurrenceRule.none,
-              onTap: () => onChanged(RecurrenceRule.none),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.background.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.neonViolet.withValues(alpha: 0.3),
+              ),
             ),
-            _RepeatChip(
-              label: 'Every day',
-              active: selected == RecurrenceRule.daily,
-              onTap: () => onChanged(RecurrenceRule.daily),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: _RepeatChip(
+                    label: 'One-time',
+                    active: selected == RecurrenceRule.none,
+                    showDivider: true,
+                    onTap: () => onChanged(RecurrenceRule.none),
+                  ),
+                ),
+                Expanded(
+                  child: _RepeatChip(
+                    label: 'Every day',
+                    active: selected == RecurrenceRule.daily,
+                    showDivider: true,
+                    onTap: () => onChanged(RecurrenceRule.daily),
+                  ),
+                ),
+                Expanded(
+                  child: _RepeatChip(
+                    label: 'Every week',
+                    active: selected == RecurrenceRule.weekly,
+                    onTap: () => onChanged(RecurrenceRule.weekly),
+                  ),
+                ),
+              ],
             ),
-            _RepeatChip(
-              label: 'Every week',
-              active: selected == RecurrenceRule.weekly,
-              onTap: () => onChanged(RecurrenceRule.weekly),
-            ),
-          ],
+          ),
         ),
       ],
     );
@@ -628,35 +761,49 @@ class _RepeatChip extends StatelessWidget {
     required this.label,
     required this.active,
     required this.onTap,
+    this.showDivider = false,
   });
 
   final String label;
   final bool active;
   final VoidCallback onTap;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
-    return SmartPressable(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: active
-              ? AppColors.neonCyan.withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: active
-                ? AppColors.neonCyan.withValues(alpha: 0.6)
-                : AppColors.neonCyan.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: active ? AppColors.neonCyan : Colors.white70,
+    return Semantics(
+      button: true,
+      selected: active,
+      label: label,
+      child: Material(
+        color: active
+            ? AppColors.neonViolet.withValues(alpha: 0.16)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border(
+                right: showDivider
+                    ? BorderSide(
+                        color: AppColors.neonViolet.withValues(alpha: 0.24),
+                      )
+                    : BorderSide.none,
+              ),
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+                color: active ? AppColors.neonViolet : Colors.white70,
+              ),
+            ),
           ),
         ),
       ),

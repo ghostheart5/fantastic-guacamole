@@ -9,7 +9,6 @@ import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
-import 'package:fantastic_guacamole/features/permissions/location_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -27,6 +26,7 @@ import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -77,85 +77,25 @@ class SettingsScreen extends ConsumerWidget {
     final bool? voicePermissionGranted = ref.watch(
       voicePermissionStatusProvider,
     );
-    final locationPermissionResult = ref.watch(
-      locationPermissionStatusProvider,
-    );
-
     return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgTemporalCalm,
+      backgroundAssetPath: AppAssets.bgSettingsControlPlane,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              // Header row with back button
-              Row(
-                children: [
-                  Semantics(
-                    label: 'Back',
-                    button: true,
-                    child: GestureDetector(
-                      onTap: () {
-                        if (Navigator.canPop(context)) {
-                          context.pop();
-                          return;
-                        }
-                        goToAppView(context, ref, AppView.nexus);
-                      },
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: AppColors.neonCyan.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: AppColors.neonCyan,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) => const LinearGradient(
-                            colors: [AppColors.neonCyan, AppColors.neonViolet],
-                          ).createShader(bounds),
-                          child: const Text(
-                            'SETTINGS',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 3,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const Text(
-                          'PREFERENCES & ACCOUNT',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 2,
-                            color: Colors.white38,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              TemporalScreenHeader(
+                title: 'SETTINGS',
+                subtitle: 'Preferences, guidance, and account control.',
+                eyebrow: 'PREFERENCES & ACCOUNT',
+                onBack: () {
+                  if (Navigator.canPop(context)) {
+                    context.pop();
+                    return;
+                  }
+                  goToAppView(context, ref, AppView.nexus);
+                },
               ),
               const SizedBox(height: 20),
 
@@ -172,8 +112,7 @@ class SettingsScreen extends ConsumerWidget {
 
               _SettingsCategory(
                 title: 'Appearance & permissions',
-                subtitle:
-                    'Theme, sound, alerts, microphone, and location access',
+                subtitle: 'Theme, sound, alerts, and microphone access',
                 icon: Icons.tune_rounded,
                 accent: AppColors.neonCyan,
                 child: _Section(
@@ -273,51 +212,6 @@ class SettingsScreen extends ConsumerWidget {
                               ),
                             ),
                           );
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      LocationPermissionPrompt(
-                        result: locationPermissionResult,
-                        onRequestLocation: () async {
-                          final result = await ref
-                              .read(settingsUiActionsProvider)
-                              .requestLocationPermissionAndCurrentLocation();
-                          ref
-                              .read(locationPermissionStatusProvider.notifier)
-                              .set(result);
-                          return result;
-                        },
-                        onOpenAppSettings: () async {
-                          final bool opened = await ref
-                              .read(settingsUiActionsProvider)
-                              .openLocationAppSettings();
-                          if (!context.mounted || opened) {
-                            return opened;
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Open app settings and enable location for ChronoSpark.',
-                              ),
-                            ),
-                          );
-                          return opened;
-                        },
-                        onOpenLocationSettings: () async {
-                          final bool opened = await ref
-                              .read(settingsUiActionsProvider)
-                              .openLocationSystemSettings();
-                          if (!context.mounted || opened) {
-                            return opened;
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Open device location settings and turn location services on.',
-                              ),
-                            ),
-                          );
-                          return opened;
                         },
                       ),
                     ],
@@ -668,18 +562,65 @@ class SettingsScreen extends ConsumerWidget {
         await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
-            title: const Text('Clear local data?'),
-            content: const Text(
-              'This removes planning records, Timeline history, offline actions, notification schedules, profile progress, and local intelligence from this device. It does not delete your cloud account. This cannot be undone.',
+            icon: const Icon(
+              Icons.phonelink_erase_rounded,
+              color: AppColors.memoryAmber,
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancel'),
+            title: const Text('Clear data from this device?'),
+            content: const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Your ChronoSpark cloud account and Google Play subscription remain active.',
+                    style: TextStyle(
+                      color: AppColors.neonCyan,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  TemporalStatusRow(
+                    icon: Icons.history_rounded,
+                    text:
+                        'Planning records and Timeline history are removed from this device.',
+                    color: AppColors.memoryAmber,
+                  ),
+                  SizedBox(height: 10),
+                  TemporalStatusRow(
+                    icon: Icons.notifications_off_outlined,
+                    text:
+                        'Offline actions and scheduled reminders are removed.',
+                    color: AppColors.memoryAmber,
+                  ),
+                  SizedBox(height: 10),
+                  TemporalStatusRow(
+                    icon: Icons.psychology_outlined,
+                    text:
+                        'Profile progress and local intelligence are removed.',
+                    color: AppColors.memoryAmber,
+                  ),
+                  SizedBox(height: 14),
+                  Text(
+                    'Local removal cannot be undone. This is not account deletion.',
+                    style: TextStyle(color: Colors.white70, height: 1.4),
+                  ),
+                ],
               ),
-              FilledButton(
+            ),
+            actions: <Widget>[
+              FilledButton.icon(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                icon: const Icon(Icons.shield_outlined),
+                label: const Text('Keep local data'),
+              ),
+              OutlinedButton.icon(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Clear local data'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.memoryAmber,
+                ),
+                icon: const Icon(Icons.phonelink_erase_rounded),
+                label: const Text('Clear this device'),
               ),
             ],
           ),
@@ -714,18 +655,54 @@ class SettingsScreen extends ConsumerWidget {
           context: context,
           builder: (BuildContext dialogContext) {
             return AlertDialog(
-              title: const Text('Delete account permanently?'),
-              content: const Text(
-                'This action cannot be undone. Your account and synced data will be permanently removed.',
+              icon: const Icon(
+                Icons.person_remove_outlined,
+                color: AppColors.recallRed,
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Cancel'),
+              title: const Text('Delete account permanently?'),
+              content: const SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Your ChronoSpark account and synced planning data will be permanently removed.',
+                      style: TextStyle(color: Colors.white, height: 1.4),
+                    ),
+                    SizedBox(height: 14),
+                    TemporalStatusRow(
+                      icon: Icons.cloud_off_outlined,
+                      text: 'Deleted cloud data cannot be restored.',
+                      color: AppColors.recallRed,
+                    ),
+                    SizedBox(height: 10),
+                    TemporalStatusRow(
+                      icon: Icons.play_arrow_rounded,
+                      text:
+                          'An active Google Play subscription is not canceled automatically. Manage it separately in Google Play.',
+                      color: AppColors.memoryAmber,
+                    ),
+                    SizedBox(height: 14),
+                    Text(
+                      'Nothing has been deleted yet.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ],
                 ),
-                FilledButton(
+              ),
+              actions: <Widget>[
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  icon: const Icon(Icons.shield_outlined),
+                  label: const Text('Keep my account'),
+                ),
+                OutlinedButton.icon(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Continue'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.recallRed,
+                  ),
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('Continue'),
                 ),
               ],
             );
@@ -734,6 +711,53 @@ class SettingsScreen extends ConsumerWidget {
         false;
 
     if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    final String provider =
+        ref
+            .read(authServiceProvider)
+            .currentUser
+            ?.appMetadata['provider']
+            ?.toString()
+            .trim()
+            .toLowerCase() ??
+        'email';
+    if (provider == 'google' || provider == 'github') {
+      final String providerLabel = provider == 'google' ? 'Google' : 'GitHub';
+      final bool continueToHostedPath =
+          await showDialog<bool>(
+            context: context,
+            builder: (BuildContext dialogContext) => AlertDialog(
+              icon: const Icon(Icons.verified_user_outlined),
+              title: Text('Verify with $providerLabel'),
+              content: Text(
+                'This account uses $providerLabel, so it does not have a ChronoSpark password to enter here. Continue to the secure account-deletion page and follow its identity-verification instructions.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: const Text('Continue securely'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+      if (!continueToHostedPath || !context.mounted) {
+        return;
+      }
+      await _openExternalWithFallback(
+        context: context,
+        ref: ref,
+        url: AppUrls.deleteAccount,
+        fallbackRoute: routes.deleteAccount,
+        failureLabel: 'Unable to open the hosted account-deletion page.',
+      );
       return;
     }
 

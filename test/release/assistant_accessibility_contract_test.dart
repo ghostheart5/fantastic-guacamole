@@ -8,7 +8,7 @@ void main() {
       'lib/features/home/ui/smart_planner_screen.dart',
     ).readAsStringSync();
 
-    expect(source, contains("labelText: 'Planning context'"));
+    expect(source, contains("label: 'Planning context'"));
     expect(source, contains("label: 'Current energy'"));
     expect(source, contains("label: 'Planning guidance ready'"));
     expect(source, contains("label: 'Follow-up failed. \$errorText'"));

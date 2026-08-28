@@ -19,13 +19,18 @@ class VoiceService {
   bool get isSpeaking => _isSpeaking;
 
   Future<void> speak(String text) async {
+    await speakChecked(text);
+  }
+
+  Future<bool> speakChecked(String text) async {
     final String value = text.trim();
     if (value.isEmpty) {
-      return;
+      return false;
     }
     if (!await _ensureInitialized()) {
-      return;
+      return false;
     }
+    bool succeeded = true;
     // Chain onto the previous utterance rather than racing it. Errors are
     // absorbed so one bad utterance cannot poison the queue for the session.
     final Future<void> queued = _speakQueue.then((_) async {
@@ -35,14 +40,16 @@ class VoiceService {
         await _tts.invokeMethod<void>('speak', <String, Object?>{
           'text': value,
         });
-      } catch (_) {
-        // Do not crash UI flows when TTS is unavailable.
+      } catch (error) {
+        succeeded = false;
+        debugPrint('VoiceService playback failed: $error');
       } finally {
         _isSpeaking = false;
       }
     });
     _speakQueue = queued.catchError((Object _) {});
-    return queued;
+    await queued;
+    return succeeded;
   }
 
   Future<void> speakSummary({

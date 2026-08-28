@@ -173,7 +173,6 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
   final FirebaseSupabaseBridgeRepository bridgeRepository = ref.read(
     firebaseSupabaseBridgeRepositoryProvider,
   );
-  String? observedOwnerId = client?.auth.currentUser?.id;
   Future<void> authTransitionTail = Future<void>.value();
 
   Future<void> syncIfPossible({required String source}) async {
@@ -207,21 +206,14 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
     final User? user = next.value;
     authTransitionTail = authTransitionTail
         .then((_) async {
-          final String? departingOwnerId = observedOwnerId;
-          if (departingOwnerId != null && departingOwnerId != user?.id) {
-            await ref
-                .read(localUserDataCleanupServiceProvider)
-                .clearForAccountSwitch(departingOwnerId);
-          }
-          observedOwnerId = user?.id;
           if (user != null) {
             await syncIfPossible(source: 'auth-state-change');
           }
         })
         .catchError((Object error, StackTrace stackTrace) {
           Logger.errorCategory(
-            'AccountCleanup',
-            'Departing-account cleanup failed.',
+            'Bridge',
+            'Firebase->Supabase bridge auth-state sync failed.',
             error,
             stackTrace,
           );

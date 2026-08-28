@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -25,10 +23,10 @@ import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 part 'nexus_screen.widgets.dart';
@@ -94,7 +92,8 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     );
     final List<TimelineEventEntity> timeline = ref.watch(timelineProvider);
     return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgTimelineThreads,
+      backgroundAssetPath: AppAssets.bgNexus,
+      overlayOpacity: .54,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -109,6 +108,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     builder: (context, _) => _NexusVitals(
                       energy: energy,
                       fatigue: fatigue,
+                      momentum: trajectory.momentum,
                       pulse: _pulse.value,
                     ),
                   ),
