@@ -1,67 +1,52 @@
 import 'package:fantastic_guacamole/app/app_root.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('external deep-link destination coverage', () {
     test('maps every supported destination to its canonical route', () {
-      const Map<String, String> expectedLocations = <String, String>{
-        '/app': RoutePaths.nexus,
-        '/app/': RoutePaths.nexus,
-        '/app/nexus': RoutePaths.nexus,
-        '/app/smart-planner': RoutePaths.smartPlanner,
-        '/app/creator': RoutePaths.creator,
-        '/app/goals': RoutePaths.creatorGoals,
-        '/app/settings': RoutePaths.settings,
-        '/app/notifications': RoutePaths.notifications,
-        '/app/profile': RoutePaths.profile,
-        '/app/progression': RoutePaths.progression,
-        '/app/si-console': RoutePaths.siConsole,
-        '/app/timeline': RoutePaths.timeline,
-        '/app/trajectory': RoutePaths.trajectoryEngine,
-        '/app/paywall': RoutePaths.paywall,
-        '/app/privacy': RoutePaths.privacy,
-        '/app/delete-account': RoutePaths.deleteAccount,
-        '/app/terms': RoutePaths.terms,
-        '/app/support': RoutePaths.support,
-        '/app/about': RoutePaths.about,
-      };
-
-      for (final MapEntry<String, String> entry in expectedLocations.entries) {
+      for (final String path in <String>['/app', '/app/']) {
         final Uri source = Uri(
           scheme: 'https',
           host: 'chronospark.app',
-          path: entry.key,
+          path: path,
+        );
+        expect(resolveExternalDeepLinkLocation(source), RoutePaths.nexus);
+      }
+
+      for (final AppRouteDefinition route in AppRouteRegistry.canonical.where(
+        (AppRouteDefinition route) => route.externalSlug != null,
+      )) {
+        final Uri source = Uri(
+          scheme: 'https',
+          host: 'chronospark.app',
+          path: '/app/${route.externalSlug}',
         );
 
         expect(
           resolveExternalDeepLinkLocation(source),
-          entry.value,
-          reason: entry.key,
+          route.path,
+          reason: route.externalSlug,
         );
       }
     });
 
     test('retains approved compatibility aliases', () {
-      const Map<String, String> expectedLocations = <String, String>{
-        '/app/home': RoutePaths.nexus,
-        '/app/plan': RoutePaths.timeline,
-        '/app/temporal': RoutePaths.timeline,
-        '/app/logs': RoutePaths.logs,
-        '/app/si': RoutePaths.siConsole,
-      };
-
-      for (final MapEntry<String, String> entry in expectedLocations.entries) {
+      for (final AppRouteCompatibility alias
+          in AppRouteRegistry.compatibility.where(
+            (AppRouteCompatibility alias) => alias.externalSlug != null,
+          )) {
         final Uri source = Uri(
           scheme: 'https',
           host: 'chronospark.app',
-          path: entry.key,
+          path: '/app/${alias.externalSlug}',
         );
 
         expect(
           resolveExternalDeepLinkLocation(source),
-          entry.value,
-          reason: entry.key,
+          alias.targetPath,
+          reason: alias.externalSlug,
         );
       }
     });

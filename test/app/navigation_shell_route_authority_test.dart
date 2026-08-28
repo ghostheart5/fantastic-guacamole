@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -59,6 +60,24 @@ void main() {
     _expectRouteAndVisibleView(_byRoute(RoutePaths.timeline));
     expect(harness.container.read(appFlowProvider), AppView.timeline);
   });
+
+  testWidgets(
+    'bottom navigation uses the canonical Trajectory Engine identity',
+    (WidgetTester tester) async {
+      final _RouteShellHarness harness = await _pumpRouteShell(tester);
+
+      expect(find.text('Trajectory Engine'), findsOneWidget);
+      expect(find.text('Trajectory'), findsNothing);
+
+      await tester.tap(find.text('Trajectory Engine'));
+      await tester.pump();
+      await tester.pump();
+
+      _expectRouterUri(harness, RoutePaths.trajectoryEngine);
+      _expectRouteAndVisibleView(_byRoute(RoutePaths.trajectoryEngine));
+      expect(harness.container.read(appFlowProvider), AppView.trajectoryEngine);
+    },
+  );
 
   testWidgets('navigation-map selection updates both content and URL', (
     WidgetTester tester,
@@ -167,27 +186,28 @@ void main() {
     },
   );
 
-  testWidgets('legacy routes end at the correct canonical path and view', (
-    WidgetTester tester,
-  ) async {
-    for (final _LegacyExpectation expectation in _legacyExpectations) {
-      final _RouteShellHarness harness = await _pumpRouteShell(
-        tester,
-        initialLocation: expectation.legacyRoute,
-      );
-      await tester.pump();
-      await tester.pump();
+  testWidgets(
+    'compatibility routes end at the correct canonical path and view',
+    (WidgetTester tester) async {
+      for (final _LegacyExpectation expectation in _legacyExpectations) {
+        final _RouteShellHarness harness = await _pumpRouteShell(
+          tester,
+          initialLocation: expectation.legacyRoute,
+        );
+        await tester.pump();
+        await tester.pump();
 
-      _expectRouterUri(harness, expectation.canonical.route);
-      _expectRouteAndVisibleView(expectation.canonical);
-      expect(
-        harness.container.read(appFlowProvider),
-        expectation.canonical.view,
-      );
+        _expectRouterUri(harness, expectation.canonical.route);
+        _expectRouteAndVisibleView(expectation.canonical);
+        expect(
+          harness.container.read(appFlowProvider),
+          expectation.canonical.view,
+        );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-    }
-  });
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+  );
 }
 
 Future<_RouteShellHarness> _pumpRouteShell(
@@ -281,21 +301,11 @@ List<GoRoute> get _shellRoutes {
 
 List<GoRoute> get _legacyRedirectRoutes {
   return <GoRoute>[
-    GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
-    GoRoute(
-      path: RoutePaths.legacyProgression,
-      redirect: (_, _) => RoutePaths.progression,
-    ),
-    GoRoute(path: RoutePaths.legacySi, redirect: (_, _) => RoutePaths.si),
-    GoRoute(path: RoutePaths.legacyTasks, redirect: (_, _) => RoutePaths.tasks),
-    GoRoute(
-      path: RoutePaths.legacyProfile,
-      redirect: (_, _) => RoutePaths.profile,
-    ),
-    GoRoute(
-      path: RoutePaths.legacyInsights,
-      redirect: (_, _) => RoutePaths.smartPlanner,
-    ),
+    for (final _LegacyExpectation expectation in _legacyExpectations)
+      GoRoute(
+        path: expectation.legacyRoute,
+        redirect: (_, _) => expectation.canonical.route,
+      ),
   ];
 }
 
@@ -391,56 +401,20 @@ const List<_ShellExpectation> _adaptiveGuidanceExpectations =
       ),
     ];
 
-const List<_LegacyExpectation> _legacyExpectations = <_LegacyExpectation>[
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyLogs,
-    canonical: _ShellExpectation(
-      route: RoutePaths.logs,
-      view: AppView.timeline,
-      screenType: TimelineScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyProgression,
-    canonical: _ShellExpectation(
-      route: RoutePaths.progression,
-      view: AppView.progression,
-      screenType: ProgressionScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacySi,
-    canonical: _ShellExpectation(
-      route: RoutePaths.si,
-      view: AppView.console,
-      screenType: SIConsoleScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyTasks,
-    canonical: _ShellExpectation(
-      route: RoutePaths.tasks,
-      view: AppView.creator,
-      screenType: CreatorScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyProfile,
-    canonical: _ShellExpectation(
-      route: RoutePaths.profile,
-      view: AppView.profile,
-      screenType: ProfileScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyInsights,
-    canonical: _ShellExpectation(
-      route: RoutePaths.smartPlanner,
-      view: AppView.smartPlanner,
-      screenType: SmartPlannerScreen,
-    ),
-  ),
-];
+final List<_LegacyExpectation> _legacyExpectations = AppRouteRegistry
+    .routerCompatibilityRedirects
+    .where(
+      (AppRouteCompatibility alias) => _shellExpectations.any(
+        (_ShellExpectation route) => route.route == alias.targetPath,
+      ),
+    )
+    .map(
+      (AppRouteCompatibility alias) => _LegacyExpectation(
+        legacyRoute: alias.path!,
+        canonical: _byRoute(alias.targetPath),
+      ),
+    )
+    .toList(growable: false);
 
 const DailyDecisionIntelligence _decision = DailyDecisionIntelligence(
   primaryAction: 'Review the current route.',

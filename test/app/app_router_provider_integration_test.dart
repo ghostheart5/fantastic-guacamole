@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
@@ -146,33 +147,34 @@ void main() {
       allowed.dispose();
     });
 
-    testWidgets('all registered legacy redirects end at canonical routes', (
-      WidgetTester tester,
-    ) async {
-      for (final _LegacyRouteExpectation item in _legacyRouteExpectations) {
-        final _RouterHarness harness = await _pumpRealRouter(
-          tester,
-          initialLocation: item.legacyPath,
-          authenticated: true,
-          welcomeComplete: true,
-          onboardingComplete: true,
-        );
-        await tester.pump();
-        await tester.pump();
-
-        _expectUri(harness, item.canonical.finalPath);
-        expect(find.byType(item.canonical.expectedWidget), findsWidgets);
-        if (item.canonical.shellView != null) {
-          expect(
-            harness.container.read(appFlowProvider),
-            item.canonical.shellView,
+    testWidgets(
+      'all registered compatibility redirects end at canonical routes',
+      (WidgetTester tester) async {
+        for (final _LegacyRouteExpectation item in _legacyRouteExpectations) {
+          final _RouterHarness harness = await _pumpRealRouter(
+            tester,
+            initialLocation: item.legacyPath,
+            authenticated: true,
+            welcomeComplete: true,
+            onboardingComplete: true,
           );
-        }
+          await tester.pump();
+          await tester.pump();
 
-        await tester.pumpWidget(const SizedBox.shrink());
-        harness.dispose();
-      }
-    });
+          _expectUri(harness, item.canonical.finalPath);
+          expect(find.byType(item.canonical.expectedWidget), findsWidgets);
+          if (item.canonical.shellView != null) {
+            expect(
+              harness.container.read(appFlowProvider),
+              item.canonical.shellView,
+            );
+          }
+
+          await tester.pumpWidget(const SizedBox.shrink());
+          harness.dispose();
+        }
+      },
+    );
 
     testWidgets('preserves full callback URIs and query parameters', (
       WidgetTester tester,
@@ -942,71 +944,17 @@ const List<_RouteExpectation> _signedOutPublicRoutes = <_RouteExpectation>[
   ),
 ];
 
-const List<_LegacyRouteExpectation> _legacyRouteExpectations =
-    <_LegacyRouteExpectation>[
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyLogs,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.logs,
-          finalPath: RoutePaths.logs,
-          expectedWidget: NavigationShell,
-          shellView: AppView.timeline,
+final List<_LegacyRouteExpectation> _legacyRouteExpectations = AppRouteRegistry
+    .routerCompatibilityRedirects
+    .map(
+      (AppRouteCompatibility alias) => _LegacyRouteExpectation(
+        legacyPath: alias.path!,
+        canonical: _canonicalRouteExpectations.singleWhere(
+          (_RouteExpectation route) => route.requestedPath == alias.targetPath,
         ),
       ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyNotifications,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.notifications,
-          finalPath: RoutePaths.notifications,
-          expectedWidget: NotificationsPage,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyProgression,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.progression,
-          finalPath: RoutePaths.progression,
-          expectedWidget: NavigationShell,
-          shellView: AppView.progression,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacySi,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.si,
-          finalPath: RoutePaths.si,
-          expectedWidget: NavigationShell,
-          shellView: AppView.console,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyTasks,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.tasks,
-          finalPath: RoutePaths.tasks,
-          expectedWidget: NavigationShell,
-          shellView: AppView.creator,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyProfile,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.profile,
-          finalPath: RoutePaths.profile,
-          expectedWidget: NavigationShell,
-          shellView: AppView.profile,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyInsights,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.smartPlanner,
-          finalPath: RoutePaths.smartPlanner,
-          expectedWidget: NavigationShell,
-          shellView: AppView.smartPlanner,
-        ),
-      ),
-    ];
+    )
+    .toList(growable: false);
 
 class _StaticGoals extends GoalsNotifier {
   @override

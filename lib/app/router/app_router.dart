@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
@@ -228,7 +229,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (BuildContext context, GoRouterState state) =>
             _navigationShellPageForRoute(state),
       ),
-      GoRoute(path: RoutePaths.plan, redirect: (_, _) => RoutePaths.timeline),
       GoRoute(
         path: RoutePaths.creator,
         pageBuilder: (BuildContext context, GoRouterState state) =>
@@ -300,30 +300,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const ProductAdvisorScreen(),
       ),
 
-      // Legacy top-level routes redirect into the secondary hierarchy.
-      // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
-      GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
-      GoRoute(
-        path: RoutePaths.legacyNotifications,
-        redirect: (_, _) => RoutePaths.notifications,
-      ),
-      GoRoute(
-        path: RoutePaths.legacyProgression,
-        redirect: (_, _) => RoutePaths.progression,
-      ),
-      GoRoute(path: RoutePaths.legacySi, redirect: (_, _) => RoutePaths.si),
-      GoRoute(
-        path: RoutePaths.legacyTasks,
-        redirect: (_, _) => RoutePaths.tasks,
-      ),
-      GoRoute(
-        path: RoutePaths.legacyProfile,
-        redirect: (_, _) => RoutePaths.profile,
-      ),
-      GoRoute(
-        path: RoutePaths.legacyInsights,
-        redirect: (_, _) => RoutePaths.smartPlanner,
-      ),
+      // Compatibility paths remain registered separately from canonical routes.
+      for (final AppRouteCompatibility alias
+          in AppRouteRegistry.routerCompatibilityRedirects)
+        GoRoute(path: alias.path!, redirect: (_, _) => alias.targetPath),
 
       GoRoute(
         path: RoutePaths.login,

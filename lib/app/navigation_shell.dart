@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
@@ -30,7 +31,6 @@ import 'package:fantastic_guacamole/state/services/preference_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
@@ -38,7 +38,6 @@ import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 @visibleForTesting
@@ -53,19 +52,10 @@ Future<void> runGuardedBackgroundTask({
   }
 }
 
-class _PrimaryDestination {
-  const _PrimaryDestination({required this.label, required this.assetPath});
-
-  final String label;
-  final String assetPath;
-}
-
-const List<_PrimaryDestination> _primaryDestinations = <_PrimaryDestination>[
-  _PrimaryDestination(label: 'Nexus', assetPath: AppAssets.iconNexus),
-  _PrimaryDestination(label: 'Trajectory', assetPath: AppAssets.iconTasks),
-  _PrimaryDestination(label: 'Timeline', assetPath: AppAssets.iconLogs),
-  _PrimaryDestination(label: 'Profile', assetPath: AppAssets.iconProfile),
-];
+final List<AppRouteDefinition> _primaryDestinations =
+    AppRouteRegistry.navigationDestinations(
+      AppNavigationGroup.primary,
+    ).toList(growable: false);
 
 class NavigationShell extends ConsumerStatefulWidget {
   const NavigationShell({
@@ -420,22 +410,17 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   }
 
   int _tabIndexForView(AppView view) {
-    return switch (view) {
-      AppView.nexus => 0,
-      AppView.trajectoryEngine => 1,
-      AppView.timeline => 2,
-      AppView.profile => 3,
-      _ => 0,
-    };
+    final AppRouteDefinition route = AppRouteRegistry.routeForView(view);
+    return route.navigationGroup == AppNavigationGroup.primary
+        ? route.navigationOrder
+        : 0;
   }
 
   AppView _viewForTabIndex(int index) {
-    return switch (index) {
-      1 => AppView.trajectoryEngine,
-      2 => AppView.timeline,
-      3 => AppView.profile,
-      _ => AppView.nexus,
-    };
+    if (index < 0 || index >= _primaryDestinations.length) {
+      return AppView.nexus;
+    }
+    return _primaryDestinations[index].appView!;
   }
 
   void _onTabSelected(int index) {
@@ -452,10 +437,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       if (!_initializedTabIndexes.contains(index)) {
         return const SizedBox.shrink();
       }
-      final Widget tab = switch (index) {
-        1 => const TrajectoryEngineScreen(),
-        2 => const TimelineScreen(),
-        3 => const ProfileScreen(),
+      final AppView view = _viewForTabIndex(index);
+      final Widget tab = switch (view) {
+        AppView.trajectoryEngine => const TrajectoryEngineScreen(),
+        AppView.timeline => const TimelineScreen(),
+        AppView.profile => const ProfileScreen(),
         _ => const NexusScreen(),
       };
       final bool isActive = index == tabIndex;
@@ -479,25 +465,20 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   }
 
   Widget _destinationIcon({
-    required _PrimaryDestination destination,
+    required AppRouteDefinition destination,
     required bool selected,
     required Color accent,
     double size = 24,
   }) {
-    return SvgPicture.asset(
-      destination.assetPath,
-      width: size,
-      height: size,
-      excludeFromSemantics: true,
-      colorFilter: ColorFilter.mode(
-        selected ? accent : const Color(0xFFA8B5CA),
-        BlendMode.srcIn,
-      ),
+    return Icon(
+      destination.icon,
+      size: size,
+      color: selected ? accent : const Color(0xFFA8B5CA),
     );
   }
 
   Widget _buildPhoneDestination(int index, int currentIndex) {
-    final _PrimaryDestination destination = _primaryDestinations[index];
+    final AppRouteDefinition destination = _primaryDestinations[index];
     final bool selected = index == currentIndex;
     final Color accent = _navigationAccent(index);
 
@@ -539,18 +520,20 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
                       size: 25,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      destination.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.fade,
-                      softWrap: false,
-                      style: TextStyle(
-                        color: selected ? accent : const Color(0xFFA8B5CA),
-                        fontSize: 11,
-                        fontWeight: selected
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                        letterSpacing: 0,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        destination.label,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          color: selected ? accent : const Color(0xFFA8B5CA),
+                          fontSize: 11,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          letterSpacing: 0,
+                        ),
                       ),
                     ),
                   ],
@@ -589,7 +572,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     required int currentIndex,
     required bool extended,
   }) {
-    final _PrimaryDestination destination = _primaryDestinations[index];
+    final AppRouteDefinition destination = _primaryDestinations[index];
     final bool selected = index == currentIndex;
     final Color accent = _navigationAccent(index);
 
@@ -817,12 +800,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.68),
       builder: (BuildContext context) {
-        Widget navItem(
-          String title,
-          String subtitle,
-          IconData icon,
-          AppView target,
-        ) {
+        Widget navItem(AppRouteDefinition destination) {
+          final AppView target = destination.appView!;
           final bool selected = target == widget.initialView;
           return ListTile(
             minVerticalPadding: 8,
@@ -834,11 +813,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
             selectedColor: AppColors.neonCyan,
             selectedTileColor: AppColors.neonCyan.withValues(alpha: 0.08),
             leading: Icon(
-              icon,
+              destination.icon,
               color: selected ? AppColors.neonCyan : const Color(0xFFA8B5CA),
             ),
             title: Text(
-              title,
+              destination.label,
               style: TextStyle(
                 color: selected ? AppColors.neonCyan : Colors.white,
                 fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
@@ -846,7 +825,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
               ),
             ),
             subtitle: Text(
-              subtitle,
+              destination.navigationSubtitle ?? '',
               style: const TextStyle(
                 color: Color(0xFFA8B5CA),
                 letterSpacing: 0,
@@ -933,65 +912,19 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
                             shrinkWrap: true,
                             padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
                             children: <Widget>[
-                              navItem(
-                                'Nexus',
-                                'Connected planning home',
-                                Icons.hub_outlined,
-                                AppView.nexus,
-                              ),
-                              navItem(
-                                'Trajectory Engine',
-                                'Future scenarios and execution',
-                                Icons.alt_route_rounded,
-                                AppView.trajectoryEngine,
-                              ),
-                              navItem(
-                                'Timeline',
-                                'Decision memory and context history',
-                                Icons.view_timeline_outlined,
-                                AppView.timeline,
-                              ),
-                              navItem(
-                                'Profile',
-                                'Identity and progression',
-                                Icons.person_outline_rounded,
-                                AppView.profile,
-                              ),
+                              for (final AppRouteDefinition destination
+                                  in _primaryDestinations)
+                                navItem(destination),
                               Divider(
                                 color: AppColors.panelBorder.withValues(
                                   alpha: 0.42,
                                 ),
                               ),
-                              navItem(
-                                'Creator',
-                                'Turn intention into connected action',
-                                Icons.add_task_rounded,
-                                AppView.creator,
-                              ),
-                              navItem(
-                                'Smart Planner',
-                                'Reconcile constraints into a next move',
-                                Icons.event_note_outlined,
-                                AppView.smartPlanner,
-                              ),
-                              navItem(
-                                'SI Console',
-                                'Turn context into a decision brief',
-                                Icons.psychology_alt_outlined,
-                                AppView.console,
-                              ),
-                              navItem(
-                                'Progression',
-                                'See capabilities built through action',
-                                Icons.trending_up_rounded,
-                                AppView.progression,
-                              ),
-                              navItem(
-                                'Settings',
-                                'Preferences and controls',
-                                Icons.settings_outlined,
-                                AppView.settings,
-                              ),
+                              for (final AppRouteDefinition destination
+                                  in AppRouteRegistry.navigationDestinations(
+                                    AppNavigationGroup.secondary,
+                                  ))
+                                navItem(destination),
                             ],
                           ),
                         ),

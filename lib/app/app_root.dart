@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
@@ -35,31 +36,6 @@ class DeepLinkEventDeduplicator {
 }
 
 const String _authCallbackTypeQueryParameter = 'type';
-
-const Map<String, String> _externalAppRoutes = <String, String>{
-  'home': RoutePaths.nexus,
-  'nexus': RoutePaths.nexus,
-  'plan': RoutePaths.timeline,
-  'temporal': RoutePaths.timeline,
-  'smart-planner': RoutePaths.smartPlanner,
-  'creator': RoutePaths.creator,
-  'goals': RoutePaths.creatorGoals,
-  'settings': RoutePaths.settings,
-  'notifications': RoutePaths.notifications,
-  'profile': RoutePaths.profile,
-  'progression': RoutePaths.progression,
-  'logs': RoutePaths.logs,
-  'si': RoutePaths.siConsole,
-  'si-console': RoutePaths.siConsole,
-  'timeline': RoutePaths.timeline,
-  'trajectory': RoutePaths.trajectoryEngine,
-  'paywall': RoutePaths.paywall,
-  'privacy': RoutePaths.privacy,
-  'delete-account': RoutePaths.deleteAccount,
-  'terms': RoutePaths.terms,
-  'support': RoutePaths.support,
-  'about': RoutePaths.about,
-};
 
 @visibleForTesting
 String resolveExternalDeepLinkLocation(Uri uri) {
@@ -99,14 +75,14 @@ String resolveExternalDeepLinkLocation(Uri uri) {
   }
 
   final String leaf = appPath.substring('/app/'.length);
-  final String? route = _externalAppRoutes[leaf];
+  final AppRouteDefinition? route = AppRouteRegistry.routeForExternalSlug(leaf);
   if (route == null) {
     return '';
   }
   return _sanitizedRouteLocation(
-    route,
+    route.path,
     uri,
-    allowSavedTabRestore: leaf == 'home' || leaf == 'nexus',
+    allowSavedTabRestore: route.allowSavedTabRestore,
   );
 }
 
@@ -142,7 +118,7 @@ String? _sanitizeReturnTo(String? rawReturnTo) {
     return null;
   }
   final Uri candidate = Uri.parse(validated);
-  if (!_externalAppRoutes.containsValue(candidate.path)) {
+  if (!AppRouteRegistry.isExternallyReachablePath(candidate.path)) {
     return null;
   }
   return _sanitizedRouteLocation(

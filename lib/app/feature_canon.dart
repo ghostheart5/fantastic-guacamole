@@ -1,4 +1,5 @@
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/app/app_view.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart';
 
 export 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart'
@@ -39,65 +40,75 @@ class ChronoSparkFeatureDefinition {
 /// feature. Retired work-timer concepts remain excluded; authentication state
 /// language remains valid outside this product registry.
 abstract final class ChronoSparkFeatureCanon {
-  static const List<ChronoSparkFeatureDefinition> active =
-      <ChronoSparkFeatureDefinition>[
-        ChronoSparkFeatureDefinition(
-          id: ChronoSparkFeatureId.nexus,
-          displayName: 'Nexus',
-          route: RoutePaths.nexus,
-          purpose: 'Current decision context and next-best action.',
-          category: ChronoSparkFeatureCategory.primaryCanonFeature,
-        ),
-        ChronoSparkFeatureDefinition(
-          id: ChronoSparkFeatureId.smartPlanner,
-          displayName: 'Smart Planner',
-          route: RoutePaths.smartPlanner,
-          purpose: 'Explainable planning and plan reconciliation.',
-          category: ChronoSparkFeatureCategory.primaryCanonFeature,
-        ),
-        ChronoSparkFeatureDefinition(
-          id: ChronoSparkFeatureId.creator,
-          displayName: 'Creator',
-          route: RoutePaths.creator,
-          purpose: 'Intelligent intake for tasks, goals, habits, and notes.',
-          category: ChronoSparkFeatureCategory.primaryCanonFeature,
-        ),
-        ChronoSparkFeatureDefinition(
-          id: ChronoSparkFeatureId.settings,
-          displayName: 'Settings',
-          route: RoutePaths.settings,
-          purpose: 'Preferences, account controls, privacy, and support.',
-          category: ChronoSparkFeatureCategory.primaryCanonFeature,
-        ),
-        ChronoSparkFeatureDefinition(
-          id: ChronoSparkFeatureId.siConsole,
-          displayName: 'SI Console',
-          route: RoutePaths.siConsole,
-          purpose: 'Deep strategic investigation and executable guidance.',
-          category: ChronoSparkFeatureCategory.supportSurface,
-        ),
-        ChronoSparkFeatureDefinition(
-          id: ChronoSparkFeatureId.timeline,
-          displayName: 'Timeline',
-          route: RoutePaths.timeline,
-          purpose: 'Planning history, schedule, and outcomes.',
-          category: ChronoSparkFeatureCategory.primaryCanonFeature,
-        ),
-        ChronoSparkFeatureDefinition(
-          id: ChronoSparkFeatureId.trajectoryEngine,
-          displayName: 'Trajectory Engine',
-          route: RoutePaths.trajectoryEngine,
-          purpose: 'Explicit future scenarios, assumptions, and corrections.',
-          category: ChronoSparkFeatureCategory.primaryCanonFeature,
-        ),
-        ChronoSparkFeatureDefinition(
-          id: ChronoSparkFeatureId.progression,
-          displayName: 'Progression',
-          route: RoutePaths.progression,
-          purpose: 'Evidence-backed advancement and leverage actions.',
-          category: ChronoSparkFeatureCategory.supportSurface,
-        ),
-      ];
+  static final List<ChronoSparkFeatureDefinition> active =
+      List<ChronoSparkFeatureDefinition>.unmodifiable(
+        <ChronoSparkFeatureDefinition>[
+          _feature(
+            id: ChronoSparkFeatureId.nexus,
+            appView: AppView.nexus,
+            purpose: 'Current decision context and next-best action.',
+            category: ChronoSparkFeatureCategory.primaryCanonFeature,
+          ),
+          _feature(
+            id: ChronoSparkFeatureId.smartPlanner,
+            appView: AppView.smartPlanner,
+            purpose: 'Explainable planning and plan reconciliation.',
+            category: ChronoSparkFeatureCategory.primaryCanonFeature,
+          ),
+          _feature(
+            id: ChronoSparkFeatureId.creator,
+            appView: AppView.creator,
+            purpose: 'Intelligent intake for tasks, goals, habits, and notes.',
+            category: ChronoSparkFeatureCategory.primaryCanonFeature,
+          ),
+          _feature(
+            id: ChronoSparkFeatureId.settings,
+            appView: AppView.settings,
+            purpose: 'Preferences, account controls, privacy, and support.',
+            category: ChronoSparkFeatureCategory.primaryCanonFeature,
+          ),
+          _feature(
+            id: ChronoSparkFeatureId.siConsole,
+            appView: AppView.console,
+            purpose: 'Deep strategic investigation and executable guidance.',
+            category: ChronoSparkFeatureCategory.supportSurface,
+          ),
+          _feature(
+            id: ChronoSparkFeatureId.timeline,
+            appView: AppView.timeline,
+            purpose: 'Planning history, schedule, and outcomes.',
+            category: ChronoSparkFeatureCategory.primaryCanonFeature,
+          ),
+          _feature(
+            id: ChronoSparkFeatureId.trajectoryEngine,
+            appView: AppView.trajectoryEngine,
+            purpose: 'Explicit future scenarios, assumptions, and corrections.',
+            category: ChronoSparkFeatureCategory.primaryCanonFeature,
+          ),
+          _feature(
+            id: ChronoSparkFeatureId.progression,
+            appView: AppView.progression,
+            purpose: 'Evidence-backed advancement and leverage actions.',
+            category: ChronoSparkFeatureCategory.supportSurface,
+          ),
+        ],
+      );
+
+  static ChronoSparkFeatureDefinition _feature({
+    required ChronoSparkFeatureId id,
+    required AppView appView,
+    required String purpose,
+    required ChronoSparkFeatureCategory category,
+  }) {
+    final AppRouteDefinition route = AppRouteRegistry.routeForView(appView);
+    return ChronoSparkFeatureDefinition(
+      id: id,
+      displayName: route.label,
+      route: route.path,
+      purpose: purpose,
+      category: category,
+    );
+  }
 
   static Iterable<ChronoSparkFeatureDefinition> byCategory(
     ChronoSparkFeatureCategory category,
