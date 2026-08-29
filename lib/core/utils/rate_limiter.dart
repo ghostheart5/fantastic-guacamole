@@ -3,7 +3,18 @@ class SlidingWindowRateLimiter {
     required this.maxRequests,
     required this.window,
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+  }) : _now = now ?? DateTime.now {
+    if (maxRequests <= 0) {
+      throw ArgumentError.value(
+        maxRequests,
+        'maxRequests',
+        'must be greater than zero',
+      );
+    }
+    if (window <= Duration.zero) {
+      throw ArgumentError.value(window, 'window', 'must be greater than zero');
+    }
+  }
 
   final int maxRequests;
   final Duration window;
@@ -36,6 +47,6 @@ class SlidingWindowRateLimiter {
 
   void _evict() {
     final DateTime cutoff = _now().subtract(window);
-    _events.removeWhere((DateTime t) => t.isBefore(cutoff));
+    _events.removeWhere((DateTime t) => !t.isAfter(cutoff));
   }
 }

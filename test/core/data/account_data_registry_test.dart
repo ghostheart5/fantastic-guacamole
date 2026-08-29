@@ -26,18 +26,26 @@ void main() {
 
   test('departing owner inventory includes candidate scoped storage', () {
     final String namespace = AccountDataRegistry.accountNamespace('owner-a');
+    final AccountDataCleanupPlan cleanupPlan =
+        AccountDataRegistry.cleanupPlanFor('owner-a');
 
+    expect(cleanupPlan.hiveBoxes, contains('task_occurrences_v2.$namespace'));
     expect(
-      AccountDataRegistry.hiveBoxesForAccount('owner-a'),
-      contains('task_occurrences_v2.$namespace'),
-    );
-    expect(
-      AccountDataRegistry.sensitivePreferenceKeysForAccount('owner-a'),
+      cleanupPlan.sensitivePreferenceKeys,
       contains('governed_memories_v2.$namespace'),
     );
     expect(
-      AccountDataRegistry.secureKeyPrefixesForAccount('owner-a'),
+      cleanupPlan.secureKeyPrefixes,
       contains('si_engine_state_v2.$namespace.'),
     );
+  });
+
+  test('legacy cleanup plan preserves account-scoped prefix deletion', () {
+    final AccountDataCleanupPlan cleanupPlan =
+        AccountDataRegistry.cleanupPlanFor(null);
+
+    expect(cleanupPlan.hiveBoxes, AccountDataRegistry.legacyAccountHiveBoxes);
+    expect(cleanupPlan.secureKeyPrefixes, isEmpty);
+    expect(cleanupPlan.preferenceKeyPrefixes, isEmpty);
   });
 }

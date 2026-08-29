@@ -32,6 +32,27 @@ class AccountDataDomain {
   };
 }
 
+/// One immutable cleanup inventory for either legacy unowned data or a known
+/// departing account. Consumers should use this plan instead of selecting
+/// individual key sets independently.
+class AccountDataCleanupPlan {
+  const AccountDataCleanupPlan({
+    required this.hiveBoxes,
+    required this.secureExactKeys,
+    required this.secureKeyPrefixes,
+    required this.sensitivePreferenceKeys,
+    required this.preferenceExactKeys,
+    required this.preferenceKeyPrefixes,
+  });
+
+  final Set<String> hiveBoxes;
+  final Set<String> secureExactKeys;
+  final Set<String> secureKeyPrefixes;
+  final Set<String> sensitivePreferenceKeys;
+  final Set<String> preferenceExactKeys;
+  final Set<String> preferenceKeyPrefixes;
+}
+
 /// Single inventory for account-owned local/cloud domains.
 ///
 /// This deliberately separates "known account data" from "currently included
@@ -370,5 +391,32 @@ abstract final class AccountDataRegistry {
       'chronospark.trajectory.forecast_ledger.v1.$namespace.corrupt.',
       'chronospark.operating.history.v1.$namespace.corrupt.',
     };
+  }
+
+  static AccountDataCleanupPlan cleanupPlanFor(String? accountId) {
+    final String normalizedAccountId = accountId?.trim() ?? '';
+    if (normalizedAccountId.isEmpty) {
+      return const AccountDataCleanupPlan(
+        hiveBoxes: legacyAccountHiveBoxes,
+        secureExactKeys: accountSecureExactKeys,
+        secureKeyPrefixes: <String>{},
+        sensitivePreferenceKeys: legacySensitivePreferenceKeys,
+        preferenceExactKeys: accountPreferenceExactKeys,
+        preferenceKeyPrefixes: <String>{},
+      );
+    }
+
+    return AccountDataCleanupPlan(
+      hiveBoxes: hiveBoxesForAccount(normalizedAccountId),
+      secureExactKeys: secureExactKeysForAccount(normalizedAccountId),
+      secureKeyPrefixes: secureKeyPrefixesForAccount(normalizedAccountId),
+      sensitivePreferenceKeys: sensitivePreferenceKeysForAccount(
+        normalizedAccountId,
+      ),
+      preferenceExactKeys: preferenceExactKeysForAccount(normalizedAccountId),
+      preferenceKeyPrefixes: preferenceKeyPrefixesForAccount(
+        normalizedAccountId,
+      ),
+    );
   }
 }

@@ -48,45 +48,29 @@ class LocalUserDataCleanupService {
     }
 
     await _hive.init();
-    final Set<String> boxes = departingAccountId == null
-        ? AccountDataRegistry.legacyAccountHiveBoxes
-        : AccountDataRegistry.hiveBoxesForAccount(departingAccountId);
-    for (final String box in boxes) {
+    final AccountDataCleanupPlan cleanupPlan =
+        AccountDataRegistry.cleanupPlanFor(departingAccountId);
+    for (final String box in cleanupPlan.hiveBoxes) {
       await _hive.clearBox(box);
     }
 
-    final Set<String> secureKeys = departingAccountId == null
-        ? AccountDataRegistry.accountSecureExactKeys
-        : AccountDataRegistry.secureExactKeysForAccount(departingAccountId);
-    for (final String key in secureKeys) {
+    for (final String key in cleanupPlan.secureExactKeys) {
       await _secureStore.delete(key);
     }
-    if (departingAccountId != null) {
-      await _deleteMatchingSecureKeys(
-        AccountDataRegistry.secureKeyPrefixesForAccount(departingAccountId),
-      );
+    if (cleanupPlan.secureKeyPrefixes.isNotEmpty) {
+      await _deleteMatchingSecureKeys(cleanupPlan.secureKeyPrefixes);
     }
 
     await _sensitivePreferences.init();
-    final Set<String> sensitiveKeys = departingAccountId == null
-        ? AccountDataRegistry.legacySensitivePreferenceKeys
-        : AccountDataRegistry.sensitivePreferenceKeysForAccount(
-            departingAccountId,
-          );
-    for (final String key in sensitiveKeys) {
+    for (final String key in cleanupPlan.sensitivePreferenceKeys) {
       await _sensitivePreferences.delete(key);
     }
 
-    final Set<String> preferenceKeys = departingAccountId == null
-        ? AccountDataRegistry.accountPreferenceExactKeys
-        : AccountDataRegistry.preferenceExactKeysForAccount(departingAccountId);
-    for (final String key in preferenceKeys) {
+    for (final String key in cleanupPlan.preferenceExactKeys) {
       await _preferences.delete(key);
     }
-    if (departingAccountId != null) {
-      await _deleteMatchingPreferenceKeys(
-        AccountDataRegistry.preferenceKeyPrefixesForAccount(departingAccountId),
-      );
+    if (cleanupPlan.preferenceKeyPrefixes.isNotEmpty) {
+      await _deleteMatchingPreferenceKeys(cleanupPlan.preferenceKeyPrefixes);
     }
   }
 
@@ -94,8 +78,10 @@ class LocalUserDataCleanupService {
   /// account marker exists. Device-wide theme/onboarding/identity keys are
   /// intentionally excluded.
   Future<bool> hasUnownedAccountData() async {
+    final AccountDataCleanupPlan cleanupPlan =
+        AccountDataRegistry.cleanupPlanFor(null);
     await _hive.init();
-    for (final String boxName in AccountDataRegistry.legacyAccountHiveBoxes) {
+    for (final String boxName in cleanupPlan.hiveBoxes) {
       final bool wasOpen = _hive.isBoxOpen(boxName);
       // Every account-owned Hive repository serializes its payload as JSON
       // strings. Opening an already-open Box<String> as Box<dynamic> throws
@@ -105,15 +91,14 @@ class LocalUserDataCleanupService {
       if (!wasOpen) await box.close();
       if (hasValues) return true;
     }
-    for (final String key in AccountDataRegistry.accountSecureExactKeys) {
+    for (final String key in cleanupPlan.secureExactKeys) {
       if (await _secureStore.readString(key) != null) return true;
     }
     await _sensitivePreferences.init();
-    for (final String key
-        in AccountDataRegistry.legacySensitivePreferenceKeys) {
+    for (final String key in cleanupPlan.sensitivePreferenceKeys) {
       if (_sensitivePreferences.load(key) != null) return true;
     }
-    for (final String key in AccountDataRegistry.accountPreferenceExactKeys) {
+    for (final String key in cleanupPlan.preferenceExactKeys) {
       if (await SharedPrefsService.contains(key)) return true;
     }
     return false;

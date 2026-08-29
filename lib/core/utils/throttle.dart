@@ -12,9 +12,12 @@ class Throttle {
   void run(void Function() action) {
     if (!_ready) return;
     _ready = false;
-    action();
-    _timer?.cancel();
-    _timer = Timer(delay, () => _ready = true);
+    try {
+      action();
+    } finally {
+      _timer?.cancel();
+      _timer = Timer(delay, () => _ready = true);
+    }
   }
 
   Future<void> runAsync(Future<void> Function() action) async {

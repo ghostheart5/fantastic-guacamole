@@ -1,31 +1,17 @@
 import 'package:intl/intl.dart';
 
 extension DateExt on DateTime {
-  // ------------------------------------------------------------------
-  // Formatting
-  // ------------------------------------------------------------------
-
-  /// "1/25"
   String get short => '$month/$day';
 
-  /// "Jan 25, 2025"
   String get human => DateFormat('MMM d, yyyy').format(this);
 
-  /// "2025-01-25"
   String get iso => DateFormat('yyyy-MM-dd').format(this);
 
-  /// "14:30"
   String get timeHHmm => DateFormat('HH:mm').format(this);
 
-  /// "2:30 PM"
   String get timeHmma => DateFormat('h:mm a').format(this);
 
-  /// "Sat, Jan 25"
   String get dayLabel => DateFormat('EEE, MMM d').format(this);
-
-  // ------------------------------------------------------------------
-  // Start / end boundaries
-  // ------------------------------------------------------------------
 
   DateTime get startOfDay => DateTime(year, month, day);
   DateTime get endOfDay => DateTime(year, month, day, 23, 59, 59, 999);
@@ -42,10 +28,6 @@ extension DateExt on DateTime {
   DateTime get endOfMonth =>
       DateTime(year, month + 1, 1).subtract(const Duration(milliseconds: 1));
 
-  // ------------------------------------------------------------------
-  // Comparisons
-  // ------------------------------------------------------------------
-
   bool isSameDay(DateTime other) =>
       year == other.year && month == other.month && day == other.day;
 
@@ -58,10 +40,6 @@ extension DateExt on DateTime {
   bool get isFuture => isAfter(DateTime.now());
   bool get isWeekend =>
       weekday == DateTime.saturday || weekday == DateTime.sunday;
-
-  // ------------------------------------------------------------------
-  // Differences
-  // ------------------------------------------------------------------
 
   int daysUntil(DateTime other) =>
       other.startOfDay.difference(startOfDay).inDays;
