@@ -12,7 +12,6 @@ class DynamicForm extends StatefulWidget {
     required this.onSubmit,
     this.guidedFirstTask = false,
     this.onTitleValidityChanged,
-    this.onTypeChosen,
     this.onPriorityChosen,
     this.onScheduleValidityChanged,
     this.tutorialController,
@@ -27,7 +26,6 @@ class DynamicForm extends StatefulWidget {
   final Future<void> Function(CreatorFormData data) onSubmit;
   final bool guidedFirstTask;
   final ValueChanged<bool>? onTitleValidityChanged;
-  final VoidCallback? onTypeChosen;
   final VoidCallback? onPriorityChosen;
   final ValueChanged<bool>? onScheduleValidityChanged;
   final CreatorTutorialFormController? tutorialController;
@@ -45,7 +43,6 @@ class DynamicForm extends StatefulWidget {
 class _DynamicFormState extends State<DynamicForm> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
-  String _selectedType = 'Task';
   int _priority = 3;
   DateTime? _scheduledFor;
   RecurrenceRule _recurrenceRule = RecurrenceRule.none;
@@ -54,10 +51,7 @@ class _DynamicFormState extends State<DynamicForm> {
   String? _appliedDraftId;
   late final Future<void> Function() _tutorialSubmitAction;
 
-  String get _selectedTypeNoun => _selectedType.trim().toLowerCase();
-
-  String get _createActionLabel =>
-      widget.submitLabel ?? 'CREATE ${_selectedType.toUpperCase()}';
+  String get _createActionLabel => widget.submitLabel ?? 'CREATE TASK';
 
   @override
   void initState() {
@@ -115,16 +109,13 @@ class _DynamicFormState extends State<DynamicForm> {
     if (_submitting) return;
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      setState(
-        () => _errorMessage =
-            'Add a title before creating the $_selectedTypeNoun.',
-      );
+      setState(() => _errorMessage = 'Add a title before creating the task.');
       return;
     }
     if (widget.guidedFirstTask && _scheduledFor == null) {
       setState(
         () => _errorMessage =
-            'Choose a date and time so your first $_selectedTypeNoun can appear on Timeline.',
+            'Choose a date and time so your first task can appear on Timeline.',
       );
       return;
     }
@@ -141,7 +132,7 @@ class _DynamicFormState extends State<DynamicForm> {
           description: _descController.text.trim().isEmpty
               ? null
               : _descController.text.trim(),
-          type: _selectedType,
+          type: 'Task',
           priority: _priority,
           scheduledFor: _scheduledFor,
           recurrenceRule: _recurrenceRule,
@@ -152,7 +143,6 @@ class _DynamicFormState extends State<DynamicForm> {
         _titleController.clear();
         _descController.clear();
         setState(() {
-          _selectedType = 'Task';
           _priority = 3;
           _scheduledFor = null;
           _recurrenceRule = RecurrenceRule.none;
@@ -162,7 +152,7 @@ class _DynamicFormState extends State<DynamicForm> {
       if (!mounted) return;
       setState(() {
         _errorMessage =
-            'The $_selectedTypeNoun could not be saved. Your entry is still here—retry.';
+            'The task could not be saved. Your entry is still here—retry.';
       });
     } finally {
       if (mounted) {
@@ -192,30 +182,8 @@ class _DynamicFormState extends State<DynamicForm> {
           const SizedBox(height: 10),
           _buildTextField(
             _descController,
-            _selectedType.toLowerCase() == 'note'
-                ? 'Notes (optional)'
-                : 'Description (optional)',
-            maxLines: _selectedType.toLowerCase() == 'note' ? 5 : 3,
-          ),
-          const SizedBox(height: 20),
-          KeyedSubtree(
-            key: widget.guidedFirstTask
-                ? FirstRunTutorialTargets.creatorType
-                : null,
-            child: _TypeSegmentedControl(
-              selected: _selectedType,
-              onSelect: (t) {
-                widget.onTypeChosen?.call();
-                setState(() {
-                  _selectedType = t;
-                  final String kind = t.trim().toLowerCase();
-                  if (kind == 'routine' &&
-                      _recurrenceRule == RecurrenceRule.none) {
-                    _recurrenceRule = RecurrenceRule.daily;
-                  }
-                });
-              },
-            ),
+            'Description (optional)',
+            maxLines: 3,
           ),
           const SizedBox(height: 20),
           KeyedSubtree(
@@ -336,101 +304,6 @@ class _DynamicFormState extends State<DynamicForm> {
             letterSpacing: 0,
             color: color,
             fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TypeSegmentedControl extends StatelessWidget {
-  const _TypeSegmentedControl({required this.selected, required this.onSelect});
-
-  static const List<String> _types = <String>[
-    'Task',
-    'Routine',
-    'Note',
-    'Goal',
-  ];
-
-  final String selected;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        const Text(
-          'TYPE',
-          style: TextStyle(
-            color: AppColors.neonCyan,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0,
-          ),
-        ),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: AppColors.background.withValues(alpha: 0.72),
-              border: Border.all(
-                color: AppColors.neonCyan.withValues(alpha: 0.3),
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: _types
-                  .map((String type) {
-                    final bool active = type == selected;
-                    return Expanded(
-                      child: Semantics(
-                        button: true,
-                        selected: active,
-                        label: '$type type',
-                        child: Material(
-                          color: active
-                              ? AppColors.neonCyan.withValues(alpha: 0.16)
-                              : Colors.transparent,
-                          child: InkWell(
-                            onTap: () => onSelect(type),
-                            child: Container(
-                              constraints: const BoxConstraints(minHeight: 48),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  right: type == _types.last
-                                      ? BorderSide.none
-                                      : BorderSide(
-                                          color: AppColors.neonCyan.withValues(
-                                            alpha: 0.24,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                              child: Text(
-                                type.toUpperCase(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: active
-                                      ? AppColors.neonCyan
-                                      : Colors.white70,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
-            ),
           ),
         ),
       ],

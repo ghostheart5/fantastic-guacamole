@@ -441,7 +441,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           response:
               '${SIConsoleShortcutRegistry.buildHelp(filter: invocation.arguments)}\n\n'
               'Rules:\n'
-              '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
+              '- Task creation is Creator-only. Use Creator to create tasks.\n'
               '- SI V2 has read-only evidence capability and cannot mutate domain data.\n'
               '- The visible query builder is primary; shortcuts are aliases.\n\n'
               'High-signal SI V2 prompts:\n'

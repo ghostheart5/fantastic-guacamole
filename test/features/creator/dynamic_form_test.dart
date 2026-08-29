@@ -4,33 +4,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('create action follows the selected Creator item type', (
+  testWidgets('Creator exposes and submits only genuine task creation', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    CreatorFormData? submitted;
+
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: DynamicForm(onSubmit: (_) async {}),
+            child: DynamicForm(
+              onSubmit: (CreatorFormData data) async => submitted = data,
+            ),
           ),
         ),
       ),
     );
 
     expect(find.text('CREATE TASK'), findsOneWidget);
+    expect(find.text('ROUTINE'), findsNothing);
+    expect(find.text('NOTE'), findsNothing);
+    expect(find.text('GOAL'), findsNothing);
+    expect(find.text('TYPE'), findsNothing);
 
-    await tester.tap(find.text('ROUTINE'));
+    final Finder titleField = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is TextField && widget.decoration?.hintText == 'Title *',
+    );
+    await tester.enterText(titleField, 'Ship the launch task');
+    await tester.ensureVisible(find.text('CREATE TASK'));
+    await tester.tap(find.text('CREATE TASK'));
     await tester.pump();
-    expect(find.text('CREATE ROUTINE'), findsOneWidget);
-    expect(find.text('CREATE TASK'), findsNothing);
 
-    await tester.tap(find.text('NOTE'));
-    await tester.pump();
-    expect(find.text('CREATE NOTE'), findsOneWidget);
-
-    await tester.tap(find.text('GOAL'));
-    await tester.pump();
-    expect(find.text('CREATE GOAL'), findsOneWidget);
+    expect(submitted?.type, 'Task');
   });
 
   testWidgets('Planner preview prefills Creator but does not submit', (
@@ -153,7 +162,6 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     bool titleReady = false;
-    bool typeChosen = false;
     bool priorityChosen = false;
     bool submitted = false;
 
@@ -164,7 +172,6 @@ void main() {
             child: DynamicForm(
               guidedFirstTask: true,
               onTitleValidityChanged: (bool value) => titleReady = value,
-              onTypeChosen: () => typeChosen = true,
               onPriorityChosen: () => priorityChosen = true,
               onSubmit: (_) async => submitted = true,
             ),
@@ -178,14 +185,12 @@ void main() {
           widget is TextField && widget.decoration?.hintText == 'Title *',
     );
     await tester.enterText(titleField, 'Prepare the first launch');
-    await tester.tap(find.text('TASK'));
     await tester.tap(find.bySemanticsLabel('Set priority level 4'));
     await tester.ensureVisible(find.text('CREATE TASK'));
     await tester.tap(find.text('CREATE TASK'));
     await tester.pump();
 
     expect(titleReady, isTrue);
-    expect(typeChosen, isTrue);
     expect(priorityChosen, isTrue);
     expect(submitted, isFalse);
     expect(

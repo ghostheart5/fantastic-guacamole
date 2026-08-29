@@ -1,30 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum CreatorTutorialStep { title, type, priority, schedule, save, confirm }
+enum CreatorTutorialStep { title, priority, schedule, save, confirm }
 
 class CreatorTutorialDraftState {
   const CreatorTutorialDraftState({
     this.hasTitle = false,
-    this.hasChosenType = false,
     this.hasChosenPriority = false,
     this.hasSchedule = false,
   });
 
   final bool hasTitle;
-  final bool hasChosenType;
   final bool hasChosenPriority;
   final bool hasSchedule;
 
   CreatorTutorialDraftState copyWith({
     bool? hasTitle,
-    bool? hasChosenType,
     bool? hasChosenPriority,
     bool? hasSchedule,
   }) {
     return CreatorTutorialDraftState(
       hasTitle: hasTitle ?? this.hasTitle,
-      hasChosenType: hasChosenType ?? this.hasChosenType,
       hasChosenPriority: hasChosenPriority ?? this.hasChosenPriority,
       hasSchedule: hasSchedule ?? this.hasSchedule,
     );
@@ -73,8 +69,6 @@ class CreatorTutorialDraftNotifier extends Notifier<CreatorTutorialDraftState> {
 
   void setHasTitle(bool value) => state = state.copyWith(hasTitle: value);
 
-  void markTypeChosen() => state = state.copyWith(hasChosenType: true);
-
   void markPriorityChosen() => state = state.copyWith(hasChosenPriority: true);
 
   void setHasSchedule(bool value) => state = state.copyWith(hasSchedule: value);
@@ -85,9 +79,6 @@ class CreatorTutorialDraftNotifier extends Notifier<CreatorTutorialDraftState> {
 abstract final class FirstRunTutorialTargets {
   static final GlobalKey creatorTitle = GlobalKey(
     debugLabel: 'creator-tutorial-title',
-  );
-  static final GlobalKey creatorType = GlobalKey(
-    debugLabel: 'creator-tutorial-type',
   );
   static final GlobalKey creatorPriority = GlobalKey(
     debugLabel: 'creator-tutorial-priority',

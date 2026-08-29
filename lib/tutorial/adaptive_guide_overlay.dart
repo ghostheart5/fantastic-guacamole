@@ -123,7 +123,6 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final _CreatorStepCopy copy = _creatorStepCopy(l10n, activeStep);
     final bool enabled = switch (activeStep) {
       CreatorTutorialStep.title => draft.hasTitle,
-      CreatorTutorialStep.type => draft.hasChosenType,
       CreatorTutorialStep.priority => draft.hasChosenPriority,
       CreatorTutorialStep.schedule => draft.hasSchedule,
       CreatorTutorialStep.save => true,
@@ -264,16 +263,6 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           'Escribe un resultado concreto en el campo resaltado. La guía espera tu entrada.',
         ),
         action: _copy(l10n, 'Title entered', 'Título escrito'),
-      ),
-      CreatorTutorialStep.type => _CreatorStepCopy(
-        targetKey: FirstRunTutorialTargets.creatorType,
-        title: _copy(l10n, 'Choose what it is', 'Elige qué es'),
-        body: _copy(
-          l10n,
-          'Tap the type that matches this commitment. This changes how ChronoSpark treats the item.',
-          'Toca el tipo que corresponda a este compromiso. Esto cambia cómo ChronoSpark trata el elemento.',
-        ),
-        action: _copy(l10n, 'Type chosen', 'Tipo elegido'),
       ),
       CreatorTutorialStep.priority => _CreatorStepCopy(
         targetKey: FirstRunTutorialTargets.creatorPriority,

@@ -148,7 +148,6 @@ class CreatorScreen extends ConsumerWidget {
                           .read(tutorialInteractionPausedProvider.notifier)
                           .set,
                       onTitleValidityChanged: tutorialDraft.setHasTitle,
-                      onTypeChosen: tutorialDraft.markTypeChosen,
                       onPriorityChosen: tutorialDraft.markPriorityChosen,
                       onScheduleValidityChanged: tutorialDraft.setHasSchedule,
                       onSubmit: (data) => ref
