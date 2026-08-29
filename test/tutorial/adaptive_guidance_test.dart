@@ -1,7 +1,14 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test(
@@ -145,6 +152,71 @@ void main() {
       GuidanceLessonId.timelineExecution,
     );
   });
+
+  test('existing tasks repair missing first-run milestones durably', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final _GuidanceTaskRepository repository =
+        _GuidanceTaskRepository(<TaskEntity>[
+          TaskEntity(
+            id: 'existing-scheduled-task',
+            title: 'Already on Timeline',
+            createdAt: DateTime.utc(2026, 8, 20, 9),
+            scheduledFor: DateTime.utc(2026, 8, 20, 10),
+          ),
+        ]);
+    final ProviderContainer first = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('guidance-repair-user'),
+        ),
+        domainTaskRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+
+    final AdaptiveGuidanceState repaired = await first.read(
+      adaptiveGuidanceProvider.future,
+    );
+    expect(repaired.has(GuidanceMilestone.firstItem), isTrue);
+    expect(repaired.has(GuidanceMilestone.firstSchedule), isTrue);
+    first.dispose();
+
+    final ProviderContainer restarted = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('guidance-repair-user'),
+        ),
+        domainTaskRepositoryProvider.overrideWithValue(
+          _GuidanceTaskRepository(const <TaskEntity>[]),
+        ),
+      ],
+    );
+    addTearDown(restarted.dispose);
+    final AdaptiveGuidanceState persisted = await restarted.read(
+      adaptiveGuidanceProvider.future,
+    );
+
+    expect(persisted.has(GuidanceMilestone.firstItem), isTrue);
+    expect(persisted.has(GuidanceMilestone.firstSchedule), isTrue);
+  });
+}
+
+class _GuidanceTaskRepository implements ITaskRepository {
+  _GuidanceTaskRepository(this.tasks);
+
+  final List<TaskEntity> tasks;
+
+  @override
+  Future<void> deleteTask(String id) async {}
+
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => tasks;
+
+  @override
+  Future<TaskEntity?> getTaskById(String id) async =>
+      tasks.where((TaskEntity task) => task.id == id).firstOrNull;
+
+  @override
+  Future<void> saveTask(TaskEntity task) async {}
 }
 
 const DailyDecisionIntelligence _decision = DailyDecisionIntelligence(

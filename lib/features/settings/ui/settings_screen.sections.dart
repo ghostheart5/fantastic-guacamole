@@ -1208,13 +1208,15 @@ class _CloudDataControlSection extends ConsumerWidget {
           if (available)
             _NeonNavTile(
               title: 'Backup recovery key',
-              subtitle: 'Reveal or restore the key needed on a replacement device.',
+              subtitle:
+                  'Reveal or restore the key needed on a replacement device.',
               onTap: () => _showBackupRecoveryKeyDialog(context, ref),
             )
           else
             const _NeonStatusTile(
               title: 'Backup recovery key',
-              subtitle: 'Available when cloud backup is enabled for this build.',
+              subtitle:
+                  'Available when cloud backup is enabled for this build.',
             ),
           const _NeonStatusTile(
             title: 'Guidance processing',
@@ -1293,9 +1295,9 @@ Future<void> _revealBackupRecoveryKey(
     return;
   }
 
-  final String key = await BackupCipher(
-    ref.read(secureStoreProvider),
-  ).exportRecoveryKey();
+  final String key = await ref
+      .read(settingsUiActionsProvider)
+      .exportBackupRecoveryKey();
   if (!context.mounted) {
     return;
   }
@@ -1404,9 +1406,9 @@ Future<void> _importBackupRecoveryKey(
   }
 
   try {
-    await BackupCipher(ref.read(secureStoreProvider)).importRecoveryKey(
-      recoveryKey,
-    );
+    await ref
+        .read(settingsUiActionsProvider)
+        .importBackupRecoveryKey(recoveryKey);
     if (!context.mounted) {
       return;
     }

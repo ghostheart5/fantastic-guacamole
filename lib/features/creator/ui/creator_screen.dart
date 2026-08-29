@@ -61,6 +61,7 @@ class CreatorScreen extends ConsumerWidget {
                 if (handshake.isReviewing) ...[
                   _CreatorHandshakePreviewCard(
                     state: handshake,
+                    guidedFirstTask: guidedFirstTask,
                     onToggle: (String operationId, bool selected) => ref
                         .read(creatorHandshakeProvider.notifier)
                         .toggleOperation(operationId, selected: selected),
@@ -72,6 +73,13 @@ class CreatorScreen extends ConsumerWidget {
                         .cancelPreview(),
                     onConfirm: handshake.canConfirm
                         ? () async {
+                            final bool completesGuidedSetup =
+                                guidedFirstTask &&
+                                (handshake.preview?.selectedOperations.any(
+                                      (CreatorMutationOperation operation) =>
+                                          operation.task.scheduledFor != null,
+                                    ) ??
+                                    false);
                             final CreatorHandshakeState result = await ref
                                 .read(creatorHandshakeProvider.notifier)
                                 .confirm();
@@ -80,6 +88,10 @@ class CreatorScreen extends ConsumerWidget {
                               ref
                                   .read(creatorDraftPreviewProvider.notifier)
                                   .clear();
+                              if (completesGuidedSetup) {
+                                goToAppView(context, ref, AppView.timeline);
+                                return;
+                              }
                               ScaffoldMessenger.of(context)
                                 ..hideCurrentSnackBar()
                                 ..showSnackBar(
@@ -221,6 +233,7 @@ class _PlannerDraftPreviewCard extends StatelessWidget {
 class _CreatorHandshakePreviewCard extends StatelessWidget {
   const _CreatorHandshakePreviewCard({
     required this.state,
+    required this.guidedFirstTask,
     required this.onToggle,
     required this.onEdit,
     required this.onCancel,
@@ -228,6 +241,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
   });
 
   final CreatorHandshakeState state;
+  final bool guidedFirstTask;
   final void Function(String operationId, bool selected) onToggle;
   final VoidCallback onEdit;
   final VoidCallback onCancel;
@@ -376,28 +390,33 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton.icon(
-              key: const Key('creator-confirm-selected'),
-              onPressed: onConfirm == null
-                  ? null
-                  : () async {
-                      await onConfirm!();
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.neonCyan,
-                foregroundColor: AppColors.background,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          KeyedSubtree(
+            key: guidedFirstTask
+                ? FirstRunTutorialTargets.creatorConfirm
+                : null,
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                key: const Key('creator-confirm-selected'),
+                onPressed: onConfirm == null
+                    ? null
+                    : () async {
+                        await onConfirm!();
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.neonCyan,
+                  foregroundColor: AppColors.background,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-              ),
-              icon: const Icon(Icons.check_rounded),
-              label: Text(
-                state.phase == CreatorHandshakePhase.confirming
-                    ? 'CONFIRMING…'
-                    : 'CONFIRM SELECTED',
+                icon: const Icon(Icons.check_rounded),
+                label: Text(
+                  state.phase == CreatorHandshakePhase.confirming
+                      ? 'CONFIRMING…'
+                      : 'CONFIRM SELECTED',
+                ),
               ),
             ),
           ),

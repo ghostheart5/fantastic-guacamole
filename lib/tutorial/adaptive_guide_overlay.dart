@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_draft_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -29,6 +32,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   );
   CreatorTutorialStep _creatorStep = CreatorTutorialStep.title;
   GuidanceLessonId? _suppressedLesson;
+  bool _completingCreator = false;
   bool _completingTimeline = false;
 
   bool _routeAllowsGuidance(String location) {
@@ -45,6 +49,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   Widget build(BuildContext context) {
     final bool onboardingComplete = ref.watch(onboardingCompleteProvider);
     final bool interactionPaused = ref.watch(tutorialInteractionPausedProvider);
+    final CreatorHandshakeState handshake = ref.watch(creatorHandshakeProvider);
     final auth = ref.watch(authUserProvider).asData?.value;
     final AuthSessionBoundary boundary = ref.watch(authSessionBoundaryProvider);
     final AdaptiveGuidanceState? guidance = ref
@@ -81,7 +86,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       if (location != RoutePaths.creator) {
         return _routePrompt(context, lesson);
       }
-      return _creatorLesson(context);
+      return _creatorLesson(context, handshake);
     }
 
     if (lesson.id == GuidanceLessonId.reviewTimeline) {
@@ -107,31 +112,40 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     );
   }
 
-  Widget _creatorLesson(BuildContext context) {
+  Widget _creatorLesson(BuildContext context, CreatorHandshakeState handshake) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final CreatorTutorialDraftState draft = ref.watch(
       creatorTutorialDraftProvider,
     );
-    final _CreatorStepCopy copy = _creatorStepCopy(l10n, _creatorStep);
-    final bool enabled = switch (_creatorStep) {
+    final CreatorTutorialStep activeStep = handshake.isReviewing
+        ? CreatorTutorialStep.confirm
+        : _creatorStep;
+    final _CreatorStepCopy copy = _creatorStepCopy(l10n, activeStep);
+    final bool enabled = switch (activeStep) {
       CreatorTutorialStep.title => draft.hasTitle,
       CreatorTutorialStep.type => draft.hasChosenType,
       CreatorTutorialStep.priority => draft.hasChosenPriority,
       CreatorTutorialStep.schedule => draft.hasSchedule,
       CreatorTutorialStep.save => true,
+      CreatorTutorialStep.confirm =>
+        handshake.canConfirm && !_completingCreator,
     };
 
     return InteractiveTutorialOverlay(
       targetKey: copy.targetKey,
       stepLabel:
-          '${_copy(l10n, 'Creator', 'Creador')} ${_creatorStep.index + 1} ${_copy(l10n, 'of', 'de')} ${CreatorTutorialStep.values.length}',
+          '${_copy(l10n, 'Creator', 'Creador')} ${activeStep.index + 1} ${_copy(l10n, 'of', 'de')} ${CreatorTutorialStep.values.length}',
       title: copy.title,
       body: copy.body,
       primaryLabel: copy.action,
       primaryEnabled: enabled,
       onPrimary: () {
-        if (_creatorStep == CreatorTutorialStep.save) {
+        if (activeStep == CreatorTutorialStep.save) {
           unawaited(ref.read(creatorTutorialFormControllerProvider).submit());
+          return;
+        }
+        if (activeStep == CreatorTutorialStep.confirm) {
+          unawaited(_confirmCreatorAndOpenTimeline(context));
           return;
         }
         FocusManager.instance.primaryFocus?.unfocus();
@@ -140,6 +154,32 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         });
       },
     );
+  }
+
+  Future<void> _confirmCreatorAndOpenTimeline(BuildContext context) async {
+    if (_completingCreator) return;
+    final CreatorHandshakeState pending = ref.read(creatorHandshakeProvider);
+    final bool hasSchedule =
+        pending.preview?.selectedOperations.any(
+          (CreatorMutationOperation operation) =>
+              operation.task.scheduledFor != null,
+        ) ??
+        false;
+    setState(() => _completingCreator = true);
+    try {
+      final CreatorHandshakeState result = await ref
+          .read(creatorHandshakeProvider.notifier)
+          .confirm();
+      if (result.receipt == null || !mounted) return;
+      ref.read(creatorTutorialDraftProvider.notifier).reset();
+      ref.read(creatorDraftPreviewProvider.notifier).clear();
+      setState(() => _creatorStep = CreatorTutorialStep.title);
+      if (hasSchedule && context.mounted) {
+        context.go(RoutePaths.timeline);
+      }
+    } finally {
+      if (mounted) setState(() => _completingCreator = false);
+    }
   }
 
   Widget _timelineLesson(BuildContext context) {
@@ -257,17 +297,33 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       ),
       CreatorTutorialStep.save => _CreatorStepCopy(
         targetKey: FirstRunTutorialTargets.creatorSave,
-        title: _copy(l10n, 'Save the task', 'Guarda la tarea'),
+        title: _copy(l10n, 'Review before saving', 'Revisa antes de guardar'),
         body: _copy(
           l10n,
-          'Press the highlighted save control. ChronoSpark will create the real task and take you directly to Timeline.',
-          'Pulsa el control resaltado. ChronoSpark creará la tarea real y te llevará directamente a Línea de Tiempo.',
+          'Open the confirmation preview and verify the exact task. Nothing is saved until the final confirmation.',
+          'Abre la vista de confirmación y verifica la tarea exacta. Nada se guarda hasta la confirmación final.',
         ),
-        action: _copy(
+        action: _copy(l10n, 'Review changes', 'Revisar cambios'),
+      ),
+      CreatorTutorialStep.confirm => _CreatorStepCopy(
+        targetKey: FirstRunTutorialTargets.creatorConfirm,
+        title: _copy(
           l10n,
-          'Save and open Timeline',
-          'Guardar y abrir Línea de Tiempo',
+          'Confirm the exact task',
+          'Confirma la tarea exacta',
         ),
+        body: _copy(
+          l10n,
+          'Confirm the reviewed task once. ChronoSpark will save it and open Timeline so you can verify where it landed.',
+          'Confirma la tarea revisada una vez. ChronoSpark la guardará y abrirá Línea de Tiempo para verificar dónde quedó.',
+        ),
+        action: _completingCreator
+            ? _copy(l10n, 'Saving', 'Guardando')
+            : _copy(
+                l10n,
+                'Confirm and open Timeline',
+                'Confirmar y abrir Línea de Tiempo',
+              ),
       ),
     };
   }

@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final creatorHandshakeClockProvider = Provider<DateTime Function()>(
@@ -273,6 +274,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     }
 
     await _bestEffort(() => _writeLedger(account, ledger));
+    await _bestEffort(() => _recordGuidanceMilestones(preview));
     final String resultingRevision = await _domainRevision();
     final CreatorHandshakeReceipt receipt = CreatorHandshakeReceipt(
       proposalId: preview.proposalId,
@@ -566,12 +568,27 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     'updatedAt': timestamp.toUtc().toIso8601String(),
   };
 
+  Future<void> _recordGuidanceMilestones(
+    CreatorHandshakePreview preview,
+  ) async {
+    final AdaptiveGuidanceNotifier guidance = ref.read(
+      adaptiveGuidanceProvider.notifier,
+    );
+    await guidance.recordIfMissing(GuidanceMilestone.firstItem);
+    if (preview.selectedOperations.any(
+      (CreatorMutationOperation operation) =>
+          operation.task.scheduledFor != null,
+    )) {
+      await guidance.recordIfMissing(GuidanceMilestone.firstSchedule);
+    }
+  }
+
   Future<void> _bestEffort(Future<void> Function() action) async {
     try {
       await action();
     } on Object {
-      // The deterministic task identity remains the source of idempotency if
-      // the optional replay ledger is temporarily unavailable.
+      // The confirmed task remains authoritative if optional telemetry,
+      // guidance, or replay metadata is temporarily unavailable.
     }
   }
 }

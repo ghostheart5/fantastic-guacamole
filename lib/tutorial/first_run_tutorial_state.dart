@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum CreatorTutorialStep { title, type, priority, schedule, save }
+enum CreatorTutorialStep { title, type, priority, schedule, save, confirm }
 
 class CreatorTutorialDraftState {
   const CreatorTutorialDraftState({
@@ -97,6 +97,9 @@ abstract final class FirstRunTutorialTargets {
   );
   static final GlobalKey creatorSave = GlobalKey(
     debugLabel: 'creator-tutorial-save',
+  );
+  static final GlobalKey creatorConfirm = GlobalKey(
+    debugLabel: 'creator-tutorial-confirm',
   );
   static final GlobalKey timelineEvidence = GlobalKey(
     debugLabel: 'timeline-tutorial-evidence',

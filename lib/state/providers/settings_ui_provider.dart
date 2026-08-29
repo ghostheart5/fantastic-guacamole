@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
@@ -128,6 +129,16 @@ class SettingsUiActions {
       }
     }
     return false;
+  }
+
+  Future<String> exportBackupRecoveryKey() {
+    return BackupCipher(_ref.read(secureStoreProvider)).exportRecoveryKey();
+  }
+
+  Future<void> importBackupRecoveryKey(String recoveryKey) {
+    return BackupCipher(
+      _ref.read(secureStoreProvider),
+    ).importRecoveryKey(recoveryKey);
   }
 }
 

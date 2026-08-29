@@ -8,10 +8,16 @@ import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   test('stage creates a bound preview without any mutation', () async {
     final _Harness harness = _Harness();
     addTearDown(harness.dispose);
@@ -89,6 +95,33 @@ void main() {
       expect(repeated.message, contains('No duplicate task'));
     },
   );
+
+  test('confirmed scheduled task records first-run milestones', () async {
+    final _Harness harness = _Harness();
+    addTearDown(harness.dispose);
+    final AdaptiveGuidanceState initial = await harness.container.read(
+      adaptiveGuidanceProvider.future,
+    );
+    expect(initial.has(GuidanceMilestone.firstItem), isFalse);
+    expect(initial.has(GuidanceMilestone.firstSchedule), isFalse);
+
+    await harness.notifier.stage(
+      data: CreatorFormData(
+        title: 'Put the first task on Timeline',
+        type: 'Task',
+        priority: 4,
+        scheduledFor: harness.now.add(const Duration(hours: 2)),
+      ),
+    );
+    final CreatorHandshakeState result = await harness.notifier.confirm();
+    final AdaptiveGuidanceState guidance = await harness.container.read(
+      adaptiveGuidanceProvider.future,
+    );
+
+    expect(result.phase, CreatorHandshakePhase.applied);
+    expect(guidance.has(GuidanceMilestone.firstItem), isTrue);
+    expect(guidance.has(GuidanceMilestone.firstSchedule), isTrue);
+  });
 
   test(
     'durable ledger and deterministic task identity survive controller restart',

@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
@@ -310,6 +311,13 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
       }
       counts[milestone] = prefs.getInt('$prefix.${milestone.name}.count') ?? 0;
     }
+    await _reconcileTaskMilestones(
+      account: account,
+      prefix: prefix,
+      prefs: prefs,
+      milestones: milestones,
+      counts: counts,
+    );
 
     final Set<GuidanceLessonId> skipped = GuidanceLessonId.values
         .where(
@@ -373,6 +381,12 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     );
   }
 
+  Future<void> recordIfMissing(GuidanceMilestone milestone) async {
+    final AdaptiveGuidanceState current = await _current();
+    if (current.has(milestone)) return;
+    await record(milestone);
+  }
+
   Future<void> skip(GuidanceLessonId lesson) async {
     final String? account = _activeScope;
     if (account == null) return;
@@ -427,6 +441,45 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
 
   Future<AdaptiveGuidanceState> _current() async {
     return state.asData?.value ?? future;
+  }
+
+  Future<void> _reconcileTaskMilestones({
+    required String account,
+    required String prefix,
+    required SharedPreferences prefs,
+    required Map<GuidanceMilestone, DateTime> milestones,
+    required Map<GuidanceMilestone, int> counts,
+  }) async {
+    final List<TaskEntity> tasks;
+    try {
+      tasks = await ref.read(domainTaskRepositoryProvider).getAllTasks();
+    } on Object {
+      return;
+    }
+    if (_activeScope != account || tasks.isEmpty) return;
+
+    Future<void> infer(GuidanceMilestone milestone) async {
+      if (milestones.containsKey(milestone)) return;
+      final DateTime observedAt = DateTime.now();
+      milestones[milestone] = observedAt;
+      counts[milestone] = counts[milestone] == 0 ? 1 : counts[milestone]!;
+      await prefs.setInt(
+        '$prefix.${milestone.name}.at',
+        observedAt.millisecondsSinceEpoch,
+      );
+      await prefs.setInt('$prefix.${milestone.name}.count', counts[milestone]!);
+      final GuidanceLessonId? completedLesson = _lessonCompletedBy(milestone);
+      if (completedLesson != null) {
+        await prefs.setBool('$prefix.complete.${completedLesson.name}', true);
+      }
+    }
+
+    await infer(GuidanceMilestone.firstItem);
+    if (tasks.any(
+      (TaskEntity task) => task.scheduledFor != null || task.dueDate != null,
+    )) {
+      await infer(GuidanceMilestone.firstSchedule);
+    }
   }
 
   static const AdaptiveGuidanceState _emptyState = AdaptiveGuidanceState(
