@@ -1205,6 +1205,17 @@ class _CloudDataControlSection extends ConsumerWidget {
                 ? 'Tasks, profile, and settings may be encrypted and synced to your account.'
                 : 'Local-only. Nothing is sent to cloud backup.',
           ),
+          if (available)
+            _NeonNavTile(
+              title: 'Backup recovery key',
+              subtitle: 'Reveal or restore the key needed on a replacement device.',
+              onTap: () => _showBackupRecoveryKeyDialog(context, ref),
+            )
+          else
+            const _NeonStatusTile(
+              title: 'Backup recovery key',
+              subtitle: 'Available when cloud backup is enabled for this build.',
+            ),
           const _NeonStatusTile(
             title: 'Guidance processing',
             subtitle:
@@ -1212,6 +1223,204 @@ class _CloudDataControlSection extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+Future<void> _showBackupRecoveryKeyDialog(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final String? action = await showDialog<String>(
+    context: context,
+    builder: (BuildContext dialogContext) => AlertDialog(
+      title: const Text('Backup recovery key'),
+      content: const Text(
+        'This key lets you decrypt your encrypted cloud backup on a replacement device. Keep it in a password manager. ChronoSpark cannot recover it for you.',
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop('import'),
+          child: const Text('Restore key'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop('reveal'),
+          child: const Text('Reveal key'),
+        ),
+      ],
+    ),
+  );
+  if (!context.mounted || action == null) {
+    return;
+  }
+  if (action == 'reveal') {
+    await _revealBackupRecoveryKey(context, ref);
+    return;
+  }
+  await _importBackupRecoveryKey(context, ref);
+}
+
+Future<void> _revealBackupRecoveryKey(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final bool confirmed =
+      await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          title: const Text('Reveal recovery key?'),
+          content: const Text(
+            'Anyone who sees this key can decrypt your cloud backups. Only continue somewhere private.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Reveal'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+  if (!confirmed || !context.mounted) {
+    return;
+  }
+
+  final String key = await BackupCipher(
+    ref.read(secureStoreProvider),
+  ).exportRecoveryKey();
+  if (!context.mounted) {
+    return;
+  }
+  await showDialog<void>(
+    context: context,
+    builder: (BuildContext dialogContext) => AlertDialog(
+      title: const Text('Store this recovery key'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text('Copy it to a password manager. Do not share it.'),
+          const SizedBox(height: 16),
+          SelectableText(
+            key,
+            key: const Key('backup-recovery-key-value'),
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton.icon(
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: key));
+            if (!dialogContext.mounted) {
+              return;
+            }
+            ScaffoldMessenger.of(dialogContext).showSnackBar(
+              const SnackBar(content: Text('Recovery key copied.')),
+            );
+          },
+          icon: const Icon(Icons.copy_outlined),
+          label: const Text('Copy'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Done'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _importBackupRecoveryKey(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final TextEditingController controller = TextEditingController();
+  final String? recoveryKey = await showDialog<String>(
+    context: context,
+    builder: (BuildContext dialogContext) => AlertDialog(
+      title: const Text('Restore backup key'),
+      content: TextField(
+        key: const Key('backup-recovery-key-input'),
+        controller: controller,
+        autocorrect: false,
+        enableSuggestions: false,
+        keyboardType: TextInputType.visiblePassword,
+        minLines: 3,
+        maxLines: 5,
+        decoration: const InputDecoration(
+          labelText: 'Recovery key',
+          hintText: 'Paste the key from your previous device',
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+          child: const Text('Continue'),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  if (!context.mounted || recoveryKey == null || recoveryKey.trim().isEmpty) {
+    return;
+  }
+
+  final bool confirmed =
+      await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          title: const Text('Replace this device key?'),
+          content: const Text(
+            'This replaces this device\'s cloud-backup key. Use the original key again if you need to decrypt backups created with it.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Replace key'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+  if (!confirmed || !context.mounted) {
+    return;
+  }
+
+  try {
+    await BackupCipher(ref.read(secureStoreProvider)).importRecoveryKey(
+      recoveryKey,
+    );
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Recovery key saved. You can now restore your backup.'),
+      ),
+    );
+  } on FormatException {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('That recovery key is not valid.')),
     );
   }
 }
