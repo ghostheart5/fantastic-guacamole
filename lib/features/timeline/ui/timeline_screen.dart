@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/features/timeline/logic/timeline_projection.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -89,7 +90,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         _cachedCombinedDay == today) {
       combined = _cachedCombined!;
     } else {
-      final List<TimelineEventEntity> projected = _buildProjectedEvents(
+      final List<TimelineEventEntity> projected = projectTimelineEvents(
         now: now,
         tasks: tasks,
         goals: goals,
@@ -1495,66 +1496,6 @@ String _filterLabel(_TimelineFilter value) {
     _TimelineFilter.risks => 'Risks',
     _TimelineFilter.recommendations => 'Recommendations',
   };
-}
-
-List<TimelineEventEntity> _buildProjectedEvents({
-  required DateTime now,
-  required List<Task> tasks,
-  required List<GoalEntity> goals,
-}) {
-  final List<TimelineEventEntity> events = <TimelineEventEntity>[];
-
-  for (final Task task in tasks) {
-    final DateTime? due = task.scheduledFor ?? task.dueDate;
-    if (due == null) {
-      continue;
-    }
-    final bool overdue = due.isBefore(now);
-    events.add(
-      TimelineEventEntity(
-        id: 'timeline-projected-task-${task.id}',
-        type: TimelineEventType.deadline,
-        title: task.title,
-        detail: overdue
-            ? 'Task deadline missed. Re-plan this task immediately.'
-            : 'Task is scheduled and approaching deadline.',
-        timestamp: now,
-        status: overdue
-            ? TimelineEventStatus.overdue
-            : TimelineEventStatus.planned,
-        dueAt: due,
-        phase: 'task',
-        relatedId: task.id,
-      ),
-    );
-  }
-
-  for (final GoalEntity goal in goals) {
-    final DateTime? target = goal.targetDate;
-    if (target == null) {
-      continue;
-    }
-    final bool overdue = target.isBefore(now);
-    events.add(
-      TimelineEventEntity(
-        id: 'timeline-projected-goal-${goal.id}',
-        type: TimelineEventType.goal,
-        title: goal.title,
-        detail: overdue
-            ? 'Goal target date has passed. Recovery plan needed.'
-            : 'Goal target date is upcoming.',
-        timestamp: now,
-        status: overdue
-            ? TimelineEventStatus.overdue
-            : TimelineEventStatus.active,
-        dueAt: target,
-        phase: 'goal',
-        relatedId: goal.id,
-      ),
-    );
-  }
-
-  return events;
 }
 
 TimelineEventEntity? _nearestUpcoming(
