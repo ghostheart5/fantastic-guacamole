@@ -1889,43 +1889,91 @@ void main() {
     reconstructed.dispose();
   });
 
-  test('cancelSubscription updates persisted user state', () async {
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      'paywall_subscription_state_v1': jsonEncode(<String, dynamic>{
-        'isActive': true,
-        'status': 'active',
-        'planId': 'monthly',
-        'renewalDate': DateTime.now()
-            .add(const Duration(days: 3))
-            .toIso8601String(),
-        'expirySource': 'google_play_server',
-      }),
-    });
-    final _FakeBillingClient billing = _FakeBillingClient(
-      productResponse: ProductDetailsResponse(
-        productDetails: const <ProductDetails>[],
-        notFoundIDs: const <String>[],
-      ),
-    );
-    final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
-      billingClient: billing,
-      paywallTestingModeOverride: false,
-      sharedPreferencesLoader: SharedPreferences.getInstance,
-    );
+  test(
+    'cancelSubscription preserves trusted access without authority',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'paywall_subscription_state_v1': jsonEncode(<String, dynamic>{
+          'isActive': true,
+          'status': 'active',
+          'planId': 'monthly',
+          'renewalDate': DateTime.now()
+              .add(const Duration(days: 3))
+              .toIso8601String(),
+          'expirySource': 'google_play_server',
+        }),
+      });
+      final _FakeBillingClient billing = _FakeBillingClient(
+        productResponse: ProductDetailsResponse(
+          productDetails: const <ProductDetails>[],
+          notFoundIDs: const <String>[],
+        ),
+      );
+      final GooglePlayPaywallRepository repository =
+          GooglePlayPaywallRepository(
+            billingClient: billing,
+            paywallTestingModeOverride: false,
+            sharedPreferencesLoader: SharedPreferences.getInstance,
+          );
 
-    final SubscriptionState state = await repository.cancelSubscription();
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final Map<String, dynamic> persisted =
-        jsonDecode(prefs.getString('paywall_subscription_state_v1')!)
-            as Map<String, dynamic>;
+      final SubscriptionState state = await repository.cancelSubscription();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final Map<String, dynamic> persisted =
+          jsonDecode(prefs.getString('paywall_subscription_state_v1')!)
+              as Map<String, dynamic>;
 
-    expect(state.status, 'cancelled');
-    expect(state.isActive, isFalse);
-    expect(persisted['status'], 'cancelled');
-    expect(persisted['planId'], 'monthly');
+      expect(state.status, 'active');
+      expect(state.isActive, isTrue);
+      expect(persisted['status'], 'active');
+      expect(persisted['planId'], 'monthly');
 
-    repository.dispose();
-  });
+      repository.dispose();
+    },
+  );
+
+  test(
+    'cancelSubscription force-refreshes canceled access through expiry',
+    () async {
+      final DateTime expiry = DateTime.now().toUtc().add(
+        const Duration(days: 3),
+      );
+      int authorityRequests = 0;
+      final sb.SupabaseClient client = await _authorityClient((request) async {
+        authorityRequests += 1;
+        return http.Response(
+          jsonEncode(<Map<String, dynamic>>[
+            <String, dynamic>{
+              'user_id': 'user-1',
+              'plan_id': 'premium_monthly',
+              'product_id': 'chronospark_premium_monthly',
+              'status': 'canceled',
+              'is_active': true,
+              'expires_at': expiry.toIso8601String(),
+              'updated_at': DateTime.now().toUtc().toIso8601String(),
+            },
+          ]),
+          200,
+          headers: <String, String>{'content-type': 'application/json'},
+        );
+      });
+      final GooglePlayPaywallRepository repository =
+          GooglePlayPaywallRepository(
+            billingClient: _emptyBillingClient(),
+            paywallTestingModeOverride: false,
+            sharedPreferencesLoader: SharedPreferences.getInstance,
+            secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+            supabaseClient: client,
+          );
+
+      final SubscriptionState state = await repository.cancelSubscription();
+
+      expect(authorityRequests, 1);
+      expect(state.isActive, isTrue);
+      expect(state.status, 'canceled');
+      expect(state.renewalDate?.toIso8601String(), expiry.toIso8601String());
+      repository.dispose();
+    },
+  );
 
   test('loads persisted active state and exposes entitlement', () async {
     final DateTime renewal = DateTime.now().add(const Duration(days: 2));
@@ -2037,8 +2085,9 @@ void main() {
                 ))!,
               )
               as Map<String, dynamic>;
-      expect(cancelled.status, 'cancelled');
-      expect(securedCancellation['status'], 'cancelled');
+      expect(cancelled.status, 'active');
+      expect(cancelled.isActive, isFalse);
+      expect(securedCancellation['status'], 'active');
 
       repository.dispose();
     },
@@ -2128,7 +2177,7 @@ void main() {
       () => repository.cancelSubscription(),
     );
 
-    expect(state.status, 'cancelled');
+    expect(state.status, 'locked');
     expect(state.isActive, isFalse);
 
     repository.dispose();

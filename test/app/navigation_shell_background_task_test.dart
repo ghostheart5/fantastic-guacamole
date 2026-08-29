@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
@@ -67,7 +70,7 @@ void main() {
     ) async {
       int refreshCalls = 0;
       _entitlementRefreshProbe = ({bool force = false}) async {
-        expect(force, isFalse);
+        expect(force, isTrue);
         refreshCalls += 1;
       };
       await _pumpShell(tester, probeEntitlement: true);
@@ -80,6 +83,52 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(refreshCalls, 1);
+    });
+
+    testWidgets('forces entitlement authority refresh on reconnect', (
+      WidgetTester tester,
+    ) async {
+      final StreamController<bool> network = StreamController<bool>();
+      addTearDown(network.close);
+      final List<bool> forces = <bool>[];
+      _entitlementRefreshProbe = ({bool force = false}) async {
+        forces.add(force);
+      };
+      await _pumpShell(tester, probeEntitlement: true, networkStatus: network);
+
+      network.add(false);
+      await tester.pump();
+      network.add(true);
+      await tester.pump();
+      await tester.pump();
+
+      expect(forces, <bool>[true]);
+    });
+
+    testWidgets('rechecks premium authority only while foregrounded', (
+      WidgetTester tester,
+    ) async {
+      final List<bool> forces = <bool>[];
+      _entitlementRefreshProbe = ({bool force = false}) async {
+        forces.add(force);
+      };
+      await _pumpShell(
+        tester,
+        probeEntitlement: true,
+        premiumAccess: true,
+        authorityRecheckInterval: const Duration(seconds: 1),
+      );
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(forces, <bool>[true]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump(const Duration(seconds: 2));
+      expect(forces, <bool>[true]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
     });
 
     testWidgets('contains a rejected route recovery save', (
@@ -142,6 +191,9 @@ Future<ProviderContainer> _pumpShell(
   _FakeMetricsAccumulator? metrics,
   _FakeAudioInterruptionService? audio,
   bool probeEntitlement = false,
+  bool premiumAccess = false,
+  Duration? authorityRecheckInterval,
+  StreamController<bool>? networkStatus,
 }) async {
   final ProviderContainer container = ProviderContainer(
     overrides: [
@@ -154,6 +206,13 @@ Future<ProviderContainer> _pumpShell(
       audioInterruptionServiceProvider.overrideWithValue(
         audio ?? _FakeAudioInterruptionService(),
       ),
+      runtimePremiumAccessProvider.overrideWithValue(premiumAccess),
+      if (authorityRecheckInterval != null)
+        entitlementAuthorityRecheckIntervalProvider.overrideWithValue(
+          authorityRecheckInterval,
+        ),
+      if (networkStatus != null)
+        networkStatusProvider.overrideWith((ref) => networkStatus.stream),
       if (probeEntitlement)
         entitlementAuthorityRefreshProvider.overrideWithValue(
           _entitlementRefreshProbe,

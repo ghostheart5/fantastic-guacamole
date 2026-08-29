@@ -8,7 +8,8 @@ import {
 } from "../_shared/google_auth.ts";
 import {
   decodePubSubNotification,
-  googleSubscriptionState,
+  googleSubscriptionStateForNotification,
+  reconciliationWasHandled,
 } from "../_shared/google_play_rtdn.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -71,37 +72,22 @@ async function serviceRpc(
     : null;
 }
 
-async function readEvent(messageId: string): Promise<string | null> {
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/google_play_rtdn_events?message_id=eq.${
-      encodeURIComponent(messageId)
-    }&select=state`,
-    { headers: serviceHeaders() },
-  );
-  if (!response.ok) return null;
-  const rows = await response.json();
-  return Array.isArray(rows) && typeof rows[0]?.state === "string"
-    ? rows[0].state
-    : null;
-}
-
-async function insertEvent(
+async function claimEvent(
   messageId: string,
   values: Record<string, unknown>,
-): Promise<boolean> {
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/google_play_rtdn_events`,
-    {
-      method: "POST",
-      headers: {
-        ...serviceHeaders(),
-        Prefer: "resolution=ignore-duplicates,return=minimal",
-      },
-      body: JSON.stringify({ message_id: messageId, ...values }),
-    },
-  );
-  await response.body?.cancel();
-  return response.ok;
+): Promise<{ claimed: boolean; completed: boolean }> {
+  const result = await serviceRpc("claim_google_play_rtdn_event", {
+    p_message_id: messageId,
+    p_package_name: values.package_name,
+    p_event_time: values.event_time,
+    p_event_type: values.event_type,
+    p_payload: values.payload,
+  });
+  if (!result) throw new Error("event_claim_failed");
+  return {
+    claimed: result.claimed === true,
+    completed: result.completed === true,
+  };
 }
 
 async function updateEvent(
@@ -144,6 +130,7 @@ async function processSubscription(
   messageId: string,
   notification: Record<string, unknown>,
   serviceAccount: GoogleServiceAccount,
+  eventTime: Date,
 ): Promise<boolean> {
   const raw = notification.subscriptionNotification;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
@@ -165,7 +152,8 @@ async function processSubscription(
   if (expiresAt !== null && !Number.isFinite(expiresAt.getTime())) {
     throw new Error("play_subscription_expiry_invalid");
   }
-  const state = googleSubscriptionState(
+  const state = googleSubscriptionStateForNotification(
+    subscription.notificationType,
     String(play.subscriptionState ?? ""),
     expiresAt,
   );
@@ -179,6 +167,7 @@ async function processSubscription(
       ? play.latestOrderId
       : null,
     p_expires_at: expiresAt?.toISOString() ?? null,
+    p_provider_event_time: eventTime.toISOString(),
     p_event_key: `rtdn:${messageId}`,
     p_payload: {
       source: "google_play_rtdn",
@@ -189,12 +178,13 @@ async function processSubscription(
       offerId: line.offerDetails?.offerId,
     },
   });
-  return result?.applied === true || result?.duplicate === true;
+  return reconciliationWasHandled(result);
 }
 
 async function processVoided(
   messageId: string,
   notification: Record<string, unknown>,
+  eventTime: Date,
 ): Promise<boolean> {
   const raw = notification.voidedPurchaseNotification;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
@@ -205,6 +195,7 @@ async function processVoided(
   if (!purchaseToken || purchaseToken.length > 4096) return false;
   const result = await serviceRpc("reconcile_google_play_voided_purchase", {
     p_purchase_token_hash: await sha256Hex(purchaseToken),
+    p_provider_event_time: eventTime.toISOString(),
     p_event_key: `rtdn:${messageId}`,
     p_order_id: typeof voided.orderId === "string" ? voided.orderId : null,
     p_payload: {
@@ -213,7 +204,7 @@ async function processVoided(
       refundType: voided.refundType,
     },
   });
-  return result?.applied === true || result?.duplicate === true;
+  return reconciliationWasHandled(result);
 }
 
 Deno.serve(async (req: Request) => {
@@ -234,16 +225,13 @@ Deno.serve(async (req: Request) => {
     return new Response("Unauthorized", { status: 401 });
   }
   let messageId = "";
+  let eventClaimed = false;
   try {
     const envelope = await req.json() as PubSubEnvelope;
     messageId = envelope.message?.messageId?.trim() ?? "";
     const encoded = envelope.message?.data ?? "";
     if (!messageId || messageId.length > 200 || !encoded) {
       return new Response("Invalid envelope", { status: 400 });
-    }
-    const existingState = await readEvent(messageId);
-    if (existingState === "processed" || existingState === "ignored") {
-      return new Response(null, { status: 204 });
     }
     const notification = decodePubSubNotification(encoded);
     if (!notification || notification.packageName !== ANDROID_PACKAGE_NAME) {
@@ -260,15 +248,19 @@ Deno.serve(async (req: Request) => {
       : notification.testNotification
       ? "test"
       : "unsupported";
-    if (
-      !existingState && !await insertEvent(messageId, {
-        package_name: ANDROID_PACKAGE_NAME,
-        event_time: eventTime.toISOString(),
-        event_type: eventType,
-        payload: { source: "google_play_rtdn" },
-        state: "received",
-      })
-    ) throw new Error("event_insert_failed");
+    const claim = await claimEvent(messageId, {
+      package_name: ANDROID_PACKAGE_NAME,
+      event_time: eventTime.toISOString(),
+      event_type: eventType,
+      payload: { source: "google_play_rtdn" },
+    });
+    if (claim.completed) return new Response(null, { status: 204 });
+    if (!claim.claimed) {
+      return new Response("RTDN processing already in progress", {
+        status: 500,
+      });
+    }
+    eventClaimed = true;
 
     if (eventType === "unsupported") {
       await updateEvent(messageId, {
@@ -278,15 +270,20 @@ Deno.serve(async (req: Request) => {
       return new Response(null, { status: 204 });
     }
     const processed = eventType === "subscription"
-      ? await processSubscription(messageId, notification, serviceAccount)
+      ? await processSubscription(
+        messageId,
+        notification,
+        serviceAccount,
+        eventTime,
+      )
       : eventType === "voided_purchase"
-      ? await processVoided(messageId, notification)
+      ? await processVoided(messageId, notification, eventTime)
       : true;
     if (!processed) throw new Error("reconciliation_not_applied");
     await updateEvent(messageId, { state: "processed", failure_code: null });
     return new Response(null, { status: 204 });
   } catch (error) {
-    if (messageId) {
+    if (messageId && eventClaimed) {
       try {
         await updateEvent(messageId, {
           state: "failed",

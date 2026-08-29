@@ -20,6 +20,7 @@ import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
+import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -71,6 +72,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   late final ProviderSubscription<LearningState> _learningSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
   late final ProviderSubscription<bool> _networkOnlineSubscription;
+  Timer? _entitlementAuthorityRecheckTimer;
   final Set<int> _initializedTabIndexes = <int>{};
   bool _savingCurrentState = false;
 
@@ -124,9 +126,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       _triggerCloudSyncReplay();
       _runBackgroundTask(
         'subscription authority refresh',
-        () => ref.read(entitlementAuthorityRefreshProvider)(),
+        () => ref.read(entitlementAuthorityRefreshProvider)(force: true),
       );
     });
+    _startEntitlementAuthorityRechecks();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _initializeRuntimeServices();
@@ -151,6 +154,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     NotificationScheduler.tappedPayloadListenable.removeListener(
       _onNotificationTapped,
     );
+    _entitlementAuthorityRecheckTimer?.cancel();
     _systemScheduler.shutdown();
     _dataHygieneScheduler?.shutdown();
     final AudioInterruptionService? audioInterruptionService =
@@ -195,6 +199,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.detached:
+        _entitlementAuthorityRecheckTimer?.cancel();
         _systemScheduler.shutdown();
         _dataHygieneScheduler?.shutdown();
         _runBackgroundTask('voice playback shutdown', _stopVoicePlayback);
@@ -203,6 +208,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
+        _entitlementAuthorityRecheckTimer?.cancel();
         if (!_isFlutterTestBinding) {
           _systemScheduler.pause();
           _dataHygieneScheduler?.pause();
@@ -213,17 +219,37 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         _runBackgroundTask('lifecycle recovery save', _saveCurrentState);
         break;
       case AppLifecycleState.resumed:
+        _startEntitlementAuthorityRechecks();
         if (!_isFlutterTestBinding) {
           _initializeRuntimeServices();
           _systemScheduler.resume();
         }
         _runBackgroundTask(
           'subscription authority refresh',
-          () => ref.read(entitlementAuthorityRefreshProvider)(),
+          () => ref.read(entitlementAuthorityRefreshProvider)(force: true),
         );
         _syncAppFlowToRouteView(widget.initialView);
         break;
     }
+  }
+
+  void _startEntitlementAuthorityRechecks() {
+    _entitlementAuthorityRecheckTimer?.cancel();
+    final Duration interval = ref.read(
+      entitlementAuthorityRecheckIntervalProvider,
+    );
+    if (interval <= Duration.zero) {
+      return;
+    }
+    _entitlementAuthorityRecheckTimer = Timer.periodic(interval, (_) {
+      if (!mounted || !ref.read(runtimePremiumAccessProvider)) {
+        return;
+      }
+      _runBackgroundTask(
+        'foreground subscription authority refresh',
+        () => ref.read(entitlementAuthorityRefreshProvider)(force: true),
+      );
+    });
   }
 
   void _syncAppFlowToRouteView(AppView view) {

@@ -176,6 +176,10 @@ void main() {
         (await harness.container.read(entitlementProvider.future)).isPremium,
         isTrue,
       );
+      expect(
+        (await harness.container.read(aiCreditWalletProvider.future)).tier,
+        'premium',
+      );
 
       await Future<void>.delayed(const Duration(milliseconds: 700));
       await harness.settle();
@@ -188,6 +192,44 @@ void main() {
         harness.container.read(appAccessProvider).hasPremiumAccess,
         isFalse,
       );
+    });
+
+    test('forced authority refresh invalidates revoked premium', () async {
+      final _Harness harness = await _Harness.create(
+        subscription: SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'supabase_authority',
+          planId: 'monthly',
+          renewalDate: DateTime.now().add(const Duration(days: 1)),
+        ),
+        owner: 'user-a',
+        user: _user('user-a'),
+      );
+      expect(
+        (await harness.container.read(entitlementProvider.future)).isPremium,
+        isTrue,
+      );
+
+      harness.repository.subscription = const SubscriptionState(
+        isActive: false,
+        status: 'revoked',
+        source: 'supabase_authority',
+      );
+      await harness.container.read(entitlementAuthorityRefreshProvider)(
+        force: true,
+      );
+
+      expect(harness.repository.refreshForces, contains(true));
+      expect(
+        (await harness.container.read(entitlementProvider.future)).isPremium,
+        isFalse,
+      );
+      expect(
+        (await harness.container.read(aiCreditWalletProvider.future)).tier,
+        'free',
+      );
+      expect(await harness.readOwner(), isNull);
     });
   });
 
@@ -503,6 +545,7 @@ class _FakePaywallRepository
   final SubscriptionState? legacyRestoreResult;
   final DateTime? legacyRetryAt;
   int refreshCalls = 0;
+  final List<bool> refreshForces = <bool>[];
   int legacyRestoreCalls = 0;
   bool _legacyRestoreAvailable = true;
 
@@ -511,6 +554,7 @@ class _FakePaywallRepository
     bool force = false,
   }) async {
     refreshCalls += 1;
+    refreshForces.add(force);
     return subscription;
   }
 

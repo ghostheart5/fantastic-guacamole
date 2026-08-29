@@ -40,3 +40,27 @@ export function googleSubscriptionState(
       return { status: "revoked", active: false };
   }
 }
+
+export function googleSubscriptionStateForNotification(
+  notificationType: unknown,
+  subscriptionState: string,
+  expiresAt: Date | null,
+  now = new Date(),
+): { status: string; active: boolean } {
+  const parsedType = typeof notificationType === "number"
+    ? notificationType
+    : typeof notificationType === "string"
+    ? Number.parseInt(notificationType, 10)
+    : Number.NaN;
+
+  if (parsedType === 12) return { status: "revoked", active: false };
+  if (parsedType === 13) return { status: "expired", active: false };
+  return googleSubscriptionState(subscriptionState, expiresAt, now);
+}
+
+export function reconciliationWasHandled(
+  result: Record<string, unknown> | null,
+): boolean {
+  return result?.applied === true || result?.duplicate === true ||
+    result?.handled === true;
+}

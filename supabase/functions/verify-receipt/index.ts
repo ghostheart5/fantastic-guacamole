@@ -11,7 +11,13 @@ import {
   type GoogleServiceAccount,
   sha256Hex,
 } from "../_shared/google_auth.ts";
-import { verifySubscriptionLineItem } from "../_shared/subscription_verification.ts";
+import {
+  buildPurchaseBindingArgs,
+  buildSubscriptionReconciliationArgs,
+  classifyVerificationReconciliation,
+  readLinkedPurchaseToken,
+  verifySubscriptionLineItem,
+} from "../_shared/subscription_verification.ts";
 
 const config: BillingBackendConfig = {
   supabaseUrl: Deno.env.get("SUPABASE_URL") ?? "",
@@ -157,6 +163,7 @@ Deno.serve(async (req: Request) => {
       }/purchases/subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
+    const providerObservedAt = new Date();
     if (!response.ok) {
       await response.body?.cancel();
       return jsonResponse(
@@ -175,11 +182,24 @@ Deno.serve(async (req: Request) => {
       }, 200);
     }
     const tokenHash = await sha256Hex(purchaseToken);
-    const bound = await serviceRpc(config, "bind_verified_purchase_token", {
-      p_purchase_token_hash: tokenHash,
-      p_user_id: userId,
-      p_product_id: productId,
-    });
+    const linkedPurchaseToken = readLinkedPurchaseToken(
+      play,
+      MAX_PURCHASE_TOKEN_LENGTH,
+    );
+    const predecessorTokenHash = linkedPurchaseToken
+      ? await sha256Hex(linkedPurchaseToken)
+      : null;
+    const bound = await serviceRpc(
+      config,
+      "bind_verified_purchase_token",
+      buildPurchaseBindingArgs({
+        purchaseTokenHash: tokenHash,
+        userId,
+        productId,
+        boundAt: providerObservedAt,
+        predecessorTokenHash,
+      }),
+    );
     if (bound?.bound !== true) {
       return jsonResponse(req, {
         valid: false,
@@ -200,29 +220,30 @@ Deno.serve(async (req: Request) => {
     const orderId = typeof play.latestOrderId === "string"
       ? play.latestOrderId
       : undefined;
-    const eventKey = `verify:${tokenHash}:${lineItem.expiryTimeMs}:${
-      orderId ?? "none"
-    }`;
     const applied = await serviceRpc(
       config,
       "reconcile_google_play_subscription",
-      {
-        p_purchase_token_hash: tokenHash,
-        p_product_id: productId,
-        p_status: status,
-        p_is_active: true,
-        p_auto_renews: autoRenewingPlan?.autoRenewEnabled === true,
-        p_order_id: orderId ?? null,
-        p_expires_at: new Date(lineItem.expiryTimeMs).toISOString(),
-        p_event_key: eventKey,
-        p_payload: {
-          source: "client_verification",
-          subscriptionState: play.subscriptionState,
-          acknowledgementState: play.acknowledgementState,
-        },
-      },
+      buildSubscriptionReconciliationArgs({
+        purchaseTokenHash: tokenHash,
+        productId,
+        status,
+        autoRenews: autoRenewingPlan?.autoRenewEnabled === true,
+        orderId,
+        expiryTimeMs: lineItem.expiryTimeMs,
+        providerObservedAt,
+        subscriptionState: play.subscriptionState,
+        acknowledgementState: play.acknowledgementState,
+      }),
     );
-    if (!applied || (applied.applied !== true && applied.duplicate !== true)) {
+    const reconciliationOutcome = classifyVerificationReconciliation(applied);
+    if (reconciliationOutcome === "terminal") {
+      return jsonResponse(req, {
+        valid: false,
+        productId,
+        error: "purchase_not_active",
+      }, 200);
+    }
+    if (!applied || reconciliationOutcome !== "accepted") {
       return jsonResponse(req, {
         valid: false,
         productId,

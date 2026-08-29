@@ -74,9 +74,21 @@ final entitlementAuthorityRefreshProvider =
         ref.invalidate(entitlementProvider);
         ref.invalidate(paywallSubscriptionProvider);
         ref.invalidate(paywallConfigProvider);
+        ref.invalidate(aiCreditWalletProvider);
         await ref.read(entitlementProvider.future);
       };
     });
+
+/// How often a foregrounded premium session rechecks server authority.
+///
+/// This is intentionally much shorter than the repository's offline lease:
+/// the lease limits transient-failure access, while this interval bounds how
+/// long an open app can retain access after an authoritative state change.
+final entitlementAuthorityRecheckIntervalProvider = Provider<Duration>((
+  Ref ref,
+) {
+  return const Duration(minutes: 1);
+});
 
 class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
   Timer? _expiryTimer;

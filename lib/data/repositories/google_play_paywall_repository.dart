@@ -382,15 +382,14 @@ class GooglePlayPaywallRepository
   @override
   Future<SubscriptionState> cancelSubscription() async {
     await _initialization;
-    _state = SubscriptionState(
-      isActive: false,
-      status: 'cancelled',
-      source: 'google_play',
-      planId: _state.planId,
-      renewalDate: _state.renewalDate,
-    );
-    await _persistState();
-    return _state;
+    if (!_paywallTestingMode && _supabaseClient?.auth.currentUser?.id != null) {
+      return refreshSubscriptionState(force: true);
+    }
+    // Google Play cancellation normally disables renewal but keeps access
+    // through the paid-through expiry. Without current server authority, the
+    // client must preserve its existing trusted state instead of inventing an
+    // immediate revocation.
+    return _effectiveStateForCurrentUser;
   }
 
   @override
