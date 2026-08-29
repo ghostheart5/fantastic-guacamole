@@ -10,6 +10,7 @@ import {
   decodePubSubNotification,
   googleSubscriptionStateForNotification,
   reconciliationWasHandled,
+  terminalNotificationMatchesSubscriptionState,
 } from "../_shared/google_play_rtdn.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -152,11 +153,21 @@ async function processSubscription(
   if (expiresAt !== null && !Number.isFinite(expiresAt.getTime())) {
     throw new Error("play_subscription_expiry_invalid");
   }
+  const subscriptionState = String(play.subscriptionState ?? "");
+  if (
+    !terminalNotificationMatchesSubscriptionState(
+      subscription.notificationType,
+      subscriptionState,
+    )
+  ) {
+    throw new Error("play_subscription_terminal_state_mismatch");
+  }
   const state = googleSubscriptionStateForNotification(
     subscription.notificationType,
-    String(play.subscriptionState ?? ""),
+    subscriptionState,
     expiresAt,
   );
+  const observedAt = new Date();
   const result = await serviceRpc("reconcile_google_play_subscription", {
     p_purchase_token_hash: await sha256Hex(purchaseToken),
     p_product_id: line.productId,
@@ -167,12 +178,13 @@ async function processSubscription(
       ? play.latestOrderId
       : null,
     p_expires_at: expiresAt?.toISOString() ?? null,
-    p_provider_event_time: eventTime.toISOString(),
+    p_provider_event_time: observedAt.toISOString(),
     p_event_key: `rtdn:${messageId}`,
     p_payload: {
       source: "google_play_rtdn",
+      notificationEventTime: eventTime.toISOString(),
       notificationType: subscription.notificationType,
-      subscriptionState: play.subscriptionState,
+      subscriptionState,
       acknowledgementState: play.acknowledgementState,
       basePlanId: line.offerDetails?.basePlanId,
       offerId: line.offerDetails?.offerId,

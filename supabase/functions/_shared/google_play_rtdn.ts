@@ -58,6 +58,20 @@ export function googleSubscriptionStateForNotification(
   return googleSubscriptionState(subscriptionState, expiresAt, now);
 }
 
+export function terminalNotificationMatchesSubscriptionState(
+  notificationType: unknown,
+  subscriptionState: string,
+): boolean {
+  const parsedType = typeof notificationType === "number"
+    ? notificationType
+    : typeof notificationType === "string"
+    ? Number.parseInt(notificationType, 10)
+    : Number.NaN;
+
+  if (parsedType !== 12 && parsedType !== 13) return true;
+  return subscriptionState === "SUBSCRIPTION_STATE_EXPIRED";
+}
+
 export function reconciliationWasHandled(
   result: Record<string, unknown> | null,
 ): boolean {

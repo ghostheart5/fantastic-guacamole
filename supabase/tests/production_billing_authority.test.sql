@@ -469,8 +469,8 @@ select is(
 );
 
 update public.monetization_subscription_statuses
-set expires_at = now() - interval '1 minute',
-  provider_event_time = now() - interval '10 minutes'
+set expires_at = now() - interval '25 hours',
+  provider_event_time = now() - interval '26 hours'
 where user_id = '33333333-3333-4333-8333-333333333333';
 select is(
   public.expire_stale_monetization_subscriptions(),
@@ -481,7 +481,7 @@ select is(
   (select provider_event_time
    from public.monetization_subscription_statuses
    where user_id = '33333333-3333-4333-8333-333333333333'),
-  now() - interval '10 minutes',
+  now() - interval '26 hours',
   'local expiry does not advance the Google provider watermark'
 );
 select is(
