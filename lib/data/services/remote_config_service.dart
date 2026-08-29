@@ -25,10 +25,19 @@ class RemoteConfigService {
   }
 
   Future<void> _applyFirebaseSnapshotIfAvailable() async {
-    if (_firebaseSnapshotApplied || !Env.isFirebaseFeatureFlagRuntimeReady) {
+    if (_firebaseSnapshotApplied) {
       return;
     }
-    if (Firebase.apps.isEmpty) {
+    final bool firebaseInitialized = Firebase.apps.isNotEmpty;
+    final String? firebaseProjectId = firebaseInitialized
+        ? Firebase.app().options.projectId
+        : null;
+    if (!Env.resolveShouldUseFirebaseFeatureFlags(
+      isMockMode: Env.isMockMode,
+      enableRuntimeFeatureFlags: Env.enableRuntimeFeatureFlags,
+      firebaseInitialized: firebaseInitialized,
+      firebaseProjectId: firebaseProjectId,
+    )) {
       return;
     }
 

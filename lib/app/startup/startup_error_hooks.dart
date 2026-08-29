@@ -4,9 +4,8 @@ class AppBootstrapper {
   const AppBootstrapper();
 
   void run() {
-    runZonedGuarded(() async {
+    runZonedGuarded(() {
       WidgetsFlutterBinding.ensureInitialized();
-      await _loadDotEnv();
       _runApp();
     }, _handleUncaughtZoneError);
   }
@@ -113,15 +112,6 @@ class AppBootstrapper {
         null,
         fatal: true,
       );
-    }
-  }
-
-  Future<void> _loadDotEnv() async {
-    try {
-      await dotenv.load(fileName: '.env');
-      Logger.info('Loaded local .env configuration.');
-    } on Object {
-      Logger.info('No local .env loaded.');
     }
   }
 }

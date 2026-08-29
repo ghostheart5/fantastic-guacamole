@@ -796,6 +796,7 @@ class _LoginFormCard extends StatelessWidget {
           if (showMockHint && onMockLogin != null) ...[
             const SizedBox(height: 10),
             SmartPressable(
+              key: const ValueKey<String>('qa-tester-access-button'),
               onTap: mockLoginTap,
               child: Container(
                 padding: const EdgeInsets.symmetric(

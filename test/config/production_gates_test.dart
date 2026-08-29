@@ -12,7 +12,7 @@ void main() {
     test('parses every known value', () {
       expect(AppFlavor.tryParse('dev'), AppFlavor.development);
       expect(AppFlavor.tryParse('test'), AppFlavor.testing);
-      expect(AppFlavor.tryParse('qa'), AppFlavor.testing);
+      expect(AppFlavor.tryParse('qa'), AppFlavor.qualityAssurance);
       expect(AppFlavor.tryParse('staging'), AppFlavor.staging);
       expect(AppFlavor.tryParse('prod'), AppFlavor.production);
     });
@@ -35,11 +35,47 @@ void main() {
     });
   });
 
+  group('Env.resolveFlavor keeps identity aligned with security', () {
+    test('preserves every known flavor identity', () {
+      expect(
+        Env.resolveFlavor('dev', isReleaseMode: true),
+        AppFlavor.development,
+      );
+      expect(Env.resolveFlavor('test', isReleaseMode: true), AppFlavor.testing);
+      expect(
+        Env.resolveFlavor('qa', isReleaseMode: true),
+        AppFlavor.qualityAssurance,
+      );
+      expect(
+        Env.resolveFlavor('staging', isReleaseMode: true),
+        AppFlavor.staging,
+      );
+      expect(
+        Env.resolveFlavor('prod', isReleaseMode: true),
+        AppFlavor.production,
+      );
+    });
+
+    test('unknown release identity fails closed to production', () {
+      expect(
+        Env.resolveFlavor('nonsense', isReleaseMode: true),
+        AppFlavor.production,
+      );
+      expect(Env.resolveFlavor('', isReleaseMode: true), AppFlavor.production);
+    });
+
+    test('unknown non-release identity remains development', () {
+      expect(
+        Env.resolveFlavor('nonsense', isReleaseMode: false),
+        AppFlavor.development,
+      );
+    });
+  });
+
   group('resolveIsProduction fails closed', () {
     test('a release build with an unknown flavor is treated as production', () {
-      // This is the core inversion: "production" (a typo for "prod") used to
-      // parse to development and silently disable every production gate in a
-      // shipping binary.
+      // This is the core inversion: an unrecognized release flavor used to
+      // parse to development and silently disable every production gate.
       expect(
         Env.resolveIsProduction('nonsense', isReleaseMode: true),
         isTrue,
@@ -139,7 +175,7 @@ void main() {
   group('end-to-end: a release build cannot open the mock gates', () {
     test('unknown flavor in release closes mock login and mock mode', () {
       final bool isProduction = Env.resolveIsProduction(
-        'production',
+        'prd',
         isReleaseMode: true,
       );
       expect(isProduction, isTrue);

@@ -106,6 +106,10 @@ if (-not (Test-Path $mainEntrypoint)) {
   if ($mainContent -match "app/startup/app_bootstrap\.dart" -and (Test-Path $bootstrapPath)) {
     $startupContent += "`n" + (Get-Content -Path $bootstrapPath -Raw)
   }
+  $startupErrorHooksPath = Join-Path $root 'lib/app/startup/startup_error_hooks.dart'
+  if ($startupContent -match "part\s+'startup_error_hooks\.dart';" -and (Test-Path $startupErrorHooksPath)) {
+    $startupContent += "`n" + (Get-Content -Path $startupErrorHooksPath -Raw)
+  }
 
   if ($startupContent -notmatch 'runZonedGuarded\s*\(') {
     Add-Failure 'The main startup path must wrap startup with runZonedGuarded.'

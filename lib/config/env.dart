@@ -1,248 +1,86 @@
+import 'dart:convert';
+
 import 'package:fantastic_guacamole/config/app_flavor.dart';
-import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
+import 'package:fantastic_guacamole/config/firebase_identity.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+part 'src/build_settings.dart';
+part 'src/feature_flags.dart';
+part 'src/readiness_policy.dart';
+part 'src/service_endpoints.dart';
+
 abstract final class Env {
   static const String appName = 'ChronoSpark';
-
-  // Legal/support URLs have a single source of truth in [AppUrls], which is
-  // what every live screen opens. These forward to it; they previously
-  // declared chronospark.app paths that disagreed with the URLs actually used.
-  static const String privacyPolicyUrl = AppUrls.privacy;
-  static const String termsOfServiceUrl = AppUrls.terms;
-  static const String supportUrl = AppUrls.support;
   static const String supportEmail = 'support@chronospark.app';
-  static const String _appFlavorDefine = String.fromEnvironment(
-    'CHRONOSPARK_APP_FLAVOR',
-    defaultValue: 'prod',
-  );
-  static const bool _hasAppFlavorDefine = bool.hasEnvironment(
-    'CHRONOSPARK_APP_FLAVOR',
-  );
-  static const bool _enableVerboseLogsDefine = bool.fromEnvironment(
-    'CHRONOSPARK_VERBOSE_LOGS',
-    defaultValue: false,
-  );
-  static const bool _hasEnableVerboseLogsDefine = bool.hasEnvironment(
-    'CHRONOSPARK_VERBOSE_LOGS',
-  );
-  static const bool _enableCrashReportingDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENABLE_CRASH_REPORTING',
-    defaultValue: true,
-  );
-  static const bool _enableAnalyticsDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENABLE_ANALYTICS',
-    defaultValue: true,
-  );
-  static const bool _enableMockLoginDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENABLE_MOCK_LOGIN',
-    // Fail closed. Every other risk flag defaults to false; this one used to
-    // default to true, which made MockAuthService (accepts any password) the
-    // default for any build that was not BOTH release mode AND prod flavor.
-    defaultValue: false,
-  );
-  static const bool _hasEnableMockLoginDefine = bool.hasEnvironment(
-    'CHRONOSPARK_ENABLE_MOCK_LOGIN',
-  );
-  static const bool _enableMockModeDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENABLE_MOCK_MODE',
-    defaultValue: false,
-  );
-  static const bool _hasEnableMockModeDefine = bool.hasEnvironment(
-    'CHRONOSPARK_ENABLE_MOCK_MODE',
-  );
-  static const bool _enablePaywallDisabledDefine = bool.fromEnvironment(
-    'CHRONOSPARK_PAYWALL_DISABLED',
-    defaultValue: false,
-  );
-  static const bool _hasEnablePaywallDisabledDefine = bool.hasEnvironment(
-    'CHRONOSPARK_PAYWALL_DISABLED',
-  );
-  static const bool _enableTesterFullAccessDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
-    defaultValue: false,
-  );
-  static const bool _hasEnableTesterFullAccessDefine = bool.hasEnvironment(
-    'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
-  );
-  static const String _mockLoginEmailDefine = String.fromEnvironment(
-    'CHRONOSPARK_MOCK_LOGIN_EMAIL',
-    defaultValue: 'mock@chronospark.app',
-  );
-  static const String _mockLoginPasswordDefine = String.fromEnvironment(
-    'CHRONOSPARK_MOCK_LOGIN_PASSWORD',
-    defaultValue: 'ChronoSpark123!',
-  );
-  static const String _receiptVerifyEndpointOverrideDefine =
-      String.fromEnvironment(
-        'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
-        defaultValue: '',
-      );
-  static const String _aiProxyEndpointDefine = String.fromEnvironment(
-    'CHRONOSPARK_AI_PROXY_ENDPOINT',
-    defaultValue: '',
-  );
-  static const String _aiReportEndpointDefine = String.fromEnvironment(
-    'CHRONOSPARK_AI_REPORT_ENDPOINT',
-    defaultValue: '',
-  );
-  static const String _accountDeleteEndpointDefine = String.fromEnvironment(
-    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
-    defaultValue: '',
-  );
-  static const String _oauthRedirectUrlDefine = String.fromEnvironment(
-    'CHRONOSPARK_OAUTH_REDIRECT_URL',
-    defaultValue: 'chronospark://auth-callback',
-  );
-  static const String _githubOauthRedirectUrlDefine = String.fromEnvironment(
-    'CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL',
-    defaultValue: _oauthRedirectUrlDefine,
-  );
-  static const bool _enableRuntimeFeatureFlagsDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS',
-    defaultValue: true,
-  );
-  static const String _remoteConfigDefaultsJsonDefine = String.fromEnvironment(
-    'CHRONOSPARK_REMOTE_CONFIG_JSON',
-    defaultValue: '',
-  );
-  static const String _supabaseUrlDefine = String.fromEnvironment(
-    'CHRONOSPARK_SUPABASE_URL',
-    defaultValue: '',
-  );
-  static const String _supabaseAnonKeyDefine = String.fromEnvironment(
-    'CHRONOSPARK_SUPABASE_ANON_KEY',
-    defaultValue: '',
-  );
-  static const bool _enableCloudSyncDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENABLE_CLOUD_SYNC',
-    defaultValue: false,
-  );
-  static const String _appLinksAndroidSha256Define = String.fromEnvironment(
-    'CHRONOSPARK_ANDROID_SHA256_CERT',
-    defaultValue: '',
-  );
-  static const String _appLinksIosTeamIdDefine = String.fromEnvironment(
-    'CHRONOSPARK_IOS_TEAM_ID',
-    defaultValue: '',
-  );
-  static const bool _enforceProductionReadinessDefine = bool.fromEnvironment(
-    'CHRONOSPARK_ENFORCE_PROD_READINESS',
-    defaultValue: false,
-  );
+  static const String expectedFirebaseProjectId =
+      FirebaseIdentity.expectedProjectId;
 
-  static String get appFlavor => _readRiskString(
-    'CHRONOSPARK_APP_FLAVOR',
-    _appFlavorDefine,
-    defineProvided: _hasAppFlavorDefine,
-  );
-  static bool get enableVerboseLogs => _readRiskBool(
-    'CHRONOSPARK_VERBOSE_LOGS',
-    _enableVerboseLogsDefine,
-    defineProvided: _hasEnableVerboseLogsDefine,
-  );
-  static bool get enableCrashReporting => _readBool(
-    'CHRONOSPARK_ENABLE_CRASH_REPORTING',
-    _enableCrashReportingDefine,
-  );
-  static bool get enableAnalytics =>
-      _readBool('CHRONOSPARK_ENABLE_ANALYTICS', _enableAnalyticsDefine);
-  static bool get enableMockLogin => _readRiskBool(
-    'CHRONOSPARK_ENABLE_MOCK_LOGIN',
-    _enableMockLoginDefine,
-    defineProvided: _hasEnableMockLoginDefine,
-  );
-  static bool get enableMockMode => _readRiskBool(
-    'CHRONOSPARK_ENABLE_MOCK_MODE',
-    _enableMockModeDefine,
-    defineProvided: _hasEnableMockModeDefine,
-  );
-  static bool get enablePaywallDisabled => _readRiskBool(
-    'CHRONOSPARK_PAYWALL_DISABLED',
-    _enablePaywallDisabledDefine,
-    defineProvided: _hasEnablePaywallDisabledDefine,
-  );
-  static bool get enableTesterFullAccess => _readRiskBool(
-    'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
-    _enableTesterFullAccessDefine,
-    defineProvided: _hasEnableTesterFullAccessDefine,
-  );
-  static String get mockLoginEmail =>
-      _readString('CHRONOSPARK_MOCK_LOGIN_EMAIL', _mockLoginEmailDefine);
-  static String get mockLoginPassword =>
-      _readString('CHRONOSPARK_MOCK_LOGIN_PASSWORD', _mockLoginPasswordDefine);
-  static String get _receiptVerifyEndpointOverride => _readString(
-    'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
-    _receiptVerifyEndpointOverrideDefine,
-  );
-  static String get aiProxyEndpoint =>
-      _readString('CHRONOSPARK_AI_PROXY_ENDPOINT', _aiProxyEndpointDefine);
-  static String get aiReportEndpoint => resolveAiReportEndpoint(
-    _readString('CHRONOSPARK_AI_REPORT_ENDPOINT', _aiReportEndpointDefine),
-    supabaseUrl: supabaseUrl,
-  );
-  static String get accountDeleteEndpoint => _readString(
-    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
-    _accountDeleteEndpointDefine,
-  );
-  static String get oauthRedirectUrl =>
-      _readString('CHRONOSPARK_OAUTH_REDIRECT_URL', _oauthRedirectUrlDefine);
-  static String get githubOauthRedirectUrl => _readString(
-    'CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL',
-    _githubOauthRedirectUrlDefine,
-  );
-  static bool get enableRuntimeFeatureFlags => _readBool(
-    'CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS',
-    _enableRuntimeFeatureFlagsDefine,
-  );
-  static String get remoteConfigDefaultsJson => _readString(
-    'CHRONOSPARK_REMOTE_CONFIG_JSON',
-    _remoteConfigDefaultsJsonDefine,
-  );
-  static String get supabaseUrl =>
-      _readString('CHRONOSPARK_SUPABASE_URL', _supabaseUrlDefine);
-  static String get supabaseAnonKey =>
-      _readString('CHRONOSPARK_SUPABASE_ANON_KEY', _supabaseAnonKeyDefine);
-  static bool get enableCloudSync =>
-      _readBool('CHRONOSPARK_ENABLE_CLOUD_SYNC', _enableCloudSyncDefine);
-  static String get appLinksAndroidSha256 => _readString(
-    'CHRONOSPARK_ANDROID_SHA256_CERT',
-    _appLinksAndroidSha256Define,
-  );
-  static String get appLinksIosTeamId =>
-      _readString('CHRONOSPARK_IOS_TEAM_ID', _appLinksIosTeamIdDefine);
-  static bool get enforceProductionReadiness => _readBool(
-    'CHRONOSPARK_ENFORCE_PROD_READINESS',
-    _enforceProductionReadinessDefine,
-  );
+  static String get appFlavor => _BuildSettings.appFlavor;
+  static bool get enableVerboseLogs => _BuildSettings.enableVerboseLogs;
+  static bool get enableCrashReporting => _BuildSettings.enableCrashReporting;
+  static bool get enableAnalytics => _BuildSettings.enableAnalytics;
+  static String get appLinksAndroidSha256 =>
+      _BuildSettings.appLinksAndroidSha256;
+  static String get appLinksIosTeamId => _BuildSettings.appLinksIosTeamId;
+  static AppFlavor get flavor => _BuildSettings.flavor;
+  static bool get isProduction => _BuildSettings.isProduction;
 
-  static AppFlavor get flavor => AppFlavor.parse(appFlavor);
+  static bool get enableMockLogin => _FeatureFlags.enableMockLogin;
+  static bool get enableMockMode => _FeatureFlags.enableMockMode;
+  static bool get enablePaywallDisabled => _FeatureFlags.enablePaywallDisabled;
+  static bool get enableTesterFullAccess =>
+      _FeatureFlags.enableTesterFullAccess;
+  static bool get enableRuntimeFeatureFlags =>
+      _FeatureFlags.enableRuntimeFeatureFlags;
+  static String get remoteConfigDefaultsJson =>
+      _FeatureFlags.remoteConfigDefaultsJson;
+  static bool get enableCloudSync => _FeatureFlags.enableCloudSync;
+  static bool get isMockMode => _FeatureFlags.isMockMode;
+  static bool get isPaywallDisabled => _FeatureFlags.isPaywallDisabled;
+  static bool get isMockLoginEnabled => _FeatureFlags.isMockLoginEnabled;
+  static bool get hasTesterFullAccess => _FeatureFlags.hasTesterFullAccess;
+
+  static String get aiProxyEndpoint => _ServiceEndpoints.aiProxyEndpoint;
+  static String get aiReportEndpoint => _ServiceEndpoints.aiReportEndpoint;
+  static String get accountDeleteEndpoint =>
+      _ServiceEndpoints.accountDeleteEndpoint;
+  static String get oauthRedirectUrl => _ServiceEndpoints.oauthRedirectUrl;
+  static String get githubOauthRedirectUrl =>
+      _ServiceEndpoints.githubOauthRedirectUrl;
+  static String get supabaseUrl => _ServiceEndpoints.supabaseUrl;
+  static String get supabaseAnonKey => _ServiceEndpoints.supabaseAnonKey;
+  static String get receiptVerifyEndpoint =>
+      _ServiceEndpoints.receiptVerifyEndpoint;
+  static bool get isSupabaseConfigured =>
+      _ServiceEndpoints.isSupabaseConfigured;
+  static bool get isAiProxyConfigured => _ServiceEndpoints.isAiProxyConfigured;
+
+  static bool get enforceProductionReadiness =>
+      _ReadinessPolicy.enforceProductionReadiness;
+
+  static AppFlavor resolveFlavor(String flavor, {required bool isReleaseMode}) {
+    return _BuildSettings.resolveFlavor(flavor, isReleaseMode: isReleaseMode);
+  }
 
   static bool resolveIsProduction(
     String flavor, {
     required bool isReleaseMode,
   }) {
-    // Production hardening is enabled only for release + production flavor.
-    // QA/testing release builds can still exercise tester-only access paths.
-    //
-    // Fail closed on an unrecognised flavor string in a release build: a typo
-    // such as "production" (the enum value is "prod") previously parsed to
-    // `development`, which silently disabled every production gate in a build
-    // that was otherwise shipping. An unknown flavor in a release binary is a
-    // misconfiguration, and the safe interpretation is "this is production".
-    final AppFlavor? parsed = AppFlavor.tryParse(flavor);
-    if (parsed == null) {
-      return isReleaseMode;
-    }
-    return isReleaseMode && parsed.isProduction;
+    return _BuildSettings.resolveIsProduction(
+      flavor,
+      isReleaseMode: isReleaseMode,
+    );
   }
 
   static bool resolveIsMockMode({
     required bool isProduction,
     required bool enableMockMode,
   }) {
-    return !isProduction && enableMockMode;
+    return _FeatureFlags.resolveIsMockMode(
+      isProduction: isProduction,
+      enableMockMode: enableMockMode,
+    );
   }
 
   static bool resolveIsPaywallDisabled({
@@ -250,7 +88,11 @@ abstract final class Env {
     required bool enablePaywallDisabled,
     required bool isMockMode,
   }) {
-    return !isProduction && (enablePaywallDisabled || isMockMode);
+    return _FeatureFlags.resolveIsPaywallDisabled(
+      isProduction: isProduction,
+      enablePaywallDisabled: enablePaywallDisabled,
+      isMockMode: isMockMode,
+    );
   }
 
   static bool resolveIsMockLoginEnabled({
@@ -258,54 +100,63 @@ abstract final class Env {
     required bool isMockMode,
     required bool enableMockLogin,
   }) {
-    return !isProduction && (isMockMode || enableMockLogin);
+    return _FeatureFlags.resolveIsMockLoginEnabled(
+      isProduction: isProduction,
+      isMockMode: isMockMode,
+      enableMockLogin: enableMockLogin,
+    );
   }
 
   static bool resolveHasTesterFullAccess({
     required bool isProduction,
     required bool enableTesterFullAccess,
   }) {
-    return !isProduction && enableTesterFullAccess;
+    return _FeatureFlags.resolveHasTesterFullAccess(
+      isProduction: isProduction,
+      enableTesterFullAccess: enableTesterFullAccess,
+    );
   }
 
-  static bool get isProduction =>
-      resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
+  static bool resolveIsSupabaseConfigured({
+    required String url,
+    required String anonKey,
+  }) {
+    return _ServiceEndpoints.resolveIsSupabaseConfigured(
+      url: url,
+      anonKey: anonKey,
+    );
+  }
 
-  static bool get isMockMode => resolveIsMockMode(
-    isProduction: isProduction,
-    enableMockMode: enableMockMode,
-  );
+  static bool resolveIsValidSupabaseUrl(String value) =>
+      _ServiceEndpoints.resolveIsValidSupabaseUrl(value);
 
-  static bool get isPaywallDisabled => resolveIsPaywallDisabled(
-    isProduction: isProduction,
-    enablePaywallDisabled: enablePaywallDisabled,
-    isMockMode: isMockMode,
-  );
+  static bool resolveIsValidSupabaseAnonKey(String value) =>
+      _ServiceEndpoints.resolveIsValidSupabaseAnonKey(value);
 
-  static bool get isMockLoginEnabled => resolveIsMockLoginEnabled(
-    isProduction: isProduction,
-    isMockMode: isMockMode,
-    enableMockLogin: enableMockLogin,
-  );
+  static bool resolveIsValidHttpsEndpoint(String endpoint) =>
+      _ServiceEndpoints.resolveIsValidHttpsEndpoint(endpoint);
 
-  static bool get hasTesterFullAccess => resolveHasTesterFullAccess(
-    isProduction: isProduction,
-    enableTesterFullAccess: enableTesterFullAccess,
-  );
+  static bool resolveIsAiProxyConfigured(String endpoint) =>
+      _ServiceEndpoints.resolveIsAiProxyConfigured(endpoint);
 
-  static bool get isSupabaseConfigured =>
-      supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
+  static String resolveReceiptVerifyEndpoint(
+    String configuredValue, {
+    required String supabaseUrl,
+  }) {
+    return _ServiceEndpoints.resolveReceiptVerifyEndpoint(
+      configuredValue,
+      supabaseUrl: supabaseUrl,
+    );
+  }
 
-  static bool get isAiProxyConfigured =>
-      resolveIsAiProxyConfigured(aiProxyEndpoint);
-
-  static bool resolveIsAiProxyConfigured(String endpoint) {
-    final String trimmed = endpoint.trim();
-    if (trimmed.isEmpty) {
-      return false;
-    }
-    final Uri? uri = Uri.tryParse(trimmed);
-    return uri != null && uri.hasAuthority && uri.scheme == 'https';
+  static String resolveAiReportEndpoint(
+    String configuredValue, {
+    required String supabaseUrl,
+  }) {
+    return _ServiceEndpoints.resolveAiReportEndpoint(
+      configuredValue,
+      supabaseUrl: supabaseUrl,
+    );
   }
 
   static bool resolveShouldBlockStartupForProductionReadiness({
@@ -313,139 +164,89 @@ abstract final class Env {
     required bool isProduction,
     required Iterable<String> readinessIssues,
   }) {
-    return enforceProductionReadiness &&
-        isProduction &&
-        readinessIssues.isNotEmpty;
-  }
-
-  static String get receiptVerifyEndpoint => resolveReceiptVerifyEndpoint(
-    _receiptVerifyEndpointOverride,
-    supabaseUrl: supabaseUrl,
-  );
-
-  static String resolveReceiptVerifyEndpoint(
-    String configuredValue, {
-    required String supabaseUrl,
-  }) {
-    final String configured = configuredValue.trim();
-    if (configured.isNotEmpty) {
-      return configured;
-    }
-
-    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
-    if (supabaseUri != null &&
-        supabaseUri.hasAuthority &&
-        supabaseUri.scheme == 'https') {
-      return supabaseUri.resolve('/functions/v1/verify-receipt').toString();
-    }
-
-    return 'https://chronospark.app/verify-receipt';
-  }
-
-  static String resolveAiReportEndpoint(
-    String configuredValue, {
-    required String supabaseUrl,
-  }) {
-    final String configured = configuredValue.trim();
-    if (configured.isNotEmpty) {
-      return configured;
-    }
-
-    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
-    if (supabaseUri != null &&
-        supabaseUri.hasAuthority &&
-        supabaseUri.scheme == 'https') {
-      return supabaseUri.resolve('/functions/v1/ai-report').toString();
-    }
-
-    return '';
-  }
-
-  static List<String> productionReadinessIssues({bool force = false}) {
-    if (!force && !enforceProductionReadiness && !isProduction) {
-      return const <String>[];
-    }
-
-    final List<String> issues = <String>[];
-    if (enableCrashReporting == false) {
-      issues.add('Crash reporting is disabled.');
-    }
-    if (enableMockLogin) {
-      issues.add('Mock login bypass is enabled.');
-    }
-    if (enableMockMode) {
-      issues.add('Global mock mode is enabled.');
-    }
-    if (enablePaywallDisabled) {
-      issues.add('Paywall-disabled development override is enabled.');
-    }
-    if (enableTesterFullAccess) {
-      issues.add('Tester full-access override is enabled.');
-    }
-    if (!isSupabaseConfigured) {
-      issues.add('Supabase authentication is not configured.');
-    }
-    _validateHttpsEndpoint(
-      receiptVerifyEndpoint,
-      label: 'Receipt verification endpoint',
-      issues: issues,
+    return _ReadinessPolicy.resolveShouldBlockStartupForProductionReadiness(
+      enforceProductionReadiness: enforceProductionReadiness,
+      isProduction: isProduction,
+      readinessIssues: readinessIssues,
     );
-    _validateHttpsEndpoint(
-      aiProxyEndpoint,
-      label: 'AI proxy endpoint',
-      issues: issues,
-    );
-    _validateHttpsEndpoint(
-      accountDeleteEndpoint,
-      label: 'Account deletion endpoint',
-      issues: issues,
-    );
-    if (enableRuntimeFeatureFlags && !isFirebaseFeatureFlagRuntimeReady) {
-      issues.add('Runtime feature flags require Firebase to be configured.');
-    }
-    if (appLinksAndroidSha256.trim().isEmpty) {
-      issues.add('Android App Links SHA-256 fingerprint is not configured.');
-    }
-    if (appLinksIosTeamId.trim().isEmpty) {
-      issues.add('iOS associated domains team ID is not configured.');
-    }
-    return issues;
   }
 
-  static void _validateHttpsEndpoint(
-    String value, {
-    required String label,
-    required List<String> issues,
+  static List<String> productionReadinessIssues({
+    bool force = false,
+    bool? firebaseInitialized,
+    String? firebaseProjectId,
   }) {
-    final String endpoint = value.trim();
-    if (endpoint.isEmpty) {
-      issues.add('$label is not configured.');
-      return;
-    }
-    final Uri? uri = Uri.tryParse(endpoint);
-    if (uri == null || !uri.hasAuthority || uri.scheme != 'https') {
-      issues.add('$label must be a valid HTTPS URL.');
-    }
+    return _ReadinessPolicy.productionReadinessIssues(
+      force: force,
+      firebaseInitialized: firebaseInitialized,
+      firebaseProjectId: firebaseProjectId,
+    );
   }
 
-  static bool get isFirebaseFeatureFlagRuntimeReady =>
-      !isMockMode && enableRuntimeFeatureFlags && _hasFirebaseRuntime;
-
-  static bool get _hasFirebaseRuntime => true;
-
-  static String _readString(String key, String fallback) {
-    final String? value = _dotenvValue(key);
-    if (value != null && value.trim().isNotEmpty) {
-      return value.trim();
-    }
-    return fallback;
+  static String? resolveFirebaseFeatureFlagReadinessIssue({
+    required bool isMockMode,
+    required bool enableRuntimeFeatureFlags,
+    required bool? firebaseInitialized,
+    required String? firebaseProjectId,
+  }) {
+    return _ReadinessPolicy.resolveFirebaseFeatureFlagReadinessIssue(
+      isMockMode: isMockMode,
+      enableRuntimeFeatureFlags: enableRuntimeFeatureFlags,
+      firebaseInitialized: firebaseInitialized,
+      firebaseProjectId: firebaseProjectId,
+    );
   }
 
-  static bool _readBool(String key, bool fallback) {
-    final String? value = _dotenvValue(key);
-    if (value == null) {
-      return fallback;
+  static bool resolveShouldUseFirebaseFeatureFlags({
+    required bool isMockMode,
+    required bool enableRuntimeFeatureFlags,
+    required bool firebaseInitialized,
+    required String? firebaseProjectId,
+  }) {
+    return _ReadinessPolicy.resolveShouldUseFirebaseFeatureFlags(
+      isMockMode: isMockMode,
+      enableRuntimeFeatureFlags: enableRuntimeFeatureFlags,
+      firebaseInitialized: firebaseInitialized,
+      firebaseProjectId: firebaseProjectId,
+    );
+  }
+
+  /// Resolves configuration without allowing a bundled `.env` value to
+  /// override an explicit define or any value compiled into a release build.
+  static String resolveConfiguredString({
+    required String defineValue,
+    required bool defineProvided,
+    required String? dotenvValue,
+    required bool isReleaseMode,
+  }) {
+    if (isReleaseMode || defineProvided) {
+      return defineValue;
     }
+    final String? normalized = dotenvValue?.trim();
+    return normalized == null || normalized.isEmpty ? defineValue : normalized;
+  }
+
+  static bool resolveConfiguredBool({
+    required String key,
+    required bool defineValue,
+    required bool defineProvided,
+    required String? rawDefineValue,
+    required String? dotenvValue,
+    required bool isReleaseMode,
+  }) {
+    if (defineProvided) {
+      if (rawDefineValue == null || rawDefineValue.trim().isEmpty) {
+        throw FormatException('Raw configuration value for $key is missing.');
+      }
+      return _parseConfiguredBool(key, rawDefineValue);
+    }
+    if (isReleaseMode || dotenvValue == null) {
+      return defineValue;
+    }
+    return _parseConfiguredBool(key, dotenvValue);
+  }
+
+  static bool _parseConfiguredBool(String key, String value) {
     switch (value.trim().toLowerCase()) {
       case 'true':
       case '1':
@@ -458,8 +259,39 @@ abstract final class Env {
       case 'off':
         return false;
       default:
-        return fallback;
+        throw FormatException(
+          'Configuration value for $key must be a boolean.',
+        );
     }
+  }
+
+  static String _readString(
+    String key,
+    String fallback, {
+    bool defineProvided = false,
+  }) {
+    return resolveConfiguredString(
+      defineValue: fallback,
+      defineProvided: defineProvided,
+      dotenvValue: _dotenvValue(key),
+      isReleaseMode: kReleaseMode,
+    );
+  }
+
+  static bool _readBool(
+    String key,
+    bool fallback, {
+    bool defineProvided = false,
+    required String rawDefineValue,
+  }) {
+    return resolveConfiguredBool(
+      key: key,
+      defineValue: fallback,
+      defineProvided: defineProvided,
+      rawDefineValue: rawDefineValue,
+      dotenvValue: _dotenvValue(key),
+      isReleaseMode: kReleaseMode,
+    );
   }
 
   static String? _dotenvValue(String key) {
@@ -470,42 +302,28 @@ abstract final class Env {
     }
   }
 
-  /// Reads a security-relevant flag.
-  ///
-  /// In a release build the bundled `.env` is ignored entirely and only the
-  /// compile-time `--dart-define` is honoured. `.env` ships inside the app
-  /// bundle (see `pubspec.yaml` assets), so treating it as authoritative for
-  /// risk flags meant a stray `CHRONOSPARK_ENABLE_MOCK_LOGIN=true` — or a
-  /// repackaged bundle — could enable mock authentication in a shipped binary,
-  /// and a `--dart-define` could not override it. Debug/profile builds keep the
-  /// `.env` convenience.
+  // Security-relevant reads use the same release-safe precedence as all
+  // configuration values while keeping risk-sensitive call sites explicit.
   static bool _readRiskBool(
     String key,
     bool fallback, {
     required bool defineProvided,
+    required String rawDefineValue,
   }) {
-    if (kReleaseMode) {
-      return fallback;
-    }
-    if (defineProvided) {
-      return fallback;
-    }
-    return _readBool(key, fallback);
+    return _readBool(
+      key,
+      fallback,
+      defineProvided: defineProvided,
+      rawDefineValue: rawDefineValue,
+    );
   }
 
-  /// String counterpart of [_readRiskBool]. Used for the app flavor, which
-  /// gates every other production check.
+  /// String counterpart of [_readRiskBool] for the app flavor gate.
   static String _readRiskString(
     String key,
     String fallback, {
     required bool defineProvided,
   }) {
-    if (kReleaseMode) {
-      return fallback;
-    }
-    if (defineProvided) {
-      return fallback;
-    }
-    return _readString(key, fallback);
+    return _readString(key, fallback, defineProvided: defineProvided);
   }
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +34,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
   }
 
+  Future<void> enterLoginCredentials(
+    WidgetTester tester, {
+    required String email,
+    required String password,
+  }) async {
+    final Finder emailField = find.descendant(
+      of: find.byKey(const ValueKey('login-email-field')),
+      matching: find.byType(TextField),
+    );
+    final Finder passwordField = find.descendant(
+      of: find.byKey(const ValueKey('login-password-field')),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(emailField, email);
+    await tester.enterText(passwordField, password);
+    for (int i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.ensureVisible(find.text('ENTER SYSTEM'));
+    await tester.pump();
+    await tester.tap(find.text('ENTER SYSTEM'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+  }
+
   testWidgets('a signed-out user is held at the login surface', (
     WidgetTester tester,
   ) async {
@@ -43,6 +69,7 @@ void main() {
 
     expect(find.text('APP_READY'), findsNothing);
     expect(find.text('ENTER SYSTEM'), findsOneWidget);
+    expect(find.textContaining('TESTER ACCESS'), findsNothing);
   });
 
   testWidgets('a successful sign-in admits the user to the app', (
@@ -235,6 +262,86 @@ void main() {
   );
 
   testWidgets(
+    'QA tester access opens a local test profile without credentials',
+    (WidgetTester tester) async {
+      tester.platformDispatcher.views.first
+        ..physicalSize = const Size(800, 1400)
+        ..devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.platformDispatcher.views.first
+          ..resetPhysicalSize()
+          ..resetDevicePixelRatio();
+      });
+
+      final _FakeAuthService service = _FakeAuthService(
+        failWith: 'network-request-failed',
+      );
+      addTearDown(service.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: AuthGate(
+              authService: service,
+              enableMockLogin: true,
+              child: const Scaffold(body: Text('APP_READY')),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.textContaining('Mock login:'), findsNothing);
+      expect(
+        find.text('QA tester build uses an isolated local test profile.'),
+        findsOneWidget,
+      );
+      final Finder testerAccess = find.byKey(
+        const ValueKey<String>('qa-tester-access-button'),
+      );
+      tester.widget<SmartPressable>(testerAccess).onTap();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(service.signInCalls, 0);
+      expect(find.text('APP_READY'), findsOneWidget);
+    },
+  );
+
+  testWidgets('email submission in QA never bypasses the auth service', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAuthService service = _FakeAuthService(
+      failWith: 'wrong-password',
+    );
+    addTearDown(service.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: AuthGate(
+            authService: service,
+            enableMockLogin: true,
+            child: const Scaffold(body: Text('APP_READY')),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await enterLoginCredentials(
+      tester,
+      email: 'qa-tester@chronospark.app',
+      password: 'ordinary-password',
+    );
+
+    expect(service.signInCalls, 1);
+    expect(find.text('APP_READY'), findsNothing);
+  });
+
+  testWidgets(
     'Google/GitHub sign-in buttons are hidden behind the mock-login hint',
     (WidgetTester tester) async {
       final _FakeAuthService service = _FakeAuthService();
@@ -256,6 +363,7 @@ void main() {
 
       expect(find.text('Continue with Google'), findsNothing);
       expect(find.text('Continue with GitHub'), findsNothing);
+      expect(find.textContaining('TESTER ACCESS'), findsOneWidget);
     },
   );
 

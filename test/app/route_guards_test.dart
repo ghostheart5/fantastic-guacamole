@@ -30,8 +30,8 @@ void main() {
               hasAuthenticatedUser: false,
             ),
             mockLogin: MockLoginConfigState(
-              email: 'mock@chronospark.app',
-              password: 'ChronoSpark123!',
+              email: 'tester@chronospark.local',
+              password: '',
             ),
           ),
         ),

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yaml/yaml.dart';
 
 void main() {
   final Directory root = Directory.current;
@@ -70,7 +71,42 @@ void main() {
   });
 
   test('OAuth fallback uses the app callback scheme', () {
-    final String env = read('lib/config/env.dart');
-    expect(env, contains("defaultValue: 'chronospark://auth-callback'"));
+    final String endpoints = read('lib/config/src/service_endpoints.dart');
+    expect(endpoints, contains("defaultValue: 'chronospark://auth-callback'"));
+  });
+
+  test('local dotenv is compile-time input and never a Flutter asset', () {
+    final YamlMap pubspec = loadYaml(read('pubspec.yaml')) as YamlMap;
+    final YamlMap flutter = pubspec['flutter'] as YamlMap;
+    final YamlList assets = flutter['assets'] as YamlList;
+    final RegExp dotenvAsset = RegExp(r'(^|[\\/])\.env(?:\..+)?$');
+
+    final Iterable<String> assetPaths = assets.map((dynamic asset) {
+      if (asset is String) {
+        return asset;
+      }
+      if (asset is YamlMap) {
+        return asset['path']?.toString() ?? '';
+      }
+      return '';
+    });
+    expect(assetPaths.where(dotenvAsset.hasMatch), isEmpty);
+
+    expect(
+      read('lib/app/startup/app_bootstrap.dart'),
+      isNot(contains('flutter_dotenv')),
+    );
+    expect(
+      read('lib/app/startup/startup_error_hooks.dart'),
+      isNot(contains('dotenv.load')),
+    );
+    expect(
+      read('.vscode/launch.json'),
+      contains('--dart-define-from-file=.env'),
+    );
+    expect(
+      read('scripts/flutter_windows_run_local_nuget.ps1'),
+      contains('--dart-define-from-file=.env'),
+    );
   });
 }

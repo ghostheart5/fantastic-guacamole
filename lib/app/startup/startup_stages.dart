@@ -22,6 +22,36 @@ Future<void> runStartupStorageSequence({
   await runStorageMigration();
 }
 
+StartupBootstrapResult? _productionReadinessBlockResult(
+  List<String> readinessIssues,
+) {
+  final bool productionReadinessBlocked =
+      Env.resolveShouldBlockStartupForProductionReadiness(
+        enforceProductionReadiness: Env.enforceProductionReadiness,
+        isProduction: Env.isProduction,
+        readinessIssues: readinessIssues,
+      );
+  if (!productionReadinessBlocked) {
+    return null;
+  }
+
+  Logger.error(
+    'Production readiness enforcement blocked startup: '
+    '${readinessIssues.length} issue(s).',
+  );
+  RuntimeDiagnostics.recordState(
+    'startup.blocked',
+    message: 'production readiness requirements were not met',
+    data: <String, Object?>{'issueCount': readinessIssues.length},
+  );
+  return const StartupBootstrapResult(
+    hasOnboarded: false,
+    hasSeenWelcome: false,
+    startupError: null,
+    productionReadinessBlocked: true,
+  );
+}
+
 Future<StartupBootstrapResult> _initializeStartup(
   WidgetRef ref,
   StartupCancellationToken cancellationToken,
@@ -31,30 +61,12 @@ Future<StartupBootstrapResult> _initializeStartup(
   String? startupError;
   final Stopwatch totalBootstrap = Stopwatch()..start();
 
-  final List<String> readinessIssues = intelligenceService
+  List<String> readinessIssues = intelligenceService
       .productionReadinessIssues();
-  final bool productionReadinessBlocked =
-      Env.resolveShouldBlockStartupForProductionReadiness(
-        enforceProductionReadiness: Env.enforceProductionReadiness,
-        isProduction: Env.isProduction,
-        readinessIssues: readinessIssues,
-      );
-  if (productionReadinessBlocked) {
-    Logger.error(
-      'Production readiness enforcement blocked startup: '
-      '${readinessIssues.length} issue(s).',
-    );
-    RuntimeDiagnostics.recordState(
-      'startup.blocked',
-      message: 'production readiness requirements were not met',
-      data: <String, Object?>{'issueCount': readinessIssues.length},
-    );
-    return const StartupBootstrapResult(
-      hasOnboarded: false,
-      hasSeenWelcome: false,
-      startupError: null,
-      productionReadinessBlocked: true,
-    );
+  final StartupBootstrapResult? preflightBlock =
+      _productionReadinessBlockResult(readinessIssues);
+  if (preflightBlock != null) {
+    return preflightBlock;
   }
 
   const SystemBoot();
@@ -86,6 +98,20 @@ Future<StartupBootstrapResult> _initializeStartup(
     return _cancelledStartupResult;
   }
   startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
+
+  final bool firebaseInitialized = Firebase.apps.isNotEmpty;
+  final String? firebaseProjectId = firebaseInitialized
+      ? Firebase.app().options.projectId
+      : null;
+  readinessIssues = intelligenceService.productionReadinessIssues(
+    firebaseInitialized: firebaseInitialized,
+    firebaseProjectId: firebaseProjectId,
+  );
+  final StartupBootstrapResult? firebaseReadinessBlock =
+      _productionReadinessBlockResult(readinessIssues);
+  if (firebaseReadinessBlock != null) {
+    return firebaseReadinessBlock;
+  }
 
   final String? supabaseIssue = await _measureIssueStage(
     'supabase',

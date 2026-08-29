@@ -115,7 +115,6 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    - .env
     - assets/animations/level_up.json
     - assets/animations/signal_pulse.json
     - assets/audio/error_soft.wav

@@ -82,9 +82,7 @@ class AuthGate extends ConsumerStatefulWidget {
     this.authService,
     this.startupError,
     this.deepLinkMode,
-    this.enableMockLogin = !kReleaseMode,
-    this.mockLoginEmail = '',
-    this.mockLoginPassword = '',
+    this.enableMockLogin = false,
   });
 
   final Widget child;
@@ -92,8 +90,6 @@ class AuthGate extends ConsumerStatefulWidget {
   final String? startupError;
   final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
-  final String mockLoginEmail;
-  final String mockLoginPassword;
 
   @override
   ConsumerState<AuthGate> createState() => _AuthGateState();
@@ -121,8 +117,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    final bool allowMockAccess =
-        widget.enableMockLogin || (!kReleaseMode && _authInitError != null);
+    final bool allowMockAccess = widget.enableMockLogin;
     final String? startupMessage = _effectiveStartupError;
     final AuthServiceContract fallbackAuthService =
         _authService ?? const _UnavailableAuthService();
@@ -141,8 +136,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               startupError: startupMessage,
               deepLinkMode: widget.deepLinkMode,
               enableMockLogin: true,
-              mockLoginEmail: widget.mockLoginEmail,
-              mockLoginPassword: widget.mockLoginPassword,
               onMockSignIn: _activateMockSignIn,
             );
           }
@@ -165,8 +158,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               startupError: startupMessage,
               deepLinkMode: widget.deepLinkMode,
               enableMockLogin: true,
-              mockLoginEmail: widget.mockLoginEmail,
-              mockLoginPassword: widget.mockLoginPassword,
               onMockSignIn: _activateMockSignIn,
             );
           }
@@ -184,8 +175,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             startupError: startupMessage,
             deepLinkMode: widget.deepLinkMode,
             enableMockLogin: allowMockAccess,
-            mockLoginEmail: widget.mockLoginEmail,
-            mockLoginPassword: widget.mockLoginPassword,
             onMockSignIn: _activateMockSignIn,
           );
         }
@@ -200,8 +189,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                   startupError: startupMessage,
                   deepLinkMode: widget.deepLinkMode,
                   enableMockLogin: true,
-                  mockLoginEmail: widget.mockLoginEmail,
-                  mockLoginPassword: widget.mockLoginPassword,
                   onMockSignIn: _activateMockSignIn,
                 );
               }
@@ -222,8 +209,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 startupError: startupMessage,
                 deepLinkMode: widget.deepLinkMode,
                 enableMockLogin: allowMockAccess,
-                mockLoginEmail: widget.mockLoginEmail,
-                mockLoginPassword: widget.mockLoginPassword,
                 onMockSignIn: _activateMockSignIn,
               );
             }
@@ -233,8 +218,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 startupError: startupMessage,
                 deepLinkMode: widget.deepLinkMode,
                 enableMockLogin: allowMockAccess,
-                mockLoginEmail: widget.mockLoginEmail,
-                mockLoginPassword: widget.mockLoginPassword,
                 onMockSignIn: _activateMockSignIn,
               );
             }
@@ -352,8 +335,6 @@ class _AuthScreen extends ConsumerStatefulWidget {
     required this.startupError,
     required this.deepLinkMode,
     required this.enableMockLogin,
-    required this.mockLoginEmail,
-    required this.mockLoginPassword,
     required this.onMockSignIn,
   });
 
@@ -361,8 +342,6 @@ class _AuthScreen extends ConsumerStatefulWidget {
   final String? startupError;
   final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
-  final String mockLoginEmail;
-  final String mockLoginPassword;
   final VoidCallback onMockSignIn;
 
   @override
@@ -421,7 +400,7 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       startupError: widget.startupError,
       showMockHint: widget.enableMockLogin,
       mockHint: widget.enableMockLogin
-          ? 'Mock login: ${widget.mockLoginEmail}  /  ${widget.mockLoginPassword}'
+          ? 'QA tester build uses an isolated local test profile.'
           : null,
       showFirstRunGuide:
           ref.watch(onboardingWelcomeCompleteProvider) &&
@@ -436,7 +415,9 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       onForgotPassword: () => _runAuthAction(_handleForgotPassword),
       onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
       onGitHubSignIn: () => _runAuthAction(_handleGitHubSignIn),
-      onMockLogin: null,
+      onMockLogin: widget.enableMockLogin
+          ? () => _runAuthAction(_handleMockSignIn)
+          : null,
     );
   }
 
@@ -486,17 +467,6 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       return;
     }
 
-    if (widget.enableMockLogin &&
-        email.toLowerCase() == widget.mockLoginEmail.trim().toLowerCase() &&
-        password == widget.mockLoginPassword) {
-      AppAnalytics.track(
-        'login_event',
-        params: <String, Object?>{'provider': 'mock', 'mode': 'email_signin'},
-      );
-      widget.onMockSignIn();
-      return;
-    }
-
     if (_signUpMode) {
       if (!Validators.isStrongPassword(password)) {
         _showMessage('Use 8+ chars with upper, lower, and a number.');
@@ -529,13 +499,20 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
     _showMessage('Password reset link sent.');
   }
 
+  Future<void> _handleMockSignIn() async {
+    if (!widget.enableMockLogin) {
+      return;
+    }
+    AppAnalytics.track(
+      'login_event',
+      params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
+    );
+    widget.onMockSignIn();
+  }
+
   Future<void> _handleGoogleSignIn() async {
     if (widget.enableMockLogin) {
-      AppAnalytics.track(
-        'login_event',
-        params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
-      );
-      widget.onMockSignIn();
+      await _handleMockSignIn();
       return;
     }
     await widget.authService.signInWithGoogle();
@@ -547,11 +524,7 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
 
   Future<void> _handleGitHubSignIn() async {
     if (widget.enableMockLogin) {
-      AppAnalytics.track(
-        'login_event',
-        params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
-      );
-      widget.onMockSignIn();
+      await _handleMockSignIn();
       return;
     }
     await widget.authService.signInWithGitHub();

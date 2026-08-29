@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fantastic_guacamole/config/firebase_identity.dart';
+
 const List<String> requiredProductionVariables = <String>[
   'CHRONOSPARK_SUPABASE_URL',
   'CHRONOSPARK_SUPABASE_ANON_KEY',
@@ -215,6 +217,10 @@ void _validateGoogleServices(String source, List<String> failures) {
   if (projectId.isEmpty || !RegExp(r'^\d+$').hasMatch(projectNumber)) {
     failures.add(
       'Android Firebase configuration must identify a Firebase project.',
+    );
+  } else if (!FirebaseIdentity.matchesExpectedProjectId(projectId)) {
+    failures.add(
+      'Android Firebase configuration must use the expected ChronoSpark project.',
     );
   }
 

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
@@ -15,7 +14,7 @@ final mockSignInProvider = NotifierProvider<MockSignInNotifier, bool>(
 
 class MockSignInNotifier extends Notifier<bool> {
   @override
-  bool build() => Env.isMockMode && Env.hasTesterFullAccess;
+  bool build() => false;
 
   void set(bool value) => state = value;
 }

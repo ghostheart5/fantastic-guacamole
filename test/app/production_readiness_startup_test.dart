@@ -42,6 +42,175 @@ void main() {
       );
     });
 
+    test('evaluates Firebase readiness only after bootstrap is known', () {
+      expect(
+        Env.resolveShouldUseFirebaseFeatureFlags(
+          isMockMode: false,
+          enableRuntimeFeatureFlags: true,
+          firebaseInitialized: true,
+          firebaseProjectId: Env.expectedFirebaseProjectId,
+        ),
+        isTrue,
+      );
+      expect(
+        Env.resolveShouldUseFirebaseFeatureFlags(
+          isMockMode: false,
+          enableRuntimeFeatureFlags: true,
+          firebaseInitialized: false,
+          firebaseProjectId: null,
+        ),
+        isFalse,
+      );
+      expect(
+        Env.resolveFirebaseFeatureFlagReadinessIssue(
+          isMockMode: false,
+          enableRuntimeFeatureFlags: true,
+          firebaseInitialized: null,
+          firebaseProjectId: null,
+        ),
+        isNull,
+      );
+      expect(
+        Env.resolveFirebaseFeatureFlagReadinessIssue(
+          isMockMode: false,
+          enableRuntimeFeatureFlags: true,
+          firebaseInitialized: false,
+          firebaseProjectId: null,
+        ),
+        contains('Firebase core'),
+      );
+      expect(
+        Env.resolveFirebaseFeatureFlagReadinessIssue(
+          isMockMode: false,
+          enableRuntimeFeatureFlags: true,
+          firebaseInitialized: true,
+          firebaseProjectId: Env.expectedFirebaseProjectId,
+        ),
+        isNull,
+      );
+      expect(
+        Env.resolveFirebaseFeatureFlagReadinessIssue(
+          isMockMode: false,
+          enableRuntimeFeatureFlags: true,
+          firebaseInitialized: true,
+          firebaseProjectId: 'another-firebase-project',
+        ),
+        contains('expected ChronoSpark Firebase project'),
+      );
+      expect(
+        Env.resolveShouldUseFirebaseFeatureFlags(
+          isMockMode: false,
+          enableRuntimeFeatureFlags: true,
+          firebaseInitialized: true,
+          firebaseProjectId: 'another-firebase-project',
+        ),
+        isFalse,
+      );
+      expect(
+        Env.resolveFirebaseFeatureFlagReadinessIssue(
+          isMockMode: false,
+          enableRuntimeFeatureFlags: false,
+          firebaseInitialized: false,
+          firebaseProjectId: null,
+        ),
+        isNull,
+      );
+      expect(
+        Env.resolveFirebaseFeatureFlagReadinessIssue(
+          isMockMode: true,
+          enableRuntimeFeatureFlags: true,
+          firebaseInitialized: false,
+          firebaseProjectId: null,
+        ),
+        isNull,
+      );
+    });
+
+    test('aggregates readiness issues from every config boundary', () {
+      final List<String> issues = Env.productionReadinessIssues(
+        force: true,
+        firebaseInitialized: false,
+        firebaseProjectId: null,
+      );
+      final String? firebaseIssue =
+          Env.resolveFirebaseFeatureFlagReadinessIssue(
+            isMockMode: Env.isMockMode,
+            enableRuntimeFeatureFlags: Env.enableRuntimeFeatureFlags,
+            firebaseInitialized: false,
+            firebaseProjectId: null,
+          );
+      bool hasEndpointIssue(String label) =>
+          issues.any((String issue) => issue.startsWith(label));
+      bool endpointIsUnsafe(String value) =>
+          value.trim().isEmpty || !Env.resolveIsValidHttpsEndpoint(value);
+
+      expect(
+        issues.contains('Crash reporting is disabled.'),
+        !Env.enableCrashReporting,
+      );
+      expect(
+        issues.contains('Mock login bypass is enabled.'),
+        Env.enableMockLogin,
+      );
+      expect(
+        issues.contains('Global mock mode is enabled.'),
+        Env.enableMockMode,
+      );
+      expect(
+        issues.contains('Paywall-disabled development override is enabled.'),
+        Env.enablePaywallDisabled,
+      );
+      expect(
+        issues.contains('Tester full-access override is enabled.'),
+        Env.enableTesterFullAccess,
+      );
+      expect(
+        issues.contains('Supabase URL must be a valid root HTTPS URL.'),
+        !Env.resolveIsValidSupabaseUrl(Env.supabaseUrl),
+      );
+      expect(
+        issues.contains('Supabase publishable key is missing or malformed.'),
+        !Env.resolveIsValidSupabaseAnonKey(Env.supabaseAnonKey),
+      );
+      expect(
+        hasEndpointIssue('Receipt verification endpoint'),
+        endpointIsUnsafe(Env.receiptVerifyEndpoint),
+      );
+      expect(
+        hasEndpointIssue('AI proxy endpoint'),
+        endpointIsUnsafe(Env.aiProxyEndpoint),
+      );
+      expect(
+        hasEndpointIssue('AI report endpoint'),
+        endpointIsUnsafe(Env.aiReportEndpoint),
+      );
+      expect(
+        hasEndpointIssue('Account deletion endpoint'),
+        endpointIsUnsafe(Env.accountDeleteEndpoint),
+      );
+      expect(
+        issues.contains(
+          'Android App Links SHA-256 fingerprint is not configured.',
+        ),
+        Env.appLinksAndroidSha256.trim().isEmpty,
+      );
+      expect(
+        issues.contains('iOS associated domains team ID is not configured.'),
+        Env.appLinksIosTeamId.trim().isEmpty,
+      );
+      expect(
+        issues.any(
+          (String issue) =>
+              issue.contains('Runtime feature flags require Firebase core'),
+        ),
+        firebaseIssue != null,
+      );
+      if (firebaseIssue != null) {
+        expect(issues, contains(firebaseIssue));
+      }
+      expect(issues.toSet().length, issues.length);
+    });
+
     testWidgets('blocked app exposes only a user-safe non-routable screen', (
       WidgetTester tester,
     ) async {

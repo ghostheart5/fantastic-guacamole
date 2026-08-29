@@ -47,7 +47,6 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
       (_, _) => notifyListeners(),
     );
     _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
-    _ref.listen(mockLoginConfigProvider, (_, _) => notifyListeners());
     _ref.listen(internalAdvisorAccessProvider, (_, _) => notifyListeners());
   }
 
@@ -309,13 +308,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.login,
         builder: (BuildContext context, GoRouterState state) {
           final intelligence = ref.read(intelligenceStateProvider);
-          final mockLoginConfig = ref.read(mockLoginConfigProvider);
           return AuthGate(
-            enableMockLogin:
-                intelligence.flags.mockLoginEnabled ||
-                intelligence.flags.testerFullAccess,
-            mockLoginEmail: mockLoginConfig.email,
-            mockLoginPassword: mockLoginConfig.password,
+            enableMockLogin: intelligence.flags.mockLoginEnabled,
             deepLinkMode: parseDeepLinkMode(state.uri.queryParameters['mode']),
             child: _navigationShellForRoute(state),
           );

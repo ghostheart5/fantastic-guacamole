@@ -1,10 +1,19 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/config/firebase_identity.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../scripts/validate_production_config.dart';
 
 void main() {
+  String legacySupabaseKey(String role) {
+    String encode(Object value) =>
+        base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+    return '${encode(<String, String>{'alg': 'HS256', 'typ': 'JWT'})}.'
+        '${encode(<String, String>{'role': role, 'iss': 'supabase'})}.'
+        'contract-signature';
+  }
+
   Map<String, String> validValues() => <String, String>{
     'CHRONOSPARK_SUPABASE_URL': 'https://project-ref.supabase.co',
     'CHRONOSPARK_SUPABASE_ANON_KEY':
@@ -21,7 +30,7 @@ void main() {
   String validGoogleServices() => jsonEncode(<String, Object>{
     'project_info': <String, String>{
       'project_number': '1234567890',
-      'project_id': 'chronospark-production',
+      'project_id': FirebaseIdentity.expectedProjectId,
     },
     'client': <Object>[
       <String, Object>{
@@ -99,6 +108,56 @@ void main() {
       ),
       contains(
         'Android Firebase configuration must include the ChronoSpark package and an API key.',
+      ),
+    );
+  });
+
+  test('rejects Firebase configuration for another project', () {
+    final String wrongProject = validGoogleServices().replaceFirst(
+      FirebaseIdentity.expectedProjectId,
+      'another-firebase-project',
+    );
+
+    expect(
+      validateProductionConfiguration(
+        validValues(),
+        googleServicesJson: wrongProject,
+      ),
+      contains(
+        'Android Firebase configuration must use the expected ChronoSpark project.',
+      ),
+    );
+  });
+
+  test('rejects Firebase configuration without a project ID', () {
+    final Map<String, dynamic> missingProject =
+        jsonDecode(validGoogleServices()) as Map<String, dynamic>;
+    final Map<String, dynamic> projectInfo =
+        missingProject['project_info'] as Map<String, dynamic>;
+    projectInfo.remove('project_id');
+
+    expect(
+      validateProductionConfiguration(
+        validValues(),
+        googleServicesJson: jsonEncode(missingProject),
+      ),
+      contains(
+        'Android Firebase configuration must identify a Firebase project.',
+      ),
+    );
+  });
+
+  test('rejects a privileged legacy Supabase JWT client key', () {
+    final Map<String, String> values = validValues()
+      ..['CHRONOSPARK_SUPABASE_ANON_KEY'] = legacySupabaseKey('service_role');
+
+    expect(
+      validateProductionConfiguration(
+        values,
+        googleServicesJson: validGoogleServices(),
+      ),
+      contains(
+        'CHRONOSPARK_SUPABASE_ANON_KEY must be a Supabase anon JWT or publishable key.',
       ),
     );
   });

@@ -56,7 +56,7 @@ void main() {
     expect(find.text('Forgot Password?'), findsOneWidget);
   });
 
-  testWidgets('mock credentials enter the app without backend access', (
+  testWidgets('QA tester access enters the app without backend access', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -65,8 +65,6 @@ void main() {
           home: AuthGate(
             authService: _IntegrationFakeAuthService(),
             enableMockLogin: true,
-            mockLoginEmail: 'mock@chronospark.app',
-            mockLoginPassword: 'ChronoSpark123!',
             child: const Scaffold(body: Text('APP_READY')),
           ),
         ),
@@ -75,19 +73,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.textContaining('Mock login:'), findsOneWidget);
-    expect(find.textContaining('TESTER ACCESS'), findsNothing);
-    final Finder emailField = find.descendant(
-      of: find.byKey(const ValueKey('login-email-field')),
-      matching: find.byType(TextField),
+    expect(find.textContaining('Mock login:'), findsNothing);
+    final Finder testerAccess = find.byKey(
+      const ValueKey<String>('qa-tester-access-button'),
     );
-    final Finder passwordField = find.descendant(
-      of: find.byKey(const ValueKey('login-password-field')),
-      matching: find.byType(TextField),
-    );
-    await tester.enterText(emailField, 'mock@chronospark.app');
-    await tester.enterText(passwordField, 'ChronoSpark123!');
-    await tester.tap(find.text('ENTER SYSTEM'));
+    expect(testerAccess, findsOneWidget);
+    await tester.ensureVisible(testerAccess);
+    await tester.pump();
+    await tester.tap(testerAccess);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
