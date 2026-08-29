@@ -7,7 +7,7 @@ import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart'
 import 'package:fantastic_guacamole/engine/si/si_cognitive_evolution_timeline.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
+import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 
 abstract class AssistantIntentDetector {
@@ -41,8 +41,8 @@ abstract class AssistantContextBuilder implements IAssistantContextBuilder {
 }
 
 abstract class AssistantMemoryInterface {
-  List<SISnapshot> recentSnapshots({int limit = 24});
-  void capture(SISnapshot snapshot);
+  List<AssistantMemorySnapshot> recentSnapshots({int limit = 24});
+  void capture(AssistantMemorySnapshot snapshot);
   void clear();
 }
 

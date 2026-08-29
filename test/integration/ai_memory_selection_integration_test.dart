@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_memory_selection.dart';
-import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
+import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -9,8 +9,9 @@ void main() {
       'selectRelevantMemorySummaries prefers query/intent-relevant memory',
       () {
         final DateTime now = DateTime.utc(2026, 7, 5);
-        final List<SISnapshot> snapshots = <SISnapshot>[
-          SISnapshot(
+        final List<AssistantMemorySnapshot>
+        snapshots = <AssistantMemorySnapshot>[
+          AssistantMemorySnapshot(
             timestamp: now,
             energy: 0.3,
             fatigue: 0.8,
@@ -19,7 +20,7 @@ void main() {
             responseSummary:
                 'Energy is low and fatigue is elevated; prioritize recovery task.',
           ),
-          SISnapshot(
+          AssistantMemorySnapshot(
             timestamp: now.subtract(const Duration(minutes: 2)),
             energy: 0.7,
             fatigue: 0.2,
@@ -58,18 +59,19 @@ void main() {
 
     test('recentResponseSummaries de-duplicates and caps output', () {
       final DateTime now = DateTime.utc(2026, 7, 5);
-      final List<SISnapshot> snapshots = List<SISnapshot>.generate(10, (int i) {
-        return SISnapshot(
-          timestamp: now.subtract(Duration(minutes: i)),
-          energy: 0.5,
-          fatigue: 0.5,
-          completed: i,
-          skipped: 0,
-          responseSummary: i.isEven
-              ? 'Repeat summary token set'
-              : 'Unique summary entry number $i for memory ranking',
-        );
-      });
+      final List<AssistantMemorySnapshot> snapshots =
+          List<AssistantMemorySnapshot>.generate(10, (int i) {
+            return AssistantMemorySnapshot(
+              timestamp: now.subtract(Duration(minutes: i)),
+              energy: 0.5,
+              fatigue: 0.5,
+              completed: i,
+              skipped: 0,
+              responseSummary: i.isEven
+                  ? 'Repeat summary token set'
+                  : 'Unique summary entry number $i for memory ranking',
+            );
+          });
 
       final List<String> summaries = recentResponseSummaries(
         recentSnapshots: snapshots,
@@ -93,16 +95,17 @@ void main() {
 
     test('selectRelevantMemorySummaries caps result length to eight', () {
       final DateTime now = DateTime.utc(2026, 7, 5);
-      final List<SISnapshot> snapshots = List<SISnapshot>.generate(16, (int i) {
-        return SISnapshot(
-          timestamp: now.subtract(Duration(minutes: i)),
-          energy: 0.5,
-          fatigue: 0.5,
-          completed: i,
-          skipped: 0,
-          responseSummary: 'Summary $i with task action context',
-        );
-      });
+      final List<AssistantMemorySnapshot> snapshots =
+          List<AssistantMemorySnapshot>.generate(16, (int i) {
+            return AssistantMemorySnapshot(
+              timestamp: now.subtract(Duration(minutes: i)),
+              energy: 0.5,
+              fatigue: 0.5,
+              completed: i,
+              skipped: 0,
+              responseSummary: 'Summary $i with task action context',
+            );
+          });
 
       final List<String> selected = selectRelevantMemorySummaries(
         query: 'task action next priority',

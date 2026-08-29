@@ -34,16 +34,53 @@ class DataHygieneScheduler {
     required this._expiredSessionCleanup,
     required this._staleNotificationCleanup,
     required this._retentionPolicy,
-  });
+  }) : _runCacheCleanupOverride = null,
+       _runOrphanCleanupOverride = null,
+       _runExpiredSessionCleanupOverride = null,
+       _runStaleNotificationCleanupOverride = null;
 
-  final CacheCleanupService _cacheCleanup;
-  final OrphanDataCleanup _orphanCleanup;
-  final ExpiredSessionCleanup _expiredSessionCleanup;
-  final StaleNotificationCleanup _staleNotificationCleanup;
+  factory DataHygieneScheduler.forTesting({
+    required Future<int> Function() runCacheCleanup,
+    required Future<int> Function() runOrphanCleanup,
+    required Future<bool> Function() runExpiredSessionCleanup,
+    required Future<int> Function() runStaleNotificationCleanup,
+    required RetentionPolicy retentionPolicy,
+  }) => DataHygieneScheduler._withOperations(
+    runCacheCleanup: runCacheCleanup,
+    runOrphanCleanup: runOrphanCleanup,
+    runExpiredSessionCleanup: runExpiredSessionCleanup,
+    runStaleNotificationCleanup: runStaleNotificationCleanup,
+    retentionPolicy: retentionPolicy,
+  );
+
+  DataHygieneScheduler._withOperations({
+    required Future<int> Function() runCacheCleanup,
+    required Future<int> Function() runOrphanCleanup,
+    required Future<bool> Function() runExpiredSessionCleanup,
+    required Future<int> Function() runStaleNotificationCleanup,
+    required this._retentionPolicy,
+  }) : _cacheCleanup = null,
+       _orphanCleanup = null,
+       _expiredSessionCleanup = null,
+       _staleNotificationCleanup = null,
+       _runCacheCleanupOverride = runCacheCleanup,
+       _runOrphanCleanupOverride = runOrphanCleanup,
+       _runExpiredSessionCleanupOverride = runExpiredSessionCleanup,
+       _runStaleNotificationCleanupOverride = runStaleNotificationCleanup;
+
+  final CacheCleanupService? _cacheCleanup;
+  final OrphanDataCleanup? _orphanCleanup;
+  final ExpiredSessionCleanup? _expiredSessionCleanup;
+  final StaleNotificationCleanup? _staleNotificationCleanup;
   final RetentionPolicy _retentionPolicy;
+  final Future<int> Function()? _runCacheCleanupOverride;
+  final Future<int> Function()? _runOrphanCleanupOverride;
+  final Future<bool> Function()? _runExpiredSessionCleanupOverride;
+  final Future<int> Function()? _runStaleNotificationCleanupOverride;
 
   Timer? _timer;
   bool _running = false;
+  Future<DataHygieneReport>? _activeRun;
 
   bool get isRunning => _running;
 
@@ -53,9 +90,9 @@ class DataHygieneScheduler {
     }
     _running = true;
     _timer = Timer.periodic(_retentionPolicy.hygieneInterval, (_) {
-      unawaited(runNow());
+      unawaited(_runInBackground());
     });
-    unawaited(runNow());
+    unawaited(_runInBackground());
   }
 
   void pause() {
@@ -68,11 +105,45 @@ class DataHygieneScheduler {
     pause();
   }
 
-  Future<DataHygieneReport> runNow() async {
-    final int cache = await _cacheCleanup.run();
-    final int orphans = await _orphanCleanup.run();
-    final bool expiredSession = await _expiredSessionCleanup.run();
-    final int stale = await _staleNotificationCleanup.run();
+  Future<DataHygieneReport> runNow() {
+    final Future<DataHygieneReport>? activeRun = _activeRun;
+    if (activeRun != null) {
+      return activeRun;
+    }
+
+    late final Future<DataHygieneReport> nextRun;
+    nextRun = _runOnce().whenComplete(() {
+      if (identical(_activeRun, nextRun)) {
+        _activeRun = null;
+      }
+    });
+    _activeRun = nextRun;
+    return nextRun;
+  }
+
+  Future<void> _runInBackground() async {
+    try {
+      await runNow();
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory(
+        'DataHygiene',
+        'Cleanup tick failed; a later scheduled run will retry.',
+        error,
+        stackTrace,
+      );
+    }
+  }
+
+  Future<DataHygieneReport> _runOnce() async {
+    final int cache = await (_runCacheCleanupOverride ?? _cacheCleanup!.run)();
+    final int orphans =
+        await (_runOrphanCleanupOverride ?? _orphanCleanup!.run)();
+    final bool expiredSession =
+        await (_runExpiredSessionCleanupOverride ??
+            _expiredSessionCleanup!.run)();
+    final int stale =
+        await (_runStaleNotificationCleanupOverride ??
+            _staleNotificationCleanup!.run)();
 
     final DataHygieneReport report = DataHygieneReport(
       cacheItemsRemoved: cache,

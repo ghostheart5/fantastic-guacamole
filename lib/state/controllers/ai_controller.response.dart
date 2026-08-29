@@ -301,7 +301,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           'content': previousMessage,
         });
       }
-      final List<SISnapshot> recentSnapshots = ref
+      final List<AssistantMemorySnapshot> recentSnapshots = ref
           .read(
             conversation.surface == AssistantSurface.smartPlanner
                 ? smartPlannerMemoryProvider
@@ -423,7 +423,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           : baseConfidenceSeed;
 
       final List<String> recentHashes = recentSnapshots
-          .map((SISnapshot s) => s.responseHash)
+          .map((AssistantMemorySnapshot s) => s.responseHash)
           .whereType<String>()
           .where((String v) => v.isNotEmpty)
           .toList(growable: false);
@@ -754,7 +754,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
                 .notifier,
           )
           .capture(
-            SISnapshot(
+            AssistantMemorySnapshot(
               timestamp: DateTime.now(),
               energy: si.energy,
               fatigue: si.fatigue,

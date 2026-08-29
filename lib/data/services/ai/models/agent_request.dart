@@ -4,16 +4,27 @@ import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 
 class AgentRequest {
-  const AgentRequest({
+  AgentRequest({
     required this.prompt,
-    this.context = const <String, dynamic>{},
-    this.history = const <Map<String, String>>[],
-    this.tasks = const <Task>[],
+    Map<String, dynamic> context = const <String, dynamic>{},
+    List<Map<String, String>> history = const <Map<String, String>>[],
+    List<Task> tasks = const <Task>[],
     this.si,
     this.learning,
     this.personality = AIPersonality.planner,
     this.preferredAgent,
-  });
+  }) : context = Map<String, dynamic>.unmodifiable(
+         context.map<String, dynamic>(
+           (String key, dynamic value) => MapEntry(key, _freezeValue(value)),
+         ),
+       ),
+       history = List<Map<String, String>>.unmodifiable(
+         history.map(
+           (Map<String, String> entry) =>
+               Map<String, String>.unmodifiable(entry),
+         ),
+       ),
+       tasks = List<Task>.unmodifiable(tasks);
 
   final String prompt;
   final Map<String, dynamic> context;
@@ -23,6 +34,30 @@ class AgentRequest {
   final LearningState? learning;
   final AIPersonality personality;
   final String? preferredAgent;
+
+  static dynamic _freezeValue(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return Map<String, dynamic>.unmodifiable(
+        value.map<String, dynamic>(
+          (String key, dynamic item) => MapEntry(key, _freezeValue(item)),
+        ),
+      );
+    }
+    if (value is Map) {
+      return Map<Object?, Object?>.unmodifiable(
+        value.map<Object?, Object?>(
+          (dynamic key, dynamic item) => MapEntry(key, _freezeValue(item)),
+        ),
+      );
+    }
+    if (value is List<String>) {
+      return List<String>.unmodifiable(value);
+    }
+    if (value is Iterable) {
+      return List<Object?>.unmodifiable(value.map(_freezeValue));
+    }
+    return value;
+  }
 
   AgentRequest copyWith({
     String? prompt,
@@ -58,9 +93,11 @@ class AgentRequest {
 
   Map<String, dynamic> toMap() => <String, dynamic>{
     'prompt': prompt,
-    'context': context,
-    'history': history,
-    'tasks': tasks,
+    'context': Map<String, dynamic>.from(context),
+    'history': history
+        .map((Map<String, String> entry) => Map<String, String>.from(entry))
+        .toList(growable: false),
+    'tasks': List<Task>.from(tasks),
     'si': si,
     'learning': learning,
     'personality': personality,
@@ -69,8 +106,10 @@ class AgentRequest {
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'prompt': prompt,
-    'context': context,
-    'history': history,
+    'context': Map<String, dynamic>.from(context),
+    'history': history
+        .map((Map<String, String> entry) => Map<String, String>.from(entry))
+        .toList(growable: false),
     'tasks': tasks.map((Task task) => task.toJson()).toList(),
     'si': {
       'energy': si?.energy,

@@ -29,6 +29,22 @@ class NotificationRecord {
   }
 
   factory NotificationRecord.fromJson(Map<String, dynamic> json) {
+    String requiredText(String key) {
+      final String value = json[key]?.toString().trim() ?? '';
+      if (value.isEmpty) {
+        throw FormatException('Invalid notification $key.');
+      }
+      return value;
+    }
+
+    bool requiredBool(String key) {
+      final Object? value = json[key];
+      if (value is! bool) {
+        throw FormatException('Invalid notification $key.');
+      }
+      return value;
+    }
+
     final DateTime? scheduledAt = DateTime.tryParse(
       json['scheduledAt']?.toString() ?? '',
     );
@@ -36,12 +52,12 @@ class NotificationRecord {
       throw const FormatException('Invalid notification timestamp.');
     }
     return NotificationRecord(
-      id: json['id']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
-      message: json['message']?.toString() ?? '',
+      id: requiredText('id'),
+      title: requiredText('title'),
+      message: requiredText('message'),
       scheduledAt: scheduledAt,
-      isEnabled: json['isEnabled'] as bool? ?? true,
-      isRead: json['isRead'] as bool? ?? false,
+      isEnabled: requiredBool('isEnabled'),
+      isRead: requiredBool('isRead'),
     );
   }
 

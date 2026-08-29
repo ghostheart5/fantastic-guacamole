@@ -44,16 +44,40 @@ class AiCreditWallet {
   }
 
   factory AiCreditWallet.fromJson(Map<String, dynamic> json) {
+    int requiredInt(String key) {
+      final Object? value = json[key];
+      if (value is! num ||
+          !value.isFinite ||
+          value.toDouble() != value.toInt().toDouble()) {
+        throw FormatException('Invalid AI credit wallet $key.');
+      }
+      return value.toInt();
+    }
+
+    DateTime requiredDateTime(String key) {
+      final DateTime? value = DateTime.tryParse(json[key]?.toString() ?? '');
+      if (value == null) {
+        throw FormatException('Invalid AI credit wallet $key.');
+      }
+      return value.toLocal();
+    }
+
+    final int balance = requiredInt('balance');
+    final int allowance = requiredInt('allowance');
+    final String tier = json['tier']?.toString().trim() ?? '';
+    if (!const <String>{'free', 'premium'}.contains(tier) ||
+        allowance <= 0 ||
+        balance < 0 ||
+        balance > allowance) {
+      throw const FormatException('Invalid AI credit wallet values.');
+    }
+
     return AiCreditWallet(
-      balance: (json['balance'] as num?)?.toInt() ?? 0,
-      tier: json['tier']?.toString() ?? 'free',
-      allowance: (json['allowance'] as num?)?.toInt() ?? 10,
-      resetAt:
-          DateTime.tryParse(json['resetAt']?.toString() ?? '')?.toLocal() ??
-          DateTime.now().add(const Duration(days: 1)),
-      updatedAt:
-          DateTime.tryParse(json['updatedAt']?.toString() ?? '')?.toLocal() ??
-          DateTime.now(),
+      balance: balance,
+      tier: tier,
+      allowance: allowance,
+      resetAt: requiredDateTime('resetAt'),
+      updatedAt: requiredDateTime('updatedAt'),
     );
   }
 }

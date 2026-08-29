@@ -29,12 +29,12 @@ void main() {
   });
 
   test('retains reserved credits only for a model-backed result', () {
-    const AgentResult local = AgentResult(
+    final AgentResult local = AgentResult(
       selectedAgent: 'chat',
       workflow: 'execute',
       payload: <String, dynamic>{'source': 'local', 'modelBacked': false},
     );
-    const AgentResult external = AgentResult(
+    final AgentResult external = AgentResult(
       selectedAgent: 'chat',
       workflow: 'execute',
       payload: <String, dynamic>{'source': 'model', 'modelBacked': true},
@@ -45,7 +45,7 @@ void main() {
   });
 
   test('uses server credit state for low and exhausted prompts', () {
-    const AgentResult exhausted = AgentResult(
+    final AgentResult exhausted = AgentResult(
       selectedAgent: 'chat',
       workflow: 'execute',
       payload: <String, dynamic>{
@@ -53,12 +53,12 @@ void main() {
         'remainingCredits': 0,
       },
     );
-    const AgentResult low = AgentResult(
+    final AgentResult low = AgentResult(
       selectedAgent: 'chat',
       workflow: 'execute',
       payload: <String, dynamic>{'remainingCredits': 3},
     );
-    const AgentResult healthy = AgentResult(
+    final AgentResult healthy = AgentResult(
       selectedAgent: 'chat',
       workflow: 'execute',
       payload: <String, dynamic>{'remainingCredits': 18},
@@ -67,5 +67,23 @@ void main() {
     expect(serverAiCreditPrompt(exhausted)?.remainingCredits, 0);
     expect(serverAiCreditPrompt(low)?.trigger, 'ai_credit_low');
     expect(serverAiCreditPrompt(healthy), isNull);
+  });
+
+  test('normalizes a decoded task map without exposing mutable payload', () {
+    final Map<dynamic, dynamic> task = <dynamic, dynamic>{'id': 'task-1'};
+    final Map<String, dynamic> payload = <String, dynamic>{'task': task};
+    final AgentResult result = AgentResult(
+      selectedAgent: 'planning',
+      workflow: 'execute',
+      payload: payload,
+    );
+
+    payload['source'] = 'changed';
+    task['id'] = 'changed';
+
+    expect(result.source, 'local');
+    expect(result.taskMap?['id'], 'task-1');
+    expect(() => result.payload['source'] = 'changed', throwsUnsupportedError);
+    expect(() => result.taskMap?['id'] = 'changed', throwsUnsupportedError);
   });
 }

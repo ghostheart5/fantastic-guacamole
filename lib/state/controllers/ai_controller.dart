@@ -38,7 +38,7 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
+import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -1318,7 +1318,7 @@ class AIController {
         .read(aiExecutionStatusProvider.notifier)
         .set(const AIExecutionStatus.idle());
     _captureSnapshot(
-      SISnapshot(
+      AssistantMemorySnapshot(
         timestamp: DateTime.now(),
         energy: _ref.read(siStateProvider).energy,
         fatigue: _ref.read(siStateProvider).fatigue,
@@ -1373,7 +1373,7 @@ class AIController {
     _ref.invalidate(siEngineStateProvider);
   }
 
-  void _captureSnapshot(SISnapshot snapshot) {
+  void _captureSnapshot(AssistantMemorySnapshot snapshot) {
     _ref.read(siMemoryProvider.notifier).capture(snapshot);
   }
 }

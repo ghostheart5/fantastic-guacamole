@@ -160,7 +160,7 @@ List<Map<String, String>> _summarizeHistory(List<Map<String, String>> history) {
 }
 
 List<String> recentResponseSummariesForTesting({
-  required List<SISnapshot> recentSnapshots,
+  required List<AssistantMemorySnapshot> recentSnapshots,
   required Map<String, dynamic>? previousState,
 }) {
   return recentResponseSummaries(
@@ -172,7 +172,7 @@ List<String> recentResponseSummariesForTesting({
 List<String> selectRelevantMemorySummariesForTesting({
   required String query,
   required SIIntent intent,
-  required List<SISnapshot> recentSnapshots,
+  required List<AssistantMemorySnapshot> recentSnapshots,
   required Map<String, dynamic>? previousState,
 }) {
   return selectRelevantMemorySummaries(

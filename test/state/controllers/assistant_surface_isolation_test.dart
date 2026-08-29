@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
+import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -229,7 +229,7 @@ void main() {
   );
 }
 
-SISnapshot _snapshot(String hash) => SISnapshot(
+AssistantMemorySnapshot _snapshot(String hash) => AssistantMemorySnapshot(
   timestamp: DateTime(2026, 8, 20),
   energy: 0.5,
   fatigue: 0.5,

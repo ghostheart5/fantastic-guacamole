@@ -44,9 +44,6 @@ class SettingsScreen extends ConsumerWidget {
     final int extendedSettingsCount = ref
         .watch(extended_domain.appSettingsProvider)
         .length;
-    final int legalPoliciesCount = ref
-        .watch(extended_domain.privacyPoliciesProvider)
-        .length;
     final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
     final themeAsync = ref.watch(currentThemeProvider);
@@ -324,9 +321,7 @@ class SettingsScreen extends ConsumerWidget {
                     children: [
                       _NeonNavTile(
                         title: 'Privacy Policy',
-                        subtitle: legalPoliciesCount > 0
-                            ? 'Live: ${AppUrls.privacy} · local cache:$legalPoliciesCount'
-                            : AppUrls.privacy,
+                        subtitle: AppUrls.privacy,
                         onTap: () => unawaited(
                           _openExternalWithFallback(
                             context: context,

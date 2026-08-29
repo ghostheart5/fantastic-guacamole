@@ -151,7 +151,7 @@ void main() {
       final AgentResult result = await orchestrator.execute(
         prompt: 'I keep losing attention after lunch. What should I do next?',
         preferredAgent: AgentKind.chat,
-        request: const AgentRequest(
+        request: AgentRequest(
           prompt: 'I keep losing attention after lunch. What should I do next?',
           context: <String, dynamic>{
             'surface': 'smart_planner',

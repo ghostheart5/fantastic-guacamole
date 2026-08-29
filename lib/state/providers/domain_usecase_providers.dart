@@ -352,11 +352,6 @@ final siQueriesProvider = Provider<List<SiQuery>>((ref) {
   return ref.read(getSiQueriesExtendedUseCaseProvider).call();
 });
 
-final userIntentsProvider = Provider<List<UserIntent>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getUserIntents();
-});
-
 final reflectionEntriesProvider = Provider<List<ReflectionEntry>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
   return ref.read(getReflectionEntriesUseCaseProvider).call();
@@ -367,59 +362,9 @@ final analyticsMetricsProvider = Provider<List<AnalyticsMetric>>((ref) {
   return ref.read(getAnalyticsMetricsUseCaseProvider).call();
 });
 
-final appNotificationsProvider = Provider<List<AppNotification>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getAppNotifications();
-});
-
-final rewardsProvider = Provider<List<Reward>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getRewards();
-});
-
-final appThemesProvider = Provider<List<AppTheme>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getThemes();
-});
-
 final appSettingsProvider = Provider<List<AppSetting>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
   return ref.read(getExtendedAppSettingsUseCaseProvider).call();
-});
-
-final syncStatesProvider = Provider<List<SyncState>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getSyncStates();
-});
-
-final offlineStatesProvider = Provider<List<OfflineState>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getOfflineStates();
-});
-
-final appErrorsProvider = Provider<List<AppError>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getAppErrors();
-});
-
-final recoveryStatesProvider = Provider<List<RecoveryState>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getRecoveryStates();
-});
-
-final subscriptionPlansProvider = Provider<List<SubscriptionPlanEntity>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getSubscriptionPlans();
-});
-
-final privacyPoliciesProvider = Provider<List<PrivacyPolicy>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getPrivacyPolicies();
-});
-
-final healthChecksProvider = Provider<List<HealthCheckResult>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getHealthChecks();
 });
 
 final getTasksUseCaseProvider = Provider<GetTasks>((ref) {
