@@ -44,6 +44,7 @@ interface VerifyRequest {
 interface VerifyResponse {
   valid: boolean;
   expiryTimeMs?: number;
+  status?: "active" | "grace" | "cancelled";
   orderId?: string;
   productId?: string;
   planId?: unknown;
@@ -194,10 +195,7 @@ Deno.serve(async (req: Request) => {
     const autoRenewingPlan = matched?.autoRenewingPlan as
       | Record<string, unknown>
       | undefined;
-    const status =
-      play.subscriptionState === "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"
-        ? "grace"
-        : "active";
+    const status = lineItem.status;
     const orderId = typeof play.latestOrderId === "string"
       ? play.latestOrderId
       : undefined;
@@ -233,6 +231,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(req, {
       valid: true,
       expiryTimeMs: lineItem.expiryTimeMs,
+      status,
       orderId,
       productId,
       planId: applied.planId,

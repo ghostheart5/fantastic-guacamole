@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
@@ -57,13 +59,17 @@ final entitlementProvider =
     );
 
 class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
+  Timer? _expiryTimer;
+
   @override
   Future<EntitlementState> build() async {
+    ref.onDispose(() => _expiryTimer?.cancel());
     // Rebuilds whenever the signed-in account changes, which is what resets
     // access on sign-out and on account switch.
     final User? user = await ref.watch(authUserProvider.future);
     final String? userId = user?.id;
     if (userId == null) {
+      _scheduleExpiry(null);
       return EntitlementState.locked;
     }
 
@@ -71,6 +77,7 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
         .read(paywallRepositoryProvider)
         .getUserSubscriptionState();
     final String? owner = await _readOwner();
+    _scheduleExpiry(subscription);
     return _resolve(userId: userId, subscription: subscription, owner: owner);
   }
 
@@ -93,6 +100,7 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
           source: active ? 'session' : 'inactive',
         ),
       );
+      _scheduleExpiry(subscription);
       return;
     }
 
@@ -111,6 +119,7 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
         owner: userId,
       ),
     );
+    _scheduleExpiry(subscription);
   }
 
   EntitlementState _resolve({
@@ -166,6 +175,19 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
     }
     final DateTime? renewal = subscription.renewalDate;
     return renewal == null || renewal.isAfter(DateTime.now());
+  }
+
+  void _scheduleExpiry(SubscriptionState? subscription) {
+    _expiryTimer?.cancel();
+    _expiryTimer = null;
+    if (subscription == null || !_isActive(subscription)) {
+      return;
+    }
+    final DateTime? expiry = subscription.renewalDate;
+    if (expiry == null) {
+      return;
+    }
+    _expiryTimer = Timer(expiry.difference(DateTime.now()), ref.invalidateSelf);
   }
 
   Future<String?> _readOwner() async {

@@ -106,6 +106,37 @@ void main() {
         isFalse,
       );
     });
+
+    test('premium is revoked when the authoritative expiry passes', () async {
+      final _Harness harness = await _Harness.create(
+        subscription: SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'google_play',
+          planId: 'monthly',
+          renewalDate: DateTime.now().add(const Duration(milliseconds: 500)),
+        ),
+        owner: 'user-a',
+        user: _user('user-a'),
+      );
+
+      expect(
+        (await harness.container.read(entitlementProvider.future)).isPremium,
+        isTrue,
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      await harness.settle();
+
+      expect(
+        (await harness.container.read(entitlementProvider.future)).isPremium,
+        isFalse,
+      );
+      expect(
+        harness.container.read(appAccessProvider).hasPremiumAccess,
+        isFalse,
+      );
+    });
   });
 
   group('entitlement is account safe', () {

@@ -1,11 +1,13 @@
 export interface VerifiedSubscriptionLineItem {
   productId: string;
   expiryTimeMs: number;
+  status: "active" | "grace" | "cancelled";
 }
 
-const activeSubscriptionStates = new Set<string>([
-  "SUBSCRIPTION_STATE_ACTIVE",
-  "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+const accessStatusBySubscriptionState = new Map<string, VerifiedSubscriptionLineItem["status"]>([
+  ["SUBSCRIPTION_STATE_ACTIVE", "active"],
+  ["SUBSCRIPTION_STATE_IN_GRACE_PERIOD", "grace"],
+  ["SUBSCRIPTION_STATE_CANCELED", "cancelled"],
 ]);
 
 export function verifySubscriptionLineItem(
@@ -13,13 +15,12 @@ export function verifySubscriptionLineItem(
   claimedProductId: string,
   nowMs = Date.now(),
 ): VerifiedSubscriptionLineItem | null {
-  if (!activeSubscriptionStates.has(String(purchase.subscriptionState ?? ""))) {
+  const status = accessStatusBySubscriptionState.get(
+    String(purchase.subscriptionState ?? ""),
+  );
+  if (!status) {
     return null;
   }
-  if (
-    purchase.acknowledgementState !== undefined &&
-    purchase.acknowledgementState !== "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED"
-  ) return null;
   if (!Array.isArray(purchase.lineItems)) return null;
   for (const item of purchase.lineItems) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
@@ -27,7 +28,7 @@ export function verifySubscriptionLineItem(
     if (lineItem.productId !== claimedProductId) continue;
     const expiryTimeMs = Date.parse(String(lineItem.expiryTime ?? ""));
     if (!Number.isFinite(expiryTimeMs) || expiryTimeMs <= nowMs) return null;
-    return { productId: claimedProductId, expiryTimeMs };
+    return { productId: claimedProductId, expiryTimeMs, status };
   }
   return null;
 }

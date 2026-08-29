@@ -16,7 +16,7 @@ function purchase(
   };
 }
 
-Deno.test("active acknowledged matching subscription is accepted", () => {
+Deno.test("active matching subscription is accepted", () => {
   const verified = verifySubscriptionLineItem(
     purchase(),
     "chronospark_premium_monthly",
@@ -27,19 +27,31 @@ Deno.test("active acknowledged matching subscription is accepted", () => {
   }
 });
 
-Deno.test("mismatched, unacknowledged, and expired subscriptions fail", () => {
+Deno.test("initial and cancelled subscriptions retain access through expiry", () => {
+  const initial = verifySubscriptionLineItem(
+    purchase({ acknowledgementState: "ACKNOWLEDGEMENT_STATE_PENDING" }),
+    "chronospark_premium_monthly",
+    nowMs,
+  );
+  if (initial?.status !== "active") {
+    throw new Error("initial unacknowledged purchase was rejected");
+  }
+  const cancelled = verifySubscriptionLineItem(
+    purchase({ subscriptionState: "SUBSCRIPTION_STATE_CANCELED" }),
+    "chronospark_premium_monthly",
+    nowMs,
+  );
+  if (cancelled?.status !== "cancelled") {
+    throw new Error("cancelled subscription lost access before expiry");
+  }
+});
+
+Deno.test("mismatched and expired subscriptions fail", () => {
   if (
     verifySubscriptionLineItem(purchase(), "chronospark_premium_annual", nowMs)
   ) {
     throw new Error("mismatched product accepted");
   }
-  if (
-    verifySubscriptionLineItem(
-      purchase({ acknowledgementState: "ACKNOWLEDGEMENT_STATE_PENDING" }),
-      "chronospark_premium_monthly",
-      nowMs,
-    )
-  ) throw new Error("unacknowledged purchase accepted");
   if (
     verifySubscriptionLineItem(
       purchase({

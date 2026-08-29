@@ -265,6 +265,12 @@ void main() {
   test(
     'startSubscription resolves active state after verified purchase update',
     () async {
+      final DateTime verifiedExpiry = DateTime.now().toUtc().add(
+        const Duration(days: 17),
+      );
+      final SecureStore secureStore = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
       final StreamController<List<PurchaseDetails>> controller =
           StreamController<List<PurchaseDetails>>.broadcast();
       final _FakeBillingClient billing = _FakeBillingClient(
@@ -305,6 +311,7 @@ void main() {
             paywallTestingModeOverride: false,
             sharedPreferencesLoader: SharedPreferences.getInstance,
             receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+            secureStore: secureStore,
             httpClient: MockClient((http.Request request) async {
               expect(
                 request.url.toString(),
@@ -315,7 +322,15 @@ void main() {
                 'purchaseToken': 'server-token',
                 'purchaseType': 'subscription',
               });
-              return http.Response('{"valid":true}', 200);
+              return http.Response(
+                jsonEncode(<String, dynamic>{
+                  'valid': true,
+                  'productId': 'chronospark_premium_monthly',
+                  'status': 'active',
+                  'expiryTimeMs': verifiedExpiry.millisecondsSinceEpoch,
+                }),
+                200,
+              );
             }),
           );
 
@@ -326,20 +341,51 @@ void main() {
       expect(state.isActive, isTrue);
       expect(state.status, 'active');
       expect(state.planId, 'monthly');
-      // Monthly plans keep the monthly window, not the annual one.
-      final Duration monthlyWindow = state.renewalDate!.difference(
-        DateTime.now(),
+      expect(
+        state.renewalDate?.millisecondsSinceEpoch,
+        verifiedExpiry.millisecondsSinceEpoch,
       );
-      expect(monthlyWindow.inDays, lessThan(40));
       expect(billing.completePurchaseCalls, 1);
 
+      final Map<String, dynamic> persisted =
+          jsonDecode(
+                (await secureStore.readString(
+                  'paywall_subscription_state_v1',
+                ))!,
+              )
+              as Map<String, dynamic>;
+      expect(persisted['expirySource'], 'google_play_server');
+      expect(
+        DateTime.parse(
+          persisted['renewalDate'] as String,
+        ).millisecondsSinceEpoch,
+        verifiedExpiry.millisecondsSinceEpoch,
+      );
+
+      final GooglePlayPaywallRepository restoredRepository =
+          GooglePlayPaywallRepository(
+            billingClient: billing,
+            paywallTestingModeOverride: false,
+            sharedPreferencesLoader: SharedPreferences.getInstance,
+            receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+            secureStore: secureStore,
+          );
+      final SubscriptionState restored = await restoredRepository
+          .getUserSubscriptionState();
+      expect(restored.isActive, isTrue);
+      expect(
+        restored.renewalDate?.millisecondsSinceEpoch,
+        verifiedExpiry.millisecondsSinceEpoch,
+      );
+
       repository.dispose();
+      restoredRepository.dispose();
       await controller.close();
     },
   );
 
   test(
-    'startSubscription returns verification_failed when receipt check fails',
+    'startSubscription rejects valid receipt response without server expiry',
     () async {
       final StreamController<List<PurchaseDetails>> controller =
           StreamController<List<PurchaseDetails>>.broadcast();
@@ -382,7 +428,14 @@ void main() {
             sharedPreferencesLoader: SharedPreferences.getInstance,
             receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
             httpClient: MockClient((http.Request request) async {
-              return http.Response('{"valid":false}', 200);
+              return http.Response(
+                jsonEncode(<String, dynamic>{
+                  'valid': true,
+                  'productId': 'chronospark_premium_monthly',
+                  'status': 'active',
+                }),
+                200,
+              );
             }),
           );
 
@@ -402,6 +455,9 @@ void main() {
   test(
     'restorePurchases resolves restored state from purchase stream',
     () async {
+      final DateTime verifiedExpiry = DateTime.now().toUtc().add(
+        const Duration(days: 73),
+      );
       final StreamController<List<PurchaseDetails>> controller =
           StreamController<List<PurchaseDetails>>.broadcast();
       final _FakeBillingClient billing = _FakeBillingClient(
@@ -432,20 +488,26 @@ void main() {
             sharedPreferencesLoader: SharedPreferences.getInstance,
             receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
             httpClient: MockClient((http.Request request) async {
-              return http.Response('{"valid":true}', 200);
+              return http.Response(
+                jsonEncode(<String, dynamic>{
+                  'valid': true,
+                  'productId': 'chronospark_premium_annual',
+                  'status': 'grace',
+                  'expiryTimeMs': verifiedExpiry.millisecondsSinceEpoch,
+                }),
+                200,
+              );
             }),
           );
 
       final SubscriptionState state = await repository.restorePurchases();
 
-      expect(state.status, 'restored');
+      expect(state.status, 'grace');
       expect(state.planId, 'annual');
-      // An annual plan must not be given a monthly local validity window, or
-      // the subscriber loses access ~11 months early.
-      final Duration annualWindow = state.renewalDate!.difference(
-        DateTime.now(),
+      expect(
+        state.renewalDate?.millisecondsSinceEpoch,
+        verifiedExpiry.millisecondsSinceEpoch,
       );
-      expect(annualWindow.inDays, greaterThan(300));
       expect(billing.restoreCalls, 1);
       expect(billing.completePurchaseCalls, 1);
 
@@ -551,8 +613,11 @@ void main() {
   );
 
   test(
-    'restored purchase with unknown product id falls back to monthly plan id',
+    'restored unknown product with mismatched verification remains locked',
     () async {
+      final DateTime verifiedExpiry = DateTime.now().toUtc().add(
+        const Duration(days: 9),
+      );
       final StreamController<List<PurchaseDetails>> controller =
           StreamController<List<PurchaseDetails>>.broadcast();
       final _FakeBillingClient billing = _FakeBillingClient(
@@ -592,15 +657,23 @@ void main() {
             sharedPreferencesLoader: SharedPreferences.getInstance,
             receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
             httpClient: MockClient((http.Request request) async {
-              return http.Response('{"valid":true}', 200);
+              return http.Response(
+                jsonEncode(<String, dynamic>{
+                  'valid': true,
+                  'productId': 'chronospark_premium_monthly',
+                  'status': 'active',
+                  'expiryTimeMs': verifiedExpiry.millisecondsSinceEpoch,
+                }),
+                200,
+              );
             }),
           );
 
       final SubscriptionState state = await repository.restorePurchases();
 
-      expect(state.planId, 'monthly');
-      expect(state.isActive, isTrue);
-      expect(state.status, 'restored');
+      expect(state.planId, isNull);
+      expect(state.isActive, isFalse);
+      expect(state.status, 'verification_failed');
       expect(billing.completePurchaseCalls, 1);
 
       repository.dispose();
@@ -751,6 +824,7 @@ void main() {
         'renewalDate': DateTime.now()
             .add(const Duration(days: 3))
             .toIso8601String(),
+        'expirySource': 'google_play_server',
       }),
     });
     final _FakeBillingClient billing = _FakeBillingClient(
@@ -787,6 +861,7 @@ void main() {
         'status': 'active',
         'planId': 'annual',
         'renewalDate': renewal.toIso8601String(),
+        'expirySource': 'google_play_server',
       }),
     });
     final _FakeBillingClient billing = _FakeBillingClient(
@@ -812,55 +887,61 @@ void main() {
     repository.dispose();
   });
 
-  test('migrates legacy subscription state into secure storage', () async {
-    final DateTime renewal = DateTime.now().add(const Duration(days: 14));
-    final String legacyState = jsonEncode(<String, dynamic>{
-      'isActive': true,
-      'status': 'active',
-      'planId': 'annual',
-      'renewalDate': renewal.toIso8601String(),
-    });
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      'paywall_subscription_state_v1': legacyState,
-    });
-    final SecureStore secureStore = SecureStore(
-      backend: InMemorySecureStoreBackend(),
-    );
-    final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
-      billingClient: _FakeBillingClient(
-        productResponse: ProductDetailsResponse(
-          productDetails: const <ProductDetails>[],
-          notFoundIDs: const <String>[],
-        ),
-      ),
-      paywallTestingModeOverride: false,
-      sharedPreferencesLoader: SharedPreferences.getInstance,
-      secureStore: secureStore,
-    );
+  test(
+    'migrates unverified legacy state without granting entitlement',
+    () async {
+      final DateTime renewal = DateTime.now().add(const Duration(days: 14));
+      final String legacyState = jsonEncode(<String, dynamic>{
+        'isActive': true,
+        'status': 'active',
+        'planId': 'annual',
+        'renewalDate': renewal.toIso8601String(),
+      });
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'paywall_subscription_state_v1': legacyState,
+      });
+      final SecureStore secureStore = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final GooglePlayPaywallRepository repository =
+          GooglePlayPaywallRepository(
+            billingClient: _FakeBillingClient(
+              productResponse: ProductDetailsResponse(
+                productDetails: const <ProductDetails>[],
+                notFoundIDs: const <String>[],
+              ),
+            ),
+            paywallTestingModeOverride: false,
+            sharedPreferencesLoader: SharedPreferences.getInstance,
+            secureStore: secureStore,
+          );
 
-    final SubscriptionState restored = await repository
-        .getUserSubscriptionState();
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final SubscriptionState restored = await repository
+          .getUserSubscriptionState();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    expect(restored.isActive, isTrue);
-    expect(restored.planId, 'annual');
-    expect(
-      await secureStore.readString('paywall_subscription_state_v1'),
-      legacyState,
-    );
-    expect(prefs.containsKey('paywall_subscription_state_v1'), isFalse);
+      expect(restored.isActive, isFalse);
+      expect(restored.planId, 'annual');
+      expect(
+        await secureStore.readString('paywall_subscription_state_v1'),
+        legacyState,
+      );
+      expect(prefs.containsKey('paywall_subscription_state_v1'), isFalse);
 
-    final SubscriptionState cancelled = await repository.cancelSubscription();
-    final Map<String, dynamic> securedCancellation =
-        jsonDecode(
-              (await secureStore.readString('paywall_subscription_state_v1'))!,
-            )
-            as Map<String, dynamic>;
-    expect(cancelled.status, 'cancelled');
-    expect(securedCancellation['status'], 'cancelled');
+      final SubscriptionState cancelled = await repository.cancelSubscription();
+      final Map<String, dynamic> securedCancellation =
+          jsonDecode(
+                (await secureStore.readString(
+                  'paywall_subscription_state_v1',
+                ))!,
+              )
+              as Map<String, dynamic>;
+      expect(cancelled.status, 'cancelled');
+      expect(securedCancellation['status'], 'cancelled');
 
-    repository.dispose();
-  });
+      repository.dispose();
+    },
+  );
 
   test(
     'expired persisted state loads as locked while preserving renewal metadata',
@@ -872,6 +953,7 @@ void main() {
           'status': 'active',
           'planId': 'monthly',
           'renewalDate': renewal.toIso8601String(),
+          'expirySource': 'google_play_server',
         }),
       });
       final GooglePlayPaywallRepository repository =

@@ -20,18 +20,31 @@ const Map<String, String> _kProductIds = <String, String>{
   'annual': 'chronospark_premium_annual',
 };
 const String _kPrefsKey = 'paywall_subscription_state_v1';
+const int _kMaxDateTimeEpochMilliseconds = 8640000000000000;
+const Set<String> _kServerAccessStatuses = <String>{
+  'active',
+  'grace',
+  'cancelled',
+};
 
-/// Local validity window per plan.
+/// Local testing validity window per plan.
 ///
 /// The renewal date gates local re-entitlement on launch, so an annual
 /// subscriber given a 30-day window would be locked out ~11 months early.
 const Duration _kMonthlyPeriod = Duration(days: 30);
 const Duration _kAnnualPeriod = Duration(days: 365);
 
-DateTime _renewalDateFor(String? planId) {
+DateTime _testingRenewalDateFor(String? planId) {
   return DateTime.now().add(
     planId == 'annual' ? _kAnnualPeriod : _kMonthlyPeriod,
   );
+}
+
+class _VerifiedSubscription {
+  const _VerifiedSubscription({required this.expiry, required this.status});
+
+  final DateTime expiry;
+  final String status;
 }
 
 abstract class BillingClient {
@@ -111,6 +124,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
     status: 'locked',
     source: 'google_play',
   );
+  bool _hasAuthoritativeExpiry = false;
 
   final Map<String, Completer<SubscriptionState>> _pending =
       <String, Completer<SubscriptionState>>{};
@@ -235,7 +249,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
                       : 'Unlock smart credits, premium planning guidance, deeper memory, and advanced tools.')
                 : 'Purchases are temporarily unavailable while billing verification is being finalized.'),
       plans: await getAvailablePlans(),
-      isUnlocked: _paywallTestingMode || _state.isActive,
+      isUnlocked: _paywallTestingMode || _isSubscriptionActive,
     );
   }
 
@@ -252,7 +266,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
 
     return Entitlement(
       featureId: featureId ?? 'premium',
-      isEntitled: _state.isActive,
+      isEntitled: _isSubscriptionActive,
       source: _state.source,
       expiresAt: _state.renewalDate,
     );
@@ -267,7 +281,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         status: 'unlocked_for_testing',
         source: 'testing_mode',
         planId: planId,
-        renewalDate: _renewalDateFor(planId),
+        renewalDate: _testingRenewalDateFor(planId),
         isTesting: true,
       );
       return _state;
@@ -331,7 +345,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         status: 'unlocked_for_testing',
         source: 'testing_mode',
         planId: _state.planId ?? 'annual',
-        renewalDate: _renewalDateFor(_state.planId ?? 'annual'),
+        renewalDate: _testingRenewalDateFor(_state.planId ?? 'annual'),
         isTesting: true,
       );
       return _state;
@@ -360,7 +374,17 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
   @override
   Future<SubscriptionState> getUserSubscriptionState() async {
     await _initialization;
-    return _state;
+    if (_isSubscriptionActive || !_state.isActive) {
+      return _state;
+    }
+    return SubscriptionState(
+      isActive: false,
+      status: 'expired',
+      source: _state.source,
+      planId: _state.planId,
+      renewalDate: _state.renewalDate,
+      isTesting: _state.isTesting,
+    );
   }
 
   void dispose() {
@@ -371,24 +395,24 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
     for (final PurchaseDetails purchase in purchases) {
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        final bool verified = await _verifyWithServer(purchase);
-        if (verified) {
-          final String planId = _kProductIds.entries
-              .firstWhere(
-                (MapEntry<String, String> entry) =>
-                    entry.value == purchase.productID,
-                orElse: () => const MapEntry<String, String>('monthly', ''),
-              )
-              .key;
+        final _VerifiedSubscription? verification =
+            await _verifiedSubscriptionFromServer(purchase);
+        String? planId;
+        for (final MapEntry<String, String> entry in _kProductIds.entries) {
+          if (entry.value == purchase.productID) {
+            planId = entry.key;
+            break;
+          }
+        }
+        if (verification != null && planId != null) {
           _state = SubscriptionState(
             isActive: true,
-            status: purchase.status == PurchaseStatus.restored
-                ? 'restored'
-                : 'active',
+            status: verification.status,
             source: 'google_play',
             planId: planId,
-            renewalDate: _renewalDateFor(planId),
+            renewalDate: verification.expiry,
           );
+          _hasAuthoritativeExpiry = true;
           await _persistState();
           _pending[purchase.productID]?.complete(_state);
           _pending['__restore__']?.complete(_state);
@@ -399,6 +423,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
             source: 'google_play',
           );
           _pending[purchase.productID]?.complete(failed);
+          _pending['__restore__']?.complete(failed);
         }
         _pending.remove(purchase.productID);
         _pending.remove('__restore__');
@@ -416,18 +441,20 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
     }
   }
 
-  Future<bool> _verifyWithServer(PurchaseDetails purchase) async {
+  Future<_VerifiedSubscription?> _verifiedSubscriptionFromServer(
+    PurchaseDetails purchase,
+  ) async {
     if (!_hasReceiptVerification) {
       Logger.error(
         'Receipt verification is unavailable; purchase remains locked.',
       );
-      return false;
+      return null;
     }
     final Uri endpoint = parseSecureHttpsEndpoint(_receiptVerifyEndpoint)!;
     final String? accessToken = currentSupabaseAccessToken();
     if (Env.isProduction && accessToken == null) {
       Logger.error('Receipt verification requires an authenticated session.');
-      return false;
+      return null;
     }
 
     try {
@@ -448,15 +475,57 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
 
       if (response.statusCode != 200) {
         Logger.error('Receipt verify HTTP ${response.statusCode}');
-        return false;
+        return null;
       }
       final Map<String, dynamic> body =
           jsonDecode(response.body) as Map<String, dynamic>;
-      return body['valid'] == true;
+      if (body['valid'] != true) {
+        return null;
+      }
+      if (body['productId'] != purchase.productID) {
+        Logger.error('Receipt verification returned a mismatched product.');
+        return null;
+      }
+      final Object? rawStatus = body['status'];
+      if (rawStatus is! String || !_kServerAccessStatuses.contains(rawStatus)) {
+        Logger.error('Receipt verification returned an invalid access status.');
+        return null;
+      }
+      final Object? rawExpiry = body['expiryTimeMs'];
+      if (rawExpiry is! int ||
+          rawExpiry <= 0 ||
+          rawExpiry > _kMaxDateTimeEpochMilliseconds) {
+        Logger.error(
+          'Receipt verification omitted the authoritative expiry time.',
+        );
+        return null;
+      }
+      final DateTime expiry = DateTime.fromMillisecondsSinceEpoch(
+        rawExpiry,
+        isUtc: true,
+      );
+      if (!expiry.isAfter(DateTime.now().toUtc())) {
+        Logger.error('Receipt verification returned an expired subscription.');
+        return null;
+      }
+      return _VerifiedSubscription(expiry: expiry, status: rawStatus);
     } on Exception catch (error) {
       Logger.error('Receipt verification request failed', error);
+      return null;
+    }
+  }
+
+  bool get _isSubscriptionActive {
+    if (!_state.isActive) {
       return false;
     }
+    if (_paywallTestingMode && _state.isTesting) {
+      return true;
+    }
+    final DateTime? expiry = _state.renewalDate;
+    return _hasAuthoritativeExpiry &&
+        expiry != null &&
+        expiry.isAfter(DateTime.now().toUtc());
   }
 
   Future<void> _loadPersistedState() async {
@@ -478,10 +547,13 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         final DateTime? fallbackRenewal = fallbackMap['renewalDate'] != null
             ? DateTime.tryParse(fallbackMap['renewalDate'] as String)
             : null;
+        _hasAuthoritativeExpiry =
+            fallbackMap['expirySource'] == 'google_play_server';
         final bool fallbackIsActive =
             fallbackMap['isActive'] == true &&
-            (fallbackRenewal == null ||
-                fallbackRenewal.isAfter(DateTime.now()));
+            _hasAuthoritativeExpiry &&
+            fallbackRenewal != null &&
+            fallbackRenewal.isAfter(DateTime.now().toUtc());
         _state = SubscriptionState(
           isActive: fallbackIsActive,
           status: fallbackMap['status'] as String? ?? 'locked',
@@ -505,9 +577,12 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       final DateTime? renewal = map['renewalDate'] != null
           ? DateTime.tryParse(map['renewalDate'] as String)
           : null;
+      _hasAuthoritativeExpiry = map['expirySource'] == 'google_play_server';
       final bool isActive =
           map['isActive'] == true &&
-          (renewal == null || renewal.isAfter(DateTime.now()));
+          _hasAuthoritativeExpiry &&
+          renewal != null &&
+          renewal.isAfter(DateTime.now().toUtc());
       _state = SubscriptionState(
         isActive: isActive,
         status: map['status'] as String? ?? 'locked',
@@ -527,6 +602,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         'status': _state.status,
         'planId': _state.planId,
         'renewalDate': _state.renewalDate?.toIso8601String(),
+        'expirySource': _hasAuthoritativeExpiry ? 'google_play_server' : null,
       });
       if (_secureStore == null) {
         if (Env.isProduction) {
