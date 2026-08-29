@@ -167,8 +167,8 @@ void main() {
               'content': 'That advice is too generic for my afternoon slump.',
             },
           ],
-          si: SIState(energy: 0.45),
-          learning: LearningState(),
+          si: const SIState(energy: 0.45),
+          learning: const LearningState(),
         ),
       );
 

@@ -175,11 +175,15 @@ abstract final class Env {
     bool force = false,
     bool? firebaseInitialized,
     String? firebaseProjectId,
+    TargetPlatform? targetPlatform,
+    bool isWeb = kIsWeb,
   }) {
     return _ReadinessPolicy.productionReadinessIssues(
       force: force,
       firebaseInitialized: firebaseInitialized,
       firebaseProjectId: firebaseProjectId,
+      targetPlatform: targetPlatform,
+      isWeb: isWeb,
     );
   }
 

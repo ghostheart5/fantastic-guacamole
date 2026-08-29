@@ -32,6 +32,8 @@ abstract final class _ReadinessPolicy {
     bool force = false,
     bool? firebaseInitialized,
     String? firebaseProjectId,
+    TargetPlatform? targetPlatform,
+    bool isWeb = kIsWeb,
   }) {
     if (!force && !enforceProductionReadiness && !_BuildSettings.isProduction) {
       return const <String>[];
@@ -93,10 +95,15 @@ abstract final class _ReadinessPolicy {
     if (firebaseRuntimeIssue != null) {
       issues.add(firebaseRuntimeIssue);
     }
-    if (_BuildSettings.appLinksAndroidSha256.trim().isEmpty) {
+    final TargetPlatform platform = targetPlatform ?? defaultTargetPlatform;
+    if (!isWeb &&
+        platform == TargetPlatform.android &&
+        _BuildSettings.appLinksAndroidSha256.trim().isEmpty) {
       issues.add('Android App Links SHA-256 fingerprint is not configured.');
     }
-    if (_BuildSettings.appLinksIosTeamId.trim().isEmpty) {
+    if (!isWeb &&
+        (platform == TargetPlatform.iOS || platform == TargetPlatform.macOS) &&
+        _BuildSettings.appLinksIosTeamId.trim().isEmpty) {
       issues.add('iOS associated domains team ID is not configured.');
     }
     return issues;

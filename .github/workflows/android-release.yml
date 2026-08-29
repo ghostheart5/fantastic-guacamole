@@ -209,9 +209,9 @@ jobs:
           CHRONOSPARK_AI_PROXY_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
           CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
           CHRONOSPARK_ANDROID_SHA256_CERT: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
-          CHRONOSPARK_IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
         run: >-
           dart run scripts/validate_production_config.dart
+          --platform=android
           --google-services=android/app/google-services.json
 
       - name: Decode keystore
@@ -283,7 +283,6 @@ jobs:
           AI_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
           DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
           ANDROID_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
-          IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
         run: >-
           flutter build appbundle --release
           --dart-define=CHRONOSPARK_APP_FLAVOR=prod
@@ -294,7 +293,6 @@ jobs:
           --dart-define="CHRONOSPARK_AI_PROXY_ENDPOINT=$AI_ENDPOINT"
           --dart-define="CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=$DELETE_ENDPOINT"
           --dart-define="CHRONOSPARK_ANDROID_SHA256_CERT=$ANDROID_SHA256"
-          --dart-define="CHRONOSPARK_IOS_TEAM_ID=$IOS_TEAM_ID"
 
       - name: Verify and fingerprint release artifact
         run: |

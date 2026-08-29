@@ -56,6 +56,30 @@ void main() {
     );
   });
 
+  test('Android validation does not require an Apple team ID', () {
+    final Map<String, String> values = validValues()
+      ..remove('CHRONOSPARK_IOS_TEAM_ID');
+
+    expect(
+      validateProductionConfiguration(
+        values,
+        googleServicesJson: validGoogleServices(),
+        target: ProductionTarget.android,
+      ),
+      isEmpty,
+    );
+  });
+
+  test('iOS validation does not require an Android certificate', () {
+    final Map<String, String> values = validValues()
+      ..remove('CHRONOSPARK_ANDROID_SHA256_CERT');
+
+    expect(
+      validateProductionConfiguration(values, target: ProductionTarget.ios),
+      isEmpty,
+    );
+  });
+
   test('rejects placeholders, insecure URLs, and malformed identities', () {
     final Map<String, String> values = validValues()
       ..['CHRONOSPARK_SUPABASE_URL'] = 'http://localhost:54321'

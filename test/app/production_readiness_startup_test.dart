@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/app/app_root.dart';
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -192,11 +193,16 @@ void main() {
         issues.contains(
           'Android App Links SHA-256 fingerprint is not configured.',
         ),
-        Env.appLinksAndroidSha256.trim().isEmpty,
+        !kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android &&
+            Env.appLinksAndroidSha256.trim().isEmpty,
       );
       expect(
         issues.contains('iOS associated domains team ID is not configured.'),
-        Env.appLinksIosTeamId.trim().isEmpty,
+        !kIsWeb &&
+            (defaultTargetPlatform == TargetPlatform.iOS ||
+                defaultTargetPlatform == TargetPlatform.macOS) &&
+            Env.appLinksIosTeamId.trim().isEmpty,
       );
       expect(
         issues.any(
@@ -209,6 +215,42 @@ void main() {
         expect(issues, contains(firebaseIssue));
       }
       expect(issues.toSet().length, issues.length);
+    });
+
+    test('requires mobile link identity only for the target platform', () {
+      final List<String> androidIssues = Env.productionReadinessIssues(
+        force: true,
+        targetPlatform: TargetPlatform.android,
+        isWeb: false,
+      );
+      final List<String> iosIssues = Env.productionReadinessIssues(
+        force: true,
+        targetPlatform: TargetPlatform.iOS,
+        isWeb: false,
+      );
+
+      expect(
+        androidIssues.contains(
+          'Android App Links SHA-256 fingerprint is not configured.',
+        ),
+        Env.appLinksAndroidSha256.trim().isEmpty,
+      );
+      expect(
+        androidIssues.contains(
+          'iOS associated domains team ID is not configured.',
+        ),
+        isFalse,
+      );
+      expect(
+        iosIssues.contains(
+          'Android App Links SHA-256 fingerprint is not configured.',
+        ),
+        isFalse,
+      );
+      expect(
+        iosIssues.contains('iOS associated domains team ID is not configured.'),
+        Env.appLinksIosTeamId.trim().isEmpty,
+      );
     });
 
     testWidgets('blocked app exposes only a user-safe non-routable screen', (

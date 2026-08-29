@@ -3,22 +3,28 @@ import 'dart:io';
 
 import 'package:fantastic_guacamole/config/firebase_identity.dart';
 
-const List<String> requiredProductionVariables = <String>[
+enum ProductionTarget { all, android, ios }
+
+const List<String> commonRequiredProductionVariables = <String>[
   'CHRONOSPARK_SUPABASE_URL',
   'CHRONOSPARK_SUPABASE_ANON_KEY',
   'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
   'CHRONOSPARK_AI_PROXY_ENDPOINT',
   'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
-  'CHRONOSPARK_ANDROID_SHA256_CERT',
-  'CHRONOSPARK_IOS_TEAM_ID',
 ];
 
 List<String> validateProductionConfiguration(
   Map<String, String> values, {
   String? googleServicesJson,
+  ProductionTarget target = ProductionTarget.all,
 }) {
   final List<String> failures = <String>[];
-  for (final String name in requiredProductionVariables) {
+  final List<String> requiredVariables = <String>[
+    ...commonRequiredProductionVariables,
+    if (target != ProductionTarget.ios) 'CHRONOSPARK_ANDROID_SHA256_CERT',
+    if (target != ProductionTarget.android) 'CHRONOSPARK_IOS_TEAM_ID',
+  ];
+  for (final String name in requiredVariables) {
     final String value = values[name]?.trim() ?? '';
     if (value.isEmpty) {
       failures.add('$name is required.');
@@ -84,7 +90,8 @@ List<String> validateProductionConfiguration(
 
   final String fingerprint =
       values['CHRONOSPARK_ANDROID_SHA256_CERT']?.trim() ?? '';
-  if (fingerprint.isNotEmpty &&
+  if (target != ProductionTarget.ios &&
+      fingerprint.isNotEmpty &&
       !_looksLikePlaceholder(fingerprint) &&
       !RegExp(
         r'^(?:[0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}$|^[0-9A-Fa-f]{64}$',
@@ -95,7 +102,8 @@ List<String> validateProductionConfiguration(
   }
 
   final String teamId = values['CHRONOSPARK_IOS_TEAM_ID']?.trim() ?? '';
-  if (teamId.isNotEmpty &&
+  if (target != ProductionTarget.android &&
+      teamId.isNotEmpty &&
       !_looksLikePlaceholder(teamId) &&
       !RegExp(r'^[A-Z0-9]{10}$').hasMatch(teamId)) {
     failures.add(
@@ -111,6 +119,7 @@ List<String> validateProductionConfiguration(
 
 void main(List<String> arguments) {
   String? googleServicesJson;
+  ProductionTarget target = ProductionTarget.all;
   for (final String argument in arguments) {
     if (argument.startsWith('--google-services=')) {
       final String path = argument.substring('--google-services='.length);
@@ -122,6 +131,20 @@ void main(List<String> arguments) {
         return;
       }
       googleServicesJson = file.readAsStringSync();
+    } else if (argument.startsWith('--platform=')) {
+      final String value = argument.substring('--platform='.length);
+      final ProductionTarget? parsedTarget = switch (value) {
+        'all' => ProductionTarget.all,
+        'android' => ProductionTarget.android,
+        'ios' => ProductionTarget.ios,
+        _ => null,
+      };
+      if (parsedTarget == null) {
+        stderr.writeln('Unknown platform: $value');
+        exitCode = 64;
+        return;
+      }
+      target = parsedTarget;
     } else {
       stderr.writeln('Unknown argument: $argument');
       exitCode = 64;
@@ -132,6 +155,7 @@ void main(List<String> arguments) {
   final List<String> failures = validateProductionConfiguration(
     Platform.environment,
     googleServicesJson: googleServicesJson,
+    target: target,
   );
   if (failures.isNotEmpty) {
     stderr.writeln('Production configuration guard failed:');
