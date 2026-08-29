@@ -15,11 +15,10 @@ select has_column(
   'public', 'purchase_bindings', 'predecessor_token_hash',
   'purchase bindings preserve immutable predecessor lineage'
 );
-select like(
+select ok(
   pg_get_functiondef(
     'public.bind_verified_purchase_token(text,uuid,text,timestamptz,text)'::regprocedure
-  ),
-  '%pg_advisory_xact_lock%',
+  ) like '%pg_advisory_xact_lock%',
   'binding RPC serializes related token hashes before ownership checks'
 );
 
