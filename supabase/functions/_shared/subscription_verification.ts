@@ -1,13 +1,13 @@
 export interface VerifiedSubscriptionLineItem {
   productId: string;
   expiryTimeMs: number;
-  status: "active" | "grace" | "cancelled";
+  status: "active" | "grace" | "canceled";
 }
 
 const accessStatusBySubscriptionState = new Map<string, VerifiedSubscriptionLineItem["status"]>([
   ["SUBSCRIPTION_STATE_ACTIVE", "active"],
   ["SUBSCRIPTION_STATE_IN_GRACE_PERIOD", "grace"],
-  ["SUBSCRIPTION_STATE_CANCELED", "cancelled"],
+  ["SUBSCRIPTION_STATE_CANCELED", "canceled"],
 ]);
 
 export function verifySubscriptionLineItem(

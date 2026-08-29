@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/services/app_recovery_service.dart';
 import 'package:fantastic_guacamole/system/analytics/local_metrics_accumulator.dart';
@@ -61,6 +62,26 @@ void main() {
   });
 
   group('NavigationShell background containment', () {
+    testWidgets('refreshes entitlement authority on resume only', (
+      WidgetTester tester,
+    ) async {
+      int refreshCalls = 0;
+      _entitlementRefreshProbe = ({bool force = false}) async {
+        expect(force, isFalse);
+        refreshCalls += 1;
+      };
+      await _pumpShell(tester, probeEntitlement: true);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      expect(refreshCalls, 0);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+      expect(refreshCalls, 1);
+    });
+
     testWidgets('contains a rejected route recovery save', (
       WidgetTester tester,
     ) async {
@@ -120,6 +141,7 @@ Future<ProviderContainer> _pumpShell(
   _FakeRecoveryService? recovery,
   _FakeMetricsAccumulator? metrics,
   _FakeAudioInterruptionService? audio,
+  bool probeEntitlement = false,
 }) async {
   final ProviderContainer container = ProviderContainer(
     overrides: [
@@ -132,6 +154,10 @@ Future<ProviderContainer> _pumpShell(
       audioInterruptionServiceProvider.overrideWithValue(
         audio ?? _FakeAudioInterruptionService(),
       ),
+      if (probeEntitlement)
+        entitlementAuthorityRefreshProvider.overrideWithValue(
+          _entitlementRefreshProbe,
+        ),
     ],
   );
   addTearDown(container.dispose);
@@ -150,6 +176,9 @@ class _StaticGoals extends GoalsNotifier {
   @override
   List<GoalEntity> build() => const <GoalEntity>[];
 }
+
+EntitlementAuthorityRefresh _entitlementRefreshProbe =
+    ({bool force = false}) async {};
 
 class _FakeRecoveryService extends AppRecoveryService {
   _FakeRecoveryService({this.failOnSave = false});

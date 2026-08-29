@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,6 +48,7 @@ void main() {
     expect(started.planId, 'monthly');
     expect(repository.lastStartedPlanId, 'monthly');
     expect(restored.status, 'restored');
+    expect(repository.refreshCalls, 2);
   });
 
   test('paywallPromptProvider stores and clears prompt state', () {
@@ -100,7 +102,8 @@ void main() {
   });
 }
 
-class _FakePaywallRepository implements IPaywallRepository {
+class _FakePaywallRepository
+    implements IPaywallRepository, ISubscriptionAuthorityRefresher {
   _FakePaywallRepository({SubscriptionState? subscription})
     : _subscription =
           subscription ??
@@ -112,6 +115,24 @@ class _FakePaywallRepository implements IPaywallRepository {
 
   SubscriptionState _subscription;
   String? lastStartedPlanId;
+  int refreshCalls = 0;
+
+  @override
+  Future<SubscriptionState> refreshSubscriptionState({
+    bool force = false,
+  }) async {
+    refreshCalls += 1;
+    return _subscription;
+  }
+
+  @override
+  bool get shouldRestoreLegacySubscription => false;
+
+  @override
+  DateTime? get legacyRestoreNextRetryAt => null;
+
+  @override
+  Future<SubscriptionState?> restoreLegacySubscription() async => null;
 
   @override
   Future<SubscriptionState> cancelSubscription() async {

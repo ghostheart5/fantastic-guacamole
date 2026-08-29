@@ -196,6 +196,7 @@ Deno.serve(async (req: Request) => {
       | Record<string, unknown>
       | undefined;
     const status = lineItem.status;
+    const responseStatus = status === "canceled" ? "cancelled" : status;
     const orderId = typeof play.latestOrderId === "string"
       ? play.latestOrderId
       : undefined;
@@ -231,7 +232,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(req, {
       valid: true,
       expiryTimeMs: lineItem.expiryTimeMs,
-      status,
+      status: responseStatus,
       orderId,
       productId,
       planId: applied.planId,

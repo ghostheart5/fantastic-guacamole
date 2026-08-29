@@ -13,3 +13,14 @@ abstract class ISubscriptionRepository {
   Future<SubscriptionState> restorePurchases();
   Future<SubscriptionState> getUserSubscriptionState();
 }
+
+/// Optional capability for repositories backed by server subscription truth.
+abstract interface class ISubscriptionAuthorityRefresher {
+  Future<SubscriptionState> refreshSubscriptionState({bool force = false});
+
+  bool get shouldRestoreLegacySubscription;
+
+  DateTime? get legacyRestoreNextRetryAt;
+
+  Future<SubscriptionState?> restoreLegacySubscription();
+}

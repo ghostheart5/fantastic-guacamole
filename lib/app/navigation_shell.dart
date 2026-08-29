@@ -21,6 +21,7 @@ import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
+import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -121,6 +122,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         return;
       }
       _triggerCloudSyncReplay();
+      _runBackgroundTask(
+        'subscription authority refresh',
+        () => ref.read(entitlementAuthorityRefreshProvider)(),
+      );
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -212,6 +217,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           _initializeRuntimeServices();
           _systemScheduler.resume();
         }
+        _runBackgroundTask(
+          'subscription authority refresh',
+          () => ref.read(entitlementAuthorityRefreshProvider)(),
+        );
         _syncAppFlowToRouteView(widget.initialView);
         break;
     }

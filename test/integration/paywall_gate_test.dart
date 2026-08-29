@@ -103,6 +103,11 @@ void main() {
 
       expect(container.read(appAccessProvider).hasPremiumAccess, isTrue);
       expect(premiumSpend.allowed, isTrue);
+
+      // Dispose the entitlement notifier before Flutter verifies that this
+      // widget test left no long-lived expiry timers behind.
+      container.invalidate(entitlementProvider);
+      await tester.pump();
     },
   );
 }

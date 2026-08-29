@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -19,7 +20,6 @@ import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class PaywallPage extends ConsumerStatefulWidget {
   const PaywallPage({super.key});
@@ -29,9 +29,6 @@ class PaywallPage extends ConsumerStatefulWidget {
 }
 
 class _PaywallPageState extends ConsumerState<PaywallPage> {
-  static const String _autoRestorePromptedKey =
-      'paywall_auto_restore_prompted_v1';
-
   String? _statusMessage;
   bool _showAllPlans = false;
   bool _showComparison = false;
@@ -43,41 +40,22 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       'paywall_viewed',
       params: <String, Object?>{'testing_mode': paywallTestingMode},
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeAutoRestorePrompt();
-    });
-  }
-
-  Future<void> _maybeAutoRestorePrompt() async {
-    if (!mounted || paywallTestingMode) {
-      return;
-    }
-
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final bool prompted = prefs.getBool(_autoRestorePromptedKey) ?? false;
-    if (prompted) {
-      return;
-    }
-    await prefs.setBool(_autoRestorePromptedKey, true);
-
-    final SubscriptionState subscription = await ref.read(
-      paywallSubscriptionProvider.future,
-    );
-    if (subscription.isActive) {
-      return;
-    }
-
-    await _restore(autoPrompt: true);
   }
 
   Future<void> _unlock(String planId) async {
     try {
+      final String? expectedUserId = (await ref.read(
+        authUserProvider.future,
+      ))?.id;
+      if (expectedUserId == null) {
+        throw StateError('Sign in before starting a subscription.');
+      }
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .startSubscription(planId);
       await ref
           .read(entitlementProvider.notifier)
-          .applyPurchaseResult(subscription);
+          .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
       if (!mounted) {
@@ -126,12 +104,18 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
 
   Future<void> _restore({bool autoPrompt = false}) async {
     try {
+      final String? expectedUserId = (await ref.read(
+        authUserProvider.future,
+      ))?.id;
+      if (expectedUserId == null) {
+        throw StateError('Sign in before restoring purchases.');
+      }
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .restorePurchases();
       await ref
           .read(entitlementProvider.notifier)
-          .applyPurchaseResult(subscription);
+          .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
       if (!mounted) {

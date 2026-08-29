@@ -155,6 +155,7 @@ final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
       !forceLocalTestingPaywall) {
     final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
       secureStore: ref.read(secureStoreProvider),
+      supabaseClient: ref.watch(supabaseClientProvider),
     );
     ref.onDispose(repository.dispose);
     return repository;

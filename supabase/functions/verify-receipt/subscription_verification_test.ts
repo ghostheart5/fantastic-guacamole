@@ -41,7 +41,7 @@ Deno.test("initial and cancelled subscriptions retain access through expiry", ()
     "chronospark_premium_monthly",
     nowMs,
   );
-  if (cancelled?.status !== "cancelled") {
+  if (cancelled?.status !== "canceled") {
     throw new Error("cancelled subscription lost access before expiry");
   }
 });

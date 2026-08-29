@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/cancel_subscription.dart';
 import 'package:fantastic_guacamole/domain/usecases/check_entitlement.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_available_plans.dart';
@@ -155,12 +156,32 @@ class PaywallActions {
 
   final Ref _ref;
 
-  Future<SubscriptionState> startSubscription(String planId) {
-    return _ref.read(startSubscriptionUseCaseProvider).call(planId);
+  Future<SubscriptionState> startSubscription(String planId) async {
+    final SubscriptionState purchased = await _ref
+        .read(startSubscriptionUseCaseProvider)
+        .call(planId);
+    return _refreshAuthority(purchased);
   }
 
-  Future<SubscriptionState> restorePurchases() {
-    return _ref.read(restorePurchasesUseCaseProvider).call();
+  Future<SubscriptionState> restorePurchases() async {
+    final SubscriptionState restored = await _ref
+        .read(restorePurchasesUseCaseProvider)
+        .call();
+    return _refreshAuthority(restored);
+  }
+
+  Future<SubscriptionState> _refreshAuthority(
+    SubscriptionState fallback,
+  ) async {
+    final repository = _ref.read(paywallRepositoryProvider);
+    final ISubscriptionAuthorityRefresher? authorityRefresher =
+        repository is ISubscriptionAuthorityRefresher
+        ? repository as ISubscriptionAuthorityRefresher
+        : null;
+    if (authorityRefresher != null) {
+      return authorityRefresher.refreshSubscriptionState(force: true);
+    }
+    return fallback;
   }
 }
 
