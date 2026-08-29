@@ -82,10 +82,7 @@ abstract final class NexusActionResolver {
   static NexusActionDestination _fromCanonicalRoute(String destination) {
     return switch (destination) {
       RoutePaths.creator ||
-      RoutePaths.creatorTasks ||
-      RoutePaths.creatorGoals ||
-      RoutePaths.creatorHabits ||
-      RoutePaths.creatorNotes => NexusActionDestination.creator,
+      RoutePaths.creatorGoals => NexusActionDestination.creator,
       RoutePaths.timeline => NexusActionDestination.timeline,
       RoutePaths.smartPlanner => NexusActionDestination.smartPlanner,
       RoutePaths.siConsole => NexusActionDestination.siConsole,

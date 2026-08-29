@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/material.dart';
@@ -115,6 +116,67 @@ void main() {
     }
 
     testWidgets(
+      'records a changed error when the mounted error page is updated',
+      (WidgetTester tester) async {
+        RuntimeDiagnostics.events.value = <RuntimeDiagnosticEvent>[];
+        addTearDown(() {
+          RuntimeDiagnostics.events.value = <RuntimeDiagnosticEvent>[];
+        });
+        final Object firstError = StateError('first');
+        final Object secondError = StateError('second');
+
+        Widget errorApp({required String location, required Object error}) {
+          return MaterialApp(
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: RouteErrorPage(
+              key: const ValueKey<String>('route-error'),
+              location: location,
+              error: error,
+              isAuthenticated: true,
+              welcomeComplete: true,
+              onboardingComplete: true,
+            ),
+          );
+        }
+
+        await tester.pumpWidget(
+          errorApp(location: '/missing-one', error: firstError),
+        );
+        expect(
+          RuntimeDiagnostics.events.value.where(
+            (RuntimeDiagnosticEvent event) => event.category == 'router',
+          ),
+          hasLength(1),
+        );
+
+        await tester.pumpWidget(
+          errorApp(location: '/missing-two', error: secondError),
+        );
+        expect(
+          RuntimeDiagnostics.events.value.where(
+            (RuntimeDiagnosticEvent event) => event.category == 'router',
+          ),
+          hasLength(2),
+        );
+
+        await tester.pumpWidget(
+          errorApp(location: '/missing-two', error: secondError),
+        );
+        expect(
+          RuntimeDiagnostics.events.value.where(
+            (RuntimeDiagnosticEvent event) => event.category == 'router',
+          ),
+          hasLength(2),
+        );
+      },
+    );
+
+    testWidgets(
       'unknown-route recovery action navigates to the policy target',
       (WidgetTester tester) async {
         final GoRouter router = GoRouter(
@@ -153,6 +215,34 @@ void main() {
         router.dispose();
       },
     );
+  });
+
+  group('about route localization', () {
+    for (final _AboutExpectation expectation in _aboutExpectations) {
+      testWidgets('renders localized ${expectation.locale.languageCode} copy', (
+        WidgetTester tester,
+      ) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: expectation.locale,
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const AboutPage(),
+          ),
+        );
+
+        expect(find.text(expectation.title), findsOneWidget);
+        expect(find.text(expectation.subtitle), findsOneWidget);
+        expect(find.text(expectation.firstSectionTitle), findsOneWidget);
+        expect(find.text(expectation.voiceSectionTitle), findsOneWidget);
+        expect(find.text(expectation.voiceSectionBody), findsOneWidget);
+      });
+    }
   });
 }
 
@@ -260,6 +350,24 @@ class _RouterErrorExpectation {
   final String recoveryLabel;
 }
 
+class _AboutExpectation {
+  const _AboutExpectation({
+    required this.locale,
+    required this.title,
+    required this.subtitle,
+    required this.firstSectionTitle,
+    required this.voiceSectionTitle,
+    required this.voiceSectionBody,
+  });
+
+  final Locale locale;
+  final String title;
+  final String subtitle;
+  final String firstSectionTitle;
+  final String voiceSectionTitle;
+  final String voiceSectionBody;
+}
+
 const List<_LocalizedRouteExpectation>
 _localizedRouteExpectations = <_LocalizedRouteExpectation>[
   _LocalizedRouteExpectation(
@@ -343,5 +451,28 @@ _routerErrorExpectations = <_RouterErrorExpectation>[
     body:
         'El enlace no coincide con una pantalla disponible de ChronoSpark. Registramos un diagnóstico seguro sin mostrar detalles técnicos.',
     recoveryLabel: 'Volver a Nexus',
+  ),
+];
+
+const List<_AboutExpectation> _aboutExpectations = <_AboutExpectation>[
+  _AboutExpectation(
+    locale: Locale('en'),
+    title: 'ABOUT CHRONOSPARK',
+    subtitle:
+        'An adaptive planner built for clarity, momentum, and reflective execution.',
+    firstSectionTitle: 'What It Does',
+    voiceSectionTitle: 'Voice Features',
+    voiceSectionBody:
+        'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
+  ),
+  _AboutExpectation(
+    locale: Locale('es'),
+    title: 'ACERCA DE CHRONOSPARK',
+    subtitle:
+        'Un planificador adaptativo creado para aportar claridad, impulso y una ejecución reflexiva.',
+    firstSectionTitle: 'Qué hace',
+    voiceSectionTitle: 'Funciones de voz',
+    voiceSectionBody:
+        'El acceso al micrófono permite usar voz a texto de forma opcional en Planificador Inteligente y Consola SI. El audio se usa solo después de que inicias una acción de voz y permanece desactivado durante la planificación normal.',
   ),
 ];

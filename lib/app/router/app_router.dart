@@ -218,7 +218,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       );
     },
     routes: <RouteBase>[
-      // Primary surfaces: Nexus, Timeline, Creator, and Settings.
+      // Entry and primary surfaces: onboarding, Nexus, Creator, and Settings.
       GoRoute(
         path: RoutePaths.onboarding,
         builder: (BuildContext context, GoRouterState state) =>

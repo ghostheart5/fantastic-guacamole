@@ -5,15 +5,7 @@ import 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart';
 export 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart'
     show ChronoSparkFeatureId;
 
-enum ChronoSparkFeatureStatus { active, compatibilityOnly, removed }
-
-enum ChronoSparkFeatureCategory {
-  primaryCanonFeature,
-  supportSurface,
-  evidenceOutput,
-  legacyRedirect,
-  diagnosticInternalTool,
-}
+enum ChronoSparkFeatureCategory { primaryCanonFeature, supportSurface }
 
 class ChronoSparkFeatureDefinition {
   const ChronoSparkFeatureDefinition({
@@ -22,7 +14,6 @@ class ChronoSparkFeatureDefinition {
     required this.route,
     required this.purpose,
     required this.category,
-    this.status = ChronoSparkFeatureStatus.active,
   });
 
   final ChronoSparkFeatureId id;
@@ -30,7 +21,6 @@ class ChronoSparkFeatureDefinition {
   final String route;
   final String purpose;
   final ChronoSparkFeatureCategory category;
-  final ChronoSparkFeatureStatus status;
 }
 
 /// The single production feature registry for user-facing names and routes.
