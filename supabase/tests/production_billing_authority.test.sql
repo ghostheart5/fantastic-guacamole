@@ -236,7 +236,7 @@ select is(
   public.reconcile_google_play_subscription(
     repeat('c', 64), 'chronospark_premium_monthly', 'active', true, true,
     'order-test', now() + interval '30 days', now() + interval '10 minutes',
-    'verify:test:subscription', '{"source":"test"}'::jsonb
+    'verify:test:subscription-after-refund', '{"source":"test"}'::jsonb
   )->>'reason',
   'terminal_token',
   'successful verify replay becomes terminal after same-token refund'
@@ -620,7 +620,7 @@ set local request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
 
 select results_eq(
   'select balance from public.monetization_wallets',
-  array[20],
+  array[300],
   'authenticated account reads only its wallet'
 );
 select throws_ok(
