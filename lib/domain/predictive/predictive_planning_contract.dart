@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Predictive planning
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/work_window_entity.dart';
 

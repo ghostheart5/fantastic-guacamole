@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Governed memory
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 

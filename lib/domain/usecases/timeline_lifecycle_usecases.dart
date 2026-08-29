@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Timeline lifecycle
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 

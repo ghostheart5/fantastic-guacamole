@@ -17,7 +17,7 @@ void main() {
     setUp(() => repository = _FakeLearningRepository());
 
     test('success raises effortWeight and increments completed', () async {
-      repository.state = const LearningEntity();
+      repository.state = LearningEntity();
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -30,7 +30,7 @@ void main() {
     });
 
     test('failure lowers effortWeight and increments skipped', () async {
-      repository.state = const LearningEntity();
+      repository.state = LearningEntity();
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -42,7 +42,7 @@ void main() {
     });
 
     test('hard tasks additionally move priorityWeight', () async {
-      repository.state = const LearningEntity();
+      repository.state = LearningEntity();
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -52,7 +52,7 @@ void main() {
     });
 
     test('easy tasks leave priorityWeight untouched', () async {
-      repository.state = const LearningEntity();
+      repository.state = LearningEntity();
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -62,7 +62,7 @@ void main() {
     });
 
     test('weights are clamped to the policy bounds', () async {
-      repository.state = const LearningEntity(effortWeight: 2.0);
+      repository.state = LearningEntity(effortWeight: 2.0);
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -70,7 +70,7 @@ void main() {
 
       expect(updated.effortWeight, 2.0, reason: 'clamped at the upper bound');
 
-      repository.state = const LearningEntity(effortWeight: 0.5);
+      repository.state = LearningEntity(effortWeight: 0.5);
       final LearningEntity lowered = await ApplyLearningFeedback(
         repository,
       ).call(success: false, difficulty: 3);
@@ -124,7 +124,7 @@ void main() {
 
   group('LearningPolicy is reachable and deterministic', () {
     test('applyFeedback is a pure function of its inputs', () {
-      const LearningEntity current = LearningEntity();
+      final LearningEntity current = LearningEntity();
 
       final LearningEntity a = LearningPolicy.applyFeedback(
         current: current,
@@ -146,7 +146,7 @@ void main() {
   group('UpdateLearningState', () {
     test('persists the supplied state verbatim', () async {
       final _FakeLearningRepository repository = _FakeLearningRepository();
-      const LearningEntity state = LearningEntity(
+      final LearningEntity state = LearningEntity(
         effortWeight: 1.4,
         priorityWeight: 0.8,
         completed: 7,

@@ -15,10 +15,11 @@ class WorkWindowEntity {
     this.label,
     this.energyFloor = 1,
     this.energyCeiling = 5,
-    this.preferredTaskIds = const <String>[],
+    List<String> preferredTaskIds = const <String>[],
     this.status = WorkWindowStatus.planned,
   }) : createdAt = createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
-       updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+       updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+       preferredTaskIds = List<String>.unmodifiable(preferredTaskIds);
 
   final String id;
   final DateTime start;
@@ -79,11 +80,17 @@ class WorkWindowEntity {
   }
 
   factory WorkWindowEntity.fromJson(Map<String, dynamic> json) {
+    final DateTime? start = DateTime.tryParse(json['start']?.toString() ?? '');
+    final DateTime? end = DateTime.tryParse(json['end']?.toString() ?? '');
+    if (start == null || end == null) {
+      throw const FormatException(
+        'Work windows require valid start and end timestamps.',
+      );
+    }
     return WorkWindowEntity(
       id: json['id']?.toString() ?? '',
-      start:
-          DateTime.tryParse(json['start']?.toString() ?? '') ?? DateTime.now(),
-      end: DateTime.tryParse(json['end']?.toString() ?? '') ?? DateTime.now(),
+      start: start,
+      end: end,
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),

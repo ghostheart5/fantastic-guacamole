@@ -61,7 +61,7 @@ void main() {
       final DateTime start = DateTime.utc(2026, 7, 5, 9);
 
       final List<TimeBlock> plan = service.generateDayPlan(
-        tasks: const <Task>[
+        tasks: <Task>[
           Task(
             id: 'low',
             title: 'Low',
@@ -92,7 +92,7 @@ void main() {
         final DateTime start = DateTime.utc(2026, 7, 5, 9);
 
         final List<TimeBlock> lowEnergyPlan = service.generateAdaptivePlan(
-          inputs: PlannerInputAdapter.fromLegacyTasks(const <Task>[
+          inputs: PlannerInputAdapter.fromLegacyTasks(<Task>[
             Task(
               id: 'overwhelm',
               title: 'Hard deep-work task',

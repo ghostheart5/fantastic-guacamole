@@ -114,22 +114,22 @@ TrajectoryComparison _comparison({
   return const FutureConsequenceEngine().compare(
     baseline: source,
     generatedAt: trajectoryFixtureNow,
-    interventions: const <TrajectoryIntervention>[
+    interventions: <TrajectoryIntervention>[
       TrajectoryIntervention(
         id: 'maintain',
         type: TrajectoryInterventionType.maintainCourse,
         title: 'Maintain current course',
-        horizon: Duration(days: 7),
+        horizon: const Duration(days: 7),
         description: 'Keep the frozen generated baseline unchanged.',
       ),
       TrajectoryIntervention(
         id: 'delay',
         type: TrajectoryInterventionType.delayTask,
         title: 'Delay selected work',
-        horizon: Duration(days: 30),
+        horizon: const Duration(days: 30),
         description: 'Model a bounded delay.',
         subjectId: 'task-launch',
-        delay: Duration(days: 2),
+        delay: const Duration(days: 2),
       ),
     ],
   );

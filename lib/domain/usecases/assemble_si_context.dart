@@ -1,5 +1,5 @@
-import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
-import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_context.dart';
+import 'package:fantastic_guacamole/domain/ports/i_assistant_context_builder.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
 ///
@@ -7,7 +7,7 @@ import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
 class AssembleSiContext {
   const AssembleSiContext(this._builder);
 
-  final AssistantContextBuilder _builder;
+  final IAssistantContextBuilder _builder;
 
   AssistantContext call({
     required String input,

@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Creator handshake
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';

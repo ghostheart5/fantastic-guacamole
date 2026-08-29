@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Assistant shared contracts
 import 'dart:collection';
 
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';

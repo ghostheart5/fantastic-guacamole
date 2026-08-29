@@ -60,16 +60,19 @@ class CalendarEntryEntity {
   };
 
   factory CalendarEntryEntity.fromJson(Map<String, dynamic> json) {
-    final DateTime start =
-        DateTime.tryParse(json['start']?.toString() ?? '') ?? DateTime.now();
+    final DateTime? start = DateTime.tryParse(json['start']?.toString() ?? '');
+    final DateTime? end = DateTime.tryParse(json['end']?.toString() ?? '');
+    if (start == null || end == null) {
+      throw const FormatException(
+        'Calendar entries require valid start and end timestamps.',
+      );
+    }
     return CalendarEntryEntity(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? 'Untitled',
       description: json['description']?.toString(),
       start: start,
-      end:
-          DateTime.tryParse(json['end']?.toString() ?? '') ??
-          start.add(const Duration(minutes: 30)),
+      end: end,
       taskId: json['taskId']?.toString(),
       isCompleted:
           json['isCompleted'] as bool? ?? json['completed'] as bool? ?? false,

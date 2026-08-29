@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Decision outcomes
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 
 abstract interface class IDecisionOutcomeRepository {

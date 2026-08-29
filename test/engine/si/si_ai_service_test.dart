@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final SIAIService service = SIAIService();
-  const List<Task> tasks = <Task>[
+  final List<Task> tasks = <Task>[
     Task(
       id: 'task-1',
       title: 'Finish project proposal',

@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Learning/adaptation
 enum DecisionObservationType {
   recommendationShown,
   recommendationAccepted,

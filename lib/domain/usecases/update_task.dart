@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/errors/domain_validation_exception.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 
@@ -11,10 +12,13 @@ class UpdateTask {
 
   final ITaskRepository repository;
 
-  Future<void> call(TaskEntity task) async {
+  Future<void> call(TaskEntity task, {DateTime? now}) async {
     if (!TaskPolicy.isValid(task)) {
-      throw Exception('Invalid task');
+      throw const DomainValidationException(
+        code: 'invalid_task',
+        message: 'Task fields do not satisfy the task policy.',
+      );
     }
-    await repository.saveTask(task.copyWith(updatedAt: DateTime.now()));
+    await repository.saveTask(task.copyWith(updatedAt: now ?? DateTime.now()));
   }
 }

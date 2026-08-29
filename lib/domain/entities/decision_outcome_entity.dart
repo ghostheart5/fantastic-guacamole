@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Decision outcomes
 enum DecisionOutcomeKind {
   shown,
   accepted,

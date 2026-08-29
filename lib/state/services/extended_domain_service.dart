@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/domain/domain.dart';
+import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_extended_domain_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ExtendedDomainService implements IExtendedDomainRepository {

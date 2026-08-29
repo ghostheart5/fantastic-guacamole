@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/errors/domain_validation_exception.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/notification_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
@@ -32,7 +33,10 @@ class ScheduleNotification {
     }
 
     if (!NotificationPolicy.canSchedule(finalNotification)) {
-      throw Exception('Notification cannot be scheduled');
+      throw const DomainValidationException(
+        code: 'notification_not_schedulable',
+        message: 'Notification fields do not satisfy the scheduling policy.',
+      );
     }
     await repository.scheduleNotification(finalNotification);
   }

@@ -1,6 +1,5 @@
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Subscriptions/paywall
 ///
-/// NOTE: isExpired reads the device clock directly.
 class Entitlement {
   const Entitlement({
     required this.featureId,
@@ -14,7 +13,12 @@ class Entitlement {
   final String source;
   final DateTime? expiresAt;
 
-  bool get isExpired => expiresAt != null && DateTime.now().isAfter(expiresAt!);
+  bool isExpiredAt(DateTime reference) =>
+      expiresAt != null && reference.isAfter(expiresAt!);
+
+  bool get isExpired => isExpiredAt(DateTime.now());
+
+  bool hasAccessAt(DateTime reference) => isEntitled && !isExpiredAt(reference);
 
   bool get hasAccess => isEntitled && !isExpired;
 
@@ -32,8 +36,8 @@ class Entitlement {
     expiresAt: expiresAt,
   );
 
-  void validate() {
-    if (isEntitled && isExpired) {
+  void validate({DateTime? now}) {
+    if (isEntitled && isExpiredAt(now ?? DateTime.now())) {
       throw StateError('Entitlement cannot be active and expired');
     }
   }

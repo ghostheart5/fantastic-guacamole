@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/errors/domain_validation_exception.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_task.dart';
@@ -41,7 +42,13 @@ void main() {
 
       await expectLater(
         () => CreateTask(taskRepository).call(invalid),
-        throwsException,
+        throwsA(
+          isA<DomainValidationException>().having(
+            (DomainValidationException error) => error.code,
+            'code',
+            'invalid_task',
+          ),
+        ),
       );
     });
 

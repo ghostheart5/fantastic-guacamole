@@ -123,6 +123,7 @@ import 'package:fantastic_guacamole/domain/usecases/timeline_lifecycle_usecases.
 import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
@@ -602,7 +603,7 @@ final recommendNextBlockUseCaseProvider = Provider<RecommendNextBlock>((ref) {
 });
 
 final scoreTasksUseCaseProvider = Provider<ScoreTasks>((ref) {
-  return const ScoreTasks();
+  return const ScoreTasks(TaskRanker());
 });
 
 // --- SI Console ------------------------------------------------------------

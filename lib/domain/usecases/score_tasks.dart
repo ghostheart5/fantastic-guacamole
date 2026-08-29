@@ -1,18 +1,20 @@
+import 'package:fantastic_guacamole/domain/entities/learning_state.dart';
+import 'package:fantastic_guacamole/domain/entities/ranked_task.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
-import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
-import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
+import 'package:fantastic_guacamole/domain/ports/i_task_ranker.dart';
+import 'package:fantastic_guacamole/domain/policies/task_ranking_policy.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Smart Planner / Trajectory Engine
 ///
 /// Domain entry point for task scoring. The scoring formula stays in
-/// [TaskRanker] so this does not become a second, divergent implementation —
+/// [ITaskRanker] so this does not become a second, divergent implementation —
 /// the codebase already carries one duplicate of the energy-fit maths in
 /// `CalendarService`, and this deliberately does not add a third.
 class ScoreTasks {
-  const ScoreTasks([this._ranker = const TaskRanker()]);
+  const ScoreTasks(this._ranker);
 
-  final TaskRanker _ranker;
+  final ITaskRanker _ranker;
 
   /// Tasks ordered highest-score first.
   List<RankedTask> call(

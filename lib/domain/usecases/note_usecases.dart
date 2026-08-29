@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Notes
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 

@@ -94,11 +94,11 @@ TrajectoryComparison trajectoryTestComparison({int horizonDays = 7}) {
     generatedAt: trajectoryFixtureNow,
     interventions:
         <TrajectoryIntervention>[
-              const TrajectoryIntervention(
+              TrajectoryIntervention(
                 id: 'maintain',
                 type: TrajectoryInterventionType.maintainCourse,
                 title: 'Maintain current course',
-                horizon: Duration(days: 7),
+                horizon: const Duration(days: 7),
                 description: 'Keep the present plan unchanged.',
               ),
               TrajectoryIntervention(
@@ -116,16 +116,18 @@ TrajectoryComparison trajectoryTestComparison({int horizonDays = 7}) {
                     end: trajectoryFixtureNow.add(const Duration(minutes: 90)),
                   ),
                 ],
-                assumptions: <String>['The protected block is attempted.'],
+                assumptions: const <String>[
+                  'The protected block is attempted.',
+                ],
               ),
-              const TrajectoryIntervention(
+              TrajectoryIntervention(
                 id: 'delay',
                 type: TrajectoryInterventionType.delayTask,
                 title: 'Delay the milestone',
-                horizon: Duration(days: 7),
+                horizon: const Duration(days: 7),
                 description: 'Move the protected milestone by two days.',
                 subjectId: 'task-launch',
-                delay: Duration(days: 2),
+                delay: const Duration(days: 2),
               ),
             ]
             .map(

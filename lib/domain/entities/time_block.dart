@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: DEPRECATED | Feature: Calendar compatibility
 import 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
 
 /// Planner compatibility view over [CalendarEntryEntity].

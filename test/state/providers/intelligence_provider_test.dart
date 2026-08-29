@@ -45,7 +45,7 @@ void main() {
     final ProviderContainer populatedContainer = ProviderContainer(
       overrides: [
         tasksProvider.overrideWith((Ref ref) async {
-          return const <Task>[
+          return <Task>[
             Task(
               id: 't1',
               title: 'Move launch checklist',

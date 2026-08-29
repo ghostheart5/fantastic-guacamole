@@ -19,15 +19,16 @@ class ApplyLearningFeedback {
     required int difficulty,
     String? taskId,
     String source = 'learning_feedback',
+    DateTime? now,
   }) async {
     final LearningEntity current =
-        await repository.getState() ?? const LearningEntity();
+        await repository.getState() ?? LearningEntity();
     final LearningEntity weighted = LearningPolicy.applyFeedback(
       current: current,
       success: success,
       difficulty: difficulty,
     );
-    final DateTime observedAt = DateTime.now().toUtc();
+    final DateTime observedAt = (now ?? DateTime.now()).toUtc();
     final LearningEntity updated = weighted.recordObservation(
       DecisionObservationEntity(
         id: '$source-${observedAt.microsecondsSinceEpoch}',

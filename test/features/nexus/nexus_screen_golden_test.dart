@@ -99,7 +99,7 @@ void main() {
 final NexusScreenModel _populatedNexusModel = NexusScreenModel(
   aggregation: SIStateAggregation(
     tasks: <Task>[
-      const Task(
+      Task(
         id: 'task-1',
         title: 'Finish quarterly review',
         priority: 3,

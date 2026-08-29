@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Task occurrences
 class TaskOccurrenceContract {
   const TaskOccurrenceContract._();
 

@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Notes
 class NoteEntity {
   const NoteEntity({
     required this.id,

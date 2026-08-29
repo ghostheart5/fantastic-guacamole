@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Strategic decisions
 import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -7,15 +8,16 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 /// This is deliberately separate from presentation copy and remote-model
 /// payloads.  Every recommendation can therefore record what facts it used.
 class StrategicDecisionRequest {
-  const StrategicDecisionRequest({
+  StrategicDecisionRequest({
     required this.state,
-    required this.tasks,
+    required List<TaskEntity> tasks,
     required this.createdAt,
     this.userIntent,
-    this.signals = const <StrategicDecisionSignal>[],
+    List<StrategicDecisionSignal> signals = const <StrategicDecisionSignal>[],
     this.maxSuggestions = 3,
     this.schemaVersion = currentSchemaVersion,
-  });
+  }) : tasks = List<TaskEntity>.unmodifiable(tasks),
+       signals = List<StrategicDecisionSignal>.unmodifiable(signals);
 
   static const int currentSchemaVersion = 1;
 
@@ -96,15 +98,15 @@ class StrategicDecisionEvidence {
 /// A versioned recommendation receipt suitable for persistence, analytics, or
 /// a future remote intelligence adapter. It never exposes private raw input.
 class StrategicDecisionReceipt {
-  const StrategicDecisionReceipt({
+  StrategicDecisionReceipt({
     required this.decision,
     required this.generatedAt,
     required this.expiresAt,
-    required this.evidence,
+    required List<StrategicDecisionEvidence> evidence,
     required this.requestSchemaVersion,
     this.isFallback = false,
     this.engine = 'local-deterministic-v1',
-  });
+  }) : evidence = List<StrategicDecisionEvidence>.unmodifiable(evidence);
 
   final SiDecisionEntity decision;
   final DateTime generatedAt;
@@ -114,7 +116,9 @@ class StrategicDecisionReceipt {
   final bool isFallback;
   final String engine;
 
-  bool get isExpired => !expiresAt.isAfter(DateTime.now());
+  bool isExpiredAt(DateTime reference) => !expiresAt.isAfter(reference);
+
+  bool get isExpired => isExpiredAt(DateTime.now());
 
   void validate() {
     decision.validate();

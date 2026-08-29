@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Smart Planner proposals
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 
 enum PlanProposalStatus { preview, applied, rejected }

@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Operating continuity
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -59,7 +60,10 @@ class OperatingEvidence {
   final DateTime? freshUntil;
   final double? weight;
 
-  bool get isFresh => freshUntil == null || freshUntil!.isAfter(DateTime.now());
+  bool isFreshAt(DateTime reference) =>
+      freshUntil == null || freshUntil!.isAfter(reference);
+
+  bool get isFresh => isFreshAt(DateTime.now());
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'code': code,
@@ -350,7 +354,9 @@ class OperatingDecisionReceipt {
   final List<String> assumptions;
   final List<String> warnings;
 
-  bool get isExpired => !expiresAt.isAfter(DateTime.now());
+  bool isExpiredAt(DateTime reference) => !expiresAt.isAfter(reference);
+
+  bool get isExpired => isExpiredAt(DateTime.now());
 
   void validate() {
     if (recommendedAction.trim().isEmpty || rationale.trim().isEmpty) {

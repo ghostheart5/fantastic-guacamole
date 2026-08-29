@@ -59,17 +59,17 @@ class SiStateEntity {
   }
 
   // Domain transitions
-  SiStateEntity withConfidenceDelta(double delta) =>
-      copyWith(confidence: confidence + delta);
+  SiStateEntity withConfidenceDelta(double delta, {DateTime? at}) =>
+      copyWith(confidence: confidence + delta, lastUpdated: at);
 
-  SiStateEntity withEnergyDelta(double delta) =>
-      copyWith(energy: (energy + delta).clamp(0.0, 1.0));
+  SiStateEntity withEnergyDelta(double delta, {DateTime? at}) =>
+      copyWith(energy: (energy + delta).clamp(0.0, 1.0), lastUpdated: at);
 
-  SiStateEntity withAttentionDelta(double delta) =>
-      copyWith(attention: (attention + delta).clamp(0.0, 1.0));
+  SiStateEntity withAttentionDelta(double delta, {DateTime? at}) =>
+      copyWith(attention: (attention + delta).clamp(0.0, 1.0), lastUpdated: at);
 
-  SiStateEntity withFatigueDelta(double delta) =>
-      copyWith(fatigue: (fatigue + delta).clamp(0.0, 1.0));
+  SiStateEntity withFatigueDelta(double delta, {DateTime? at}) =>
+      copyWith(fatigue: (fatigue + delta).clamp(0.0, 1.0), lastUpdated: at);
 
   // Semantic helpers
   bool get isLowEnergy => energy < 0.3;
@@ -91,7 +91,10 @@ class SiStateEntity {
   bool get instinctSafetyFirst => primaryInstinct == 'safety_first';
   bool get instinctExplore => primaryInstinct == 'explore';
 
-  bool get isStale => DateTime.now().difference(lastUpdated).inMinutes > 10;
+  bool isStaleAt(DateTime reference) =>
+      reference.difference(lastUpdated).inMinutes > 10;
+
+  bool get isStale => isStaleAt(DateTime.now());
 
   void validate() {
     if (energy < 0 || energy > 1) {

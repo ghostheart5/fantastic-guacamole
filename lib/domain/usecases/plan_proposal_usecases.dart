@@ -1,10 +1,11 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Smart Planner proposals
 import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
+import 'package:fantastic_guacamole/domain/planning/adaptive_plan_policy.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_adaptive_plan.dart';
-import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
 
 class PreviewAdaptivePlan {
   const PreviewAdaptivePlan(this._generate, this._repository);

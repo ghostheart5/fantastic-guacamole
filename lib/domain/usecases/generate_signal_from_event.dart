@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/signal_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_signal_repository.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Output: Smart Planner/SI
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Smart Planner/SI signals
 ///
 /// Registered as generateSignalFromEventUseCaseProvider.
 class GenerateSignalFromEvent {
@@ -14,13 +14,14 @@ class GenerateSignalFromEvent {
     required String summary,
     List<String> tags = const <String>[],
     String? action,
+    DateTime? now,
   }) async {
-    final DateTime now = DateTime.now();
+    final DateTime timestamp = now ?? DateTime.now();
     final SignalEntity signal = SignalEntity(
-      id: 'signal-${now.microsecondsSinceEpoch}',
+      id: 'signal-${timestamp.microsecondsSinceEpoch}',
       title: eventType,
       summary: summary,
-      createdAt: now,
+      createdAt: timestamp,
       tags: tags,
       action: action,
     );

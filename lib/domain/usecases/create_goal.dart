@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/errors/domain_validation_exception.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
@@ -9,5 +10,15 @@ class CreateGoal {
 
   final IGoalRepository _repository;
 
-  Future<void> call(GoalEntity goal) => _repository.saveGoal(goal);
+  Future<void> call(GoalEntity goal) async {
+    try {
+      goal.validate();
+    } on StateError catch (error) {
+      throw DomainValidationException(
+        code: 'invalid_goal',
+        message: error.message.toString(),
+      );
+    }
+    await _repository.saveGoal(goal);
+  }
 }

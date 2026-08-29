@@ -1,9 +1,6 @@
-import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
-
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Progression
 ///
-/// Resolved by featureDerivedProviders -> Progression UI. The presentation
-/// layer input type is kept as a stable projection at this boundary.
+/// Resolved by featureDerivedProviders -> Progression UI.
 class ProgressSignals {
   const ProgressSignals({
     required this.momentum,
@@ -19,22 +16,27 @@ class ProgressSignals {
 }
 
 class GetProgressSignals {
-  ProgressSignals call(TrajectorySummaryView traj) {
+  ProgressSignals call({
+    required double momentum,
+    required int streak,
+    required int pressureIndex,
+    required int behaviorDivergence,
+  }) {
     return ProgressSignals(
-      momentum: traj.momentum >= 0.7
+      momentum: momentum >= 0.7
           ? 'High'
-          : traj.momentum >= 0.4
+          : momentum >= 0.4
           ? 'Medium'
           : 'Low',
-      consistency: '${traj.streak} day streak',
-      load: traj.pressureIndex > 60
+      consistency: '$streak day streak',
+      load: pressureIndex > 60
           ? 'Heavy'
-          : traj.pressureIndex > 30
+          : pressureIndex > 30
           ? 'Balanced'
           : 'Light',
-      direction: traj.behaviorDivergence > 40
+      direction: behaviorDivergence > 40
           ? 'Off Track'
-          : traj.behaviorDivergence > 20
+          : behaviorDivergence > 20
           ? 'Slightly Off'
           : 'On Track',
     );

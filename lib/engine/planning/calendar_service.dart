@@ -2,40 +2,25 @@ import 'package:fantastic_guacamole/domain/entities/calendar_entry.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/ports/i_adaptive_plan_generator.dart';
+import 'package:fantastic_guacamole/domain/planning/adaptive_plan_policy.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 
-class AdaptivePlanPolicy {
-  const AdaptivePlanPolicy({
-    this.priorityWeight = 1,
-    this.deadlineWeight = 1,
-    this.energyWeight = 1,
-    this.goalBonus = 0,
-    this.quickWinBonus = 0,
-    this.adaptDurationToEnergy = true,
-    this.fixedBreakMinutes,
-  });
-
-  final double priorityWeight;
-  final double deadlineWeight;
-  final double energyWeight;
-  final double goalBonus;
-  final double quickWinBonus;
-  final bool adaptDurationToEnergy;
-  final int? fixedBreakMinutes;
-}
+export 'package:fantastic_guacamole/domain/planning/adaptive_plan_policy.dart';
 
 /// Compatibility planning helper. Production decision surfaces consume the
 /// canonical `DecisionEngine` plan instead of an alternate planning screen.
 ///
 /// The persisted path remains a schedule-storage mechanism, not a second
 /// recommendation authority.
-class CalendarService {
+class CalendarService implements IAdaptivePlanGenerator {
   final Map<String, CalendarEntry> _entries = <String, CalendarEntry>{};
   final Map<String, List<TimeBlock>> _timeBlocksByDay =
       <String, List<TimeBlock>>{};
   final Map<String, List<Task>> _tasksByDay = <String, List<Task>>{};
 
   /// Generate an adaptive day plan using a simple energy-aware ranking.
+  @override
   List<TimeBlock> generateAdaptivePlan({
     required List<PlannerInput> inputs,
     required double energy,

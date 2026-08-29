@@ -31,7 +31,9 @@ class SubtaskEntity {
     String? userId,
     SubtaskStatus? status,
     DateTime? completedAt,
+    bool clearCompletedAt = false,
   }) {
+    final SubtaskStatus resolvedStatus = status ?? this.status;
     return SubtaskEntity(
       id: id,
       parentTaskId: parentTaskId ?? this.parentTaskId,
@@ -39,17 +41,33 @@ class SubtaskEntity {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       userId: userId ?? this.userId,
-      status: status ?? this.status,
-      completedAt: completedAt ?? this.completedAt,
+      status: resolvedStatus,
+      completedAt: clearCompletedAt || resolvedStatus != SubtaskStatus.completed
+          ? null
+          : completedAt ?? this.completedAt,
     );
   }
 
-  SubtaskEntity complete() {
+  SubtaskEntity complete({DateTime? at}) {
+    final DateTime timestamp = at ?? DateTime.now();
     return copyWith(
       status: SubtaskStatus.completed,
-      completedAt: DateTime.now(),
+      completedAt: timestamp,
+      updatedAt: timestamp,
     );
   }
+
+  SubtaskEntity reopen({DateTime? at}) => copyWith(
+    status: SubtaskStatus.pending,
+    clearCompletedAt: true,
+    updatedAt: at ?? DateTime.now(),
+  );
+
+  SubtaskEntity cancel({DateTime? at}) => copyWith(
+    status: SubtaskStatus.canceled,
+    clearCompletedAt: true,
+    updatedAt: at ?? DateTime.now(),
+  );
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -73,7 +91,7 @@ class SubtaskEntity {
       title: json['title']?.toString() ?? 'Untitled Subtask',
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
-          DateTime.now(),
+          DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt:
           DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),

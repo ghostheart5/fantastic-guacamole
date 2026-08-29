@@ -1,15 +1,15 @@
-/// CHRONOSPARK-CLASS: PLANNED | Output: Smart Planner/SI
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Smart Planner/SI signals
 ///
 /// Wired through data + domain; does not reach the UI yet.
 class SignalEntity {
-  const SignalEntity({
+  SignalEntity({
     required this.id,
     required this.title,
     required this.summary,
     required this.createdAt,
-    this.tags = const <String>[],
+    List<String> tags = const <String>[],
     this.action,
-  });
+  }) : tags = List<String>.unmodifiable(tags);
 
   final String id;
   final String title;
@@ -45,9 +45,13 @@ class SignalEntity {
 
   bool get hasAction => action != null && action!.isNotEmpty;
 
-  bool get isRecent => DateTime.now().difference(createdAt).inDays < 7;
+  bool isRecentAt(DateTime reference) => ageAt(reference).inDays < 7;
 
-  Duration get age => DateTime.now().difference(createdAt);
+  bool get isRecent => isRecentAt(DateTime.now());
+
+  Duration ageAt(DateTime reference) => reference.difference(createdAt);
+
+  Duration get age => ageAt(DateTime.now());
 
   bool matches(String query) {
     final q = query.toLowerCase();

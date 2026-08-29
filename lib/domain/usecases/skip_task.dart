@@ -18,6 +18,7 @@ class SkipTask {
   Future<LearningEntity> call({
     required String taskId,
     required int difficulty,
+    DateTime? now,
   }) async {
     final task = await taskRepository.getTaskById(taskId);
     if (task == null) {
@@ -25,13 +26,13 @@ class SkipTask {
     }
 
     final LearningEntity current =
-        await learningRepository.getState() ?? const LearningEntity();
+        await learningRepository.getState() ?? LearningEntity();
     final LearningEntity weighted = LearningPolicy.applyFeedback(
       current: current,
       success: false,
       difficulty: difficulty,
     );
-    final DateTime observedAt = DateTime.now().toUtc();
+    final DateTime observedAt = (now ?? DateTime.now()).toUtc();
     final LearningEntity updated = weighted.recordObservation(
       DecisionObservationEntity(
         id: 'task_skip-${observedAt.microsecondsSinceEpoch}',

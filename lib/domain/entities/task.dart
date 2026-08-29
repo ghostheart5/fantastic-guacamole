@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: DEPRECATED | Feature: Task compatibility
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
@@ -10,7 +11,7 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 class Task extends TaskEntity {
   // Keep the legacy non-null duration contract while the canonical base is nullable.
   // ignore: use_super_parameters
-  const Task({
+  Task({
     required String id,
     required String title,
     required int priority,

@@ -36,7 +36,12 @@ final userGrowthTitleProvider = Provider<String>((ref) {
 
 final progressSignalsProvider = Provider<ProgressSignals>((ref) {
   final traj = ref.watch(trajectorySummaryProvider);
-  return GetProgressSignals()(traj);
+  return GetProgressSignals()(
+    momentum: traj.momentum,
+    streak: traj.streak,
+    pressureIndex: traj.pressureIndex,
+    behaviorDivergence: traj.behaviorDivergence,
+  );
 });
 
 final narrativeProvider = Provider<UserNarrative>((ref) {

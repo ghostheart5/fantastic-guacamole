@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console shortcuts
 enum SIShortcutRoute {
   help,
   status,

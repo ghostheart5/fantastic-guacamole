@@ -161,7 +161,7 @@ class SIStateAggregation {
       fatigue: siState.fatigue,
       lastUpdated: null,
     ),
-    learning: const LearningEntity(),
+    learning: LearningEntity(),
   );
 }
 

@@ -1,18 +1,22 @@
 import 'package:fantastic_guacamole/domain/entities/decision_observation_entity.dart';
-import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
+import 'package:fantastic_guacamole/domain/entities/learning_state.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Learning/adaptation
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Learning/adaptation
 ///
 /// Adaptive weights consumed by LearningPolicy.
 class LearningEntity extends LearningState {
-  const LearningEntity({
+  LearningEntity({
     super.effortWeight,
     super.priorityWeight,
     super.completed,
     super.skipped,
-    this.taskAffinity = const <String, double>{},
-    this.observations = const <DecisionObservationEntity>[],
-  });
+    Map<String, double> taskAffinity = const <String, double>{},
+    List<DecisionObservationEntity> observations =
+        const <DecisionObservationEntity>[],
+  }) : taskAffinity = Map<String, double>.unmodifiable(taskAffinity),
+       observations = List<DecisionObservationEntity>.unmodifiable(
+         observations,
+       );
 
   /// Per-task acceptance/completion affinity in the inclusive 0..1 range.
   /// It is keyed by stable task id, never by mutable task title.

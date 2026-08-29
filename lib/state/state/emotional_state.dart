@@ -1,11 +1,1 @@
-enum EmotionalState {
-  neutral,
-  positive,
-  negative,
-  energized,
-  fatigued,
-  engaged,
-  scattered,
-  anxious,
-  calm,
-}
+export 'package:fantastic_guacamole/domain/entities/emotional_state.dart';

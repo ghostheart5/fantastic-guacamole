@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Daily Rhythm
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 
 /// Contract for habit persistence.

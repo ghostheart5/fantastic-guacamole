@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
+import 'package:fantastic_guacamole/domain/ports/i_assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
     as si_models;
 import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
@@ -16,7 +17,7 @@ abstract class AssistantIntentDetector {
   });
 }
 
-abstract class AssistantContextBuilder {
+abstract class AssistantContextBuilder implements IAssistantContextBuilder {
   AssistantContext buildSmartPlannerContext({
     required String input,
     required AssistantIntent intent,
@@ -27,6 +28,7 @@ abstract class AssistantContextBuilder {
     required List<String> goalSummaries,
   });
 
+  @override
   AssistantContext buildSIConsoleContext({
     required String input,
     required AssistantIntent intent,

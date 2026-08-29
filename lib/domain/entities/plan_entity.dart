@@ -4,12 +4,12 @@ import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 ///
 /// Persisted schedule data used by canonical planning flows.
 class PlanEntity {
-  const PlanEntity({
+  PlanEntity({
     required this.id,
     required this.date,
-    required this.blocks,
+    required List<TimeBlock> blocks,
     this.updatedAt,
-  });
+  }) : blocks = List<TimeBlock>.unmodifiable(blocks);
 
   final String id;
   final DateTime date;

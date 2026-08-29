@@ -22,7 +22,7 @@ void main() {
   test('planned domain values accept their documented boundaries', () {
     expect(StreakValue(0).value, 0);
     expect(StreakValue(12).value, 12);
-    expect(UserId(' account-7 ').value, ' account-7 ');
+    expect(UserId(' account-7 ').value, 'account-7');
     expect(Difficulty(1).value, 1);
     expect(Difficulty(5).value, 5);
   });
@@ -32,5 +32,13 @@ void main() {
     expect(() => UserId('  '), throwsArgumentError);
     expect(() => Difficulty(0), throwsArgumentError);
     expect(() => Difficulty(6), throwsArgumentError);
+  });
+
+  test('domain values use value equality and stable hashes', () {
+    expect(UserId('account-7'), UserId(' account-7 '));
+    expect(UserId('account-7').hashCode, UserId('account-7').hashCode);
+    expect(Difficulty(3), Difficulty(3));
+    expect(Difficulty(3), isNot(Difficulty(4)));
+    expect(Difficulty(3).toString(), 'Difficulty(3)');
   });
 }

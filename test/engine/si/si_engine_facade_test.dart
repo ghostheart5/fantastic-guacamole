@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final DateTime fixedNow = DateTime.utc(2026, 8, 19, 12);
-  const Task task = Task(
+  final Task task = Task(
     id: 'task-1',
     title: 'Finish proposal',
     priority: 4,

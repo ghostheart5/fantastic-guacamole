@@ -19,7 +19,7 @@ void main() {
     final DecisionRecommendation result = const DecisionEngine().recommend(
       tasks: <TaskEntity>[task],
       state: SiStateEntity(energy: .7, attention: .7, fatigue: .2),
-      learning: const LearningEntity(),
+      learning: LearningEntity(),
       now: now,
     );
 

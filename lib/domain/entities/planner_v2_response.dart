@@ -1,6 +1,7 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Smart Planner V2
 import 'dart:collection';
 
-import 'package:fantastic_guacamole/state/state/emotional_state.dart';
+import 'package:fantastic_guacamole/domain/entities/emotional_state.dart';
 
 enum PlannerResponseOrigin { deterministic, externalModel }
 

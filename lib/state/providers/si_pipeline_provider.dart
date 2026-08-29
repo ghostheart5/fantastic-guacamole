@@ -91,7 +91,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
         signalsSummary: signalBundle.summary,
       );
 
-  LearningEntity learning = const LearningEntity();
+  LearningEntity learning = LearningEntity();
   SISourceStatus learningHealth = SISourceStatus.empty;
   try {
     final LearningEntity? storedLearning = await ref

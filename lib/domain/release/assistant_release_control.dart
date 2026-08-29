@@ -1,7 +1,7 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Assistant release control
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
 
 const int assistantReleaseSchemaVersion = 1;
 
@@ -16,7 +16,6 @@ enum AssistantReleaseCapability {
 
 enum AssistantReleaseCohort { excluded, internal, optedInBeta, canary, general }
 
-@immutable
 final class AssistantReleaseConfig {
   AssistantReleaseConfig({
     required this.stage,
@@ -131,7 +130,6 @@ final class AssistantReleaseConfig {
       .toString();
 }
 
-@immutable
 final class AssistantReleaseRequest {
   const AssistantReleaseRequest({
     required this.accountScopeId,
@@ -144,7 +142,6 @@ final class AssistantReleaseRequest {
   final bool betaOptIn;
 }
 
-@immutable
 final class AssistantReleaseDecision {
   const AssistantReleaseDecision({
     required this.enabled,
@@ -281,7 +278,6 @@ final class AssistantReleaseController {
   }
 }
 
-@immutable
 final class AssistantShadowObservation {
   const AssistantShadowObservation({
     required this.requestDigest,
@@ -311,7 +307,6 @@ final class AssistantShadowObservation {
   }
 }
 
-@immutable
 final class AssistantShadowResult {
   const AssistantShadowResult({
     required this.responsesMatch,
