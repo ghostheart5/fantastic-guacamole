@@ -68,10 +68,15 @@ class BackupCipher {
     Map<String, dynamic> payload,
   ) async {
     final String? format = payload['format'] as String?;
+    if (payload.isEmpty || isLegacyPlaintextBackup(payload)) {
+      return payload;
+    }
     if ((format != _format && format != _legacyFormat) ||
         payload['iv'] is! String ||
         payload['ciphertext'] is! String) {
-      return payload;
+      throw const FormatException(
+        'Cloud backup is neither encrypted nor a supported legacy backup.',
+      );
     }
     final encrypt.Key key = await _loadKeyForDecryption();
     final bool legacy = format == _legacyFormat;
@@ -92,6 +97,18 @@ class BackupCipher {
     return decoded.map(
       (dynamic key, dynamic value) => MapEntry(key.toString(), value),
     );
+  }
+
+  /// Legacy clients uploaded full backups as plaintext. Accept only the
+  /// bounded full-backup shape so arbitrary storage content cannot be treated
+  /// as a restoreable backup. Callers must replace accepted payloads with an
+  /// encrypted version before applying them locally.
+  bool isLegacyPlaintextBackup(Map<String, dynamic> payload) {
+    if (payload['format'] != null || payload['version'] is! String) {
+      return false;
+    }
+    final Object? tasks = payload['tasks'];
+    return tasks is List && tasks.every((Object? task) => task is Map);
   }
 
   Future<encrypt.Key> _loadOrCreateKey() async {

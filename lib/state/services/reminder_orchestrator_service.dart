@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -33,6 +35,8 @@ class ReminderOrchestratorService {
   static const String _dailyPlanningEnabledKey =
       'daily_planning_reminder_enabled';
   static const String _dailyPlanningTimeKey = 'daily_planning_reminder_time';
+  static const String _scheduledGoalReminderIdsKey =
+      'scheduled_goal_reminder_ids';
 
   static const String _habitReminderId = 'habit_reminder_daily';
   static const String _dailyPlanningReminderId = 'daily_planning_reminder';
@@ -64,6 +68,9 @@ class ReminderOrchestratorService {
 
   Future<void> setGoalRemindersEnabled(bool enabled) async {
     await _preferences.save(_goalReminderEnabledKey, enabled.toString());
+    if (!enabled) {
+      await _cancelTrackedGoalReminders();
+    }
   }
 
   Future<void> setHabitRemindersEnabled(bool enabled) async {
@@ -75,12 +82,14 @@ class ReminderOrchestratorService {
 
   Future<void> syncGoalReminders(List<GoalEntity> goals) async {
     if (!_isEnabled(_goalReminderEnabledKey, defaultValue: true)) {
+      await _cancelTrackedGoalReminders();
       return;
     }
 
+    final Set<String> scheduledIds = <String>{};
     for (final GoalEntity goal in goals) {
       final DateTime? targetDate = goal.targetDate;
-      if (targetDate == null) {
+      if (goal.isCompleted || targetDate == null) {
         continue;
       }
 
@@ -95,7 +104,13 @@ class ReminderOrchestratorService {
         body: 'Target date is near for "${goal.title}".',
         at: reminderAt,
       );
+      scheduledIds.add(goal.id);
     }
+    final Set<String> previousIds = _trackedGoalReminderIds();
+    for (final String removedId in previousIds.difference(scheduledIds)) {
+      await _notifications.cancel(_goalReminderId(removedId));
+    }
+    await _saveTrackedGoalReminderIds(scheduledIds);
   }
 
   Future<void> syncHabitReminders(List<HabitEntity> habits) async {
@@ -175,6 +190,37 @@ class ReminderOrchestratorService {
   }
 
   String _goalReminderId(String goalId) => 'goal_reminder_$goalId';
+
+  Set<String> _trackedGoalReminderIds() {
+    final String? encoded = _preferences.load(_scheduledGoalReminderIdsKey);
+    if (encoded == null || encoded.isEmpty) {
+      return <String>{};
+    }
+    try {
+      final Object? decoded = jsonDecode(encoded);
+      if (decoded is! List) return <String>{};
+      return decoded
+          .whereType<String>()
+          .where((String id) => id.isNotEmpty)
+          .toSet();
+    } on FormatException {
+      return <String>{};
+    }
+  }
+
+  Future<void> _saveTrackedGoalReminderIds(Set<String> ids) {
+    return _preferences.save(
+      _scheduledGoalReminderIdsKey,
+      jsonEncode(ids.toList()..sort()),
+    );
+  }
+
+  Future<void> _cancelTrackedGoalReminders() async {
+    for (final String goalId in _trackedGoalReminderIds()) {
+      await _notifications.cancel(_goalReminderId(goalId));
+    }
+    await _saveTrackedGoalReminderIds(<String>{});
+  }
 
   (int, int) _dailyPlanningTime() {
     final String? raw = _preferences.load(_dailyPlanningTimeKey);

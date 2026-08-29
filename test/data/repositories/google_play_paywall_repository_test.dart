@@ -690,6 +690,36 @@ void main() {
     },
   );
 
+  test('returns immediately when Google Play declines to start a purchase', () async {
+    final _FakeBillingClient billing = _FakeBillingClient(
+      productResponse: ProductDetailsResponse(
+        productDetails: <ProductDetails>[
+          ProductDetails(
+            id: 'chronospark_premium_monthly',
+            title: 'Monthly',
+            description: 'Monthly premium',
+            price: 'USD 4.99',
+            rawPrice: 4.99,
+            currencyCode: 'USD',
+          ),
+        ],
+        notFoundIDs: const <String>[],
+      ),
+      onBuyNonConsumable: (_) async => false,
+    );
+    final GooglePlayPaywallRepository repository =
+        GooglePlayPaywallRepository(
+          billingClient: billing,
+          paywallTestingModeOverride: false,
+          sharedPreferencesLoader: SharedPreferences.getInstance,
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+        );
+
+    await expectLater(repository.startSubscription('monthly'), throwsStateError);
+    expect(billing.buyCalls, 1);
+    repository.dispose();
+  });
+
   test(
     'restored unknown product with mismatched verification remains locked',
     () async {

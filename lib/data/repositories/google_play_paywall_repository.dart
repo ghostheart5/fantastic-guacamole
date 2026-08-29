@@ -367,7 +367,14 @@ class GooglePlayPaywallRepository
     final PurchaseParam param = PurchaseParam(
       productDetails: response.productDetails.first,
     );
-    await _billingClient.buyNonConsumable(purchaseParam: param);
+    final bool purchaseStarted = await _billingClient.buyNonConsumable(
+      purchaseParam: param,
+    );
+    if (!purchaseStarted) {
+      _pending.remove(gpId);
+      _pendingUserIds.remove(gpId);
+      throw StateError('Google Play could not start the purchase.');
+    }
 
     return completer.future.timeout(
       const Duration(seconds: 120),
@@ -825,6 +832,22 @@ class GooglePlayPaywallRepository
         if (purchase.pendingCompletePurchase) {
           await _billingClient.completePurchase(purchase);
         }
+      } else if (purchase.status == PurchaseStatus.canceled) {
+        final SubscriptionState cancelled = SubscriptionState(
+          isActive: _effectiveStateForCurrentUser.isActive,
+          status: 'purchase_cancelled',
+          source: 'google_play',
+          planId: _effectiveStateForCurrentUser.planId,
+          renewalDate: _effectiveStateForCurrentUser.renewalDate,
+        );
+        _pending[purchase.productID]?.complete(cancelled);
+        _pending.remove(purchase.productID);
+        _pendingUserIds.remove(purchase.productID);
+        if (purchase.pendingCompletePurchase) {
+          await _billingClient.completePurchase(purchase);
+        }
+      } else if (purchase.status == PurchaseStatus.pending) {
+        Logger.log('IAP', 'Purchase is pending external approval.');
       }
     }
   }

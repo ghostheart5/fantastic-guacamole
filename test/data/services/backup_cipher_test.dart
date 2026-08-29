@@ -47,4 +47,38 @@ void main() {
     );
     await expectLater(cipher.importRecoveryKey('AA=='), throwsFormatException);
   });
+
+  test('rejects malformed plaintext payloads instead of treating them as backups',
+      () async {
+    final BackupCipher cipher = BackupCipher(
+      SecureStore(backend: InMemorySecureStoreBackend()),
+    );
+
+    await expectLater(
+      cipher.decryptPayload(<String, dynamic>{'tasks': <Object?>[]}),
+      throwsFormatException,
+    );
+  });
+
+  test('identifies only the supported legacy plaintext full-backup shape', () {
+    final BackupCipher cipher = BackupCipher(
+      SecureStore(backend: InMemorySecureStoreBackend()),
+    );
+
+    expect(
+      cipher.isLegacyPlaintextBackup(<String, dynamic>{
+        'version': '3.0.0',
+        'tasks': <Map<String, dynamic>>[],
+      }),
+      isTrue,
+    );
+    expect(
+      cipher.isLegacyPlaintextBackup(<String, dynamic>{
+        'format': 'unknown',
+        'version': '3.0.0',
+        'tasks': <Map<String, dynamic>>[],
+      }),
+      isFalse,
+    );
+  });
 }

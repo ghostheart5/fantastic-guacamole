@@ -102,6 +102,79 @@ void main() {
     },
   );
 
+  test('migrates a valid legacy plaintext backup before restoring it', () async {
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final SyncService encryptedService = SyncService(
+      backup: backupService,
+      gateway: gateway,
+      secureStore: secureStore,
+    );
+    gateway.fullBackup = <String, dynamic>{
+      'version': '3.0.0',
+      'tasks': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'legacy-cloud-task',
+          'title': 'Legacy cloud task',
+          'createdAt': '2026-07-05T08:00:00.000Z',
+        },
+      ],
+    };
+
+    expect(await encryptedService.restoreFromCloud(), isTrue);
+    expect(
+      gateway.fullBackup,
+      containsPair('format', 'chronospark_backup_aes256_gcm_v2'),
+    );
+    expect((await repository.getAllTasks()).single.id, 'legacy-cloud-task');
+  });
+
+  test('refuses a legacy plaintext restore when migration upload fails', () async {
+    final SyncService encryptedService = SyncService(
+      backup: backupService,
+      gateway: gateway,
+      secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+    );
+    gateway
+      ..fullBackup = <String, dynamic>{
+        'version': '3.0.0',
+        'tasks': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'legacy-cloud-task',
+            'title': 'Legacy cloud task',
+            'createdAt': '2026-07-05T08:00:00.000Z',
+          },
+        ],
+      }
+      ..uploadShouldFail = true;
+
+    expect(await encryptedService.restoreFromCloud(), isFalse);
+    expect(await repository.getAllTasks(), isEmpty);
+  });
+
+  test('encrypts the first delta upload when cloud storage is empty', () async {
+    final SyncService encryptedService = SyncService(
+      backup: backupService,
+      gateway: gateway,
+      secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+    );
+    await repository.saveTask(
+      TaskEntity(
+        id: 'first-encrypted-delta',
+        title: 'Protect first upload',
+        createdAt: DateTime.utc(2026, 8, 20),
+      ),
+    );
+
+    expect(await encryptedService.syncDelta(), isTrue);
+    expect(
+      gateway.fullBackup,
+      containsPair('format', 'chronospark_backup_aes256_gcm_v2'),
+    );
+    expect(gateway.fullBackup, isNot(contains('tasks')));
+  });
+
   test('restoreFromCloud returns false when cloud backup is empty', () async {
     final bool restored = await syncService.restoreFromCloud();
 

@@ -201,6 +201,17 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
     unawaited(syncIfPossible(source: 'bridge-bootstrap'));
   }
 
+  void syncRefreshedToken() {
+    unawaited(syncIfPossible(source: 'token-refresh'));
+  }
+
+  FirebaseMessagingBootstrap.tokenListenable.addListener(syncRefreshedToken);
+  ref.onDispose(() {
+    FirebaseMessagingBootstrap.tokenListenable.removeListener(
+      syncRefreshedToken,
+    );
+  });
+
   ref.listen<AsyncValue<User?>>(authUserProvider, (_, next) {
     if (next is! AsyncData<User?>) return;
     final User? user = next.value;

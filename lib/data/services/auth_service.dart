@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/data/network/secure_endpoint.dart'
     as secure_endpoint;
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -121,14 +122,31 @@ class AuthService implements AuthServiceContract {
   Future<UserCredential> signInWithGoogle() async {
     try {
       final String redirectTo = _oauthGoogleRedirectUrl.trim();
-      await _auth.auth.signInWithOAuth(
+      final bool launched = await _auth.auth.signInWithOAuth(
         sb.OAuthProvider.google,
         redirectTo: redirectTo.isEmpty ? null : redirectTo,
       );
+      if (!launched) {
+        Logger.error('Google OAuth browser launch returned false.');
+        throw FirebaseAuthException(
+          code: 'auth-unavailable',
+          message: 'Google sign-in browser could not be opened.',
+        );
+      }
       return UserCredential(user: currentUser);
     } on sb.AuthException catch (error) {
+      Logger.error(
+        'Google OAuth provider rejected the request '
+        '(status ${error.statusCode ?? 'unknown'}).',
+      );
       throw _mapAuthException(error);
-    } on Object {
+    } on FirebaseAuthException {
+      rethrow;
+    } on Object catch (error) {
+      final String diagnostic = error is PlatformException
+          ? 'PlatformException(${error.code})'
+          : error.runtimeType.toString();
+      Logger.error('Google OAuth launch failed: $diagnostic.');
       throw FirebaseAuthException(
         code: 'auth-unavailable',
         message: 'Google sign-in is currently unavailable.',

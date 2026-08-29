@@ -26,6 +26,9 @@ class FirebaseMessagingBootstrap {
 
   static String? _latestToken;
   static Future<String?>? _initialization;
+  static final ValueNotifier<String?> tokenListenable = ValueNotifier<String?>(
+    null,
+  );
 
   static String? get latestToken => _latestToken;
 
@@ -44,7 +47,11 @@ class FirebaseMessagingBootstrap {
     if (inFlight != null) return inFlight;
     final Future<String?> initialization = _initializeOnce();
     _initialization = initialization;
-    return initialization;
+    final String? result = await initialization;
+    if (result != null && identical(_initialization, initialization)) {
+      _initialization = null;
+    }
+    return result;
   }
 
   Future<String?> _initializeOnce() async {
@@ -57,6 +64,7 @@ class FirebaseMessagingBootstrap {
           return;
         }
         _latestToken = refreshedToken.trim();
+        tokenListenable.value = _latestToken;
         Logger.log('Push', 'FCM token refreshed.');
         RuntimeDiagnostics.record('FCM token refreshed.');
       });
@@ -104,6 +112,7 @@ class FirebaseMessagingBootstrap {
         return 'Push notification registration is unavailable.';
       }
       _latestToken = token.trim();
+      tokenListenable.value = _latestToken;
       Logger.log('Push', 'FCM token acquired after explicit permission.');
       RuntimeDiagnostics.record(
         'FCM token acquired after explicit permission.',

@@ -200,9 +200,22 @@ class SyncService {
     if (cloudData.isEmpty) {
       return false;
     }
+    final bool migrateLegacyPlaintext =
+        _cipher != null && _cipher.isLegacyPlaintextBackup(cloudData);
     final Map<String, dynamic> restored = _cipher == null
         ? cloudData
         : await _cipher.decryptPayload(cloudData);
+    if (migrateLegacyPlaintext) {
+      final Map<String, dynamic> encrypted = await _cipher.encryptPayload(
+        restored,
+      );
+      if (!await gateway.uploadBackup(encrypted)) {
+        Logger.warn(
+          'Refused to restore legacy plaintext backup before migration.',
+        );
+        return false;
+      }
+    }
     await backup.restoreFullBackup(restored);
     return true;
   }
@@ -214,7 +227,10 @@ class SyncService {
         ? downloaded
         : await _cipher.decryptPayload(downloaded);
     if (cloudBackup.isEmpty) {
-      return gateway.uploadBackup(localBackup);
+      final Map<String, dynamic> protectedLocal = _cipher == null
+          ? localBackup
+          : await _cipher.encryptPayload(localBackup);
+      return gateway.uploadBackup(protectedLocal);
     }
 
     final Map<String, dynamic> merged = _mergeBackups(localBackup, cloudBackup);
