@@ -151,6 +151,74 @@ void main() {
     expect(explicitNexus.container.read(appFlowProvider), AppView.nexus);
   });
 
+  testWidgets('mounted shell honors a new saved-tab restore request', (
+    WidgetTester tester,
+  ) async {
+    await PreferenceService().setLastOpenedTab(2);
+
+    final _RouteShellHarness harness = await _pumpRouteShell(
+      tester,
+      initialLocation: RoutePaths.creator,
+      reuseShellState: true,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    _expectRouterUri(harness, RoutePaths.creator);
+    _expectRouteAndVisibleView(_byRoute(RoutePaths.creator));
+    expect(harness.container.read(appFlowProvider), AppView.creator);
+
+    harness.router.go(
+      Uri(
+        path: RoutePaths.nexus,
+        queryParameters: const <String, String>{
+          restoreSavedTabQueryParameter: 'true',
+        },
+      ).toString(),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    _expectRouterUri(harness, RoutePaths.timeline);
+    _expectRouteAndVisibleView(_byRoute(RoutePaths.timeline));
+    expect(harness.container.read(appFlowProvider), AppView.timeline);
+  });
+
+  testWidgets('mounted shell restores Nexus without stale app flow', (
+    WidgetTester tester,
+  ) async {
+    await PreferenceService().setLastOpenedTab(0);
+
+    final _RouteShellHarness harness = await _pumpRouteShell(
+      tester,
+      initialLocation: RoutePaths.creator,
+      reuseShellState: true,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    _expectRouterUri(harness, RoutePaths.creator);
+    expect(harness.container.read(appFlowProvider), AppView.creator);
+
+    harness.router.go(
+      Uri(
+        path: RoutePaths.nexus,
+        queryParameters: const <String, String>{
+          restoreSavedTabQueryParameter: 'true',
+        },
+      ).toString(),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    _expectRouterUri(harness, RoutePaths.nexus);
+    _expectRouteAndVisibleView(_byRoute(RoutePaths.nexus));
+    expect(harness.container.read(appFlowProvider), AppView.nexus);
+  });
+
   test(
     'adaptive guidance receives the route corresponding to the visible screen',
     () {
@@ -213,6 +281,7 @@ void main() {
 Future<_RouteShellHarness> _pumpRouteShell(
   WidgetTester tester, {
   String initialLocation = RoutePaths.nexus,
+  bool reuseShellState = false,
 }) async {
   tester.platformDispatcher.views.first
     ..physicalSize = const Size(1200, 2400)
@@ -233,7 +302,10 @@ Future<_RouteShellHarness> _pumpRouteShell(
 
   final GoRouter router = GoRouter(
     initialLocation: initialLocation,
-    routes: <RouteBase>[..._shellRoutes, ..._legacyRedirectRoutes],
+    routes: <RouteBase>[
+      ...(reuseShellState ? _sharedShellRoutes : _shellRoutes),
+      ..._legacyRedirectRoutes,
+    ],
   );
   addTearDown(router.dispose);
 
@@ -296,6 +368,24 @@ List<GoRoute> get _shellRoutes {
   return <GoRoute>[
     for (final _ShellExpectation expectation in _shellExpectations)
       _shellRoute(expectation.route, expectation.view),
+  ];
+}
+
+const ValueKey<String> _sharedNavigationShellPageKey = ValueKey<String>(
+  'test-shared-navigation-shell',
+);
+
+List<GoRoute> get _sharedShellRoutes {
+  return <GoRoute>[
+    for (final _ShellExpectation expectation in _shellExpectations)
+      GoRoute(
+        path: expectation.route,
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            NoTransitionPage<void>(
+              key: _sharedNavigationShellPageKey,
+              child: _navigationShellForRoute(state, expectation.view),
+            ),
+      ),
   ];
 }
 
@@ -434,12 +524,17 @@ const DailyDecisionIntelligence _decision = DailyDecisionIntelligence(
 GoRoute _shellRoute(String path, AppView view) {
   return GoRoute(
     path: path,
-    builder: (BuildContext context, GoRouterState state) => NavigationShell(
-      initialView: appViewFromRoutePath(state.matchedLocation) ?? view,
-      allowSavedTabRestore:
-          state.matchedLocation == RoutePaths.nexus &&
-          state.uri.queryParameters[restoreSavedTabQueryParameter] == 'true',
-    ),
+    builder: (BuildContext context, GoRouterState state) =>
+        _navigationShellForRoute(state, view),
+  );
+}
+
+NavigationShell _navigationShellForRoute(GoRouterState state, AppView view) {
+  return NavigationShell(
+    initialView: appViewFromRoutePath(state.matchedLocation) ?? view,
+    allowSavedTabRestore:
+        state.matchedLocation == RoutePaths.nexus &&
+        state.uri.queryParameters[restoreSavedTabQueryParameter] == 'true',
   );
 }
 

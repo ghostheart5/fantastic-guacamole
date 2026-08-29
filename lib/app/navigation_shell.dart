@@ -167,6 +167,17 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   void didUpdateWidget(covariant NavigationShell oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    final bool receivedSavedTabRestore =
+        widget.allowSavedTabRestore && !oldWidget.allowSavedTabRestore;
+    if (receivedSavedTabRestore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _syncAppFlowToRouteView(widget.initialView);
+        _restoreDefaultLaunchTab();
+      });
+      return;
+    }
+
     if (oldWidget.initialView != widget.initialView) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
