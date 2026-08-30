@@ -38,6 +38,7 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
     super.key,
     this.initializeStartup = _initializeStartup,
     this.startupTimeout = const Duration(seconds: 45),
+    this.startupQuiescenceTimeout = const Duration(seconds: 10),
   });
 
   final Future<StartupBootstrapResult> Function(
@@ -46,6 +47,7 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
   )
   initializeStartup;
   final Duration startupTimeout;
+  final Duration startupQuiescenceTimeout;
 
   @override
   ConsumerState<StartupBootstrapGate> createState() =>
@@ -55,8 +57,12 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
 class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   bool _ready = false;
   bool _waitingForStartupQuiescence = false;
+  bool _startupRecoveryRequired = false;
+  bool _startupRetryReady = false;
+  bool _bootstrapInProgress = false;
   bool _productionReadinessBlocked = false;
   String? _startupError;
+  StartupCancellationToken? _activeCancellationToken;
 
   @override
   void initState() {
@@ -70,6 +76,18 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   }
 
   Future<void> _bootstrap() async {
+    if (_bootstrapInProgress) {
+      return;
+    }
+    _bootstrapInProgress = true;
+    if (mounted) {
+      setState(() {
+        _ready = false;
+        _waitingForStartupQuiescence = false;
+        _startupRecoveryRequired = false;
+        _startupRetryReady = false;
+      });
+    }
     // Last-resort guard. Every stage below catches its own failures, but if
     // anything at all escapes (an Error subtype, a bug in a stage helper) the
     // app must still leave the loading screen. Without this, an escaping
@@ -85,6 +103,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
     bool startupTimedOut = false;
     final StartupCancellationToken cancellationToken =
         StartupCancellationToken();
+    _activeCancellationToken = cancellationToken;
     try {
       result = await runStartupWithTimeout<StartupBootstrapResult>(
         initialize: (StartupCancellationToken token) =>
@@ -119,8 +138,42 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       setState(() {
         _waitingForStartupQuiescence = true;
       });
-      await cancellationToken.whenSourceSettled;
+      try {
+        await cancellationToken.whenSourceSettled.timeout(
+          widget.startupQuiescenceTimeout,
+        );
+      } on TimeoutException {
+        Logger.error(
+          'Timed-out startup did not stop within the safety window.',
+        );
+        RuntimeDiagnostics.record(
+          'Timed-out startup did not stop within the safety window.',
+        );
+        if (!mounted) {
+          _bootstrapInProgress = false;
+          return;
+        }
+        setState(() {
+          _waitingForStartupQuiescence = false;
+          _startupRecoveryRequired = true;
+          _startupRetryReady = false;
+        });
+        unawaited(
+          cancellationToken.whenSourceSettled.then((_) {
+            if (!mounted ||
+                !identical(_activeCancellationToken, cancellationToken)) {
+              return;
+            }
+            setState(() {
+              _startupRetryReady = true;
+            });
+          }),
+        );
+        _bootstrapInProgress = false;
+        return;
+      }
       if (!mounted) {
+        _bootstrapInProgress = false;
         return;
       }
     }
@@ -186,6 +239,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         }
         await WidgetsBinding.instance.endOfFrame;
         if (!mounted) {
+          _bootstrapInProgress = false;
           return;
         }
       }
@@ -196,9 +250,21 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       _waitingForStartupQuiescence = false;
       _ready = true;
     });
+    _bootstrapInProgress = false;
     if (!result.productionReadinessBlocked) {
       AppAnalytics.track('app_open');
     }
+  }
+
+  void _retryStartup() {
+    final StartupCancellationToken? activeToken = _activeCancellationToken;
+    if (_bootstrapInProgress ||
+        !_startupRetryReady ||
+        activeToken == null ||
+        !activeToken.isSourceSettled) {
+      return;
+    }
+    unawaited(_bootstrap());
   }
 
   @override
@@ -209,7 +275,53 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         home: Scaffold(
           backgroundColor: const Color(0xFF050D1A),
           body: Center(
-            child: _waitingForStartupQuiescence
+            child: _startupRecoveryRequired
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.lock_clock_outlined,
+                            color: Color(0xFF00D9F5),
+                            size: 36,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Startup needs attention',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _startupRetryReady
+                                ? 'The previous attempt stopped safely. Retry to continue.'
+                                : 'Account data remains locked while the previous attempt stops. You can close and reopen ChronoSpark if this does not clear.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFFB8C7D9),
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          FilledButton.icon(
+                            onPressed: _startupRetryReady
+                                ? _retryStartup
+                                : null,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry startup'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : _waitingForStartupQuiescence
                 ? const Padding(
                     padding: EdgeInsets.all(24),
                     child: Column(

@@ -80,7 +80,7 @@ void main() {
     },
   );
 
-  testWidgets('startup gate stays locked until timed-out source settles', (
+  testWidgets('startup gate leaves waiting state after second timeout', (
     WidgetTester tester,
   ) async {
     final Completer<void> releaseStartup = Completer<void>();
@@ -90,6 +90,7 @@ void main() {
       ProviderScope(
         child: StartupBootstrapGate(
           startupTimeout: const Duration(milliseconds: 1),
+          startupQuiescenceTimeout: const Duration(milliseconds: 100),
           initializeStartup:
               (WidgetRef _, StartupCancellationToken cancellationToken) async {
                 observedToken = cancellationToken;
@@ -115,12 +116,79 @@ void main() {
     expect(observedToken!.isCancelled, isTrue);
     expect(observedToken!.isSourceSettled, isFalse);
 
-    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 101));
+    await tester.pump();
+
+    expect(find.text('Securing local state'), findsNothing);
+    expect(find.text('Startup needs attention'), findsOneWidget);
+    expect(find.text('Retry startup'), findsOneWidget);
+    final FilledButton retryButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Retry startup'),
+    );
+    expect(retryButton.onPressed, isNull);
     releaseStartup.complete();
     await tester.pump();
     await observedToken!.whenSourceSettled;
+    await tester.pump();
 
     expect(observedToken!.isSourceSettled, isTrue);
+    final FilledButton enabledRetryButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Retry startup'),
+    );
+    expect(enabledRetryButton.onPressed, isNotNull);
+  });
+
+  testWidgets('startup recovery retries only after the old source settles', (
+    WidgetTester tester,
+  ) async {
+    final Completer<void> releaseFirstAttempt = Completer<void>();
+    int attempts = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: StartupBootstrapGate(
+          startupTimeout: const Duration(milliseconds: 1),
+          startupQuiescenceTimeout: const Duration(milliseconds: 1),
+          initializeStartup:
+              (WidgetRef _, StartupCancellationToken cancellationToken) async {
+                attempts += 1;
+                if (attempts == 1) {
+                  await releaseFirstAttempt.future;
+                }
+                return const StartupBootstrapResult(
+                  hasOnboarded: false,
+                  hasSeenWelcome: false,
+                  startupError: null,
+                  productionReadinessBlocked: true,
+                );
+              },
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 2));
+    await tester.pump(const Duration(milliseconds: 2));
+    await tester.pump();
+
+    expect(find.text('Startup needs attention'), findsOneWidget);
+    expect(attempts, 1);
+
+    await tester.tap(find.text('Retry startup'));
+    await tester.pump();
+    expect(
+      attempts,
+      1,
+      reason: 'A running initializer must not be duplicated.',
+    );
+
+    releaseFirstAttempt.complete();
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.text('Retry startup'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(attempts, 2);
   });
 
   test(
