@@ -30,7 +30,8 @@ bool shouldInitializeAccountBoundary({
   required bool startupSourceSettled,
 }) {
   return !productionReadinessBlocked &&
-      (!startupTimedOut || startupSourceSettled);
+      !startupTimedOut &&
+      startupSourceSettled;
 }
 
 class StartupBootstrapGate extends ConsumerStatefulWidget {
@@ -39,6 +40,7 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
     this.initializeStartup = _initializeStartup,
     this.startupTimeout = const Duration(seconds: 45),
     this.startupQuiescenceTimeout = const Duration(seconds: 10),
+    this.initializeAccountBoundary,
   });
 
   final Future<StartupBootstrapResult> Function(
@@ -48,6 +50,7 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
   initializeStartup;
   final Duration startupTimeout;
   final Duration startupQuiescenceTimeout;
+  final Future<String?> Function(WidgetRef ref)? initializeAccountBoundary;
 
   @override
   ConsumerState<StartupBootstrapGate> createState() =>
@@ -138,10 +141,12 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       setState(() {
         _waitingForStartupQuiescence = true;
       });
+      bool sourceSettled = false;
       try {
         await cancellationToken.whenSourceSettled.timeout(
           widget.startupQuiescenceTimeout,
         );
+        sourceSettled = true;
       } on TimeoutException {
         Logger.error(
           'Timed-out startup did not stop within the safety window.',
@@ -149,15 +154,17 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         RuntimeDiagnostics.record(
           'Timed-out startup did not stop within the safety window.',
         );
-        if (!mounted) {
-          _bootstrapInProgress = false;
-          return;
-        }
-        setState(() {
-          _waitingForStartupQuiescence = false;
-          _startupRecoveryRequired = true;
-          _startupRetryReady = false;
-        });
+      }
+      if (!mounted) {
+        _bootstrapInProgress = false;
+        return;
+      }
+      setState(() {
+        _waitingForStartupQuiescence = false;
+        _startupRecoveryRequired = true;
+        _startupRetryReady = sourceSettled;
+      });
+      if (!sourceSettled) {
         unawaited(
           cancellationToken.whenSourceSettled.then((_) {
             if (!mounted ||
@@ -169,13 +176,9 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
             });
           }),
         );
-        _bootstrapInProgress = false;
-        return;
       }
-      if (!mounted) {
-        _bootstrapInProgress = false;
-        return;
-      }
+      _bootstrapInProgress = false;
+      return;
     }
 
     String? stateBootstrapIssue;
@@ -185,29 +188,9 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       startupSourceSettled: cancellationToken.isSourceSettled,
     );
     if (initializeAccountBoundary) {
-      try {
-        await ref
-            .read(authSessionBoundaryCoordinatorProvider)
-            .initialize()
-            .timeout(const Duration(seconds: 8));
-        final boundary = ref.read(authSessionBoundaryProvider);
-        if (boundary.isStorageReady) {
-          stateBootstrapIssue = await _runStateBootstrapSafe(ref);
-        } else if (boundary.blockingIssue != null) {
-          stateBootstrapIssue = boundary.blockingIssue;
-        }
-      } on TimeoutException {
-        stateBootstrapIssue =
-            'Account storage verification timed out. Account data remains locked.';
-      } on Object catch (error, stackTrace) {
-        Logger.errorCategory(
-          'Startup',
-          'State bootstrap failed',
-          error,
-          stackTrace,
-        );
-        stateBootstrapIssue = 'State bootstrap failed.';
-      }
+      stateBootstrapIssue = widget.initializeAccountBoundary != null
+          ? await widget.initializeAccountBoundary!(ref)
+          : await _initializeAccountBoundarySafe(ref);
     }
 
     final String? startupError = _appendStartupIssue(
@@ -274,82 +257,90 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           backgroundColor: const Color(0xFF050D1A),
-          body: Center(
-            child: _startupRecoveryRequired
-                ? Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 440),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          const Icon(
-                            Icons.lock_clock_outlined,
-                            color: Color(0xFF00D9F5),
-                            size: 36,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Startup needs attention',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _startupRetryReady
-                                ? 'The previous attempt stopped safely. Retry to continue.'
-                                : 'Account data remains locked while the previous attempt stops. You can close and reopen ChronoSpark if this does not clear.',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFFB8C7D9),
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          FilledButton.icon(
-                            onPressed: _startupRetryReady
-                                ? _retryStartup
-                                : null,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Retry startup'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : _waitingForStartupQuiescence
-                ? const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Icon(Icons.lock_outline, color: Color(0xFF00D9F5)),
-                        SizedBox(height: 16),
-                        Text(
-                          'Securing local state',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: _startupRecoveryRequired
+                    ? Padding(
+                        padding: EdgeInsets.zero,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 440),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              const Icon(
+                                Icons.lock_clock_outlined,
+                                color: Color(0xFF00D9F5),
+                                size: 36,
+                              ),
+                              const SizedBox(height: 16),
+                              Semantics(
+                                liveRegion: true,
+                                child: const Text(
+                                  'Startup needs attention',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _startupRetryReady
+                                    ? 'The previous attempt stopped safely. Retry to continue.'
+                                    : 'Account data remains locked while the previous attempt stops. You can close and reopen ChronoSpark if this does not clear.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Color(0xFFB8C7D9),
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              FilledButton.icon(
+                                onPressed: _startupRetryReady
+                                    ? _retryStartup
+                                    : null,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Retry startup'),
+                              ),
+                            ],
                           ),
                         ),
-                        SizedBox(height: 8),
-                        Text(
-                          'ChronoSpark will continue when startup services have stopped safely.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Color(0xFFB8C7D9),
-                            fontSize: 16,
-                          ),
+                      )
+                    : _waitingForStartupQuiescence
+                    ? const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Icon(Icons.lock_outline, color: Color(0xFF00D9F5)),
+                            SizedBox(height: 16),
+                            Text(
+                              'Securing local state',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'ChronoSpark will continue when startup services have stopped safely.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Color(0xFFB8C7D9),
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  )
-                : const CircularProgressIndicator(),
+                      )
+                    : const CircularProgressIndicator(),
+              ),
+            ),
           ),
         ),
       );
@@ -359,6 +350,30 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       startupError: _startupError,
       productionReadinessBlocked: _productionReadinessBlocked,
     );
+  }
+}
+
+Future<String?> _initializeAccountBoundarySafe(WidgetRef ref) async {
+  try {
+    await ref
+        .read(authSessionBoundaryCoordinatorProvider)
+        .initialize()
+        .timeout(const Duration(seconds: 8));
+    final boundary = ref.read(authSessionBoundaryProvider);
+    if (boundary.isStorageReady) {
+      return _runStateBootstrapSafe(ref);
+    }
+    return boundary.blockingIssue;
+  } on TimeoutException {
+    return 'Account storage verification timed out. Account data remains locked.';
+  } on Object catch (error, stackTrace) {
+    Logger.errorCategory(
+      'Startup',
+      'State bootstrap failed',
+      error,
+      stackTrace,
+    );
+    return 'State bootstrap failed.';
   }
 }
 

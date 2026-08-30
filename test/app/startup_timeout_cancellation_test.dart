@@ -85,12 +85,17 @@ void main() {
   ) async {
     final Completer<void> releaseStartup = Completer<void>();
     StartupCancellationToken? observedToken;
+    int accountBoundaryCalls = 0;
 
     await tester.pumpWidget(
       ProviderScope(
         child: StartupBootstrapGate(
           startupTimeout: const Duration(milliseconds: 1),
           startupQuiescenceTimeout: const Duration(milliseconds: 100),
+          initializeAccountBoundary: (WidgetRef _) async {
+            accountBoundaryCalls += 1;
+            return null;
+          },
           initializeStartup:
               (WidgetRef _, StartupCancellationToken cancellationToken) async {
                 observedToken = cancellationToken;
@@ -126,6 +131,7 @@ void main() {
       find.widgetWithText(FilledButton, 'Retry startup'),
     );
     expect(retryButton.onPressed, isNull);
+    expect(accountBoundaryCalls, 0);
     releaseStartup.complete();
     await tester.pump();
     await observedToken!.whenSourceSettled;
@@ -136,6 +142,56 @@ void main() {
       find.widgetWithText(FilledButton, 'Retry startup'),
     );
     expect(enabledRetryButton.onPressed, isNotNull);
+    expect(accountBoundaryCalls, 0);
+  });
+
+  testWidgets('settlement inside safety window still requires fresh retry', (
+    WidgetTester tester,
+  ) async {
+    final Completer<void> releaseFirstAttempt = Completer<void>();
+    int attempts = 0;
+    int accountBoundaryCalls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: StartupBootstrapGate(
+          startupTimeout: const Duration(milliseconds: 1),
+          startupQuiescenceTimeout: const Duration(seconds: 1),
+          initializeStartup:
+              (WidgetRef _, StartupCancellationToken cancellationToken) async {
+                attempts += 1;
+                if (attempts == 1) {
+                  await releaseFirstAttempt.future;
+                }
+                return const StartupBootstrapResult(
+                  hasOnboarded: true,
+                  hasSeenWelcome: true,
+                  startupError: null,
+                  productionReadinessBlocked: false,
+                );
+              },
+          initializeAccountBoundary: (WidgetRef _) async {
+            accountBoundaryCalls += 1;
+            return null;
+          },
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 2));
+    releaseFirstAttempt.complete();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Startup needs attention'), findsOneWidget);
+    expect(accountBoundaryCalls, 0);
+
+    await tester.tap(find.text('Retry startup'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(attempts, 2);
+    expect(accountBoundaryCalls, 1);
   });
 
   testWidgets('startup recovery retries only after the old source settles', (
@@ -283,6 +339,14 @@ void main() {
         startupTimedOut: false,
         startupSourceSettled: false,
       ),
+      isFalse,
+    );
+    expect(
+      shouldInitializeAccountBoundary(
+        productionReadinessBlocked: false,
+        startupTimedOut: false,
+        startupSourceSettled: true,
+      ),
       isTrue,
     );
     expect(
@@ -291,7 +355,7 @@ void main() {
         startupTimedOut: true,
         startupSourceSettled: true,
       ),
-      isTrue,
+      isFalse,
     );
     expect(
       shouldInitializeAccountBoundary(
