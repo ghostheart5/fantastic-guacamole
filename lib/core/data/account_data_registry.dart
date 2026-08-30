@@ -244,6 +244,8 @@ abstract final class AccountDataRegistry {
   };
 
   static const Set<String> accountPreferenceExactKeys = <String>{
+    'notes_v1',
+    'notes_v1_corrupt_backup',
     'insights_v1',
     'signals_v1',
     'behavior_state_v1',
