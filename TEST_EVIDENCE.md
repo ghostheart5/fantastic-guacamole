@@ -33,6 +33,28 @@ Formatting candidates are `test/data/repositories/google_play_paywall_repository
 
 ## Phase Evidence
 
+### Phase 2 - Account And Data Integrity Checkpoint
+
+- Code commits: `061ea18`, `51b96be`, `bc44261`
+- Environment: local Windows host with Flutter `3.44.6` and Dart `3.12.2`.
+- Evidence boundary: local source, host unit/widget/integration tests, SQL policy definitions, and repository validators only. Cloud sync/restore remains disabled. No migration was applied to a deployed project.
+
+| Gate | Status | Command/evidence | Result boundary |
+|---|---|---|---|
+| Formatting | PASS | `dart format --output=none --set-exit-if-changed lib test integration_test` | 961 files, 0 changed |
+| Analyzer | PASS | `flutter analyze --fatal-infos` | No issues found |
+| Focused data-integrity suite | PASS | Backup cipher, profile race, sync, task repository, backup service, cleanup, and Supabase gateway tests | 86 passed; covers concurrent legacy-key claims, in-flight task/profile edits, exact replacement recovery, rollback, account turnover, oversized payload rejection, and stale CAS conflicts |
+| Full Flutter suite | PASS | `flutter test --no-pub --reporter compact` | 1,691 passed; one expected QA-define-only test skipped |
+| Timeline date fixture | PASS | Isolated `TimelineScreen projects due-date tasks with actions` test | Removed a Sunday-only next-week test failure without changing production behavior |
+| Architecture guard | PASS | `powershell -NoProfile -ExecutionPolicy Bypass -File .\check_architecture.ps1` | No service-layer boundary violations |
+| Secret guards | PASS | `security_secret_guard.ps1`; `secret_content_guard.ps1` | Both passed; no secret values inspected or reproduced |
+| Release/version guards | PASS | `release_guard.ps1`; `version_consistency_guard.ps1` | Both passed |
+| Migration policy replay | PASS | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\supabase_migration_policy_contract.ps1` | 18 migration files passed repository policy replay |
+| Staged diff hygiene | PASS | `git diff --cached --check` and exact staged inventory | No whitespace errors; 25 intended files; `android/gradle.properties` untouched |
+| Disposable Supabase database and pgTAP | BLOCKED_EXTERNAL | Docker command unavailable on this host | SQL definitions and 13 pgTAP checks were reviewed but not executed against PostgreSQL |
+| Deployed database/RLS verification | NOT_RUN | No production mutation authorized | Local migration evidence does not establish deployed state |
+| Android/device and human recovery journeys | NOT_RUN | Reserved for later phases | Host tests do not establish device storage, process-kill, accessibility, or human-UAT behavior |
+
 ### Phase 1 - Human Trust And First Proof Checkpoint
 
 - Code commit: `c72d50b`

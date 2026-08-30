@@ -36,14 +36,24 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 - Rollback: each Phase 1 subphase is a separate local commit. Revert only the affected subphase after confirming consent remains fail-closed, launch containment remains active, and no unsafe startup/account boundary is reopened.
 - Evidence boundary: source, Windows host tests, and local validators only. Android/device accessibility, visual QA, deployed services, signed artifacts, and human UAT remain unverified.
 
+## Phase 2 Checkpoint - Account And Data Integrity
+
+- Status: `IN_PROGRESS` at `bc44261`; launch verdict remains `NO-GO - NOT READY`.
+- Commits: truthful deletion outcomes at `061ea18`; strict account-bound restore validation at `51b96be`; compare-and-swap sync, local mutation fencing, durable task replacement, and account-scoped recovery-key ownership at `bc44261`.
+- Feature state: cloud sync and restore remain disabled. The new database migration is committed locally but has not been applied to any deployed project.
+- Local verification: fatal analyzer, 86 focused data-integrity tests, 1,691-test full Flutter suite with one expected QA-only skip, formatting, architecture, secret, release, version, migration-policy, staged-diff, and whitespace gates passed.
+- Blocked external evidence: disposable Supabase database replay, pgTAP execution, and database lint require Docker, which is unavailable on this host. Deployed migration, RLS, device, signed-artifact, and human-UAT evidence are not established.
+- Remaining Phase 2 scope: complete whole-person backup domains and dry-run/staging evidence; account-scope all local stores; add corruption quarantine and persisted schema versions across remaining domains; reconcile serializers; constrain Storage paths and lifecycle; verify explicit report grants; pin sensitive endpoints; and canonicalize legal sources.
+- Rollback: revert only the affected local Phase 2 commit. Do not apply or revert the database migration against a live project without a separate production change plan and approval.
+
 ## Findings
 
 | ID | Severity | Finding | Phase | Status | Feature state | Repair commit | Evidence |
 |---|---|---|---:|---|---|---|---|
 | P0-01 | P0 | Emotional and governed-memory consent controls are not authoritative | 1 | PASS | versioned consent is enforced at context boundaries; saved Planner preferences are disclosed as not used in this build | `4146de5`, `6cdd536`, `c72d50b` | Consent migration/revocation/context tests and full host suite |
 | P0-02 | P0 | Fresh users receive invented personal state and identity | 0/1 | PASS | fresh metrics remain unmeasured; inferred identity hidden | `4649489`, `68bc277` | Nexus/Profile tests and containment test |
-| P0-03 | P0 | Cloud restore can replace valid local data with partial/corrupt data | 0/2 | PASS | restore disabled; integrity repair still pending | `68bc277` | Direct service/provider containment tests |
-| P0-04 | P0 | Client reports account deletion complete for pending `202` | 2 | NOT_RUN | existing flow unsafe | | Audit P0-4 |
+| P0-03 | P0 | Cloud restore can replace valid local data with partial/corrupt data | 0/2 | PASS | restore remains disabled; strict validation, account binding, rollback, mutation fencing, and durable task replacement are repaired locally | `51b96be`, `bc44261` | Focused restore/race/fault tests and full host suite; database/device evidence remains open |
+| P0-04 | P0 | Client reports account deletion complete for pending `202` | 2 | PASS | accepted, pending, completed, failed, and local-cleanup outcomes remain distinct | `061ea18` | Account deletion service/provider/UI outcome tests |
 | P0-05 | P0 | Premium offer does not visibly unlock advertised benefits | 0/8 | PASS | billing permission, route, UI, provider, and actions disabled | `68bc277` | Paywall, route, settings, and native tests |
 | P0-06 | P0 | External generative AI is dormant and unsafe to expose | 0/7 | PASS | external model calls and credit spending disabled | `68bc277` | Chat agent, controller, wallet, and settings tests |
 | P0-07 | P0 | Crisis and distress routing is too brittle for emotional claims | 7 | NOT_RUN | external AI remains disabled | | Audit P0-7 |
@@ -58,7 +68,7 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 | ARCH-02 | P1 | Skipped tasks can reappear as actionable | 5 | NOT_RUN | unsafe behavior | | Architecture audit |
 | ARCH-03 | P1 | Schedule/deadline separation and nullable clearing are incomplete | 4/5 | NOT_RUN | partial repair | | Architecture audit |
 | DATA-01 | P1 | Full backup omits advertised whole-person domains | 2/4 | NOT_RUN | restore disabled | | Data audit |
-| DATA-02 | P0 | Sync maps errors to empty and can overwrite newer cloud state | 0/2 | PASS | sync disabled; data repair still pending | `68bc277` | Direct service and provider containment tests |
+| DATA-02 | P0 | Sync maps errors to empty and can overwrite newer cloud state | 0/2 | PASS | sync remains disabled; typed reads, CAS revisions, local mutation generations, tombstones, and conflict outcomes are repaired locally | `bc44261` | Concurrent-writer, in-flight-edit, REST gateway, offline replay, and full host tests; pgTAP/deployed evidence remains open |
 | DATA-03 | P1 | Corrupt local stores can be treated as empty and overwritten | 2 | NOT_RUN | existing data preserved | | Data audit |
 | DATA-04 | P1 | Persistence is global, fragmented, and serializer versions differ | 2/4 | NOT_RUN | no migration yet | | Data audit |
 | SEC-01 | P1 | `ai_content_reports` lacks explicit fresh-project service grants | 2 | NOT_RUN | migration pending approval | | Security audit |
