@@ -100,7 +100,6 @@ class _RestoreSnapshot {
     required this.secureProfile,
     required this.legacyProfilePresent,
     required this.legacyProfile,
-    required this.settingsPresent,
     required this.settings,
   });
 
@@ -109,8 +108,7 @@ class _RestoreSnapshot {
   final String? secureProfile;
   final bool legacyProfilePresent;
   final String? legacyProfile;
-  final bool settingsPresent;
-  final Object? settings;
+  final Map<String, Object> settings;
 }
 
 class BackupService {
@@ -142,7 +140,7 @@ class BackupService {
   Future<Map<String, dynamic>> createFullBackup() async {
     final List<TaskEntity> tasks = await taskRepository.getAllTasks();
     final Map<String, dynamic>? profile = _decodeProfile(await _readProfile());
-    final Map<String, dynamic> settings = prefs.getJson('settings');
+    final Map<String, dynamic> settings = _readAccountSettings();
 
     return <String, dynamic>{
       'version': _backupVersion,
@@ -197,7 +195,7 @@ class BackupService {
   Future<Map<String, dynamic>> backupSettings() async {
     return <String, dynamic>{
       'timestamp': DateTime.now().toIso8601String(),
-      'settings': prefs.getJson('settings'),
+      'settings': _readAccountSettings(),
     };
   }
 
@@ -272,7 +270,10 @@ class BackupService {
         await _writeProfile(jsonEncode(validated.profile));
       }
       _requireRestoreLease(canContinue);
-      await prefs.setJson('settings', validated.settings);
+      await _replaceAccountSettings(
+        validated.settings,
+        canContinue: canContinue,
+      );
       _requireRestoreLease(canContinue);
     } on Object catch (restoreError, restoreStack) {
       try {
@@ -341,10 +342,23 @@ class BackupService {
     if (settings == null) {
       throw const FormatException('Backup settings must be a JSON object.');
     }
-    await runAccountStorageMutation(
-      () => prefs.setJson('settings', settings),
-      coordinator: _mutationCoordinator,
-    );
+    _validateAccountSettings(settings);
+    await runAccountStorageMutation(() async {
+      final Map<String, Object> snapshot = _captureAccountSettings();
+      try {
+        await _replaceAccountSettings(settings);
+      } on Object catch (restoreError, restoreStack) {
+        try {
+          await _replaceAccountSettings(snapshot);
+        } on Object catch (rollbackError) {
+          throw BackupRestoreRollbackException(
+            restoreErrorType: restoreError.runtimeType.toString(),
+            rollbackErrorType: rollbackError.runtimeType.toString(),
+          );
+        }
+        Error.throwWithStackTrace(restoreError, restoreStack);
+      }
+    }, coordinator: _mutationCoordinator);
   }
 
   Map<String, dynamic>? _decodeProfile(String? raw) {
@@ -403,8 +417,7 @@ class BackupService {
       secureProfile: secureProfile,
       legacyProfilePresent: legacyProfile != null,
       legacyProfile: legacyProfile,
-      settingsPresent: prefs.contains('settings'),
-      settings: prefs.prefs.get('settings'),
+      settings: _captureAccountSettings(),
     );
   }
 
@@ -459,21 +472,64 @@ class BackupService {
   }
 
   Future<void> _restoreSettingSnapshot(_RestoreSnapshot snapshot) async {
-    if (!snapshot.settingsPresent) {
-      await prefs.remove('settings');
-      return;
+    await _replaceAccountSettings(snapshot.settings);
+  }
+
+  Map<String, dynamic> _readAccountSettings() {
+    final Map<String, dynamic> settings = <String, dynamic>{};
+    for (final String key in _sortedAccountSettingKeys) {
+      final Object? value = prefs.prefs.get(key);
+      if (value != null) {
+        settings[key] = value;
+      }
     }
-    final Object? value = snapshot.settings;
+    _validateAccountSettings(settings);
+    return settings;
+  }
+
+  Map<String, Object> _captureAccountSettings() {
+    final Map<String, Object> snapshot = <String, Object>{};
+    for (final String key in _sortedAccountSettingKeys) {
+      final Object? value = prefs.prefs.get(key);
+      if (value != null) {
+        snapshot[key] = value;
+      }
+    }
+    return snapshot;
+  }
+
+  List<String> get _sortedAccountSettingKeys {
+    return AccountDataRegistry.accountPreferenceBackupKeys.toList()..sort();
+  }
+
+  Future<void> _replaceAccountSettings(
+    Map<String, dynamic> settings, {
+    bool Function()? canContinue,
+  }) async {
+    for (final String key in _sortedAccountSettingKeys) {
+      _requireRestoreLease(canContinue);
+      await prefs.remove(key);
+    }
+    for (final String key in _sortedAccountSettingKeys) {
+      if (!settings.containsKey(key)) continue;
+      _requireRestoreLease(canContinue);
+      await _writePreferenceValue(key, settings[key]);
+    }
+  }
+
+  Future<void> _writePreferenceValue(String key, Object? value) async {
     if (value is String) {
-      await prefs.setString('settings', value);
+      await prefs.setString(key, value);
     } else if (value is bool) {
-      await prefs.setBool('settings', value);
+      await prefs.setBool(key, value);
     } else if (value is int) {
-      await prefs.setInt('settings', value);
+      await prefs.setInt(key, value);
     } else if (value is double) {
-      await prefs.setDouble('settings', value);
+      await prefs.setDouble(key, value);
+    } else if (value is List<String>) {
+      await prefs.setStringList(key, value);
     } else {
-      throw StateError('Existing settings value could not be restored.');
+      throw StateError('Existing preference $key could not be restored.');
     }
   }
 
@@ -557,6 +613,7 @@ class BackupService {
     );
     _validateJsonValue(profile, field: 'profile');
     _validateJsonValue(settings, field: 'settings');
+    _validateAccountSettings(settings);
     final Map<String, int> recordCounts = _recordCounts(
       taskCount: tasks.length,
       profile: profile,
@@ -607,6 +664,72 @@ class BackupService {
         );
       }
     }
+  }
+
+  void _validateAccountSettings(Map<String, dynamic> settings) {
+    final Set<String> unknownKeys = settings.keys.toSet().difference(
+      AccountDataRegistry.accountPreferenceBackupKeys,
+    );
+    if (unknownKeys.isNotEmpty) {
+      throw const FormatException(
+        'Backup settings contain unsupported account preferences.',
+      );
+    }
+
+    for (final MapEntry<String, dynamic> entry in settings.entries) {
+      final Object? value = entry.value;
+      switch (entry.key) {
+        case 'user_preferences_json':
+          if (value is! String || value.length > 100000) {
+            throw const FormatException('Backup user preferences are invalid.');
+          }
+          try {
+            final Object? decoded = jsonDecode(value);
+            if (decoded is! Map) {
+              throw const FormatException(
+                'Backup user preferences are invalid.',
+              );
+            }
+          } on FormatException {
+            throw const FormatException('Backup user preferences are invalid.');
+          }
+          break;
+        case 'cloud_sync_enabled_v1':
+          if (value is! bool) {
+            throw const FormatException(
+              'Backup cloud sync preference is invalid.',
+            );
+          }
+          break;
+        case 'reflection_reminder_enabled':
+        case 'goal_reminders_enabled':
+        case 'habit_reminders_enabled':
+        case 'daily_planning_reminder_enabled':
+          if (value != 'true' && value != 'false') {
+            throw FormatException('Backup ${entry.key} preference is invalid.');
+          }
+          break;
+        case 'reflection_reminder_time':
+        case 'daily_planning_reminder_time':
+          if (value is! String || !_isValidReminderTime(value)) {
+            throw FormatException('Backup ${entry.key} preference is invalid.');
+          }
+          break;
+      }
+    }
+  }
+
+  bool _isValidReminderTime(String value) {
+    final List<String> parts = value.split(':');
+    if (parts.length != 2) return false;
+    final int? hour = int.tryParse(parts[0]);
+    final int? minute = int.tryParse(parts[1]);
+    return hour != null &&
+        minute != null &&
+        hour >= 0 &&
+        hour <= 23 &&
+        minute >= 0 &&
+        minute <= 59;
   }
 
   List<String> _strictStringList(Object? value, {required String field}) {

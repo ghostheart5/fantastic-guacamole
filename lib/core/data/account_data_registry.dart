@@ -78,7 +78,7 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     label: 'Settings',
     owner: 'Settings',
     backupStatus: AccountDataBackupStatus.backedUp,
-    storage: 'SharedPreferences settings payload',
+    storage: 'Allowlisted account-owned SharedPreferences values',
   ),
   AccountDataDomain(
     id: 'task_occurrences',
@@ -309,6 +309,22 @@ abstract final class AccountDataRegistry {
     'extended_domain.subscription_plans',
     'extended_domain.privacy_policies',
     'extended_domain.health_checks',
+  };
+
+  /// Preferences that are both account-owned and safe to include in a backup.
+  ///
+  /// Keep presentation, navigation, billing, cache, diagnostic, and implicit
+  /// device state out of this list even when account cleanup removes it at
+  /// sign-out. Every included value is an explicit account choice.
+  static const Set<String> accountPreferenceBackupKeys = <String>{
+    'user_preferences_json',
+    'cloud_sync_enabled_v1',
+    'reflection_reminder_enabled',
+    'reflection_reminder_time',
+    'goal_reminders_enabled',
+    'habit_reminders_enabled',
+    'daily_planning_reminder_enabled',
+    'daily_planning_reminder_time',
   };
 
   static const Set<String> deviceGlobalPreferenceKeys = <String>{

@@ -11,6 +11,25 @@ void main() {
     );
   });
 
+  test('backup preferences are account-owned and exclude device globals', () {
+    expect(
+      AccountDataRegistry.accountPreferenceExactKeys.containsAll(
+        AccountDataRegistry.accountPreferenceBackupKeys,
+      ),
+      isTrue,
+    );
+    expect(
+      AccountDataRegistry.accountPreferenceBackupKeys.intersection(
+        AccountDataRegistry.deviceGlobalPreferenceKeys,
+      ),
+      isEmpty,
+    );
+    expect(
+      AccountDataRegistry.accountPreferenceBackupKeys,
+      isNot(contains('settings')),
+    );
+  });
+
   test('account notification keys are stable, opaque, and isolated', () {
     final String first = AccountDataRegistry.notificationSecureKeyFor(
       'account-a',

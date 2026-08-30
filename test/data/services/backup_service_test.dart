@@ -130,8 +130,15 @@ void main() {
       'profile_state',
       jsonEncode(<String, dynamic>{'name': 'Keegan', 'xp': 42}),
     );
+    await service.prefs.setString(
+      'user_preferences_json',
+      jsonEncode(<String, dynamic>{'planningStyle': 'quiet'}),
+    );
+    await service.prefs.setBool('cloud_sync_enabled_v1', true);
+    await service.prefs.setString('reflection_reminder_enabled', 'true');
+    await service.prefs.setString('app_theme_entity_v1', 'device-theme');
     await service.prefs.setJson('settings', <String, dynamic>{
-      'soundEnabled': false,
+      'obsolete': true,
     });
 
     final Map<String, dynamic> backup = await service.createFullBackup();
@@ -157,11 +164,17 @@ void main() {
     );
     expect(task['id'], 'task-1');
     expect(backup['profile'], <String, dynamic>{'name': 'Keegan', 'xp': 42});
-    expect(backup['settings'], <String, dynamic>{'soundEnabled': false});
+    expect(backup['settings'], <String, dynamic>{
+      'cloud_sync_enabled_v1': true,
+      'reflection_reminder_enabled': 'true',
+      'user_preferences_json': '{"planningStyle":"quiet"}',
+    });
+    expect(backup['settings'], isNot(contains('settings')));
+    expect(backup['settings'], isNot(contains('app_theme_entity_v1')));
     expect(backup['recordCounts'], <String, int>{
       'tasks': 1,
       'profile': 1,
-      'settings': 1,
+      'settings': 3,
     });
   });
 
@@ -179,10 +192,8 @@ void main() {
         'profile_state',
         jsonEncode(<String, dynamic>{'name': 'Preview Person'}),
       );
-      await service.prefs.setJson('settings', <String, dynamic>{
-        'soundEnabled': false,
-        'theme': 'neon',
-      });
+      await service.prefs.setBool('cloud_sync_enabled_v1', true);
+      await service.prefs.setString('reflection_reminder_time', '20:15');
       final Map<String, dynamic> backup = await service.createFullBackup();
       final int generationBefore = service.localGeneration;
 
@@ -250,9 +261,7 @@ void main() {
       'profile_state',
       jsonEncode(<String, dynamic>{'name': 'Nova', 'xp': 7}),
     );
-    await service.prefs.setJson('settings', <String, dynamic>{
-      'soundEnabled': true,
-    });
+    await service.prefs.setString('reflection_reminder_time', '19:45');
 
     final Map<String, dynamic> profileBackup = await service.backupProfile();
     final Map<String, dynamic> settingsBackup = await service.backupSettings();
@@ -261,7 +270,9 @@ void main() {
       'name': 'Nova',
       'xp': 7,
     });
-    expect(settingsBackup['settings'], <String, dynamic>{'soundEnabled': true});
+    expect(settingsBackup['settings'], <String, dynamic>{
+      'reflection_reminder_time': '19:45',
+    });
     expect(profileBackup['timestamp'], isA<String>());
     expect(settingsBackup['timestamp'], isA<String>());
   });
@@ -320,7 +331,10 @@ void main() {
             },
           ],
           profile: <String, dynamic>{'name': 'Recovered', 'xp': 12},
-          settings: <String, dynamic>{'soundEnabled': true, 'theme': 'neon'},
+          settings: <String, dynamic>{
+            'cloud_sync_enabled_v1': true,
+            'reflection_reminder_enabled': 'true',
+          },
         ),
       );
 
@@ -329,12 +343,88 @@ void main() {
         profileStorage.get('profile_state'),
         jsonEncode(<String, dynamic>{'name': 'Recovered', 'xp': 12}),
       );
-      expect(service.prefs.getJson('settings'), <String, dynamic>{
-        'soundEnabled': true,
-        'theme': 'neon',
-      });
+      expect(service.prefs.getBool('cloud_sync_enabled_v1'), isTrue);
+      expect(service.prefs.getString('reflection_reminder_enabled'), 'true');
     },
   );
+
+  test('full restore replaces only allowlisted account settings', () async {
+    await service.prefs.setBool('cloud_sync_enabled_v1', true);
+    await service.prefs.setString('reflection_reminder_time', '18:30');
+    await service.prefs.setString('app_theme_entity_v1', 'device-theme');
+    await service.prefs.setBool('onboarding_complete', true);
+    await service.prefs.setJson('settings', <String, dynamic>{
+      'legacy': 'preserve until cleanup',
+    });
+
+    await service.restoreFullBackup(
+      _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: null,
+        settings: <String, dynamic>{
+          'goal_reminders_enabled': 'false',
+          'reflection_reminder_time': '21:05',
+        },
+      ),
+    );
+
+    expect(service.prefs.getBool('cloud_sync_enabled_v1'), isNull);
+    expect(service.prefs.getString('goal_reminders_enabled'), 'false');
+    expect(service.prefs.getString('reflection_reminder_time'), '21:05');
+    expect(service.prefs.getString('app_theme_entity_v1'), 'device-theme');
+    expect(service.prefs.getBool('onboarding_complete'), isTrue);
+    expect(service.prefs.getJson('settings'), <String, dynamic>{
+      'legacy': 'preserve until cleanup',
+    });
+  });
+
+  test(
+    'restore rejects unknown or mistyped account settings before writes',
+    () async {
+      await service.prefs.setString('reflection_reminder_time', '18:30');
+
+      for (final Map<String, dynamic> invalid in <Map<String, dynamic>>[
+        <String, dynamic>{'app_theme_entity_v1': 'remote-theme'},
+        <String, dynamic>{'cloud_sync_enabled_v1': 'true'},
+        <String, dynamic>{'reflection_reminder_enabled': true},
+        <String, dynamic>{'daily_planning_reminder_time': '25:99'},
+        <String, dynamic>{'user_preferences_json': 'not-json'},
+      ]) {
+        await expectLater(
+          () => service.restoreSettings(<String, dynamic>{'settings': invalid}),
+          throwsFormatException,
+        );
+        expect(service.prefs.getString('reflection_reminder_time'), '18:30');
+      }
+    },
+  );
+
+  test('settings rollback restores exact native values and absence', () async {
+    final SharedPreferences rawPrefs = await SharedPreferences.getInstance();
+    await rawPrefs.setBool('cloud_sync_enabled_v1', false);
+    await rawPrefs.setString('goal_reminders_enabled', 'true');
+    await rawPrefs.setString('app_theme_entity_v1', 'device-theme');
+    final _WriteThenFailPrefsStorage failingPrefs = _WriteThenFailPrefsStorage(
+      rawPrefs,
+    );
+    final BackupService failingService = BackupService(
+      taskRepository: repository,
+      profileStorage: profileStorage,
+      prefs: failingPrefs,
+    );
+
+    await expectLater(
+      () => failingService.restoreSettings(<String, dynamic>{
+        'settings': <String, dynamic>{'reflection_reminder_time': '20:00'},
+      }),
+      throwsStateError,
+    );
+
+    expect(failingPrefs.getBool('cloud_sync_enabled_v1'), isFalse);
+    expect(failingPrefs.getString('goal_reminders_enabled'), 'true');
+    expect(failingPrefs.contains('reflection_reminder_time'), isFalse);
+    expect(failingPrefs.getString('app_theme_entity_v1'), 'device-theme');
+  });
 
   test(
     'restoreFullBackup rejects incomplete legacy envelopes before writes',
@@ -346,9 +436,7 @@ void main() {
           createdAt: DateTime.utc(2026, 7, 1),
         ),
       );
-      await service.prefs.setJson('settings', <String, dynamic>{
-        'theme': 'existing',
-      });
+      await service.prefs.setString('reflection_reminder_time', '18:30');
 
       await expectLater(
         () => service.restoreFullBackup(<String, dynamic>{
@@ -362,9 +450,7 @@ void main() {
       expect((await repository.getAllTasks()).single.id, 'existing');
       await profileStorage.open();
       expect(profileStorage.get('profile_state'), isNull);
-      expect(service.prefs.getJson('settings'), <String, dynamic>{
-        'theme': 'existing',
-      });
+      expect(service.prefs.getString('reflection_reminder_time'), '18:30');
     },
   );
 
@@ -394,9 +480,7 @@ void main() {
         'profile_state',
         jsonEncode(<String, dynamic>{'name': 'Keep Me'}),
       );
-      await service.prefs.setJson('settings', <String, dynamic>{
-        'theme': 'existing',
-      });
+      await service.prefs.setString('reflection_reminder_time', '18:30');
 
       await expectLater(
         () => service.restoreProfile(<String, dynamic>{
@@ -413,9 +497,7 @@ void main() {
         profileStorage.get('profile_state'),
         jsonEncode(<String, dynamic>{'name': 'Keep Me'}),
       );
-      expect(service.prefs.getJson('settings'), <String, dynamic>{
-        'theme': 'existing',
-      });
+      expect(service.prefs.getString('reflection_reminder_time'), '18:30');
     },
   );
 
@@ -489,13 +571,11 @@ void main() {
         'profile_state',
         jsonEncode(<String, dynamic>{'name': 'Existing'}),
       );
-      await service.prefs.setJson('settings', <String, dynamic>{
-        'theme': 'existing',
-      });
+      await service.prefs.setString('reflection_reminder_time', '18:30');
       final Map<String, dynamic> backup = _fullBackup(
         tasks: <Map<String, dynamic>>[],
         profile: <String, dynamic>{'name': 'Incoming'},
-        settings: <String, dynamic>{'theme': 'incoming'},
+        settings: <String, dynamic>{'reflection_reminder_time': '20:00'},
       );
       final Map<String, dynamic> manifest = Map<String, dynamic>.from(
         backup['manifest'] as Map<String, dynamic>,
@@ -513,9 +593,7 @@ void main() {
         profileStorage.get('profile_state'),
         jsonEncode(<String, dynamic>{'name': 'Existing'}),
       );
-      expect(service.prefs.getJson('settings'), <String, dynamic>{
-        'theme': 'existing',
-      });
+      expect(service.prefs.getString('reflection_reminder_time'), '18:30');
     },
   );
 
@@ -533,13 +611,11 @@ void main() {
         'profile_state',
         jsonEncode(<String, dynamic>{'name': 'Existing'}),
       );
-      await service.prefs.setJson('settings', <String, dynamic>{
-        'theme': 'existing',
-      });
+      await service.prefs.setString('reflection_reminder_time', '18:30');
       final Map<String, dynamic> backup = _fullBackup(
         tasks: <Map<String, dynamic>>[],
         profile: <String, dynamic>{'name': 'Incoming'},
-        settings: <String, dynamic>{'invalid': Object()},
+        settings: <String, dynamic>{'user_preferences_json': Object()},
       );
 
       await expectLater(
@@ -552,9 +628,7 @@ void main() {
         profileStorage.get('profile_state'),
         jsonEncode(<String, dynamic>{'name': 'Existing'}),
       );
-      expect(service.prefs.getJson('settings'), <String, dynamic>{
-        'theme': 'existing',
-      });
+      expect(service.prefs.getString('reflection_reminder_time'), '18:30');
     },
   );
 
@@ -584,7 +658,10 @@ void main() {
         }
         final SharedPreferences rawPrefs =
             await SharedPreferences.getInstance();
-        await rawPrefs.remove('settings');
+        for (final String key
+            in AccountDataRegistry.accountPreferenceBackupKeys) {
+          await rawPrefs.remove(key);
+        }
         final BackupService exactService = BackupService(
           taskRepository: repository,
           profileStorage: profileStorage,
@@ -597,7 +674,7 @@ void main() {
             _fullBackup(
               tasks: <Map<String, dynamic>>[],
               profile: <String, dynamic>{'name': 'Incoming'},
-              settings: <String, dynamic>{'theme': 'incoming'},
+              settings: <String, dynamic>{'reflection_reminder_time': '20:00'},
             ),
           ),
           throwsStateError,
@@ -642,7 +719,7 @@ void main() {
               },
             ],
             profile: <String, dynamic>{'name': 'Incoming'},
-            settings: <String, dynamic>{'theme': 'incoming'},
+            settings: <String, dynamic>{'reflection_reminder_time': '20:00'},
           ),
         ),
         throwsStateError,
@@ -650,7 +727,7 @@ void main() {
 
       expect((await repository.getAllTasks()).single.id, 'existing');
       expect(profileStorage.get('profile_state'), isNull);
-      expect(failingPrefs.contains('settings'), isFalse);
+      expect(failingPrefs.contains('reflection_reminder_time'), isFalse);
     },
   );
 
@@ -797,16 +874,14 @@ void main() {
         'profile': <String, dynamic>{'name': 'Secure Restore'},
       });
       await secureService.restoreSettings(<String, dynamic>{
-        'settings': <String, dynamic>{'soundEnabled': false},
+        'settings': <String, dynamic>{'cloud_sync_enabled_v1': false},
       });
 
       expect(
         await secureStore.readString('profile_state_v2'),
         jsonEncode(<String, dynamic>{'name': 'Secure Restore'}),
       );
-      expect(secureService.prefs.getJson('settings'), <String, dynamic>{
-        'soundEnabled': false,
-      });
+      expect(secureService.prefs.getBool('cloud_sync_enabled_v1'), isFalse);
     },
   );
 }
@@ -870,8 +945,8 @@ class _WriteThenFailPrefsStorage extends SharedPrefsStorage {
   bool _failed = false;
 
   @override
-  Future<void> setJson(String key, Map<String, dynamic> value) async {
-    await super.setJson(key, value);
+  Future<void> setString(String key, String value) async {
+    await super.setString(key, value);
     if (!_failed) {
       _failed = true;
       throw StateError('Simulated settings write failure.');

@@ -405,7 +405,10 @@ void main() {
         },
       ],
       profile: <String, dynamic>{'name': 'Cloud User'},
-      settings: <String, dynamic>{'soundEnabled': false},
+      settings: <String, dynamic>{
+        'cloud_sync_enabled_v1': false,
+        'reflection_reminder_time': '20:00',
+      },
     );
 
     final CloudRestoreOutcome restored = await syncService.restoreFromCloud();
@@ -416,7 +419,8 @@ void main() {
       profileStorage.get('profile_state'),
       jsonEncode(<String, dynamic>{'name': 'Cloud User'}),
     );
-    expect(prefs.getJson('settings'), <String, dynamic>{'soundEnabled': false});
+    expect(prefs.getBool('cloud_sync_enabled_v1'), isFalse);
+    expect(prefs.getString('reflection_reminder_time'), '20:00');
   });
 
   test('syncDelta uploads local backup when cloud backup is empty', () async {
@@ -716,7 +720,7 @@ void main() {
             'createdAt': '2026-07-05T07:00:00.000Z',
           },
         ],
-        settings: <String, dynamic>{'theme': 'cloud'},
+        settings: <String, dynamic>{'daily_planning_reminder_time': '19:30'},
       );
 
       final bool synced = await syncService.syncDelta();

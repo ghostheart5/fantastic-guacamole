@@ -94,6 +94,10 @@ class SharedPrefsStorage {
     await prefs.setDouble(key, value);
   }
 
+  Future<void> setStringList(String key, List<String> value) async {
+    await prefs.setStringList(key, value);
+  }
+
   // ------------------------------------------------------------
   // JSON MAP
   // ------------------------------------------------------------
