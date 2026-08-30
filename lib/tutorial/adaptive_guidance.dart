@@ -141,15 +141,7 @@ abstract final class GuidanceInterventionEngine {
       if (state.replayLessons.contains(id)) return _coreLesson(id);
     }
 
-    if (!state.has(GuidanceMilestone.firstItem)) {
-      return unresolved(_coreLesson(GuidanceLessonId.createFirstItem));
-    }
-    if (!state.has(GuidanceMilestone.firstSchedule)) {
-      return unresolved(_coreLesson(GuidanceLessonId.scheduleFirstItem));
-    }
-    if (!state.has(GuidanceMilestone.firstTimelineReview)) {
-      return unresolved(_coreLesson(GuidanceLessonId.reviewTimeline));
-    }
+    if (!state.coreComplete) return null;
 
     if (state.hasDeferralFriction) {
       final GuidanceLesson? recovery = unresolved(

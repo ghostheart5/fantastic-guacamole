@@ -212,8 +212,8 @@ class _LoginScreenState extends State<LoginScreen>
               InteractiveTutorialOverlay(
                 targetKey: _loginFormKey,
                 stepLabel: l10n.isSpanish
-                    ? 'Configuración 2 de 4'
-                    : 'First setup 2 of 4',
+                    ? 'Configuración 2 de 3'
+                    : 'First setup 2 of 3',
                 title: l10n.isSpanish
                     ? 'Inicia sesión o crea tu cuenta'
                     : 'Sign in or create your account',

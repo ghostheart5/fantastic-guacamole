@@ -894,7 +894,7 @@ void main() {
     expect(
       source,
       contains(
-        'Used only for this check-in. Nothing is saved unless you explicitly remember a preference.',
+        'Your words and check-in stay ephemeral. A local decision receipt may record which guidance was shown or used. Nothing else is saved unless you explicitly remember a preference.',
       ),
     );
   });

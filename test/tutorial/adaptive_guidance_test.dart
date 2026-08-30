@@ -12,61 +12,87 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test(
-    'core lessons unlock advanced guidance only after observed milestones',
-    () {
-      final DateTime observedAt = DateTime.utc(2026, 8, 18);
-      final AdaptiveGuidanceState incomplete = AdaptiveGuidanceState(
-        milestones: <GuidanceMilestone, DateTime>{
-          GuidanceMilestone.firstItem: observedAt,
-        },
-        counts: const <GuidanceMilestone, int>{},
-        skippedLessons: const <GuidanceLessonId>{},
-        completedLessons: const <GuidanceLessonId>{
-          GuidanceLessonId.createFirstItem,
-        },
-      );
+  test('incomplete core milestones suppress automatic interventions', () {
+    final DateTime observedAt = DateTime.utc(2026, 8, 18);
+    const AdaptiveGuidanceState beforeFirstValue = AdaptiveGuidanceState(
+      milestones: <GuidanceMilestone, DateTime>{},
+      counts: <GuidanceMilestone, int>{},
+      skippedLessons: <GuidanceLessonId>{},
+      completedLessons: <GuidanceLessonId>{},
+    );
+    final AdaptiveGuidanceState incomplete = AdaptiveGuidanceState(
+      milestones: <GuidanceMilestone, DateTime>{
+        GuidanceMilestone.firstItem: observedAt,
+      },
+      counts: const <GuidanceMilestone, int>{},
+      skippedLessons: const <GuidanceLessonId>{},
+      completedLessons: const <GuidanceLessonId>{
+        GuidanceLessonId.createFirstItem,
+      },
+    );
 
-      expect(incomplete.coreComplete, isFalse);
-      expect(
-        incomplete
-            .nextIntervention(
-              currentRoute: RoutePaths.nexus,
-              decision: _decision,
-              now: observedAt.add(const Duration(days: 2)),
-            )
-            ?.id,
+    expect(
+      beforeFirstValue.nextIntervention(
+        currentRoute: RoutePaths.nexus,
+        decision: _decision,
+        now: observedAt,
+      ),
+      isNull,
+    );
+    expect(incomplete.coreComplete, isFalse);
+    expect(
+      incomplete.nextIntervention(
+        currentRoute: RoutePaths.nexus,
+        decision: _decision,
+        now: observedAt.add(const Duration(days: 2)),
+      ),
+      isNull,
+    );
+
+    final AdaptiveGuidanceState complete = AdaptiveGuidanceState(
+      milestones: <GuidanceMilestone, DateTime>{
+        GuidanceMilestone.firstItem: observedAt,
+        GuidanceMilestone.firstSchedule: observedAt,
+        GuidanceMilestone.firstTimelineReview: observedAt,
+      },
+      counts: const <GuidanceMilestone, int>{},
+      skippedLessons: const <GuidanceLessonId>{},
+      completedLessons: const <GuidanceLessonId>{
+        GuidanceLessonId.createFirstItem,
         GuidanceLessonId.scheduleFirstItem,
-      );
+        GuidanceLessonId.reviewTimeline,
+      },
+    );
 
-      final AdaptiveGuidanceState complete = AdaptiveGuidanceState(
-        milestones: <GuidanceMilestone, DateTime>{
-          GuidanceMilestone.firstItem: observedAt,
-          GuidanceMilestone.firstSchedule: observedAt,
-          GuidanceMilestone.firstTimelineReview: observedAt,
-        },
-        counts: const <GuidanceMilestone, int>{},
-        skippedLessons: const <GuidanceLessonId>{},
-        completedLessons: const <GuidanceLessonId>{
-          GuidanceLessonId.createFirstItem,
-          GuidanceLessonId.scheduleFirstItem,
-          GuidanceLessonId.reviewTimeline,
-        },
-      );
+    expect(complete.coreComplete, isTrue);
+    expect(
+      complete
+          .nextIntervention(
+            currentRoute: RoutePaths.nexus,
+            decision: _decision,
+            now: observedAt.add(const Duration(days: 2)),
+          )
+          ?.id,
+      GuidanceLessonId.nexus,
+    );
+  });
 
-      expect(complete.coreComplete, isTrue);
-      expect(
-        complete
-            .nextIntervention(
-              currentRoute: RoutePaths.nexus,
-              decision: _decision,
-              now: observedAt.add(const Duration(days: 2)),
-            )
-            ?.id,
-        GuidanceLessonId.nexus,
-      );
-    },
-  );
+  test('explicit replay remains available before core completion', () {
+    const AdaptiveGuidanceState state = AdaptiveGuidanceState(
+      milestones: <GuidanceMilestone, DateTime>{},
+      counts: <GuidanceMilestone, int>{},
+      skippedLessons: <GuidanceLessonId>{},
+      completedLessons: <GuidanceLessonId>{},
+      replayLessons: <GuidanceLessonId>{GuidanceLessonId.reviewTimeline},
+    );
+
+    expect(
+      state
+          .nextIntervention(currentRoute: RoutePaths.nexus, decision: _decision)
+          ?.id,
+      GuidanceLessonId.reviewTimeline,
+    );
+  });
 
   test(
     'finishing core setup returns control to Nexus before advanced help',

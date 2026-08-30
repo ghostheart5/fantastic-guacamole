@@ -215,7 +215,11 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         FirstRunTutorialTargets.timelineEvidence.currentContext != null;
     return InteractiveTutorialOverlay(
       targetKey: FirstRunTutorialTargets.timelineEvidence,
-      stepLabel: _copy(l10n, 'First setup 4 of 4', 'Configuración 4 de 4'),
+      stepLabel: _copy(
+        l10n,
+        'Optional Creator/Timeline lesson',
+        'Lección opcional de Creador/Línea de Tiempo',
+      ),
       title: hasMatchingEvidence
           ? _copy(
               l10n,

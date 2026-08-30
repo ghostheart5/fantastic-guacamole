@@ -65,9 +65,7 @@ void main() {
         path: RoutePaths.onboarding,
         returnTo: destination,
       );
-      await tester.enterText(_nameField(), 'Keegan');
-      await tester.pump();
-      await tester.tap(find.text('Continue to Creator'));
+      await tester.tap(find.text('CONTINUE TO REQUESTED PAGE'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
 
@@ -79,7 +77,7 @@ void main() {
     },
   );
 
-  testWidgets('hostile returnTo is rejected and falls back to Creator', (
+  testWidgets('hostile returnTo is rejected and skip falls back to Nexus', (
     WidgetTester tester,
   ) async {
     final _RouterHarness harness = await _pumpRouter(tester);
@@ -106,13 +104,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     _expectLocation(harness, path: RoutePaths.onboarding);
-    await tester.enterText(_nameField(), 'Keegan');
-    await tester.pump();
-    await tester.tap(find.text('Continue to Creator'));
+    await tester.tap(find.text('SKIP FOR NOW'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
 
-    _expectLocation(harness, path: RoutePaths.creator);
+    _expectLocation(harness, path: RoutePaths.nexus);
   });
 }
 
@@ -173,13 +169,6 @@ void _expectLocation(
   expect(
     uri.queryParameters[RouteAccessPolicy.returnToQueryParameter],
     returnTo,
-  );
-}
-
-Finder _nameField() {
-  return find.byWidgetPredicate(
-    (Widget widget) =>
-        widget is TextField && widget.decoration?.labelText == 'Name',
   );
 }
 

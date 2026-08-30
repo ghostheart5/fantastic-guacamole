@@ -230,7 +230,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               RoutePaths.login,
               returnTo,
             ),
-            completedLocation: returnTo ?? RoutePaths.creator,
+            // A validated deep link remains authoritative. With no pending
+            // intent, onboarding chooses Smart Planner or Nexus from the
+            // person's explicit final-step action.
+            completedLocation: returnTo,
           );
         },
       ),

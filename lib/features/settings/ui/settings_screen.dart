@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/domain/release/assistant_release_control.dar
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
@@ -34,6 +35,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 part 'settings_screen.sections.dart';
 
@@ -50,6 +52,18 @@ String accountDeletionOutcomeMessage(AccountDeletionResult result) {
     return 'Account deletion started. Server cleanup is still in progress, but status tracking could not be saved on this device.';
   }
   return 'Account deletion started. Server cleanup is still in progress. You have been signed out.';
+}
+
+Future<void> restartFirstSetup(BuildContext context, WidgetRef ref) async {
+  final String onboardingRoute = ref.read(routeSurfaceProvider).onboarding;
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(onboardingCompleteStorageKey, false);
+  await prefs.setBool(onboardingWelcomeCompleteStorageKey, false);
+  await prefs.setInt(onboardingContentVersionStorageKey, 0);
+  await ref.read(accountOnboardingCompleteProvider.notifier).reset();
+  ref.read(onboardingCompleteProvider.notifier).set(false);
+  ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
+  if (context.mounted) context.go(onboardingRoute);
 }
 
 class SettingsScreen extends ConsumerWidget {

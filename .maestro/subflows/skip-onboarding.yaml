@@ -1,7 +1,7 @@
 # Shared: get past onboarding without re-testing it.
 #
-# SKIP is present on every onboarding page, so this is safe to call whether the
-# app opened on slide 1 or mid-way through.
+# Welcome still hands off to authentication. Once the authenticated final step
+# is visible, SKIP FOR NOW completes setup without creating anything.
 appId: com.ghostheart5.chronospark
 ---
 - runFlow:
@@ -14,8 +14,8 @@ appId: com.ghostheart5.chronospark
 
 - runFlow:
     when:
-      visible: "SKIP"
+      visible: "SKIP FOR NOW"
     commands:
-      - tapOn: "SKIP"
+      - tapOn: "SKIP FOR NOW"
       - waitForAnimationToEnd:
           timeout: 5000

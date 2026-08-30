@@ -1620,10 +1620,10 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
                 onTap: () => unawaited(_restartGuide(context, ref)),
               ),
               _NeonNavTile(
-                title: 'Replay First-Run Tutorial',
+                title: 'Restart first setup',
                 subtitle:
-                    'Reopens welcome, profile setup, Creator, and Timeline guidance.',
-                onTap: () => unawaited(_replayOnboarding(context, ref)),
+                    'Reopens welcome and account setup. Keeps tasks, milestones, and Adaptive Guide progress.',
+                onTap: () => unawaited(_restartFirstSetup(context, ref)),
               ),
             ],
           );
@@ -1652,20 +1652,15 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
     }
   }
 
-  Future<void> _replayOnboarding(BuildContext context, WidgetRef ref) async {
+  Future<void> _restartFirstSetup(BuildContext context, WidgetRef ref) async {
     try {
-      final routes = ref.read(routeSurfaceProvider);
-      await ref.read(adaptiveGuidanceProvider.notifier).replayOnboarding();
-      if (!context.mounted) {
-        return;
-      }
-      context.go(routes.onboarding);
+      await restartFirstSetup(context, ref);
     } catch (_) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Onboarding could not be replayed.')),
+        const SnackBar(content: Text('First setup could not restart.')),
       );
     }
   }

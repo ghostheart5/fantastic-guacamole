@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -9,6 +10,7 @@ import 'package:fantastic_guacamole/domain/release/assistant_release_control.dar
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -21,6 +23,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const String _plannerUnavailableMessage =
     'Smart Planner is not enabled for this account yet. Your check-in was not saved or changed.';
+const String _plannerRetryMessage =
+    'Guidance could not be generated. Your check-in is still here. Tap GET GUIDANCE to retry.';
 
 class SmartPlannerScreen extends ConsumerStatefulWidget {
   const SmartPlannerScreen({super.key});
@@ -73,6 +77,28 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         ? humanContext.siState.energy
         : null;
     _emotion = humanContext.emotion;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _consumeFirstValueRequest();
+    });
+  }
+
+  void _consumeFirstValueRequest() {
+    final String accountScopeId =
+        ref.read(accountStorageScopeProvider).v2Namespace ?? '';
+    final SmartPlannerFirstValueRequest? request = ref
+        .read(smartPlannerFirstValueProvider.notifier)
+        .takeFor(accountScopeId: accountScopeId, now: DateTime.now().toUtc());
+    if (request == null) return;
+
+    setState(() {
+      final String? prompt = request.prompt;
+      if (prompt != null) _notesController.text = prompt;
+      final double? energy = request.energy;
+      if (energy != null) _energy = energy;
+      _saved = false;
+    });
+    unawaited(_getPlanningGuidance());
   }
 
   @override
@@ -95,11 +121,18 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           _guidanceError = _plannerUnavailableMessage;
         });
       }
-    } catch (e, s) {
-      if (mounted) {
-        setState(() => _gettingPlanningGuidance = false);
-        ErrorBoundary.of(context)?.captureError(e, s);
-      }
+    } catch (error, stackTrace) {
+      Logger.errorCategory(
+        'smart_planner',
+        'Planning guidance failed.',
+        error,
+        stackTrace,
+      );
+      if (!mounted) return;
+      setState(() {
+        _gettingPlanningGuidance = false;
+        _guidanceError = _plannerRetryMessage;
+      });
     }
   }
 
@@ -667,7 +700,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Used only for this check-in. Nothing is saved unless you explicitly remember a preference.',
+                            'Your words and check-in stay ephemeral. A local decision receipt may record which guidance was shown or used. Nothing else is saved unless you explicitly remember a preference.',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 13,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
@@ -7,6 +8,7 @@ import 'package:fantastic_guacamole/domain/release/assistant_release_control.dar
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
@@ -65,7 +67,7 @@ void main() {
     expect(find.text('GET GUIDANCE'), findsOneWidget);
     expect(
       find.text(
-        'Used only for this check-in. Nothing is saved unless you explicitly remember a preference.',
+        'Your words and check-in stay ephemeral. A local decision receipt may record which guidance was shown or used. Nothing else is saved unless you explicitly remember a preference.',
       ),
       findsOneWidget,
     );
@@ -90,6 +92,189 @@ void main() {
     expect(find.text('Apply to Timeline'), findsNothing);
     expect(find.text('Preview Plan'), findsNothing);
     expect(find.text('Send a follow-up question...'), findsNothing);
+  });
+
+  testWidgets('staged first value applies context and generates guidance', (
+    WidgetTester tester,
+  ) async {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'first-value-account',
+    );
+    final ProviderContainer container = _container(accountScope: scope);
+    addTearDown(container.dispose);
+    container
+        .read(smartPlannerFirstValueProvider.notifier)
+        .stage(
+          SmartPlannerFirstValueRequest(
+            accountScopeId: scope.v2Namespace!,
+            prompt: 'Help me choose one bounded launch-readiness step.',
+            energy: 0.35,
+            createdAt: DateTime.now().toUtc(),
+          ),
+        );
+
+    await _pumpPlanner(tester, container);
+
+    final _PlannerV2TestController planner =
+        container.read(smartPlannerQueryControllerProvider)
+            as _PlannerV2TestController;
+    expect(planner.guidanceRequestCount, 1);
+    expect(
+      planner.lastNotes,
+      'Help me choose one bounded launch-readiness step.',
+    );
+    expect(planner.lastEnergy, 0.35);
+    expect(container.read(smartPlannerFirstValueProvider), isNull);
+    expect(container.read(memoriesProvider), isEmpty);
+    await _scrollTo(tester, find.text('PLANNER V2'));
+    expect(
+      find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC · NOT AI-GENERATED'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('rebuild does not duplicate staged first-value guidance', (
+    WidgetTester tester,
+  ) async {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'first-value-rebuild-account',
+    );
+    final ProviderContainer container = _container(accountScope: scope);
+    addTearDown(container.dispose);
+    container
+        .read(smartPlannerFirstValueProvider.notifier)
+        .stage(
+          SmartPlannerFirstValueRequest(
+            accountScopeId: scope.v2Namespace!,
+            prompt: 'Give me one useful choice.',
+            createdAt: DateTime.now().toUtc(),
+          ),
+        );
+
+    await _pumpPlanner(tester, container);
+    final _PlannerV2TestController planner =
+        container.read(smartPlannerQueryControllerProvider)
+            as _PlannerV2TestController;
+    expect(planner.guidanceRequestCount, 1);
+
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(planner.guidanceRequestCount, 1);
+    expect(container.read(smartPlannerFirstValueProvider), isNull);
+  });
+
+  testWidgets(
+    'delayed auto first value shows progress and completes exactly once',
+    (WidgetTester tester) async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'first-value-delayed-account',
+      );
+      final ProviderContainer container = _container(
+        accountScope: scope,
+        plannerBuilder: _DelayedPlannerController.new,
+      );
+      addTearDown(container.dispose);
+      container
+          .read(smartPlannerFirstValueProvider.notifier)
+          .stage(
+            SmartPlannerFirstValueRequest(
+              accountScopeId: scope.v2Namespace!,
+              prompt: 'Hold this request until guidance is ready.',
+              energy: 0.5,
+              createdAt: DateTime.now().toUtc(),
+            ),
+          );
+
+      await _pumpPlanner(tester, container);
+      final _DelayedPlannerController planner =
+          container.read(smartPlannerQueryControllerProvider)
+              as _DelayedPlannerController;
+      expect(planner.guidanceRequestCount, 1);
+      expect(container.read(smartPlannerFirstValueProvider), isNull);
+      await _scrollTo(tester, find.text('THINKING...'));
+      expect(find.text('THINKING...'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(const Size(420, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pump();
+      expect(planner.guidanceRequestCount, 1);
+
+      planner.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(planner.guidanceRequestCount, 1);
+      await _scrollTo(tester, find.text('PLANNER V2'));
+      expect(
+        find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC · NOT AI-GENERATED'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('auto-consumed blocked request stays inline for retry', (
+    WidgetTester tester,
+  ) async {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'first-value-blocked-account',
+    );
+    final ProviderContainer container = _container(
+      accountScope: scope,
+      plannerBuilder: _BlockedPlannerController.new,
+    );
+    addTearDown(container.dispose);
+    const String prompt = 'Keep this blocked request available for retry.';
+    container
+        .read(smartPlannerFirstValueProvider.notifier)
+        .stage(
+          SmartPlannerFirstValueRequest(
+            accountScopeId: scope.v2Namespace!,
+            prompt: prompt,
+            createdAt: DateTime.now().toUtc(),
+          ),
+        );
+
+    await _pumpPlanner(tester, container);
+    final _BlockedPlannerController planner =
+        container.read(smartPlannerQueryControllerProvider)
+            as _BlockedPlannerController;
+    expect(planner.guidanceRequestCount, 1);
+    await _expectInlineFirstValueRetry(tester, prompt);
+  });
+
+  testWidgets('auto-consumed error request stays inline for retry', (
+    WidgetTester tester,
+  ) async {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'first-value-error-account',
+    );
+    final ProviderContainer container = _container(
+      accountScope: scope,
+      plannerBuilder: _FailingPlannerController.new,
+    );
+    addTearDown(container.dispose);
+    const String prompt = 'Keep this failed request available for retry.';
+    container
+        .read(smartPlannerFirstValueProvider.notifier)
+        .stage(
+          SmartPlannerFirstValueRequest(
+            accountScopeId: scope.v2Namespace!,
+            prompt: prompt,
+            energy: 0.2,
+            createdAt: DateTime.now().toUtc(),
+          ),
+        );
+
+    await _pumpPlanner(tester, container);
+    final _FailingPlannerController planner =
+        container.read(smartPlannerQueryControllerProvider)
+            as _FailingPlannerController;
+    expect(planner.guidanceRequestCount, 1);
+    await _expectInlineFirstValueRetry(tester, prompt);
+    expect(find.text(_plannerRetryMessageForTest), findsOneWidget);
   });
 
   testWidgets('release gate denial stays inline without global recovery', (
@@ -389,11 +574,13 @@ ProviderContainer _container({
   VoiceService? voiceService,
   OperatingDecisionReceipt? operatingReceipt,
   List<DecisionOutcomeKind>? outcomes,
+  AccountStorageScope? accountScope,
+  SmartPlannerQueryController Function(Ref)? plannerBuilder,
 }) {
   return ProviderContainer(
     overrides: [
       smartPlannerQueryControllerProvider.overrideWith(
-        _PlannerV2TestController.new,
+        plannerBuilder ?? _PlannerV2TestController.new,
       ),
       voiceServiceProvider.overrideWithValue(
         voiceService ?? _NoopVoiceService(),
@@ -405,6 +592,8 @@ ProviderContainer _container({
           outcomes ?? <DecisionOutcomeKind>[],
         ),
       ),
+      if (accountScope != null)
+        accountStorageScopeProvider.overrideWithValue(accountScope),
     ],
   );
 }
@@ -445,10 +634,38 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
   await tester.pump();
 }
 
+const String _plannerRetryMessageForTest =
+    'Guidance could not be generated. Your check-in is still here. Tap GET GUIDANCE to retry.';
+
+Future<void> _expectInlineFirstValueRetry(
+  WidgetTester tester,
+  String prompt,
+) async {
+  await _scrollTo(
+    tester,
+    find.byKey(const Key('planner-guidance-unavailable')),
+  );
+  expect(find.byKey(const Key('planner-guidance-unavailable')), findsOneWidget);
+  expect(find.byType(SmartPlannerScreen), findsOneWidget);
+  expect(find.textContaining('Something went wrong'), findsNothing);
+
+  await _scrollTo(tester, find.byKey(const Key('planner-context-field')));
+  final TextField contextField = tester.widget<TextField>(
+    find.byKey(const Key('planner-context-field')),
+  );
+  expect(contextField.controller?.text, prompt);
+  await _scrollTo(tester, find.text('GET GUIDANCE'));
+  expect(find.text('GET GUIDANCE'), findsOneWidget);
+  expect(tester.takeException(), isNull);
+}
+
 class _PlannerV2TestController extends SmartPlannerQueryController {
   _PlannerV2TestController(super.ref) : _testRef = ref;
 
   final Ref _testRef;
+  int guidanceRequestCount = 0;
+  double? lastEnergy;
+  String? lastNotes;
 
   @override
   bool detectsCrisis(String text) => false;
@@ -461,15 +678,10 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
   }) async {
-    final PlannerV2Response response = _testResponse();
-    return SmartPlannerResult(
-      prompt: notes.isEmpty ? 'Plan my next move' : notes,
-      message: response.toAccessibleText(),
-      savedNotes: null,
-      evidence: response.verifiedEvidence,
-      plannerResponse: response,
-      operatingReceipt: _testRef.read(smartPlannerOperatingReceiptProvider),
-    );
+    guidanceRequestCount += 1;
+    lastEnergy = energy;
+    lastNotes = notes;
+    return _testPlannerResult(_testRef, notes);
   }
 
   @override
@@ -482,8 +694,33 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
   }) async => 'Follow-up response for $input';
 }
 
+class _DelayedPlannerController extends _PlannerV2TestController {
+  _DelayedPlannerController(super.ref);
+
+  final Completer<void> _release = Completer<void>();
+
+  @override
+  Future<SmartPlannerResult> requestPlanningGuidance({
+    required double? energy,
+    required EmotionalState? emotion,
+    required String notes,
+    required List<Map<String, String>> history,
+    required String? previousSavedNotes,
+  }) async {
+    guidanceRequestCount += 1;
+    lastEnergy = energy;
+    lastNotes = notes;
+    await _release.future;
+    return _testPlannerResult(_testRef, notes);
+  }
+
+  void complete() => _release.complete();
+}
+
 class _BlockedPlannerController extends SmartPlannerQueryController {
   _BlockedPlannerController(super.ref);
+
+  int guidanceRequestCount = 0;
 
   @override
   bool detectsCrisis(String text) => false;
@@ -496,6 +733,7 @@ class _BlockedPlannerController extends SmartPlannerQueryController {
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
   }) async {
+    guidanceRequestCount += 1;
     final AssistantReleaseDecision decision = const AssistantReleaseController()
         .decide(
           config: AssistantReleaseConfig(
@@ -513,6 +751,39 @@ class _BlockedPlannerController extends SmartPlannerQueryController {
         );
     throw AssistantReleaseBlockedException(decision);
   }
+}
+
+class _FailingPlannerController extends SmartPlannerQueryController {
+  _FailingPlannerController(super.ref);
+
+  int guidanceRequestCount = 0;
+
+  @override
+  bool detectsCrisis(String text) => false;
+
+  @override
+  Future<SmartPlannerResult> requestPlanningGuidance({
+    required double? energy,
+    required EmotionalState? emotion,
+    required String notes,
+    required List<Map<String, String>> history,
+    required String? previousSavedNotes,
+  }) async {
+    guidanceRequestCount += 1;
+    throw StateError('simulated planner failure');
+  }
+}
+
+SmartPlannerResult _testPlannerResult(Ref ref, String notes) {
+  final PlannerV2Response response = _testResponse();
+  return SmartPlannerResult(
+    prompt: notes.isEmpty ? 'Plan my next move' : notes,
+    message: response.toAccessibleText(),
+    savedNotes: null,
+    evidence: response.verifiedEvidence,
+    plannerResponse: response,
+    operatingReceipt: ref.read(smartPlannerOperatingReceiptProvider),
+  );
 }
 
 PlannerV2Response _testResponse() {
