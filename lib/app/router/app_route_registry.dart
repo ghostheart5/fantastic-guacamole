@@ -440,4 +440,9 @@ abstract final class AppRouteRegistry {
           );
     return routes;
   }
+
+  static Iterable<AppRouteDefinition> get visibleNavigationDestinations sync* {
+    yield* navigationDestinations(AppNavigationGroup.primary);
+    yield* navigationDestinations(AppNavigationGroup.secondary);
+  }
 }

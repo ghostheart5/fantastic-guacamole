@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -142,7 +143,23 @@ class TaskActions {
     await createTask(entity, notify: notify);
   }
 
-  Future<void> updateTask({required String id, required String title}) async {
+  Future<void> updateTask({required String id, required String title}) =>
+      updateTaskDetails(id: id, title: title);
+
+  Future<void> updateTaskDetails({
+    required String id,
+    required String title,
+    String? description,
+    Duration? estimatedDuration,
+    DateTime? scheduledFor,
+    DateTime? dueDate,
+    String? goalId,
+    bool clearDescription = false,
+    bool clearEstimatedDuration = false,
+    bool clearScheduledFor = false,
+    bool clearDueDate = false,
+    bool clearGoalId = false,
+  }) async {
     final String taskId = id.trim();
     final String trimmedTitle = title.trim();
     if (taskId.isEmpty) {
@@ -150,6 +167,27 @@ class TaskActions {
     }
     if (trimmedTitle.isEmpty) {
       throw ArgumentError.value(title, 'title', 'Task title cannot be blank.');
+    }
+    if (estimatedDuration != null &&
+        (estimatedDuration.inMinutes < 1 ||
+            estimatedDuration.inMinutes > 1440)) {
+      throw ArgumentError.value(
+        estimatedDuration,
+        'estimatedDuration',
+        'Task duration must be between 1 minute and 24 hours.',
+      );
+    }
+    final String? normalizedGoalId = goalId?.trim();
+    if (!clearGoalId && normalizedGoalId?.isNotEmpty == true) {
+      final bool goalExists = _ref
+          .read(domainGoalRepositoryProvider)
+          .getGoals()
+          .any(
+            (GoalEntity goal) => goal.id == normalizedGoalId && goal.isActive,
+          );
+      if (!goalExists) {
+        throw StateError('Linked goal not found.');
+      }
     }
 
     final TaskEntity? existing = await _ref
@@ -159,7 +197,20 @@ class TaskActions {
       throw StateError('Task not found');
     }
 
-    final TaskEntity updated = existing.copyWith(title: trimmedTitle);
+    final TaskEntity updated = existing.copyWith(
+      title: trimmedTitle,
+      description: description?.trim(),
+      clearDescription: clearDescription,
+      estimatedDuration: estimatedDuration,
+      clearEstimatedDuration: clearEstimatedDuration,
+      scheduledFor: scheduledFor,
+      clearScheduledFor: clearScheduledFor,
+      dueDate: dueDate,
+      clearDueDate: clearDueDate,
+      goalId: normalizedGoalId,
+      clearGoalId: clearGoalId,
+      updatedAt: DateTime.now(),
+    );
     await _ref.read(updateTaskUseCaseProvider).call(updated);
     _publishTaskMutation(updated, action: 'updated');
   }

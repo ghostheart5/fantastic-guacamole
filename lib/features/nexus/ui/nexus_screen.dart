@@ -12,8 +12,10 @@ import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.d
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
@@ -140,8 +142,9 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     tasks: tasks,
                     notes: notes,
                     nextBlock: nextBlock,
-                    onOpenCreator: () =>
-                        goToAppView(context, ref, AppView.creator),
+                    onOpenGoal: () => goToAppView(context, ref, AppView.goals),
+                    onOpenTask: () => _openCreator(CreatorFormKind.task),
+                    onOpenNote: () => _openCreator(CreatorFormKind.note),
                   ),
                 ),
               ),
@@ -171,6 +174,11 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         ),
       ),
     );
+  }
+
+  void _openCreator(CreatorFormKind type) {
+    ref.read(creatorNavigationIntentProvider.notifier).open(type);
+    goToAppView(context, ref, AppView.creator);
   }
 
   Future<void> _completeTimeBlockTask(String taskId) async {

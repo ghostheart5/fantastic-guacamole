@@ -1,5 +1,8 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -43,5 +46,39 @@ void main() {
     ]) {
       expect(source, isNot(contains(retired)), reason: '$retired returned');
     }
+  });
+
+  test('Creator navigation intent defaults to Task and can target Note', () {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(
+      container.read(creatorNavigationIntentProvider),
+      CreatorFormKind.task,
+    );
+    container
+        .read(creatorNavigationIntentProvider.notifier)
+        .open(CreatorFormKind.note);
+    expect(
+      container.read(creatorNavigationIntentProvider),
+      CreatorFormKind.note,
+    );
+  });
+
+  test('Nexus focus rows keep distinct Goal, Task, and Note callbacks', () {
+    final String screen = File(
+      'lib/features/nexus/ui/nexus_screen.dart',
+    ).readAsStringSync();
+    final String widgets = File(
+      'lib/features/nexus/ui/nexus_screen.widgets.dart',
+    ).readAsStringSync();
+
+    expect(screen, contains('onOpenGoal:'));
+    expect(screen, contains('AppView.goals'));
+    expect(screen, contains('CreatorFormKind.task'));
+    expect(screen, contains('CreatorFormKind.note'));
+    expect(widgets, contains('onTap: onOpenGoal'));
+    expect(widgets, contains('onTap: onOpenTask'));
+    expect(widgets, contains('onTap: onOpenNote'));
   });
 }

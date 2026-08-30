@@ -2,6 +2,8 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -20,6 +22,9 @@ class CreatorScreen extends ConsumerWidget {
       creatorDraftPreviewProvider,
     );
     final CreatorHandshakeState handshake = ref.watch(creatorHandshakeProvider);
+    final CreatorFormKind navigationType = ref.watch(
+      creatorNavigationIntentProvider,
+    );
     final AdaptiveGuidanceState? guidanceState = ref
         .watch(adaptiveGuidanceProvider)
         .asData
@@ -28,6 +33,9 @@ class CreatorScreen extends ConsumerWidget {
         guidanceState != null &&
         (!guidanceState.has(GuidanceMilestone.firstItem) ||
             !guidanceState.has(GuidanceMilestone.firstSchedule));
+    final CreatorFormKind initialType = guidedFirstTask || plannerDraft != null
+        ? CreatorFormKind.task
+        : navigationType;
     final CreatorTutorialDraftNotifier tutorialDraft = ref.read(
       creatorTutorialDraftProvider.notifier,
     );
@@ -77,7 +85,10 @@ class CreatorScreen extends ConsumerWidget {
                                 guidedFirstTask &&
                                 (handshake.preview?.selectedOperations.any(
                                       (CreatorMutationOperation operation) =>
-                                          operation.task.scheduledFor != null,
+                                          operation
+                                              .taskMutation
+                                              ?.scheduledFor !=
+                                          null,
                                     ) ??
                                     false);
                             final CreatorHandshakeState result = await ref
@@ -135,6 +146,11 @@ class CreatorScreen extends ConsumerWidget {
                       key: ValueKey<String>(
                         'creator-form-${handshake.formRevision}',
                       ),
+                      initialType: initialType,
+                      activeGoals: ref.watch(goalsProvider),
+                      onTypeChanged: ref
+                          .read(creatorNavigationIntentProvider.notifier)
+                          .open,
                       initialDraftId: plannerDraft?.id,
                       initialTitle: plannerDraft?.title,
                       initialDescription: plannerDraft?.description,
@@ -308,7 +324,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             const Text(
-              'This is review evidence only and did not alter the proposed task.',
+              'This is review evidence only and did not alter the proposed item.',
               key: Key('creator-bound-evidence-boundary'),
               style: TextStyle(
                 color: Colors.white60,
@@ -348,7 +364,6 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
           ],
           const SizedBox(height: 10),
           ...preview.operations.map((CreatorMutationOperation operation) {
-            final CreatorTaskMutation task = operation.task;
             final bool selected = preview.selectedOperationIds.contains(
               operation.operationId,
             );
@@ -391,32 +406,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _diff('Title', 'Not present', task.title),
-                        _diff('Type', 'Not present', task.creatorKind),
-                        _diff(
-                          'Priority',
-                          'Not present',
-                          '${task.priority} / 5',
-                        ),
-                        _diff(
-                          'Schedule',
-                          'Not present',
-                          task.scheduledFor?.toLocal().toString() ??
-                              'Unscheduled',
-                        ),
-                        _diff(
-                          'Repeat',
-                          'Not present',
-                          task.recurrenceRule.name,
-                        ),
-                        if (task.description?.isNotEmpty ?? false)
-                          _diff(
-                            'Description',
-                            'Not present',
-                            task.description!,
-                          ),
-                      ],
+                      children: _operationDiffs(operation),
                     ),
                   ),
                 ),
@@ -496,6 +486,76 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
       ),
     );
   }
+
+  static List<Widget> _operationDiffs(CreatorMutationOperation operation) {
+    final CreatorEntityMutation mutation = operation.mutation;
+    final List<({String label, String value})> fields =
+        <({String label, String value})>[
+          (label: 'Title', value: mutation.title),
+          (label: 'Type', value: _entityLabel(operation.entityKind)),
+        ];
+    switch (mutation) {
+      case final CreatorTaskMutation task:
+        fields.addAll(<({String label, String value})>[
+          (label: 'Priority', value: '${task.priority} / 5'),
+          (label: 'Active goal', value: task.goalId ?? 'No linked goal'),
+          (
+            label: 'Estimated duration',
+            value: task.estimatedDuration == null
+                ? 'No estimate'
+                : '${task.estimatedDuration!.inMinutes} minutes',
+          ),
+          (
+            label: 'Schedule',
+            value: task.scheduledFor?.toLocal().toString() ?? 'Unscheduled',
+          ),
+          (
+            label: 'Deadline',
+            value: task.dueDate?.toLocal().toString() ?? 'No deadline',
+          ),
+        ]);
+        if (task.description?.isNotEmpty ?? false) {
+          fields.add((label: 'Description', value: task.description!));
+        }
+      case final CreatorGoalMutation goal:
+        fields.add((
+          label: 'Target date',
+          value: goal.targetDate?.toLocal().toString() ?? 'No target date',
+        ));
+        if (goal.description?.isNotEmpty ?? false) {
+          fields.add((label: 'Description', value: goal.description!));
+        }
+      case final CreatorHabitMutation habit:
+        fields.addAll(<({String label, String value})>[
+          (label: 'Cadence', value: habit.cadence.name),
+          (label: 'Target count', value: '${habit.targetCount}'),
+        ]);
+        if (habit.description?.isNotEmpty ?? false) {
+          fields.add((label: 'Description', value: habit.description!));
+        }
+      case final CreatorNoteMutation note:
+        if (note.body?.isNotEmpty ?? false) {
+          fields.add((label: 'Body', value: note.body!));
+        }
+      default:
+        if (mutation.description?.isNotEmpty ?? false) {
+          fields.add((label: 'Description', value: mutation.description!));
+        }
+    }
+    return fields
+        .map(
+          (({String label, String value}) field) =>
+              _diff(field.label, 'Not present', field.value),
+        )
+        .toList(growable: false);
+  }
+
+  static String _entityLabel(CreatorEntityKind kind) => switch (kind) {
+    CreatorEntityKind.task => 'Task',
+    CreatorEntityKind.goal => 'Goal',
+    CreatorEntityKind.habit => 'Daily Rhythm',
+    CreatorEntityKind.note => 'Note',
+  };
 
   static String _short(String value) =>
       value.length <= 18 ? value : '${value.substring(0, 18)}…';

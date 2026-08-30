@@ -61,6 +61,13 @@ class TaskOccurrenceRepository {
     await _write(all);
   });
 
+  Future<void> replaceSnapshot(List<TaskOccurrence> occurrences) {
+    final List<TaskOccurrence> snapshot = List<TaskOccurrence>.unmodifiable(
+      occurrences,
+    );
+    return _serializeWrite(() => _write(snapshot));
+  }
+
   Future<List<TaskOccurrence>> _read() async {
     final HiveStorage<String> storage = _requireStorage();
     await storage.open();

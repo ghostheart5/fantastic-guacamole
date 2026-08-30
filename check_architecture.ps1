@@ -126,15 +126,13 @@ $implScanFiles = Get-ChildItem -Path $libRoot -Filter '*.dart' -Recurse -File |
   Where-Object { -not $_.FullName.Replace('\\', '/').Contains('/domain/interfaces/') }
 
 foreach ($file in $implScanFiles) {
-  $lines = @(Get-Content -Path $file.FullName)
-  foreach ($line in $lines) {
-    if ($line -match 'implements\s+([^\{]+)') {
-      $implementsClause = $matches[1]
-      $tokens = $implementsClause -split '[,\s]+'
-      foreach ($token in $tokens) {
-        if ($token -match '^I[A-Za-z0-9]+Repository$') {
-          [void]$implementedInterfaces.Add($token)
-        }
+  $content = Get-Content -Path $file.FullName -Raw
+  foreach ($implementsMatch in [regex]::Matches($content, '(?s)\bimplements\s+([^\{]+)\{')) {
+    $implementsClause = $implementsMatch.Groups[1].Value
+    $tokens = $implementsClause -split '[,\s]+'
+    foreach ($token in $tokens) {
+      if ($token -match '^I[A-Za-z0-9]+Repository$') {
+        [void]$implementedInterfaces.Add($token)
       }
     }
   }

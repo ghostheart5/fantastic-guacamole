@@ -2,8 +2,9 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 
-enum AccountDataBackupStatus { backedUp, localOnly, cloudReplicated, internal }
+enum AccountDataBackupStatus { backedUp, localOnly, internal }
 
 class AccountDataDomain {
   const AccountDataDomain({
@@ -12,6 +13,7 @@ class AccountDataDomain {
     required this.owner,
     required this.backupStatus,
     required this.storage,
+    this.cloudReplicated = false,
     this.notes,
   });
 
@@ -20,6 +22,7 @@ class AccountDataDomain {
   final String owner;
   final AccountDataBackupStatus backupStatus;
   final String storage;
+  final bool cloudReplicated;
   final String? notes;
 
   Map<String, dynamic> toManifestJson() => <String, dynamic>{
@@ -28,6 +31,8 @@ class AccountDataDomain {
     'owner': owner,
     'backupStatus': backupStatus.name,
     'storage': storage,
+    'portableBackup': backupStatus == AccountDataBackupStatus.backedUp,
+    'cloudReplicated': cloudReplicated,
     if (notes != null) 'notes': notes,
   };
 }
@@ -64,7 +69,7 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     label: 'Tasks',
     owner: 'Smart Planner / Timeline',
     backupStatus: AccountDataBackupStatus.backedUp,
-    storage: 'Hive task repository + Supabase Storage backup payload',
+    storage: 'Account-scoped Hive + portable local backup payload',
   ),
   AccountDataDomain(
     id: 'profile',
@@ -84,22 +89,24 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     id: 'task_occurrences',
     label: 'Task occurrences',
     owner: 'Timeline / Smart Planner recurrence ledger',
-    backupStatus: AccountDataBackupStatus.cloudReplicated,
-    storage: 'Account-scoped Hive ledger + Supabase task_occurrences table',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped Hive ledger + portable local backup payload',
+    cloudReplicated: true,
+    notes: 'Cloud replication remains capability-contained.',
   ),
   AccountDataDomain(
     id: 'goals',
     label: 'Goals',
     owner: 'Progression',
-    backupStatus: AccountDataBackupStatus.localOnly,
-    storage: 'Hive goals box',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped Hive + portable local backup payload',
   ),
   AccountDataDomain(
     id: 'habits',
     label: 'Habits',
     owner: 'Progression / Smart Planner',
-    backupStatus: AccountDataBackupStatus.localOnly,
-    storage: 'Hive habits box',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped Hive + portable local backup payload',
   ),
   AccountDataDomain(
     id: 'timeline',
@@ -121,8 +128,22 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     id: 'notes',
     label: 'Creator notes',
     owner: 'Creator',
-    backupStatus: AccountDataBackupStatus.localOnly,
-    storage: 'Shared preferences notes store',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped preferences + portable local backup payload',
+  ),
+  AccountDataDomain(
+    id: 'decision_outcomes',
+    label: 'Decision outcomes',
+    owner: 'Decision intelligence evidence ledger',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped preferences + portable local backup payload',
+  ),
+  AccountDataDomain(
+    id: 'habit_occurrences',
+    label: 'Daily Rhythm occurrences',
+    owner: 'Daily Rhythm outcome ledger',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped preferences + portable local backup payload',
   ),
   AccountDataDomain(
     id: 'si_state',
@@ -149,10 +170,7 @@ Map<String, dynamic> accountDataBackupManifest() {
       .map((AccountDataDomain domain) => domain.id)
       .toList(growable: false);
   final List<String> cloudReplicated = accountDataDomains
-      .where(
-        (AccountDataDomain domain) =>
-            domain.backupStatus == AccountDataBackupStatus.cloudReplicated,
-      )
+      .where((AccountDataDomain domain) => domain.cloudReplicated)
       .map((AccountDataDomain domain) => domain.id)
       .toList(growable: false);
   final List<String> excluded = accountDataDomains
@@ -165,7 +183,9 @@ Map<String, dynamic> accountDataBackupManifest() {
       .toList(growable: false);
 
   return <String, dynamic>{
-    'manifestVersion': 1,
+    'manifestVersion': 2,
+    'backupKind': 'portableLocal',
+    'cloudRestoreIncluded': false,
     'includedDomains': included,
     'cloudReplicatedDomains': cloudReplicated,
     'excludedDomains': excluded,
@@ -365,10 +385,15 @@ abstract final class AccountDataRegistry {
   }
 
   static Set<String> hiveBoxesForAccount(String accountId) {
-    final String namespace = accountNamespace(accountId);
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      accountId.trim(),
+    );
     return <String>{
       ...legacyAccountHiveBoxes,
-      'task_occurrences_v2.$namespace',
+      HiveBoxes.accountScoped(HiveBoxes.tasks, scope),
+      HiveBoxes.accountScoped(HiveBoxes.goals, scope),
+      HiveBoxes.accountScoped(HiveBoxes.habits, scope),
+      HiveBoxes.accountScoped(HiveBoxes.taskOccurrences, scope),
     };
   }
 
@@ -404,7 +429,11 @@ abstract final class AccountDataRegistry {
         .toString();
     return <String>{
       ...accountPreferenceExactKeys,
+      'notes_v1.$namespace',
+      'notes_v1.${namespace}_corrupt_backup',
+      'notes_v1.${namespace}_migration_v1',
       'chronospark.decision_outcomes.v1.$namespace',
+      'chronospark.habit_occurrences.v1.$namespace',
       'chronospark.trajectory.forecast_ledger.v1.$namespace',
       'chronospark.operating.history.v1.$namespace',
       'chronospark.operating.ack.v1.$namespace',

@@ -482,6 +482,22 @@ class _RecordingTaskActions extends TaskActions {
   }
 
   @override
+  Future<void> updateTaskDetails({
+    required String id,
+    required String title,
+    String? description,
+    Duration? estimatedDuration,
+    DateTime? scheduledFor,
+    DateTime? dueDate,
+    String? goalId,
+    bool clearDescription = false,
+    bool clearEstimatedDuration = false,
+    bool clearScheduledFor = false,
+    bool clearDueDate = false,
+    bool clearGoalId = false,
+  }) => updateTask(id: id, title: title);
+
+  @override
   Future<void> deleteTask(String id) async {
     deleteCalls += 1;
     deletedId = id;

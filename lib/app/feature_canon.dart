@@ -16,89 +16,37 @@ class ChronoSparkFeatureDefinition {
     required this.category,
   });
 
-  final ChronoSparkFeatureId id;
+  final AppView id;
   final String displayName;
   final String route;
   final String purpose;
   final ChronoSparkFeatureCategory category;
 }
 
-/// The single production feature registry for user-facing names and routes.
-///
-/// Compatibility paths live in [RoutePaths] but must never be generated from
-/// this registry. Signal is an output of Smart Planner or SI Console, not a
-/// feature. Retired work-timer concepts remain excluded; authentication state
-/// language remains valid outside this product registry.
+/// User-facing product canon derived from the route registry's visible
+/// navigation definitions. Hidden routes, including Creator's Goals subroute,
+/// remain reachable without becoming advertised standalone surfaces.
 abstract final class ChronoSparkFeatureCanon {
   static final List<ChronoSparkFeatureDefinition> active =
       List<ChronoSparkFeatureDefinition>.unmodifiable(
-        <ChronoSparkFeatureDefinition>[
-          _feature(
-            id: ChronoSparkFeatureId.nexus,
-            appView: AppView.nexus,
-            purpose: 'Current decision context and next-best action.',
-            category: ChronoSparkFeatureCategory.primaryCanonFeature,
+        AppRouteRegistry.visibleNavigationDestinations.map(
+          (AppRouteDefinition route) => ChronoSparkFeatureDefinition(
+            id: route.appView!,
+            displayName: route.label,
+            route: route.path,
+            purpose: route.navigationSubtitle!,
+            category: switch (route.navigationGroup) {
+              AppNavigationGroup.primary =>
+                ChronoSparkFeatureCategory.primaryCanonFeature,
+              AppNavigationGroup.secondary =>
+                ChronoSparkFeatureCategory.supportSurface,
+              AppNavigationGroup.hidden => throw StateError(
+                'Hidden routes cannot enter the active feature canon.',
+              ),
+            },
           ),
-          _feature(
-            id: ChronoSparkFeatureId.smartPlanner,
-            appView: AppView.smartPlanner,
-            purpose: 'Explainable planning and plan reconciliation.',
-            category: ChronoSparkFeatureCategory.primaryCanonFeature,
-          ),
-          _feature(
-            id: ChronoSparkFeatureId.creator,
-            appView: AppView.creator,
-            purpose: 'Intelligent intake for tasks, goals, habits, and notes.',
-            category: ChronoSparkFeatureCategory.primaryCanonFeature,
-          ),
-          _feature(
-            id: ChronoSparkFeatureId.settings,
-            appView: AppView.settings,
-            purpose: 'Preferences, account controls, privacy, and support.',
-            category: ChronoSparkFeatureCategory.primaryCanonFeature,
-          ),
-          _feature(
-            id: ChronoSparkFeatureId.siConsole,
-            appView: AppView.console,
-            purpose: 'Deep strategic investigation and executable guidance.',
-            category: ChronoSparkFeatureCategory.supportSurface,
-          ),
-          _feature(
-            id: ChronoSparkFeatureId.timeline,
-            appView: AppView.timeline,
-            purpose: 'Planning history, schedule, and outcomes.',
-            category: ChronoSparkFeatureCategory.primaryCanonFeature,
-          ),
-          _feature(
-            id: ChronoSparkFeatureId.trajectoryEngine,
-            appView: AppView.trajectoryEngine,
-            purpose: 'Explicit future scenarios, assumptions, and corrections.',
-            category: ChronoSparkFeatureCategory.primaryCanonFeature,
-          ),
-          _feature(
-            id: ChronoSparkFeatureId.progression,
-            appView: AppView.progression,
-            purpose: 'Evidence-backed advancement and leverage actions.',
-            category: ChronoSparkFeatureCategory.supportSurface,
-          ),
-        ],
+        ),
       );
-
-  static ChronoSparkFeatureDefinition _feature({
-    required ChronoSparkFeatureId id,
-    required AppView appView,
-    required String purpose,
-    required ChronoSparkFeatureCategory category,
-  }) {
-    final AppRouteDefinition route = AppRouteRegistry.routeForView(appView);
-    return ChronoSparkFeatureDefinition(
-      id: id,
-      displayName: route.label,
-      route: route.path,
-      purpose: purpose,
-      category: category,
-    );
-  }
 
   static Iterable<ChronoSparkFeatureDefinition> byCategory(
     ChronoSparkFeatureCategory category,
@@ -120,6 +68,19 @@ abstract final class ChronoSparkFeatureCanon {
     'Flowmap',
   };
 
-  static ChronoSparkFeatureDefinition definition(ChronoSparkFeatureId id) =>
-      active.firstWhere((ChronoSparkFeatureDefinition item) => item.id == id);
+  static ChronoSparkFeatureDefinition definition(ChronoSparkFeatureId id) {
+    final AppView view = switch (id) {
+      ChronoSparkFeatureId.nexus => AppView.nexus,
+      ChronoSparkFeatureId.smartPlanner => AppView.smartPlanner,
+      ChronoSparkFeatureId.creator => AppView.creator,
+      ChronoSparkFeatureId.settings => AppView.settings,
+      ChronoSparkFeatureId.siConsole => AppView.console,
+      ChronoSparkFeatureId.timeline => AppView.timeline,
+      ChronoSparkFeatureId.trajectoryEngine => AppView.trajectoryEngine,
+      ChronoSparkFeatureId.progression => AppView.progression,
+    };
+    return active.firstWhere(
+      (ChronoSparkFeatureDefinition feature) => feature.id == view,
+    );
+  }
 }

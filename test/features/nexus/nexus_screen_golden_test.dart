@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -12,6 +13,7 @@ import 'package:fantastic_guacamole/state/models/signal_model.dart';
 import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
@@ -40,7 +42,15 @@ void main() {
           () => _TestSIStateController(observed: observedVitals),
         ),
         trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
-        if (tasks != null) tasksProvider.overrideWith((Ref ref) async => tasks),
+        goalsProvider.overrideWith(
+          () => _StaticGoalsNotifier(_populatedNexusModel.aggregation.goals),
+        ),
+        tasksProvider.overrideWith(
+          (Ref ref) async => tasks ?? _populatedNexusModel.aggregation.tasks,
+        ),
+        notesProvider.overrideWith(
+          () => _StaticNotesNotifier(const <NoteEntity>[]),
+        ),
         if (timeline != null)
           timelineProvider.overrideWith(
             () => _StaticTimelineNotifier(timeline),
@@ -153,6 +163,24 @@ void main() {
       expect(find.text('78%'), findsNothing);
     });
   });
+}
+
+class _StaticGoalsNotifier extends GoalsNotifier {
+  _StaticGoalsNotifier(this.goals);
+
+  final List<GoalEntity> goals;
+
+  @override
+  List<GoalEntity> build() => goals;
+}
+
+class _StaticNotesNotifier extends NotesNotifier {
+  _StaticNotesNotifier(this.notes);
+
+  final List<NoteEntity> notes;
+
+  @override
+  Future<List<NoteEntity>> build() async => notes;
 }
 
 final NexusScreenModel _populatedNexusModel = NexusScreenModel(

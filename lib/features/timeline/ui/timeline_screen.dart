@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/features/timeline/logic/timeline_projection.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -28,6 +29,20 @@ enum _TimelineFilter {
 }
 
 enum _TimelineSourceIssue { persistence, taskLoading, taskError }
+
+class _TaskEditDraft {
+  const _TaskEditDraft({
+    required this.title,
+    required this.estimatedDuration,
+    required this.dueDate,
+    required this.goalId,
+  });
+
+  final String title;
+  final Duration? estimatedDuration;
+  final DateTime? dueDate;
+  final String? goalId;
+}
 
 class TimelineScreen extends ConsumerStatefulWidget {
   const TimelineScreen({super.key});
@@ -876,66 +891,187 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
     if (_busy) return;
     final String? taskId = widget.event.relatedId;
     if (taskId == null) return;
-
-    String draftTitle = widget.event.title;
+    TaskEntity? existing;
+    final List<Task> visibleTasks =
+        ref.read(tasksProvider).asData?.value ?? const <Task>[];
+    for (final Task task in visibleTasks) {
+      if (task.id == taskId) {
+        existing = task;
+        break;
+      }
+    }
+    if (existing == null) {
+      try {
+        existing = await ref
+            .read(domainTaskRepositoryProvider)
+            .getTaskById(taskId);
+      } on StateError {
+        existing = null;
+      }
+    }
+    if (existing == null || !mounted) {
+      setState(() => _error = 'Task not found. Refresh and try again.');
+      return;
+    }
+    final TaskEntity editable = existing;
+    final List<GoalEntity> goals = ref.read(goalsProvider);
+    String draftTitle = editable.title;
+    String durationText =
+        editable.estimatedDuration?.inMinutes.toString() ?? '';
+    String? selectedGoalId =
+        goals.any((GoalEntity goal) => goal.id == editable.goalId)
+        ? editable.goalId
+        : null;
+    DateTime? dueDate = editable.dueDate;
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-    final String? nextTitle = await showDialog<String>(
+    final _TaskEditDraft? next = await showDialog<_TaskEditDraft>(
       context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('Edit task'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            key: const Key('timeline-task-title-field'),
-            initialValue: draftTitle,
-            autofocus: true,
-            textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(labelText: 'Task title'),
-            validator: (String? value) => value == null || value.trim().isEmpty
-                ? 'Enter a task title.'
-                : null,
-            onChanged: (String value) => draftTitle = value,
-            onFieldSubmitted: (String value) => _submitEdit(
-              dialogContext: dialogContext,
-              formKey: formKey,
-              title: value,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
+          title: const Text('Edit task'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextFormField(
+                    key: const Key('timeline-task-title-field'),
+                    initialValue: draftTitle,
+                    autofocus: true,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(labelText: 'Task title'),
+                    validator: (String? value) =>
+                        value == null || value.trim().isEmpty
+                        ? 'Enter a task title.'
+                        : null,
+                    onChanged: (String value) => draftTitle = value,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    key: const Key('timeline-task-goal-field'),
+                    initialValue: selectedGoalId,
+                    decoration: const InputDecoration(labelText: 'Goal'),
+                    items: <DropdownMenuItem<String?>>[
+                      const DropdownMenuItem<String?>(
+                        child: Text('No linked goal'),
+                      ),
+                      ...goals.map(
+                        (GoalEntity goal) => DropdownMenuItem<String?>(
+                          value: goal.id,
+                          child: Text(
+                            goal.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (String? value) =>
+                        setDialogState(() => selectedGoalId = value),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    key: const Key('timeline-task-duration-field'),
+                    initialValue: durationText,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Estimated minutes',
+                      hintText: 'Optional',
+                    ),
+                    validator: (String? value) {
+                      final String normalized = value?.trim() ?? '';
+                      if (normalized.isEmpty) return null;
+                      final int? minutes = int.tryParse(normalized);
+                      return minutes == null || minutes < 1 || minutes > 1440
+                          ? 'Use 1 to 1440 minutes.'
+                          : null;
+                    },
+                    onChanged: (String value) => durationText = value,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          dueDate == null
+                              ? 'No deadline'
+                              : 'Deadline ${dueDate!.month}/${dueDate!.day}/${dueDate!.year}',
+                        ),
+                      ),
+                      if (dueDate != null)
+                        IconButton(
+                          tooltip: 'Clear deadline',
+                          onPressed: () => setDialogState(() => dueDate = null),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      IconButton(
+                        key: const Key('timeline-task-deadline-field'),
+                        tooltip: 'Choose deadline',
+                        onPressed: () async {
+                          final DateTime now = DateTime.now();
+                          final DateTime? selected = await showDatePicker(
+                            context: dialogContext,
+                            initialDate: dueDate ?? now,
+                            firstDate: DateTime(now.year - 1),
+                            lastDate: DateTime(now.year + 10),
+                          );
+                          if (selected != null) {
+                            setDialogState(() => dueDate = selected);
+                          }
+                        },
+                        icon: const Icon(Icons.event_rounded),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!(formKey.currentState?.validate() ?? false)) return;
+                final String normalizedDuration = durationText.trim();
+                Navigator.of(dialogContext).pop(
+                  _TaskEditDraft(
+                    title: draftTitle.trim(),
+                    estimatedDuration: normalizedDuration.isEmpty
+                        ? null
+                        : Duration(minutes: int.parse(normalizedDuration)),
+                    dueDate: dueDate,
+                    goalId: selectedGoalId,
+                  ),
+                );
+              },
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => _submitEdit(
-              dialogContext: dialogContext,
-              formKey: formKey,
-              title: draftTitle,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
-    if (nextTitle == null || !mounted) return;
+    if (next == null || !mounted) return;
 
     await _runManagementAction(
       action: () => ref
           .read(taskActionsProvider)
-          .updateTask(id: taskId, title: nextTitle),
+          .updateTaskDetails(
+            id: taskId,
+            title: next.title,
+            estimatedDuration: next.estimatedDuration,
+            clearEstimatedDuration: next.estimatedDuration == null,
+            dueDate: next.dueDate,
+            clearDueDate: next.dueDate == null,
+            goalId: next.goalId,
+            clearGoalId: next.goalId == null,
+          ),
       successMessage: 'Task updated.',
       errorMessage: 'Task could not be updated. Refresh and try again.',
     );
-  }
-
-  void _submitEdit({
-    required BuildContext dialogContext,
-    required GlobalKey<FormState> formKey,
-    required String title,
-  }) {
-    if (!(formKey.currentState?.validate() ?? false)) return;
-    Navigator.of(dialogContext).pop(title.trim());
   }
 
   Future<void> _confirmDeleteTask() async {

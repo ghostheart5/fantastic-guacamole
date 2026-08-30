@@ -46,7 +46,9 @@ class NexusDecisionModel {
 }
 
 enum NexusActionDestination {
-  creator,
+  creatorTask,
+  creatorNote,
+  goals,
   timeline,
   smartPlanner,
   siConsole,
@@ -60,7 +62,7 @@ enum NexusActionDestination {
 abstract final class NexusActionResolver {
   static NexusActionDestination resolve(OperatingActionIntent intent) {
     return switch (intent.type) {
-      OperatingActionType.openCreator => NexusActionDestination.creator,
+      OperatingActionType.openCreator => NexusActionDestination.creatorTask,
       OperatingActionType.openTimeline ||
       OperatingActionType.createTimelineBlock ||
       OperatingActionType.rescheduleCommitment =>
@@ -81,8 +83,8 @@ abstract final class NexusActionResolver {
 
   static NexusActionDestination _fromCanonicalRoute(String destination) {
     return switch (destination) {
-      RoutePaths.creator ||
-      RoutePaths.creatorGoals => NexusActionDestination.creator,
+      RoutePaths.creator => NexusActionDestination.creatorTask,
+      RoutePaths.creatorGoals => NexusActionDestination.goals,
       RoutePaths.timeline => NexusActionDestination.timeline,
       RoutePaths.smartPlanner => NexusActionDestination.smartPlanner,
       RoutePaths.siConsole => NexusActionDestination.siConsole,

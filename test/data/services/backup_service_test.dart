@@ -5,13 +5,29 @@ import 'dart:io';
 import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
+import 'package:fantastic_guacamole/data/repositories/decision_outcome_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_occurrence_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/note_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_decision_outcome_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
@@ -22,6 +38,38 @@ void main() {
   late BackupService service;
   late Directory hiveDirectory;
   late HiveStorage<String> profileStorage;
+  late HiveStorage<String> occurrenceStorage;
+  late _MemoryGoalRepository goalRepository;
+  late _MemoryHabitRepository habitRepository;
+  late _MemoryNoteRepository noteRepository;
+  late TaskOccurrenceRepository occurrenceRepository;
+  late _MemoryPrefsStore habitOccurrenceStore;
+  late HabitOccurrenceRepository habitOccurrenceRepository;
+  late _MemoryDecisionOutcomeRepository decisionOutcomeRepository;
+  final AccountStorageScope backupScope = AccountStorageScope.authenticated(
+    'account-a',
+  );
+
+  BackupService buildService({
+    required ITaskRepository taskRepository,
+    required HiveStorage<String> profileStorage,
+    required SharedPrefsStorage prefs,
+    SecureStore? secureProfileStore,
+    KeyedMutationCoordinator? mutationCoordinator,
+  }) => BackupService(
+    taskRepository: taskRepository,
+    profileStorage: profileStorage,
+    prefs: prefs,
+    scope: backupScope,
+    goalRepository: goalRepository,
+    habitRepository: habitRepository,
+    noteRepository: noteRepository,
+    taskOccurrenceRepository: occurrenceRepository,
+    habitOccurrenceRepository: habitOccurrenceRepository,
+    decisionOutcomeRepository: decisionOutcomeRepository,
+    secureProfileStore: secureProfileStore,
+    mutationCoordinator: mutationCoordinator,
+  );
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -31,7 +79,21 @@ void main() {
     Hive.init(hiveDirectory.path);
     repository = _MemoryTaskRepository();
     profileStorage = HiveStorage<String>('profile_box', hive: _TestHiveStore());
-    service = BackupService(
+    occurrenceStorage = HiveStorage<String>(
+      'task_occurrences_test',
+      hive: _TestHiveStore(),
+    );
+    goalRepository = _MemoryGoalRepository();
+    habitRepository = _MemoryHabitRepository();
+    noteRepository = _MemoryNoteRepository();
+    occurrenceRepository = TaskOccurrenceRepository(occurrenceStorage);
+    habitOccurrenceStore = _MemoryPrefsStore();
+    habitOccurrenceRepository = HabitOccurrenceRepository(
+      habitOccurrenceStore,
+      backupScope,
+    );
+    decisionOutcomeRepository = _MemoryDecisionOutcomeRepository();
+    service = buildService(
       taskRepository: repository,
       profileStorage: profileStorage,
       prefs: SharedPrefsStorage(await SharedPreferences.getInstance()),
@@ -40,6 +102,7 @@ void main() {
 
   tearDown(() async {
     await profileStorage.close();
+    await occurrenceStorage.close();
     await Hive.close();
     if (await hiveDirectory.exists()) {
       await hiveDirectory.delete(recursive: true);
@@ -148,13 +211,23 @@ void main() {
               (dynamic key, dynamic value) => MapEntry(key.toString(), value),
             );
 
-    expect(backup['version'], '4.0.0');
+    expect(backup['version'], '5.0.0');
     expect(backup['manifest'], isA<Map<String, dynamic>>());
     expect(
       ((backup['manifest'] as Map<String, dynamic>)['includedDomains']
               as List<dynamic>)
           .cast<String>(),
-      containsAll(<String>['tasks', 'profile', 'settings']),
+      containsAll(<String>[
+        'tasks',
+        'goals',
+        'habits',
+        'notes',
+        'task_occurrences',
+        'habit_occurrences',
+        'decision_outcomes',
+        'profile',
+        'settings',
+      ]),
     );
     expect(
       ((backup['manifest'] as Map<String, dynamic>)['excludedDomains']
@@ -173,10 +246,275 @@ void main() {
     expect(backup['settings'], isNot(contains('app_theme_entity_v1')));
     expect(backup['recordCounts'], <String, int>{
       'tasks': 1,
+      'goals': 0,
+      'habits': 0,
+      'notes': 0,
+      'task_occurrences': 0,
+      'habit_occurrences': 0,
+      'decision_outcomes': 0,
       'profile': 1,
       'settings': 3,
     });
   });
+
+  test('portable local backup round trips every canonical domain', () async {
+    await repository.saveTask(
+      TaskEntity(
+        id: 'task-round-trip',
+        title: 'Round trip task',
+        createdAt: DateTime.utc(2026, 8, 30, 10),
+      ),
+    );
+    goalRepository.values = <GoalEntity>[
+      GoalEntity(
+        id: 'goal-round-trip',
+        title: 'Round trip goal',
+        createdAt: DateTime.utc(2026, 8, 30, 9),
+      ),
+    ];
+    habitRepository.values = <HabitEntity>[
+      HabitEntity(
+        id: 'habit-round-trip',
+        title: 'Morning rhythm',
+        createdAt: DateTime.utc(2026, 8, 30, 8),
+        updatedAt: DateTime.utc(2026, 8, 30, 8, 30),
+      ),
+    ];
+    noteRepository.values = <NoteEntity>[
+      NoteEntity(
+        id: 'note-round-trip',
+        title: 'Portable reflection',
+        createdAt: DateTime.utc(2026, 8, 30, 7),
+        kind: NoteKind.reflection,
+        habitId: 'habit-round-trip',
+        occurrenceId: 'habit-round-trip::2026-08-30',
+        outcomeId: 'decision-round-trip::accepted::nexus',
+      ),
+    ];
+    await occurrenceRepository.save(
+      TaskOccurrence(
+        taskId: 'task-round-trip',
+        seriesId: 'task-round-trip',
+        occurrenceKey: '2026-08-30T10:00:00.000Z',
+        initialScheduledFor: DateTime.utc(2026, 8, 30, 10),
+      ),
+    );
+    await decisionOutcomeRepository.record(
+      DecisionOutcomeEntity(
+        decisionId: 'decision-round-trip',
+        kind: DecisionOutcomeKind.accepted,
+        surface: 'nexus',
+        recordedAt: DateTime.utc(2026, 8, 30, 11),
+        modelVersion: 'local-v1',
+        recommendationConfidence: 0.75,
+      ),
+    );
+    await habitOccurrenceRepository.save(
+      HabitOccurrenceEntity(
+        habitId: 'habit-round-trip',
+        occurrenceKey: '2026-08-30',
+        operationId: 'habit-op-round-trip',
+        outcome: HabitOccurrenceOutcome.completed,
+        recordedAt: DateTime.utc(2026, 8, 30, 11, 30),
+      ),
+    );
+
+    final Map<String, dynamic> backup = await service.createFullBackup();
+
+    repository.clear();
+    goalRepository.values = <GoalEntity>[];
+    habitRepository.values = <HabitEntity>[];
+    noteRepository.values = <NoteEntity>[];
+    await occurrenceRepository.replaceSnapshot(const <TaskOccurrence>[]);
+    await habitOccurrenceRepository.replaceSnapshot(
+      const <HabitOccurrenceEntity>[],
+    );
+    await decisionOutcomeRepository.replaceSnapshot(
+      const <DecisionOutcomeEntity>[],
+    );
+    await service.restoreFullBackup(backup);
+
+    expect((await repository.getAllTasks()).single.id, 'task-round-trip');
+    expect(goalRepository.values.single.id, 'goal-round-trip');
+    expect(habitRepository.values.single.id, 'habit-round-trip');
+    expect(noteRepository.values.single.id, 'note-round-trip');
+    expect(noteRepository.values.single.kind, NoteKind.reflection);
+    expect(
+      noteRepository.values.single.occurrenceId,
+      'habit-round-trip::2026-08-30',
+    );
+    expect(
+      (await occurrenceRepository.listOccurrences()).single.taskId,
+      'task-round-trip',
+    );
+    expect(
+      decisionOutcomeRepository.values.single.decisionId,
+      'decision-round-trip',
+    );
+    expect(
+      (await habitOccurrenceRepository.load()).single.habitId,
+      'habit-round-trip',
+    );
+    expect(backup['recordCounts'], <String, int>{
+      'tasks': 1,
+      'goals': 1,
+      'habits': 1,
+      'notes': 1,
+      'task_occurrences': 1,
+      'habit_occurrences': 1,
+      'decision_outcomes': 1,
+      'profile': 0,
+      'settings': 0,
+    });
+    expect(
+      (backup['manifest'] as Map<String, dynamic>)['cloudRestoreIncluded'],
+      isFalse,
+    );
+  });
+
+  test('full restore rejects a different account before any write', () async {
+    await repository.saveTask(
+      TaskEntity(
+        id: 'existing-owner-a',
+        title: 'Keep owner A data',
+        createdAt: DateTime.utc(2026, 8, 30),
+      ),
+    );
+    final Map<String, dynamic> backup = await service.createFullBackup();
+    backup['account'] = <String, dynamic>{
+      'namespace': AccountDataRegistry.accountNamespace('account-b'),
+      'accountDigest': AccountDataRegistry.accountDigest('account-b'),
+    };
+
+    await expectLater(
+      () => service.restoreFullBackup(backup),
+      throwsFormatException,
+    );
+
+    expect((await repository.getAllTasks()).single.id, 'existing-owner-a');
+  });
+
+  test(
+    'full restore rolls every canonical domain back on a late failure',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'incoming-task',
+          title: 'Incoming task',
+          createdAt: DateTime.utc(2026, 8, 30, 10),
+        ),
+      );
+      goalRepository.values = <GoalEntity>[
+        GoalEntity(
+          id: 'incoming-goal',
+          title: 'Incoming goal',
+          createdAt: DateTime.utc(2026, 8, 30, 10),
+        ),
+      ];
+      habitRepository.values = <HabitEntity>[
+        HabitEntity(
+          id: 'incoming-habit',
+          title: 'Incoming habit',
+          createdAt: DateTime.utc(2026, 8, 30, 10),
+          updatedAt: DateTime.utc(2026, 8, 30, 10),
+        ),
+      ];
+      noteRepository.values = <NoteEntity>[
+        NoteEntity(
+          id: 'incoming-note',
+          title: 'Incoming note',
+          createdAt: DateTime.utc(2026, 8, 30, 10),
+        ),
+      ];
+      await occurrenceRepository.replaceSnapshot(<TaskOccurrence>[
+        const TaskOccurrence(
+          taskId: 'incoming-task',
+          seriesId: 'incoming-task',
+          occurrenceKey: 'incoming-occurrence',
+          initialScheduledFor: null,
+        ),
+      ]);
+      decisionOutcomeRepository.values = <DecisionOutcomeEntity>[
+        DecisionOutcomeEntity(
+          decisionId: 'incoming-decision',
+          kind: DecisionOutcomeKind.accepted,
+          surface: 'nexus',
+          recordedAt: DateTime.utc(2026, 8, 30, 10),
+          modelVersion: 'local-v1',
+          recommendationConfidence: 0.7,
+        ),
+      ];
+      final Map<String, dynamic> incoming = await service.createFullBackup();
+
+      repository.clear();
+      await repository.saveTask(
+        TaskEntity(
+          id: 'original-task',
+          title: 'Original task',
+          createdAt: DateTime.utc(2026, 8, 29, 10),
+        ),
+      );
+      goalRepository.values = <GoalEntity>[
+        GoalEntity(
+          id: 'original-goal',
+          title: 'Original goal',
+          createdAt: DateTime.utc(2026, 8, 29, 10),
+        ),
+      ];
+      habitRepository.values = <HabitEntity>[
+        HabitEntity(
+          id: 'original-habit',
+          title: 'Original habit',
+          createdAt: DateTime.utc(2026, 8, 29, 10),
+          updatedAt: DateTime.utc(2026, 8, 29, 10),
+        ),
+      ];
+      noteRepository.values = <NoteEntity>[
+        NoteEntity(
+          id: 'original-note',
+          title: 'Original note',
+          createdAt: DateTime.utc(2026, 8, 29, 10),
+        ),
+      ];
+      await occurrenceRepository.replaceSnapshot(<TaskOccurrence>[
+        const TaskOccurrence(
+          taskId: 'original-task',
+          seriesId: 'original-task',
+          occurrenceKey: 'original-occurrence',
+          initialScheduledFor: null,
+        ),
+      ]);
+      decisionOutcomeRepository.values = <DecisionOutcomeEntity>[
+        DecisionOutcomeEntity(
+          decisionId: 'original-decision',
+          kind: DecisionOutcomeKind.shown,
+          surface: 'nexus',
+          recordedAt: DateTime.utc(2026, 8, 29, 10),
+          modelVersion: 'local-v1',
+          recommendationConfidence: 0.6,
+        ),
+      ];
+      decisionOutcomeRepository.failNextReplace = true;
+
+      await expectLater(
+        () => service.restoreFullBackup(incoming),
+        throwsStateError,
+      );
+
+      expect((await repository.getAllTasks()).single.id, 'original-task');
+      expect(goalRepository.values.single.id, 'original-goal');
+      expect(habitRepository.values.single.id, 'original-habit');
+      expect(noteRepository.values.single.id, 'original-note');
+      expect(
+        (await occurrenceRepository.listOccurrences()).single.taskId,
+        'original-task',
+      );
+      expect(
+        decisionOutcomeRepository.values.single.decisionId,
+        'original-decision',
+      );
+    },
+  );
 
   test(
     'restore preview validates and counts without changing local data',
@@ -199,10 +537,16 @@ void main() {
 
       final BackupRestorePreview preview = service.previewFullRestore(backup);
 
-      expect(preview.backupVersion, '4.0.0');
+      expect(preview.backupVersion, '5.0.0');
       expect(preview.isLegacyEnvelope, isFalse);
       expect(preview.recordCounts, <String, int>{
         'tasks': 1,
+        'goals': 0,
+        'habits': 0,
+        'notes': 0,
+        'task_occurrences': 0,
+        'habit_occurrences': 0,
+        'decision_outcomes': 0,
         'profile': 1,
         'settings': 2,
       });
@@ -217,13 +561,13 @@ void main() {
   );
 
   test('restore preview identifies supported legacy envelopes', () {
-    final BackupRestorePreview preview = service.previewFullRestore(
-      _fullBackup(
-        tasks: <Map<String, dynamic>>[],
-        profile: null,
-        settings: <String, dynamic>{},
-      ),
+    final Map<String, dynamic> legacy = _fullBackup(
+      tasks: <Map<String, dynamic>>[],
+      profile: null,
+      settings: <String, dynamic>{},
     );
+    legacy['version'] = '3.0.0';
+    final BackupRestorePreview preview = service.previewFullRestore(legacy);
 
     expect(preview.backupVersion, '3.0.0');
     expect(preview.isLegacyEnvelope, isTrue);
@@ -307,7 +651,7 @@ void main() {
     final Map<String, dynamic> tasksBackup =
         jsonDecode(await service.exportTasksString()) as Map<String, dynamic>;
 
-    expect(fullBackup['version'], '4.0.0');
+    expect(fullBackup['version'], '5.0.0');
     expect(
       (fullBackup['tasks'] as List<dynamic>).single,
       isA<Map<String, dynamic>>(),
@@ -407,7 +751,7 @@ void main() {
     final _WriteThenFailPrefsStorage failingPrefs = _WriteThenFailPrefsStorage(
       rawPrefs,
     );
-    final BackupService failingService = BackupService(
+    final BackupService failingService = buildService(
       taskRepository: repository,
       profileStorage: profileStorage,
       prefs: failingPrefs,
@@ -662,7 +1006,7 @@ void main() {
             in AccountDataRegistry.accountPreferenceBackupKeys) {
           await rawPrefs.remove(key);
         }
-        final BackupService exactService = BackupService(
+        final BackupService exactService = buildService(
           taskRepository: repository,
           profileStorage: profileStorage,
           prefs: _WriteThenFailPrefsStorage(rawPrefs),
@@ -702,7 +1046,7 @@ void main() {
       final SharedPreferences rawPrefs = await SharedPreferences.getInstance();
       final _WriteThenFailPrefsStorage failingPrefs =
           _WriteThenFailPrefsStorage(rawPrefs);
-      final BackupService failingService = BackupService(
+      final BackupService failingService = buildService(
         taskRepository: repository,
         profileStorage: profileStorage,
         prefs: failingPrefs,
@@ -795,7 +1139,7 @@ void main() {
     final KeyedMutationCoordinator coordinator = KeyedMutationCoordinator();
     final Completer<void> writeStarted = Completer<void>();
     final Completer<void> releaseWrite = Completer<void>();
-    final BackupService coordinatedService = BackupService(
+    final BackupService coordinatedService = buildService(
       taskRepository: repository,
       profileStorage: profileStorage,
       prefs: service.prefs,
@@ -849,7 +1193,7 @@ void main() {
       final SecureStore secureStore = SecureStore(
         backend: InMemorySecureStoreBackend(),
       );
-      final BackupService secureService = BackupService(
+      final BackupService secureService = buildService(
         taskRepository: repository,
         profileStorage: profileStorage,
         prefs: service.prefs,
@@ -924,19 +1268,160 @@ class _MemoryTaskRepository implements ITaskRepository {
   }
 }
 
+class _MemoryPrefsStore implements SharedPrefsStore {
+  final Map<String, String> values = <String, String>{};
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  String? load(String key) => values[key];
+
+  @override
+  Future<void> save(String key, String value) async {
+    values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    values.remove(key);
+  }
+
+  @override
+  Future<void> clear() async {
+    values.clear();
+  }
+}
+
 Map<String, dynamic> _fullBackup({
   required List<Map<String, dynamic>> tasks,
   required Map<String, dynamic>? profile,
   required Map<String, dynamic> settings,
+  List<Map<String, dynamic>> goals = const <Map<String, dynamic>>[],
+  List<Map<String, dynamic>> habits = const <Map<String, dynamic>>[],
+  List<Map<String, dynamic>> notes = const <Map<String, dynamic>>[],
+  List<Map<String, dynamic>> taskOccurrences = const <Map<String, dynamic>>[],
+  List<Map<String, dynamic>> habitOccurrences = const <Map<String, dynamic>>[],
+  List<Map<String, dynamic>> decisionOutcomes = const <Map<String, dynamic>>[],
 }) {
   return <String, dynamic>{
-    'version': '3.0.0',
+    'version': '5.0.0',
     'manifest': accountDataBackupManifest(),
+    'account': <String, dynamic>{
+      'namespace': AccountDataRegistry.accountNamespace('account-a'),
+      'accountDigest': AccountDataRegistry.accountDigest('account-a'),
+    },
     'timestamp': '2026-08-29T12:00:00.000Z',
     'tasks': tasks,
+    'goals': goals,
+    'habits': habits,
+    'notes': notes,
+    'taskOccurrences': taskOccurrences,
+    'habitOccurrences': habitOccurrences,
+    'decisionOutcomes': decisionOutcomes,
     'profile': profile,
     'settings': settings,
+    'recordCounts': <String, int>{
+      'tasks': tasks.length,
+      'goals': goals.length,
+      'habits': habits.length,
+      'notes': notes.length,
+      'task_occurrences': taskOccurrences.length,
+      'habit_occurrences': habitOccurrences.length,
+      'decision_outcomes': decisionOutcomes.length,
+      'profile': profile == null ? 0 : 1,
+      'settings': settings.length,
+    },
   };
+}
+
+class _MemoryGoalRepository implements IGoalRepository {
+  List<GoalEntity> values = <GoalEntity>[];
+
+  @override
+  List<GoalEntity> getGoals() => List<GoalEntity>.unmodifiable(values);
+
+  @override
+  Future<void> saveGoal(GoalEntity goal) async {
+    values.removeWhere((GoalEntity value) => value.id == goal.id);
+    values.add(goal);
+  }
+
+  @override
+  Future<void> saveGoals(List<GoalEntity> goals) async {
+    values = List<GoalEntity>.from(goals);
+  }
+
+  @override
+  Future<void> deleteGoal(String id) async {
+    values.removeWhere((GoalEntity value) => value.id == id);
+  }
+}
+
+class _MemoryHabitRepository implements IHabitRepository {
+  List<HabitEntity> values = <HabitEntity>[];
+
+  @override
+  Future<List<HabitEntity>> getHabits() async =>
+      List<HabitEntity>.unmodifiable(values);
+
+  @override
+  Future<void> saveHabits(List<HabitEntity> habits) async {
+    values = List<HabitEntity>.from(habits);
+  }
+}
+
+class _MemoryNoteRepository
+    implements INoteRepository, IExactNoteSnapshotRepository {
+  List<NoteEntity> values = <NoteEntity>[];
+
+  @override
+  Future<List<NoteEntity>> getNotes() async =>
+      List<NoteEntity>.unmodifiable(values);
+
+  @override
+  Future<void> saveNote(NoteEntity note) async {
+    values.removeWhere((NoteEntity value) => value.id == note.id);
+    values.add(note);
+  }
+
+  @override
+  Future<void> deleteNote(String id) async {
+    values.removeWhere((NoteEntity value) => value.id == id);
+  }
+
+  @override
+  Future<void> replaceNoteSnapshot(List<NoteEntity> notes) async {
+    values = List<NoteEntity>.from(notes);
+  }
+}
+
+class _MemoryDecisionOutcomeRepository
+    implements
+        IDecisionOutcomeRepository,
+        IExactDecisionOutcomeSnapshotRepository {
+  List<DecisionOutcomeEntity> values = <DecisionOutcomeEntity>[];
+  bool failNextReplace = false;
+
+  @override
+  Future<List<DecisionOutcomeEntity>> load() async =>
+      List<DecisionOutcomeEntity>.unmodifiable(values);
+
+  @override
+  Future<void> record(DecisionOutcomeEntity outcome) async {
+    if (!values.any((DecisionOutcomeEntity value) => value.id == outcome.id)) {
+      values.add(outcome);
+    }
+  }
+
+  @override
+  Future<void> replaceSnapshot(List<DecisionOutcomeEntity> outcomes) async {
+    if (failNextReplace) {
+      failNextReplace = false;
+      throw StateError('Simulated decision outcome restore failure.');
+    }
+    values = List<DecisionOutcomeEntity>.from(outcomes);
+  }
 }
 
 class _WriteThenFailPrefsStorage extends SharedPrefsStorage {

@@ -123,6 +123,7 @@ class TaskEntity {
     String? id,
     String? title,
     String? description,
+    bool clearDescription = false,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isCompleted,
@@ -130,15 +131,19 @@ class TaskEntity {
     int? difficulty,
     int? energyRequired,
     Duration? estimatedDuration,
+    bool clearEstimatedDuration = false,
     DateTime? completedAt,
     bool? isSkipped,
     DateTime? skippedAt,
     bool clearCompletedAt = false,
     bool clearSkippedAt = false,
     DateTime? scheduledFor,
+    bool clearScheduledFor = false,
     String? occurrenceKey,
     DateTime? dueDate,
+    bool clearDueDate = false,
     String? goalId,
+    bool clearGoalId = false,
     bool? isCanceled,
     List<String>? subtasks,
     RecurrenceRule? recurrenceRule,
@@ -148,14 +153,16 @@ class TaskEntity {
     return TaskEntity(
       id: id ?? this.id,
       title: title ?? this.title,
-      description: description ?? this.description,
+      description: clearDescription ? null : description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isCompleted: resolvedIsCompleted,
       priority: priority ?? this.priority,
       difficulty: difficulty ?? this.difficulty,
       energyRequired: energyRequired ?? this.energyRequired,
-      estimatedDuration: estimatedDuration ?? this.estimatedDuration,
+      estimatedDuration: clearEstimatedDuration
+          ? null
+          : estimatedDuration ?? this.estimatedDuration,
       completedAt: clearCompletedAt || !resolvedIsCompleted
           ? null
           : completedAt ?? this.completedAt,
@@ -163,10 +170,12 @@ class TaskEntity {
       skippedAt: clearSkippedAt || !resolvedIsSkipped
           ? null
           : skippedAt ?? this.skippedAt,
-      scheduledFor: scheduledFor ?? this.scheduledFor,
+      scheduledFor: clearScheduledFor
+          ? null
+          : scheduledFor ?? this.scheduledFor,
       occurrenceKey: occurrenceKey ?? this.occurrenceKey,
-      dueDate: dueDate ?? this.dueDate,
-      goalId: goalId ?? this.goalId,
+      dueDate: clearDueDate ? null : dueDate ?? this.dueDate,
+      goalId: clearGoalId ? null : goalId ?? this.goalId,
       isCanceled: isCanceled ?? this.isCanceled,
       subtasks: subtasks ?? this.subtasks,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,

@@ -6,6 +6,8 @@ import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_con
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
@@ -213,8 +215,18 @@ class _TrajectoryEngineScreenState
 
   void _openDecisionAction(OperatingActionIntent intent) {
     switch (NexusActionResolver.resolve(intent)) {
-      case NexusActionDestination.creator:
+      case NexusActionDestination.creatorTask:
+        ref
+            .read(creatorNavigationIntentProvider.notifier)
+            .open(CreatorFormKind.task);
         goToAppView(context, ref, AppView.creator);
+      case NexusActionDestination.creatorNote:
+        ref
+            .read(creatorNavigationIntentProvider.notifier)
+            .open(CreatorFormKind.note);
+        goToAppView(context, ref, AppView.creator);
+      case NexusActionDestination.goals:
+        goToAppView(context, ref, AppView.goals);
       case NexusActionDestination.timeline:
         goToAppView(context, ref, AppView.timeline);
       case NexusActionDestination.smartPlanner:

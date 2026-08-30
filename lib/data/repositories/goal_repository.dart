@@ -1,12 +1,13 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
 class GoalRepository implements IGoalRepository {
-  GoalRepository(this._store);
+  GoalRepository(this._store, {this.scope});
 
   static const String _key = 'goals_v2';
 
@@ -14,6 +15,7 @@ class GoalRepository implements IGoalRepository {
   static const String _corruptBackupKey = 'goals_v2_corrupt_backup';
 
   final HiveStorage<String> _store;
+  final AccountStorageScope? scope;
   Future<void> _writeTail = Future<void>.value();
 
   bool _lastReadCorrupted = false;
@@ -29,6 +31,7 @@ class GoalRepository implements IGoalRepository {
 
   @override
   List<GoalEntity> getGoals() {
+    _requireWritableScope();
     String? raw;
     try {
       raw = _store.get(_key);
@@ -63,6 +66,7 @@ class GoalRepository implements IGoalRepository {
 
   @override
   Future<void> saveGoal(GoalEntity goal) {
+    _requireWritableScope();
     return _enqueueWrite(() async {
       final List<GoalEntity> existing = getGoals().toList(growable: true);
       final int index = existing.indexWhere(
@@ -79,6 +83,7 @@ class GoalRepository implements IGoalRepository {
 
   @override
   Future<void> saveGoals(List<GoalEntity> goals) {
+    _requireWritableScope();
     final List<GoalEntity> snapshot = List<GoalEntity>.unmodifiable(goals);
     return _enqueueWrite(() => _saveGoalsUnlocked(snapshot));
   }
@@ -93,6 +98,7 @@ class GoalRepository implements IGoalRepository {
 
   @override
   Future<void> deleteGoal(String id) {
+    _requireWritableScope();
     return _enqueueWrite(() async {
       final List<GoalEntity> next = getGoals()
           .where((GoalEntity goal) => goal.id != id)
@@ -135,5 +141,12 @@ class GoalRepository implements IGoalRepository {
       );
     }
     _lastReadCorrupted = false;
+  }
+
+  void _requireWritableScope() {
+    final AccountStorageScope? activeScope = scope;
+    if (activeScope != null && !activeScope.isWritable) {
+      throw StateError('Goals require authenticated account storage.');
+    }
   }
 }

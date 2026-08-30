@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/errors/app_exception.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/task_entity_mapper.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -15,21 +16,24 @@ import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 class TaskRepository implements ITaskRepository, IExactTaskSnapshotRepository {
   factory TaskRepository({
     required HiveStorage<String> storage,
+    AccountStorageScope? scope,
     KeyedMutationCoordinator? mutationCoordinator,
   }) {
     return TaskRepository._(
       storage,
+      scope,
       mutationCoordinator ?? KeyedMutationCoordinator.shared,
     );
   }
 
-  TaskRepository._(this._storage, this._mutations);
+  TaskRepository._(this._storage, this._scope, this._mutations);
 
   static const String quarantineKey = 'tasks_quarantine_v1';
   static const String snapshotRecoveryKey = 'tasks_snapshot_recovery_v1';
   static const int _maxQuarantineRecords = 100;
 
   final HiveStorage<String> _storage;
+  final AccountStorageScope? _scope;
   final KeyedMutationCoordinator _mutations;
 
   // ------------------------------------------------------------------
@@ -38,6 +42,7 @@ class TaskRepository implements ITaskRepository, IExactTaskSnapshotRepository {
 
   @override
   Future<List<TaskEntity>> getAllTasks() async {
+    _requireWritableScope();
     try {
       return await _loadSortedTasks();
     } catch (e) {
@@ -64,6 +69,7 @@ class TaskRepository implements ITaskRepository, IExactTaskSnapshotRepository {
 
   @override
   Future<TaskEntity?> getTaskById(String id) async {
+    _requireWritableScope();
     try {
       await _storage.open();
       if (_storage.get(snapshotRecoveryKey) != null) {
@@ -85,6 +91,7 @@ class TaskRepository implements ITaskRepository, IExactTaskSnapshotRepository {
 
   @override
   Future<void> saveTask(TaskEntity task) async {
+    _requireWritableScope();
     return runAccountStorageMutation(() async {
       try {
         await _recoverInterruptedSnapshot();
@@ -97,6 +104,7 @@ class TaskRepository implements ITaskRepository, IExactTaskSnapshotRepository {
 
   @override
   Future<void> deleteTask(String id) async {
+    _requireWritableScope();
     return runAccountStorageMutation(() async {
       try {
         await _storage.open();
@@ -122,6 +130,7 @@ class TaskRepository implements ITaskRepository, IExactTaskSnapshotRepository {
 
   @override
   Future<void> replaceTaskSnapshot(List<TaskEntity> tasks) {
+    _requireWritableScope();
     return runAccountStorageMutation(() async {
       try {
         await _storage.open();
@@ -209,6 +218,13 @@ class TaskRepository implements ITaskRepository, IExactTaskSnapshotRepository {
       (TaskEntity a, TaskEntity b) => b.createdAt.compareTo(a.createdAt),
     );
     return tasks;
+  }
+
+  void _requireWritableScope() {
+    final AccountStorageScope? scope = _scope;
+    if (scope != null && !scope.isWritable) {
+      throw StateError('Tasks require authenticated account storage.');
+    }
   }
 
   Future<List<TaskEntity>> _loadSortedTasksWithoutRepair() async {

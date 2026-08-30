@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -20,41 +19,28 @@ class CreatorActions {
 
   Future<void> createTask(CreatorFormData data) async {
     final String kind = data.type.trim().toLowerCase();
-    final RecurrenceRule recurrence = data.recurrenceRule != RecurrenceRule.none
-        ? data.recurrenceRule
-        : switch (kind) {
-            'routine' => RecurrenceRule.daily,
-            _ => RecurrenceRule.none,
-          };
-
-    final int difficulty = switch (kind) {
-      'goal' => 5,
-      _ => 3,
-    };
-
-    final int energyRequired = switch (kind) {
-      'goal' => 4,
-      'routine' => 2,
-      'note' => 1,
-      _ => 3,
-    };
-
-    final int priority = switch (kind) {
-      'goal' => data.priority < 4 ? 4 : data.priority,
-      'note' => 1,
-      _ => data.priority,
-    };
+    if (kind != 'task') {
+      throw ArgumentError.value(
+        data.type,
+        'data.type',
+        'CreatorActions.createTask only creates Task objects. Use the typed '
+            'Creator handshake for Goal, Daily Rhythm, Note, or Reflection.',
+      );
+    }
 
     final entity = TaskEntity(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       title: data.title,
       description: data.description,
       createdAt: DateTime.now(),
-      priority: priority,
-      difficulty: difficulty,
-      energyRequired: energyRequired,
+      priority: data.priority,
+      difficulty: 3,
+      energyRequired: 3,
       scheduledFor: data.scheduledFor,
-      recurrenceRule: recurrence,
+      dueDate: data.dueDate,
+      estimatedDuration: data.estimatedDuration,
+      goalId: data.goalId,
+      recurrenceRule: data.recurrenceRule,
     );
     await ref.read(taskActionsProvider).createTask(entity);
     // Creator persists directly through the task repository. Refresh the
@@ -67,28 +53,11 @@ class CreatorActions {
           .record(
             CreatorCreationReceipt(
               id: entity.id,
-              kind: switch (kind) {
-                'goal' => CreatorSavedKind.goal,
-                'routine' => CreatorSavedKind.routine,
-                'note' => CreatorSavedKind.note,
-                'plan' => CreatorSavedKind.plan,
-                _ => CreatorSavedKind.task,
-              },
+              kind: CreatorSavedKind.task,
               title: entity.title,
               createdAt: entity.createdAt,
-              whyItMatters: switch (kind) {
-                'goal' => 'It gives planning a measurable outcome to protect.',
-                'routine' =>
-                  'It adds a recurring commitment to daily planning.',
-                'note' => 'It preserves decision context for later review.',
-                'plan' => 'It turns intent into a schedulable planning input.',
-                _ => 'It gives Smart Planner a concrete action to rank.',
-              },
-              nextAction: switch (kind) {
-                'note' => 'Review the context in Smart Planner.',
-                'plan' => 'Review timing and conflicts in Timeline.',
-                _ => 'Review its priority in Smart Planner.',
-              },
+              whyItMatters: 'It gives Smart Planner a concrete action to rank.',
+              nextAction: 'Review its priority in Smart Planner.',
             ),
           );
     } on Object catch (error, stackTrace) {

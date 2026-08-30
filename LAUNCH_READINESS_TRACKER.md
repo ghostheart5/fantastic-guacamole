@@ -71,7 +71,7 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 | P0-08 | P0 | Exact candidate lacks complete app CI and device evidence | 10 | NOT_RUN | release blocked | | Audit P0-8 |
 | HUMAN-00 | P0 | Intelligence surfaces lack one consented, freshness-aware person-context source | 3 | PASS | local-only governed context is available to Planner, SI V2, Nexus, Trajectory, Creator, and Settings; cloud use remains disabled | Phase 3 checkpoint | 101 focused tests, 1,776-test full host suite, analyzer and guards; device and production evidence remain open |
 | BILL-01 | P1 | Purchase lineage and lifecycle ordering have authority edge cases | 8 | NOT_RUN | paywall disabled | | Audit P1 |
-| DOMAIN-01 | P1 | Whole-person concepts collapse into tasks | 4 | NOT_RUN | task-only containment | | Major findings |
+| DOMAIN-01 | P1 | Whole-person concepts collapse into tasks | 4 | PASS | Goal, Task, Daily Rhythm, Note, Reflection, occurrences, and outcomes remain typed, linked, account-owned, navigable, searchable, and portable locally; cloud sync remains contained | Phase 4 checkpoint | 1,804-test full host suite plus QA-defined contract, analyzer, architecture, security, workflow, Maestro, release, version, and Edge gates; device, deployed backend, cloud, and release evidence remain open |
 | PLAN-01 | P1 | Planner cannot apply guidance and can choose unrelated evidence | 5 | NOT_RUN | deterministic only | | Major findings |
 | SI-01 | P1 | SI Console is an expert workstation instead of a calm assistant | 5 | NOT_RUN | local read-only | | Major findings |
 | TRAJ-01 | P1 | Trajectory presents fixed-coefficient simulation as calibration | 5 | NOT_RUN | conditional only | | Major findings |

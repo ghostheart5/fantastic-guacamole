@@ -1,7 +1,10 @@
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final habitsProvider = AsyncNotifierProvider<HabitsNotifier, List<HabitEntity>>(
@@ -68,13 +71,48 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
         .read(toggleHabitUseCaseProvider)
         .call(current: current, id: id);
 
-    if (toggled != null && toggled.active) {
+    if (toggled != null) {
       AppAnalytics.track(
-        'habit_completed',
-        params: <String, Object?>{'has_habit_id': toggled.id.isNotEmpty},
+        'habit_status_changed',
+        params: <String, Object?>{
+          'has_habit_id': toggled.id.isNotEmpty,
+          'paused': toggled.active,
+        },
       );
     }
     await _apply(current, next);
+  }
+
+  Future<HabitOccurrenceResult> completeHabit(String id) async {
+    final HabitOccurrenceCoordinator? coordinator = ref.read(
+      habitOccurrenceCoordinatorProvider,
+    );
+    if (coordinator == null) {
+      throw StateError('Daily Rhythm outcomes require a verified account.');
+    }
+    final HabitOccurrenceResult result = await coordinator.complete(id);
+    ref.invalidate(habitOccurrencesProvider);
+    ref.invalidate(decisionOutcomesProvider);
+    if (result.mutation == HabitOccurrenceMutation.applied) {
+      AppAnalytics.track(
+        'habit_completed',
+        params: <String, Object?>{'has_habit_id': id.trim().isNotEmpty},
+      );
+    }
+    return result;
+  }
+
+  Future<HabitOccurrenceResult> skipHabit(String id) async {
+    final HabitOccurrenceCoordinator? coordinator = ref.read(
+      habitOccurrenceCoordinatorProvider,
+    );
+    if (coordinator == null) {
+      throw StateError('Daily Rhythm outcomes require a verified account.');
+    }
+    final HabitOccurrenceResult result = await coordinator.skip(id);
+    ref.invalidate(habitOccurrencesProvider);
+    ref.invalidate(decisionOutcomesProvider);
+    return result;
   }
 
   Future<void> renameHabit(String id, String title) async {

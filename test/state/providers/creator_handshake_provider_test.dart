@@ -1,11 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -452,23 +460,243 @@ void main() {
     },
   );
 
-  test('routine mapping is visible in preview before confirmation', () async {
+  test('task mutation preserves all scheduling and goal fields', () async {
     final _Harness harness = _Harness();
     addTearDown(harness.dispose);
+    final DateTime scheduledFor = harness.now.add(const Duration(hours: 2));
+    final DateTime dueDate = harness.now.add(const Duration(days: 2));
     await harness.notifier.stage(
-      data: const CreatorFormData(
-        title: 'Morning reset',
-        type: 'Routine',
-        priority: 2,
+      data: CreatorFormData(
+        title: 'Prepare linked evidence',
+        type: 'Task',
+        priority: 4,
+        goalId: 'goal-release',
+        estimatedDuration: const Duration(minutes: 75),
+        dueDate: dueDate,
+        scheduledFor: scheduledFor,
+        recurrenceRule: RecurrenceRule.weekly,
       ),
     );
 
-    final CreatorTaskMutation task =
-        harness.state.preview!.operations.single.task;
-    expect(task.recurrenceRule.name, 'daily');
-    expect(task.energyRequired, 2);
-    expect(task.priority, 2);
+    final CreatorHandshakeState applied = await harness.notifier.confirm();
+    final TaskEntity task = harness.repository.activeTasks.single;
+    expect(task.goalId, 'goal-release');
+    expect(task.estimatedDuration, const Duration(minutes: 75));
+    expect(task.dueDate, dueDate);
+    expect(task.scheduledFor, scheduledFor);
+    expect(task.recurrenceRule, RecurrenceRule.weekly);
+    expect(applied.receipt!.taskIds, <String>[task.id]);
+    expect(applied.receipt!.entityIds.single.kind, CreatorEntityKind.task);
+  });
+
+  test('Goal, Daily Rhythm, and Note persist as typed entities', () async {
+    final _Harness harness = _Harness();
+    addTearDown(harness.dispose);
+    final DateTime targetDate = harness.now.add(const Duration(days: 30));
+
+    await harness.notifier.stage(
+      data: CreatorFormData(
+        title: 'Ship the evidence gate',
+        description: 'A real outcome, not a task alias.',
+        type: 'Goal',
+        priority: 4,
+        targetDate: targetDate,
+      ),
+    );
+    final CreatorHandshakeState goalResult = await harness.notifier.confirm();
+    final CreatorMutationOperation goalOperation =
+        goalResult.preview!.selectedOperations.single;
+    expect(harness.goalRepository.goals, hasLength(1));
+    expect(harness.goalRepository.goals.single.targetDate, targetDate);
+    expect(goalResult.receipt!.taskIds, isEmpty);
+    expect(goalResult.receipt!.goalIds, hasLength(1));
+    expect(goalResult.receipt!.entityIds.single.kind, CreatorEntityKind.goal);
+    final String ledgerRaw = (await harness.store.readString(
+      'creator_handshake_ledger_v1:${_testAccountScope.v2Namespace}',
+    ))!;
+    final Map<String, dynamic> ledger =
+        jsonDecode(ledgerRaw) as Map<String, dynamic>;
+    final Map<String, dynamic> ledgerEntry =
+        ledger[goalOperation.operationId] as Map<String, dynamic>;
+    expect(ledgerEntry['entityKind'], 'goal');
+    expect(ledgerEntry['entityId'], goalOperation.entityId);
+    expect(ledgerEntry['entityDigest'], goalOperation.entityDigest);
+
+    harness.notifier.clearResult();
+    await harness.notifier.stage(
+      data: const CreatorFormData(
+        title: 'Morning reset',
+        description: 'A repeatable Daily Rhythm.',
+        type: 'Daily Rhythm',
+        priority: 2,
+        recurrenceRule: RecurrenceRule.weekly,
+        habitTargetCount: 3,
+      ),
+    );
+    final CreatorMutationOperation habitOperation =
+        harness.state.preview!.operations.single;
+    expect(habitOperation.kind, CreatorMutationKind.createHabit);
+    expect(habitOperation.label, 'Create daily rhythm');
+    expect(habitOperation.task.recurrenceRule, RecurrenceRule.weekly);
+    final CreatorHandshakeState habitResult = await harness.notifier.confirm();
+    expect(harness.habitRepository.habits, hasLength(1));
+    expect(harness.habitRepository.habits.single.cadence, HabitCadence.weekly);
+    expect(harness.habitRepository.habits.single.targetCount, 3);
+    expect(habitResult.receipt!.habitIds, hasLength(1));
+
+    harness.notifier.clearResult();
+    await harness.notifier.stage(
+      data: const CreatorFormData(
+        title: 'Decision context',
+        description: 'Preserve the reviewed reason.',
+        type: 'Note',
+        priority: 1,
+      ),
+    );
+    final CreatorHandshakeState noteResult = await harness.notifier.confirm();
+    expect(harness.noteRepository.notes, hasLength(1));
+    expect(
+      harness.noteRepository.notes.single.body,
+      'Preserve the reviewed reason.',
+    );
+    expect(noteResult.receipt!.noteIds, hasLength(1));
     expect(harness.repository.saveCalls, 0);
+  });
+
+  test('typed ledger prevents duplicate Daily Rhythm after restart', () async {
+    final _MemoryTaskRepository tasks = _MemoryTaskRepository();
+    final _MemoryGoalRepository goals = _MemoryGoalRepository();
+    final _MemoryHabitRepository habits = _MemoryHabitRepository();
+    final _MemoryNoteRepository notes = _MemoryNoteRepository();
+    final SecureStore store = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final DateTime fixedNow = DateTime.utc(2026, 8, 20, 18);
+    const CreatorFormData data = CreatorFormData(
+      title: 'Evening reflection',
+      type: 'Habit',
+      priority: 2,
+    );
+
+    final _Harness first = _Harness(
+      repository: tasks,
+      goalRepository: goals,
+      habitRepository: habits,
+      noteRepository: notes,
+      store: store,
+      now: fixedNow,
+    );
+    await first.notifier.stage(data: data);
+    await first.notifier.confirm();
+    first.dispose();
+
+    final _Harness restarted = _Harness(
+      repository: tasks,
+      goalRepository: goals,
+      habitRepository: habits,
+      noteRepository: notes,
+      store: store,
+      now: fixedNow,
+    );
+    addTearDown(restarted.dispose);
+    await restarted.notifier.stage(data: data);
+    final CreatorHandshakeState replay = await restarted.notifier.confirm();
+
+    expect(replay.phase, CreatorHandshakePhase.idempotent);
+    expect(habits.saveCalls, 1);
+    expect(habits.habits, hasLength(1));
+    expect(replay.receipt!.entityIds.single.kind, CreatorEntityKind.habit);
+  });
+
+  test(
+    'domain revision detects Goal, Daily Rhythm, and Note changes',
+    () async {
+      Future<void> expectStaleAfter(
+        void Function(_Harness harness) seed,
+      ) async {
+        final _Harness harness = _Harness();
+        try {
+          await harness.notifier.stage(data: _taskData());
+          seed(harness);
+          final CreatorHandshakeState result = await harness.notifier.confirm();
+          expect(result.phase, CreatorHandshakePhase.stale);
+          expect(result.receipt, isNull);
+          expect(harness.repository.saveCalls, 0);
+        } finally {
+          harness.dispose();
+        }
+      }
+
+      await expectStaleAfter(
+        (_Harness harness) => harness.goalRepository.seed(
+          GoalEntity(
+            id: 'concurrent-goal',
+            title: 'Concurrent goal',
+            createdAt: harness.now,
+          ),
+        ),
+      );
+      await expectStaleAfter(
+        (_Harness harness) => harness.habitRepository.seed(
+          HabitEntity(
+            id: 'concurrent-habit',
+            title: 'Concurrent Daily Rhythm',
+            createdAt: harness.now,
+            updatedAt: harness.now,
+          ),
+        ),
+      );
+      await expectStaleAfter(
+        (_Harness harness) => harness.noteRepository.seed(
+          NoteEntity(
+            id: 'concurrent-note',
+            title: 'Concurrent note',
+            createdAt: harness.now,
+          ),
+        ),
+      );
+    },
+  );
+
+  test('typed undo removes unchanged Goal, Daily Rhythm, and Note', () async {
+    final _Harness harness = _Harness();
+    addTearDown(harness.dispose);
+
+    await harness.notifier.stage(
+      data: const CreatorFormData(
+        title: 'Goal to undo',
+        type: 'Goal',
+        priority: 3,
+      ),
+    );
+    await harness.notifier.confirm();
+    expect((await harness.notifier.undo()).phase, CreatorHandshakePhase.undone);
+    expect(harness.goalRepository.goals, isEmpty);
+
+    harness.notifier.clearResult();
+    await harness.notifier.stage(
+      data: const CreatorFormData(
+        title: 'Daily Rhythm to undo',
+        type: 'Habit',
+        priority: 3,
+      ),
+    );
+    await harness.notifier.confirm();
+    expect((await harness.notifier.undo()).phase, CreatorHandshakePhase.undone);
+    expect(harness.habitRepository.habits, isEmpty);
+
+    harness.notifier.clearResult();
+    await harness.notifier.stage(
+      data: const CreatorFormData(
+        title: 'Note to undo',
+        type: 'Note',
+        priority: 1,
+      ),
+    );
+    await harness.notifier.confirm();
+    expect((await harness.notifier.undo()).phase, CreatorHandshakePhase.undone);
+    expect(harness.noteRepository.notes, isEmpty);
+    expect(harness.repository.deleteCalls, 0);
   });
 }
 
@@ -520,15 +748,24 @@ PersonContextSignal _personContextSignal({
 class _Harness {
   _Harness({
     _MemoryTaskRepository? repository,
+    _MemoryGoalRepository? goalRepository,
+    _MemoryHabitRepository? habitRepository,
+    _MemoryNoteRepository? noteRepository,
     SecureStore? store,
     DateTime? now,
   }) : repository = repository ?? _MemoryTaskRepository(),
+       goalRepository = goalRepository ?? _MemoryGoalRepository(),
+       habitRepository = habitRepository ?? _MemoryHabitRepository(),
+       noteRepository = noteRepository ?? _MemoryNoteRepository(),
        store = store ?? SecureStore(backend: InMemorySecureStoreBackend()),
        now = now ?? DateTime.utc(2026, 8, 20, 18) {
     container = ProviderContainer(
       overrides: [
         accountStorageScopeProvider.overrideWithValue(_testAccountScope),
         domainTaskRepositoryProvider.overrideWithValue(this.repository),
+        domainGoalRepositoryProvider.overrideWithValue(this.goalRepository),
+        domainHabitRepositoryProvider.overrideWithValue(this.habitRepository),
+        domainNoteRepositoryProvider.overrideWithValue(this.noteRepository),
         secureStoreProvider.overrideWithValue(this.store),
         creatorHandshakeClockProvider.overrideWithValue(() => this.now),
         personContextForSurfaceProvider(
@@ -539,6 +776,9 @@ class _Harness {
   }
 
   final _MemoryTaskRepository repository;
+  final _MemoryGoalRepository goalRepository;
+  final _MemoryHabitRepository habitRepository;
+  final _MemoryNoteRepository noteRepository;
   final SecureStore store;
   late DateTime now;
   late final ProviderContainer container;
@@ -623,5 +863,90 @@ class _MemoryTaskRepository implements ITaskRepository {
   Future<void> saveTask(TaskEntity task) async {
     saveCalls += 1;
     _tasks[task.id] = task;
+  }
+}
+
+class _MemoryGoalRepository implements IGoalRepository {
+  final List<GoalEntity> goals = <GoalEntity>[];
+  int saveCalls = 0;
+  int deleteCalls = 0;
+
+  void seed(GoalEntity goal) {
+    goals.removeWhere((GoalEntity value) => value.id == goal.id);
+    goals.add(goal);
+  }
+
+  @override
+  Future<void> deleteGoal(String id) async {
+    final int before = goals.length;
+    goals.removeWhere((GoalEntity goal) => goal.id == id);
+    if (goals.length != before) deleteCalls += 1;
+  }
+
+  @override
+  List<GoalEntity> getGoals() => List<GoalEntity>.of(goals);
+
+  @override
+  Future<void> saveGoal(GoalEntity goal) async {
+    saveCalls += 1;
+    goals.removeWhere((GoalEntity value) => value.id == goal.id);
+    goals.insert(0, goal);
+  }
+
+  @override
+  Future<void> saveGoals(List<GoalEntity> values) async {
+    saveCalls += 1;
+    goals
+      ..clear()
+      ..addAll(values);
+  }
+}
+
+class _MemoryHabitRepository implements IHabitRepository {
+  final List<HabitEntity> habits = <HabitEntity>[];
+  int saveCalls = 0;
+
+  void seed(HabitEntity habit) {
+    habits.removeWhere((HabitEntity value) => value.id == habit.id);
+    habits.add(habit);
+  }
+
+  @override
+  Future<List<HabitEntity>> getHabits() async => List<HabitEntity>.of(habits);
+
+  @override
+  Future<void> saveHabits(List<HabitEntity> values) async {
+    saveCalls += 1;
+    habits
+      ..clear()
+      ..addAll(values);
+  }
+}
+
+class _MemoryNoteRepository implements INoteRepository {
+  final List<NoteEntity> notes = <NoteEntity>[];
+  int saveCalls = 0;
+  int deleteCalls = 0;
+
+  void seed(NoteEntity note) {
+    notes.removeWhere((NoteEntity value) => value.id == note.id);
+    notes.add(note);
+  }
+
+  @override
+  Future<void> deleteNote(String id) async {
+    final int before = notes.length;
+    notes.removeWhere((NoteEntity note) => note.id == id);
+    if (notes.length != before) deleteCalls += 1;
+  }
+
+  @override
+  Future<List<NoteEntity>> getNotes() async => List<NoteEntity>.of(notes);
+
+  @override
+  Future<void> saveNote(NoteEntity note) async {
+    saveCalls += 1;
+    notes.removeWhere((NoteEntity value) => value.id == note.id);
+    notes.insert(0, note);
   }
 }

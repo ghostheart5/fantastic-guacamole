@@ -525,14 +525,18 @@ class _CurrentFocusSection extends StatelessWidget {
     required this.tasks,
     required this.notes,
     required this.nextBlock,
-    required this.onOpenCreator,
+    required this.onOpenGoal,
+    required this.onOpenTask,
+    required this.onOpenNote,
   });
 
   final List<GoalEntity> goals;
   final AsyncValue<List<TaskEntity>> tasks;
   final AsyncValue<List<NoteEntity>> notes;
   final TimeBlock? nextBlock;
-  final VoidCallback onOpenCreator;
+  final VoidCallback onOpenGoal;
+  final VoidCallback onOpenTask;
+  final VoidCallback onOpenNote;
 
   @override
   Widget build(BuildContext context) {
@@ -570,7 +574,7 @@ class _CurrentFocusSection extends StatelessWidget {
                     ? 'Create a goal to connect today’s work to an outcome.'
                     : _goalDetail(currentGoal),
                 accent: AppColors.neonViolet,
-                onTap: onOpenCreator,
+                onTap: onOpenGoal,
               ),
               const _PanelDivider(),
               _FocusRow(
@@ -584,7 +588,7 @@ class _CurrentFocusSection extends StatelessWidget {
                     ? _formatDateTime(nextBlock!.start)
                     : 'Create a task and schedule it when you are ready.',
                 accent: AppColors.neonCyan,
-                onTap: onOpenCreator,
+                onTap: onOpenTask,
               ),
               const _PanelDivider(),
               _FocusRow(
@@ -597,7 +601,7 @@ class _CurrentFocusSection extends StatelessWidget {
                     ? 'Capture useful context without turning it into another task.'
                     : _noteDetail(currentNote),
                 accent: AppColors.memoryAmber,
-                onTap: onOpenCreator,
+                onTap: onOpenNote,
               ),
             ],
           ),
@@ -628,7 +632,7 @@ class _FocusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return SmartPressable(
       onTap: onTap,
-      semanticLabel: 'Open $label in Creator',
+      semanticLabel: 'Open $label',
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(

@@ -2,8 +2,14 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
@@ -38,6 +44,15 @@ void main() {
           AccountStorageScope.authenticated('creator-screen-test'),
         ),
         domainTaskRepositoryProvider.overrideWithValue(repository),
+        domainGoalRepositoryProvider.overrideWithValue(
+          const _ScreenGoalRepository(),
+        ),
+        domainHabitRepositoryProvider.overrideWithValue(
+          const _ScreenHabitRepository(),
+        ),
+        domainNoteRepositoryProvider.overrideWithValue(
+          const _ScreenNoteRepository(),
+        ),
         secureStoreProvider.overrideWithValue(
           SecureStore(backend: InMemorySecureStoreBackend()),
         ),
@@ -116,6 +131,15 @@ void main() {
           AccountStorageScope.authenticated('creator-screen-test'),
         ),
         domainTaskRepositoryProvider.overrideWithValue(repository),
+        domainGoalRepositoryProvider.overrideWithValue(
+          const _ScreenGoalRepository(),
+        ),
+        domainHabitRepositoryProvider.overrideWithValue(
+          const _ScreenHabitRepository(),
+        ),
+        domainNoteRepositoryProvider.overrideWithValue(
+          const _ScreenNoteRepository(),
+        ),
         secureStoreProvider.overrideWithValue(
           SecureStore(backend: InMemorySecureStoreBackend()),
         ),
@@ -169,6 +193,15 @@ void main() {
       overrides: [
         accountStorageScopeProvider.overrideWithValue(accountScope),
         domainTaskRepositoryProvider.overrideWithValue(repository),
+        domainGoalRepositoryProvider.overrideWithValue(
+          const _ScreenGoalRepository(),
+        ),
+        domainHabitRepositoryProvider.overrideWithValue(
+          const _ScreenHabitRepository(),
+        ),
+        domainNoteRepositoryProvider.overrideWithValue(
+          const _ScreenNoteRepository(),
+        ),
         secureStoreProvider.overrideWithValue(
           SecureStore(backend: InMemorySecureStoreBackend()),
         ),
@@ -228,7 +261,7 @@ void main() {
     expect(find.text('BOUND REVIEW EVIDENCE'), findsOneWidget);
     expect(
       find.text(
-        'This is review evidence only and did not alter the proposed task.',
+        'This is review evidence only and did not alter the proposed item.',
       ),
       findsOneWidget,
     );
@@ -236,12 +269,69 @@ void main() {
       find.text('presentCapacity: Keep this confirmation step small today'),
       findsOneWidget,
     );
-    expect(
-      find.textContaining('did not alter the proposed task'),
-      findsNWidgets(2),
-    );
+    expect(find.textContaining('did not alter the proposed'), findsNWidgets(2));
     expect(find.byKey(const Key('creator-confirm-selected')), findsOneWidget);
     expect(repository.saveCalls, 0);
+  });
+
+  testWidgets('Note preview shows body without task semantics', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('creator-note-screen-test'),
+        ),
+        domainTaskRepositoryProvider.overrideWithValue(_ScreenTaskRepository()),
+        domainGoalRepositoryProvider.overrideWithValue(
+          const _ScreenGoalRepository(),
+        ),
+        domainHabitRepositoryProvider.overrideWithValue(
+          const _ScreenHabitRepository(),
+        ),
+        domainNoteRepositoryProvider.overrideWithValue(
+          const _ScreenNoteRepository(),
+        ),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(creatorHandshakeProvider.notifier)
+        .stage(
+          data: const CreatorFormData(
+            title: 'Preserve the decision context',
+            description: 'This remains a note.',
+            type: 'Note',
+            priority: 1,
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: CreatorScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('Type: Not present → Note'), findsOneWidget);
+    expect(
+      find.text('Body: Not present → This remains a note.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Priority: Not present'), findsNothing);
+    expect(find.textContaining('Schedule: Not present'), findsNothing);
+    expect(find.textContaining('Deadline: Not present'), findsNothing);
+    expect(
+      find.textContaining('Estimated duration: Not present'),
+      findsNothing,
+    );
   });
 
   testWidgets(
@@ -257,6 +347,15 @@ void main() {
             AccountStorageScope.authenticated('guided-creator-screen-test'),
           ),
           domainTaskRepositoryProvider.overrideWithValue(repository),
+          domainGoalRepositoryProvider.overrideWithValue(
+            const _ScreenGoalRepository(),
+          ),
+          domainHabitRepositoryProvider.overrideWithValue(
+            const _ScreenHabitRepository(),
+          ),
+          domainNoteRepositoryProvider.overrideWithValue(
+            const _ScreenNoteRepository(),
+          ),
           secureStoreProvider.overrideWithValue(
             SecureStore(backend: InMemorySecureStoreBackend()),
           ),
@@ -341,4 +440,43 @@ class _ScreenTaskRepository implements ITaskRepository {
     saveCalls += 1;
     tasks[task.id] = task;
   }
+}
+
+class _ScreenGoalRepository implements IGoalRepository {
+  const _ScreenGoalRepository();
+
+  @override
+  Future<void> deleteGoal(String id) async {}
+
+  @override
+  List<GoalEntity> getGoals() => const <GoalEntity>[];
+
+  @override
+  Future<void> saveGoal(GoalEntity goal) async {}
+
+  @override
+  Future<void> saveGoals(List<GoalEntity> goals) async {}
+}
+
+class _ScreenHabitRepository implements IHabitRepository {
+  const _ScreenHabitRepository();
+
+  @override
+  Future<List<HabitEntity>> getHabits() async => const <HabitEntity>[];
+
+  @override
+  Future<void> saveHabits(List<HabitEntity> habits) async {}
+}
+
+class _ScreenNoteRepository implements INoteRepository {
+  const _ScreenNoteRepository();
+
+  @override
+  Future<void> deleteNote(String id) async {}
+
+  @override
+  Future<List<NoteEntity>> getNotes() async => const <NoteEntity>[];
+
+  @override
+  Future<void> saveNote(NoteEntity note) async {}
 }
