@@ -156,6 +156,163 @@ void main() {
   );
 
   test(
+    'verifies encrypted CAS migration before deleting legacy plaintext',
+    () async {
+      final _LegacyMigrationCleanupGateway migrationGateway =
+          _LegacyMigrationCleanupGateway(
+            _fullCloudBackup(
+              tasks: <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'id': 'verified-legacy-task',
+                  'title': 'Verified legacy task',
+                  'createdAt': '2026-07-05T08:00:00.000Z',
+                },
+              ],
+            ),
+          );
+      final SyncService encryptedService = SyncService(
+        backup: backupService,
+        gateway: migrationGateway,
+        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+
+      expect(
+        await encryptedService.restoreFromCloud(),
+        CloudRestoreOutcome.restored,
+      );
+      expect(migrationGateway.events, <String>[
+        'read-legacy',
+        'write-cas',
+        'read-cas',
+        'delete-legacy-full-backup',
+      ]);
+      expect(
+        migrationGateway.casPayload,
+        containsPair('format', 'chronospark_backup_aes256_gcm_v2'),
+      );
+      expect(
+        (await repository.getAllTasks()).single.id,
+        'verified-legacy-task',
+      );
+    },
+  );
+
+  test(
+    'restores verified CAS but reports legacy cleanup pending on delete failure',
+    () async {
+      final _LegacyMigrationCleanupGateway migrationGateway =
+          _LegacyMigrationCleanupGateway(
+            _fullCloudBackup(
+              tasks: <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'id': 'cleanup-pending-task',
+                  'title': 'Cleanup pending task',
+                  'createdAt': '2026-07-05T08:00:00.000Z',
+                },
+              ],
+            ),
+            cleanupStatus: LegacyFullBackupCleanupStatus.unavailable,
+          );
+      final SyncService encryptedService = SyncService(
+        backup: backupService,
+        gateway: migrationGateway,
+        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+
+      expect(
+        await encryptedService.restoreFromCloud(),
+        CloudRestoreOutcome.restoredLegacyCleanupPending,
+      );
+      expect(
+        migrationGateway.casPayload,
+        containsPair('format', 'chronospark_backup_aes256_gcm_v2'),
+      );
+      expect(
+        (await repository.getAllTasks()).single.id,
+        'cleanup-pending-task',
+      );
+    },
+  );
+
+  test('cleans stale legacy storage after an earlier CAS migration', () async {
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final Map<String, dynamic> plaintext = _fullCloudBackup(
+      tasks: <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'previously-migrated-task',
+          'title': 'Previously migrated task',
+          'createdAt': '2026-07-05T08:00:00.000Z',
+        },
+      ],
+    );
+    final Map<String, dynamic> encrypted = await BackupCipher(
+      secureStore,
+    ).encryptPayload(plaintext);
+    final _LegacyMigrationCleanupGateway migrationGateway =
+        _LegacyMigrationCleanupGateway(plaintext, initialCasPayload: encrypted);
+    final SyncService encryptedService = SyncService(
+      backup: backupService,
+      gateway: migrationGateway,
+      secureStore: secureStore,
+      syncEnabled: true,
+      restoreEnabled: true,
+    );
+
+    expect(
+      await encryptedService.restoreFromCloud(),
+      CloudRestoreOutcome.restored,
+    );
+    expect(migrationGateway.events, <String>[
+      'read-cas',
+      'delete-legacy-full-backup',
+    ]);
+    expect(
+      (await repository.getAllTasks()).single.id,
+      'previously-migrated-task',
+    );
+  });
+
+  test('does not delete legacy plaintext when CAS readback differs', () async {
+    final _LegacyMigrationCleanupGateway migrationGateway =
+        _LegacyMigrationCleanupGateway(
+          _fullCloudBackup(
+            tasks: <Map<String, dynamic>>[
+              <String, dynamic>{
+                'id': 'unverified-task',
+                'title': 'Unverified task',
+                'createdAt': '2026-07-05T08:00:00.000Z',
+              },
+            ],
+          ),
+          returnMismatchedReadback: true,
+        );
+    final SyncService encryptedService = SyncService(
+      backup: backupService,
+      gateway: migrationGateway,
+      secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+      syncEnabled: true,
+      restoreEnabled: true,
+    );
+
+    expect(
+      await encryptedService.restoreFromCloud(),
+      CloudRestoreOutcome.migrationFailed,
+    );
+    expect(migrationGateway.events, <String>[
+      'read-legacy',
+      'write-cas',
+      'read-cas',
+    ]);
+    expect(await repository.getAllTasks(), isEmpty);
+  });
+
+  test(
     'refuses a legacy plaintext restore when migration upload fails',
     () async {
       final SyncService encryptedService = SyncService(
@@ -1017,6 +1174,63 @@ class _ConcurrentCasGateway implements CloudBackupGateway {
     successfulWrites += 1;
     fullBackup = backup;
     return CloudBackupWriteResult.written(revision);
+  }
+
+  @override
+  Future<CloudBackupReadResult> downloadTasks() async =>
+      const CloudBackupReadResult.notFound();
+
+  @override
+  Future<bool> uploadBackup(Map<String, dynamic> backup) async => false;
+
+  @override
+  Future<bool> uploadTasks(Map<String, dynamic> backup) async => false;
+}
+
+class _LegacyMigrationCleanupGateway
+    implements CloudBackupGateway, LegacyFullBackupCleanup {
+  _LegacyMigrationCleanupGateway(
+    this.legacyPayload, {
+    this.cleanupStatus = LegacyFullBackupCleanupStatus.removedOrAbsent,
+    this.returnMismatchedReadback = false,
+    Map<String, dynamic>? initialCasPayload,
+  }) : casPayload = initialCasPayload;
+
+  final Map<String, dynamic> legacyPayload;
+  final LegacyFullBackupCleanupStatus cleanupStatus;
+  final bool returnMismatchedReadback;
+  final List<String> events = <String>[];
+  Map<String, dynamic>? casPayload;
+
+  @override
+  Future<CloudBackupReadResult> downloadBackup() async {
+    final Map<String, dynamic>? encrypted = casPayload;
+    if (encrypted == null) {
+      events.add('read-legacy');
+      return CloudBackupReadResult.found(legacyPayload, revision: 0);
+    }
+    events.add('read-cas');
+    if (returnMismatchedReadback) {
+      return CloudBackupReadResult.found(encrypted, revision: 2);
+    }
+    return CloudBackupReadResult.found(encrypted, revision: 1);
+  }
+
+  @override
+  Future<CloudBackupWriteResult> compareAndSwapBackup(
+    Map<String, dynamic> backup, {
+    required int expectedRevision,
+  }) async {
+    expect(expectedRevision, 0);
+    events.add('write-cas');
+    casPayload = Map<String, dynamic>.from(backup);
+    return const CloudBackupWriteResult.written(1);
+  }
+
+  @override
+  Future<LegacyFullBackupCleanupStatus> deleteLegacyFullBackup() async {
+    events.add('delete-legacy-full-backup');
+    return cleanupStatus;
   }
 
   @override

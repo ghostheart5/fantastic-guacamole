@@ -62,8 +62,19 @@ class CloudBackupWriteResult {
   final int? revision;
 }
 
+enum LegacyFullBackupCleanupStatus {
+  removedOrAbsent,
+  unavailable,
+  ownerMismatch,
+}
+
+abstract interface class LegacyFullBackupCleanup {
+  Future<LegacyFullBackupCleanupStatus> deleteLegacyFullBackup();
+}
+
 enum CloudRestoreOutcome {
   restored,
+  restoredLegacyCleanupPending,
   notFound,
   unavailable,
   recoveryKeyRequired,
@@ -201,7 +212,8 @@ class UnavailableCloudBackupGateway implements CloudBackupGateway {
   }) async => const CloudBackupWriteResult.unavailable();
 }
 
-class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
+class SupabaseStorageCloudBackupGateway
+    implements CloudBackupGateway, LegacyFullBackupCleanup {
   SupabaseStorageCloudBackupGateway({
     required this._client,
     required this.expectedUserId,
@@ -234,6 +246,25 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   @override
   Future<bool> uploadTasks(Map<String, dynamic> backup) async {
     return _uploadObject(_tasksObject, backup);
+  }
+
+  @override
+  Future<LegacyFullBackupCleanupStatus> deleteLegacyFullBackup() async {
+    if (!_hasExpectedUser) {
+      return LegacyFullBackupCleanupStatus.ownerMismatch;
+    }
+    try {
+      await _client.storage.from(bucket).remove(<String>[
+        _scopedPath(_backupObject),
+      ]);
+      return LegacyFullBackupCleanupStatus.removedOrAbsent;
+    } on Object {
+      Logger.errorCategory(
+        'Sync Errors',
+        'Supabase legacy cloud backup cleanup failed',
+      );
+      return LegacyFullBackupCleanupStatus.unavailable;
+    }
   }
 
   @override
@@ -318,7 +349,8 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
       _client.auth.currentUser?.id == expectedUserId;
 }
 
-class SupabaseCasCloudBackupGateway implements CloudBackupGateway {
+class SupabaseCasCloudBackupGateway
+    implements CloudBackupGateway, LegacyFullBackupCleanup {
   SupabaseCasCloudBackupGateway({
     required sb.SupabaseClient client,
     required this.expectedUserId,
@@ -454,6 +486,10 @@ class SupabaseCasCloudBackupGateway implements CloudBackupGateway {
   Future<bool> uploadTasks(Map<String, dynamic> backup) =>
       _legacy.uploadTasks(backup);
 
+  @override
+  Future<LegacyFullBackupCleanupStatus> deleteLegacyFullBackup() =>
+      _legacy.deleteLegacyFullBackup();
+
   bool get _hasExpectedUser =>
       expectedUserId.isNotEmpty &&
       _client.auth.currentUser?.id == expectedUserId;
@@ -512,6 +548,7 @@ class SyncService {
     } on Object {
       return CloudRestoreOutcome.malformed;
     }
+    bool legacyCleanupPending = false;
     if (migrateLegacyPlaintext) {
       if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
       final int? expectedRevision = read.revision;
@@ -534,6 +571,40 @@ class SyncService {
         );
         return CloudRestoreOutcome.migrationFailed;
       }
+      final CloudBackupReadResult verified = await gateway.downloadBackup();
+      if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
+      if (!await _isVerifiedLegacyMigration(
+        verified,
+        expectedRevision: migration.revision,
+        expectedPlaintext: restored,
+      )) {
+        Logger.warn(
+          'Refused to restore legacy plaintext backup before verified migration.',
+        );
+        return CloudRestoreOutcome.migrationFailed;
+      }
+      if (expectedRevision == 0) {
+        final LegacyFullBackupCleanupStatus? cleanup =
+            await _deleteLegacyFullBackup();
+        if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
+        if (cleanup == LegacyFullBackupCleanupStatus.ownerMismatch) {
+          return CloudRestoreOutcome.ownerMismatch;
+        }
+        legacyCleanupPending =
+            cleanup != LegacyFullBackupCleanupStatus.removedOrAbsent;
+      }
+    } else if (_cipher != null &&
+        read.revision != null &&
+        read.revision! >= 1 &&
+        gateway is LegacyFullBackupCleanup) {
+      final LegacyFullBackupCleanupStatus? cleanup =
+          await _deleteLegacyFullBackup();
+      if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
+      if (cleanup == LegacyFullBackupCleanupStatus.ownerMismatch) {
+        return CloudRestoreOutcome.ownerMismatch;
+      }
+      legacyCleanupPending =
+          cleanup != LegacyFullBackupCleanupStatus.removedOrAbsent;
     }
     if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
     try {
@@ -542,7 +613,9 @@ class SyncService {
         canContinue: () => _accountStillCurrent,
         expectedLocalGeneration: localGeneration,
       );
-      return CloudRestoreOutcome.restored;
+      return legacyCleanupPending
+          ? CloudRestoreOutcome.restoredLegacyCleanupPending
+          : CloudRestoreOutcome.restored;
     } on BackupRestoreCancelledException {
       return CloudRestoreOutcome.accountChanged;
     } on BackupConcurrentMutationException {
@@ -734,6 +807,60 @@ class SyncService {
       CloudBackupWriteStatus.ownerMismatch => CloudSyncOutcome.ownerMismatch,
       CloudBackupWriteStatus.malformed => CloudSyncOutcome.malformed,
     };
+  }
+
+  Future<LegacyFullBackupCleanupStatus?> _deleteLegacyFullBackup() async {
+    final CloudBackupGateway activeGateway = gateway;
+    if (activeGateway is! LegacyFullBackupCleanup) return null;
+    return (activeGateway as LegacyFullBackupCleanup).deleteLegacyFullBackup();
+  }
+
+  Future<bool> _isVerifiedLegacyMigration(
+    CloudBackupReadResult read, {
+    required int? expectedRevision,
+    required Map<String, dynamic> expectedPlaintext,
+  }) async {
+    final BackupCipher? cipher = _cipher;
+    final Map<String, dynamic>? payload = read.payload;
+    if (cipher == null ||
+        expectedRevision == null ||
+        read.status != CloudBackupReadStatus.found ||
+        read.revision != expectedRevision ||
+        payload == null ||
+        cipher.isLegacyPlaintextBackup(payload)) {
+      return false;
+    }
+    try {
+      final Map<String, dynamic> decrypted = await cipher.decryptPayload(
+        payload,
+      );
+      backup.validateFullBackup(decrypted);
+      return _jsonValuesEqual(decrypted, expectedPlaintext);
+    } on Object {
+      return false;
+    }
+  }
+
+  bool _jsonValuesEqual(Object? left, Object? right) {
+    if (identical(left, right)) return true;
+    if (left is Map && right is Map) {
+      if (left.length != right.length) return false;
+      for (final Object? key in left.keys) {
+        if (!right.containsKey(key) ||
+            !_jsonValuesEqual(left[key], right[key])) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (left is List && right is List) {
+      if (left.length != right.length) return false;
+      for (int index = 0; index < left.length; index += 1) {
+        if (!_jsonValuesEqual(left[index], right[index])) return false;
+      }
+      return true;
+    }
+    return left == right;
   }
 
   bool get _accountStillCurrent {

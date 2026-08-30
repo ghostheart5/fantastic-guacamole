@@ -241,9 +241,13 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
     final CloudRestoreOutcome outcome =
         await ref.read(syncServiceProvider)?.restoreFromCloud() ??
         CloudRestoreOutcome.unavailable;
-    final bool restored = outcome == CloudRestoreOutcome.restored;
+    final bool restored =
+        outcome == CloudRestoreOutcome.restored ||
+        outcome == CloudRestoreOutcome.restoredLegacyCleanupPending;
     final String? failureMessage = switch (outcome) {
       CloudRestoreOutcome.restored => null,
+      CloudRestoreOutcome.restoredLegacyCleanupPending =>
+        'Your backup was restored from its verified encrypted copy, but an older cloud copy still needs secure cleanup.',
       CloudRestoreOutcome.notFound =>
         'No cloud backup exists for this account. Local data was not changed.',
       CloudRestoreOutcome.unavailable =>

@@ -38,6 +38,10 @@ void main() {
         await gateway.uploadTasks(<String, dynamic>{'tasks': <dynamic>[]}),
         isFalse,
       );
+      expect(
+        await gateway.deleteLegacyFullBackup(),
+        LegacyFullBackupCleanupStatus.ownerMismatch,
+      );
     });
 
     test(
@@ -103,6 +107,44 @@ void main() {
         expect(storageRequests, hasLength(2));
       },
     );
+
+    test('deletes only the exact legacy full-backup object', () async {
+      final List<http.Request> storageRequests = <http.Request>[];
+      final MockClient httpClient = MockClient((http.Request request) async {
+        if (request.url.path.endsWith('/auth/v1/token')) {
+          return _authResponse();
+        }
+        storageRequests.add(request);
+        expect(request.method, 'DELETE');
+        expect(request.url.path, '/storage/v1/object/backup-bucket');
+        expect(jsonDecode(request.body), <String, dynamic>{
+          'prefixes': <String>['user-1/backup/full_backup.json'],
+        });
+        return http.Response(
+          '[]',
+          200,
+          headers: <String, String>{'content-type': 'application/json'},
+          request: request,
+        );
+      });
+      final sb.SupabaseClient client = _supabaseClient(httpClient);
+      await client.auth.signInWithPassword(
+        email: 'sync@chronospark.app',
+        password: 'correct-pass',
+      );
+      final SupabaseStorageCloudBackupGateway gateway =
+          SupabaseStorageCloudBackupGateway(
+            client: client,
+            expectedUserId: 'user-1',
+            bucket: 'backup-bucket',
+          );
+
+      expect(
+        await gateway.deleteLegacyFullBackup(),
+        LegacyFullBackupCleanupStatus.removedOrAbsent,
+      );
+      expect(storageRequests, hasLength(1));
+    });
 
     test(
       'returns safe values for malformed and failed storage responses',
