@@ -92,6 +92,9 @@ dev_dependencies:
   # Used only by tool/validate_maestro_flows.dart to parse the Maestro flows in
   # CI. Dev-only, so it is never bundled into the shipped app.
   yaml: ^3.1.2
+  # Parses canonical legal HTML when generating and verifying public/bundled
+  # copies. Dev-only, so it is never bundled into the shipped app.
+  html: ^0.15.6
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

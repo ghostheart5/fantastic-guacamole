@@ -1,20 +1,69 @@
 ChronoSpark Terms of Service
 
-ChronoSpark is a productivity tool designed to assist with task management and decision-making.
+Last updated: August 9, 2026
 
-The app provides suggestions based on user inputs and behavior, but all decisions are the user's responsibility.
+These terms govern use of ChronoSpark. By using the app, you agree to
 
-The app is provided "as-is" without guarantees of accuracy or outcomes.
+these terms and the Privacy Policy.
 
-Users agree not to misuse the app or attempt to disrupt its functionality.
+Accounts and acceptable use
 
-Subscriptions and purchases, when enabled, are handled by the relevant app store.
-Purchase restoration is available only in builds where live billing has been enabled.
+Keep your account and sign-in methods secure.
 
-ChronoSpark reserves the right to update these terms.
+Do not attempt unauthorized access, interfere with the service, bypass paid-feature controls, or use the service unlawfully.
 
-Some account requests may require support rather than a self-service in-app action.
+You are responsible for the content you submit and the actions taken through your account.
 
-Delete Account: https://chronospark.app/delete-account
+Subscriptions and purchases
 
-Contact: https://chronospark.app/support
+Digital purchases are processed by Google Play. The price, billing period,
+
+trial terms, and renewal details displayed by Google Play at purchase are
+
+part of your transaction. Subscriptions renew until canceled through your
+
+Google Play account. Uninstalling ChronoSpark or deleting a ChronoSpark
+
+account does not automatically cancel a subscription. Refund eligibility
+
+is governed by applicable law and Google Play policy.
+
+AI and decision-support features
+
+AI-generated material can be incomplete or incorrect. ChronoSpark is a
+
+planning and productivity tool, not medical, legal, financial, or emergency
+
+advice. Review important decisions independently.
+
+Availability and changes
+
+Features may change as ChronoSpark improves. Service interruptions can
+
+occur for maintenance, security, provider outages, or circumstances beyond
+
+our control. Material changes to these terms will be posted at this URL.
+
+Account deletion
+
+Account deletion is permanent and is described on the
+
+account-deletion page. Store billing must
+
+be canceled separately through Google Play.
+
+Contact
+
+Use the developer contact shown on the
+
+ChronoSpark Google Play listing
+
+or visit the support page.
+
+Privacy
+
+Terms
+
+Support
+
+Delete account

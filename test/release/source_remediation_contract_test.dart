@@ -94,7 +94,11 @@ void main() {
     expect(policy, contains('report a generated response'));
     expect(policy, contains('Settings &gt; Account'));
     expect(bundled, contains('support@chronospark.app'));
-    expect(bundled, contains('only that response and your selected reason'));
+    expect(
+      bundled,
+      contains('only the selected response and your chosen reason'),
+    );
+    expect(bundled, contains('not your prompt or conversation history'));
     expect(
       bundled.toLowerCase(),
       isNot(
