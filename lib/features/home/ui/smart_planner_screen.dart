@@ -294,7 +294,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Receipt preview\nWhy: adapt future Smart Planner guidance to this preference\nSource: Smart Planner only\nExpiry: $retentionDays days\nControls: view, correct, export, delete in Settings',
+                      'Receipt preview\nWhy: save this preference for your review and future opt-in use\nCurrent use: not applied to guidance in this build\nSource: Smart Planner only\nExpiry: $retentionDays days\nControls: view, correct, export, delete in Settings',
                       style: const TextStyle(height: 1.4),
                     ),
                   ),
@@ -356,7 +356,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             expiresAt: expiresAt,
             consentConfirmed: true,
             whyStored:
-                'Adapt future Smart Planner guidance to this explicit planning-style preference.',
+                'Save this explicit planning-style preference for review and future opt-in use.',
             provenance: 'User-entered in Smart Planner memory consent dialog.',
           );
       if (!mounted) return;
@@ -367,7 +367,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           .first;
       setState(() {
         _plannerActionStatus =
-            'Preference remembered with consent. Smart Planner only · expires $expiry · manage in Settings.';
+            'Preference saved with consent. It is not used in guidance in this build. Smart Planner only · expires $expiry · manage in Settings.';
       });
     } catch (error) {
       if (!mounted) return;

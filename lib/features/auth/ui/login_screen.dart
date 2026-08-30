@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/tutorial/interactive_tutorial_overlay.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -11,7 +10,6 @@ import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -25,6 +23,8 @@ class LoginScreen extends StatefulWidget {
     required this.onForgotPassword,
     required this.onGoogleSignIn,
     required this.onGitHubSignIn,
+    required this.onPrivacyPolicy,
+    required this.onTermsOfService,
     this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -45,6 +45,8 @@ class LoginScreen extends StatefulWidget {
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
   final VoidCallback onGitHubSignIn;
+  final VoidCallback onPrivacyPolicy;
+  final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -70,11 +72,32 @@ class _LoginScreenState extends State<LoginScreen>
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
+    );
     _entry = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 720),
-    )..forward();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (reduceMotion) {
+      _pulse
+        ..stop()
+        ..value = 0;
+      _entry
+        ..stop()
+        ..value = 1;
+      return;
+    }
+    if (!_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    }
+    if (_entry.value == 0 && !_entry.isAnimating) {
+      _entry.forward();
+    }
   }
 
   @override
@@ -130,6 +153,8 @@ class _LoginScreenState extends State<LoginScreen>
                 onForgotPassword: widget.onForgotPassword,
                 onGoogleSignIn: widget.onGoogleSignIn,
                 onGitHubSignIn: widget.onGitHubSignIn,
+                onPrivacyPolicy: widget.onPrivacyPolicy,
+                onTermsOfService: widget.onTermsOfService,
                 onMockLogin: onMockLogin,
                 onToggleMode: widget.onToggleMode,
                 onTogglePassword: widget.onTogglePassword,
@@ -153,6 +178,8 @@ class _LoginScreenState extends State<LoginScreen>
                 onForgotPassword: widget.onForgotPassword,
                 onGoogleSignIn: widget.onGoogleSignIn,
                 onGitHubSignIn: widget.onGitHubSignIn,
+                onPrivacyPolicy: widget.onPrivacyPolicy,
+                onTermsOfService: widget.onTermsOfService,
                 onMockLogin: onMockLogin,
                 onToggleMode: widget.onToggleMode,
                 onTogglePassword: widget.onTogglePassword,
@@ -220,6 +247,8 @@ class _PortraitLoginContent extends StatelessWidget {
     required this.onForgotPassword,
     required this.onGoogleSignIn,
     required this.onGitHubSignIn,
+    required this.onPrivacyPolicy,
+    required this.onTermsOfService,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -242,6 +271,8 @@ class _PortraitLoginContent extends StatelessWidget {
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
   final VoidCallback onGitHubSignIn;
+  final VoidCallback onPrivacyPolicy;
+  final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -298,6 +329,8 @@ class _PortraitLoginContent extends StatelessWidget {
                       onForgotPassword: onForgotPassword,
                       onGoogleSignIn: onGoogleSignIn,
                       onGitHubSignIn: onGitHubSignIn,
+                      onPrivacyPolicy: onPrivacyPolicy,
+                      onTermsOfService: onTermsOfService,
                       onMockLogin: onMockLogin,
                       onToggleMode: onToggleMode,
                       onTogglePassword: onTogglePassword,
@@ -331,6 +364,8 @@ class _LandscapeLoginContent extends StatelessWidget {
     required this.onForgotPassword,
     required this.onGoogleSignIn,
     required this.onGitHubSignIn,
+    required this.onPrivacyPolicy,
+    required this.onTermsOfService,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -353,6 +388,8 @@ class _LandscapeLoginContent extends StatelessWidget {
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
   final VoidCallback onGitHubSignIn;
+  final VoidCallback onPrivacyPolicy;
+  final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -417,6 +454,8 @@ class _LandscapeLoginContent extends StatelessWidget {
                                   onForgotPassword: onForgotPassword,
                                   onGoogleSignIn: onGoogleSignIn,
                                   onGitHubSignIn: onGitHubSignIn,
+                                  onPrivacyPolicy: onPrivacyPolicy,
+                                  onTermsOfService: onTermsOfService,
                                   onMockLogin: onMockLogin,
                                   onToggleMode: onToggleMode,
                                   onTogglePassword: onTogglePassword,
@@ -564,6 +603,8 @@ class _LoginFormCard extends StatelessWidget {
     required this.onForgotPassword,
     required this.onGoogleSignIn,
     required this.onGitHubSignIn,
+    required this.onPrivacyPolicy,
+    required this.onTermsOfService,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -584,6 +625,8 @@ class _LoginFormCard extends StatelessWidget {
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
   final VoidCallback onGitHubSignIn;
+  final VoidCallback onPrivacyPolicy;
+  final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -712,7 +755,10 @@ class _LoginFormCard extends StatelessWidget {
             ),
           ),
           SizedBox(height: compact ? 8 : 10),
-          const _LoginLegalActions(),
+          _LoginLegalActions(
+            onPrivacyPolicy: onPrivacyPolicy,
+            onTermsOfService: onTermsOfService,
+          ),
           SizedBox(height: compact ? 10 : 14),
           _PrimaryButton(
             label: isSignUpMode ? 'INITIALIZE PROFILE' : 'ENTER SYSTEM',
@@ -859,10 +905,17 @@ class _LoginFormCard extends StatelessWidget {
 }
 
 class _LoginLegalActions extends StatelessWidget {
-  const _LoginLegalActions();
+  const _LoginLegalActions({
+    required this.onPrivacyPolicy,
+    required this.onTermsOfService,
+  });
+
+  final VoidCallback onPrivacyPolicy;
+  final VoidCallback onTermsOfService;
 
   @override
   Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     return SizedBox(
       height: AppSizes.touchTarget,
       child: Row(
@@ -870,20 +923,24 @@ class _LoginLegalActions extends StatelessWidget {
           Expanded(
             child: _LoginLegalAction(
               key: const ValueKey<String>('login-privacy-action'),
-              label: 'Privacy',
-              semanticLabel: 'Open Privacy Policy',
+              label: l10n.isSpanish ? 'Privacidad' : 'Privacy',
+              semanticLabel: l10n.isSpanish
+                  ? 'Abrir política de privacidad'
+                  : 'Open Privacy Policy',
               icon: Icons.privacy_tip_outlined,
-              onTap: () => context.push(RoutePaths.privacy),
+              onTap: onPrivacyPolicy,
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _LoginLegalAction(
               key: const ValueKey<String>('login-terms-action'),
-              label: 'Terms',
-              semanticLabel: 'Open Terms of Service',
+              label: l10n.isSpanish ? 'Términos' : 'Terms',
+              semanticLabel: l10n.isSpanish
+                  ? 'Abrir términos del servicio'
+                  : 'Open Terms of Service',
               icon: Icons.description_outlined,
-              onTap: () => context.push(RoutePaths.terms),
+              onTap: onTermsOfService,
             ),
           ),
         ],

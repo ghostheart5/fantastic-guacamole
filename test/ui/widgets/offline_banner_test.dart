@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
+import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -17,7 +18,12 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('Offline Mode — actions will sync later'), findsOneWidget);
+    expect(
+      find.text(
+        'Offline Mode — local features available; cloud sync unavailable',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('content'), findsOneWidget);
   });
 
@@ -32,7 +38,12 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('Offline Mode — actions will sync later'), findsNothing);
+    expect(
+      find.text(
+        'Offline Mode — local features available; cloud sync unavailable',
+      ),
+      findsNothing,
+    );
     expect(find.text('content'), findsOneWidget);
   });
 
@@ -56,9 +67,31 @@ void main() {
       );
       // ignore: deprecated_member_use
       expect(node.hasFlag(SemanticsFlag.isLiveRegion), isTrue);
-      expect(node.label, 'Offline mode. Actions will sync later.');
+      expect(
+        node.label,
+        'Offline mode. Local features remain available. Cloud sync is unavailable in this build.',
+      );
     } finally {
       handle.dispose();
     }
+  });
+
+  testWidgets('promises later sync only when cloud sync is available', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isOnlineProvider.overrideWithValue(false),
+          cloudSyncCapabilityProvider.overrideWithValue(true),
+        ],
+        child: const MaterialApp(
+          home: OfflineBanner(child: Scaffold(body: Text('content'))),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('Offline Mode — actions will sync later'), findsOneWidget);
   });
 }

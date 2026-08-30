@@ -10,6 +10,7 @@ void main() {
     required double width,
     double height = 900,
     VoidCallback? onPrimaryAction,
+    bool disableAnimations = false,
   }) async {
     tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1.0;
@@ -22,18 +23,27 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: LoginScreen(
-          emailController: emailController,
-          passwordController: passwordController,
-          obscurePassword: true,
-          isSubmitting: false,
-          isSignUpMode: false,
-          onPrimaryAction: onPrimaryAction ?? () {},
-          onForgotPassword: () {},
-          onGoogleSignIn: () {},
-          onGitHubSignIn: () {},
-          onToggleMode: () {},
-          onTogglePassword: () {},
+        home: Builder(
+          builder: (BuildContext context) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(disableAnimations: disableAnimations),
+            child: LoginScreen(
+              emailController: emailController,
+              passwordController: passwordController,
+              obscurePassword: true,
+              isSubmitting: false,
+              isSignUpMode: false,
+              onPrimaryAction: onPrimaryAction ?? () {},
+              onForgotPassword: () {},
+              onGoogleSignIn: () {},
+              onGitHubSignIn: () {},
+              onPrivacyPolicy: () {},
+              onTermsOfService: () {},
+              onToggleMode: () {},
+              onTogglePassword: () {},
+            ),
+          ),
         ),
       ),
     );
@@ -138,5 +148,18 @@ void main() {
 
     expect(primaryActionCalls, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('does not keep login animations running under reduced motion', (
+    WidgetTester tester,
+  ) async {
+    await pumpLoginScreen(
+      tester,
+      width: 420,
+      height: 900,
+      disableAnimations: true,
+    );
+
+    expect(tester.hasRunningAnimations, isFalse);
   });
 }

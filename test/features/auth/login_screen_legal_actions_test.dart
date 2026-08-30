@@ -1,7 +1,9 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -92,12 +94,37 @@ void main() {
       expect(find.text(expectation.label), findsOneWidget);
     }
   });
+
+  testWidgets('localizes pre-account legal actions and semantics in Spanish', (
+    WidgetTester tester,
+  ) async {
+    final SemanticsHandle semantics = tester.ensureSemantics();
+    final _LoginHarness harness = await _pumpLoginRouter(
+      tester,
+      initialLocation: RoutePaths.login,
+      locale: const Locale('es'),
+    );
+    addTearDown(harness.dispose);
+
+    expect(find.text('Privacidad'), findsOneWidget);
+    expect(find.text('Términos'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Abrir política de privacidad'),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel('Abrir términos del servicio'),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
 }
 
 Future<_LoginHarness> _pumpLoginRouter(
   WidgetTester tester, {
   required String initialLocation,
   bool isSignUpMode = false,
+  Locale locale = const Locale('en'),
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -110,7 +137,7 @@ Future<_LoginHarness> _pumpLoginRouter(
     routes: <RouteBase>[
       GoRoute(
         path: RoutePaths.login,
-        builder: (_, _) => LoginScreen(
+        builder: (BuildContext context, _) => LoginScreen(
           emailController: emailController,
           passwordController: passwordController,
           obscurePassword: true,
@@ -120,6 +147,8 @@ Future<_LoginHarness> _pumpLoginRouter(
           onForgotPassword: () {},
           onGoogleSignIn: () {},
           onGitHubSignIn: () {},
+          onPrivacyPolicy: () => context.push(RoutePaths.privacy),
+          onTermsOfService: () => context.push(RoutePaths.terms),
           onToggleMode: () {},
           onTogglePassword: () {},
         ),
@@ -137,7 +166,19 @@ Future<_LoginHarness> _pumpLoginRouter(
     ],
   );
 
-  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await tester.pumpWidget(
+    MaterialApp.router(
+      routerConfig: router,
+      locale: locale,
+      supportedLocales: ChronoSparkLocalizations.supportedLocales,
+      localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+        ChronoSparkLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+    ),
+  );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 800));
 

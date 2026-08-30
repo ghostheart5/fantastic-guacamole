@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
@@ -20,7 +19,14 @@ import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({
+    this.loginLocation,
+    this.completedLocation,
+    super.key,
+  });
+
+  final String? loginLocation;
+  final String? completedLocation;
 
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -50,16 +56,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     if (mounted) setState(() {});
   }
 
-  String? _validatedReturnTo(GoRouter router) {
-    return RouteAccessPolicy.validatedReturnTo(
-      router
-          .routeInformationProvider
-          .value
-          .uri
-          .queryParameters[RouteAccessPolicy.returnToQueryParameter],
-    );
-  }
-
   Future<void> _completeWelcome() async {
     if (_submitting) return;
     setState(() => _submitting = true);
@@ -84,10 +80,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         final GoRouter? router = GoRouter.maybeOf(context);
         if (router != null) {
           context.go(
-            RouteAccessPolicy.withReturnTo(
-              ref.read(routeSurfaceProvider).login,
-              _validatedReturnTo(router),
-            ),
+            widget.loginLocation ?? ref.read(routeSurfaceProvider).login,
           );
         }
       }
@@ -139,7 +132,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       final routes = ref.read(routeSurfaceProvider);
       final GoRouter? router = GoRouter.maybeOf(context);
       if (router != null) {
-        context.go(_validatedReturnTo(router) ?? routes.creator);
+        context.go(widget.completedLocation ?? routes.creator);
       }
     } on Object catch (error, stackTrace) {
       Logger.errorCategory(
@@ -398,12 +391,18 @@ class _SlideView extends StatelessWidget {
 
   final _Slide slide;
 
-  Widget _buildPulseAura({required double width, required double height}) {
+  Widget _buildPulseAura(
+    BuildContext context, {
+    required double width,
+    required double height,
+  }) {
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
     return Lottie.asset(
       AppAssets.animSignalPulse,
       width: width,
       height: height,
-      repeat: true,
+      animate: !reduceMotion,
+      repeat: !reduceMotion,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) =>
           SizedBox(width: width, height: height),
@@ -461,7 +460,7 @@ class _SlideView extends StatelessWidget {
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              _buildPulseAura(width: 86, height: 86),
+                              _buildPulseAura(context, width: 86, height: 86),
                               Icon(
                                 slide.icon,
                                 color: slide.iconColor,
@@ -581,7 +580,7 @@ class _SlideView extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    _buildPulseAura(width: 66, height: 66),
+                    _buildPulseAura(context, width: 66, height: 66),
                     Icon(slide.icon, color: slide.iconColor, size: 32),
                   ],
                 ),

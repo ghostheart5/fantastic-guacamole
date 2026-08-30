@@ -44,10 +44,6 @@ class InteractiveTutorialOverlay extends StatefulWidget {
 class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
     with SingleTickerProviderStateMixin {
   final GlobalKey _overlayKey = GlobalKey();
-  final FocusNode _calloutFocusNode = FocusNode(
-    debugLabel: 'Tutorial callout',
-    skipTraversal: true,
-  );
   final FocusNode _primaryFocusNode = FocusNode(
     debugLabel: 'Tutorial primary action',
   );
@@ -130,7 +126,6 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
         priorFocus.canRequestFocus) {
       priorFocus.requestFocus();
     }
-    _calloutFocusNode.dispose();
     _primaryFocusNode.dispose();
     _secondaryFocusNode.dispose();
     _calloutFocusScope.dispose();
@@ -149,7 +144,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
           ? _primaryFocusNode
           : widget.onSecondary != null
           ? _secondaryFocusNode
-          : _calloutFocusNode;
+          : _calloutFocusScope;
       if (focusTarget.canRequestFocus && !focusTarget.hasFocus) {
         focusTarget.requestFocus();
         _movedFocus = true;
@@ -419,63 +414,59 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
             bindings: shortcuts,
             child: FocusScope.withExternalFocusNode(
               focusScopeNode: _calloutFocusScope,
-              child: Focus(
-                focusNode: _calloutFocusNode,
-                child: Material(
-                  key: const Key('tutorial_callout'),
-                  color: const Color(0xFF08131F),
-                  elevation: 18,
-                  shadowColor: AppColors.neonCyan.withValues(alpha: .35),
-                  borderRadius: BorderRadius.circular(8),
-                  clipBehavior: Clip.antiAlias,
-                  child: Container(
-                    constraints: BoxConstraints(maxHeight: regionHeight),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppColors.neonCyan.withValues(alpha: .72),
-                      ),
+              child: Material(
+                key: const Key('tutorial_callout'),
+                color: const Color(0xFF08131F),
+                elevation: 18,
+                shadowColor: AppColors.neonCyan.withValues(alpha: .35),
+                borderRadius: BorderRadius.circular(8),
+                clipBehavior: Clip.antiAlias,
+                child: Container(
+                  constraints: BoxConstraints(maxHeight: regionHeight),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.neonCyan.withValues(alpha: .72),
                     ),
-                    child: SingleChildScrollView(
-                      key: const Key('tutorial_callout_scroll_view'),
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        key: const Key('tutorial_callout_content'),
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          if (widget.stepLabel case final String label)
-                            Text(
-                              label.toUpperCase(),
-                              style: const TextStyle(
-                                color: AppColors.neonCyan,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          if (widget.stepLabel != null)
-                            const SizedBox(height: 6),
+                  ),
+                  child: SingleChildScrollView(
+                    key: const Key('tutorial_callout_scroll_view'),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      key: const Key('tutorial_callout_content'),
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (widget.stepLabel case final String label)
                           Text(
-                            widget.title,
+                            label.toUpperCase(),
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
+                              color: AppColors.neonCyan,
+                              fontSize: 10,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            widget.body,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                              height: 1.4,
-                            ),
+                        if (widget.stepLabel != null) const SizedBox(height: 6),
+                        Text(
+                          widget.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
                           ),
-                          const SizedBox(height: 14),
-                          _actions(),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.body,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _actions(),
+                      ],
                     ),
                   ),
                 ),

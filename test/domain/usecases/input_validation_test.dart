@@ -285,6 +285,9 @@ class _FakeMemoryRepository implements IMemoryRepository {
 }
 
 class _FakeTimelineRepository implements ITimelineRepository {
+  @override
+  bool get lastReadCorrupted => false;
+
   final List<String> removedIds = <String>[];
   final List<List<TimelineEventEntity>> savedBatches =
       <List<TimelineEventEntity>>[];

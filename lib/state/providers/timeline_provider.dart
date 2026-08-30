@@ -17,6 +17,11 @@ final timelineProvider =
       TimelineNotifier.new,
     );
 
+final timelinePersistenceCorruptedProvider = Provider<bool>((Ref ref) {
+  ref.watch(timelineProvider);
+  return ref.watch(domainTimelineRepositoryProvider).lastReadCorrupted;
+});
+
 final timelineOverdueProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
   return ref
       .watch(timelineProvider)
@@ -129,6 +134,22 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
   @override
   List<TimelineEventEntity> build() {
     return ref.read(getTimelineEventsUseCaseProvider).call();
+  }
+
+  void reload() {
+    state = List<TimelineEventEntity>.unmodifiable(
+      ref.read(getTimelineEventsUseCaseProvider).call(),
+    );
+  }
+
+  Future<void> preserveAndRepairCorruptedStorage() async {
+    final List<TimelineEventEntity> validEvents = ref
+        .read(getTimelineEventsUseCaseProvider)
+        .call();
+    await ref
+        .read(saveTimelineEventsUseCaseProvider)
+        .call(validEvents, allowClear: true);
+    state = List<TimelineEventEntity>.unmodifiable(validEvents);
   }
 
   Future<void> record(

@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -19,6 +20,7 @@ import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 bool _isNewUserDatabaseSaveFailure(String message) {
   final String normalized = message.toLowerCase();
@@ -471,6 +473,10 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       onForgotPassword: () => _runAuthAction(_handleForgotPassword),
       onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
       onGitHubSignIn: () => _runAuthAction(_handleGitHubSignIn),
+      onPrivacyPolicy: () =>
+          context.push(ref.read(routeSurfaceProvider).privacy),
+      onTermsOfService: () =>
+          context.push(ref.read(routeSurfaceProvider).terms),
       onMockLogin: widget.enableMockLogin
           ? () => _runAuthAction(_handleMockSignIn)
           : null,

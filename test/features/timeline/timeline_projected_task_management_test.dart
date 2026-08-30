@@ -63,6 +63,27 @@ void main() {
     tasks.complete(const <Task>[]);
   });
 
+  testWidgets('saved activity remains visible while task projections load', (
+    WidgetTester tester,
+  ) async {
+    final Completer<List<Task>> tasks = Completer<List<Task>>();
+    final ProviderContainer container = _buildContainer(
+      baseEvents: <TimelineEventEntity>[_baseEvent],
+      tasksLoader: (Ref ref) => tasks.future,
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimelineShell(tester, container);
+
+    expect(find.text(_baseEvent.title), findsOneWidget);
+    expect(
+      find.textContaining('Task projections are still loading'),
+      findsOneWidget,
+    );
+    expect(find.text('No saved activity in this view'), findsNothing);
+    tasks.complete(const <Task>[]);
+  });
+
   testWidgets('task load failure has an explicit retry and then recovers', (
     WidgetTester tester,
   ) async {
@@ -90,6 +111,83 @@ void main() {
 
     expect(find.text(_managedTask.title), findsOneWidget);
     expect(calls, 2);
+  });
+
+  testWidgets('task failure does not hide valid saved activity', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = _buildContainer(
+      baseEvents: <TimelineEventEntity>[_baseEvent],
+      tasksLoader: (Ref ref) async => throw StateError('read failed'),
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimelineShell(tester, container);
+    await tester.pump();
+
+    expect(find.text(_baseEvent.title), findsOneWidget);
+    expect(
+      find.textContaining('Task projections are unavailable'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('timeline-task-notice-retry')), findsOneWidget);
+    expect(find.text('No saved activity in this view'), findsNothing);
+  });
+
+  testWidgets('corrupt persistence is never presented as a true empty state', (
+    WidgetTester tester,
+  ) async {
+    late _TimelineNotifier timelineNotifier;
+    final ProviderContainer container = _buildContainer(
+      persistenceCorrupted: true,
+      tasksLoader: (Ref ref) async => const <Task>[],
+      onTimelineNotifierBuilt: (_TimelineNotifier value) =>
+          timelineNotifier = value,
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimelineShell(tester, container);
+    await tester.pump();
+
+    expect(
+      find.text('Saved Timeline activity could not be read'),
+      findsOneWidget,
+    );
+    expect(find.text('No saved activity in this view'), findsNothing);
+    expect(find.byKey(const Key('timeline-persistence-retry')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timeline-persistence-retry')));
+    await tester.pump();
+    expect(find.text('Repair saved Timeline activity?'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('timeline-confirm-persistence-repair')),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(timelineNotifier.persistenceRepairCalls, 1);
+  });
+
+  testWidgets('simultaneous persistence and task failures are both visible', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = _buildContainer(
+      persistenceCorrupted: true,
+      tasksLoader: (Ref ref) async => throw StateError('read failed'),
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimelineShell(tester, container);
+    await tester.pump();
+
+    expect(
+      find.text('Saved Timeline activity could not be read'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Task projections are unavailable'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('timeline-task-notice-retry')), findsOneWidget);
   });
 
   testWidgets('resolved empty sources show a truthful saved-data empty state', (
@@ -257,15 +355,25 @@ void main() {
 
 ProviderContainer _buildContainer({
   Task? task,
+  List<TimelineEventEntity> baseEvents = const <TimelineEventEntity>[],
+  bool persistenceCorrupted = false,
   Future<List<Task>> Function(Ref ref)? tasksLoader,
   Set<String> expectedTutorialTaskIds = const <String>{},
+  void Function(_TimelineNotifier value)? onTimelineNotifierBuilt,
   void Function(_RecordingTaskActions value)? onActionsBuilt,
   Completer<void>? updateCompleter,
   Object? updateError,
 }) {
   final ProviderContainer container = ProviderContainer(
     overrides: [
-      timelineProvider.overrideWith(_EmptyTimelineNotifier.new),
+      timelineProvider.overrideWith(() {
+        final _TimelineNotifier notifier = _TimelineNotifier(baseEvents);
+        onTimelineNotifierBuilt?.call(notifier);
+        return notifier;
+      }),
+      timelinePersistenceCorruptedProvider.overrideWith(
+        (Ref ref) => persistenceCorrupted,
+      ),
       goalsProvider.overrideWith(_EmptyGoalsNotifier.new),
       adaptiveGuidanceProvider.overrideWith(
         () => _ExpectedGuidanceNotifier(expectedTutorialTaskIds),
@@ -340,6 +448,14 @@ final Task _managedTask = Task(
   dueDate: DateTime.now(),
 );
 
+final TimelineEventEntity _baseEvent = TimelineEventEntity(
+  id: 'saved-activity',
+  type: TimelineEventType.reflection,
+  title: 'Saved Timeline activity',
+  detail: 'A valid local event remains visible.',
+  timestamp: DateTime.now().subtract(const Duration(hours: 1)),
+);
+
 class _RecordingTaskActions extends TaskActions {
   // The superclass positional parameter is private to its library.
   // ignore: use_super_parameters
@@ -377,9 +493,19 @@ class _EmptyGoalsNotifier extends GoalsNotifier {
   List<GoalEntity> build() => const <GoalEntity>[];
 }
 
-class _EmptyTimelineNotifier extends TimelineNotifier {
+class _TimelineNotifier extends TimelineNotifier {
+  _TimelineNotifier(this.events);
+
+  final List<TimelineEventEntity> events;
+  int persistenceRepairCalls = 0;
+
   @override
-  List<TimelineEventEntity> build() => const <TimelineEventEntity>[];
+  List<TimelineEventEntity> build() => events;
+
+  @override
+  Future<void> preserveAndRepairCorruptedStorage() async {
+    persistenceRepairCalls += 1;
+  }
 }
 
 class _ExpectedGuidanceNotifier extends AdaptiveGuidanceNotifier {

@@ -396,7 +396,7 @@ class _PersonalizationSection extends ConsumerWidget {
                 _save(context, ref, profile.copyWith(useEmotionSignals: value)),
           ),
           _NeonToggleTile(
-            title: 'Use consented Smart Planner preferences',
+            title: 'Allow saved preferences in future guidance',
             value: profile.useMemoryContext,
             onChanged: (bool value) =>
                 _save(context, ref, profile.copyWith(useMemoryContext: value)),

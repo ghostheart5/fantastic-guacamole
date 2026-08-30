@@ -272,6 +272,68 @@ void main() {
       }
     });
 
+    testWidgets(
+      'real signed-out AuthGate legal actions preserve the protected return URI',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        const String returnTo = '/timeline?day=2026-08-29#block-7';
+        final String initialLocation = Uri(
+          path: RoutePaths.login,
+          queryParameters: <String, String>{'returnTo': returnTo},
+        ).toString();
+        final _RouterHarness harness = await _pumpRealRouter(
+          tester,
+          initialLocation: initialLocation,
+          authenticated: false,
+          welcomeComplete: true,
+          onboardingComplete: true,
+        );
+        addTearDown(harness.dispose);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 900));
+
+        expect(find.byType(AuthGate), findsOneWidget);
+        final Finder dismissGuide = find.text('Start login').hitTestable();
+        if (dismissGuide.evaluate().isNotEmpty) {
+          await tester.tap(dismissGuide);
+          await tester.pump();
+        }
+        for (final ({String label, String path}) destination
+            in <({String label, String path})>[
+              (label: 'Privacy', path: RoutePaths.privacy),
+              (label: 'Terms', path: RoutePaths.terms),
+            ]) {
+          final Finder action = find
+              .byKey(
+                ValueKey<String>(
+                  destination.path == RoutePaths.privacy
+                      ? 'login-privacy-action'
+                      : 'login-terms-action',
+                ),
+              )
+              .hitTestable();
+          expect(action, findsOneWidget);
+          await tester.ensureVisible(action);
+          await tester.tap(action);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 900));
+
+          expect(harness.router.state.uri.path, destination.path);
+          expect(find.byType(WebPageView), findsOneWidget);
+          expect(harness.router.canPop(), isTrue);
+
+          harness.router.pop();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 900));
+
+          _expectUri(harness, RoutePaths.login);
+          expect(_returnTo(harness), returnTo);
+        }
+      },
+    );
+
     testWidgets('restores validated return destinations', (
       WidgetTester tester,
     ) async {

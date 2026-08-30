@@ -189,6 +189,9 @@ class _FakeLogRepository implements ILogRepository {
 
 class _FakeTimelineRepository implements ITimelineRepository {
   @override
+  bool get lastReadCorrupted => false;
+
+  @override
   Future<void> addEvent(TimelineEventEntity event) async {}
 
   @override

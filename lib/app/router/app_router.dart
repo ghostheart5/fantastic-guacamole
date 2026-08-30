@@ -221,8 +221,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Entry and primary surfaces: onboarding, Nexus, Creator, and Settings.
       GoRoute(
         path: RoutePaths.onboarding,
-        builder: (BuildContext context, GoRouterState state) =>
-            const OnboardingScreen(),
+        builder: (BuildContext context, GoRouterState state) {
+          final String? returnTo = RouteAccessPolicy.validatedReturnTo(
+            state.uri.queryParameters[RouteAccessPolicy.returnToQueryParameter],
+          );
+          return OnboardingScreen(
+            loginLocation: RouteAccessPolicy.withReturnTo(
+              RoutePaths.login,
+              returnTo,
+            ),
+            completedLocation: returnTo ?? RoutePaths.creator,
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.nexus,

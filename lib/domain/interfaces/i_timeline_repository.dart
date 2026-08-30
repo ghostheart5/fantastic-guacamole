@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 ///
 /// Bound to TimelineRepository.
 abstract class ITimelineRepository {
+  bool get lastReadCorrupted;
   List<TimelineEventEntity> getEvents();
   Future<void> addEvent(TimelineEventEntity event);
   Future<void> saveEvents(List<TimelineEventEntity> events);

@@ -4,6 +4,9 @@ import 'package:fantastic_guacamole/domain/usecases/timeline_lifecycle_usecases.
 import 'package:flutter_test/flutter_test.dart';
 
 class _TimelineRepository implements ITimelineRepository {
+  @override
+  bool get lastReadCorrupted => false;
+
   List<TimelineEventEntity> events = <TimelineEventEntity>[];
 
   @override

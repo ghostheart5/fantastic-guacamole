@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -118,6 +119,39 @@ void main() {
     );
     expect(container.read(profileProvider).name, 'Keegan');
     expect(container.read(onboardingCompleteProvider), isTrue);
+  });
+
+  testWidgets('stops decorative onboarding motion under reduced motion', (
+    WidgetTester tester,
+  ) async {
+    _setLargeTestSurface(tester);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        profileProvider.overrideWith(_TestProfileController.new),
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('onboarding-test-user'),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: true),
+            child: OnboardingScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final Lottie lottie = tester.widget<Lottie>(find.byType(Lottie).first);
+    expect(lottie.animate, isFalse);
+    expect(lottie.repeat, isFalse);
   });
 }
 

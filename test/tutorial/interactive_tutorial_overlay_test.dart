@@ -229,6 +229,175 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'disabled modal action keeps focus inside the callout without a secondary action',
+    (WidgetTester tester) async {
+      final GlobalKey targetKey = GlobalKey();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: <Widget>[
+                Center(child: SizedBox(key: targetKey, width: 80, height: 40)),
+                InteractiveTutorialOverlay(
+                  targetKey: targetKey,
+                  title: 'Waiting guide',
+                  body: 'The required action is not ready yet.',
+                  primaryLabel: 'Continue',
+                  primaryEnabled: false,
+                  onPrimary: () {},
+                  allowTargetInteraction: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'Tutorial callout scope',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('modal keyboard traversal loops through tutorial actions', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey targetKey = GlobalKey();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: <Widget>[
+              Center(child: SizedBox(key: targetKey, width: 80, height: 40)),
+              InteractiveTutorialOverlay(
+                targetKey: targetKey,
+                title: 'Closed-loop guide',
+                body: 'Keyboard focus remains inside this modal guide.',
+                primaryLabel: 'Continue',
+                secondaryLabel: 'Not now',
+                onPrimary: () {},
+                onSecondary: () {},
+                allowTargetInteraction: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'Tutorial primary action',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'Tutorial secondary action',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'Tutorial primary action',
+    );
+  });
+
+  testWidgets('dismissing the modal restores the previous keyboard focus', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey targetKey = GlobalKey();
+    final FocusNode priorFocus = FocusNode(debugLabel: 'Prior screen control');
+    final ValueNotifier<bool> showOverlay = ValueNotifier<bool>(false);
+    addTearDown(priorFocus.dispose);
+    addTearDown(showOverlay.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: showOverlay,
+            builder: (BuildContext context, bool visible, Widget? child) =>
+                Stack(
+                  children: <Widget>[
+                    TextField(
+                      focusNode: priorFocus,
+                      decoration: const InputDecoration(labelText: 'Before'),
+                    ),
+                    Center(
+                      child: SizedBox(key: targetKey, width: 80, height: 40),
+                    ),
+                    if (visible)
+                      InteractiveTutorialOverlay(
+                        targetKey: targetKey,
+                        title: 'Temporary guide',
+                        body: 'Focus returns when this guide closes.',
+                        primaryLabel: 'Continue',
+                        onPrimary: () {},
+                        allowTargetInteraction: false,
+                      ),
+                  ],
+                ),
+          ),
+        ),
+      ),
+    );
+    priorFocus.requestFocus();
+    await tester.pump();
+    expect(priorFocus.hasFocus, isTrue);
+
+    showOverlay.value = true;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(priorFocus.hasFocus, isFalse);
+
+    showOverlay.value = false;
+    await tester.pump();
+    expect(priorFocus.hasFocus, isTrue);
+  });
+
+  testWidgets('accessible navigation stops decorative pointer motion', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey targetKey = GlobalKey();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (BuildContext context, Widget? child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(accessibleNavigation: true),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: Stack(
+            children: <Widget>[
+              Center(child: SizedBox(key: targetKey, width: 80, height: 40)),
+              InteractiveTutorialOverlay(
+                targetKey: targetKey,
+                title: 'Calm guide',
+                body: 'Decorative motion respects accessibility settings.',
+                primaryLabel: 'Continue',
+                onPrimary: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(tester.hasRunningAnimations, isFalse);
+  });
+
   testWidgets('spotlight keeps the real target and guide action interactive', (
     WidgetTester tester,
   ) async {

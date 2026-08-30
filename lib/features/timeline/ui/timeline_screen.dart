@@ -27,6 +27,8 @@ enum _TimelineFilter {
   recommendations,
 }
 
+enum _TimelineSourceIssue { persistence, taskLoading, taskError }
+
 class TimelineScreen extends ConsumerStatefulWidget {
   const TimelineScreen({super.key});
 
@@ -40,7 +42,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   String _query = '';
   bool _refineExpanded = false;
   late final TextEditingController _searchController;
-  AsyncValue<List<Task>> _tasksState = const AsyncData<List<Task>>(<Task>[]);
+  AsyncValue<List<Task>> _tasksState = const AsyncLoading<List<Task>>();
   ProviderSubscription<AsyncValue<List<Task>>>? _tasksSubscription;
   List<TimelineEventEntity>? _cachedCombined;
   int? _cachedCombinedKey;
@@ -74,6 +76,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   @override
   Widget build(BuildContext context) {
     final List<TimelineEventEntity> baseEvents = ref.watch(timelineProvider);
+    final bool timelinePersistenceCorrupted = ref.watch(
+      timelinePersistenceCorruptedProvider,
+    );
     final List<GoalEntity> goals = ref.watch(goalsProvider);
     final Set<String> expectedTutorialTaskIds =
         ref
@@ -85,6 +90,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final List<Task> tasks = _tasksState.asData?.value ?? const <Task>[];
     final bool tasksLoading = _tasksState is AsyncLoading<List<Task>>;
     final Object? tasksError = _tasksState.hasError ? _tasksState.error : null;
+    final List<_TimelineSourceIssue> sourceIssues = <_TimelineSourceIssue>[
+      if (timelinePersistenceCorrupted) _TimelineSourceIssue.persistence,
+      if (tasksError != null)
+        _TimelineSourceIssue.taskError
+      else if (tasksLoading)
+        _TimelineSourceIssue.taskLoading,
+    ];
     final DateTime now = DateTime.now();
 
     final int combinedKey = Object.hash(
@@ -249,15 +261,53 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
-              if (tasksLoading)
+              if ((filtered.isNotEmpty ? sourceIssues : sourceIssues.skip(1))
+                  .isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: Column(
+                      children:
+                          (filtered.isNotEmpty
+                                  ? sourceIssues
+                                  : sourceIssues.skip(1))
+                              .map(
+                                (_TimelineSourceIssue issue) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: _TimelineSourceNotice(
+                                    issue: issue,
+                                    onRetry: switch (issue) {
+                                      _TimelineSourceIssue.persistence =>
+                                        _repairTimelinePersistence,
+                                      _TimelineSourceIssue.taskError =>
+                                        _retryTaskSource,
+                                      _TimelineSourceIssue.taskLoading => null,
+                                    },
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
+                    ),
+                  ),
+                ),
+              if (timelinePersistenceCorrupted && filtered.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _TimelineSourceState.persistenceError(
+                    onRetry: _repairTimelinePersistence,
+                  ),
+                )
+              else if (tasksLoading && filtered.isEmpty)
                 const SliverFillRemaining(
                   hasScrollBody: false,
                   child: _TimelineSourceState.loading(),
                 )
-              else if (tasksError != null)
+              else if (tasksError != null && filtered.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
-                  child: _TimelineSourceState.error(onRetry: _retryTaskSource),
+                  child: _TimelineSourceState.taskError(
+                    onRetry: _retryTaskSource,
+                  ),
                 )
               else if (filtered.isEmpty)
                 SliverFillRemaining(
@@ -314,6 +364,56 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       _cachedCombined = null;
     });
     ref.invalidate(tasksProvider);
+  }
+
+  Future<void> _repairTimelinePersistence() async {
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: const Text('Repair saved Timeline activity?'),
+            content: const Text(
+              'ChronoSpark will preserve the original unreadable data first, '
+              'then keep every valid activity record it can read.',
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('timeline-confirm-persistence-repair'),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Preserve and repair'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+    try {
+      _cachedCombined = null;
+      await ref
+          .read(timelineProvider.notifier)
+          .preserveAndRepairCorruptedStorage();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Timeline activity repaired. The original unreadable data was preserved.',
+          ),
+        ),
+      );
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Timeline activity was not changed because its recovery copy could not be preserved.',
+          ),
+        ),
+      );
+    }
   }
 }
 
@@ -1487,10 +1587,34 @@ class _TimelineEmptyState extends StatelessWidget {
 }
 
 class _TimelineSourceState extends StatelessWidget {
-  const _TimelineSourceState.loading() : onRetry = null;
+  const _TimelineSourceState.loading()
+    : title = 'Loading your Timeline',
+      detail = 'Checking saved tasks before showing your chronology.',
+      semanticsLabel = 'Loading saved Timeline activity.',
+      retryLabel = null,
+      retryKey = null,
+      onRetry = null;
 
-  const _TimelineSourceState.error({required this.onRetry});
+  const _TimelineSourceState.taskError({required this.onRetry})
+    : title = 'Timeline tasks could not be loaded',
+      detail = 'Nothing has been labeled empty. Retry the saved-task source.',
+      semanticsLabel = 'Timeline tasks could not be loaded.',
+      retryLabel = 'Retry loading tasks',
+      retryKey = const Key('timeline-task-source-retry');
 
+  const _TimelineSourceState.persistenceError({required this.onRetry})
+    : title = 'Saved Timeline activity could not be read',
+      detail =
+          'Your stored data was not erased. Preserve the original before repairing the active Timeline.',
+      semanticsLabel = 'Saved Timeline activity could not be read.',
+      retryLabel = 'Preserve and repair Timeline',
+      retryKey = const Key('timeline-persistence-retry');
+
+  final String title;
+  final String detail;
+  final String semanticsLabel;
+  final String? retryLabel;
+  final Key? retryKey;
   final VoidCallback? onRetry;
 
   @override
@@ -1501,9 +1625,7 @@ class _TimelineSourceState extends StatelessWidget {
         padding: const EdgeInsets.all(32),
         child: Semantics(
           liveRegion: true,
-          label: failed
-              ? 'Timeline tasks could not be loaded.'
-              : 'Loading saved Timeline activity.',
+          label: semanticsLabel,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -1517,9 +1639,7 @@ class _TimelineSourceState extends StatelessWidget {
                 const CircularProgressIndicator(),
               const SizedBox(height: 16),
               Text(
-                failed
-                    ? 'Timeline tasks could not be loaded'
-                    : 'Loading your Timeline',
+                title,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
@@ -1529,9 +1649,7 @@ class _TimelineSourceState extends StatelessWidget {
               ),
               const SizedBox(height: 7),
               Text(
-                failed
-                    ? 'Nothing has been labeled empty. Retry the saved-task source.'
-                    : 'Checking saved tasks before showing your chronology.',
+                detail,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Color(0xFF93A0BA),
@@ -1542,14 +1660,95 @@ class _TimelineSourceState extends StatelessWidget {
               if (failed) ...<Widget>[
                 const SizedBox(height: 16),
                 FilledButton.icon(
-                  key: const Key('timeline-task-source-retry'),
+                  key: retryKey,
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Retry loading tasks'),
+                  label: Text(retryLabel!),
                 ),
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineSourceNotice extends StatelessWidget {
+  const _TimelineSourceNotice({required this.issue, required this.onRetry});
+
+  final _TimelineSourceIssue issue;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final ({IconData icon, Color color, String text, String semantics})
+    content = switch (issue) {
+      _TimelineSourceIssue.persistence => (
+        icon: Icons.inventory_2_outlined,
+        color: AppColors.recallRed,
+        text:
+            'Some saved Timeline activity could not be read. Valid activity is shown; preserve the original before repairing it.',
+        semantics:
+            'Some saved Timeline activity could not be read. Valid activity is shown. Preserve the original before repairing it.',
+      ),
+      _TimelineSourceIssue.taskError => (
+        icon: Icons.sync_problem_rounded,
+        color: AppColors.recallRed,
+        text:
+            'Task projections are unavailable. Saved Timeline activity is still shown.',
+        semantics:
+            'Task projections are unavailable. Saved Timeline activity is still shown.',
+      ),
+      _TimelineSourceIssue.taskLoading => (
+        icon: Icons.hourglass_top_rounded,
+        color: AppColors.neonCyan,
+        text:
+            'Task projections are still loading. Saved Timeline activity is shown below.',
+        semantics:
+            'Task projections are still loading. Saved Timeline activity is shown below.',
+      ),
+    };
+    return Semantics(
+      liveRegion: true,
+      label: content.semantics,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF08131F).withValues(alpha: 0.94),
+          border: Border.all(color: content.color.withValues(alpha: 0.55)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(content.icon, color: content.color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                content.text,
+                style: const TextStyle(
+                  color: Color(0xFFD8E1EF),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            if (onRetry != null) ...<Widget>[
+              const SizedBox(width: 8),
+              IconButton(
+                key: Key(
+                  issue == _TimelineSourceIssue.persistence
+                      ? 'timeline-persistence-notice-retry'
+                      : 'timeline-task-notice-retry',
+                ),
+                tooltip: issue == _TimelineSourceIssue.persistence
+                    ? 'Preserve and repair Timeline source'
+                    : 'Retry source',
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ],
         ),
       ),
     );
