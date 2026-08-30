@@ -10,6 +10,7 @@ void main() {
     PersonContextSource source = PersonContextSource.userAuthored,
     PersonContextConsent consent = PersonContextConsent.granted,
     DateTime? consentedAt,
+    DateTime? withdrawnAt,
     DateTime? freshUntil,
     DateTime? expiresAt,
     Set<PersonContextSurface> surfaces = const <PersonContextSurface>{
@@ -22,6 +23,7 @@ void main() {
     source: source,
     consent: consent,
     consentedAt: consentedAt ?? now,
+    withdrawnAt: withdrawnAt,
     purpose: PersonContextPurpose.decisionSupport,
     surfaceScopes: surfaces,
     recordedAt: now,
@@ -40,7 +42,7 @@ void main() {
         signal(
           id: 'signal-2',
           consent: PersonContextConsent.withdrawn,
-          consentedAt: null,
+          withdrawnAt: now,
         ).corrected(
           value: 'Still hidden',
           correctedAt: now,
@@ -51,12 +53,22 @@ void main() {
       ],
     );
 
-    final PersonContextView planner = spine.forSurface(
-      PersonContextSurface.smartPlanner,
+    final PersonContextView planner = spine.forAccess(
+      PersonContextAccessRequest(
+        surface: PersonContextSurface.smartPlanner,
+        purposes: const <PersonContextPurpose>{
+          PersonContextPurpose.decisionSupport,
+        },
+      ),
       now,
     );
-    final PersonContextView nexus = spine.forSurface(
-      PersonContextSurface.nexus,
+    final PersonContextView nexus = spine.forAccess(
+      PersonContextAccessRequest(
+        surface: PersonContextSurface.nexus,
+        purposes: const <PersonContextPurpose>{
+          PersonContextPurpose.decisionSupport,
+        },
+      ),
       now,
     );
 
@@ -97,6 +109,104 @@ void main() {
     );
   });
 
+  test('withdrawal is timestamped and remains unavailable', () {
+    expect(
+      () => signal(consent: PersonContextConsent.withdrawn),
+      throwsStateError,
+    );
+    final PersonContextSignal withdrawn = signal(
+      consent: PersonContextConsent.withdrawn,
+      withdrawnAt: now.add(const Duration(minutes: 1)),
+    );
+    final PersonContextSignal restored = PersonContextSignal.fromJson(
+      withdrawn.toJson(),
+    );
+
+    expect(restored.withdrawnAt, now.add(const Duration(minutes: 1)));
+    expect(
+      restored.isAvailableTo(
+        PersonContextSurface.smartPlanner,
+        now.add(const Duration(minutes: 2)),
+      ),
+      isFalse,
+    );
+  });
+
+  test('consent withdrawal cannot be backdated', () {
+    final PersonContextSignal active = signal();
+    expect(
+      () => active.withdrawConsent(now.subtract(const Duration(seconds: 1))),
+      throwsArgumentError,
+    );
+
+    final PersonContextSignal withdrawn = active.withdrawConsent(
+      now.add(const Duration(minutes: 1)),
+    );
+    expect(withdrawn.consent, PersonContextConsent.withdrawn);
+    expect(withdrawn.withdrawnAt, now.add(const Duration(minutes: 1)));
+  });
+
+  test('projection enforces the requesting purpose', () {
+    final PersonContextSpine spine = PersonContextSpine(
+      accountScopeId: 'v2.account',
+      updatedAt: now,
+      signals: <PersonContextSignal>[signal()],
+    );
+    final PersonContextView reflection = spine.forAccess(
+      PersonContextAccessRequest(
+        surface: PersonContextSurface.smartPlanner,
+        purposes: const <PersonContextPurpose>{PersonContextPurpose.reflection},
+      ),
+      now,
+    );
+
+    expect(reflection.signals, isEmpty);
+    expect(reflection.unknownKinds, contains(PersonContextKind.value));
+  });
+
+  test('purpose and behavioral surface compatibility is enforced', () {
+    expect(
+      () => PersonContextSignal(
+        id: 'administrative-scope',
+        kind: PersonContextKind.value,
+        value: 'Family',
+        source: PersonContextSource.userAuthored,
+        consent: PersonContextConsent.granted,
+        consentedAt: now,
+        purpose: PersonContextPurpose.decisionSupport,
+        surfaceScopes: const <PersonContextSurface>{
+          PersonContextSurface.settings,
+        },
+        recordedAt: now,
+        freshUntil: now.add(const Duration(days: 1)),
+        expiresAt: now.add(const Duration(days: 2)),
+        exportBehavior: PersonContextExportBehavior.include,
+        deletionBehavior: PersonContextDeletionBehavior.userRemovable,
+      ),
+      throwsStateError,
+    );
+    expect(
+      () => PersonContextSignal(
+        id: 'wrong-reflection-scope',
+        kind: PersonContextKind.value,
+        value: 'Reflect later',
+        source: PersonContextSource.userAuthored,
+        consent: PersonContextConsent.granted,
+        consentedAt: now,
+        purpose: PersonContextPurpose.reflection,
+        surfaceScopes: const <PersonContextSurface>{
+          PersonContextSurface.smartPlanner,
+        },
+        recordedAt: now,
+        freshUntil: now.add(const Duration(days: 1)),
+        expiresAt: now.add(const Duration(days: 2)),
+        exportBehavior: PersonContextExportBehavior.include,
+        deletionBehavior: PersonContextDeletionBehavior.userRemovable,
+      ),
+      throwsStateError,
+    );
+  });
+
   test('correction history is reviewable and bounded', () {
     PersonContextSignal current = signal();
     for (int index = 0; index < 25; index += 1) {
@@ -115,6 +225,19 @@ void main() {
     );
     expect(current.corrections.first.previousValue, 'Value 4');
     expect(current.source, PersonContextSource.userAuthored);
+  });
+
+  test('corrections cannot predate the value they replace', () {
+    expect(
+      () => signal().corrected(
+        value: 'Updated value',
+        correctedAt: now.subtract(const Duration(seconds: 1)),
+        reason: 'User correction',
+        freshUntil: now.add(const Duration(days: 1)),
+        expiresAt: now.add(const Duration(days: 2)),
+      ),
+      throwsArgumentError,
+    );
   });
 
   test('strict schema round-trips governance metadata', () {

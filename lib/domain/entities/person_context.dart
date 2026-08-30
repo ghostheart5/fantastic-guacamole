@@ -23,6 +23,35 @@ enum PersonContextPurpose {
   outcomeLearning,
 }
 
+const Set<PersonContextPurpose> operationalPersonContextPurposes =
+    <PersonContextPurpose>{
+      PersonContextPurpose.planningGuidance,
+      PersonContextPurpose.decisionSupport,
+    };
+
+const Set<PersonContextSurface> operationalPersonContextSurfaces =
+    <PersonContextSurface>{
+      PersonContextSurface.smartPlanner,
+      PersonContextSurface.siConsole,
+      PersonContextSurface.nexus,
+      PersonContextSurface.trajectory,
+      PersonContextSurface.creator,
+    };
+
+Set<PersonContextSurface> allowedPersonContextSurfacesFor(
+  PersonContextPurpose purpose,
+) => switch (purpose) {
+  PersonContextPurpose.planningGuidance ||
+  PersonContextPurpose.decisionSupport => operationalPersonContextSurfaces,
+  PersonContextPurpose.reflection => const <PersonContextSurface>{
+    PersonContextSurface.siConsole,
+  },
+  PersonContextPurpose.outcomeLearning => const <PersonContextSurface>{
+    PersonContextSurface.nexus,
+    PersonContextSurface.trajectory,
+  },
+};
+
 enum PersonContextSurface {
   smartPlanner,
   siConsole,
@@ -88,6 +117,7 @@ final class PersonContextSignal {
     required this.exportBehavior,
     required this.deletionBehavior,
     this.consentedAt,
+    this.withdrawnAt,
     this.knowledge = PersonContextKnowledge.known,
     List<PersonContextCorrection> corrections =
         const <PersonContextCorrection>[],
@@ -106,6 +136,7 @@ final class PersonContextSignal {
   final PersonContextSource source;
   final PersonContextConsent consent;
   final DateTime? consentedAt;
+  final DateTime? withdrawnAt;
   final PersonContextPurpose purpose;
   final Set<PersonContextSurface> surfaceScopes;
   final DateTime recordedAt;
@@ -126,7 +157,7 @@ final class PersonContextSignal {
         !reference.isBefore(consented) &&
         surfaceScopes.contains(surface) &&
         !reference.isBefore(recordedAt.toUtc()) &&
-        !reference.isAfter(freshUntil.toUtc()) &&
+        reference.isBefore(freshUntil.toUtc()) &&
         reference.isBefore(expiresAt.toUtc());
   }
 
@@ -136,11 +167,15 @@ final class PersonContextSignal {
     required String reason,
     required DateTime freshUntil,
     required DateTime expiresAt,
+    Set<PersonContextSurface>? surfaceScopes,
   }) {
     final String normalized = value.trim();
     final String normalizedReason = reason.trim();
     if (normalized.isEmpty || normalizedReason.isEmpty) {
       throw ArgumentError('A correction requires a value and reason.');
+    }
+    if (correctedAt.toUtc().isBefore(recordedAt.toUtc())) {
+      throw ArgumentError('A correction cannot predate the current value.');
     }
     final List<PersonContextCorrection> history = <PersonContextCorrection>[
       ...corrections,
@@ -157,8 +192,9 @@ final class PersonContextSignal {
       source: PersonContextSource.userAuthored,
       consent: consent,
       consentedAt: consentedAt,
+      withdrawnAt: withdrawnAt,
       purpose: purpose,
-      surfaceScopes: surfaceScopes,
+      surfaceScopes: surfaceScopes ?? this.surfaceScopes,
       recordedAt: correctedAt.toUtc(),
       freshUntil: freshUntil.toUtc(),
       expiresAt: expiresAt.toUtc(),
@@ -168,6 +204,34 @@ final class PersonContextSignal {
       exportBehavior: exportBehavior,
       deletionBehavior: deletionBehavior,
       knowledge: PersonContextKnowledge.known,
+    );
+  }
+
+  PersonContextSignal withdrawConsent(DateTime withdrawnAt) {
+    if (consent == PersonContextConsent.withdrawn) return this;
+    final DateTime timestamp = withdrawnAt.toUtc();
+    final DateTime consentTimestamp = consentedAt!.toUtc();
+    if (timestamp.isBefore(consentTimestamp) ||
+        timestamp.isBefore(recordedAt.toUtc())) {
+      throw ArgumentError('Consent withdrawal cannot be backdated.');
+    }
+    return PersonContextSignal(
+      id: id,
+      kind: kind,
+      value: value,
+      source: source,
+      consent: PersonContextConsent.withdrawn,
+      consentedAt: consentedAt,
+      withdrawnAt: timestamp,
+      purpose: purpose,
+      surfaceScopes: surfaceScopes,
+      recordedAt: recordedAt,
+      freshUntil: freshUntil,
+      expiresAt: expiresAt,
+      corrections: corrections,
+      exportBehavior: exportBehavior,
+      deletionBehavior: deletionBehavior,
+      knowledge: knowledge,
     );
   }
 
@@ -192,8 +256,21 @@ final class PersonContextSignal {
     if (surfaceScopes.isEmpty) {
       throw StateError('Person context requires at least one surface scope.');
     }
+    final Set<PersonContextSurface> allowedSurfaces =
+        allowedPersonContextSurfacesFor(purpose);
+    if (!allowedSurfaces.containsAll(surfaceScopes)) {
+      throw StateError(
+        'Person context purpose is incompatible with its surface scope.',
+      );
+    }
     if (consent == PersonContextConsent.granted && consentedAt == null) {
       throw StateError('Granted person context requires a consent timestamp.');
+    }
+    if (consent == PersonContextConsent.granted && withdrawnAt != null) {
+      throw StateError('Granted person context cannot have a withdrawal time.');
+    }
+    if (consent == PersonContextConsent.withdrawn && withdrawnAt == null) {
+      throw StateError('Withdrawn person context requires a withdrawal time.');
     }
     final DateTime recorded = recordedAt.toUtc();
     final DateTime fresh = freshUntil.toUtc();
@@ -204,6 +281,11 @@ final class PersonContextSignal {
     final DateTime? consented = consentedAt?.toUtc();
     if (consented != null && consented.isAfter(expiry)) {
       throw StateError('Person context consent cannot follow its expiry.');
+    }
+    final DateTime? withdrawn = withdrawnAt?.toUtc();
+    if (withdrawn != null &&
+        (consented == null || withdrawn.isBefore(consented))) {
+      throw StateError('Person context withdrawal precedes consent.');
     }
     if (expiry.difference(recorded) > const Duration(days: 366)) {
       throw StateError('Person context must be reviewed within one year.');
@@ -243,6 +325,7 @@ final class PersonContextSignal {
     'source': source.name,
     'consent': consent.name,
     'consentedAt': consentedAt?.toUtc().toIso8601String(),
+    'withdrawnAt': withdrawnAt?.toUtc().toIso8601String(),
     'purpose': purpose.name,
     'surfaceScopes': surfaceScopes.map((value) => value.name).toList()..sort(),
     'recordedAt': recordedAt.toUtc().toIso8601String(),
@@ -266,6 +349,7 @@ final class PersonContextSignal {
       source: _requiredEnum(json, 'source', PersonContextSource.values),
       consent: _requiredEnum(json, 'consent', PersonContextConsent.values),
       consentedAt: _optionalDate(json, 'consentedAt'),
+      withdrawnAt: _optionalDate(json, 'withdrawnAt'),
       purpose: _requiredEnum(json, 'purpose', PersonContextPurpose.values),
       surfaceScopes: rawScopes
           .map(
@@ -328,16 +412,24 @@ final class PersonContextSpine {
     );
   }
 
-  PersonContextView forSurface(PersonContextSurface surface, DateTime now) {
+  PersonContextView forAccess(
+    PersonContextAccessRequest request,
+    DateTime now,
+  ) {
     final List<PersonContextSignal> available = signals
-        .where((signal) => signal.isAvailableTo(surface, now))
+        .where(
+          (signal) =>
+              request.purposes.contains(signal.purpose) &&
+              signal.isAvailableTo(request.surface, now),
+        )
         .toList(growable: false);
     final Set<PersonContextKind> knownKinds = available
         .map((signal) => signal.kind)
         .toSet();
     return PersonContextView(
       accountScopeId: accountScopeId,
-      surface: surface,
+      surface: request.surface,
+      purposes: request.purposes,
       observedAt: now.toUtc(),
       signals: available,
       unknownKinds: PersonContextKind.values.toSet().difference(knownKinds),
@@ -357,7 +449,10 @@ final class PersonContextSpine {
     'signals': signals
         .where(
           (signal) =>
-              signal.exportBehavior == PersonContextExportBehavior.include,
+              signal.exportBehavior == PersonContextExportBehavior.include &&
+              !(signal.deletionBehavior ==
+                      PersonContextDeletionBehavior.expiresAutomatically &&
+                  !exportedAt.toUtc().isBefore(signal.expiresAt.toUtc())),
         )
         .map((signal) => signal.toJson())
         .toList(),
@@ -404,19 +499,58 @@ final class PersonContextView {
   PersonContextView({
     required this.accountScopeId,
     required this.surface,
+    required Set<PersonContextPurpose> purposes,
     required this.observedAt,
     required List<PersonContextSignal> signals,
     required Set<PersonContextKind> unknownKinds,
   }) : signals = List<PersonContextSignal>.unmodifiable(signals),
+       purposes = Set<PersonContextPurpose>.unmodifiable(purposes),
        unknownKinds = Set<PersonContextKind>.unmodifiable(unknownKinds);
 
   final String accountScopeId;
   final PersonContextSurface surface;
+  final Set<PersonContextPurpose> purposes;
   final DateTime observedAt;
   final List<PersonContextSignal> signals;
   final Set<PersonContextKind> unknownKinds;
 
   bool get isEmpty => signals.isEmpty;
+}
+
+final class PersonContextAccessRequest {
+  PersonContextAccessRequest({
+    required this.surface,
+    required Set<PersonContextPurpose> purposes,
+  }) : purposes = Set<PersonContextPurpose>.unmodifiable(purposes),
+       _purposeMask = purposes.fold<int>(
+         0,
+         (int mask, PersonContextPurpose value) => mask | (1 << value.index),
+       ) {
+    if (purposes.isEmpty) {
+      throw ArgumentError('Person context access requires a purpose.');
+    }
+  }
+
+  final PersonContextSurface surface;
+  final Set<PersonContextPurpose> purposes;
+  final int _purposeMask;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PersonContextAccessRequest &&
+      other.surface == surface &&
+      other._purposeMask == _purposeMask;
+
+  @override
+  int get hashCode => Object.hash(surface, _purposeMask);
+}
+
+final class PersonContextCorruptionException implements Exception {
+  const PersonContextCorruptionException();
+
+  @override
+  String toString() =>
+      'Person context is unavailable because its recoverable data is corrupt.';
 }
 
 Never _invalid(String field) =>

@@ -57,16 +57,17 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       await _send(tester, 'What should I do now?');
-      await _pumpUntilFound(tester, find.byKey(const Key('si-v2-response')));
-
       await _send(tester, 'What should I do now, exactly?');
-      await _pumpUntilFound(tester, find.byKey(const Key('si-v2-response')));
 
       expect(port.queries, hasLength(2));
+      expect(port.responses, hasLength(2));
       expect(port.queries[0].rawText, 'What should I do now?');
       expect(port.queries[1].rawText, 'What should I do now, exactly?');
       expect(port.queries[1].priorUserTurns, contains('What should I do now?'));
-      expect(find.byKey(const Key('si-v2-response')), findsOneWidget);
+      for (final SIV2Response response in port.responses) {
+        expect(response.validate, returnsNormally);
+        expect(response.evidenceLinks, isNotEmpty);
+      }
 
       final SIV2Response malformed = await port.analyze(
         SIV2Query(
@@ -94,38 +95,24 @@ Future<void> _send(WidgetTester tester, String value) async {
   await tester.pump(const Duration(milliseconds: 300));
 }
 
-Future<void> _pumpUntilFound(
-  WidgetTester tester,
-  Finder finder, {
-  int expectedCount = 1,
-  Duration timeout = const Duration(seconds: 8),
-  Duration step = const Duration(milliseconds: 100),
-}) async {
-  final DateTime endAt = DateTime.now().add(timeout);
-  while (DateTime.now().isBefore(endAt)) {
-    await tester.pump(step);
-    if (finder.evaluate().length == expectedCount) {
-      return;
-    }
-  }
-  expect(finder, findsNWidgets(expectedCount));
-}
-
 final class _RecordingSIV2Port implements SIV2QueryPort {
   _RecordingSIV2Port({required this.snapshot, required this.now});
 
   final SIV2EvidenceSnapshot snapshot;
   final DateTime now;
   final List<SIV2Query> queries = <SIV2Query>[];
+  final List<SIV2Response> responses = <SIV2Response>[];
 
   @override
   Future<SIV2Response> analyze(SIV2Query query) async {
     queries.add(query);
-    return const SIV2Engine().analyze(
+    final SIV2Response response = const SIV2Engine().analyze(
       query: query,
       snapshot: snapshot,
       now: now,
     );
+    responses.add(response);
+    return response;
   }
 }
 

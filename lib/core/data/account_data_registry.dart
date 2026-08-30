@@ -109,6 +109,15 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     storage: 'Sensitive preferences timeline store',
   ),
   AccountDataDomain(
+    id: 'person_context',
+    label: 'Person context',
+    owner: 'User-controlled intelligence context',
+    backupStatus: AccountDataBackupStatus.localOnly,
+    storage: 'Account-scoped platform secure storage',
+    notes:
+        'Excluded from backup and cloud sync until a merge-safe contract exists.',
+  ),
+  AccountDataDomain(
     id: 'notes',
     label: 'Creator notes',
     owner: 'Creator',

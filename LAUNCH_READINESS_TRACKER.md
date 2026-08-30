@@ -46,6 +46,17 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 - Remaining Phase 2 scope: migrate the remaining global local stores to exact per-account namespaces under a fault-injected migration; prove scalable Storage deletion and lifecycle behavior against a real backend; validate exact-session/nonce/AAL reauthentication for password, Google, and GitHub; and obtain qualified legal review. These changes must not be inferred from host tests or enabled behind containment.
 - Rollback: revert only the affected local Phase 2 commit. Do not apply or revert the database migration against a live project without a separate production change plan and approval.
 
+## Phase 3 Checkpoint - Governed Person Context
+
+- Status: `COMPLETE_LOCAL`; launch verdict remains `NO-GO - NOT READY`.
+- Scope: one account-scoped Person Context spine for user-authored roles, values, priorities, life areas, present capacity, support style, boundaries, important relationships, commitments, and confirmed outcome history. Every signal carries source, consent and withdrawal timestamps, purpose, surface scope, freshness, expiry, correction history, export behavior, deletion behavior, and explicit known/unknown state.
+- User control: Settings provides explicit opt-in with exact text and selected surfaces, separate About you and Right now summaries, review, correction with reason, timestamped consent withdrawal, export, single deletion, and delete-all. Signed-out, corrupt, and unavailable states are disclosed and never represented as valid empty context.
+- Intelligence binding: Smart Planner uses eligible operational context to change bounded, grounded guidance. Nexus and Trajectory attach the same purpose-limited projection as explicit evidence only and state that it does not change ranking or projection calculations. Creator displays every exact item bound to confirmation, states that it did not alter the proposed task, rechecks the binding after asynchronous reads and immediately before mutation, and fails stale if it changes. SI V2 visibly distinguishes unavailable, valid-empty, and present Person Context; present context is revision and safety provenance only, not used to construct answers or exposed as answer evidence. Expired, stale, withdrawn, wrong-purpose, wrong-surface, and wrong-account signals are excluded.
+- Storage boundary: repository operations are serialized with account cleanup, bound to the current account-session generation, corruption is preserved and surfaced, automatic-expiry records are physically purged, and competing repository instances cannot lose signals. Person Context is explicitly local-only and excluded from backup/sync until a merge-safe contract exists.
+- Local verification: fatal analyzer, 101 focused Phase 3 tests, and the 1,776-test full Flutter suite with one expected QA-only skip passed. Formatting across 973 files, architecture, both secret guards, release, version, 11 workflow, 16 Maestro, and the 29-test Edge Function gate also passed. An independent read-only review found no remaining Critical or High Phase 3 blocker.
+- Evidence boundary: host source and automated-test evidence only. Android/device accessibility and visual QA, real multi-device behavior, deployed backend behavior, backup-key recovery, signed artifact verification, public configuration, Spanish coverage, and human UAT remain unverified. Person Context does not make ChronoSpark a whole-person or synthetic-emotional-intelligence system.
+- Rollback: revert the Phase 3 checkpoint only. Do not enable cloud sync/restore, external AI, subscriptions, production telemetry, or release as a rollback side effect.
+
 ## Findings
 
 | ID | Severity | Finding | Phase | Status | Feature state | Repair commit | Evidence |
@@ -58,6 +69,7 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 | P0-06 | P0 | External generative AI is dormant and unsafe to expose | 0/7 | PASS | external model calls and credit spending disabled | `68bc277` | Chat agent, controller, wallet, and settings tests |
 | P0-07 | P0 | Crisis and distress routing is too brittle for emotional claims | 7 | NOT_RUN | external AI remains disabled | | Audit P0-7 |
 | P0-08 | P0 | Exact candidate lacks complete app CI and device evidence | 10 | NOT_RUN | release blocked | | Audit P0-8 |
+| HUMAN-00 | P0 | Intelligence surfaces lack one consented, freshness-aware person-context source | 3 | PASS | local-only governed context is available to Planner, SI V2, Nexus, Trajectory, Creator, and Settings; cloud use remains disabled | Phase 3 checkpoint | 101 focused tests, 1,776-test full host suite, analyzer and guards; device and production evidence remain open |
 | BILL-01 | P1 | Purchase lineage and lifecycle ordering have authority edge cases | 8 | NOT_RUN | paywall disabled | | Audit P1 |
 | DOMAIN-01 | P1 | Whole-person concepts collapse into tasks | 4 | NOT_RUN | task-only containment | | Major findings |
 | PLAN-01 | P1 | Planner cannot apply guidance and can choose unrelated evidence | 5 | NOT_RUN | deterministic only | | Major findings |

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
@@ -14,6 +15,7 @@ import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +27,7 @@ void main() {
     _MemoryTaskRepository? tasks,
     _MemoryGoalRepository? goals,
     bool emotionConsent = true,
+    PersonContextView? personContext,
   }) => ProviderContainer(
     overrides: [
       assistantReleaseConfigProvider.overrideWith(
@@ -50,8 +53,58 @@ void main() {
             ? _ConsentedPersonalizationController.new
             : _RevokedPersonalizationController.new,
       ),
+      personContextForSurfaceProvider(
+        PersonContextAccessRequest(
+          surface: PersonContextSurface.smartPlanner,
+          purposes: operationalPersonContextPurposes,
+        ),
+      ).overrideWithValue(personContext),
     ],
   );
+
+  PersonContextSignal contextSignal({
+    required String id,
+    required PersonContextKind kind,
+    required String value,
+    PersonContextConsent consent = PersonContextConsent.granted,
+    PersonContextKnowledge knowledge = PersonContextKnowledge.known,
+    PersonContextPurpose purpose = PersonContextPurpose.planningGuidance,
+    DateTime? freshUntil,
+  }) => PersonContextSignal(
+    id: id,
+    kind: kind,
+    value: value,
+    source: PersonContextSource.userAuthored,
+    consent: consent,
+    consentedAt: consent == PersonContextConsent.granted
+        ? DateTime.utc(2026, 8, 29, 16)
+        : DateTime.utc(2026, 8, 29, 15),
+    withdrawnAt: consent == PersonContextConsent.withdrawn
+        ? DateTime.utc(2026, 8, 29, 17)
+        : null,
+    purpose: purpose,
+    surfaceScopes: const <PersonContextSurface>{
+      PersonContextSurface.smartPlanner,
+    },
+    recordedAt: DateTime.utc(2026, 8, 29, 16),
+    freshUntil: freshUntil ?? DateTime.utc(2026, 8, 30, 16),
+    expiresAt: DateTime.utc(2026, 9, 30, 16),
+    exportBehavior: PersonContextExportBehavior.include,
+    deletionBehavior: PersonContextDeletionBehavior.userRemovable,
+    knowledge: knowledge,
+  );
+
+  PersonContextView contextView(List<PersonContextSignal> signals) =>
+      PersonContextView(
+        accountScopeId: 'v2.test-account',
+        surface: PersonContextSurface.smartPlanner,
+        purposes: operationalPersonContextPurposes,
+        observedAt: DateTime.utc(2026, 8, 29, 18),
+        signals: signals,
+        unknownKinds: PersonContextKind.values.toSet().difference(
+          signals.map((PersonContextSignal signal) => signal.kind).toSet(),
+        ),
+      );
 
   test('Planner V2 returns the complete typed response contract', () async {
     final ProviderContainer container = plannerContainer();
@@ -100,6 +153,164 @@ void main() {
       AssistantSafetyDisposition.approved,
     );
   });
+
+  test(
+    'fresh scoped person context changes grounded output and typed evidence',
+    () async {
+      Future<SmartPlannerResult> requestFor(String priority) async {
+        final ProviderContainer container = plannerContainer(
+          personContext: contextView(<PersonContextSignal>[
+            contextSignal(
+              id: 'priority',
+              kind: PersonContextKind.currentPriority,
+              value: priority,
+            ),
+          ]),
+        );
+        addTearDown(container.dispose);
+        return container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: 0.61,
+              emotion: EmotionalState.calm,
+              notes: 'Help me choose the next practical step.',
+              history: const <Map<String, String>>[],
+              previousSavedNotes: null,
+            );
+      }
+
+      final SmartPlannerResult familyTime = await requestFor(
+        'Protect family time tonight',
+      );
+      final SmartPlannerResult releaseNotes = await requestFor(
+        'Prepare release notes first',
+      );
+
+      expect(
+        familyTime.plannerResponse.mattersMost,
+        contains('Protect family time tonight'),
+      );
+      expect(
+        releaseNotes.plannerResponse.mattersMost,
+        contains('Prepare release notes first'),
+      );
+      expect(
+        familyTime.plannerResponse.mattersMost,
+        isNot(releaseNotes.plannerResponse.mattersMost),
+      );
+      expect(
+        familyTime.plannerResponse.verifiedEvidence,
+        contains(
+          contains(
+            'Verified person-context evidence: user-authored current priority',
+          ),
+        ),
+      );
+      expect(
+        familyTime.plannerResponse.verifiedEvidence,
+        contains(contains('not an inferred trait or identity')),
+      );
+      expect(familyTime.request.context['personContextStatus'], 'available');
+      expect(familyTime.request.context['personContextSignalsUsed'], 1);
+      expect(familyTime.request.context['personContextEvidenceKinds'], <String>[
+        'currentPriority',
+      ]);
+    },
+  );
+
+  test('null and valid-empty person context remain distinguishable', () async {
+    final ProviderContainer unavailableContainer = plannerContainer();
+    final ProviderContainer emptyContainer = plannerContainer(
+      personContext: contextView(const <PersonContextSignal>[]),
+    );
+    addTearDown(unavailableContainer.dispose);
+    addTearDown(emptyContainer.dispose);
+
+    Future<SmartPlannerResult> request(ProviderContainer container) => container
+        .read(smartPlannerQueryControllerProvider)
+        .requestPlanningGuidance(
+          energy: 0.5,
+          emotion: EmotionalState.neutral,
+          notes: 'Choose a practical next step.',
+          history: const <Map<String, String>>[],
+          previousSavedNotes: null,
+        );
+
+    final SmartPlannerResult unavailable = await request(unavailableContainer);
+    final SmartPlannerResult knownEmpty = await request(emptyContainer);
+
+    expect(unavailable.request.context['personContextStatus'], 'unavailable');
+    expect(knownEmpty.request.context['personContextStatus'], 'known_empty');
+    expect(
+      unavailable.plannerResponse.verifiedEvidence,
+      contains(
+        'Person context was unavailable for Smart Planner and was not used.',
+      ),
+    );
+    expect(
+      knownEmpty.plannerResponse.verifiedEvidence,
+      contains(
+        'Person context checked for Smart Planner: no consented fresh signals were available.',
+      ),
+    );
+  });
+
+  test(
+    'unknown expired and withdrawn person signals never enter Planner evidence',
+    () async {
+      final ProviderContainer container = plannerContainer(
+        personContext: contextView(<PersonContextSignal>[
+          contextSignal(
+            id: 'valid-priority',
+            kind: PersonContextKind.currentPriority,
+            value: 'Finish the consent review',
+          ),
+          contextSignal(
+            id: 'unknown-role',
+            kind: PersonContextKind.role,
+            value: '',
+            knowledge: PersonContextKnowledge.unknown,
+          ),
+          contextSignal(
+            id: 'expired-boundary',
+            kind: PersonContextKind.boundary,
+            value: 'EXPIRED PRIVATE BOUNDARY',
+            freshUntil: DateTime.utc(2026, 8, 29, 17),
+          ),
+          contextSignal(
+            id: 'withdrawn-value',
+            kind: PersonContextKind.value,
+            value: 'WITHDRAWN PRIVATE VALUE',
+            consent: PersonContextConsent.withdrawn,
+          ),
+        ]),
+      );
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: 0.5,
+            emotion: EmotionalState.neutral,
+            notes: 'Choose a practical next step.',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+      final String visible = <String>[
+        result.message,
+        ...result.plannerResponse.verifiedEvidence,
+      ].join('\n');
+
+      expect(result.request.context['personContextSignalsUsed'], 1);
+      expect(result.request.context['personContextEvidenceKinds'], <String>[
+        'currentPriority',
+      ]);
+      expect(visible, contains('Finish the consent review'));
+      expect(visible, isNot(contains('EXPIRED PRIVATE BOUNDARY')));
+      expect(visible, isNot(contains('WITHDRAWN PRIVATE VALUE')));
+      expect(visible, isNot(contains('user-authored role')));
+    },
+  );
 
   test(
     'revoked emotion consent removes emotion from Planner context',

@@ -30,6 +30,19 @@ void main() {
     );
   });
 
+  test('person context is explicitly local-only in the backup manifest', () {
+    final Map<String, dynamic> manifest = accountDataBackupManifest();
+
+    expect(
+      manifest['excludedDomains'] as List<dynamic>,
+      contains('person_context'),
+    );
+    expect(
+      manifest['includedDomains'] as List<dynamic>,
+      isNot(contains('person_context')),
+    );
+  });
+
   test('account notification keys are stable, opaque, and isolated', () {
     final String first = AccountDataRegistry.notificationSecureKeyFor(
       'account-a',
@@ -52,6 +65,14 @@ void main() {
     expect(
       cleanupPlan.sensitivePreferenceKeys,
       contains('governed_memories_v2.$namespace'),
+    );
+    expect(
+      cleanupPlan.sensitivePreferenceKeys,
+      contains('person_context_spine_v1.$namespace'),
+    );
+    expect(
+      cleanupPlan.sensitivePreferenceKeys,
+      contains('person_context_spine_v1_corrupt.$namespace'),
     );
     expect(
       cleanupPlan.secureKeyPrefixes,

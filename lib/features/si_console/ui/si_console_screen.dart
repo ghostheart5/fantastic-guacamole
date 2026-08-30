@@ -772,7 +772,7 @@ class _ContextStatusBanner extends StatelessWidget {
     } else {
       message = snapshot == null
           ? 'Evidence state unavailable.'
-          : 'Read-only evidence ready: ${snapshot!.tasks.length} tasks, ${snapshot!.goals.length} goals, ${snapshot!.milestones.length} milestones, ${snapshot!.timeline.length} Timeline events.';
+          : 'Read-only evidence ready: ${snapshot!.tasks.length} tasks, ${snapshot!.goals.length} goals, ${snapshot!.milestones.length} milestones, ${snapshot!.timeline.length} Timeline events. ${_personContextBoundary(snapshot!)}';
       icon = Icons.verified_rounded;
       accent = Colors.greenAccent;
     }
@@ -817,6 +817,17 @@ class _ContextStatusBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+String _personContextBoundary(SIV2EvidenceSnapshot snapshot) {
+  final SIV2PersonContextEvidence? context = snapshot.personContext;
+  if (context == null) {
+    return 'Person context: unavailable; not used for answers.';
+  }
+  if (context.isEmpty) {
+    return 'Person context: shared but empty; not used for answers.';
+  }
+  return 'Person context: ${context.signals.length} user-reported ${context.signals.length == 1 ? 'item' : 'items'}, provenance only; not used for answers or answer evidence.';
 }
 
 class _Header extends StatelessWidget {

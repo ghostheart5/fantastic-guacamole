@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
@@ -10,6 +11,7 @@ import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:flutter/material.dart';
@@ -152,6 +154,96 @@ void main() {
     expect(repository.saveCalls, 0);
   });
 
+  testWidgets('bound review evidence is visible before confirmation', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final DateTime now = DateTime.utc(2026, 8, 20, 20);
+    final AccountStorageScope accountScope = AccountStorageScope.authenticated(
+      'creator-evidence-screen-test',
+    );
+    final _ScreenTaskRepository repository = _ScreenTaskRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWithValue(accountScope),
+        domainTaskRepositoryProvider.overrideWithValue(repository),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
+        creatorHandshakeClockProvider.overrideWithValue(() => now),
+        personContextForSurfaceProvider(
+          _creatorPersonContextRequest,
+        ).overrideWith(
+          (Ref ref) => PersonContextView(
+            accountScopeId: accountScope.v2Namespace!,
+            surface: PersonContextSurface.creator,
+            purposes: operationalPersonContextPurposes,
+            observedAt: now,
+            signals: <PersonContextSignal>[
+              PersonContextSignal(
+                id: 'current-capacity',
+                kind: PersonContextKind.presentCapacity,
+                value: 'Keep this confirmation step small today',
+                source: PersonContextSource.userAuthored,
+                consent: PersonContextConsent.granted,
+                consentedAt: now.subtract(const Duration(hours: 1)),
+                purpose: PersonContextPurpose.planningGuidance,
+                surfaceScopes: const <PersonContextSurface>{
+                  PersonContextSurface.creator,
+                },
+                recordedAt: now.subtract(const Duration(hours: 1)),
+                freshUntil: now.add(const Duration(hours: 12)),
+                expiresAt: now.add(const Duration(days: 1)),
+                exportBehavior: PersonContextExportBehavior.include,
+                deletionBehavior: PersonContextDeletionBehavior.userRemovable,
+              ),
+            ],
+            unknownKinds: PersonContextKind.values.toSet()
+              ..remove(PersonContextKind.presentCapacity),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(creatorHandshakeProvider.notifier)
+        .stage(
+          data: const CreatorFormData(
+            title: 'Review the bounded evidence',
+            type: 'Task',
+            priority: 3,
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: CreatorScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('BOUND REVIEW EVIDENCE'), findsOneWidget);
+    expect(
+      find.text(
+        'This is review evidence only and did not alter the proposed task.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('presentCapacity: Keep this confirmation step small today'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('did not alter the proposed task'),
+      findsNWidgets(2),
+    );
+    expect(find.byKey(const Key('creator-confirm-selected')), findsOneWidget);
+    expect(repository.saveCalls, 0);
+  });
+
   testWidgets(
     'guided scheduled confirmation records milestones and opens Timeline',
     (WidgetTester tester) async {
@@ -214,6 +306,12 @@ void main() {
     },
   );
 }
+
+final PersonContextAccessRequest _creatorPersonContextRequest =
+    PersonContextAccessRequest(
+      surface: PersonContextSurface.creator,
+      purposes: operationalPersonContextPurposes,
+    );
 
 class _ScreenTaskRepository implements ITaskRepository {
   final Map<String, TaskEntity> tasks = <String, TaskEntity>{};

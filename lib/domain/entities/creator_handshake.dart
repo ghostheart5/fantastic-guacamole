@@ -83,6 +83,34 @@ final class CreatorMutationOperation {
   };
 }
 
+final class CreatorPersonContextBinding {
+  CreatorPersonContextBinding({
+    required this.revision,
+    required this.hasBoundEvidence,
+    required List<String> evidenceSummary,
+  }) : evidenceSummary = List<String>.unmodifiable(evidenceSummary) {
+    if (revision.trim().isEmpty) {
+      throw ArgumentError('Creator person context revision cannot be blank.');
+    }
+    if (evidenceSummary.any((String evidence) => evidence.trim().isEmpty) ||
+        hasBoundEvidence != evidenceSummary.isNotEmpty) {
+      throw ArgumentError(
+        'Creator person context binding must match its evidence summary.',
+      );
+    }
+  }
+
+  final String revision;
+  final bool hasBoundEvidence;
+  final List<String> evidenceSummary;
+
+  Map<String, Object?> toCanonicalJson() => <String, Object?>{
+    'hasBoundEvidence': hasBoundEvidence,
+    'evidenceSummary': evidenceSummary,
+    'revision': revision,
+  };
+}
+
 final class CreatorHandshakePreview {
   CreatorHandshakePreview({
     this.schemaVersion = currentSchemaVersion,
@@ -94,6 +122,7 @@ final class CreatorHandshakePreview {
     required this.expiresAt,
     required List<CreatorMutationOperation> operations,
     required Set<String> selectedOperationIds,
+    this.personContextBinding,
   }) : operations = List<CreatorMutationOperation>.unmodifiable(operations),
        selectedOperationIds = Set<String>.unmodifiable(selectedOperationIds) {
     _validate();
@@ -110,6 +139,7 @@ final class CreatorHandshakePreview {
   final DateTime expiresAt;
   final List<CreatorMutationOperation> operations;
   final Set<String> selectedOperationIds;
+  final CreatorPersonContextBinding? personContextBinding;
 
   List<CreatorMutationOperation> get selectedOperations => operations
       .where(
@@ -124,6 +154,7 @@ final class CreatorHandshakePreview {
     'operations': operations
         .map((CreatorMutationOperation item) => item.toCanonicalJson())
         .toList(growable: false),
+    'personContextBinding': personContextBinding?.toCanonicalJson(),
     'proposalId': proposalId,
     'schemaVersion': schemaVersion,
     'selectedOperationIds': selectedOperationIds.toList()..sort(),
@@ -137,6 +168,7 @@ final class CreatorHandshakePreview {
     DateTime? createdAt,
     DateTime? expiresAt,
     Set<String>? selectedOperationIds,
+    CreatorPersonContextBinding? personContextBinding,
   }) => CreatorHandshakePreview(
     schemaVersion: schemaVersion,
     proposalId: proposalId,
@@ -147,6 +179,7 @@ final class CreatorHandshakePreview {
     expiresAt: expiresAt ?? this.expiresAt,
     operations: operations,
     selectedOperationIds: selectedOperationIds ?? this.selectedOperationIds,
+    personContextBinding: personContextBinding ?? this.personContextBinding,
   );
 
   void _validate() {
@@ -199,6 +232,7 @@ final class CreatorConfirmationToken {
       'displayedDiffDigest': preview.displayedDiffDigest,
       'expiresAt': preview.expiresAt.toUtc().toIso8601String(),
       'issuedAt': issuedAt.toUtc().toIso8601String(),
+      'personContextBinding': preview.personContextBinding?.toCanonicalJson(),
       'proposalId': preview.proposalId,
       'selectedOperationIds': selected,
       'surfaceId': 'creator',
@@ -253,6 +287,7 @@ final class CreatorConfirmationToken {
       'displayedDiffDigest': displayedDiffDigest,
       'expiresAt': expiresAt.toUtc().toIso8601String(),
       'issuedAt': issuedAt.toUtc().toIso8601String(),
+      'personContextBinding': preview.personContextBinding?.toCanonicalJson(),
       'proposalId': proposalId,
       'selectedOperationIds': selectedOperationIds,
       'surfaceId': surfaceId,

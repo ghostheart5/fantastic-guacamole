@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
@@ -16,6 +17,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,6 +29,12 @@ final smartPlannerQueryControllerProvider =
 final smartPlannerClockProvider = Provider<DateTime Function()>(
   (Ref ref) => DateTime.now,
 );
+
+final PersonContextAccessRequest _smartPlannerPersonContextRequest =
+    PersonContextAccessRequest(
+      surface: PersonContextSurface.smartPlanner,
+      purposes: operationalPersonContextPurposes,
+    );
 
 class SmartPlannerResult {
   factory SmartPlannerResult({
@@ -386,6 +394,7 @@ class SmartPlannerQueryController
       evidence.hasStoredEvidence
           ? 'Grounded the plan in ${evidence.activeTasks.length} active task(s) and ${evidence.activeGoals.length} active goal(s) read from this account.'
           : 'No active saved task or goal was available to ground this check-in.',
+      evidence.personContext.adaptationSummary,
       if (conversation.historyTurnsUsed > 0)
         'Used ${conversation.historyTurnsUsed} recent conversation turn(s) to keep this response connected to your earlier request.',
       'Kept every option reversible and left saving to an explicit Creator confirmation.',
@@ -437,6 +446,14 @@ class SmartPlannerQueryController
     List<GoalEntity> goals = const <GoalEntity>[];
     bool taskReadSucceeded = true;
     bool goalReadSucceeded = true;
+    PersonContextView? personContext;
+    try {
+      personContext = _ref.read(
+        personContextForSurfaceProvider(_smartPlannerPersonContextRequest),
+      );
+    } on Object {
+      personContext = null;
+    }
     try {
       tasks = await _ref.read(domainTaskRepositoryProvider).getAllTasks();
     } on Object {
@@ -454,6 +471,7 @@ class SmartPlannerQueryController
       now: _ref.read(smartPlannerClockProvider)().toUtc(),
       taskReadSucceeded: taskReadSucceeded,
       goalReadSucceeded: goalReadSucceeded,
+      personContext: personContext,
     );
   }
 
@@ -646,6 +664,11 @@ class SmartPlannerQueryController
     final GoalEntity? goal = evidence.focusGoal;
     if (goal != null) {
       return '$base It is grounded in saved goal "${_safeEvidenceTitle(goal.title)}".';
+    }
+    final _PlannerPersonContextSignal? personFocus =
+        evidence.personContext.planningFocus;
+    if (personFocus != null) {
+      return '$base It is grounded in a consented, fresh ${personFocus.label} you provided for Smart Planner; it is not an inferred trait or identity.';
     }
     return '$base No active saved task or goal matched this check-in.';
   }
@@ -1134,7 +1157,8 @@ final class _PlannerEvidence {
       focusGoal = null,
       taskReadSucceeded = true,
       goalReadSucceeded = true,
-      focusTaskIsUrgent = false;
+      focusTaskIsUrgent = false,
+      personContext = const _PlannerPersonContextEvidence.unavailable();
 
   _PlannerEvidence({
     required List<TaskEntity> activeTasks,
@@ -1144,6 +1168,7 @@ final class _PlannerEvidence {
     required this.taskReadSucceeded,
     required this.goalReadSucceeded,
     required this.focusTaskIsUrgent,
+    required this.personContext,
   }) : activeTasks = List<TaskEntity>.unmodifiable(activeTasks),
        activeGoals = List<GoalEntity>.unmodifiable(activeGoals);
 
@@ -1154,6 +1179,7 @@ final class _PlannerEvidence {
     required DateTime now,
     required bool taskReadSucceeded,
     required bool goalReadSucceeded,
+    required PersonContextView? personContext,
   }) {
     final List<TaskEntity> activeTasks = tasks
         .where((TaskEntity task) => task.isActive)
@@ -1216,6 +1242,10 @@ final class _PlannerEvidence {
       focusGoal: focusGoal,
       taskReadSucceeded: taskReadSucceeded,
       goalReadSucceeded: goalReadSucceeded,
+      personContext: _PlannerPersonContextEvidence.resolve(
+        personContext,
+        now: now,
+      ),
       focusTaskIsUrgent:
           focusTime != null &&
           !focusTime.isAfter(now.add(const Duration(days: 1))),
@@ -1229,6 +1259,7 @@ final class _PlannerEvidence {
   final bool taskReadSucceeded;
   final bool goalReadSucceeded;
   final bool focusTaskIsUrgent;
+  final _PlannerPersonContextEvidence personContext;
 
   bool get hasStoredEvidence =>
       activeTasks.isNotEmpty || activeGoals.isNotEmpty;
@@ -1242,7 +1273,7 @@ final class _PlannerEvidence {
     if (goal != null) {
       return 'saved goal "${SmartPlannerQueryController._safeEvidenceTitle(goal.title)}"';
     }
-    return null;
+    return personContext.planningFocus?.subject;
   }
 
   String? get mattersMost {
@@ -1254,7 +1285,7 @@ final class _PlannerEvidence {
     if (goal != null) {
       return 'Turning saved goal "${SmartPlannerQueryController._safeEvidenceTitle(goal.title)}" into observable progress.';
     }
-    return null;
+    return personContext.planningFocus?.mattersMost;
   }
 
   Map<String, Object?> get requestContext => <String, Object?>{
@@ -1268,6 +1299,7 @@ final class _PlannerEvidence {
         : 'none',
     'taskEvidenceReadSucceeded': taskReadSucceeded,
     'goalEvidenceReadSucceeded': goalReadSucceeded,
+    ...personContext.requestContext,
   };
 
   List<String> verifiedEvidence(DateTime observedAt) {
@@ -1283,30 +1315,223 @@ final class _PlannerEvidence {
             ? 'Saved planning evidence checked: no active tasks or goals were found for this account.'
             : 'No readable active task or goal was available, so guidance used check-in context only.',
       );
-      return evidence;
-    }
-    evidence.add(
-      'Saved planning evidence read at ${observedAt.toIso8601String()}: ${activeTasks.length} active task(s), ${activeGoals.length} active goal(s).',
-    );
-    final TaskEntity? task = focusTask;
-    if (task != null) {
-      final DateTime? relevantDate = task.dueDate ?? task.scheduledFor;
-      final String timing = relevantDate == null
-          ? 'no saved due or scheduled time'
-          : '${task.dueDate != null ? 'due' : 'scheduled'} ${_dateLabel(relevantDate)}';
+    } else {
       evidence.add(
-        'Focused saved task: "${SmartPlannerQueryController._safeEvidenceTitle(task.title)}"; priority ${task.priority}/5; energy ${task.energyRequired}/5; $timing.',
+        'Saved planning evidence read at ${observedAt.toIso8601String()}: ${activeTasks.length} active task(s), ${activeGoals.length} active goal(s).',
       );
+      final TaskEntity? task = focusTask;
+      if (task != null) {
+        final DateTime? relevantDate = task.dueDate ?? task.scheduledFor;
+        final String timing = relevantDate == null
+            ? 'no saved due or scheduled time'
+            : '${task.dueDate != null ? 'due' : 'scheduled'} ${_dateLabel(relevantDate)}';
+        evidence.add(
+          'Focused saved task: "${SmartPlannerQueryController._safeEvidenceTitle(task.title)}"; priority ${task.priority}/5; energy ${task.energyRequired}/5; $timing.',
+        );
+      }
+      final GoalEntity? goal = focusGoal;
+      if (goal != null) {
+        evidence.add(
+          'Focused saved goal: "${SmartPlannerQueryController._safeEvidenceTitle(goal.title)}"; ${goal.targetDate == null ? 'no target date' : 'target ${_dateLabel(goal.targetDate!)}'}.',
+        );
+      }
     }
-    final GoalEntity? goal = focusGoal;
-    if (goal != null) {
-      evidence.add(
-        'Focused saved goal: "${SmartPlannerQueryController._safeEvidenceTitle(goal.title)}"; ${goal.targetDate == null ? 'no target date' : 'target ${_dateLabel(goal.targetDate!)}'}.',
-      );
-    }
+    evidence.addAll(personContext.verifiedEvidence());
     return evidence;
   }
 }
+
+const int _maxPlannerPersonContextSignals = 3;
+
+enum _PlannerPersonContextStatus { unavailable, knownEmpty, available }
+
+final class _PlannerPersonContextEvidence {
+  const _PlannerPersonContextEvidence.unavailable()
+    : status = _PlannerPersonContextStatus.unavailable,
+      signals = const <_PlannerPersonContextSignal>[],
+      availableSignalCount = 0;
+
+  const _PlannerPersonContextEvidence._({
+    required this.status,
+    required this.signals,
+    required this.availableSignalCount,
+  });
+
+  factory _PlannerPersonContextEvidence.resolve(
+    PersonContextView? view, {
+    required DateTime now,
+  }) {
+    if (view == null ||
+        view.surface != PersonContextSurface.smartPlanner ||
+        !view.purposes.containsAll(operationalPersonContextPurposes)) {
+      return const _PlannerPersonContextEvidence.unavailable();
+    }
+    final List<PersonContextSignal> available =
+        view.signals
+            .where(
+              (PersonContextSignal signal) =>
+                  signal.isAvailableTo(
+                    PersonContextSurface.smartPlanner,
+                    now,
+                  ) &&
+                  operationalPersonContextPurposes.contains(signal.purpose),
+            )
+            .toList(growable: true)
+          ..sort(_comparePersonContextSignals);
+    if (available.isEmpty) {
+      return const _PlannerPersonContextEvidence._(
+        status: _PlannerPersonContextStatus.knownEmpty,
+        signals: <_PlannerPersonContextSignal>[],
+        availableSignalCount: 0,
+      );
+    }
+    return _PlannerPersonContextEvidence._(
+      status: _PlannerPersonContextStatus.available,
+      signals: List<_PlannerPersonContextSignal>.unmodifiable(
+        available
+            .take(_maxPlannerPersonContextSignals)
+            .map(_PlannerPersonContextSignal.fromSignal),
+      ),
+      availableSignalCount: available.length,
+    );
+  }
+
+  final _PlannerPersonContextStatus status;
+  final List<_PlannerPersonContextSignal> signals;
+  final int availableSignalCount;
+
+  _PlannerPersonContextSignal? get planningFocus {
+    for (final _PlannerPersonContextSignal signal in signals) {
+      if (signal.canGroundPlanning) return signal;
+    }
+    return null;
+  }
+
+  String get adaptationSummary => switch (status) {
+    _PlannerPersonContextStatus.unavailable =>
+      'Person context was unavailable and was not used.',
+    _PlannerPersonContextStatus.knownEmpty =>
+      'Person context was checked and known-empty for Smart Planner.',
+    _PlannerPersonContextStatus.available =>
+      'Used ${signals.length} consented fresh person-context signal(s), bounded to $_maxPlannerPersonContextSignals; treated them as user-provided evidence, not inferred identity.',
+  };
+
+  Map<String, Object?> get requestContext => <String, Object?>{
+    'personContextStatus': switch (status) {
+      _PlannerPersonContextStatus.unavailable => 'unavailable',
+      _PlannerPersonContextStatus.knownEmpty => 'known_empty',
+      _PlannerPersonContextStatus.available => 'available',
+    },
+    'personContextAvailableSignalCount': availableSignalCount,
+    'personContextSignalsUsed': signals.length,
+    'personContextEvidenceLimit': _maxPlannerPersonContextSignals,
+    'personContextEvidenceKinds': signals
+        .map((_PlannerPersonContextSignal signal) => signal.kind.name)
+        .toList(growable: false),
+  };
+
+  List<String> verifiedEvidence() => switch (status) {
+    _PlannerPersonContextStatus.unavailable => const <String>[
+      'Person context was unavailable for Smart Planner and was not used.',
+    ],
+    _PlannerPersonContextStatus.knownEmpty => const <String>[
+      'Person context checked for Smart Planner: no consented fresh signals were available.',
+    ],
+    _PlannerPersonContextStatus.available => <String>[
+      'Person context checked for Smart Planner: $availableSignalCount consented fresh signal(s) available; ${signals.length} used with a limit of $_maxPlannerPersonContextSignals.',
+      ...signals.map((_PlannerPersonContextSignal signal) => signal.evidence),
+    ],
+  };
+}
+
+final class _PlannerPersonContextSignal {
+  const _PlannerPersonContextSignal({
+    required this.kind,
+    required this.value,
+    required this.source,
+    required this.purpose,
+  });
+
+  factory _PlannerPersonContextSignal.fromSignal(PersonContextSignal signal) {
+    return _PlannerPersonContextSignal(
+      kind: signal.kind,
+      value: SmartPlannerQueryController._condense(
+        signal.value.replaceAll('"', "'"),
+        maxLength: 120,
+      ),
+      source: signal.source,
+      purpose: signal.purpose,
+    );
+  }
+
+  final PersonContextKind kind;
+  final String value;
+  final PersonContextSource source;
+  final PersonContextPurpose purpose;
+
+  bool get canGroundPlanning => switch (kind) {
+    PersonContextKind.currentPriority ||
+    PersonContextKind.presentCapacity ||
+    PersonContextKind.preferredSupportStyle ||
+    PersonContextKind.boundary ||
+    PersonContextKind.commitment ||
+    PersonContextKind.lifeArea => true,
+    _ => false,
+  };
+
+  String get label => switch (kind) {
+    PersonContextKind.role => 'role',
+    PersonContextKind.value => 'value',
+    PersonContextKind.currentPriority => 'current priority',
+    PersonContextKind.lifeArea => 'life area',
+    PersonContextKind.presentCapacity => 'present capacity',
+    PersonContextKind.preferredSupportStyle => 'preferred support style',
+    PersonContextKind.boundary => 'boundary',
+    PersonContextKind.importantRelationship => 'important relationship',
+    PersonContextKind.commitment => 'commitment',
+    PersonContextKind.outcomeHistory => 'confirmed outcome history',
+  };
+
+  String get sourceLabel => switch (source) {
+    PersonContextSource.userAuthored => 'user-authored',
+    PersonContextSource.confirmedOutcome => 'confirmed outcome',
+  };
+
+  String get subject => '$sourceLabel $label "$value"';
+
+  String get mattersMost =>
+      'Respecting the $label you explicitly provided: "$value".';
+
+  String get evidence =>
+      'Verified person-context evidence: $sourceLabel $label for ${purpose.name}, "$value". This is a consented saved statement, not an inferred trait or identity.';
+}
+
+int _comparePersonContextSignals(
+  PersonContextSignal left,
+  PersonContextSignal right,
+) {
+  final int kindOrder = _personContextKindRank(
+    left.kind,
+  ).compareTo(_personContextKindRank(right.kind));
+  if (kindOrder != 0) return kindOrder;
+  final int recordedOrder = right.recordedAt.toUtc().compareTo(
+    left.recordedAt.toUtc(),
+  );
+  return recordedOrder != 0 ? recordedOrder : left.id.compareTo(right.id);
+}
+
+int _personContextKindRank(PersonContextKind kind) => switch (kind) {
+  PersonContextKind.currentPriority => 0,
+  PersonContextKind.presentCapacity => 1,
+  PersonContextKind.boundary => 2,
+  PersonContextKind.commitment => 3,
+  PersonContextKind.preferredSupportStyle => 4,
+  PersonContextKind.lifeArea => 5,
+  PersonContextKind.value => 6,
+  PersonContextKind.role => 7,
+  PersonContextKind.importantRelationship => 8,
+  PersonContextKind.outcomeHistory => 9,
+};
 
 const Set<String> _plannerStopWords = <String>{
   'about',

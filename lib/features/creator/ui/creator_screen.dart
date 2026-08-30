@@ -294,6 +294,58 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
               preview.expiresAt.toLocal(),
             ).format(context),
           ),
+          if (preview.personContextBinding case final binding?
+              when binding.hasBoundEvidence) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'BOUND REVIEW EVIDENCE',
+              style: TextStyle(
+                color: AppColors.neonCyan,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'This is review evidence only and did not alter the proposed task.',
+              key: Key('creator-bound-evidence-boundary'),
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ...binding.evidenceSummary.indexed.map(((int, String) item) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '•',
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        item.$2,
+                        key: ValueKey<String>(
+                          'creator-bound-evidence-${item.$1}',
+                        ),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 10),
           ...preview.operations.map((CreatorMutationOperation operation) {
             final CreatorTaskMutation task = operation.task;

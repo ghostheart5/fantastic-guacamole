@@ -11,6 +11,8 @@ import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/behavior_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_draft_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
@@ -53,6 +55,8 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(routinesProvider);
   ref.invalidate(subtasksProvider);
   ref.invalidate(timelineProvider);
+  ref.invalidate(creatorDraftPreviewProvider);
+  ref.invalidate(creatorHandshakeProvider);
   ref.invalidate(memoriesProvider);
   ref.invalidate(logsProvider);
   ref.invalidate(milestonesProvider);

@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 
 const int siV2SchemaVersion = 1;
@@ -246,6 +247,78 @@ final class SIV2TimelineEvidence {
   final String? sourceFeature;
 }
 
+/// Bounded, read-only person context projected for the SI Console.
+///
+/// [userReportedValue] remains untrusted provenance. The current SI V2 engine
+/// does not use it to construct an answer or expose it as answer evidence. It
+/// must never be interpreted as an instruction or mutation request.
+final class SIV2PersonContextSignalEvidence {
+  SIV2PersonContextSignalEvidence({
+    required String id,
+    required this.kind,
+    required String userReportedValue,
+    required this.source,
+    required this.purpose,
+    required this.recordedAt,
+    required this.freshUntil,
+    required this.expiresAt,
+  }) : id = id.trim(),
+       userReportedValue = userReportedValue.trim().replaceAll(
+         RegExp(r'\s+'),
+         ' ',
+       ) {
+    if (this.id.isEmpty ||
+        this.id.length > maxIdLength ||
+        this.userReportedValue.isEmpty ||
+        this.userReportedValue.length > maxValueLength) {
+      throw ArgumentError('SI V2 person context evidence is malformed.');
+    }
+  }
+
+  static const int maxIdLength = PersonContextSignal.maxIdLength;
+  static const int maxValueLength = PersonContextSignal.maxValueLength;
+
+  final String id;
+  final PersonContextKind kind;
+  final String userReportedValue;
+  final PersonContextSource source;
+  final PersonContextPurpose purpose;
+  final DateTime recordedAt;
+  final DateTime freshUntil;
+  final DateTime expiresAt;
+}
+
+final class SIV2PersonContextEvidence {
+  SIV2PersonContextEvidence({
+    required this.observedAt,
+    required Set<PersonContextPurpose> purposes,
+    required List<SIV2PersonContextSignalEvidence> signals,
+    required Set<PersonContextKind> unknownKinds,
+  }) : purposes = Set<PersonContextPurpose>.unmodifiable(purposes),
+       signals = List<SIV2PersonContextSignalEvidence>.unmodifiable(signals),
+       unknownKinds = Set<PersonContextKind>.unmodifiable(unknownKinds) {
+    if (this.purposes.isEmpty || this.signals.length > maxSignals) {
+      throw ArgumentError('SI V2 person context evidence is unbounded.');
+    }
+    _validateEntityIdentity(
+      this.signals.map(
+        (SIV2PersonContextSignalEvidence item) =>
+            (item.id, item.userReportedValue),
+      ),
+      'person context',
+    );
+  }
+
+  static const int maxSignals = PersonContextSpine.maxSignals;
+
+  final DateTime observedAt;
+  final Set<PersonContextPurpose> purposes;
+  final List<SIV2PersonContextSignalEvidence> signals;
+  final Set<PersonContextKind> unknownKinds;
+
+  bool get isEmpty => signals.isEmpty;
+}
+
 final class SIV2EvidenceSnapshot {
   SIV2EvidenceSnapshot({
     this.schemaVersion = siV2SchemaVersion,
@@ -255,6 +328,7 @@ final class SIV2EvidenceSnapshot {
     required List<SIV2GoalEvidence> goals,
     required List<SIV2MilestoneEvidence> milestones,
     required List<SIV2TimelineEvidence> timeline,
+    this.personContext,
     Set<SIV2Source> unavailableSources = const <SIV2Source>{},
   }) : accountScopeId = accountScopeId.trim(),
        tasks = List<SIV2TaskEvidence>.unmodifiable(tasks),
@@ -300,6 +374,7 @@ final class SIV2EvidenceSnapshot {
   final List<SIV2GoalEvidence> goals;
   final List<SIV2MilestoneEvidence> milestones;
   final List<SIV2TimelineEvidence> timeline;
+  final SIV2PersonContextEvidence? personContext;
   final Set<SIV2Source> unavailableSources;
 
   String get revision => sha256
@@ -362,6 +437,37 @@ final class SIV2EvidenceSnapshot {
                   ],
                 )
                 .toList(growable: false),
+            'personContext': personContext == null
+                ? null
+                : <String, Object?>{
+                    'observedAt': personContext!.observedAt
+                        .toUtc()
+                        .toIso8601String(),
+                    'purposes':
+                        personContext!.purposes
+                            .map((PersonContextPurpose purpose) => purpose.name)
+                            .toList()
+                          ..sort(),
+                    'signals': personContext!.signals
+                        .map(
+                          (SIV2PersonContextSignalEvidence item) => <Object?>[
+                            item.id,
+                            item.kind.name,
+                            item.userReportedValue,
+                            item.source.name,
+                            item.purpose.name,
+                            item.recordedAt.toUtc().toIso8601String(),
+                            item.freshUntil.toUtc().toIso8601String(),
+                            item.expiresAt.toUtc().toIso8601String(),
+                          ],
+                        )
+                        .toList(growable: false),
+                    'unknownKinds':
+                        personContext!.unknownKinds
+                            .map((PersonContextKind kind) => kind.name)
+                            .toList()
+                          ..sort(),
+                  },
             'unavailable':
                 unavailableSources
                     .map((SIV2Source source) => source.name)

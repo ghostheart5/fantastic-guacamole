@@ -71,7 +71,7 @@ void main() {
     expect(store.values[repository.storageKey!], isNotNull);
   });
 
-  test('malformed data is preserved before a replacement write', () async {
+  test('malformed data is preserved and blocks a replacement write', () async {
     final _MemoryStore store = _MemoryStore();
     final PersonContextRepository repository = PersonContextRepository(
       store,
@@ -80,15 +80,37 @@ void main() {
     );
     store.values[repository.storageKey!] = '{not-json';
 
-    expect((await repository.load()).signals, isEmpty);
-    await repository.upsert(signal('replacement'));
-
+    await expectLater(
+      repository.load(),
+      throwsA(isA<PersonContextCorruptionException>()),
+    );
     expect(store.values[repository.corruptionKey!], '{not-json');
-    final Map<String, dynamic> decoded =
-        jsonDecode(store.values[repository.storageKey!]!)
-            as Map<String, dynamic>;
-    expect(decoded['signals'], hasLength(1));
+    await expectLater(
+      repository.upsert(signal('replacement')),
+      throwsA(isA<PersonContextCorruptionException>()),
+    );
+    expect(store.values[repository.storageKey!], '{not-json');
   });
+
+  test(
+    'whitespace corruption is preserved instead of treated as empty',
+    () async {
+      final _MemoryStore store = _MemoryStore();
+      final PersonContextRepository repository = PersonContextRepository(
+        store,
+        scope,
+        clock: () => now,
+      );
+      store.values[repository.storageKey!] = '   ';
+
+      await expectLater(
+        repository.load(),
+        throwsA(isA<PersonContextCorruptionException>()),
+      );
+      expect(store.values[repository.corruptionKey!], '   ');
+      expect(store.values[repository.storageKey!], '   ');
+    },
+  );
 
   test('an existing different corruption backup blocks overwrite', () async {
     final _MemoryStore store = _MemoryStore();
@@ -100,10 +122,143 @@ void main() {
     store.values[repository.storageKey!] = '{new-corruption';
     store.values[repository.corruptionKey!] = '{older-corruption';
 
-    await repository.load();
-    await expectLater(repository.upsert(signal('blocked')), throwsStateError);
+    await expectLater(repository.load(), throwsStateError);
     expect(store.values[repository.storageKey!], '{new-corruption');
   });
+
+  test('automatic expiry removes the signal from storage and export', () async {
+    final _MemoryStore store = _MemoryStore();
+    DateTime clock = now;
+    final PersonContextRepository repository = PersonContextRepository(
+      store,
+      scope,
+      clock: () => clock,
+    );
+    final PersonContextSignal expiring = PersonContextSignal(
+      id: 'capacity',
+      kind: PersonContextKind.presentCapacity,
+      value: 'Low energy right now',
+      source: PersonContextSource.userAuthored,
+      consent: PersonContextConsent.granted,
+      consentedAt: now,
+      purpose: PersonContextPurpose.planningGuidance,
+      surfaceScopes: const <PersonContextSurface>{
+        PersonContextSurface.smartPlanner,
+      },
+      recordedAt: now,
+      freshUntil: now.add(const Duration(hours: 1)),
+      expiresAt: now.add(const Duration(hours: 2)),
+      exportBehavior: PersonContextExportBehavior.include,
+      deletionBehavior: PersonContextDeletionBehavior.expiresAutomatically,
+    );
+    await repository.upsert(expiring);
+    clock = now.add(const Duration(hours: 3));
+
+    expect((await repository.load()).signals, isEmpty);
+    expect((await repository.export())['signals'], isEmpty);
+    final Map<String, dynamic> stored =
+        jsonDecode(store.values[repository.storageKey!]!)
+            as Map<String, dynamic>;
+    expect(stored['signals'], isEmpty);
+  });
+
+  test('an account transition blocks a queued stale write', () async {
+    final _MemoryStore store = _MemoryStore();
+    bool current = true;
+    final PersonContextRepository repository = PersonContextRepository(
+      store,
+      scope,
+      clock: () => now,
+      isScopeCurrent: () => current,
+    );
+    current = false;
+
+    await expectLater(repository.upsert(signal('stale')), throwsStateError);
+    expect(store.values[repository.storageKey!], isNull);
+  });
+
+  test(
+    'repository instances serialize writes without losing signals',
+    () async {
+      final _MemoryStore store = _MemoryStore();
+      final PersonContextRepository first = PersonContextRepository(
+        store,
+        scope,
+        clock: () => now,
+      );
+      final PersonContextRepository second = PersonContextRepository(
+        store,
+        scope,
+        clock: () => now,
+      );
+
+      await Future.wait(<Future<void>>[
+        first.upsert(signal('first')),
+        second.upsert(signal('second')),
+      ]);
+
+      expect(
+        (await first.load()).signals.map((item) => item.id),
+        containsAll(<String>['first', 'second']),
+      );
+    },
+  );
+
+  test(
+    'ordered corrections and consent withdrawal cannot roll each other back',
+    () async {
+      final _MemoryStore store = _MemoryStore();
+      final PersonContextRepository repository = PersonContextRepository(
+        store,
+        scope,
+        clock: () => now.add(const Duration(minutes: 3)),
+      );
+      await repository.upsert(signal('ordered'));
+      await repository.updateSignal(
+        'ordered',
+        (PersonContextSignal current) => current.corrected(
+          value: 'Finish the verified release safely',
+          correctedAt: now.add(const Duration(minutes: 1)),
+          reason: 'Clarified the exact priority',
+          freshUntil: now.add(const Duration(days: 7)),
+          expiresAt: now.add(const Duration(days: 30)),
+        ),
+      );
+      await repository.updateSignal(
+        'ordered',
+        (PersonContextSignal current) =>
+            current.withdrawConsent(now.add(const Duration(minutes: 2))),
+      );
+
+      PersonContextSignal stored = (await repository.load()).signals.single;
+      expect(stored.value, 'Finish the verified release safely');
+      expect(stored.corrections, hasLength(1));
+      expect(stored.consent, PersonContextConsent.withdrawn);
+
+      await repository.upsert(signal('reverse'));
+      await repository.updateSignal(
+        'reverse',
+        (PersonContextSignal current) =>
+            current.withdrawConsent(now.add(const Duration(minutes: 1))),
+      );
+      await repository.updateSignal(
+        'reverse',
+        (PersonContextSignal current) => current.corrected(
+          value: 'Corrected while withdrawn',
+          correctedAt: now.add(const Duration(minutes: 2)),
+          reason: 'The stored text was inaccurate',
+          freshUntil: now.add(const Duration(days: 7)),
+          expiresAt: now.add(const Duration(days: 30)),
+        ),
+      );
+
+      stored = (await repository.load()).signals.singleWhere(
+        (PersonContextSignal item) => item.id == 'reverse',
+      );
+      expect(stored.value, 'Corrected while withdrawn');
+      expect(stored.consent, PersonContextConsent.withdrawn);
+    },
+  );
 
   test('export obeys per-signal export behavior', () async {
     final _MemoryStore store = _MemoryStore();
@@ -146,6 +301,8 @@ void main() {
         unavailable,
       );
       await expectLater(repository.load(), throwsStateError);
+      await expectLater(repository.upsert(signal('blocked')), throwsStateError);
+      await expectLater(repository.export(), throwsStateError);
     }
   });
 }

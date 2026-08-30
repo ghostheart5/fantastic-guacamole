@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart'
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
@@ -248,6 +249,8 @@ class SettingsScreen extends ConsumerWidget {
                     _ReminderAutomationSection(),
                     SizedBox(height: 10),
                     _PersonalizationSection(),
+                    SizedBox(height: 10),
+                    _PersonContextSection(),
                     SizedBox(height: 10),
                     _MemoryGovernanceSection(),
                     SizedBox(height: 10),

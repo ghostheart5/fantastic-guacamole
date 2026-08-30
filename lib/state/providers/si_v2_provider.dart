@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
@@ -12,6 +13,7 @@ import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,6 +30,14 @@ final siV2ReadGatewayProvider = Provider<SIV2ReadGateway>((Ref ref) {
   final GetGoals goals = ref.read(getGoalsUseCaseProvider);
   final GetMilestones milestones = ref.read(getMilestonesUseCaseProvider);
   final GetTimelineEvents timeline = ref.read(getTimelineEventsUseCaseProvider);
+  final PersonContextView? personContext = ref.watch(
+    personContextForSurfaceProvider(
+      PersonContextAccessRequest(
+        surface: PersonContextSurface.siConsole,
+        purposes: SIV2ReadGateway.personContextPurposes,
+      ),
+    ),
+  );
   return SIV2ReadGateway(
     accountScopeId: assistantAccountScopeId(
       authenticatedNamespace: scope.v2Namespace,
@@ -37,6 +47,7 @@ final siV2ReadGatewayProvider = Provider<SIV2ReadGateway>((Ref ref) {
     readGoals: () async => goals.call(),
     readMilestones: milestones.call,
     readTimeline: () async => timeline.call(),
+    readPersonContext: () => personContext,
   );
 });
 
@@ -108,6 +119,10 @@ final class SIV2QueryService implements SIV2QueryPort {
               ),
               ...snapshot.timeline.map(
                 (SIV2TimelineEvidence item) => item.title,
+              ),
+              ...?snapshot.personContext?.signals.map(
+                (SIV2PersonContextSignalEvidence item) =>
+                    item.userReportedValue,
               ),
             ],
             authority: AssistantActionAuthority.readOnly,

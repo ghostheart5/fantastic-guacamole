@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
@@ -90,7 +91,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.byKey(const Key('si-v2-response')), findsOneWidget);
+    expect(find.byIcon(Icons.send_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.hourglass_top_rounded), findsNothing);
+    expect(port.calls, 1);
   });
 
   testWidgets('assistant response identifies read-only on-device provenance', (
@@ -118,6 +121,73 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('External AI', skipOffstage: false), findsNothing);
+  });
+
+  testWidgets('status discloses unavailable person context', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+    final ProviderContainer container = _container(port, snapshot);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    expect(
+      find.textContaining('Person context: unavailable; not used for answers'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('status discloses valid empty person context', (
+    WidgetTester tester,
+  ) async {
+    final SIV2EvidenceSnapshot empty = _snapshot(
+      now,
+      personContext: _personContext(now),
+    );
+    final _RecordingPort port = _RecordingPort(snapshot: empty, now: now);
+    final ProviderContainer container = _container(port, empty);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    expect(
+      find.textContaining(
+        'Person context: shared but empty; not used for answers',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('status discloses present context as provenance only', (
+    WidgetTester tester,
+  ) async {
+    final SIV2PersonContextSignalEvidence signal =
+        SIV2PersonContextSignalEvidence(
+          id: 'priority',
+          kind: PersonContextKind.currentPriority,
+          userReportedValue: 'Finish release evidence',
+          source: PersonContextSource.userAuthored,
+          purpose: PersonContextPurpose.decisionSupport,
+          recordedAt: now.subtract(const Duration(hours: 1)),
+          freshUntil: now.add(const Duration(hours: 6)),
+          expiresAt: now.add(const Duration(days: 1)),
+        );
+    final SIV2EvidenceSnapshot present = _snapshot(
+      now,
+      personContext: _personContext(
+        now,
+        signals: <SIV2PersonContextSignalEvidence>[signal],
+      ),
+    );
+    final _RecordingPort port = _RecordingPort(snapshot: present, now: now);
+    final ProviderContainer container = _container(port, present);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    expect(find.textContaining('provenance only'), findsOneWidget);
+    expect(
+      find.textContaining('not used for answers or answer evidence'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -252,7 +322,10 @@ Future<void> _dispose(WidgetTester tester, ProviderContainer container) async {
   container.dispose();
 }
 
-SIV2EvidenceSnapshot _snapshot(DateTime now) {
+SIV2EvidenceSnapshot _snapshot(
+  DateTime now, {
+  SIV2PersonContextEvidence? personContext,
+}) {
   return SIV2EvidenceSnapshot(
     accountScopeId: 'account:test',
     observedAt: now,
@@ -268,8 +341,24 @@ SIV2EvidenceSnapshot _snapshot(DateTime now) {
     goals: const <SIV2GoalEvidence>[],
     milestones: const <SIV2MilestoneEvidence>[],
     timeline: const <SIV2TimelineEvidence>[],
+    personContext: personContext,
   );
 }
+
+SIV2PersonContextEvidence _personContext(
+  DateTime now, {
+  List<SIV2PersonContextSignalEvidence> signals =
+      const <SIV2PersonContextSignalEvidence>[],
+}) => SIV2PersonContextEvidence(
+  observedAt: now,
+  purposes: const <PersonContextPurpose>{
+    PersonContextPurpose.reflection,
+    PersonContextPurpose.decisionSupport,
+    PersonContextPurpose.outcomeLearning,
+  },
+  signals: signals,
+  unknownKinds: const <PersonContextKind>{},
+);
 
 final class _RecordingPort implements SIV2QueryPort {
   _RecordingPort({required this.snapshot, required this.now});
