@@ -18,7 +18,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
 ) async {
-  final List<TaskEntity> taskEntities = await _loadAllActiveTaskEntities(ref);
+  final DateTime observedAt = DateTime.now();
+  final List<TaskEntity> taskEntities = await _loadAllActionableTaskEntities(
+    ref,
+    observedAt,
+  );
   final List<PlannerInput> plannerInputs = PlannerInputAdapter.fromTaskEntities(
     taskEntities,
   );
@@ -39,7 +43,6 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final EmotionalState? emotion = humanContext.emotion;
   final trajectory = ref.watch(trajectorySummaryProvider);
   final double energy = siState.energy;
-  final DateTime observedAt = DateTime.now();
   // Habits feed Smart Planner and SI. Read non-blocking: if habit storage has
   // not resolved (or failed), aggregation continues with none rather than
   // stalling the whole SI pipeline on it.
@@ -177,12 +180,15 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   );
 });
 
-Future<List<TaskEntity>> _loadAllActiveTaskEntities(Ref ref) async {
+Future<List<TaskEntity>> _loadAllActionableTaskEntities(
+  Ref ref,
+  DateTime reference,
+) async {
   final List<TaskEntity> entities = await ref
       .read(domainTaskRepositoryProvider)
       .getAllTasks();
   return entities
-      .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
+      .where((TaskEntity item) => item.isActionableAt(reference))
       .toList(growable: false);
 }
 

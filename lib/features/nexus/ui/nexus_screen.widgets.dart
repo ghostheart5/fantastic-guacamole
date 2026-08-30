@@ -1102,6 +1102,65 @@ class _GlassPanel extends StatelessWidget {
   }
 }
 
+class _LearningChangePanel extends StatelessWidget {
+  const _LearningChangePanel({
+    required this.change,
+    required this.onHelpful,
+    required this.onNotHelpful,
+  });
+
+  final LearningFeedbackChange change;
+  final VoidCallback? onHelpful;
+  final VoidCallback? onNotHelpful;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassPanel(
+      accent: AppColors.neonCyan,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'WHAT LEARNING CHANGED',
+            style: TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            change.summary,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+          ),
+          if (onHelpful != null && onNotHelpful != null) ...<Widget>[
+            const SizedBox(height: 12),
+            const Text(
+              'Correct this learning',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                OutlinedButton(
+                  onPressed: onHelpful,
+                  child: const Text('This helped'),
+                ),
+                OutlinedButton(
+                  onPressed: onNotHelpful,
+                  child: const Text('This did not help'),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _PanelDivider extends StatelessWidget {
   const _PanelDivider();
 

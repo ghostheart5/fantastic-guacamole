@@ -975,7 +975,7 @@ class _BubbleTile extends ConsumerWidget {
                         if (!isUser && emotion != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 5),
-                            child: _EmotionTag(emotion: emotion),
+                            child: _ResponseToneTag(tone: emotion),
                           ),
                         if (!isUser &&
                             msg.processingMode != AIProcessingMode.unknown)
@@ -1073,53 +1073,80 @@ class _SIV2ResponseCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _section('DIRECT ANSWER', <String>[response.directAnswer]),
-          _section(
-            'OBSERVED FACTS',
-            response.observedFacts
-                .map((SIV2Statement item) => item.text)
-                .toList(),
-          ),
-          _section(
-            'DETERMINISTIC CALCULATIONS',
-            response.calculations
-                .map((SIV2Statement item) => item.text)
-                .toList(),
-          ),
-          _section(
-            'INFERENCES',
-            response.inferences.map((SIV2Statement item) => item.text).toList(),
-          ),
-          _section('MISSING OR CONFLICTING INFORMATION', <String>[
-            ...response.missingInformation,
-            ...response.conflicts.map(
-              (SIV2Conflict item) =>
-                  '${item.severity.name.toUpperCase()}: ${item.summary}',
-            ),
-          ]),
-          _section(
-            'SCENARIOS',
-            response.scenarios
-                .map(
-                  (SIV2Scenario item) =>
-                      '${item.label}: ${item.projectedEffect}',
-                )
-                .toList(),
-          ),
-          _section('SCENARIO ASSUMPTIONS', response.scenarioAssumptions),
           _section('RECOMMENDATION', <String>[response.recommendation]),
-          _section('CONFIDENCE ANATOMY', <String>[
-            'Evidence strength: ${response.confidence.strength.name}',
-            'Coverage: ${response.confidence.coveredSignals} of ${response.confidence.requiredSignals} required signals',
-            'Freshness: ${response.confidence.freshness.name}',
-            'Conflicts: ${response.confidence.conflictCount}',
-            'Assumptions: ${response.confidence.assumptionCount}',
-          ]),
-          _section(
-            'EVIDENCE LINKS',
-            response.evidenceLinks
-                .map((SIV2EvidenceLink item) => '${item.label} — ${item.uri}')
-                .toList(),
-            bottomPadding: 0,
+          Material(
+            color: Colors.transparent,
+            child: ExpansionTile(
+              key: const Key('si-v2-response-advanced'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: const Text(
+                'Advanced',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: const Text(
+                'Confidence, evidence, calculations, and assumptions',
+                style: TextStyle(color: Colors.white60, fontSize: 11),
+              ),
+              children: <Widget>[
+                _section(
+                  'OBSERVED FACTS',
+                  response.observedFacts
+                      .map((SIV2Statement item) => item.text)
+                      .toList(),
+                ),
+                _section(
+                  'DETERMINISTIC CALCULATIONS',
+                  response.calculations
+                      .map((SIV2Statement item) => item.text)
+                      .toList(),
+                ),
+                _section(
+                  'INFERENCES',
+                  response.inferences
+                      .map((SIV2Statement item) => item.text)
+                      .toList(),
+                ),
+                _section('MISSING OR CONFLICTING INFORMATION', <String>[
+                  ...response.missingInformation,
+                  ...response.conflicts.map(
+                    (SIV2Conflict item) =>
+                        '${item.severity.name.toUpperCase()}: ${item.summary}',
+                  ),
+                ]),
+                _section(
+                  'SCENARIOS',
+                  response.scenarios
+                      .map(
+                        (SIV2Scenario item) =>
+                            '${item.label}: ${item.projectedEffect}',
+                      )
+                      .toList(),
+                ),
+                _section('SCENARIO ASSUMPTIONS', response.scenarioAssumptions),
+                _section('CONFIDENCE ANATOMY', <String>[
+                  'Evidence strength: ${response.confidence.strength.name}',
+                  'Coverage: ${response.confidence.coveredSignals} of ${response.confidence.requiredSignals} required signals',
+                  'Freshness: ${response.confidence.freshness.name}',
+                  'Conflicts: ${response.confidence.conflictCount}',
+                  'Assumptions: ${response.confidence.assumptionCount}',
+                ]),
+                _section(
+                  'EVIDENCE LINKS',
+                  response.evidenceLinks
+                      .map(
+                        (SIV2EvidenceLink item) =>
+                            '${item.label} — ${item.uri}',
+                      )
+                      .toList(),
+                  bottomPadding: 0,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1250,12 +1277,12 @@ class _SIAvatar extends StatelessWidget {
   }
 }
 
-class _EmotionTag extends StatelessWidget {
-  const _EmotionTag({required this.emotion});
-  final String emotion;
+class _ResponseToneTag extends StatelessWidget {
+  const _ResponseToneTag({required this.tone});
+  final String tone;
 
   Color get _color {
-    switch (emotion) {
+    switch (tone) {
       case 'engaged':
         return Colors.blueAccent;
       case 'confident':
@@ -1281,7 +1308,7 @@ class _EmotionTag extends StatelessWidget {
         border: Border.all(color: _color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        emotion.toUpperCase(),
+        'RESPONSE TONE: ${tone.toUpperCase()}',
         style: TextStyle(
           fontSize: 8,
           letterSpacing: 0,
@@ -1483,6 +1510,12 @@ class _InputBar extends ConsumerWidget {
       ..selection = TextSelection.collapsed(offset: shortcut.length + 1);
   }
 
+  void _setQuestion(String question) {
+    controller
+      ..text = question
+      ..selection = TextSelection.collapsed(offset: question.length);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final VoiceState voice = ref.watch(voiceControllerProvider);
@@ -1506,6 +1539,9 @@ class _InputBar extends ConsumerWidget {
         final bool effectiveCompact = compact || forceCompact;
 
         return Container(
+          constraints: BoxConstraints(
+            maxHeight: math.max(160, MediaQuery.sizeOf(context).height * 0.64),
+          ),
           padding: EdgeInsets.fromLTRB(
             16,
             effectiveCompact ? 8 : 10,
@@ -1517,6 +1553,8 @@ class _InputBar extends ConsumerWidget {
             border: Border(top: BorderSide(color: Colors.white24)),
           ),
           child: SingleChildScrollView(
+            key: const Key('si-input-scroll'),
+            reverse: true,
             physics: const ClampingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1524,7 +1562,7 @@ class _InputBar extends ConsumerWidget {
               children: [
                 if (!effectiveCompact) ...[
                   const Text(
-                    'SI V2 QUERY BUILDER',
+                    'TRY A QUESTION',
                     style: TextStyle(
                       color: AppColors.neonCyan,
                       fontSize: 10,
@@ -1533,244 +1571,325 @@ class _InputBar extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SegmentedButton<SIV2Intent>(
-                      segments: SIV2Intent.values
-                          .map(
-                            (SIV2Intent option) => ButtonSegment<SIV2Intent>(
-                              value: option,
-                              label: Text(
-                                option.label,
-                                key: ValueKey<String>(
-                                  'si-v2-intent-${option.name}',
-                                ),
-                              ),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: <Widget>[
+                      for (final (String, String) example
+                          in const <(String, String)>[
+                            ('attention', 'What needs attention?'),
+                            ('risk', 'Why is this goal at risk?'),
+                            ('next', 'What should I do next?'),
+                          ])
+                        OutlinedButton(
+                          key: ValueKey<String>('si-example-${example.$1}'),
+                          onPressed: busy
+                              ? null
+                              : () => _setQuestion(example.$2),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 44),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          )
-                          .toList(growable: false),
-                      selected: <SIV2Intent>{intent},
-                      showSelectedIcon: false,
-                      style: _siSegmentedStyle(AppColors.neonCyan),
-                      onSelectionChanged: busy
-                          ? null
-                          : (Set<SIV2Intent> selection) =>
-                                onIntentChanged(selection.first),
-                    ),
+                          ),
+                          child: Text(example.$2),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SegmentedButton<SIV2Source>(
-                      segments: SIV2Source.values
-                          .map(
-                            (SIV2Source source) => ButtonSegment<SIV2Source>(
-                              value: source,
-                              label: Text(
-                                source.label,
-                                key: ValueKey<String>(
-                                  'si-v2-source-${source.name}',
-                                ),
-                              ),
+                  Material(
+                    color: Colors.transparent,
+                    child: ExpansionTile(
+                      key: const Key('si-v2-advanced'),
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Advanced',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Intent, sources, range, filters, assumptions, and aliases',
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
+                      children: <Widget>[
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'SI V2 QUERY BUILDER',
+                            style: TextStyle(
+                              color: AppColors.neonCyan,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
                             ),
-                          )
-                          .toList(growable: false),
-                      selected: sources,
-                      showSelectedIcon: false,
-                      multiSelectionEnabled: true,
-                      emptySelectionAllowed: false,
-                      style: _siSegmentedStyle(AppColors.neonViolet),
-                      onSelectionChanged: busy
-                          ? null
-                          : (Set<SIV2Source> selection) {
-                              for (final SIV2Source source
-                                  in SIV2Source.values) {
-                                final bool selected = selection.contains(
-                                  source,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SegmentedButton<SIV2Intent>(
+                            segments: SIV2Intent.values
+                                .map(
+                                  (SIV2Intent option) =>
+                                      ButtonSegment<SIV2Intent>(
+                                        value: option,
+                                        label: Text(
+                                          option.label,
+                                          key: ValueKey<String>(
+                                            'si-v2-intent-${option.name}',
+                                          ),
+                                        ),
+                                      ),
+                                )
+                                .toList(growable: false),
+                            selected: <SIV2Intent>{intent},
+                            showSelectedIcon: false,
+                            style: _siSegmentedStyle(AppColors.neonCyan),
+                            onSelectionChanged: busy
+                                ? null
+                                : (Set<SIV2Intent> selection) =>
+                                      onIntentChanged(selection.first),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SegmentedButton<SIV2Source>(
+                            segments: SIV2Source.values
+                                .map(
+                                  (SIV2Source source) =>
+                                      ButtonSegment<SIV2Source>(
+                                        value: source,
+                                        label: Text(
+                                          source.label,
+                                          key: ValueKey<String>(
+                                            'si-v2-source-${source.name}',
+                                          ),
+                                        ),
+                                      ),
+                                )
+                                .toList(growable: false),
+                            selected: sources,
+                            showSelectedIcon: false,
+                            multiSelectionEnabled: true,
+                            emptySelectionAllowed: false,
+                            style: _siSegmentedStyle(AppColors.neonViolet),
+                            onSelectionChanged: busy
+                                ? null
+                                : (Set<SIV2Source> selection) {
+                                    for (final SIV2Source source
+                                        in SIV2Source.values) {
+                                      final bool selected = selection.contains(
+                                        source,
+                                      );
+                                      if (selected !=
+                                          sources.contains(source)) {
+                                        onSourceChanged(source, selected);
+                                      }
+                                    }
+                                  },
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SegmentedButton<SIV2TimeRange>(
+                            segments: SIV2TimeRange.values
+                                .map(
+                                  (SIV2TimeRange option) =>
+                                      ButtonSegment<SIV2TimeRange>(
+                                        value: option,
+                                        label: Text(
+                                          option.label,
+                                          key: ValueKey<String>(
+                                            'si-v2-range-${option.name}',
+                                          ),
+                                        ),
+                                      ),
+                                )
+                                .toList(growable: false),
+                            selected: <SIV2TimeRange>{timeRange},
+                            showSelectedIcon: false,
+                            style: _siSegmentedStyle(AppColors.memoryAmber),
+                            onSelectionChanged: busy
+                                ? null
+                                : (Set<SIV2TimeRange> selection) =>
+                                      onTimeRangeChanged(selection.first),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        LayoutBuilder(
+                          builder:
+                              (BuildContext context, BoxConstraints fields) {
+                                final bool stackFields =
+                                    fields.maxWidth < 600 ||
+                                    MediaQuery.textScalerOf(context).scale(1) >
+                                        1.3;
+                                final Widget entityField = TextField(
+                                  key: const Key('si-v2-entity-filter'),
+                                  controller: entityFilterController,
+                                  enabled: !busy,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Entity filter (optional)',
+                                    labelStyle: TextStyle(
+                                      color: AppColors.neonCyan,
+                                    ),
+                                    floatingLabelStyle: TextStyle(
+                                      color: AppColors.neonCyan,
+                                    ),
+                                  ),
                                 );
-                                if (selected != sources.contains(source)) {
-                                  onSourceChanged(source, selected);
+                                final Widget assumptionField = TextField(
+                                  key: const Key('si-v2-assumption'),
+                                  controller: scenarioAssumptionController,
+                                  enabled: !busy,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Scenario assumption (optional)',
+                                    labelStyle: TextStyle(
+                                      color: AppColors.neonCyan,
+                                    ),
+                                    floatingLabelStyle: TextStyle(
+                                      color: AppColors.neonCyan,
+                                    ),
+                                  ),
+                                );
+                                if (stackFields) {
+                                  return Column(
+                                    children: <Widget>[
+                                      entityField,
+                                      const SizedBox(height: 8),
+                                      assumptionField,
+                                    ],
+                                  );
                                 }
-                              }
-                            },
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SegmentedButton<SIV2TimeRange>(
-                      segments: SIV2TimeRange.values
-                          .map(
-                            (SIV2TimeRange option) =>
-                                ButtonSegment<SIV2TimeRange>(
-                                  value: option,
-                                  label: Text(
-                                    option.label,
-                                    key: ValueKey<String>(
-                                      'si-v2-range-${option.name}',
+                                return Row(
+                                  children: <Widget>[
+                                    Expanded(child: entityField),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: assumptionField),
+                                  ],
+                                );
+                              },
+                        ),
+                        const SizedBox(height: 6),
+                        PopupMenuButton<SIConsoleShortcutDefinition>(
+                          key: const Key('si-v2-power-alias-menu'),
+                          enabled: !busy,
+                          tooltip: 'Choose a power alias',
+                          color: const Color(0xFF0A1520),
+                          onSelected:
+                              (SIConsoleShortcutDefinition definition) =>
+                                  _insertShortcut(definition.shortcut),
+                          itemBuilder: (BuildContext context) =>
+                              SIConsoleShortcutRegistry.chips
+                                  .map(
+                                    (SIConsoleShortcutDefinition definition) =>
+                                        PopupMenuItem<
+                                          SIConsoleShortcutDefinition
+                                        >(
+                                          value: definition,
+                                          child: Text(definition.shortcut),
+                                        ),
+                                  )
+                                  .toList(growable: false),
+                          child: Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(minHeight: 48),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0A1520),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.34,
+                                ),
+                              ),
+                            ),
+                            child: const Row(
+                              children: <Widget>[
+                                Icon(
+                                  Icons.terminal_rounded,
+                                  size: 18,
+                                  color: AppColors.neonCyan,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'POWER ALIASES',
+                                    style: TextStyle(
+                                      color: AppColors.neonCyan,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0,
                                     ),
                                   ),
                                 ),
-                          )
-                          .toList(growable: false),
-                      selected: <SIV2TimeRange>{timeRange},
-                      showSelectedIcon: false,
-                      style: _siSegmentedStyle(AppColors.memoryAmber),
-                      onSelectionChanged: busy
-                          ? null
-                          : (Set<SIV2TimeRange> selection) =>
-                                onTimeRangeChanged(selection.first),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  LayoutBuilder(
-                    builder: (BuildContext context, BoxConstraints fields) {
-                      final bool stackFields =
-                          fields.maxWidth < 600 ||
-                          MediaQuery.textScalerOf(context).scale(1) > 1.3;
-                      final Widget entityField = TextField(
-                        key: const Key('si-v2-entity-filter'),
-                        controller: entityFilterController,
-                        enabled: !busy,
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          labelText: 'Entity filter (optional)',
-                          labelStyle: TextStyle(color: AppColors.neonCyan),
-                          floatingLabelStyle: TextStyle(
-                            color: AppColors.neonCyan,
-                          ),
-                        ),
-                      );
-                      final Widget assumptionField = TextField(
-                        key: const Key('si-v2-assumption'),
-                        controller: scenarioAssumptionController,
-                        enabled: !busy,
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          labelText: 'Scenario assumption (optional)',
-                          labelStyle: TextStyle(color: AppColors.neonCyan),
-                          floatingLabelStyle: TextStyle(
-                            color: AppColors.neonCyan,
-                          ),
-                        ),
-                      );
-                      if (stackFields) {
-                        return Column(
-                          children: <Widget>[
-                            entityField,
-                            const SizedBox(height: 8),
-                            assumptionField,
-                          ],
-                        );
-                      }
-                      return Row(
-                        children: <Widget>[
-                          Expanded(child: entityField),
-                          const SizedBox(width: 8),
-                          Expanded(child: assumptionField),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 6),
-                  PopupMenuButton<SIConsoleShortcutDefinition>(
-                    key: const Key('si-v2-power-alias-menu'),
-                    enabled: !busy,
-                    tooltip: 'Choose a power alias',
-                    color: const Color(0xFF0A1520),
-                    onSelected: (SIConsoleShortcutDefinition definition) =>
-                        _insertShortcut(definition.shortcut),
-                    itemBuilder: (BuildContext context) =>
-                        SIConsoleShortcutRegistry.chips
-                            .map(
-                              (SIConsoleShortcutDefinition definition) =>
-                                  PopupMenuItem<SIConsoleShortcutDefinition>(
-                                    value: definition,
-                                    child: Text(definition.shortcut),
-                                  ),
-                            )
-                            .toList(growable: false),
-                    child: Container(
-                      width: double.infinity,
-                      constraints: const BoxConstraints(minHeight: 48),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0A1520),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.neonCyan.withValues(alpha: 0.34),
-                        ),
-                      ),
-                      child: const Row(
-                        children: <Widget>[
-                          Icon(
-                            Icons.terminal_rounded,
-                            size: 18,
-                            color: AppColors.neonCyan,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'POWER ALIASES',
-                              style: TextStyle(
-                                color: AppColors.neonCyan,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0,
-                              ),
+                                Icon(
+                                  Icons.expand_more_rounded,
+                                  size: 18,
+                                  color: Color(0xFFAEB9D0),
+                                ),
+                              ],
                             ),
                           ),
-                          Icon(
-                            Icons.expand_more_rounded,
-                            size: 18,
-                            color: Color(0xFFAEB9D0),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 8),
+                        ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: controller,
+                          builder: (context, value, child) {
+                            final List<SIConsoleShortcutDefinition>
+                            suggestions =
+                                SIConsoleShortcutRegistry.autocomplete(
+                                  value.text,
+                                );
+                            if (suggestions.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: suggestions
+                                    .map(
+                                      (definition) => OutlinedButton(
+                                        key: ValueKey<String>(
+                                          'si-shortcut-autocomplete-${definition.id}',
+                                        ),
+                                        onPressed: busy
+                                            ? null
+                                            : () => _insertShortcut(
+                                                definition.shortcut,
+                                              ),
+                                        style: OutlinedButton.styleFrom(
+                                          minimumSize: const Size(0, 48),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(definition.shortcut),
+                                      ),
+                                    )
+                                    .toList(growable: false),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 8),
                 ],
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: controller,
-                  builder: (context, value, child) {
-                    final List<SIConsoleShortcutDefinition> suggestions =
-                        SIConsoleShortcutRegistry.autocomplete(value.text);
-                    if (suggestions.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: suggestions
-                            .map(
-                              (definition) => OutlinedButton(
-                                key: ValueKey<String>(
-                                  'si-shortcut-autocomplete-${definition.id}',
-                                ),
-                                onPressed: busy
-                                    ? null
-                                    : () =>
-                                          _insertShortcut(definition.shortcut),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 48),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(definition.shortcut),
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
-                    );
-                  },
-                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [

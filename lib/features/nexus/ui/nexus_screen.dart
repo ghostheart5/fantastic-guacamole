@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -82,6 +83,9 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     final double energy = siState.energy;
     final double fatigue = siState.fatigue;
     final NexusDecisionModel decisionModel = ref.watch(nexusDecisionProvider);
+    final LearningFeedbackChange? learningChange = ref.watch(
+      latestDecisionLearningChangeProvider,
+    );
     _recordDecisionShown(decisionModel.intelligence?.decision);
     final AsyncValue<List<TimeBlock>> nexusBlocks = ref.watch(
       nexusTimeBlocksProvider,
@@ -120,6 +124,27 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                   ),
                 ),
               ),
+              if (learningChange != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _LearningChangePanel(
+                      change: learningChange,
+                      onHelpful: learningChange.isCorrection
+                          ? null
+                          : () => _correctLatestLearning(
+                              learningChange,
+                              DecisionOutcomeKind.accepted,
+                            ),
+                      onNotHelpful: learningChange.isCorrection
+                          ? null
+                          : () => _correctLatestLearning(
+                              learningChange,
+                              DecisionOutcomeKind.rejected,
+                            ),
+                    ),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
@@ -286,5 +311,27 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
             ),
       );
     });
+  }
+
+  Future<void> _correctLatestLearning(
+    LearningFeedbackChange change,
+    DecisionOutcomeKind replacement,
+  ) async {
+    final OperatingDecisionReceipt? receipt = ref
+        .read(nexusDecisionProvider)
+        .intelligence
+        ?.decision;
+    if (receipt == null || receipt.decisionId != change.decisionId) return;
+    await ref
+        .read(decisionOutcomeActionsProvider)
+        .correct(
+          receipt: receipt,
+          originalKind: change.outcomeKind,
+          replacementKind: replacement,
+          surface: change.surface,
+          reason: replacement == DecisionOutcomeKind.accepted
+              ? 'The person said this guidance helped.'
+              : 'The person said this guidance did not help.',
+        );
   }
 }

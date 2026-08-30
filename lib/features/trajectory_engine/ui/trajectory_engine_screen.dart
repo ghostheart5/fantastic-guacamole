@@ -148,6 +148,8 @@ class _TrajectoryEngineScreenState
                       onOpen: () =>
                           _openScenarioDestination(outcome.intervention),
                       onTrack: () => _trackScenario(value.baseline, outcome),
+                      onCorrect: () =>
+                          _correctAssumptions(value.baseline, outcome),
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -180,7 +182,7 @@ class _TrajectoryEngineScreenState
                   const SizedBox(height: 12),
                   _DisclosurePanel(
                     title: 'Evidence and model details',
-                    subtitle: 'Baseline, calibration, and forecast sources',
+                    subtitle: 'Baseline, monitoring, and forecast sources',
                     child: Column(
                       children: <Widget>[
                         if (model.decisionIntelligence
@@ -278,8 +280,32 @@ class _TrajectoryEngineScreenState
       SnackBar(
         content: Text(
           stored
-              ? 'Path tracked. Its forecast will be compared with future observed evidence.'
+              ? 'Path tracked. Its forecast will be monitored against future observed evidence.'
               : 'Sign in to keep an account-scoped forecast receipt.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _correctAssumptions(
+    TrajectoryBaseline baseline,
+    TrajectoryScenarioOutcome outcome,
+  ) async {
+    final bool stored = await ref
+        .read(trajectoryForecastLedgerRepositoryProvider)
+        .recordAssumptionCorrection(
+          baseline: baseline,
+          outcome: outcome,
+          correctedAt: DateTime.now().toUtc(),
+        );
+    if (stored) ref.invalidate(trajectoryForecastLedgerProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          stored
+              ? 'Correction saved locally. This result will not count as monitoring evidence.'
+              : 'Sign in to save an account-scoped assumption correction.',
         ),
       ),
     );
@@ -406,6 +432,94 @@ class _TrajectoryOverviewCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          _EvidenceOriginBoundary(baseline: baseline),
+        ],
+      ),
+    );
+  }
+}
+
+class _EvidenceOriginBoundary extends StatelessWidget {
+  const _EvidenceOriginBoundary({required this.baseline});
+
+  final TrajectoryBaseline baseline;
+
+  @override
+  Widget build(BuildContext context) {
+    final String energy = baseline.hasObservedEnergy
+        ? 'recorded'
+        : '${baseline.energyOrigin.name}; not observed';
+    final String availability = baseline.hasObservedAvailability
+        ? 'recorded'
+        : '${baseline.availabilityOrigin.name}; not observed';
+    return Text(
+      'Evidence boundary: energy is $energy; availability is $availability. '
+      'Task durations remain estimates and deadline effects remain projections.',
+      style: const TextStyle(
+        color: Color(0xFFB8C7E8),
+        fontSize: 11,
+        height: 1.35,
+      ),
+    );
+  }
+}
+
+class _ResultAssumptions extends StatelessWidget {
+  const _ResultAssumptions({required this.assumptions});
+
+  final List<String> assumptions;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> visible = assumptions
+        .map((String value) => value.trim())
+        .where((String value) => value.isNotEmpty)
+        .toList(growable: false);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFC857).withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: const Color(0xFFFFC857).withValues(alpha: .24),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'ASSUMPTIONS FOR THIS RESULT',
+            style: TextStyle(
+              color: Color(0xFFFFC857),
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          if (visible.isEmpty)
+            const Text(
+              'No additional scenario assumptions were listed. Task durations and future availability remain modeled.',
+              style: TextStyle(
+                color: Color(0xFFD8E2FF),
+                fontSize: 10,
+                height: 1.3,
+              ),
+            )
+          else
+            for (final String assumption in visible)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  '• $assumption',
+                  style: const TextStyle(
+                    color: Color(0xFFD8E2FF),
+                    fontSize: 10,
+                    height: 1.3,
+                  ),
+                ),
+              ),
         ],
       ),
     );
@@ -582,8 +696,6 @@ class _BranchRow extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  ${outcome.confidence.band.name} evidence',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white60,
                             fontSize: 11,
@@ -591,6 +703,8 @@ class _BranchRow extends StatelessWidget {
                             letterSpacing: 0,
                           ),
                         ),
+                        const SizedBox(height: 6),
+                        _ResultAssumptions(assumptions: outcome.assumptions),
                       ],
                     ),
                   ),
@@ -868,17 +982,19 @@ class _CalibrationCard extends StatelessWidget {
     final TrajectoryCalibrationSummary? value = summary.asData?.value;
     final String state = value == null
         ? (summary.isLoading ? 'loading' : 'unavailable')
-        : value.state.name;
+        : value.resolvedForecasts == 0
+        ? 'provisional'
+        : 'monitored';
     final String detail = value == null
-        ? 'Calibration evidence is not currently available.'
+        ? 'Monitoring evidence is not currently available.'
         : value.resolvedForecasts == 0
         ? 'No tracked path has reached its horizon yet. Forecasts remain provisional.'
-        : '${value.resolvedForecasts} resolved • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%.';
+        : '${value.resolvedForecasts} resolved and monitored • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%. Coefficients and uncertainty are unchanged.';
     return _Panel(
-      title: 'Forecast calibration',
+      title: 'Forecast monitoring',
       child: Semantics(
         container: true,
-        label: 'Forecast calibration $state. $detail',
+        label: 'Forecast monitoring $state. $detail',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -1233,6 +1349,7 @@ class _ScenarioComparisonCard extends StatelessWidget {
     required this.isRecommended,
     required this.onOpen,
     required this.onTrack,
+    required this.onCorrect,
   });
 
   final TrajectoryBaseline baseline;
@@ -1240,6 +1357,7 @@ class _ScenarioComparisonCard extends StatelessWidget {
   final bool isRecommended;
   final VoidCallback onOpen;
   final VoidCallback onTrack;
+  final VoidCallback onCorrect;
 
   @override
   Widget build(BuildContext context) {
@@ -1299,6 +1417,8 @@ class _ScenarioComparisonCard extends StatelessWidget {
               height: 1.4,
             ),
           ),
+          const SizedBox(height: 8),
+          _ResultAssumptions(assumptions: outcome.assumptions),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -1323,6 +1443,19 @@ class _ScenarioComparisonCard extends StatelessWidget {
                     : 'Review on Timeline',
               ),
             ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('trajectory-correct-assumptions'),
+            onPressed: onCorrect,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            icon: const Icon(Icons.edit_note_rounded),
+            label: const Text('Correct assumptions'),
           ),
           const SizedBox(height: 4),
           ExpansionTile(
@@ -1565,7 +1698,7 @@ class _ScenarioFullDetails extends StatelessWidget {
               ),
             ),
             icon: const Icon(Icons.query_stats_rounded),
-            label: const Text('Track this path for calibration'),
+            label: const Text('Track this path for monitoring'),
           ),
         ],
       ),

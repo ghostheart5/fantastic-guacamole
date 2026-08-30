@@ -5,16 +5,16 @@ import 'package:fantastic_guacamole/domain/entities/emotional_state.dart';
 
 enum PlannerResponseOrigin { deterministic, externalModel }
 
+enum PlannerResponseDisposition { guidance, clarification }
+
 enum PlannerOptionKind { minimum, bestFit, stretch }
 
 enum PlannerActionControl {
-  tryThis,
-  editUnderstanding,
-  makeItSmaller,
+  useThisPlan,
+  makeSmaller,
   differentApproach,
   whyThis,
-  openCreatorDraft,
-  notNow,
+  evidence,
 }
 
 final class PlannerOption {
@@ -89,6 +89,7 @@ final class PlannerV2Response {
     this.usefulQuestion,
     required this.adaptationReceipt,
     required this.origin,
+    this.disposition = PlannerResponseDisposition.guidance,
     List<PlannerActionControl> controls = PlannerActionControl.values,
   }) : verifiedEvidence = List<String>.unmodifiable(verifiedEvidence),
        options = List<PlannerOption>.unmodifiable(options),
@@ -106,7 +107,11 @@ final class PlannerV2Response {
   final String? usefulQuestion;
   final PlannerAdaptationReceipt adaptationReceipt;
   final PlannerResponseOrigin origin;
+  final PlannerResponseDisposition disposition;
   final List<PlannerActionControl> controls;
+
+  bool get isClarification =>
+      disposition == PlannerResponseDisposition.clarification;
 
   PlannerOption get recommendedOption => options.singleWhere(
     (PlannerOption option) => option.kind == recommendedKind,
@@ -130,6 +135,7 @@ final class PlannerV2Response {
     String? usefulQuestion,
     PlannerAdaptationReceipt? adaptationReceipt,
     PlannerResponseOrigin? origin,
+    PlannerResponseDisposition? disposition,
     List<PlannerActionControl>? controls,
   }) => PlannerV2Response(
     whatIHeard: whatIHeard ?? this.whatIHeard,
@@ -142,10 +148,38 @@ final class PlannerV2Response {
     usefulQuestion: usefulQuestion ?? this.usefulQuestion,
     adaptationReceipt: adaptationReceipt ?? this.adaptationReceipt,
     origin: origin ?? this.origin,
+    disposition: disposition ?? this.disposition,
     controls: controls ?? this.controls,
   );
 
+  factory PlannerV2Response.clarification({
+    required String whatIHeard,
+    required String mattersMost,
+    required List<String> verifiedEvidence,
+    required String question,
+    required PlannerAdaptationReceipt adaptationReceipt,
+    required PlannerResponseOrigin origin,
+  }) {
+    return PlannerV2Response(
+      whatIHeard: whatIHeard,
+      mattersMost: mattersMost,
+      verifiedEvidence: verifiedEvidence,
+      options: const <PlannerOption>[],
+      recommendedKind: PlannerOptionKind.minimum,
+      recommendationReason: '',
+      nextStep: '',
+      usefulQuestion: question,
+      adaptationReceipt: adaptationReceipt,
+      origin: origin,
+      disposition: PlannerResponseDisposition.clarification,
+      controls: const <PlannerActionControl>[],
+    );
+  }
+
   PlannerV2Response recommend(PlannerOptionKind kind, {required String why}) {
+    if (isClarification) {
+      throw StateError('A clarification cannot be accepted as a plan.');
+    }
     final PlannerOption option = optionByKind[kind]!;
     return copyWith(
       recommendedKind: kind,
@@ -157,8 +191,12 @@ final class PlannerV2Response {
   String toAccessibleText() {
     final StringBuffer buffer = StringBuffer()
       ..writeln('What I heard: $whatIHeard')
-      ..writeln('What matters most: $mattersMost')
-      ..writeln('Plan spectrum:');
+      ..writeln('What matters most: $mattersMost');
+    if (isClarification) {
+      buffer.writeln('Clarifying question: ${usefulQuestion!.trim()}');
+      return buffer.toString().trim();
+    }
+    buffer.writeln('Plan spectrum:');
     for (final PlannerOption option in options) {
       buffer.writeln(
         '${_kindLabel(option.kind)}: ${option.title}. ${option.description}',
@@ -176,6 +214,32 @@ final class PlannerV2Response {
   }
 
   void _validate() {
+    if (verifiedEvidence.isEmpty) {
+      throw ArgumentError.value(
+        verifiedEvidence,
+        'verifiedEvidence',
+        'Planner V2 responses require explicit evidence.',
+      );
+    }
+    if (isClarification) {
+      final String question = usefulQuestion?.trim() ?? '';
+      if (options.isNotEmpty ||
+          controls.isNotEmpty ||
+          recommendationReason.trim().isNotEmpty ||
+          nextStep.trim().isNotEmpty) {
+        throw ArgumentError(
+          'Clarification responses cannot contain plan options or actions.',
+        );
+      }
+      if (question.isEmpty || '?'.allMatches(question).length != 1) {
+        throw ArgumentError.value(
+          usefulQuestion,
+          'usefulQuestion',
+          'Clarification responses require exactly one question.',
+        );
+      }
+      return;
+    }
     final Set<PlannerOptionKind> kinds = options
         .map((PlannerOption option) => option.kind)
         .toSet();
@@ -193,13 +257,6 @@ final class PlannerV2Response {
         recommendedKind,
         'recommendedKind',
         'The recommended option must exist in the Plan Spectrum.',
-      );
-    }
-    if (verifiedEvidence.isEmpty) {
-      throw ArgumentError.value(
-        verifiedEvidence,
-        'verifiedEvidence',
-        'Planner V2 responses require explicit evidence.',
       );
     }
     if (controls.toSet().length != PlannerActionControl.values.length ||

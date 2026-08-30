@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/trajectory_forecast_ledger_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,7 +30,12 @@ void main() {
           );
 
       expect(await repository.append(receipt), isTrue);
-      expect(await repository.load(), hasLength(1));
+      final TrajectoryForecastReceipt stored = (await repository.load()).single;
+      expect(stored.assumptions, receipt.assumptions);
+      expect(
+        TrajectoryForecastReceipt.fromJson(stored.toJson()).assumptions,
+        receipt.assumptions,
+      );
       final TrajectoryForecastLedgerRepository other =
           TrajectoryForecastLedgerRepository(
             store: store,
@@ -102,7 +108,7 @@ void main() {
     );
 
     test(
-      'reconciles only due forecasts and computes calibration evidence',
+      'reconciles only due forecasts and computes monitoring evidence',
       () async {
         final _MemoryStore store = _MemoryStore();
         final AccountStorageScope scope = AccountStorageScope.authenticated(
@@ -132,6 +138,75 @@ void main() {
         expect(summary.intervalCoverage, inInclusiveRange(0, 1));
       },
     );
+
+    test('stores a local correction and excludes it from monitoring', () async {
+      final _MemoryStore store = _MemoryStore();
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'user-a',
+      );
+      final TrajectoryForecastLedgerRepository repository =
+          TrajectoryForecastLedgerRepository(store: store, scope: scope);
+      final TrajectoryComparison comparison = _comparisonFor(
+        scope.v2Namespace!,
+      );
+      final TrajectoryScenarioOutcome outcome = comparison.outcomes.first;
+      await repository.append(
+        TrajectoryForecastReceipt.fromScenario(
+          baseline: comparison.baseline,
+          outcome: outcome,
+          selectedAt: trajectoryFixtureNow.subtract(const Duration(days: 8)),
+        ),
+      );
+
+      expect(
+        await repository.recordAssumptionCorrection(
+          baseline: comparison.baseline,
+          outcome: outcome,
+          correctedAt: trajectoryFixtureNow,
+        ),
+        isTrue,
+      );
+      expect(await repository.reconcileDue(comparison.baseline), 1);
+
+      final TrajectoryForecastReceipt corrected =
+          (await repository.load()).single;
+      expect(corrected.hasAssumptionCorrection, isTrue);
+      expect(corrected.assumptionsCorrectedAt, trajectoryFixtureNow);
+      expect(corrected.observed, isNotNull);
+      expect(
+        TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+          corrected,
+        ]).state,
+        PredictiveCalibrationState.provisional,
+      );
+    });
+
+    test('resolved receipts remain monitored without model adjustment', () {
+      final TrajectoryComparison comparison = trajectoryTestComparison();
+      final List<TrajectoryForecastReceipt> resolved = List.generate(10, (
+        int index,
+      ) {
+        return TrajectoryForecastReceipt.fromScenario(
+          baseline: comparison.baseline,
+          outcome: comparison.outcomes.first,
+          selectedAt: trajectoryFixtureNow.subtract(Duration(days: 20 - index)),
+        ).resolve(
+          TrajectoryObservedOutcome(
+            observedAt: trajectoryFixtureNow,
+            momentum: comparison.baseline.momentum,
+            pressure: comparison.baseline.pressure,
+            completedInWindow: comparison.baseline.completedInWindow,
+            deferredInWindow: comparison.baseline.deferredInWindow,
+          ),
+        );
+      });
+
+      final TrajectoryCalibrationSummary summary =
+          TrajectoryCalibrationSummary.fromReceipts(resolved);
+
+      expect(summary.resolvedForecasts, 10);
+      expect(summary.state, PredictiveCalibrationState.monitored);
+    });
   });
 }
 

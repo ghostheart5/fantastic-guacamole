@@ -103,6 +103,9 @@ class NexusDecisionActions {
 
   void refresh() {
     _ref
+      ..invalidate(operatingSnapshotProvider)
+      ..invalidate(operatingDecisionPlanProvider)
+      ..invalidate(operatingDecisionReceiptProvider)
       ..invalidate(decisionIntelligenceProvider)
       ..invalidate(offlineQueueCountProvider)
       ..invalidate(progressionProvider)

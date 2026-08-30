@@ -273,6 +273,8 @@ void main() {
     addTearDown(() => _dispose(tester, container));
     await _pumpScreen(tester, container);
 
+    await tester.tap(find.byKey(const Key('si-v2-advanced')));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.enterText(find.byKey(const Key('si-query-input')), '/ta');
     await tester.pump();
     final Finder suggestion = find.byKey(
@@ -280,7 +282,9 @@ void main() {
     );
     expect(suggestion, findsOneWidget);
 
-    await tester.tap(suggestion);
+    await tester.ensureVisible(suggestion);
+    await tester.pump();
+    tester.widget<OutlinedButton>(suggestion).onPressed!.call();
     await tester.pump();
     final TextField field = tester.widget<TextField>(
       find.byKey(const Key('si-query-input')),

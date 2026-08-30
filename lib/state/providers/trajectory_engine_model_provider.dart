@@ -152,6 +152,9 @@ class TrajectoryEngineActions {
     _ref
       ..invalidate(trajectorySummaryProvider)
       ..invalidate(trajectoryConsequenceProvider)
+      ..invalidate(operatingSnapshotProvider)
+      ..invalidate(operatingDecisionPlanProvider)
+      ..invalidate(operatingDecisionReceiptProvider)
       ..invalidate(decisionIntelligenceProvider)
       ..invalidate(trajectoryEngineModelProvider);
   }

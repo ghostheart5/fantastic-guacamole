@@ -380,8 +380,8 @@ if (Test-Path $smartPlannerPath) {
   if ($smartPlannerRaw -notmatch '\.requestPlanningGuidance\(') {
     $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner must request guidance through smartPlannerQueryControllerProvider.requestPlanningGuidance(...)') | Out-Null
   }
-  if ($smartPlannerRaw -notmatch '\.requestFollowUp\(') {
-    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner follow-ups must route through smartPlannerQueryControllerProvider.requestFollowUp(...)') | Out-Null
+  if ($smartPlannerRaw -notmatch '\.requestFollowUp(?:Result)?\(') {
+    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner follow-ups must route through smartPlannerQueryControllerProvider.requestFollowUp(...) or requestFollowUpResult(...)') | Out-Null
   }
   if ($smartPlannerRaw -match 'CrisisDetectionPolicy\.detects\(') {
     $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner must not call CrisisDetectionPolicy directly; use smartPlannerQueryControllerProvider.detectsCrisis(text)') | Out-Null

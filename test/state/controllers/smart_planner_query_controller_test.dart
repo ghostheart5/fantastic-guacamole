@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -9,11 +10,13 @@ import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/state/controllers/smart_planner_query_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
@@ -28,6 +31,8 @@ void main() {
     _MemoryGoalRepository? goals,
     bool emotionConsent = true,
     PersonContextView? personContext,
+    OperatingDecisionReceipt? operatingReceipt,
+    List<MemoryEntity> plannerMemories = const <MemoryEntity>[],
   }) => ProviderContainer(
     overrides: [
       assistantReleaseConfigProvider.overrideWith(
@@ -48,6 +53,10 @@ void main() {
       smartPlannerClockProvider.overrideWithValue(
         () => DateTime.utc(2026, 8, 29, 18),
       ),
+      smartPlannerOperatingReceiptProvider.overrideWithValue(operatingReceipt),
+      memoryRecallProvider(
+        MemorySurface.smartPlanner,
+      ).overrideWithValue(plannerMemories),
       personalizationProfileProvider.overrideWith(
         emotionConsent
             ? _ConsentedPersonalizationController.new
@@ -533,6 +542,171 @@ void main() {
     expect(goals.writeCalls, 0);
   });
 
+  test(
+    'unmatched saved evidence asks exactly one question and attaches nothing',
+    () async {
+      final _MemoryTaskRepository tasks = _MemoryTaskRepository(<TaskEntity>[
+        TaskEntity(
+          id: 'task-release',
+          title: 'Finish Play release checklist',
+          createdAt: DateTime.utc(2026, 8, 20),
+          priority: 5,
+        ),
+      ]);
+      final ProviderContainer container = plannerContainer(tasks: tasks);
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: 0.6,
+            emotion: EmotionalState.calm,
+            notes: 'Help me plan groceries for dinner.',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isTrue);
+      expect(result.plannerResponse.options, isEmpty);
+      expect(result.plannerResponse.controls, isEmpty);
+      expect('?'.allMatches(result.plannerResponse.usefulQuestion!).length, 1);
+      expect(result.message, isNot(contains('Finish Play release checklist')));
+      expect(result.request.context['storedEvidenceUsed'], isFalse);
+      expect(result.request.context['positiveEvidenceRelevance'], isFalse);
+      expect(tasks.writeCalls, 0);
+    },
+  );
+
+  test(
+    'protected concerns never redirect into an unrelated saved task',
+    () async {
+      const List<String> prompts = <String>[
+        'My father died and I am grieving.',
+        'My relationship with my partner is falling apart.',
+        'My partner is abusive and controlling.',
+      ];
+      for (final String prompt in prompts) {
+        final ProviderContainer container = plannerContainer(
+          tasks: _MemoryTaskRepository(<TaskEntity>[
+            TaskEntity(
+              id: 'task-release',
+              title: 'Finish Play release checklist',
+              createdAt: DateTime.utc(2026, 8, 20),
+              priority: 5,
+            ),
+          ]),
+        );
+        addTearDown(container.dispose);
+
+        final SmartPlannerResult result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: 0.4,
+              emotion: EmotionalState.negative,
+              notes: prompt,
+              history: const <Map<String, String>>[],
+              previousSavedNotes: null,
+            );
+
+        expect(result.plannerResponse.isClarification, isTrue);
+        expect(result.plannerResponse.options, isEmpty);
+        expect(
+          '?'.allMatches(result.plannerResponse.usefulQuestion!).length,
+          1,
+        );
+        expect(
+          result.message,
+          isNot(contains('Finish Play release checklist')),
+        );
+      }
+    },
+  );
+
+  test(
+    'matching current operating receipt grounds guidance read-only',
+    () async {
+      final ProviderContainer container = plannerContainer(
+        operatingReceipt: _operatingReceipt(),
+      );
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: 0.65,
+            emotion: EmotionalState.calm,
+            notes: 'Help me prepare the release evidence.',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isFalse);
+      expect(result.request.context['operatingReceiptUsed'], isTrue);
+      expect(
+        result.request.context['focusedEvidenceKind'],
+        'operating_receipt',
+      );
+      expect(
+        result.plannerResponse.verifiedEvidence,
+        contains(contains('Current operating receipt matched')),
+      );
+      expect(
+        result.plannerResponse.options.every(
+          (PlannerOption option) =>
+              option.description.contains('Prepare release evidence'),
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'Planner memory recall keeps exact surface purpose and consent boundary',
+    () async {
+      final ProviderContainer container = plannerContainer(
+        plannerMemories: <MemoryEntity>[
+          _plannerMemory(id: 'allowed', text: 'Prefer one small next step.'),
+          _plannerMemory(
+            id: 'wrong-surface',
+            text: 'CREATOR MEMORY MUST NOT APPEAR',
+            surface: MemorySurface.creator,
+          ),
+          _plannerMemory(
+            id: 'wrong-purpose',
+            text: 'OUTCOME MEMORY MUST NOT APPEAR',
+            purpose: MemoryPurpose.outcomeLearning,
+          ),
+          _plannerMemory(
+            id: 'withdrawn',
+            text: 'WITHDRAWN MEMORY MUST NOT APPEAR',
+            consent: MemoryConsentStatus.withdrawn,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: 0.6,
+            emotion: EmotionalState.calm,
+            notes: 'Help me choose one practical step.',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+      final String visible = <String>[
+        result.message,
+        ...result.plannerResponse.verifiedEvidence,
+      ].join('\n');
+
+      expect(result.request.context['plannerMemorySignalsUsed'], 1);
+      expect(visible, contains('Prefer one small next step.'));
+      expect(visible, isNot(contains('CREATOR MEMORY MUST NOT APPEAR')));
+      expect(visible, isNot(contains('OUTCOME MEMORY MUST NOT APPEAR')));
+      expect(visible, isNot(contains('WITHDRAWN MEMORY MUST NOT APPEAR')));
+    },
+  );
+
   test('follow-up uses saved evidence and prior user conversation', () async {
     final _MemoryTaskRepository tasks = _MemoryTaskRepository(<TaskEntity>[
       TaskEntity(
@@ -776,6 +950,58 @@ class _RevokedPersonalizationController
   @override
   PersonalizationProfile build() => const PersonalizationProfile();
 }
+
+OperatingDecisionReceipt _operatingReceipt() => OperatingDecisionReceipt(
+  decisionId: 'receipt-release',
+  subjectId: null,
+  recommendedAction: 'Prepare release evidence',
+  rationale: 'The current launch gate needs verified local evidence.',
+  whyItMatters: 'A verified release decision is the current priority.',
+  consequenceOfDelay: 'The release decision remains unresolved.',
+  generatedAt: DateTime.utc(2026, 8, 29, 17),
+  expiresAt: DateTime.utc(2026, 8, 29, 21),
+  confidence: OperatingConfidence.moderate,
+  evidence: <OperatingEvidence>[
+    OperatingEvidence(
+      code: 'release-check',
+      description: 'Release evidence remains incomplete.',
+      kind: OperatingEvidenceKind.observed,
+      recordedAt: DateTime.utc(2026, 8, 29, 17),
+      source: 'local_release_gate',
+    ),
+  ],
+  actionIntent: const OperatingActionIntent(
+    id: 'open-creator',
+    type: OperatingActionType.openCreator,
+    label: 'Review in Creator',
+    destination: 'creator',
+    requiresConfirmation: true,
+  ),
+  sourceRevisions: const <String, String>{'release': 'r1'},
+  modelVersion: 'operating-receipt-test-v1',
+);
+
+MemoryEntity _plannerMemory({
+  required String id,
+  required String text,
+  MemorySurface surface = MemorySurface.smartPlanner,
+  MemoryPurpose purpose = MemoryPurpose.guidancePreference,
+  MemoryConsentStatus consent = MemoryConsentStatus.granted,
+}) => MemoryEntity(
+  id: id,
+  text: text,
+  date: DateTime.utc(2026, 8, 29, 16),
+  category: MemoryCategory.planningGuidancePreference,
+  accountScopeId: 'v2.test-account',
+  sourceSurface: surface,
+  purpose: purpose,
+  sensitivity: MemorySensitivity.standard,
+  consentStatus: consent,
+  consentedAt: DateTime.utc(2026, 8, 29, 16),
+  expiresAt: DateTime.utc(2026, 9, 29, 16),
+  provenance: 'test',
+  whyStored: 'test',
+);
 
 class _MemoryTaskRepository implements ITaskRepository {
   _MemoryTaskRepository([List<TaskEntity> tasks = const <TaskEntity>[]])

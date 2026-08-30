@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
@@ -39,6 +41,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   String? _planningGuidanceMessage;
   String? _planningGuidancePrompt;
   PlannerV2Response? _plannerResponse;
+  OperatingDecisionReceipt? _operatingReceipt;
+  String? _shownOperatingReceiptId;
   String? _followUpError;
   String? _guidanceError;
   String? _plannerActionStatus;
@@ -46,6 +50,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   bool _saved = false;
   bool _gettingPlanningGuidance = false;
   bool _sendingFollowUp = false;
+  bool _showWhy = false;
+  bool _showEvidence = false;
 
   List<_Exchange> get _visibleFollowUps {
     const int maxVisibleFollowUps = 20;
@@ -140,6 +146,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _planningGuidancePrompt = fallback.prompt;
         _planningGuidanceMessage = fallback.message;
         _plannerResponse = fallback.plannerResponse;
+        _operatingReceipt = fallback.operatingReceipt;
       });
       return;
     }
@@ -149,11 +156,15 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       _planningGuidancePrompt = result.prompt;
       _planningGuidanceMessage = result.message;
       _plannerResponse = result.plannerResponse;
+      _operatingReceipt = result.operatingReceipt;
       _guidanceError = null;
       _saved = true;
       _gettingPlanningGuidance = false;
       _plannerActionStatus = null;
+      _showWhy = false;
+      _showEvidence = false;
     });
+    _recordOperatingReceiptShown(result.operatingReceipt);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final BuildContext? responseContext = _plannerResponseKey.currentContext;
@@ -189,8 +200,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       _followUpError = null;
     });
     try {
-      final String reply = await planner
-          .requestFollowUp(
+      final SmartPlannerResult result = await planner
+          .requestFollowUpResult(
             input: text,
             energy: _energy,
             emotion: _emotion,
@@ -200,9 +211,15 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       setState(() {
-        _followUps.add(_Exchange(question: text, answer: reply));
+        _followUps.add(_Exchange(question: text, answer: result.message));
+        _plannerResponse = result.plannerResponse;
+        _operatingReceipt = result.operatingReceipt;
+        _showWhy = false;
+        _showEvidence = false;
+        _plannerActionStatus = null;
         _sendingFollowUp = false;
       });
+      _recordOperatingReceiptShown(result.operatingReceipt);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_scroll.hasClients) {
@@ -233,6 +250,129 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       });
       ErrorBoundary.of(context)?.captureError(error, stackTrace);
     }
+  }
+
+  void _useThisPlan() {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null || response.isClarification) return;
+    final CreatorDraftPreview draft = CreatorDraftPreview.fromPlannerResponse(
+      response,
+    );
+    _recordOperatingOutcome(
+      DecisionOutcomeKind.accepted,
+      detail: 'Accepted through Smart Planner Use this plan.',
+    );
+    ref.read(creatorDraftPreviewProvider.notifier).stage(draft);
+    goToAppView(context, ref, AppView.creator);
+  }
+
+  void _makeSmaller() {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null || response.isClarification) return;
+    final PlannerOption minimum =
+        response.optionByKind[PlannerOptionKind.minimum]!;
+    final PlannerV2Response smaller;
+    if (response.recommendedKind == PlannerOptionKind.minimum) {
+      final int minutes = (minimum.estimatedMinutes / 2).ceil().clamp(
+        1,
+        minimum.estimatedMinutes,
+      );
+      final PlannerOption reduced = minimum.copyWith(
+        title: 'Smaller: ${minimum.title}',
+        description:
+            'Begin with a $minutes-minute setup step. ${minimum.description}',
+        estimatedMinutes: minutes,
+        tradeoff:
+            'This reduces activation cost further and leaves more work for later.',
+      );
+      smaller = response.copyWith(
+        options: <PlannerOption>[
+          reduced,
+          ...response.options.where(
+            (PlannerOption option) => option.kind != PlannerOptionKind.minimum,
+          ),
+        ],
+        nextStep: reduced.description,
+        recommendationReason:
+            'You asked for a smaller start, so this keeps only a brief setup step.',
+      );
+    } else {
+      smaller = response.recommend(
+        PlannerOptionKind.minimum,
+        why:
+            'You asked for a smaller plan, so the minimum option is now selected.',
+      );
+    }
+    setState(() {
+      _plannerResponse = smaller;
+      _plannerActionStatus = 'The plan is smaller. Nothing has been saved.';
+    });
+    _recordOperatingOutcome(
+      DecisionOutcomeKind.deferred,
+      detail: 'Deferred the current receipt action by choosing Make smaller.',
+    );
+  }
+
+  void _chooseDifferentApproach() {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null || response.isClarification) return;
+    final List<PlannerOptionKind> kinds = PlannerOptionKind.values;
+    final int current = kinds.indexOf(response.recommendedKind);
+    final PlannerOptionKind next = kinds[(current + 1) % kinds.length];
+    setState(() {
+      _plannerResponse = response.recommend(
+        next,
+        why:
+            'You asked for a different approach, so another bounded option is selected.',
+      );
+      _plannerActionStatus =
+          'A different approach is selected. Nothing has been saved.';
+    });
+    _recordOperatingOutcome(
+      DecisionOutcomeKind.rejected,
+      detail:
+          'Rejected the current receipt approach by choosing Different approach.',
+    );
+  }
+
+  void _recordOperatingReceiptShown(OperatingDecisionReceipt? receipt) {
+    if (receipt == null ||
+        receipt.isExpired ||
+        _shownOperatingReceiptId == receipt.decisionId) {
+      return;
+    }
+    _shownOperatingReceiptId = receipt.decisionId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _shownOperatingReceiptId != receipt.decisionId) return;
+      unawaited(
+        ref
+            .read(decisionOutcomeActionsProvider)
+            .record(
+              receipt: receipt,
+              kind: DecisionOutcomeKind.shown,
+              surface: 'smart_planner',
+              detail: 'Matched operating receipt shown in Planner V2.',
+            ),
+      );
+    });
+  }
+
+  void _recordOperatingOutcome(
+    DecisionOutcomeKind kind, {
+    required String detail,
+  }) {
+    final OperatingDecisionReceipt? receipt = _operatingReceipt;
+    if (receipt == null || receipt.isExpired) return;
+    unawaited(
+      ref
+          .read(decisionOutcomeActionsProvider)
+          .record(
+            receipt: receipt,
+            kind: kind,
+            surface: 'smart_planner',
+            detail: detail,
+          ),
+    );
   }
 
   Future<void> _rememberPreference() async {
@@ -294,7 +434,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Receipt preview\nWhy: save this preference for your review and future opt-in use\nCurrent use: not applied to guidance in this build\nSource: Smart Planner only\nExpiry: $retentionDays days\nControls: view, correct, export, delete in Settings',
+                      'Receipt preview\nWhy: save this preference for your review and future opt-in use\nRecall boundary: consented Smart Planner guidance only\nSource: Smart Planner only\nExpiry: $retentionDays days\nControls: view, correct, export, delete in Settings',
                       style: const TextStyle(height: 1.4),
                     ),
                   ),
@@ -367,7 +507,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           .first;
       setState(() {
         _plannerActionStatus =
-            'Preference saved with consent. It is not used in guidance in this build. Smart Planner only · expires $expiry · manage in Settings.';
+            'Preference saved with consent. Recall stays limited to Smart Planner guidance · expires $expiry · manage in Settings.';
       });
     } catch (error) {
       if (!mounted) return;
@@ -588,6 +728,17 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                         child: _PlannerV2ResponsePanel(
                           response: plannerResponse,
                           actionStatus: _plannerActionStatus,
+                          showWhy: _showWhy,
+                          showEvidence: _showEvidence,
+                          onUseThisPlan: _useThisPlan,
+                          onMakeSmaller: _makeSmaller,
+                          onDifferentApproach: _chooseDifferentApproach,
+                          onToggleWhy: () => setState(() {
+                            _showWhy = !_showWhy;
+                          }),
+                          onToggleEvidence: () => setState(() {
+                            _showEvidence = !_showEvidence;
+                          }),
                           onRememberPreference: () =>
                               unawaited(_rememberPreference()),
                         ),
@@ -715,12 +866,26 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
   const _PlannerV2ResponsePanel({
     required this.response,
     required this.onRememberPreference,
+    required this.showWhy,
+    required this.showEvidence,
+    required this.onUseThisPlan,
+    required this.onMakeSmaller,
+    required this.onDifferentApproach,
+    required this.onToggleWhy,
+    required this.onToggleEvidence,
     this.actionStatus,
   });
 
   final PlannerV2Response response;
   final String? actionStatus;
   final VoidCallback onRememberPreference;
+  final bool showWhy;
+  final bool showEvidence;
+  final VoidCallback onUseThisPlan;
+  final VoidCallback onMakeSmaller;
+  final VoidCallback onDifferentApproach;
+  final VoidCallback onToggleWhy;
+  final VoidCallback onToggleEvidence;
 
   @override
   Widget build(BuildContext context) {
@@ -736,23 +901,92 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
             text: 'ON-DEVICE PLANNER V2 · DETERMINISTIC · NOT AI-GENERATED',
             color: AppColors.neonCyan,
           ),
-          _section(
-            'YOUR PLAN + TRADEOFF',
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _PlanSpectrumOptionCard(option: response.recommendedOption),
-                const SizedBox(height: 5),
-                _body('Tradeoff: ${response.recommendedOption.tradeoff}'),
+          if (response.isClarification) ...[
+            _section('WHAT I HEARD', _body(response.whatIHeard)),
+            _section(
+              'ONE CLARIFYING QUESTION',
+              _body(response.usefulQuestion!),
+            ),
+          ] else ...[
+            _section(
+              'YOUR PLAN + TRADEOFF',
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _PlanSpectrumOptionCard(option: response.recommendedOption),
+                  const SizedBox(height: 5),
+                  _body('Tradeoff: ${response.recommendedOption.tradeoff}'),
+                ],
+              ),
+            ),
+            _section('ONE CONCRETE NEXT STEP', _body(response.nextStep)),
+            if (showWhy)
+              _section('WHY THIS', _body(response.recommendationReason)),
+            if (showEvidence)
+              _section(
+                'EVIDENCE',
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: response.verifiedEvidence
+                      .map(
+                        (String item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            '• $item',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              height: 1.45,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                FilledButton.icon(
+                  key: const Key('planner-use-this-plan'),
+                  onPressed: onUseThisPlan,
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: const Text('Use this plan'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('planner-make-smaller'),
+                  onPressed: onMakeSmaller,
+                  icon: const Icon(Icons.compress_rounded, size: 18),
+                  label: const Text('Make smaller'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('planner-different-approach'),
+                  onPressed: onDifferentApproach,
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                  label: const Text('Different approach'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('planner-why-this'),
+                  onPressed: onToggleWhy,
+                  icon: const Icon(Icons.help_outline_rounded, size: 18),
+                  label: const Text('Why this'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('planner-evidence'),
+                  onPressed: onToggleEvidence,
+                  icon: const Icon(Icons.fact_check_outlined, size: 18),
+                  label: const Text('Evidence'),
+                ),
               ],
             ),
-          ),
-          _section('ONE CONCRETE NEXT STEP', _body(response.nextStep)),
-          OutlinedButton(
-            key: const Key('planner-remember-preference'),
-            onPressed: onRememberPreference,
-            child: const Text('Remember a preference'),
-          ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              key: const Key('planner-remember-preference'),
+              onPressed: onRememberPreference,
+              child: const Text('Remember a preference'),
+            ),
+          ],
           if (actionStatus != null) ...[
             const SizedBox(height: 10),
             Semantics(

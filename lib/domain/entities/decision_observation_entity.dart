@@ -3,6 +3,7 @@ enum DecisionObservationType {
   recommendationShown,
   recommendationAccepted,
   recommendationRejected,
+  recommendationCorrected,
   taskCompleted,
   taskSkipped,
   taskRescheduled,
@@ -22,6 +23,19 @@ class DecisionObservationEntity {
   final DateTime timestamp;
   final String source;
   final String? taskId;
+
+  DecisionObservationEntity copyWith({
+    DecisionObservationType? type,
+    DateTime? timestamp,
+    String? source,
+    String? taskId,
+  }) => DecisionObservationEntity(
+    id: id,
+    type: type ?? this.type,
+    timestamp: timestamp ?? this.timestamp,
+    source: source ?? this.source,
+    taskId: taskId ?? this.taskId,
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': id,

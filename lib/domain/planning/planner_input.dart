@@ -19,6 +19,7 @@ class PlannerInput {
     this.scheduledFor,
     this.dueDate,
     this.goalId,
+    this.isSkipped = false,
   });
 
   final String id;
@@ -28,6 +29,7 @@ class PlannerInput {
   final int energyRequired;
   final bool isCompleted;
   final bool isCanceled;
+  final bool isSkipped;
   final List<String> prerequisiteIds;
   final RecurrenceRule recurrenceRule;
   final Duration? estimatedDuration;
@@ -64,6 +66,8 @@ class PlannerInput {
     createdAt: DateTime.fromMillisecondsSinceEpoch(0),
     isCompleted: isCompleted,
     completedAt: isCompleted ? DateTime.fromMillisecondsSinceEpoch(0) : null,
+    isSkipped: isSkipped,
+    skippedAt: isSkipped ? DateTime.fromMillisecondsSinceEpoch(0) : null,
     priority: priority,
     difficulty: difficulty,
     energyRequired: energyRequired,
@@ -89,6 +93,7 @@ class PlannerInputAdapter {
     energyRequired: task.energyRequired,
     isCompleted: task.isCompleted,
     isCanceled: task.isCanceled,
+    isSkipped: task.isSkipped,
     prerequisiteIds: List<String>.unmodifiable(task.subtasks),
     recurrenceRule: task.recurrenceRule,
     estimatedDuration: task.estimatedDuration,
@@ -105,6 +110,7 @@ class PlannerInputAdapter {
     energyRequired: task.energyRequired,
     isCompleted: task.isCompleted,
     isCanceled: task.isCanceled,
+    isSkipped: task.isSkipped,
     prerequisiteIds: List<String>.unmodifiable(task.subtasks),
     recurrenceRule: task.recurrenceRule,
     scheduledFor: task.scheduledFor,
@@ -131,6 +137,8 @@ class PlannerInputAdapter {
     estimatedDuration: input.estimatedDuration ?? const Duration(minutes: 30),
     isCompleted: input.isCompleted,
     isCanceled: input.isCanceled,
+    isSkipped: input.isSkipped,
+    skippedAt: input.isSkipped ? DateTime.fromMillisecondsSinceEpoch(0) : null,
     subtasks: input.prerequisiteIds,
     recurrenceRule: input.recurrenceRule,
   );

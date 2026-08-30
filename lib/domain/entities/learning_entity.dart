@@ -50,7 +50,9 @@ class LearningEntity extends LearningState {
 
   LearningEntity recordObservation(DecisionObservationEntity observation) {
     final List<DecisionObservationEntity> next = <DecisionObservationEntity>[
-      ...observations,
+      ...observations.where(
+        (DecisionObservationEntity item) => item.id != observation.id,
+      ),
       observation,
     ];
     final DateTime cutoff = observation.timestamp.subtract(
@@ -60,28 +62,31 @@ class LearningEntity extends LearningState {
       (DecisionObservationEntity item) => item.timestamp.isBefore(cutoff),
     );
 
-    final String? taskId = observation.taskId;
-    if (taskId == null || taskId.trim().isEmpty) {
-      return copyWith(observations: next);
-    }
-    final double prior = taskAffinity[taskId] ?? .5;
-    final bool positive =
-        observation.type == DecisionObservationType.recommendationAccepted ||
-        observation.type == DecisionObservationType.taskCompleted;
-    final bool negative =
-        observation.type == DecisionObservationType.recommendationRejected ||
-        observation.type == DecisionObservationType.taskSkipped;
-    final double updated = positive
-        ? prior + ((1 - prior) * .2)
-        : negative
-        ? prior - (prior * .2)
-        : prior;
     return copyWith(
       observations: next,
-      taskAffinity: <String, double>{
-        ...taskAffinity,
-        taskId: updated.clamp(0.0, 1.0).toDouble(),
-      },
+      taskAffinity: _rebuildTaskAffinity(next),
+    );
+  }
+
+  LearningEntity correctObservation({
+    required String observationId,
+    required DecisionObservationType replacement,
+    required DateTime correctedAt,
+  }) {
+    final List<DecisionObservationEntity> corrected = observations
+        .map(
+          (DecisionObservationEntity item) => item.id == observationId
+              ? item.copyWith(
+                  type: replacement,
+                  timestamp: correctedAt.toUtc(),
+                  source: '${item.source}:user_correction',
+                )
+              : item,
+        )
+        .toList(growable: false);
+    return copyWith(
+      observations: corrected,
+      taskAffinity: _rebuildTaskAffinity(corrected),
     );
   }
 
@@ -164,4 +169,27 @@ class LearningEntity extends LearningState {
       observations: observations,
     );
   }
+}
+
+Map<String, double> _rebuildTaskAffinity(
+  List<DecisionObservationEntity> observations,
+) {
+  final Map<String, double> affinity = <String, double>{};
+  for (final DecisionObservationEntity observation in observations) {
+    final String? taskId = observation.taskId;
+    if (taskId == null || taskId.trim().isEmpty) continue;
+    final double prior = affinity[taskId] ?? .5;
+    final bool positive =
+        observation.type == DecisionObservationType.recommendationAccepted ||
+        observation.type == DecisionObservationType.taskCompleted;
+    final bool negative =
+        observation.type == DecisionObservationType.recommendationRejected ||
+        observation.type == DecisionObservationType.taskSkipped;
+    affinity[taskId] = positive
+        ? prior + ((1 - prior) * .2)
+        : negative
+        ? prior - (prior * .2)
+        : prior;
+  }
+  return affinity;
 }

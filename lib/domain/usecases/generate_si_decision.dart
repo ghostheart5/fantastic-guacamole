@@ -40,7 +40,10 @@ class GenerateSiDecision {
       );
     }
 
-    final tasks = await taskRepo.getAllTasks();
+    final DateTime reference = DateTime.now();
+    final tasks = (await taskRepo.getAllTasks())
+        .where((task) => task.isActionableAt(reference))
+        .toList(growable: false);
 
     if (SiPolicy.shouldSuggestBreak(state!)) {
       return SiPolicy.sanitize(

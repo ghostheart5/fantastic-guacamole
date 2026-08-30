@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show soundEnabledProvider;
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
+import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -253,11 +254,13 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
   }
 
   Future<void> _refreshPlannerDecision() async {
-    try {
-      await ref.read(generateSiDecisionUseCaseProvider).call();
-      ref.invalidate(domainSiDecisionProvider);
-    } catch (_) {
-      // Avoid blocking timeline writes if planner refresh fails.
-    }
+    ref
+      ..invalidate(operatingSnapshotProvider)
+      ..invalidate(operatingDecisionPlanProvider)
+      ..invalidate(operatingDecisionReceiptProvider)
+      ..invalidate(decisionIntelligenceProvider)
+      ..invalidate(
+        operatingDecisionForSurfaceProvider(OperatingDecisionSurface.timeline),
+      );
   }
 }

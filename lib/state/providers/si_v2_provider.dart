@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
@@ -14,6 +15,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -68,11 +70,13 @@ final class SIV2QueryService implements SIV2QueryPort {
     required this.readEvidence,
     required this.clock,
     this.engine = const SIV2Engine(),
+    this.readDecisionReceipt,
   });
 
   final Future<SIV2EvidenceSnapshot> Function(DateTime observedAt) readEvidence;
   final DateTime Function() clock;
   final SIV2Engine engine;
+  final Future<OperatingDecisionReceipt?> Function()? readDecisionReceipt;
 
   @override
   Future<SIV2Response> analyze(SIV2Query query) async {
@@ -84,11 +88,16 @@ final class SIV2QueryService implements SIV2QueryPort {
     }
     final DateTime now = clock().toUtc();
     final SIV2EvidenceSnapshot snapshot = await readEvidence(now);
-    final SIV2Response response = engine.analyze(
+    SIV2Response response = engine.analyze(
       query: query,
       snapshot: snapshot,
       now: now,
     );
+    final OperatingDecisionReceipt? sharedDecision = await readDecisionReceipt
+        ?.call();
+    if (sharedDecision != null) {
+      response = response.withOperatingDecision(sharedDecision, now: now);
+    }
     final String responseText = response.toPlainText();
     final AssistantSafetyRisk risk = switch (query.intent) {
       SIV2Intent.forecast ||
@@ -145,6 +154,18 @@ final siV2QueryServiceProvider = Provider<SIV2QueryPort>((Ref ref) {
     readEvidence: (DateTime observedAt) =>
         ref.read(siV2ReadGatewayProvider).read(observedAt: observedAt),
     clock: ref.watch(siV2ClockProvider),
+    readDecisionReceipt: () async {
+      try {
+        final SurfaceDecisionReceipt surface = await ref.read(
+          operatingDecisionForSurfaceProvider(
+            OperatingDecisionSurface.siConsole,
+          ).future,
+        );
+        return surface.receipt;
+      } on Object {
+        return null;
+      }
+    },
   );
   return _ReleaseControlledSIV2QueryPort(ref, delegate: delegate);
 });

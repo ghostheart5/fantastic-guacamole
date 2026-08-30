@@ -44,7 +44,8 @@ void main() {
       expect(TaskPolicy.isValid(high), isFalse);
     });
 
-    test('canComplete returns true only when task is not completed', () {
+    test('canComplete returns true only for actionable tasks', () {
+      final DateTime reference = DateTime.utc(2026, 7, 5, 12);
       final open = TaskEntity(
         id: 't5',
         title: 'Open',
@@ -56,9 +57,23 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 5),
         isCompleted: true,
       );
+      final skipped = TaskEntity(
+        id: 't7',
+        title: 'Skipped',
+        createdAt: DateTime.utc(2026, 7, 5),
+        isSkipped: true,
+      );
+      final canceled = TaskEntity(
+        id: 't8',
+        title: 'Canceled',
+        createdAt: DateTime.utc(2026, 7, 5),
+        isCanceled: true,
+      );
 
-      expect(TaskPolicy.canComplete(open), isTrue);
-      expect(TaskPolicy.canComplete(done), isFalse);
+      expect(TaskPolicy.canComplete(open, at: reference), isTrue);
+      expect(TaskPolicy.canComplete(done, at: reference), isFalse);
+      expect(TaskPolicy.canComplete(skipped, at: reference), isFalse);
+      expect(TaskPolicy.canComplete(canceled, at: reference), isFalse);
     });
   });
 }

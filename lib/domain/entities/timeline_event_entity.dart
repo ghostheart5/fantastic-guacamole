@@ -84,13 +84,15 @@ class TimelineEventEntity {
   bool get isOverdue => status == TimelineEventStatus.overdue;
   bool get isSkipped => status == TimelineEventStatus.skipped;
   bool get isCanceled => status == TimelineEventStatus.canceled;
+  bool get isTerminal =>
+      status == TimelineEventStatus.completed || isSkipped || isCanceled;
   bool isUpcomingAt(DateTime reference) {
     final DateTime? due = dueAt;
-    if (due == null) {
+    if (due == null || isTerminal || isOverdue) {
       return false;
     }
     final Duration delta = due.difference(reference);
-    return !isOverdue && delta.inDays <= 7 && delta.inHours >= 0;
+    return delta.inDays <= 7 && delta.inHours >= 0;
   }
 
   bool get isUpcoming => isUpcomingAt(DateTime.now());

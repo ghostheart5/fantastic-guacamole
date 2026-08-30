@@ -5,6 +5,7 @@ enum DecisionOutcomeKind {
   rejected,
   corrected,
   completed,
+  skipped,
   deferred,
 }
 

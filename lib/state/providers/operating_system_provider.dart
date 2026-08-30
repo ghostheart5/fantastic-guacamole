@@ -26,6 +26,41 @@ final PersonContextAccessRequest nexusPersonContextRequest =
       purposes: operationalPersonContextPurposes,
     );
 
+const Set<PersonContextSurface> sharedDecisionContextSurfaces =
+    <PersonContextSurface>{
+      PersonContextSurface.smartPlanner,
+      PersonContextSurface.siConsole,
+      PersonContextSurface.nexus,
+      PersonContextSurface.trajectory,
+    };
+
+enum OperatingDecisionSurface {
+  smartPlanner,
+  nexus,
+  timeline,
+  trajectory,
+  siConsole,
+  notifications,
+}
+
+class SurfaceDecisionReceipt {
+  const SurfaceDecisionReceipt({required this.surface, required this.receipt});
+
+  final OperatingDecisionSurface surface;
+  final OperatingDecisionReceipt receipt;
+}
+
+final operatingDecisionForSurfaceProvider =
+    FutureProvider.family<SurfaceDecisionReceipt, OperatingDecisionSurface>((
+      Ref ref,
+      OperatingDecisionSurface surface,
+    ) async {
+      final OperatingDecisionReceipt receipt = await ref.watch(
+        operatingDecisionReceiptProvider.future,
+      );
+      return SurfaceDecisionReceipt(surface: surface, receipt: receipt);
+    });
+
 final operatingSnapshotProvider = FutureProvider<OperatingSnapshot>((
   Ref ref,
 ) async {
@@ -61,6 +96,24 @@ final operatingSnapshotProvider = FutureProvider<OperatingSnapshot>((
   );
 });
 
+final operatingDecisionPlanProvider = FutureProvider<OperatingDecisionPlan>((
+  Ref ref,
+) async {
+  final OperatingSnapshot snapshot = await ref.watch(
+    operatingSnapshotProvider.future,
+  );
+  final SIStateAggregation aggregation = await ref.watch(
+    siStateAggregationProvider.future,
+  );
+  return OperatingDecisionPlan(
+    snapshotId: snapshot.snapshotId,
+    subjectId: snapshot.topActionId,
+    recommendedAction: _canonicalRecommendedAction(aggregation),
+    sourceRevisions: snapshot.sourceRevisions,
+    modelVersion: aggregation.planningDecision.modelVersion,
+  );
+});
+
 final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt>((
   Ref ref,
 ) async {
@@ -73,19 +126,30 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
   final OperatingSnapshot snapshot = await ref.watch(
     operatingSnapshotProvider.future,
   );
-  final DateTime now = DateTime.now().toUtc();
-  final List<PersonContextSignal>? personContext = _personContextSignals(
-    ref.watch(personContextForSurfaceProvider(nexusPersonContextRequest)),
-    surface: PersonContextSurface.nexus,
-    purposes: operationalPersonContextPurposes,
-    observedAt: now,
+  final OperatingDecisionPlan plan = await ref.watch(
+    operatingDecisionPlanProvider.future,
   );
+  final DateTime now = DateTime.now().toUtc();
+  final List<PersonContextSignal>? availablePersonContext =
+      _personContextSignals(
+        ref.watch(personContextForSurfaceProvider(nexusPersonContextRequest)),
+        surface: PersonContextSurface.nexus,
+        purposes: operationalPersonContextPurposes,
+        observedAt: now,
+      );
+  final List<PersonContextSignal>? personContext = availablePersonContext
+      ?.where(
+        (PersonContextSignal signal) =>
+            signal.surfaceScopes.containsAll(sharedDecisionContextSurfaces),
+      )
+      .toList(growable: false);
   final Map<String, String> receiptRevisions = <String, String>{
     ...snapshot.sourceRevisions,
+    'person_context_shared': _personContextRevision(personContext),
     'person_context_nexus': _personContextRevision(personContext),
   };
-  final String? subjectId = snapshot.topActionId;
-  final String recommendedAction = _canonicalRecommendedAction(aggregation);
+  final String? subjectId = plan.subjectId;
+  final String recommendedAction = plan.recommendedAction;
   final bool isCaptureAction = subjectId == null;
   final List<OperatingEvidence> evidence = <OperatingEvidence>[
     OperatingEvidence(
@@ -229,6 +293,8 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     targetEntityId: subjectId,
   );
   final OperatingDecisionReceipt receipt = OperatingDecisionReceipt(
+    snapshotId: plan.snapshotId,
+    planId: plan.planId,
     subjectId: subjectId,
     recommendedAction: recommendedAction,
     rationale: rationale,
@@ -242,7 +308,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     evidence: evidence,
     actionIntent: intent,
     sourceRevisions: Map<String, String>.unmodifiable(receiptRevisions),
-    modelVersion: aggregation.planningDecision.modelVersion,
+    modelVersion: plan.modelVersion,
     assumptions: <String>[
       ...capacity.assumptions,
       'Current local records represent the user intent available to ChronoSpark.',
@@ -512,7 +578,7 @@ List<OperatingEvidence> _personContextEvidence(
       OperatingEvidence(
         code: 'person_context_unavailable',
         description:
-            'Governed person context was unavailable for this Nexus decision. No personal context was assumed.',
+            'Governed person context was unavailable to the shared decision authority. No personal context was assumed.',
         kind: OperatingEvidenceKind.unavailable,
         recordedAt: recordedAt,
         source: 'person_context',
@@ -524,7 +590,7 @@ List<OperatingEvidence> _personContextEvidence(
       OperatingEvidence(
         code: 'person_context_available_empty',
         description:
-            'Governed person context was available for Nexus, but no fresh consented operational context was supplied.',
+            'No fresh consented context was authorized across every consuming decision surface.',
         kind: OperatingEvidenceKind.unavailable,
         recordedAt: recordedAt,
         source: 'person_context',
@@ -557,7 +623,7 @@ List<String> _personContextAssumptions(List<PersonContextSignal>? signals) {
   }
   if (signals.isEmpty) {
     return const <String>[
-      'Person context was available but contained no fresh consented Nexus operational signals.',
+      'Person context was available but contained no fresh signals authorized across every consuming decision surface.',
     ];
   }
   return signals

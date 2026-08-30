@@ -197,20 +197,30 @@ class TaskActions {
       throw StateError('Task not found');
     }
 
-    final TaskEntity updated = existing.copyWith(
+    final DateTime updatedAt = DateTime.now();
+    TaskEntity updated = existing.copyWith(
       title: trimmedTitle,
       description: description?.trim(),
       clearDescription: clearDescription,
       estimatedDuration: estimatedDuration,
       clearEstimatedDuration: clearEstimatedDuration,
-      scheduledFor: scheduledFor,
-      clearScheduledFor: clearScheduledFor,
-      dueDate: dueDate,
-      clearDueDate: clearDueDate,
       goalId: normalizedGoalId,
       clearGoalId: clearGoalId,
-      updatedAt: DateTime.now(),
+      updatedAt: updatedAt,
     );
+    if (clearScheduledFor) {
+      updated = updated.applyTemporalEdit(const ClearSchedule(), at: updatedAt);
+    } else if (scheduledFor != null) {
+      updated = updated.applyTemporalEdit(
+        SetSchedule(scheduledFor),
+        at: updatedAt,
+      );
+    }
+    if (clearDueDate) {
+      updated = updated.applyTemporalEdit(const ClearDeadline(), at: updatedAt);
+    } else if (dueDate != null) {
+      updated = updated.applyTemporalEdit(SetDeadline(dueDate), at: updatedAt);
+    }
     await _ref.read(updateTaskUseCaseProvider).call(updated);
     _publishTaskMutation(updated, action: 'updated');
   }

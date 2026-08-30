@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -115,7 +117,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('renders only the retained Planner V2 controls', (
+  testWidgets('renders the calm Planner V2 action set', (
     WidgetTester tester,
   ) async {
     final ProviderContainer container = _container();
@@ -167,11 +169,11 @@ void main() {
     expect(find.text('What evidence will settle the decision?'), findsNothing);
     expect(find.textContaining('Inputs used: 70% energy'), findsNothing);
     expect(find.text('View alternatives and evidence'), findsNothing);
-    expect(find.text('Try this'), findsNothing);
-    expect(find.text('Edit'), findsNothing);
-    expect(find.text('Make it smaller'), findsNothing);
-    expect(find.text('Different approach'), findsNothing);
-    expect(find.text('Why this?'), findsNothing);
+    expect(find.text('Use this plan'), findsOneWidget);
+    expect(find.text('Make smaller'), findsOneWidget);
+    expect(find.text('Different approach'), findsOneWidget);
+    expect(find.text('Why this'), findsOneWidget);
+    expect(find.text('Evidence'), findsOneWidget);
     expect(find.text('Open as Creator draft'), findsNothing);
     expect(find.text('Remember a preference'), findsOneWidget);
     expect(find.text('Not now'), findsNothing);
@@ -218,6 +220,46 @@ void main() {
           ?.fontSize,
       16,
     );
+  });
+
+  testWidgets('records canonical receipt outcomes and stages Creator preview', (
+    WidgetTester tester,
+  ) async {
+    final List<DecisionOutcomeKind> outcomes = <DecisionOutcomeKind>[];
+    final ProviderContainer container = _container(
+      operatingReceipt: _screenOperatingReceipt(),
+      outcomes: outcomes,
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await _requestGuidance(tester);
+    await tester.pump();
+
+    expect(outcomes, <DecisionOutcomeKind>[DecisionOutcomeKind.shown]);
+
+    await _scrollTo(tester, find.text('Make smaller'));
+    await tester.tap(find.text('Make smaller'));
+    await tester.pump();
+    expect(outcomes.last, DecisionOutcomeKind.deferred);
+
+    await _scrollTo(tester, find.text('Different approach'));
+    await tester.tap(find.text('Different approach'));
+    await tester.pump();
+    expect(outcomes.last, DecisionOutcomeKind.rejected);
+
+    await _scrollTo(tester, find.text('Use this plan'));
+    await tester.tap(find.text('Use this plan'));
+    await tester.pump();
+
+    expect(outcomes.last, DecisionOutcomeKind.accepted);
+    expect(
+      outcomes.where(
+        (DecisionOutcomeKind kind) => kind == DecisionOutcomeKind.shown,
+      ),
+      hasLength(1),
+    );
+    expect(container.read(creatorDraftPreviewProvider), isNotNull);
+    expect(container.read(appFlowProvider), AppView.creator);
   });
 
   testWidgets(
@@ -343,7 +385,11 @@ void main() {
   });
 }
 
-ProviderContainer _container({VoiceService? voiceService}) {
+ProviderContainer _container({
+  VoiceService? voiceService,
+  OperatingDecisionReceipt? operatingReceipt,
+  List<DecisionOutcomeKind>? outcomes,
+}) {
   return ProviderContainer(
     overrides: [
       smartPlannerQueryControllerProvider.overrideWith(
@@ -351,6 +397,13 @@ ProviderContainer _container({VoiceService? voiceService}) {
       ),
       voiceServiceProvider.overrideWithValue(
         voiceService ?? _NoopVoiceService(),
+      ),
+      smartPlannerOperatingReceiptProvider.overrideWithValue(operatingReceipt),
+      decisionOutcomeActionsProvider.overrideWith(
+        (Ref ref) => _RecordingDecisionOutcomeActions(
+          ref,
+          outcomes ?? <DecisionOutcomeKind>[],
+        ),
       ),
     ],
   );
@@ -393,7 +446,9 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
 }
 
 class _PlannerV2TestController extends SmartPlannerQueryController {
-  _PlannerV2TestController(super.ref);
+  _PlannerV2TestController(super.ref) : _testRef = ref;
+
+  final Ref _testRef;
 
   @override
   bool detectsCrisis(String text) => false;
@@ -413,6 +468,7 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
       savedNotes: null,
       evidence: response.verifiedEvidence,
       plannerResponse: response,
+      operatingReceipt: _testRef.read(smartPlannerOperatingReceiptProvider),
     );
   }
 
@@ -506,6 +562,54 @@ PlannerV2Response _testResponse() {
     ),
     origin: PlannerResponseOrigin.deterministic,
   );
+}
+
+OperatingDecisionReceipt _screenOperatingReceipt() => OperatingDecisionReceipt(
+  decisionId: 'screen-receipt',
+  subjectId: null,
+  recommendedAction: 'Prepare release evidence',
+  rationale: 'The release evidence matches the current Planner request.',
+  whyItMatters: 'The release gate needs one verified decision.',
+  consequenceOfDelay: 'The release gate remains unresolved.',
+  generatedAt: DateTime.utc(2026, 8, 30, 10),
+  expiresAt: DateTime.utc(2026, 9, 1, 10),
+  confidence: OperatingConfidence.moderate,
+  evidence: <OperatingEvidence>[
+    OperatingEvidence(
+      code: 'release-evidence',
+      description: 'Release evidence is incomplete.',
+      kind: OperatingEvidenceKind.observed,
+      recordedAt: DateTime.utc(2026, 8, 30, 10),
+      source: 'local_release_gate',
+    ),
+  ],
+  actionIntent: const OperatingActionIntent(
+    id: 'creator-review',
+    type: OperatingActionType.openCreator,
+    label: 'Review in Creator',
+    destination: 'creator',
+    requiresConfirmation: true,
+  ),
+  sourceRevisions: const <String, String>{'release': 'r1'},
+  modelVersion: 'screen-receipt-v1',
+);
+
+class _RecordingDecisionOutcomeActions extends DecisionOutcomeActions {
+  _RecordingDecisionOutcomeActions(super.ref, this.outcomes);
+
+  final List<DecisionOutcomeKind> outcomes;
+
+  @override
+  Future<void> record({
+    required OperatingDecisionReceipt receipt,
+    required DecisionOutcomeKind kind,
+    required String surface,
+    String? detail,
+  }) async {
+    expect(receipt.decisionId, 'screen-receipt');
+    expect(surface, 'smart_planner');
+    outcomes.add(kind);
+  }
 }
 
 class _NoopVoiceService extends VoiceService {

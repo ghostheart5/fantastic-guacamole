@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 
 const int siV2SchemaVersion = 1;
@@ -636,6 +637,47 @@ final class SIV2Response {
         evidenceLinks: evidenceLinks,
         safetyReceipt: receipt,
       );
+
+  SIV2Response withOperatingDecision(
+    OperatingDecisionReceipt receipt, {
+    DateTime? now,
+  }) {
+    if (receipt.isExpiredAt((now ?? DateTime.now()).toUtc())) return this;
+    final SIV2EvidenceLink authorityLink = SIV2EvidenceLink(
+      evidenceId: 'decision:${receipt.decisionId}',
+      source: SIV2Source.tasks,
+      label: 'Shared decision receipt',
+      entityId: receipt.subjectId ?? receipt.planId,
+      observedAt: receipt.generatedAt,
+      uri: 'chronospark://decision/${receipt.decisionId}',
+    );
+    return SIV2Response(
+      schemaVersion: schemaVersion,
+      query: query,
+      snapshotRevision: snapshotRevision,
+      directAnswer: directAnswer,
+      observedFacts: observedFacts,
+      calculations: calculations,
+      inferences: inferences,
+      missingInformation: missingInformation,
+      conflicts: conflicts,
+      scenarios: scenarios,
+      scenarioAssumptions: <String>[
+        ...scenarioAssumptions,
+        'The next action is read from shared decision plan ${receipt.planId}; SI Console did not independently rank another action.',
+      ],
+      recommendation: receipt.recommendedAction,
+      confidence: confidence,
+      evidenceLinks: <SIV2EvidenceLink>[
+        ...evidenceLinks.where(
+          (SIV2EvidenceLink item) =>
+              item.evidenceId != authorityLink.evidenceId,
+        ),
+        authorityLink,
+      ],
+      safetyReceipt: safetyReceipt,
+    );
+  }
 
   void validate() {
     if (schemaVersion != siV2SchemaVersion ||

@@ -6,7 +6,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_trajectory_forecast_ledg
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 
-/// Account-scoped, bounded evidence ledger for forecast calibration.
+/// Account-scoped, bounded evidence ledger for forecast monitoring.
 class TrajectoryForecastLedgerRepository
     implements ITrajectoryForecastLedgerRepository {
   const TrajectoryForecastLedgerRepository({
@@ -92,6 +92,42 @@ class TrajectoryForecastLedgerRepository
       ),
     ];
     await _save(next);
+    return true;
+  }
+
+  Future<bool> recordAssumptionCorrection({
+    required TrajectoryBaseline baseline,
+    required TrajectoryScenarioOutcome outcome,
+    required DateTime correctedAt,
+  }) async {
+    final String? key = storageKey;
+    if (key == null || baseline.accountScope != scope.v2Namespace) return false;
+
+    final DateTime correctedAtUtc = correctedAt.toUtc();
+    final List<TrajectoryForecastReceipt> existing = await load();
+    bool matched = false;
+    final List<TrajectoryForecastReceipt> corrected = existing
+        .map((receipt) {
+          final bool isSameForecast =
+              receipt.baselineRevision == baseline.revision &&
+              receipt.scenarioId == outcome.id;
+          if (!isSameForecast) return receipt;
+          matched = true;
+          if (receipt.hasAssumptionCorrection) return receipt;
+          return receipt.markAssumptionsCorrected(correctedAtUtc);
+        })
+        .toList(growable: true);
+
+    if (!matched) {
+      corrected.add(
+        TrajectoryForecastReceipt.fromScenario(
+          baseline: baseline,
+          outcome: outcome,
+          selectedAt: correctedAtUtc,
+        ).markAssumptionsCorrected(correctedAtUtc),
+      );
+    }
+    await _save(corrected);
     return true;
   }
 

@@ -5,9 +5,11 @@ import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
@@ -17,6 +19,8 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +33,11 @@ final smartPlannerQueryControllerProvider =
 final smartPlannerClockProvider = Provider<DateTime Function()>(
   (Ref ref) => DateTime.now,
 );
+
+final smartPlannerOperatingReceiptProvider =
+    Provider<OperatingDecisionReceipt?>((Ref ref) {
+      return ref.watch(operatingDecisionReceiptProvider).asData?.value;
+    });
 
 final PersonContextAccessRequest _smartPlannerPersonContextRequest =
     PersonContextAccessRequest(
@@ -45,6 +54,7 @@ class SmartPlannerResult {
     List<String> evidence = const <String>[],
     DateTime? generatedAt,
     PlannerV2Response? plannerResponse,
+    OperatingDecisionReceipt? operatingReceipt,
   }) {
     final DateTime created = (generatedAt ?? DateTime.now()).toUtc();
     final AssistantRequestEnvelope request = createAssistantRequestEnvelope(
@@ -104,6 +114,7 @@ class SmartPlannerResult {
       safetyReceipt: safetyReceipt,
       savedNotes: savedNotes,
       plannerResponse: resolvedResponse,
+      operatingReceipt: operatingReceipt,
     );
   }
 
@@ -114,6 +125,7 @@ class SmartPlannerResult {
     required this.safetyReceipt,
     required this.savedNotes,
     required this.plannerResponse,
+    this.operatingReceipt,
   }) {
     response.validateAgainst(request);
     evidenceManifest.validateAgainstRequest(request);
@@ -133,6 +145,7 @@ class SmartPlannerResult {
   final AssistantSafetyReceipt safetyReceipt;
   final String? savedNotes;
   final PlannerV2Response plannerResponse;
+  final OperatingDecisionReceipt? operatingReceipt;
 
   String get prompt => request.input;
   String get message => response.message;
@@ -212,6 +225,7 @@ class SmartPlannerQueryController
       request: request,
       response: response,
       sourceId: 'planner_v2_deterministic',
+      operatingReceipt: evidence.operatingReceipt.focus,
     );
   }
 
@@ -278,6 +292,7 @@ class SmartPlannerQueryController
       request: request,
       response: response,
       sourceId: 'planner_v2_follow_up_deterministic',
+      operatingReceipt: evidence.operatingReceipt.focus,
     );
   }
 
@@ -309,14 +324,23 @@ class SmartPlannerQueryController
       history: history,
       isFollowUp: kind == AssistantRequestKind.followUp,
     );
-    final PlannerV2Response response = base.copyWith(
-      mattersMost: message,
-      recommendationReason: 'The normal Planner V2 request did not complete.',
-      verifiedEvidence: <String>[
-        ...base.verifiedEvidence,
-        'Fallback reason: $reason',
-      ],
-    );
+    final PlannerV2Response response = base.isClarification
+        ? base.copyWith(
+            mattersMost: message,
+            verifiedEvidence: <String>[
+              ...base.verifiedEvidence,
+              'Fallback reason: $reason',
+            ],
+          )
+        : base.copyWith(
+            mattersMost: message,
+            recommendationReason:
+                'The normal Planner V2 request did not complete.',
+            verifiedEvidence: <String>[
+              ...base.verifiedEvidence,
+              'Fallback reason: $reason',
+            ],
+          );
     return _resultFromResponse(
       request: request,
       response: response,
@@ -364,6 +388,67 @@ class SmartPlannerQueryController
     final _PlannerTopic topic = _detectTopic(conversation.searchText);
     final _PlannerStrategy strategy = _strategyFor(topic);
     final _EffortProfile effort = _effortFor(planningEnergy);
+    final DateTime observedAt = _ref.read(smartPlannerClockProvider)().toUtc();
+    final _ProtectedPlannerConcern? protectedConcern = _detectProtectedConcern(
+      conversation.searchText,
+    );
+    final List<String> adaptations = <String>[
+      if (boundedEnergy != null)
+        _energyAdaptation(boundedEnergy, effort)
+      else
+        'No current energy check-in was provided; option sizes use a neutral planning fallback.',
+      if (emotion != null)
+        _emotionAdaptation(emotion)
+      else
+        'Emotional state was not used because consent is off or no state was selected.',
+      if (emotion != null)
+        'Used only your selected emotion; no emotion was inferred from your text.',
+      evidence.domainAdaptationSummary,
+      evidence.operatingReceipt.adaptationSummary,
+      evidence.plannerMemory.adaptationSummary,
+      evidence.personContext.adaptationSummary,
+      if (conversation.historyTurnsUsed > 0)
+        'Used ${conversation.historyTurnsUsed} recent conversation turn(s) to keep this response connected to your earlier request.',
+      'Kept every option reversible and left saving to an explicit Creator confirmation.',
+    ];
+
+    if (protectedConcern != null || evidence.requiresClarification) {
+      return PlannerV2Response.clarification(
+        whatIHeard: conversation.clarificationSummary(
+          contextWasProvided: contextWasProvided,
+        ),
+        mattersMost: protectedConcern == null
+            ? 'Connecting your request to the right evidence before proposing a plan.'
+            : _protectedConcernMattersMost(protectedConcern),
+        verifiedEvidence: <String>[
+          if (boundedEnergy != null)
+            'Current check-in energy set by you: ${(boundedEnergy * 100).round()}%.'
+          else
+            'Current check-in energy was not provided.',
+          if (emotion != null)
+            'Current check-in emotional state selected by you: ${_emotionLabel(emotion)}.'
+          else
+            'Current emotional state was not used.',
+          ...evidence.clarificationEvidence(observedAt),
+          conversation.evidenceSummary(contextWasProvided: contextWasProvided),
+          'No saved task, goal, operating receipt action, or Creator draft was attached.',
+          'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
+        ],
+        question: protectedConcern == null
+            ? 'Which saved task or goal, if any, should this plan support?'
+            : _protectedConcernQuestion(protectedConcern),
+        adaptationReceipt: PlannerAdaptationReceipt(
+          userSetEnergy: boundedEnergy,
+          userSelectedEmotion: emotion,
+          adjustments: <String>[
+            ...adaptations,
+            'Paused before proposing actions so unrelated saved evidence could not steer the response.',
+          ],
+        ),
+        origin: PlannerResponseOrigin.deterministic,
+      );
+    }
+
     final PlannerOptionKind recommendation = _evidenceAwareRecommendation(
       base: _recommendedKind(energy: boundedEnergy, emotion: emotion),
       energy: planningEnergy,
@@ -380,27 +465,6 @@ class SmartPlannerQueryController
     final PlannerOption selected = options.singleWhere(
       (PlannerOption option) => option.kind == recommendation,
     );
-    final List<String> adaptations = <String>[
-      if (boundedEnergy != null)
-        _energyAdaptation(boundedEnergy, effort)
-      else
-        'No current energy check-in was provided; option sizes use a neutral planning fallback.',
-      if (emotion != null)
-        _emotionAdaptation(emotion)
-      else
-        'Emotional state was not used because consent is off or no state was selected.',
-      if (emotion != null)
-        'Used only your selected emotion; no emotion was inferred from your text.',
-      evidence.hasStoredEvidence
-          ? 'Grounded the plan in ${evidence.activeTasks.length} active task(s) and ${evidence.activeGoals.length} active goal(s) read from this account.'
-          : 'No active saved task or goal was available to ground this check-in.',
-      evidence.personContext.adaptationSummary,
-      if (conversation.historyTurnsUsed > 0)
-        'Used ${conversation.historyTurnsUsed} recent conversation turn(s) to keep this response connected to your earlier request.',
-      'Kept every option reversible and left saving to an explicit Creator confirmation.',
-    ];
-    final DateTime observedAt = _ref.read(smartPlannerClockProvider)().toUtc();
-
     return PlannerV2Response(
       whatIHeard: conversation.whatIHeard(
         contextWasProvided: contextWasProvided,
@@ -447,12 +511,26 @@ class SmartPlannerQueryController
     bool taskReadSucceeded = true;
     bool goalReadSucceeded = true;
     PersonContextView? personContext;
+    OperatingDecisionReceipt? operatingReceipt;
+    List<MemoryEntity> plannerMemories = const <MemoryEntity>[];
     try {
       personContext = _ref.read(
         personContextForSurfaceProvider(_smartPlannerPersonContextRequest),
       );
     } on Object {
       personContext = null;
+    }
+    try {
+      operatingReceipt = _ref.read(smartPlannerOperatingReceiptProvider);
+    } on Object {
+      operatingReceipt = null;
+    }
+    try {
+      plannerMemories = _ref.read(
+        memoryRecallProvider(MemorySurface.smartPlanner),
+      );
+    } on Object {
+      plannerMemories = const <MemoryEntity>[];
     }
     try {
       tasks = await _ref.read(domainTaskRepositoryProvider).getAllTasks();
@@ -472,6 +550,8 @@ class SmartPlannerQueryController
       taskReadSucceeded: taskReadSucceeded,
       goalReadSucceeded: goalReadSucceeded,
       personContext: personContext,
+      operatingReceipt: operatingReceipt,
+      plannerMemories: plannerMemories,
     );
   }
 
@@ -665,6 +745,10 @@ class SmartPlannerQueryController
     if (goal != null) {
       return '$base It is grounded in saved goal "${_safeEvidenceTitle(goal.title)}".';
     }
+    final OperatingDecisionReceipt? receipt = evidence.operatingReceipt.focus;
+    if (receipt != null) {
+      return '$base It is grounded in the current operating receipt: ${_condense(receipt.rationale, maxLength: 140)}';
+    }
     final _PlannerPersonContextSignal? personFocus =
         evidence.personContext.planningFocus;
     if (personFocus != null) {
@@ -721,6 +805,7 @@ class SmartPlannerQueryController
     required PlannerV2Response response,
     required String sourceId,
     AssistantResponseStatus status = AssistantResponseStatus.completed,
+    OperatingDecisionReceipt? operatingReceipt,
   }) {
     final List<String> evidence = <String>[
       ...response.verifiedEvidence,
@@ -784,6 +869,7 @@ class SmartPlannerQueryController
       safetyReceipt: safetyReceipt,
       savedNotes: null,
       plannerResponse: response,
+      operatingReceipt: operatingReceipt,
     );
   }
 
@@ -1139,6 +1225,15 @@ final class _PlannerConversationContext {
         : 'You want a practical check-in that fits your current capacity.';
   }
 
+  String clarificationSummary({required bool contextWasProvided}) {
+    if (isFollowUp) {
+      return 'You are clarifying what kind of support would fit: ${SmartPlannerQueryController._condense(input, maxLength: 96)}.';
+    }
+    return contextWasProvided
+        ? 'You want support with: ${SmartPlannerQueryController._condense(subject, maxLength: 96)}.'
+        : 'You want a practical check-in, but the right planning target is not clear yet.';
+  }
+
   String evidenceSummary({required bool contextWasProvided}) {
     if (historyTurnsUsed > 0) {
       return 'Used $historyTurnsUsed prior user conversation turn(s) for this response only; Planner did not save them.';
@@ -1158,7 +1253,9 @@ final class _PlannerEvidence {
       taskReadSucceeded = true,
       goalReadSucceeded = true,
       focusTaskIsUrgent = false,
-      personContext = const _PlannerPersonContextEvidence.unavailable();
+      personContext = const _PlannerPersonContextEvidence.unavailable(),
+      operatingReceipt = const _PlannerOperatingReceiptEvidence.unavailable(),
+      plannerMemory = const _PlannerMemoryEvidence.empty();
 
   _PlannerEvidence({
     required List<TaskEntity> activeTasks,
@@ -1169,6 +1266,8 @@ final class _PlannerEvidence {
     required this.goalReadSucceeded,
     required this.focusTaskIsUrgent,
     required this.personContext,
+    required this.operatingReceipt,
+    required this.plannerMemory,
   }) : activeTasks = List<TaskEntity>.unmodifiable(activeTasks),
        activeGoals = List<GoalEntity>.unmodifiable(activeGoals);
 
@@ -1180,6 +1279,8 @@ final class _PlannerEvidence {
     required bool taskReadSucceeded,
     required bool goalReadSucceeded,
     required PersonContextView? personContext,
+    required OperatingDecisionReceipt? operatingReceipt,
+    required List<MemoryEntity> plannerMemories,
   }) {
     final List<TaskEntity> activeTasks = tasks
         .where((TaskEntity task) => task.isActive)
@@ -1212,7 +1313,7 @@ final class _PlannerEvidence {
 
     TaskEntity? focusTask;
     GoalEntity? focusGoal;
-    if (goalMatch > taskMatch) {
+    if (goalMatch > taskMatch && goalMatch > 0) {
       focusGoal = matchedGoal;
       final List<TaskEntity> linkedTasks = activeTasks
           .where((TaskEntity task) => task.goalId == focusGoal?.id)
@@ -1220,7 +1321,7 @@ final class _PlannerEvidence {
       if (linkedTasks.isNotEmpty) {
         focusTask = linkedTasks.first;
       }
-    } else if (matchedTask != null) {
+    } else if (matchedTask != null && taskMatch > 0) {
       focusTask = matchedTask;
       for (final GoalEntity goal in activeGoals) {
         if (goal.id == focusTask.goalId) {
@@ -1228,8 +1329,6 @@ final class _PlannerEvidence {
           break;
         }
       }
-    } else {
-      focusGoal = matchedGoal;
     }
 
     final DateTime? focusTime = focusTask == null
@@ -1246,6 +1345,12 @@ final class _PlannerEvidence {
         personContext,
         now: now,
       ),
+      operatingReceipt: _PlannerOperatingReceiptEvidence.resolve(
+        operatingReceipt,
+        searchText: searchText,
+        now: now,
+      ),
+      plannerMemory: _PlannerMemoryEvidence.resolve(plannerMemories, now: now),
       focusTaskIsUrgent:
           focusTime != null &&
           !focusTime.isAfter(now.add(const Duration(days: 1))),
@@ -1260,9 +1365,32 @@ final class _PlannerEvidence {
   final bool goalReadSucceeded;
   final bool focusTaskIsUrgent;
   final _PlannerPersonContextEvidence personContext;
+  final _PlannerOperatingReceiptEvidence operatingReceipt;
+  final _PlannerMemoryEvidence plannerMemory;
 
   bool get hasStoredEvidence =>
       activeTasks.isNotEmpty || activeGoals.isNotEmpty;
+
+  bool get hasMatchedStoredEvidence => focusTask != null || focusGoal != null;
+
+  bool get hasPositiveGrounding =>
+      hasMatchedStoredEvidence || operatingReceipt.focus != null;
+
+  bool get hasAvailableGroundingEvidence =>
+      hasStoredEvidence || operatingReceipt.wasAvailable;
+
+  bool get requiresClarification =>
+      hasAvailableGroundingEvidence && !hasPositiveGrounding;
+
+  String get domainAdaptationSummary {
+    if (hasMatchedStoredEvidence) {
+      return 'Used only saved task or goal evidence with a positive text relevance match.';
+    }
+    if (hasStoredEvidence) {
+      return 'Active saved tasks or goals were present, but none had positive relevance to this check-in.';
+    }
+    return 'No active saved task or goal was available to ground this check-in.';
+  }
 
   String? get focusSubject {
     final TaskEntity? task = focusTask;
@@ -1272,6 +1400,10 @@ final class _PlannerEvidence {
     final GoalEntity? goal = focusGoal;
     if (goal != null) {
       return 'saved goal "${SmartPlannerQueryController._safeEvidenceTitle(goal.title)}"';
+    }
+    final OperatingDecisionReceipt? receipt = operatingReceipt.focus;
+    if (receipt != null) {
+      return 'current operating receipt action "${SmartPlannerQueryController._safeEvidenceTitle(receipt.recommendedAction)}"';
     }
     return personContext.planningFocus?.subject;
   }
@@ -1285,20 +1417,33 @@ final class _PlannerEvidence {
     if (goal != null) {
       return 'Turning saved goal "${SmartPlannerQueryController._safeEvidenceTitle(goal.title)}" into observable progress.';
     }
+    final OperatingDecisionReceipt? receipt = operatingReceipt.focus;
+    if (receipt != null) {
+      return SmartPlannerQueryController._condense(
+        receipt.whyItMatters,
+        maxLength: 180,
+      );
+    }
     return personContext.planningFocus?.mattersMost;
   }
 
   Map<String, Object?> get requestContext => <String, Object?>{
-    'storedEvidenceUsed': hasStoredEvidence,
+    'storedEvidenceUsed': hasMatchedStoredEvidence,
+    'storedEvidenceAvailable': hasStoredEvidence,
+    'positiveEvidenceRelevance': hasPositiveGrounding,
     'activeTaskCount': activeTasks.length,
     'activeGoalCount': activeGoals.length,
     'focusedEvidenceKind': focusTask != null
         ? 'task'
         : focusGoal != null
         ? 'goal'
+        : operatingReceipt.focus != null
+        ? 'operating_receipt'
         : 'none',
     'taskEvidenceReadSucceeded': taskReadSucceeded,
     'goalEvidenceReadSucceeded': goalReadSucceeded,
+    ...operatingReceipt.requestContext,
+    ...plannerMemory.requestContext,
     ...personContext.requestContext,
   };
 
@@ -1314,6 +1459,10 @@ final class _PlannerEvidence {
         taskReadSucceeded && goalReadSucceeded
             ? 'Saved planning evidence checked: no active tasks or goals were found for this account.'
             : 'No readable active task or goal was available, so guidance used check-in context only.',
+      );
+    } else if (!hasMatchedStoredEvidence) {
+      evidence.add(
+        'Saved planning evidence checked: ${activeTasks.length} active task(s) and ${activeGoals.length} active goal(s), with no positive relevance match to this check-in.',
       );
     } else {
       evidence.add(
@@ -1336,8 +1485,180 @@ final class _PlannerEvidence {
         );
       }
     }
+    evidence.addAll(operatingReceipt.verifiedEvidence());
+    evidence.addAll(plannerMemory.verifiedEvidence());
     evidence.addAll(personContext.verifiedEvidence());
     return evidence;
+  }
+
+  List<String> clarificationEvidence(DateTime observedAt) {
+    final List<String> evidence = <String>[
+      if (!taskReadSucceeded || !goalReadSucceeded)
+        'Saved planning evidence was only partially available for this check-in.'
+      else if (hasStoredEvidence)
+        'Saved planning evidence checked at ${observedAt.toIso8601String()}: ${activeTasks.length} active task(s), ${activeGoals.length} active goal(s); none was attached without positive relevance.'
+      else
+        'Saved planning evidence checked: no active tasks or goals were found for this account.',
+      ...operatingReceipt.clarificationEvidence(),
+      ...plannerMemory.verifiedEvidence(),
+      ...personContext.verifiedEvidence(),
+    ];
+    return evidence;
+  }
+}
+
+enum _PlannerOperatingReceiptStatus { unavailable, expired, unmatched, matched }
+
+final class _PlannerOperatingReceiptEvidence {
+  const _PlannerOperatingReceiptEvidence.unavailable()
+    : status = _PlannerOperatingReceiptStatus.unavailable,
+      receipt = null;
+
+  const _PlannerOperatingReceiptEvidence._(this.status, this.receipt);
+
+  factory _PlannerOperatingReceiptEvidence.resolve(
+    OperatingDecisionReceipt? receipt, {
+    required String searchText,
+    required DateTime now,
+  }) {
+    if (receipt == null) {
+      return const _PlannerOperatingReceiptEvidence.unavailable();
+    }
+    try {
+      receipt.validate();
+    } on Object {
+      return const _PlannerOperatingReceiptEvidence.unavailable();
+    }
+    if (receipt.isExpiredAt(now)) {
+      return _PlannerOperatingReceiptEvidence._(
+        _PlannerOperatingReceiptStatus.expired,
+        receipt,
+      );
+    }
+    final Set<String> queryTerms = _plannerTerms(searchText);
+    final Set<String> receiptTerms = _plannerTerms(
+      <String>[
+        receipt.recommendedAction,
+        receipt.rationale,
+        receipt.whyItMatters,
+        ...receipt.evidence.map((OperatingEvidence item) => item.description),
+      ].join(' '),
+    );
+    final bool matched = queryTerms.any(receiptTerms.contains);
+    return _PlannerOperatingReceiptEvidence._(
+      matched
+          ? _PlannerOperatingReceiptStatus.matched
+          : _PlannerOperatingReceiptStatus.unmatched,
+      receipt,
+    );
+  }
+
+  final _PlannerOperatingReceiptStatus status;
+  final OperatingDecisionReceipt? receipt;
+
+  OperatingDecisionReceipt? get focus =>
+      status == _PlannerOperatingReceiptStatus.matched ? receipt : null;
+
+  bool get wasAvailable =>
+      status == _PlannerOperatingReceiptStatus.matched ||
+      status == _PlannerOperatingReceiptStatus.unmatched;
+
+  String get adaptationSummary => switch (status) {
+    _PlannerOperatingReceiptStatus.matched =>
+      'Used a fresh operating receipt only after a positive relevance match.',
+    _PlannerOperatingReceiptStatus.unmatched =>
+      'A fresh operating receipt was available but not used because it did not match this check-in.',
+    _PlannerOperatingReceiptStatus.expired =>
+      'The operating receipt was expired and was not used.',
+    _PlannerOperatingReceiptStatus.unavailable =>
+      'No current operating receipt was available.',
+  };
+
+  Map<String, Object?> get requestContext => <String, Object?>{
+    'operatingReceiptStatus': status.name,
+    'operatingReceiptUsed': focus != null,
+    'operatingReceiptId': focus?.decisionId,
+  };
+
+  List<String> verifiedEvidence() => switch (status) {
+    _PlannerOperatingReceiptStatus.matched => <String>[
+      'Current operating receipt matched this check-in: "${SmartPlannerQueryController._safeEvidenceTitle(receipt!.recommendedAction)}"; generated ${receipt!.generatedAt.toUtc().toIso8601String()}; expires ${receipt!.expiresAt.toUtc().toIso8601String()}.',
+    ],
+    _PlannerOperatingReceiptStatus.unmatched => const <String>[
+      'A fresh operating receipt was checked but not attached because it had no positive relevance match.',
+    ],
+    _PlannerOperatingReceiptStatus.expired => const <String>[
+      'The available operating receipt was expired and was not used.',
+    ],
+    _PlannerOperatingReceiptStatus.unavailable => const <String>[
+      'No current operating receipt was available for this check-in.',
+    ],
+  };
+
+  List<String> clarificationEvidence() => switch (status) {
+    _PlannerOperatingReceiptStatus.matched ||
+    _PlannerOperatingReceiptStatus.unmatched => const <String>[
+      'A current operating receipt was checked and was not attached while clarification is needed.',
+    ],
+    _PlannerOperatingReceiptStatus.expired => const <String>[
+      'The available operating receipt was expired and was not used.',
+    ],
+    _PlannerOperatingReceiptStatus.unavailable => const <String>[
+      'No current operating receipt was available for this check-in.',
+    ],
+  };
+}
+
+final class _PlannerMemoryEvidence {
+  const _PlannerMemoryEvidence.empty() : memories = const <MemoryEntity>[];
+
+  const _PlannerMemoryEvidence._(this.memories);
+
+  factory _PlannerMemoryEvidence.resolve(
+    List<MemoryEntity> memories, {
+    required DateTime now,
+  }) {
+    final List<MemoryEntity> authorized = memories
+        .where(
+          (MemoryEntity memory) =>
+              memory.sourceSurface == MemorySurface.smartPlanner &&
+              memory.purpose == MemoryPurpose.guidancePreference &&
+              memory.consentStatus == MemoryConsentStatus.granted &&
+              memory.sensitivity != MemorySensitivity.emotional &&
+              memory.sensitivity != MemorySensitivity.crisis &&
+              !memory.isArchived &&
+              !memory.isExpiredAt(now),
+        )
+        .take(2)
+        .toList(growable: false);
+    return _PlannerMemoryEvidence._(
+      List<MemoryEntity>.unmodifiable(authorized),
+    );
+  }
+
+  final List<MemoryEntity> memories;
+
+  String get adaptationSummary => memories.isEmpty
+      ? 'No governed Smart Planner preference was recalled.'
+      : 'Recalled ${memories.length} consented Smart Planner guidance preference(s) through the exact surface and purpose boundary.';
+
+  Map<String, Object?> get requestContext => <String, Object?>{
+    'plannerMemoryPurpose': MemoryPurpose.guidancePreference.name,
+    'plannerMemorySignalsUsed': memories.length,
+  };
+
+  List<String> verifiedEvidence() {
+    if (memories.isEmpty) {
+      return const <String>[
+        'No authorized governed Smart Planner preference was recalled.',
+      ];
+    }
+    return memories
+        .map(
+          (MemoryEntity memory) =>
+              'Governed Smart Planner preference recalled for ${memory.purpose.name}: "${SmartPlannerQueryController._condense(memory.text.replaceAll('"', "'"), maxLength: 120)}". It remained bounded to Smart Planner.',
+        )
+        .toList(growable: false);
   }
 }
 
@@ -1643,6 +1964,85 @@ AssistantSafetyReceipt _requirePublishableSafety(
   }
   return outcome.receipt;
 }
+
+enum _ProtectedPlannerConcern { grief, relationship, abuse }
+
+_ProtectedPlannerConcern? _detectProtectedConcern(String input) {
+  final String normalized = input.toLowerCase();
+  final Set<String> terms = RegExp(
+    r'[a-z]+',
+  ).allMatches(normalized).map((RegExpMatch match) => match.group(0)!).toSet();
+  if (terms.any(
+        const <String>{
+          'abuse',
+          'abused',
+          'abusive',
+          'assault',
+          'assaulted',
+          'coercive',
+          'controlling',
+          'unsafe',
+          'violence',
+          'violent',
+        }.contains,
+      ) ||
+      normalized.contains('hit me') ||
+      normalized.contains('hurting me')) {
+    return _ProtectedPlannerConcern.abuse;
+  }
+  if (terms.any(
+        const <String>{
+          'bereavement',
+          'died',
+          'death',
+          'funeral',
+          'grief',
+          'grieving',
+          'mourning',
+          'widow',
+          'widowed',
+        }.contains,
+      ) ||
+      normalized.contains('lost someone') ||
+      normalized.contains('passed away')) {
+    return _ProtectedPlannerConcern.grief;
+  }
+  if (terms.any(
+    const <String>{
+      'breakup',
+      'divorce',
+      'marriage',
+      'partner',
+      'relationship',
+      'spouse',
+    }.contains,
+  )) {
+    return _ProtectedPlannerConcern.relationship;
+  }
+  return null;
+}
+
+String _protectedConcernMattersMost(
+  _ProtectedPlannerConcern concern,
+) => switch (concern) {
+  _ProtectedPlannerConcern.grief =>
+    'Making room for grief without turning it into an unrelated productivity task.',
+  _ProtectedPlannerConcern.relationship =>
+    'Understanding what kind of relationship support you want before proposing an action.',
+  _ProtectedPlannerConcern.abuse =>
+    'Keeping your safety and control central without redirecting you into routine task work.',
+};
+
+String _protectedConcernQuestion(
+  _ProtectedPlannerConcern concern,
+) => switch (concern) {
+  _ProtectedPlannerConcern.grief =>
+    'Would you like help with one practical obligation, making space for grief, or finding support?',
+  _ProtectedPlannerConcern.relationship =>
+    'Would you like help preparing a conversation, setting a boundary, or deciding what needs attention first?',
+  _ProtectedPlannerConcern.abuse =>
+    'Would you like help thinking through immediate safety, contacting someone you trust, or finding specialized support?',
+};
 
 enum _PlannerTopic {
   overwhelm,

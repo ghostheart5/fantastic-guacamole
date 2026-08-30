@@ -41,10 +41,10 @@ class TrajectoryObservedOutcome {
       );
 }
 
-/// Immutable evidence that a user elected to track a conditional simulation.
-/// It contains no task titles or free-text user content.
+/// Immutable, account-local evidence that a user tracked a conditional model.
+/// It stores model assumptions but no task titles.
 class TrajectoryForecastReceipt {
-  const TrajectoryForecastReceipt({
+  TrajectoryForecastReceipt({
     required this.id,
     required this.accountScope,
     required this.baselineRevision,
@@ -59,9 +59,11 @@ class TrajectoryForecastReceipt {
     required this.projectedRiskScore,
     required this.confidenceBand,
     required this.modelVersion,
+    List<String> assumptions = const <String>[],
+    this.assumptionsCorrectedAt,
     this.observed,
-    this.schemaVersion = 1,
-  });
+    this.schemaVersion = 2,
+  }) : assumptions = List<String>.unmodifiable(assumptions);
 
   factory TrajectoryForecastReceipt.fromScenario({
     required TrajectoryBaseline baseline,
@@ -82,6 +84,7 @@ class TrajectoryForecastReceipt {
     projectedRiskScore: outcome.risk.projectedScore,
     confidenceBand: outcome.confidence.band,
     modelVersion: outcome.modelVersion,
+    assumptions: outcome.assumptions,
   );
 
   final String id;
@@ -98,11 +101,14 @@ class TrajectoryForecastReceipt {
   final int projectedRiskScore;
   final PredictiveConfidenceBand confidenceBand;
   final String modelVersion;
+  final List<String> assumptions;
+  final DateTime? assumptionsCorrectedAt;
   final TrajectoryObservedOutcome? observed;
   final int schemaVersion;
 
   DateTime get dueAt => selectedAt.add(horizon);
   bool get isResolved => observed != null;
+  bool get hasAssumptionCorrection => assumptionsCorrectedAt != null;
   bool isDueAt(DateTime value) => !value.toUtc().isBefore(dueAt.toUtc());
 
   TrajectoryForecastReceipt resolve(TrajectoryObservedOutcome value) =>
@@ -121,8 +127,32 @@ class TrajectoryForecastReceipt {
         projectedRiskScore: projectedRiskScore,
         confidenceBand: confidenceBand,
         modelVersion: modelVersion,
+        assumptions: assumptions,
+        assumptionsCorrectedAt: assumptionsCorrectedAt,
         observed: value,
         schemaVersion: schemaVersion,
+      );
+
+  TrajectoryForecastReceipt markAssumptionsCorrected(DateTime correctedAt) =>
+      TrajectoryForecastReceipt(
+        id: id,
+        accountScope: accountScope,
+        baselineRevision: baselineRevision,
+        scenarioId: scenarioId,
+        interventionType: interventionType,
+        generatedAt: generatedAt,
+        selectedAt: selectedAt,
+        horizon: horizon,
+        projectedMomentum: projectedMomentum,
+        projectedPressure: projectedPressure,
+        uncertainty: uncertainty,
+        projectedRiskScore: projectedRiskScore,
+        confidenceBand: confidenceBand,
+        modelVersion: modelVersion,
+        assumptions: assumptions,
+        assumptionsCorrectedAt: correctedAt.toUtc(),
+        observed: observed,
+        schemaVersion: schemaVersion < 2 ? 2 : schemaVersion,
       );
 
   void validate() {
@@ -145,6 +175,12 @@ class TrajectoryForecastReceipt {
         schemaVersion < 1) {
       throw const FormatException('Forecast receipt values are invalid.');
     }
+    if (assumptionsCorrectedAt != null &&
+        assumptionsCorrectedAt!.toUtc().isBefore(selectedAt.toUtc())) {
+      throw const FormatException(
+        'Forecast assumption correction cannot predate selection.',
+      );
+    }
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -163,6 +199,8 @@ class TrajectoryForecastReceipt {
     'projectedRiskScore': projectedRiskScore,
     'confidenceBand': confidenceBand.name,
     'modelVersion': modelVersion,
+    'assumptions': assumptions,
+    'assumptionsCorrectedAt': assumptionsCorrectedAt?.toUtc().toIso8601String(),
     'observed': observed?.toJson(),
   };
 
@@ -204,6 +242,18 @@ class TrajectoryForecastReceipt {
         'confidenceBand',
       ),
       modelVersion: _requiredString(json['modelVersion'], 'modelVersion'),
+      assumptions: json['assumptions'] is List
+          ? (json['assumptions'] as List)
+                .map((Object? item) => item?.toString().trim() ?? '')
+                .where((String item) => item.isNotEmpty)
+                .toList(growable: false)
+          : const <String>[],
+      assumptionsCorrectedAt: json['assumptionsCorrectedAt'] == null
+          ? null
+          : _requiredDate(
+              json['assumptionsCorrectedAt'],
+              'assumptionsCorrectedAt',
+            ),
       observed: json['observed'] is Map
           ? TrajectoryObservedOutcome.fromJson(
               Map<String, dynamic>.from(json['observed'] as Map),
@@ -229,7 +279,10 @@ class TrajectoryCalibrationSummary {
     Iterable<TrajectoryForecastReceipt> receipts,
   ) {
     final List<TrajectoryForecastReceipt> resolved = receipts
-        .where((TrajectoryForecastReceipt item) => item.observed != null)
+        .where(
+          (TrajectoryForecastReceipt item) =>
+              item.observed != null && !item.hasAssumptionCorrection,
+        )
         .toList(growable: false);
     if (resolved.isEmpty) {
       return const TrajectoryCalibrationSummary(
@@ -257,15 +310,12 @@ class TrajectoryCalibrationSummary {
       );
       if (actual.momentum >= lower && actual.momentum <= upper) covered++;
     }
-    final PredictiveCalibrationState state = resolved.length >= 10
-        ? PredictiveCalibrationState.calibrated
-        : PredictiveCalibrationState.monitored;
     return TrajectoryCalibrationSummary(
       resolvedForecasts: resolved.length,
       momentumMeanAbsoluteError: momentumError / resolved.length,
       pressureMeanAbsoluteError: pressureError / resolved.length,
       intervalCoverage: covered / resolved.length,
-      state: state,
+      state: PredictiveCalibrationState.monitored,
     );
   }
 

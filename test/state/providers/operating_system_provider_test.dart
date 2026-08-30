@@ -97,6 +97,60 @@ void main() {
   );
 
   test(
+    'all six consuming surfaces receive the same decision receipt',
+    () async {
+      final SIStateAggregation aggregation = _aggregation(<Task>[
+        _task('shared-task', priority: 5),
+      ]);
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            const AccountStorageScope.signedOut(),
+          ),
+          siStateAggregationProvider.overrideWith(
+            (Ref ref) async => aggregation,
+          ),
+          siDecisionOutputProvider.overrideWith(
+            (Ref ref) async => _supportingOutput,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final List<SurfaceDecisionReceipt> receipts = await Future.wait(
+        OperatingDecisionSurface.values.map(
+          (OperatingDecisionSurface surface) => container.read(
+            operatingDecisionForSurfaceProvider(surface).future,
+          ),
+        ),
+      );
+      final OperatingDecisionPlan plan = await container.read(
+        operatingDecisionPlanProvider.future,
+      );
+
+      expect(receipts, hasLength(6));
+      expect(
+        receipts.map(
+          (SurfaceDecisionReceipt value) => value.receipt.decisionId,
+        ),
+        everyElement(receipts.first.receipt.decisionId),
+      );
+      expect(
+        receipts.map((SurfaceDecisionReceipt value) => value.receipt.planId),
+        everyElement(receipts.first.receipt.planId),
+      );
+      expect(receipts.first.receipt.planId, plan.planId);
+      expect(receipts.first.receipt.snapshotId, plan.snapshotId);
+      expect(
+        receipts.map(
+          (SurfaceDecisionReceipt value) => value.receipt.snapshotId,
+        ),
+        everyElement(receipts.first.receipt.snapshotId),
+      );
+    },
+  );
+
+  test(
     'Nexus binds fresh consented decision context into its receipt',
     () async {
       final DateTime now = DateTime.now().toUtc();
@@ -112,6 +166,7 @@ void main() {
             value: 'Protect family time tonight',
             now: now,
             surface: PersonContextSurface.nexus,
+            surfaceScopes: sharedDecisionContextSurfaces,
           ),
         ],
       );
@@ -264,6 +319,7 @@ PersonContextSignal _personContextSignal({
   required PersonContextSurface surface,
   PersonContextPurpose purpose = PersonContextPurpose.decisionSupport,
   DateTime? freshUntil,
+  Set<PersonContextSurface>? surfaceScopes,
 }) => PersonContextSignal(
   id: id,
   kind: PersonContextKind.currentPriority,
@@ -272,7 +328,7 @@ PersonContextSignal _personContextSignal({
   consent: PersonContextConsent.granted,
   consentedAt: now.subtract(const Duration(minutes: 5)),
   purpose: purpose,
-  surfaceScopes: <PersonContextSurface>{surface},
+  surfaceScopes: surfaceScopes ?? <PersonContextSurface>{surface},
   recordedAt: now.subtract(const Duration(minutes: 5)),
   freshUntil: freshUntil ?? now.add(const Duration(hours: 2)),
   expiresAt: now.add(const Duration(days: 1)),

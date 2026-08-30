@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
@@ -141,6 +142,70 @@ void main() {
       expect(a.priorityWeight, b.priorityWeight);
       expect(a.completed, b.completed);
     });
+  });
+
+  group('receipt outcomes drive bounded, correctable learning', () {
+    test(
+      'accepted and rejected outcomes update task affinity idempotently',
+      () async {
+        final _FakeLearningRepository repository = _FakeLearningRepository();
+        final ApplyLearningFeedback feedback = ApplyLearningFeedback(
+          repository,
+        );
+        final DecisionOutcomeEntity accepted = DecisionOutcomeEntity(
+          decisionId: 'decision-1',
+          kind: DecisionOutcomeKind.accepted,
+          surface: 'smartPlanner',
+          recordedAt: DateTime.utc(2026, 8, 30, 12),
+          modelVersion: 'decision-v1',
+          recommendationConfidence: .7,
+          subjectId: 'task-1',
+        );
+
+        final LearningFeedbackChange first = await feedback
+            .recordDecisionOutcome(accepted);
+        final LearningFeedbackChange duplicate = await feedback
+            .recordDecisionOutcome(accepted);
+
+        expect(first.afterAffinity, closeTo(.6, 1e-9));
+        expect(duplicate.afterAffinity, closeTo(.6, 1e-9));
+        expect(repository.state!.observations, hasLength(1));
+      },
+    );
+
+    test(
+      'a person can correct the learning attached to a receipt outcome',
+      () async {
+        final _FakeLearningRepository repository = _FakeLearningRepository();
+        final ApplyLearningFeedback feedback = ApplyLearningFeedback(
+          repository,
+        );
+        final DecisionOutcomeEntity rejected = DecisionOutcomeEntity(
+          decisionId: 'decision-2',
+          kind: DecisionOutcomeKind.rejected,
+          surface: 'nexus',
+          recordedAt: DateTime.utc(2026, 8, 30, 13),
+          modelVersion: 'decision-v1',
+          recommendationConfidence: .6,
+          subjectId: 'task-2',
+        );
+        await feedback.recordDecisionOutcome(rejected);
+
+        final LearningFeedbackChange correction = await feedback
+            .correctDecisionOutcome(
+              original: rejected,
+              replacement: DecisionOutcomeKind.accepted,
+              correctedAt: DateTime.utc(2026, 8, 30, 14),
+            );
+
+        expect(correction.summary, contains('corrected'));
+        expect(repository.state!.taskAffinity['task-2'], closeTo(.6, 1e-9));
+        expect(
+          repository.state!.observations.single.source,
+          contains('user_correction'),
+        );
+      },
+    );
   });
 
   group('UpdateLearningState', () {

@@ -111,7 +111,7 @@ class HabitOccurrenceCoordinator {
           decisionId: 'habit:$normalizedId:$occurrenceKey',
           kind: outcome == HabitOccurrenceOutcome.completed
               ? DecisionOutcomeKind.completed
-              : DecisionOutcomeKind.deferred,
+              : DecisionOutcomeKind.skipped,
           surface: 'daily-rhythm',
           recordedAt: now.toUtc(),
           modelVersion: 'domain-occurrence-v1',

@@ -1,5 +1,29 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 
+sealed class TaskTemporalEdit {
+  const TaskTemporalEdit();
+}
+
+final class SetSchedule extends TaskTemporalEdit {
+  const SetSchedule(this.scheduledFor);
+
+  final DateTime scheduledFor;
+}
+
+final class ClearSchedule extends TaskTemporalEdit {
+  const ClearSchedule();
+}
+
+final class SetDeadline extends TaskTemporalEdit {
+  const SetDeadline(this.dueDate);
+
+  final DateTime dueDate;
+}
+
+final class ClearDeadline extends TaskTemporalEdit {
+  const ClearDeadline();
+}
+
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
 ///
 /// Canonical task type used by repositories and use cases.
@@ -208,7 +232,31 @@ class TaskEntity {
 
   bool get hasDeadline => dueDate != null;
 
-  bool get isActive => !isCompleted && !isSkipped && !isCanceled;
+  bool isActionableAt(DateTime _) => !isCompleted && !isSkipped && !isCanceled;
+
+  bool get isActive => isActionableAt(DateTime.now());
+
+  TaskEntity applyTemporalEdit(TaskTemporalEdit edit, {DateTime? at}) {
+    final DateTime timestamp = at ?? DateTime.now();
+    if (!isActionableAt(timestamp)) {
+      throw StateError('Non-actionable tasks cannot accept temporal edits.');
+    }
+    return switch (edit) {
+      SetSchedule(:final DateTime scheduledFor) => copyWith(
+        scheduledFor: scheduledFor,
+        updatedAt: timestamp,
+      ),
+      ClearSchedule() => copyWith(
+        clearScheduledFor: true,
+        updatedAt: timestamp,
+      ),
+      SetDeadline(:final DateTime dueDate) => copyWith(
+        dueDate: dueDate,
+        updatedAt: timestamp,
+      ),
+      ClearDeadline() => copyWith(clearDueDate: true, updatedAt: timestamp),
+    };
+  }
 
   bool isOverdueAt(DateTime reference) {
     if (dueDate == null) return false;

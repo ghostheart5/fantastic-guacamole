@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/engine/si/si_v2_engine.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -71,6 +72,49 @@ void main() {
     );
 
     expect(query.intent, SIV2Intent.counterfactual);
+  });
+
+  test('SI keeps its answer but uses the shared receipt for next action', () {
+    final SIV2Response base = const SIV2Engine().analyze(
+      query: SIV2Query(
+        rawText: 'What should I do next?',
+        intent: SIV2Intent.answer,
+        sources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+    final OperatingDecisionReceipt receipt = OperatingDecisionReceipt(
+      subjectId: 't1',
+      recommendedAction: 'Use the shared next action',
+      rationale: 'The canonical plan selected t1.',
+      whyItMatters: 'All surfaces stay aligned.',
+      consequenceOfDelay: 'The shared plan remains unresolved.',
+      generatedAt: now,
+      expiresAt: now.add(const Duration(minutes: 20)),
+      confidence: OperatingConfidence.moderate,
+      evidence: const <OperatingEvidence>[],
+      actionIntent: const OperatingActionIntent(
+        id: 'open-t1',
+        type: OperatingActionType.openEntity,
+        label: 'Open task',
+        destination: '/timeline',
+        targetEntityId: 't1',
+      ),
+      sourceRevisions: const <String, String>{'tasks': 'revision-1'},
+      modelVersion: 'decision-v1',
+    );
+
+    final SIV2Response aligned = base.withOperatingDecision(receipt, now: now);
+
+    expect(aligned.directAnswer, base.directAnswer);
+    expect(aligned.recommendation, receipt.recommendedAction);
+    expect(
+      aligned.evidenceLinks.map((SIV2EvidenceLink item) => item.evidenceId),
+      contains('decision:${receipt.decisionId}'),
+    );
+    expect(aligned.scenarioAssumptions, contains(contains(receipt.planId)));
   });
 
   test(

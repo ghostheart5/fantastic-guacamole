@@ -77,6 +77,35 @@ void main() {
     );
     expect(receipt.validate, throwsStateError);
   });
+
+  test('receipt retains stable snapshot, plan, and decision identities', () {
+    OperatingDecisionReceipt build() => OperatingDecisionReceipt(
+      subjectId: 'task-a',
+      recommendedAction: 'Start task A',
+      rationale: 'Task A ranks first.',
+      whyItMatters: 'It protects the deadline.',
+      consequenceOfDelay: 'Schedule pressure rises.',
+      generatedAt: now,
+      expiresAt: now.add(const Duration(minutes: 20)),
+      confidence: OperatingConfidence.high,
+      evidence: const <OperatingEvidence>[],
+      actionIntent: const OperatingActionIntent(
+        id: 'action-a',
+        type: OperatingActionType.openEntity,
+        label: 'Open task A',
+        destination: '/timeline',
+        targetEntityId: 'task-a',
+      ),
+      sourceRevisions: const <String, String>{'tasks': 'revision-1'},
+      modelVersion: 'decision-v1',
+    );
+
+    final OperatingDecisionReceipt first = build();
+    final OperatingDecisionReceipt second = build();
+    expect(first.snapshotId, second.snapshotId);
+    expect(first.planId, second.planId);
+    expect(first.decisionId, second.decisionId);
+  });
 }
 
 OperatingSnapshot _snapshot({
