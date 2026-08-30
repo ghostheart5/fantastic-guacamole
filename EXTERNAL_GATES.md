@@ -27,3 +27,11 @@ Every row remains `BLOCKED_EXTERNAL` until the required evidence is captured wit
 | First-time human UAT | Product research owner | No-coaching UAT protocol | Participant results and retest | All mandatory tasks pass | Adoption/trust failure | BLOCKED_EXTERNAL |
 | Production credentials/signing | Release owner | Protected release environment | Signed artifact and provenance | Exact final SHA/artifact | Cannot release safely | BLOCKED_EXTERNAL |
 | Google Play publication | Release owner | Google Play Console | Explicit later authorization | Controlled rollout only | Unauthorized publication | BLOCKED_EXTERNAL |
+
+## Current Phase 2 Stop Evidence
+
+- Exact local commit: `55d245a45f7d2ba7d8d587bb9365e4d8c396350f`.
+- `docker` command: unavailable in the current PowerShell environment.
+- `supabase` command: unavailable in the current PowerShell environment.
+- Consequence: fresh migration replay, pgTAP, database lint, and disposable two-device/deployed-backend verification cannot run locally.
+- Required next environment: a disposable Supabase project or functioning local Docker/Supabase stack, never the production project for first execution.

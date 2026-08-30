@@ -38,12 +38,12 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 
 ## Phase 2 Checkpoint - Account And Data Integrity
 
-- Status: `IN_PROGRESS` at `bc44261`; launch verdict remains `NO-GO - NOT READY`.
-- Commits: truthful deletion outcomes at `061ea18`; strict account-bound restore validation at `51b96be`; compare-and-swap sync, local mutation fencing, durable task replacement, and account-scoped recovery-key ownership at `bc44261`.
+- Status: `BLOCKED_EXTERNAL` at `55d245a`; launch verdict remains `NO-GO - NOT READY`.
+- Commits: truthful deletion outcomes at `061ea18`; strict account-bound restore validation at `51b96be`; compare-and-swap sync and local mutation fencing at `bc44261`; task-occurrence containment at `c05dd56`; serialized Notes at `d50d399`; first-party report endpoint pinning at `46a4cd6`; least-privilege grants and exact Storage policies at `9c8e716`; legacy backup retirement at `e79f93b`; strict restore previews at `8915f5c`; canonical settings backup at `f0a04f9`; serialized Timeline lifecycle writes at `80290ae`; sensitive corruption preservation at `1a0297a`; canonical legal copies and repaired Terms route at `55d245a`.
 - Feature state: cloud sync and restore remain disabled. The new database migration is committed locally but has not been applied to any deployed project.
-- Local verification: fatal analyzer, 86 focused data-integrity tests, 1,691-test full Flutter suite with one expected QA-only skip, formatting, architecture, secret, release, version, migration-policy, staged-diff, and whitespace gates passed.
-- Blocked external evidence: disposable Supabase database replay, pgTAP execution, and database lint require Docker, which is unavailable on this host. Deployed migration, RLS, device, signed-artifact, and human-UAT evidence are not established.
-- Remaining Phase 2 scope: complete whole-person backup domains and dry-run/staging evidence; account-scope all local stores; add corruption quarantine and persisted schema versions across remaining domains; reconcile serializers; constrain Storage paths and lifecycle; verify explicit report grants; pin sensitive endpoints; and canonicalize legal sources.
+- Local verification: fatal analyzer, focused adversarial tests, 1,724-test full Flutter suite with one expected QA-only skip, formatting, architecture, secret, release, version, workflow, Maestro, legal-generation, migration-policy, staged-diff, and whitespace gates passed.
+- Blocked external evidence: this host currently exposes neither Docker nor a standalone Supabase CLI. Disposable fresh-project migration replay, pgTAP, database lint, deployed grants/RLS/Storage verification, real concurrent-device sync, provider reauthentication/AAL behavior, and public legal readback therefore remain unverified.
+- Remaining Phase 2 scope: migrate the remaining global local stores to exact per-account namespaces under a fault-injected migration; prove scalable Storage deletion and lifecycle behavior against a real backend; validate exact-session/nonce/AAL reauthentication for password, Google, and GitHub; and obtain qualified legal review. These changes must not be inferred from host tests or enabled behind containment.
 - Rollback: revert only the affected local Phase 2 commit. Do not apply or revert the database migration against a live project without a separate production change plan and approval.
 
 ## Findings
@@ -69,16 +69,16 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 | ARCH-03 | P1 | Schedule/deadline separation and nullable clearing are incomplete | 4/5 | NOT_RUN | partial repair | | Architecture audit |
 | DATA-01 | P1 | Full backup omits advertised whole-person domains | 2/4 | NOT_RUN | restore disabled | | Data audit |
 | DATA-02 | P0 | Sync maps errors to empty and can overwrite newer cloud state | 0/2 | PASS | sync remains disabled; typed reads, CAS revisions, local mutation generations, tombstones, and conflict outcomes are repaired locally | `bc44261` | Concurrent-writer, in-flight-edit, REST gateway, offline replay, and full host tests; pgTAP/deployed evidence remains open |
-| DATA-03 | P1 | Corrupt local stores can be treated as empty and overwritten | 2 | NOT_RUN | existing data preserved | | Data audit |
-| DATA-04 | P1 | Persistence is global, fragmented, and serializer versions differ | 2/4 | NOT_RUN | no migration yet | | Data audit |
-| SEC-01 | P1 | `ai_content_reports` lacks explicit fresh-project service grants | 2 | NOT_RUN | migration pending approval | | Security audit |
+| DATA-03 | P1 | Corrupt local stores can be treated as empty and overwritten | 2 | PASS | malformed Task, Timeline, Notes, occurrence, queue, forecast, and sensitive-store payloads are preserved or quarantined before replacement | `c05dd56`, `d50d399`, `1a0297a` | Focused corruption/fault tests and full host suite; remaining domain migration is tracked under DATA-04 |
+| DATA-04 | P1 | Persistence is global, fragmented, and serializer versions differ | 2/4 | BLOCKED_EXTERNAL | key repositories are serialized/versioned, but legacy global stores still require a fault-injected per-account migration | `c05dd56`, `d50d399`, `80290ae` | Exact multi-account migration and device proof remain open |
+| SEC-01 | P1 | `ai_content_reports` lacks explicit fresh-project service grants | 2 | BLOCKED_EXTERNAL | forward migration grants only service-role INSERT and sequence usage | `9c8e716` | Static and SQL contract tests pass; fresh replay is blocked |
 | PRIV-01 | P0 | Analytics/Crashlytics default on without real user control | 0/9 | PASS | native and Dart collection paths default off | `68bc277` | Static native tests, Env tests, Firebase tests |
 | PRIV-02 | P1 | AI response retention and disclosure exceed stated minimization | 7/9 | NOT_RUN | AI disabled | | Privacy audit |
-| SEC-02 | P1 | Storage permits arbitrary own-prefix uploads | 2 | NOT_RUN | sync/restore disabled | | Security audit |
+| SEC-02 | P1 | Storage permits arbitrary own-prefix uploads | 2 | BLOCKED_EXTERNAL | forward policy permits only two exact JSON paths with a 5 MiB limit | `9c8e716` | Static/SQL tests pass; deployed policy and lifecycle proof remain open |
 | SEC-03 | P1 | Deletion reauthentication is not exact-session bound | 2 | NOT_RUN | server change pending approval | | Security audit |
-| SEC-04 | P0 | Sensitive endpoints are not constrained to first-party origin/path | 0/2 | NOT_RUN | external calls contained | | Security audit |
+| SEC-04 | P0 | Sensitive endpoints are not constrained to first-party origin/path | 0/2 | PASS | authenticated report endpoint must match the configured Supabase origin and exact function path | `46a4cd6` | Host configuration and hostile-URL tests |
 | AUTH-01 | P1 | OAuth deletion is support-based rather than self-service | 2 | NOT_RUN | incomplete | | Security audit |
-| LEGAL-01 | P1 | Public, root, and bundled legal text have drifted | 2/9 | NOT_RUN | canonicalization pending | | Legal audit |
+| LEGAL-01 | P1 | Public, root, and bundled legal text have drifted | 2/9 | BLOCKED_EXTERNAL | parser-generated copies match designated canonical documents and the broken Terms route is repaired | `55d245a` | Host content/route tests pass; qualified review and public readback remain open |
 | VOICE-01 | P1 | Voice can bypass rationale and premium claims are unproven | 0/9 | NOT_RUN | no premium claim allowed | | Platform audit |
 | NOTIF-01 | P1 | Reminders are not clearly opt-in and streak copy is coercive | 5/9 | NOT_RUN | local only | | Platform audit |
 | LINK-01 | P1 | Protected deep-link intent can be lost through onboarding | 1/6 | PASS | validated protected URI survives login, onboarding, legal routes, and Back | `c72d50b` | Real `appRouterProvider` and onboarding return-to tests |
