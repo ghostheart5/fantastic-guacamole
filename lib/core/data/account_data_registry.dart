@@ -218,7 +218,6 @@ abstract final class AccountDataRegistry {
     'paywall_subscription_state_v1',
     'entitlement_owner_user_id_v1',
     'bridge.firebase_messaging_token',
-    'cloud_backup_encryption_key_v1',
     'timeline_payload_v1',
     'task_entries_v2',
     'settings_v1_neon_recall',

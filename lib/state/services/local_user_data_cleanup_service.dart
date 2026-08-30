@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
@@ -26,6 +27,13 @@ class LocalUserDataCleanupService {
   final KeyedMutationCoordinator _mutations;
 
   Future<void> clearForAccountSwitch([String? accountId]) async {
+    return runAccountStorageMutation(
+      () => _clearForAccountSwitch(accountId),
+      coordinator: _mutations,
+    );
+  }
+
+  Future<void> _clearForAccountSwitch(String? accountId) async {
     final String? requestedAccountId = _normalizedAccountId(accountId);
     final String? storedAccountId = requestedAccountId == null
         ? _normalizedAccountId(

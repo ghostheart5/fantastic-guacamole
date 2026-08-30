@@ -48,6 +48,7 @@ void main() {
   testWidgets('TimelineScreen projects due-date tasks with actions', (
     WidgetTester tester,
   ) async {
+    final DateTime now = DateTime.now();
     final ProviderContainer container = ProviderContainer(
       overrides: [
         timelineProvider.overrideWith(_EmptyTimelineNotifier.new),
@@ -60,7 +61,7 @@ void main() {
               priority: 3,
               difficulty: 2,
               energyRequired: 2,
-              dueDate: DateTime.now().add(const Duration(days: 1)),
+              dueDate: DateTime(now.year, now.month, now.day, 12),
             ),
           ];
         }),

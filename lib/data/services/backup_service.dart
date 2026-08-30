@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
@@ -22,6 +24,27 @@ class BackupRestoreRollbackException implements Exception {
   String toString() =>
       'Backup restore failed and rollback could not complete '
       '(restore: $restoreErrorType, rollback: $rollbackErrorType).';
+}
+
+class BackupRestoreCancelledException implements Exception {
+  const BackupRestoreCancelledException();
+
+  @override
+  String toString() => 'Backup restore was cancelled before commit.';
+}
+
+class BackupConcurrentMutationException implements Exception {
+  const BackupConcurrentMutationException();
+
+  @override
+  String toString() => 'Account data changed while backup work was in flight.';
+}
+
+class VersionedBackupSnapshot {
+  const VersionedBackupSnapshot(this.payload, this.localGeneration);
+
+  final Map<String, dynamic> payload;
+  final int localGeneration;
 }
 
 class _ValidatedFullBackup {
@@ -62,7 +85,9 @@ class BackupService {
     required this.profileStorage,
     required this.prefs,
     this.secureProfileStore,
-  });
+    KeyedMutationCoordinator? mutationCoordinator,
+  }) : _mutationCoordinator =
+           mutationCoordinator ?? KeyedMutationCoordinator.shared;
 
   static const String _profileStateKey = 'profile_state';
   static const String _backupVersion = '3.0.0';
@@ -76,6 +101,7 @@ class BackupService {
   final HiveStorage<String> profileStorage;
   final SharedPrefsStorage prefs;
   final SecureStore? secureProfileStore;
+  final KeyedMutationCoordinator _mutationCoordinator;
   static const String _secureProfileStateKey = 'profile_state_v2';
 
   Future<Map<String, dynamic>> createFullBackup() async {
@@ -92,6 +118,26 @@ class BackupService {
       'settings': settings,
     };
   }
+
+  Future<VersionedBackupSnapshot> createVersionedFullBackup() async {
+    late Map<String, dynamic> payload;
+    await runAccountStorageMutation(
+      () async => payload = await createFullBackup(),
+      coordinator: _mutationCoordinator,
+    );
+    return VersionedBackupSnapshot(
+      payload,
+      _mutationCoordinator.generationFor(accountStorageMutationKey),
+    );
+  }
+
+  bool isLocalGenerationCurrent(int generation) {
+    return _mutationCoordinator.generationFor(accountStorageMutationKey) ==
+        generation;
+  }
+
+  int get localGeneration =>
+      _mutationCoordinator.generationFor(accountStorageMutationKey);
 
   Future<Map<String, dynamic>> backupTasks() async {
     final List<TaskEntity> tasks = await taskRepository.getAllTasks();
@@ -123,18 +169,45 @@ class BackupService {
     return jsonEncode(await backupTasks());
   }
 
-  Future<void> restoreFullBackup(Map<String, dynamic> backup) async {
+  void validateFullBackup(Map<String, dynamic> backup) {
+    _validateFullBackup(backup);
+  }
+
+  Future<void> restoreFullBackup(
+    Map<String, dynamic> backup, {
+    bool Function()? canContinue,
+    int? expectedLocalGeneration,
+  }) async {
     final _ValidatedFullBackup validated = _validateFullBackup(backup);
+    _requireRestoreLease(canContinue);
+    return runAccountStorageMutation(() {
+      if (expectedLocalGeneration != null &&
+          !isLocalGenerationCurrent(expectedLocalGeneration)) {
+        throw const BackupConcurrentMutationException();
+      }
+      return _restoreValidatedFullBackup(validated, canContinue: canContinue);
+    }, coordinator: _mutationCoordinator);
+  }
+
+  Future<void> _restoreValidatedFullBackup(
+    _ValidatedFullBackup validated, {
+    bool Function()? canContinue,
+  }) async {
+    _requireRestoreLease(canContinue);
     final _RestoreSnapshot snapshot = await _captureRestoreSnapshot();
 
     try {
-      await _replaceTasks(validated.tasks);
+      _requireRestoreLease(canContinue);
+      await _replaceTasks(validated.tasks, canContinue: canContinue);
+      _requireRestoreLease(canContinue);
       if (validated.profile == null) {
         await _deleteProfile();
       } else {
         await _writeProfile(jsonEncode(validated.profile));
       }
+      _requireRestoreLease(canContinue);
       await prefs.setJson('settings', validated.settings);
+      _requireRestoreLease(canContinue);
     } on Object catch (restoreError, restoreStack) {
       try {
         await _restoreSnapshot(snapshot);
@@ -148,13 +221,29 @@ class BackupService {
     }
   }
 
-  Future<void> restoreTasks(Map<String, dynamic> backup) async {
+  Future<void> restoreTasks(
+    Map<String, dynamic> backup, {
+    bool Function()? canContinue,
+  }) async {
     final List<TaskEntity> restoredTasks = _taskEntitiesFromRaw(
       backup['tasks'],
     );
+    _requireRestoreLease(canContinue);
+    return runAccountStorageMutation(
+      () => _restoreValidatedTasks(restoredTasks, canContinue: canContinue),
+      coordinator: _mutationCoordinator,
+    );
+  }
+
+  Future<void> _restoreValidatedTasks(
+    List<TaskEntity> restoredTasks, {
+    bool Function()? canContinue,
+  }) async {
+    _requireRestoreLease(canContinue);
     final List<TaskEntity> existing = await taskRepository.getAllTasks();
     try {
-      await _replaceTasks(restoredTasks);
+      await _replaceTasks(restoredTasks, canContinue: canContinue);
+      _requireRestoreLease(canContinue);
     } on Object catch (restoreError, restoreStack) {
       try {
         await _replaceTasks(existing);
@@ -175,7 +264,10 @@ class BackupService {
     if (profile == null) {
       throw const FormatException('Backup profile must be a JSON object.');
     }
-    await _writeProfile(jsonEncode(profile));
+    await runAccountStorageMutation(
+      () => _writeProfile(jsonEncode(profile)),
+      coordinator: _mutationCoordinator,
+    );
   }
 
   Future<void> restoreSettings(Map<String, dynamic> backup) async {
@@ -183,7 +275,10 @@ class BackupService {
     if (settings == null) {
       throw const FormatException('Backup settings must be a JSON object.');
     }
-    await prefs.setJson('settings', settings);
+    await runAccountStorageMutation(
+      () => prefs.setJson('settings', settings),
+      coordinator: _mutationCoordinator,
+    );
   }
 
   Map<String, dynamic>? _decodeProfile(String? raw) {
@@ -316,13 +411,34 @@ class BackupService {
     }
   }
 
-  Future<void> _replaceTasks(List<TaskEntity> tasks) async {
+  Future<void> _replaceTasks(
+    List<TaskEntity> tasks, {
+    bool Function()? canContinue,
+  }) async {
+    _requireRestoreLease(canContinue);
+    final ITaskRepository repository = taskRepository;
+    if (repository is IExactTaskSnapshotRepository) {
+      await (repository as IExactTaskSnapshotRepository).replaceTaskSnapshot(
+        tasks,
+      );
+      _requireRestoreLease(canContinue);
+      return;
+    }
     final List<TaskEntity> current = await taskRepository.getAllTasks();
     for (final TaskEntity task in current) {
+      _requireRestoreLease(canContinue);
       await taskRepository.deleteTask(task.id);
     }
     for (final TaskEntity task in tasks) {
+      _requireRestoreLease(canContinue);
       await taskRepository.saveTask(task);
+    }
+    _requireRestoreLease(canContinue);
+  }
+
+  void _requireRestoreLease(bool Function()? canContinue) {
+    if (canContinue != null && !canContinue()) {
+      throw const BackupRestoreCancelledException();
     }
   }
 

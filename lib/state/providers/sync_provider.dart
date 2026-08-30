@@ -98,7 +98,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
             gateway: Env.isMockMode
                 ? LocalTestCloudBackupGateway(prefs)
                 : (Env.enableCloudSync && userEnabled && supabaseClient != null)
-                ? SupabaseStorageCloudBackupGateway(
+                ? SupabaseCasCloudBackupGateway(
                     client: supabaseClient,
                     expectedUserId: scope.isWritable
                         ? scope.rawUserId ?? ''
@@ -119,13 +119,24 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
   // every new synchronization request.
   await Future<void>.value();
   ref.read(syncErrorMessageProvider.notifier).clear();
-  if (!ref.read(cloudSyncCapabilityProvider) ||
-      !(await ref.read(cloudSyncPreferenceProvider.future))) {
+  if (!ref.read(cloudSyncCapabilityProvider)) {
+    ref
+        .read(syncErrorMessageProvider.notifier)
+        .report('Cloud synchronization is unavailable in this build.');
+    return false;
+  }
+  if (!(await ref.read(cloudSyncPreferenceProvider.future))) {
+    ref
+        .read(syncErrorMessageProvider.notifier)
+        .report('Cloud synchronization is turned off in Settings.');
     return false;
   }
   final OfflineSyncQueueService? queue = _boundQueue(ref);
   if (queue == null ||
       (queue.requiresAccountBinding && queue.accountId == null)) {
+    ref
+        .read(syncErrorMessageProvider.notifier)
+        .report('Sign in again before synchronizing this account.');
     return false;
   }
   try {
@@ -135,17 +146,22 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
       },
     );
 
-    final bool success =
-        await ref.read(syncServiceProvider)?.syncToCloud() ?? false;
+    final CloudSyncOutcome outcome =
+        await ref.read(syncServiceProvider)?.syncDeltaOutcome() ??
+        CloudSyncOutcome.unavailable;
+    final bool success = outcome == CloudSyncOutcome.synced;
     if (!success) {
       ref
           .read(syncErrorMessageProvider.notifier)
-          .report('Cloud synchronization is temporarily unavailable.');
-      await queue.enqueue(
-        actionType: 'sync_to_cloud',
-        dedupeKey: 'sync_to_cloud',
-        payload: const <String, dynamic>{},
-      );
+          .report(_syncOutcomeMessage(outcome));
+      if (outcome == CloudSyncOutcome.unavailable ||
+          outcome == CloudSyncOutcome.uploadFailed) {
+        await queue.enqueue(
+          actionType: 'sync_delta',
+          dedupeKey: 'sync_delta',
+          payload: const <String, dynamic>{},
+        );
+      }
     }
     return success;
   } catch (error, stackTrace) {
@@ -232,6 +248,10 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
         'No cloud backup exists for this account. Local data was not changed.',
       CloudRestoreOutcome.unavailable =>
         'Cloud backup is temporarily unavailable. Local data was not changed.',
+      CloudRestoreOutcome.recoveryKeyRequired =>
+        'This cloud backup needs its recovery key before it can be restored. Local data was not changed.',
+      CloudRestoreOutcome.conflict =>
+        'Cloud backup changed on another device. Nothing was restored; retry to review the newest version.',
       CloudRestoreOutcome.malformed =>
         'The cloud backup could not be verified. Local data was not changed.',
       CloudRestoreOutcome.ownerMismatch || CloudRestoreOutcome.accountChanged =>
@@ -291,10 +311,29 @@ Future<bool> _executeQueuedSyncAction(
 
   switch (item.actionType) {
     case 'sync_to_cloud':
-      return syncService.syncToCloud();
     case 'sync_delta':
-      return syncService.syncDelta();
+      return await syncService.syncDeltaOutcome() == CloudSyncOutcome.synced;
     default:
       return false;
   }
+}
+
+String _syncOutcomeMessage(CloudSyncOutcome outcome) {
+  return switch (outcome) {
+    CloudSyncOutcome.synced => 'Cloud synchronization completed.',
+    CloudSyncOutcome.disabled =>
+      'Cloud synchronization is unavailable in this build.',
+    CloudSyncOutcome.accountChanged || CloudSyncOutcome.ownerMismatch =>
+      'Cloud synchronization stopped because the signed-in account changed.',
+    CloudSyncOutcome.malformed =>
+      'The existing cloud backup could not be verified. Nothing was uploaded.',
+    CloudSyncOutcome.recoveryKeyRequired =>
+      'This cloud backup needs its recovery key before synchronization can continue.',
+    CloudSyncOutcome.conflict =>
+      'Cloud data changed on another device. Nothing was overwritten; retry to merge the newest version.',
+    CloudSyncOutcome.unavailable =>
+      'Cloud synchronization is temporarily unavailable. Local changes remain available.',
+    CloudSyncOutcome.uploadFailed =>
+      'Cloud synchronization could not upload changes. Local changes remain available.',
+  };
 }

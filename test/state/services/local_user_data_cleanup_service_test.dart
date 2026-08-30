@@ -76,6 +76,17 @@ void main() {
         'other-owner',
       );
       await secureStore.writeString('hive_aes_key', 'device-global');
+      await secureStore.writeString(
+        'cloud_backup_encryption_key_v1',
+        'legacy-recovery-key',
+      );
+      await secureStore.writeString(
+        'cloud_backup_encryption_key_v1_owner_digest',
+        AccountDataRegistry.accountDigest('account-a'),
+      );
+      final String scopedBackupKey =
+          'cloud_backup_encryption_key_v2.${AccountDataRegistry.accountDigest('account-a')}';
+      await secureStore.writeString(scopedBackupKey, 'account-recovery-key');
 
       for (final String key
           in AccountDataRegistry.preferenceExactKeysForAccount('account-a')) {
@@ -120,6 +131,20 @@ void main() {
         isNull,
       );
       expect(await secureStore.readString('hive_aes_key'), 'device-global');
+      expect(
+        await secureStore.readString('cloud_backup_encryption_key_v1'),
+        'legacy-recovery-key',
+      );
+      expect(
+        await secureStore.readString(
+          'cloud_backup_encryption_key_v1_owner_digest',
+        ),
+        AccountDataRegistry.accountDigest('account-a'),
+      );
+      expect(
+        await secureStore.readString(scopedBackupKey),
+        'account-recovery-key',
+      );
       expect(
         await secureStore.readString(
           AccountDataRegistry.notificationSecureKeyFor('account-b'),

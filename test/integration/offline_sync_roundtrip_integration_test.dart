@@ -125,12 +125,29 @@ class _FlakyCloudBackupGateway implements CloudBackupGateway {
 
   bool uploadShouldFail;
   Map<String, dynamic> fullBackup = <String, dynamic>{};
+  int revision = 0;
 
   @override
   Future<CloudBackupReadResult> downloadBackup() async {
     return fullBackup.isEmpty
         ? const CloudBackupReadResult.notFound()
-        : CloudBackupReadResult.found(fullBackup);
+        : CloudBackupReadResult.found(fullBackup, revision: revision);
+  }
+
+  @override
+  Future<CloudBackupWriteResult> compareAndSwapBackup(
+    Map<String, dynamic> backup, {
+    required int expectedRevision,
+  }) async {
+    if (revision != expectedRevision) {
+      return CloudBackupWriteResult.conflict(revision);
+    }
+    if (uploadShouldFail) {
+      return const CloudBackupWriteResult.unavailable();
+    }
+    revision = expectedRevision + 1;
+    fullBackup = backup;
+    return CloudBackupWriteResult.written(revision);
   }
 
   @override

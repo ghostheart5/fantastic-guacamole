@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/data/local/task_entity_mapper.dart';
 import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
@@ -70,6 +74,121 @@ void main() {
     expect(tombstone.id, 'task-delete');
     expect(tombstone.isCanceled, isTrue);
     expect(tombstone.updatedAt, isNotNull);
+  });
+
+  test('exact snapshot replacement removes obsolete tombstones', () async {
+    final repository = TaskRepository(storage: storage);
+    final TaskEntity keep = TaskEntity(
+      id: 'task-keep',
+      title: 'Keep me',
+      createdAt: DateTime.utc(2026, 7, 5),
+    );
+    await repository.saveTask(keep);
+    await repository.saveTask(
+      TaskEntity(
+        id: 'task-remove',
+        title: 'Remove me',
+        createdAt: DateTime.utc(2026, 7, 6),
+      ),
+    );
+    await repository.deleteTask('task-remove');
+
+    await repository.replaceTaskSnapshot(<TaskEntity>[keep]);
+
+    final List<TaskEntity> tasks = await repository.getAllTasks();
+    expect(tasks.map((TaskEntity task) => task.id), <String>['task-keep']);
+    expect(storage.get('task-remove'), isNull);
+  });
+
+  test(
+    'recovers an interrupted exact snapshot before returning tasks',
+    () async {
+      final repository = TaskRepository(storage: storage);
+      final TaskEntity original = TaskEntity(
+        id: 'original-task',
+        title: 'Original',
+        createdAt: DateTime.utc(2026, 7, 5),
+      );
+      await repository.saveTask(original);
+      final String originalRaw = storage.get(original.id)!;
+      await storage.put(
+        TaskRepository.snapshotRecoveryKey,
+        jsonEncode(<String, dynamic>{
+          'schemaVersion': 1,
+          'original': <String, String>{original.id: originalRaw},
+        }),
+      );
+      await storage.put(
+        'partial-task',
+        jsonEncode(
+          TaskEntityMapper.toJson(
+            TaskEntity(
+              id: 'partial-task',
+              title: 'Partial',
+              createdAt: DateTime.utc(2026, 7, 6),
+            ),
+          ),
+        ),
+      );
+
+      final List<TaskEntity> recovered = await repository.getAllTasks();
+
+      expect(recovered.map((TaskEntity task) => task.id), <String>[
+        original.id,
+      ]);
+      expect(storage.get('partial-task'), isNull);
+      expect(storage.get(TaskRepository.snapshotRecoveryKey), isNull);
+    },
+  );
+
+  test('task writes wait for an account cleanup mutation', () async {
+    final KeyedMutationCoordinator coordinator = KeyedMutationCoordinator();
+    final repository = TaskRepository(
+      storage: storage,
+      mutationCoordinator: coordinator,
+    );
+    final Completer<void> cleanupStarted = Completer<void>();
+    final Completer<void> releaseCleanup = Completer<void>();
+    final Future<void> cleanup = runAccountStorageMutation(() async {
+      cleanupStarted.complete();
+      await releaseCleanup.future;
+    }, coordinator: coordinator);
+    await cleanupStarted.future;
+
+    final Future<void> save = repository.saveTask(
+      TaskEntity(
+        id: 'task-after-cleanup',
+        title: 'Serialized',
+        createdAt: DateTime.utc(2026, 7, 5),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(storage.get('task-after-cleanup'), isNull);
+
+    releaseCleanup.complete();
+    await Future.wait(<Future<void>>[cleanup, save]);
+    expect(storage.get('task-after-cleanup'), isNotNull);
+  });
+
+  test('nested account mutation can save without deadlocking', () async {
+    final KeyedMutationCoordinator coordinator = KeyedMutationCoordinator();
+    final repository = TaskRepository(
+      storage: storage,
+      mutationCoordinator: coordinator,
+    );
+
+    await runAccountStorageMutation(
+      () => repository.saveTask(
+        TaskEntity(
+          id: 'nested-task',
+          title: 'Nested',
+          createdAt: DateTime.utc(2026, 7, 5),
+        ),
+      ),
+      coordinator: coordinator,
+    ).timeout(const Duration(seconds: 1));
+
+    expect(await repository.getTaskById('nested-task'), isNotNull);
   });
 
   test('returns paged tasks newest first with cursor continuation', () async {

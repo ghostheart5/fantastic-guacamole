@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
@@ -132,13 +133,19 @@ class SettingsUiActions {
   }
 
   Future<String> exportBackupRecoveryKey() {
-    return BackupCipher(_ref.read(secureStoreProvider)).exportRecoveryKey();
+    return _backupCipher().exportRecoveryKey();
   }
 
   Future<void> importBackupRecoveryKey(String recoveryKey) {
+    return _backupCipher().importRecoveryKey(recoveryKey);
+  }
+
+  BackupCipher _backupCipher() {
+    final scope = _ref.read(accountStorageScopeProvider);
     return BackupCipher(
       _ref.read(secureStoreProvider),
-    ).importRecoveryKey(recoveryKey);
+      accountId: scope.isWritable ? scope.rawUserId : null,
+    );
   }
 }
 

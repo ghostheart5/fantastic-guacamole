@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
@@ -82,6 +83,36 @@ void main() {
       expect(container.read(profileProvider).soundEnabled, isFalse);
     },
   );
+
+  test('profile persistence waits for the account-storage fence', () async {
+    final _ControlledSecureStoreBackend backend =
+        _ControlledSecureStoreBackend.immediateRead(
+          jsonEncode(ProfileState().toJson()),
+        );
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final Completer<void> fenceStarted = Completer<void>();
+    final Completer<void> releaseFence = Completer<void>();
+    final Future<void> fence = runAccountStorageMutation(() async {
+      fenceStarted.complete();
+      await releaseFence.future;
+    });
+    await fenceStarted.future;
+
+    final Future<void> update = container
+        .read(profileProvider.notifier)
+        .updateName('Fenced profile');
+    await pumpEventQueue();
+    expect(backend.writeCount, 0);
+
+    releaseFence.complete();
+    await Future.wait(<Future<void>>[fence, update]);
+    expect(backend.writeCount, 1);
+  });
 }
 
 class _ControlledSecureStoreBackend implements SecureStoreBackend {

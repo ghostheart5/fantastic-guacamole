@@ -3,17 +3,41 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+
+class BackupRecoveryKeyRequiredException implements Exception {
+  const BackupRecoveryKeyRequiredException();
+
+  @override
+  String toString() =>
+      'The recovery key for this encrypted cloud backup is required.';
+}
 
 /// Encrypts cloud backup payloads before they leave the device.
 class BackupCipher {
-  BackupCipher(this._secureStore);
+  BackupCipher(
+    this._secureStore, {
+    String? accountId,
+    KeyedMutationCoordinator? mutationCoordinator,
+  }) : _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared,
+       _keyName = _keyNameFor(accountId),
+       _accountDigest = _accountDigestFor(accountId);
 
-  static const String _keyName = 'cloud_backup_encryption_key_v1';
+  static const String _legacyKeyName = 'cloud_backup_encryption_key_v1';
+  static const String _legacyOwnerKey =
+      'cloud_backup_encryption_key_v1_owner_digest';
+  static const String _legacyClaimMutationKey =
+      'chronospark-backup-legacy-key-claim';
+  static const String _scopedKeyPrefix = 'cloud_backup_encryption_key_v2.';
   static const String _format = 'chronospark_backup_aes256_gcm_v2';
   static const String _legacyFormat = 'chronospark_backup_aes256_v1';
 
   final SecureStore _secureStore;
+  final KeyedMutationCoordinator _mutations;
+  final String _keyName;
+  final String? _accountDigest;
 
   /// Returns a user-held recovery key that can be stored outside this device
   /// and imported on a replacement device before restoring encrypted backups.
@@ -112,7 +136,7 @@ class BackupCipher {
   }
 
   Future<encrypt.Key> _loadOrCreateKey() async {
-    final String? stored = await _secureStore.readString(_keyName);
+    final String? stored = await _readStoredKey();
     if (stored != null && stored.trim().isNotEmpty) {
       return encrypt.Key(base64Decode(stored));
     }
@@ -124,12 +148,47 @@ class BackupCipher {
   }
 
   Future<encrypt.Key> _loadKeyForDecryption() async {
-    final String? stored = await _secureStore.readString(_keyName);
+    final String? stored = await _readStoredKey();
     if (stored == null || stored.trim().isEmpty) {
-      throw StateError(
-        'This backup is encrypted with a key that is unavailable on this device.',
-      );
+      throw const BackupRecoveryKeyRequiredException();
     }
     return encrypt.Key(base64Decode(stored));
+  }
+
+  Future<String?> _readStoredKey() async {
+    final String? scoped = await _secureStore.readString(_keyName);
+    if (scoped != null && scoped.trim().isNotEmpty) return scoped;
+    if (_keyName == _legacyKeyName) return scoped;
+
+    final String? accountDigest = _accountDigest;
+    if (accountDigest == null) return null;
+    return _mutations.runExclusive(_legacyClaimMutationKey, () async {
+      final String? existing = await _secureStore.readString(_keyName);
+      if (existing != null && existing.trim().isNotEmpty) return existing;
+      final String? legacy = await _secureStore.readString(_legacyKeyName);
+      if (legacy == null || legacy.trim().isEmpty) return null;
+      final String? legacyOwner = await _secureStore.readString(
+        _legacyOwnerKey,
+      );
+      if (legacyOwner != null && legacyOwner != accountDigest) return null;
+      if (legacyOwner == null) {
+        await _secureStore.writeString(_legacyOwnerKey, accountDigest);
+      }
+      await _secureStore.writeString(_keyName, legacy);
+      return legacy;
+    });
+  }
+
+  static String _keyNameFor(String? accountId) {
+    final String normalized = accountId?.trim() ?? '';
+    if (normalized.isEmpty) return _legacyKeyName;
+    return '$_scopedKeyPrefix${AccountDataRegistry.accountDigest(normalized)}';
+  }
+
+  static String? _accountDigestFor(String? accountId) {
+    final String normalized = accountId?.trim() ?? '';
+    return normalized.isEmpty
+        ? null
+        : AccountDataRegistry.accountDigest(normalized);
   }
 }

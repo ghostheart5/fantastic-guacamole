@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -186,6 +187,95 @@ void main() {
       },
     );
 
+    test('failed uploads do not log the account-scoped object path', () async {
+      final MockClient httpClient = MockClient((http.Request request) async {
+        if (request.url.path.endsWith('/auth/v1/token')) {
+          return _authResponse();
+        }
+        if (request.method == 'POST' &&
+            request.url.path.startsWith('/storage/v1/object/')) {
+          return http.Response(
+            jsonEncode(<String, dynamic>{'message': 'upload unavailable'}),
+            503,
+            headers: <String, String>{'content-type': 'application/json'},
+          );
+        }
+        fail('Unexpected request: ${request.method} ${request.url}');
+      });
+      final sb.SupabaseClient client = _supabaseClient(httpClient);
+      await client.auth.signInWithPassword(
+        email: 'sync@chronospark.app',
+        password: 'correct-pass',
+      );
+      final SupabaseStorageCloudBackupGateway gateway =
+          SupabaseStorageCloudBackupGateway(
+            client: client,
+            expectedUserId: 'user-1',
+          );
+      final DebugPrintCallback originalDebugPrint = debugPrint;
+      final List<String> output = <String>[];
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) output.add(message);
+      };
+      try {
+        expect(
+          await gateway.uploadBackup(<String, dynamic>{'version': 3}),
+          isFalse,
+        );
+      } finally {
+        debugPrint = originalDebugPrint;
+      }
+
+      final String logged = output.join('\n');
+      expect(logged, contains('Supabase cloud backup upload failed'));
+      expect(logged, isNot(contains('user-1')));
+      expect(logged, isNot(contains('full_backup.json')));
+    });
+
+    test('download failures do not log raw provider details', () async {
+      final MockClient httpClient = MockClient((http.Request request) async {
+        if (request.url.path.endsWith('/auth/v1/token')) {
+          return _authResponse();
+        }
+        if (request.method == 'GET' &&
+            request.url.path.startsWith('/storage/v1/object/')) {
+          throw StateError(
+            'user-1/backup/full_backup.json Bearer exposed-token',
+          );
+        }
+        fail('Unexpected request: ${request.method} ${request.url}');
+      });
+      final sb.SupabaseClient client = _supabaseClient(httpClient);
+      await client.auth.signInWithPassword(
+        email: 'sync@chronospark.app',
+        password: 'correct-pass',
+      );
+      final SupabaseStorageCloudBackupGateway gateway =
+          SupabaseStorageCloudBackupGateway(
+            client: client,
+            expectedUserId: 'user-1',
+          );
+      final DebugPrintCallback originalDebugPrint = debugPrint;
+      final List<String> output = <String>[];
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) output.add(message);
+      };
+      try {
+        expect(
+          (await gateway.downloadBackup()).status,
+          CloudBackupReadStatus.unavailable,
+        );
+      } finally {
+        debugPrint = originalDebugPrint;
+      }
+
+      final String logged = output.join('\n');
+      expect(logged, contains('Supabase cloud backup download failed'));
+      expect(logged, isNot(contains('user-1')));
+      expect(logged, isNot(contains('full_backup.json')));
+      expect(logged, isNot(contains('exposed-token')));
+    });
+
     test(
       'fails closed when the immutable owner no longer matches auth',
       () async {
@@ -217,6 +307,237 @@ void main() {
         );
       },
     );
+  });
+
+  group('SupabaseCasCloudBackupGateway', () {
+    test(
+      'reads a versioned snapshot and advances the matching revision',
+      () async {
+        int databaseCalls = 0;
+        final List<String> observedRequests = <String>[];
+        final MockClient httpClient = MockClient((http.Request request) async {
+          observedRequests.add('${request.method} ${request.url}');
+          if (request.url.path.endsWith('/auth/v1/token')) {
+            return _authResponse();
+          }
+          if (request.url.path == '/rest/v1/cloud_backup_snapshots') {
+            databaseCalls += 1;
+            if (request.method == 'GET') {
+              return http.Response(
+                jsonEncode(<Map<String, dynamic>>[
+                  <String, dynamic>{
+                    'revision': 4,
+                    'payload': <String, dynamic>{'version': '3.0.0'},
+                  },
+                ]),
+                200,
+                headers: <String, String>{'content-type': 'application/json'},
+                request: request,
+              );
+            }
+            expect(request.method, 'PATCH');
+            expect(request.url.query, contains('user_id=eq.user-1'));
+            expect(request.url.query, contains('revision=eq.4'));
+            return http.Response(
+              jsonEncode(<Map<String, dynamic>>[
+                <String, dynamic>{'revision': 5},
+              ]),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+              request: request,
+            );
+          }
+          fail('Unexpected request: ${request.method} ${request.url}');
+        });
+        final sb.SupabaseClient client = _supabaseClient(httpClient);
+        await client.auth.signInWithPassword(
+          email: 'sync@chronospark.app',
+          password: 'correct-pass',
+        );
+        final SupabaseCasCloudBackupGateway gateway =
+            SupabaseCasCloudBackupGateway(
+              client: client,
+              expectedUserId: 'user-1',
+            );
+
+        final CloudBackupReadResult read = await gateway.downloadBackup();
+        expect(
+          read.status,
+          CloudBackupReadStatus.found,
+          reason: observedRequests.join('\n'),
+        );
+        expect(read.revision, 4);
+        expect(
+          await gateway.compareAndSwapBackup(<String, dynamic>{
+            'version': '3.0.0',
+          }, expectedRevision: 4),
+          isA<CloudBackupWriteResult>()
+              .having(
+                (CloudBackupWriteResult result) => result.status,
+                'status',
+                CloudBackupWriteStatus.written,
+              )
+              .having(
+                (CloudBackupWriteResult result) => result.revision,
+                'revision',
+                5,
+              ),
+        );
+        expect(databaseCalls, 2);
+      },
+    );
+
+    test('returns conflict when a stale revision updates no row', () async {
+      int databaseCalls = 0;
+      final List<String> observedRequests = <String>[];
+      final MockClient httpClient = MockClient((http.Request request) async {
+        observedRequests.add('${request.method} ${request.url}');
+        if (request.url.path.endsWith('/auth/v1/token')) return _authResponse();
+        if (request.url.path == '/rest/v1/cloud_backup_snapshots') {
+          databaseCalls += 1;
+          if (request.method == 'PATCH') {
+            return http.Response(
+              '[]',
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+              request: request,
+            );
+          }
+          return http.Response(
+            jsonEncode(<Map<String, dynamic>>[
+              <String, dynamic>{
+                'revision': 5,
+                'payload': <String, dynamic>{'version': '3.0.0'},
+              },
+            ]),
+            200,
+            headers: <String, String>{'content-type': 'application/json'},
+            request: request,
+          );
+        }
+        fail('Unexpected request: ${request.method} ${request.url}');
+      });
+      final sb.SupabaseClient client = _supabaseClient(httpClient);
+      await client.auth.signInWithPassword(
+        email: 'sync@chronospark.app',
+        password: 'correct-pass',
+      );
+      final SupabaseCasCloudBackupGateway gateway =
+          SupabaseCasCloudBackupGateway(
+            client: client,
+            expectedUserId: 'user-1',
+          );
+
+      final CloudBackupWriteResult result = await gateway.compareAndSwapBackup(
+        <String, dynamic>{'version': '3.0.0'},
+        expectedRevision: 4,
+      );
+
+      expect(
+        result.status,
+        CloudBackupWriteStatus.conflict,
+        reason: observedRequests.join('\n'),
+      );
+      expect(result.revision, 5);
+      expect(databaseCalls, 2);
+    });
+
+    test('migrates a legacy storage object through revision zero', () async {
+      final MockClient httpClient = MockClient((http.Request request) async {
+        if (request.url.path.endsWith('/auth/v1/token')) {
+          return _authResponse();
+        }
+        if (request.url.path == '/rest/v1/cloud_backup_snapshots') {
+          if (request.method == 'GET') {
+            return http.Response(
+              '[]',
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+              request: request,
+            );
+          }
+          expect(request.method, 'POST');
+          return http.Response(
+            jsonEncode(<Map<String, dynamic>>[
+              <String, dynamic>{'revision': 1},
+            ]),
+            201,
+            headers: <String, String>{'content-type': 'application/json'},
+            request: request,
+          );
+        }
+        if (request.method == 'GET' &&
+            request.url.path.endsWith(
+              '/storage/v1/object/chronospark-sync/user-1/backup/full_backup.json',
+            )) {
+          return http.Response.bytes(
+            utf8.encode(
+              jsonEncode(<String, dynamic>{
+                'version': '3.0.0',
+                'tasks': <dynamic>[],
+              }),
+            ),
+            200,
+            headers: <String, String>{
+              'content-type': 'application/octet-stream',
+            },
+            request: request,
+          );
+        }
+        fail('Unexpected request: ${request.method} ${request.url}');
+      });
+      final sb.SupabaseClient client = _supabaseClient(httpClient);
+      await client.auth.signInWithPassword(
+        email: 'sync@chronospark.app',
+        password: 'correct-pass',
+      );
+      final SupabaseCasCloudBackupGateway gateway =
+          SupabaseCasCloudBackupGateway(
+            client: client,
+            expectedUserId: 'user-1',
+          );
+
+      final CloudBackupReadResult legacy = await gateway.downloadBackup();
+      expect(legacy.status, CloudBackupReadStatus.found);
+      expect(legacy.revision, 0);
+      final Map<String, dynamic> legacyPayload =
+          legacy.payload ?? fail('Legacy payload must be present.');
+      final CloudBackupWriteResult migrated = await gateway
+          .compareAndSwapBackup(legacyPayload, expectedRevision: 0);
+      expect(migrated.status, CloudBackupWriteStatus.written);
+      expect(migrated.revision, 1);
+    });
+
+    test('rejects oversized snapshots before any database write', () async {
+      int backupRequests = 0;
+      final MockClient httpClient = MockClient((http.Request request) async {
+        if (request.url.path.endsWith('/auth/v1/token')) {
+          return _authResponse();
+        }
+        backupRequests += 1;
+        fail('Oversized backup reached the network: ${request.url}');
+      });
+      final sb.SupabaseClient client = _supabaseClient(httpClient);
+      await client.auth.signInWithPassword(
+        email: 'sync@chronospark.app',
+        password: 'correct-pass',
+      );
+      final SupabaseCasCloudBackupGateway gateway =
+          SupabaseCasCloudBackupGateway(
+            client: client,
+            expectedUserId: 'user-1',
+          );
+
+      final CloudBackupWriteResult result = await gateway.compareAndSwapBackup(
+        <String, dynamic>{
+          'payload': 'x' * (SupabaseCasCloudBackupGateway.maxPayloadBytes + 1),
+        },
+        expectedRevision: 0,
+      );
+
+      expect(result.status, CloudBackupWriteStatus.malformed);
+      expect(backupRequests, 0);
+    });
   });
 }
 

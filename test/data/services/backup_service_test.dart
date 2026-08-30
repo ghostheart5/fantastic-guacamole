@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
@@ -626,6 +629,58 @@ void main() {
     );
   });
 
+  test('account data clear waits for restore rollback to finish', () async {
+    final KeyedMutationCoordinator coordinator = KeyedMutationCoordinator();
+    final Completer<void> writeStarted = Completer<void>();
+    final Completer<void> releaseWrite = Completer<void>();
+    final BackupService coordinatedService = BackupService(
+      taskRepository: repository,
+      profileStorage: profileStorage,
+      prefs: service.prefs,
+      mutationCoordinator: coordinator,
+    );
+    await repository.saveTask(
+      TaskEntity(
+        id: 'existing',
+        title: 'Restore during rollback',
+        createdAt: DateTime.utc(2026, 8, 1),
+      ),
+    );
+    repository.beforeSave = (TaskEntity task) async {
+      if (task.id != 'incoming') return;
+      writeStarted.complete();
+      await releaseWrite.future;
+      throw StateError('Simulated delayed restore failure.');
+    };
+
+    final Future<void> restore = coordinatedService.restoreTasks(
+      <String, dynamic>{
+        'tasks': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'incoming',
+            'title': 'Incoming',
+            'createdAt': '2026-08-02T00:00:00.000Z',
+          },
+        ],
+      },
+    );
+    await writeStarted.future;
+    bool clearRan = false;
+    final Future<void> clear = runAccountStorageMutation(() async {
+      clearRan = true;
+      repository.clear();
+    }, coordinator: coordinator);
+    await Future<void>.delayed(Duration.zero);
+    expect(clearRan, isFalse);
+
+    releaseWrite.complete();
+    await expectLater(restore, throwsStateError);
+    await clear;
+
+    expect(clearRan, isTrue);
+    expect(await repository.getAllTasks(), isEmpty);
+  });
+
   test(
     'migrates legacy profile data to secure storage before writes',
     () async {
@@ -676,6 +731,9 @@ class _MemoryTaskRepository implements ITaskRepository {
   String? failFirstSaveForId;
   String? failEverySaveForId;
   bool _didFailConfiguredSave = false;
+  Future<void> Function(TaskEntity task)? beforeSave;
+
+  void clear() => _tasks.clear();
 
   @override
   Future<void> deleteTask(String id) async {
@@ -694,6 +752,7 @@ class _MemoryTaskRepository implements ITaskRepository {
 
   @override
   Future<void> saveTask(TaskEntity task) async {
+    await beforeSave?.call(task);
     if (task.id == failEverySaveForId) {
       throw StateError('Simulated persistent save failure for ${task.id}.');
     }

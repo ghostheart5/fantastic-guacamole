@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
@@ -245,9 +246,11 @@ class AuthSessionBoundaryCoordinator {
       return;
     }
     final int sequence = _latestSequence;
-    await _ref
-        .read(localUserDataCleanupServiceProvider)
-        .clearForAccountSwitch();
+    await runAccountStorageMutation(
+      () => _ref
+          .read(localUserDataCleanupServiceProvider)
+          .clearForAccountSwitch(),
+    );
     if (!_isLatest(sequence) ||
         _validId(_ref.read(authUserProvider).asData?.value?.id) != userId) {
       return;
