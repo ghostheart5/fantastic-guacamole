@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/domain/operating_system/operating_system_con
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planner_explanation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
@@ -288,6 +289,7 @@ void main() {
         smartPlannerQueryControllerProvider.overrideWith(
           _BlockedPlannerController.new,
         ),
+        smartPlannerAvailabilityProvider.overrideWith((Ref ref) async => true),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
       ],
     );
@@ -303,6 +305,31 @@ void main() {
     expect(find.byType(SmartPlannerScreen), findsOneWidget);
     expect(find.textContaining('Something went wrong'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('blocked account cannot dispatch a guidance request', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = _container(plannerAvailable: false);
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+
+    await _scrollTo(tester, find.text('PLANNER UNAVAILABLE'));
+    expect(
+      find.text(
+        'Smart Planner is not enabled for this account. No guidance request will be sent.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('GET GUIDANCE'), findsNothing);
+
+    await tester.tap(find.text('PLANNER UNAVAILABLE'));
+    await tester.pump();
+
+    final _PlannerV2TestController planner =
+        container.read(smartPlannerQueryControllerProvider)
+            as _PlannerV2TestController;
+    expect(planner.guidanceRequestCount, 0);
   });
 
   testWidgets('renders the calm Planner V2 action set', (
@@ -686,11 +713,15 @@ ProviderContainer _container({
   AccountStorageScope? accountScope,
   SmartPlannerQueryController Function(Ref)? plannerBuilder,
   PlannerExplanationPort? explanationPort,
+  bool plannerAvailable = true,
 }) {
   return ProviderContainer(
     overrides: [
       smartPlannerQueryControllerProvider.overrideWith(
         plannerBuilder ?? _PlannerV2TestController.new,
+      ),
+      smartPlannerAvailabilityProvider.overrideWith(
+        (Ref ref) async => plannerAvailable,
       ),
       voiceServiceProvider.overrideWithValue(
         voiceService ?? _NoopVoiceService(),

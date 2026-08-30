@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/domain/operating_system/operating_system_con
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planner_explanation_provider.dart';
@@ -831,6 +832,10 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     final ConsentedHumanContext humanContext = ref.watch(
       consentedHumanContextProvider,
     );
+    final AsyncValue<bool> plannerAvailability = ref.watch(
+      smartPlannerAvailabilityProvider,
+    );
+    final bool plannerAvailable = plannerAvailability.asData?.value ?? false;
     final PlannerV2Response? plannerResponse = _plannerResponse;
     final String effectivePlannerMessage =
         plannerResponse?.toAccessibleText() ?? '';
@@ -969,13 +974,23 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    _PlannerAvailabilityStatus(
+                      availability: plannerAvailability,
+                      onRetry: () =>
+                          ref.invalidate(smartPlannerAvailabilityProvider),
+                    ),
+                    const SizedBox(height: 10),
                     TemporalActionButton(
-                      label: _gettingPlanningGuidance
+                      label: plannerAvailability.isLoading
+                          ? 'CHECKING ACCESS...'
+                          : !plannerAvailable
+                          ? 'PLANNER UNAVAILABLE'
+                          : _gettingPlanningGuidance
                           ? 'THINKING...'
                           : (_saved ? 'REFRESH GUIDANCE' : 'GET GUIDANCE'),
                       accent: AppColors.neonCyan,
                       icon: Icons.auto_awesome_rounded,
-                      onPressed: _gettingPlanningGuidance
+                      onPressed: !plannerAvailable || _gettingPlanningGuidance
                           ? null
                           : _getPlanningGuidance,
                     ),
@@ -1154,6 +1169,77 @@ class _Exchange {
   const _Exchange({required this.question, required this.answer});
   final String question;
   final String answer;
+}
+
+class _PlannerAvailabilityStatus extends StatelessWidget {
+  const _PlannerAvailabilityStatus({
+    required this.availability,
+    required this.onRetry,
+  });
+
+  final AsyncValue<bool> availability;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final String message;
+    final IconData icon;
+    final Color accent;
+    if (availability.isLoading) {
+      message = 'Checking Smart Planner access...';
+      icon = Icons.sync_rounded;
+      accent = AppColors.neonCyan;
+    } else if (availability.hasError) {
+      message =
+          'Planner access could not be verified. No guidance request will be sent.';
+      icon = Icons.error_outline_rounded;
+      accent = AppColors.memoryAmber;
+    } else if (availability.asData?.value != true) {
+      message =
+          'Smart Planner is not enabled for this account. No guidance request will be sent.';
+      icon = Icons.lock_outline_rounded;
+      accent = AppColors.memoryAmber;
+    } else {
+      message = 'On-device Smart Planner is ready.';
+      icon = Icons.verified_rounded;
+      accent = Colors.greenAccent;
+    }
+
+    return Semantics(
+      key: const Key('planner-availability-status'),
+      liveRegion: true,
+      label: message,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(icon, size: 18, color: accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 13,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (availability.hasError)
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Retry access check'),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PreferenceMemoryChoice {

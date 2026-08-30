@@ -32,17 +32,60 @@ void main() {
 
     expect(config.stage, AssistantReleaseStage.off);
   });
+
+  test(
+    'Smart Planner availability requires planner and safety gates',
+    () async {
+      final ProviderContainer enabled = _container(
+        isProduction: true,
+        releaseValues: const <String, Object?>{
+          'assistant_release_stage': 'general',
+        },
+      );
+      final ProviderContainer plannerBlocked = _container(
+        isProduction: true,
+        releaseValues: const <String, Object?>{
+          'assistant_release_stage': 'general',
+          'kill_assistant_smart_planner_v2': true,
+        },
+      );
+      final ProviderContainer safetyBlocked = _container(
+        isProduction: true,
+        releaseValues: const <String, Object?>{
+          'assistant_release_stage': 'general',
+          'kill_assistant_safety_critic': true,
+        },
+      );
+      addTearDown(enabled.dispose);
+      addTearDown(plannerBlocked.dispose);
+      addTearDown(safetyBlocked.dispose);
+
+      expect(
+        await enabled.read(smartPlannerAvailabilityProvider.future),
+        isTrue,
+      );
+      expect(
+        await plannerBlocked.read(smartPlannerAvailabilityProvider.future),
+        isFalse,
+      );
+      expect(
+        await safetyBlocked.read(smartPlannerAvailabilityProvider.future),
+        isFalse,
+      );
+    },
+  );
 }
 
-ProviderContainer _container({required bool isProduction}) {
+ProviderContainer _container({
+  required bool isProduction,
+  Map<String, Object?> releaseValues = const <String, Object?>{
+    'assistant_release_stage': 'off',
+  },
+}) {
   return ProviderContainer(
     overrides: [
       remoteConfigServiceProvider.overrideWithValue(
-        RemoteConfigService(
-          initialValues: const <String, Object?>{
-            'assistant_release_stage': 'off',
-          },
-        ),
+        RemoteConfigService(initialValues: releaseValues),
       ),
       intelligenceStateProvider.overrideWith(
         (Ref ref) => IntelligenceState(

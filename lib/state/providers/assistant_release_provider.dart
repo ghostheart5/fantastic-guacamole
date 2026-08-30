@@ -61,6 +61,22 @@ final assistantReleaseDecisionProvider =
       },
     );
 
+/// Smart Planner can accept a request only when both its response path and
+/// the safety critic are enabled for the current account cohort.
+final smartPlannerAvailabilityProvider = FutureProvider<bool>((Ref ref) async {
+  final AssistantReleaseDecision planner = await ref.watch(
+    assistantReleaseDecisionProvider(
+      AssistantReleaseCapability.smartPlannerV2,
+    ).future,
+  );
+  final AssistantReleaseDecision safety = await ref.watch(
+    assistantReleaseDecisionProvider(
+      AssistantReleaseCapability.safetyCritic,
+    ).future,
+  );
+  return planner.enabled && safety.enabled;
+});
+
 class AssistantBetaOptInNotifier extends AsyncNotifier<bool> {
   @override
   Future<bool> build() async {
