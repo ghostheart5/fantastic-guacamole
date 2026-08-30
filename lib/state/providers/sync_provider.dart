@@ -106,6 +106,8 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
                   )
                 : const UnavailableCloudBackupGateway(),
             secureStore: ref.read(secureStoreProvider),
+            expectedAccountId: scope.isWritable ? scope.rawUserId : null,
+            currentAccountId: () => supabaseClient?.auth.currentUser?.id,
           ),
   );
 });
@@ -220,14 +222,27 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
     if (client?.auth.currentUser == null) {
       return false;
     }
-    final bool restored =
-        await ref.read(syncServiceProvider)?.restoreFromCloud() ?? false;
-    if (!restored) {
-      ref
-          .read(syncErrorMessageProvider.notifier)
-          .report(
-            'No cloud backup could be restored. Local data may be unchanged; verify it before making further changes.',
-          );
+    final CloudRestoreOutcome outcome =
+        await ref.read(syncServiceProvider)?.restoreFromCloud() ??
+        CloudRestoreOutcome.unavailable;
+    final bool restored = outcome == CloudRestoreOutcome.restored;
+    final String? failureMessage = switch (outcome) {
+      CloudRestoreOutcome.restored => null,
+      CloudRestoreOutcome.notFound =>
+        'No cloud backup exists for this account. Local data was not changed.',
+      CloudRestoreOutcome.unavailable =>
+        'Cloud backup is temporarily unavailable. Local data was not changed.',
+      CloudRestoreOutcome.malformed =>
+        'The cloud backup could not be verified. Local data was not changed.',
+      CloudRestoreOutcome.ownerMismatch || CloudRestoreOutcome.accountChanged =>
+        'Cloud restore stopped because the signed-in account changed. Local data was not changed.',
+      CloudRestoreOutcome.migrationFailed =>
+        'The older cloud backup could not be secured before restore. Local data was not changed.',
+      CloudRestoreOutcome.disabled =>
+        'Cloud restore is unavailable in this build. Local data was not changed.',
+    };
+    if (failureMessage != null) {
+      ref.read(syncErrorMessageProvider.notifier).report(failureMessage);
     }
     if (restored) {
       ref.invalidate(tasksProvider);

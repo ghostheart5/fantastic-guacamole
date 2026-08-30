@@ -127,14 +127,15 @@ class _FlakyCloudBackupGateway implements CloudBackupGateway {
   Map<String, dynamic> fullBackup = <String, dynamic>{};
 
   @override
-  Future<Map<String, dynamic>> downloadBackup() async {
-    return fullBackup;
+  Future<CloudBackupReadResult> downloadBackup() async {
+    return fullBackup.isEmpty
+        ? const CloudBackupReadResult.notFound()
+        : CloudBackupReadResult.found(fullBackup);
   }
 
   @override
-  Future<Map<String, dynamic>> downloadTasks() async {
-    return const <String, dynamic>{};
-  }
+  Future<CloudBackupReadResult> downloadTasks() async =>
+      const CloudBackupReadResult.notFound();
 
   @override
   Future<bool> uploadBackup(Map<String, dynamic> backup) async {

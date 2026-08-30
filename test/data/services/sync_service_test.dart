@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
@@ -104,7 +105,10 @@ void main() {
       expect(gateway.fullBackup, isNot(contains('tasks')));
 
       repository.tasks.clear();
-      expect(await encryptedService.restoreFromCloud(), isTrue);
+      expect(
+        await encryptedService.restoreFromCloud(),
+        CloudRestoreOutcome.restored,
+      );
       expect((await repository.getAllTasks()).single.id, 'encrypted-task');
     },
   );
@@ -122,18 +126,20 @@ void main() {
         syncEnabled: true,
         restoreEnabled: true,
       );
-      gateway.fullBackup = <String, dynamic>{
-        'version': '3.0.0',
-        'tasks': <Map<String, dynamic>>[
+      gateway.fullBackup = _fullCloudBackup(
+        tasks: <Map<String, dynamic>>[
           <String, dynamic>{
             'id': 'legacy-cloud-task',
             'title': 'Legacy cloud task',
             'createdAt': '2026-07-05T08:00:00.000Z',
           },
         ],
-      };
+      );
 
-      expect(await encryptedService.restoreFromCloud(), isTrue);
+      expect(
+        await encryptedService.restoreFromCloud(),
+        CloudRestoreOutcome.restored,
+      );
       expect(
         gateway.fullBackup,
         containsPair('format', 'chronospark_backup_aes256_gcm_v2'),
@@ -153,19 +159,21 @@ void main() {
         restoreEnabled: true,
       );
       gateway
-        ..fullBackup = <String, dynamic>{
-          'version': '3.0.0',
-          'tasks': <Map<String, dynamic>>[
+        ..fullBackup = _fullCloudBackup(
+          tasks: <Map<String, dynamic>>[
             <String, dynamic>{
               'id': 'legacy-cloud-task',
               'title': 'Legacy cloud task',
               'createdAt': '2026-07-05T08:00:00.000Z',
             },
           ],
-        }
+        )
         ..uploadShouldFail = true;
 
-      expect(await encryptedService.restoreFromCloud(), isFalse);
+      expect(
+        await encryptedService.restoreFromCloud(),
+        CloudRestoreOutcome.migrationFailed,
+      );
       expect(await repository.getAllTasks(), isEmpty);
     },
   );
@@ -194,10 +202,10 @@ void main() {
     expect(gateway.fullBackup, isNot(contains('tasks')));
   });
 
-  test('restoreFromCloud returns false when cloud backup is empty', () async {
-    final bool restored = await syncService.restoreFromCloud();
+  test('restoreFromCloud reports when cloud backup is absent', () async {
+    final CloudRestoreOutcome restored = await syncService.restoreFromCloud();
 
-    expect(restored, isFalse);
+    expect(restored, CloudRestoreOutcome.notFound);
   });
 
   test('default service cannot read or write cloud data directly', () async {
@@ -205,40 +213,40 @@ void main() {
       backup: backupService,
       gateway: gateway,
     );
-    gateway.fullBackup = <String, dynamic>{
-      'tasks': <Map<String, dynamic>>[
+    gateway.fullBackup = _fullCloudBackup(
+      tasks: <Map<String, dynamic>>[
         <String, dynamic>{
           'id': 'must-not-restore',
           'title': 'Contained',
           'createdAt': '2026-08-29T00:00:00.000Z',
         },
       ],
-    };
+    );
 
     expect(await contained.syncToCloud(), isFalse);
     expect(await contained.syncDelta(), isFalse);
     expect(await contained.syncTasksOnly(), isFalse);
-    expect(await contained.restoreFromCloud(), isFalse);
+    expect(await contained.restoreFromCloud(), CloudRestoreOutcome.disabled);
     expect(await contained.restoreTasksOnly(), isFalse);
     expect(await repository.getAllTasks(), isEmpty);
   });
 
   test('restoreFromCloud restores tasks profile and settings', () async {
-    gateway.fullBackup = <String, dynamic>{
-      'tasks': <Map<String, dynamic>>[
+    gateway.fullBackup = _fullCloudBackup(
+      tasks: <Map<String, dynamic>>[
         <String, dynamic>{
           'id': 'cloud-1',
           'title': 'From cloud',
           'createdAt': '2026-07-05T08:00:00.000Z',
         },
       ],
-      'profile': <String, dynamic>{'name': 'Cloud User'},
-      'settings': <String, dynamic>{'soundEnabled': false},
-    };
+      profile: <String, dynamic>{'name': 'Cloud User'},
+      settings: <String, dynamic>{'soundEnabled': false},
+    );
 
-    final bool restored = await syncService.restoreFromCloud();
+    final CloudRestoreOutcome restored = await syncService.restoreFromCloud();
 
-    expect(restored, isTrue);
+    expect(restored, CloudRestoreOutcome.restored);
     expect((await repository.getAllTasks()).single.id, 'cloud-1');
     expect(
       profileStorage.get('profile_state'),
@@ -268,6 +276,59 @@ void main() {
     expect(uploadedTask['id'], 'local-1');
   });
 
+  test('syncDelta never seeds cloud after an ambiguous read failure', () async {
+    await repository.saveTask(
+      TaskEntity(
+        id: 'local-1',
+        title: 'Keep local',
+        createdAt: DateTime.utc(2026, 7, 5, 9),
+      ),
+    );
+    for (final CloudBackupReadResult failure in <CloudBackupReadResult>[
+      const CloudBackupReadResult.unavailable(),
+      const CloudBackupReadResult.malformed(),
+      const CloudBackupReadResult.ownerMismatch(),
+    ]) {
+      gateway
+        ..fullReadOverride = failure
+        ..uploadBackupCalls = 0;
+
+      expect(await syncService.syncDelta(), isFalse);
+      expect(gateway.uploadBackupCalls, 0);
+    }
+  });
+
+  test('restore stops before local commit when the account changes', () async {
+    String currentAccount = 'user-1';
+    gateway
+      ..fullBackup = _fullCloudBackup(
+        tasks: <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'other-account-task',
+            'title': 'Must not cross accounts',
+            'createdAt': '2026-08-29T00:00:00.000Z',
+          },
+        ],
+      )
+      ..onDownloadBackup = () {
+        currentAccount = 'user-2';
+      };
+    final SyncService guarded = SyncService(
+      backup: backupService,
+      gateway: gateway,
+      expectedAccountId: 'user-1',
+      currentAccountId: () => currentAccount,
+      syncEnabled: true,
+      restoreEnabled: true,
+    );
+
+    expect(
+      await guarded.restoreFromCloud(),
+      CloudRestoreOutcome.accountChanged,
+    );
+    expect(await repository.getAllTasks(), isEmpty);
+  });
+
   test(
     'syncDelta merges newer local task over older cloud task and restores merged data',
     () async {
@@ -278,9 +339,8 @@ void main() {
           createdAt: DateTime.utc(2026, 7, 5, 12),
         ),
       );
-      gateway.fullBackup = <String, dynamic>{
-        'version': '3.0.0',
-        'tasks': <Map<String, dynamic>>[
+      gateway.fullBackup = _fullCloudBackup(
+        tasks: <Map<String, dynamic>>[
           <String, dynamic>{
             'id': 'shared',
             'title': 'Cloud older',
@@ -292,8 +352,8 @@ void main() {
             'createdAt': '2026-07-05T07:00:00.000Z',
           },
         ],
-        'settings': <String, dynamic>{'theme': 'cloud'},
-      };
+        settings: <String, dynamic>{'theme': 'cloud'},
+      );
 
       final bool synced = await syncService.syncDelta();
 
@@ -332,10 +392,7 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 5),
       ),
     );
-    gateway.fullBackup = <String, dynamic>{
-      'version': '3.0.0',
-      'tasks': <Map<String, dynamic>>[],
-    };
+    gateway.fullBackup = _fullCloudBackup(tasks: <Map<String, dynamic>>[]);
     gateway.uploadShouldFail = true;
 
     final bool synced = await syncService.syncDelta();
@@ -351,9 +408,8 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 5, 8),
       ),
     );
-    gateway.fullBackup = <String, dynamic>{
-      'version': '3.0.0',
-      'tasks': <Map<String, dynamic>>[
+    gateway.fullBackup = _fullCloudBackup(
+      tasks: <Map<String, dynamic>>[
         <String, dynamic>{
           'id': 'shared',
           'title': 'Cloud newer',
@@ -361,7 +417,7 @@ void main() {
           'createdAt': '2026-07-05T07:00:00.000Z',
         },
       ],
-    };
+    );
 
     final bool synced = await syncService.syncDelta();
     final Map<String, dynamic> mergedTask =
@@ -400,16 +456,15 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 5, 10),
       ),
     );
-    gateway.fullBackup = <String, dynamic>{
-      'version': '3.0.0',
-      'tasks': <Map<String, dynamic>>[
+    gateway.fullBackup = _fullCloudBackup(
+      tasks: <Map<String, dynamic>>[
         <String, dynamic>{
           'id': 'shared',
           'title': 'Cloud edit',
           'createdAt': '2026-07-05T10:00:00.000Z',
         },
       ],
-    };
+    );
 
     expect(await syncService.syncDelta(), isTrue);
     expect(mergedTasks().single['title'], 'Local edit');
@@ -424,16 +479,15 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 5, 9),
       ),
     );
-    gateway.fullBackup = <String, dynamic>{
-      'version': '3.0.0',
-      'tasks': <Map<String, dynamic>>[
+    gateway.fullBackup = _fullCloudBackup(
+      tasks: <Map<String, dynamic>>[
         <String, dynamic>{
           'id': 'cloud-only',
           'title': 'From another device',
           'createdAt': '2026-07-05T09:00:00.000Z',
         },
       ],
-    };
+    );
 
     expect(await syncService.syncDelta(), isTrue);
     expect(
@@ -456,16 +510,15 @@ void main() {
           completedAt: DateTime.utc(2026, 7, 9),
         ),
       );
-      gateway.fullBackup = <String, dynamic>{
-        'version': '3.0.0',
-        'tasks': <Map<String, dynamic>>[
+      gateway.fullBackup = _fullCloudBackup(
+        tasks: <Map<String, dynamic>>[
           <String, dynamic>{
             'id': 'shared',
             'title': 'Cloud created later, never completed',
             'createdAt': '2026-07-05T00:00:00.000Z',
           },
         ],
-      };
+      );
 
       expect(await syncService.syncDelta(), isTrue);
       expect(mergedTasks().single['title'], 'Local completed later');
@@ -481,9 +534,8 @@ void main() {
         updatedAt: DateTime.utc(2026, 7, 6),
       ),
     );
-    gateway.fullBackup = <String, dynamic>{
-      'version': '3.0.0',
-      'tasks': <Map<String, dynamic>>[
+    gateway.fullBackup = _fullCloudBackup(
+      tasks: <Map<String, dynamic>>[
         <String, dynamic>{
           'id': 'shared',
           'title': 'Stale cloud title',
@@ -491,7 +543,7 @@ void main() {
           'updatedAt': '2026-07-05T12:00:00.000Z',
         },
       ],
-    };
+    );
 
     expect(await syncService.syncDelta(), isTrue);
     expect(mergedTasks().single['title'], 'Locally renamed, never synced');
@@ -510,9 +562,8 @@ void main() {
           isCanceled: true,
         ),
       );
-      gateway.fullBackup = <String, dynamic>{
-        'version': '3.0.0',
-        'tasks': <Map<String, dynamic>>[
+      gateway.fullBackup = _fullCloudBackup(
+        tasks: <Map<String, dynamic>>[
           <String, dynamic>{
             'id': 'deleted-here',
             'title': 'Deleted on this device',
@@ -520,7 +571,7 @@ void main() {
             'updatedAt': '2026-07-05T10:00:00.000Z',
           },
         ],
-      };
+      );
 
       expect(await syncService.syncDelta(), isTrue);
       expect(mergedTasks().single['id'], 'deleted-here');
@@ -588,8 +639,8 @@ void main() {
 
       expect(await localGateway.uploadBackup(backup), isTrue);
       expect(await localGateway.uploadTasks(tasks), isTrue);
-      expect(await localGateway.downloadBackup(), backup);
-      expect(await localGateway.downloadTasks(), tasks);
+      expect((await localGateway.downloadBackup()).payload, backup);
+      expect((await localGateway.downloadTasks()).payload, tasks);
     },
   );
 
@@ -601,29 +652,62 @@ void main() {
 
       expect(await gateway.uploadBackup(<String, dynamic>{}), isFalse);
       expect(await gateway.uploadTasks(<String, dynamic>{}), isFalse);
-      expect(await gateway.downloadBackup(), isEmpty);
-      expect(await gateway.downloadTasks(), isEmpty);
+      expect(
+        (await gateway.downloadBackup()).status,
+        CloudBackupReadStatus.unavailable,
+      );
+      expect(
+        (await gateway.downloadTasks()).status,
+        CloudBackupReadStatus.unavailable,
+      );
     },
   );
+}
+
+Map<String, dynamic> _fullCloudBackup({
+  required List<Map<String, dynamic>> tasks,
+  Map<String, dynamic>? profile,
+  Map<String, dynamic> settings = const <String, dynamic>{},
+}) {
+  return <String, dynamic>{
+    'version': '3.0.0',
+    'manifest': accountDataBackupManifest(),
+    'timestamp': '2026-08-29T12:00:00.000Z',
+    'tasks': tasks,
+    'profile': profile,
+    'settings': settings,
+  };
 }
 
 class _MemoryCloudBackupGateway implements CloudBackupGateway {
   Map<String, dynamic>? fullBackup;
   Map<String, dynamic>? tasksBackup;
+  CloudBackupReadResult? fullReadOverride;
+  CloudBackupReadResult? tasksReadOverride;
   bool uploadShouldFail = false;
+  int uploadBackupCalls = 0;
+  void Function()? onDownloadBackup;
 
   @override
-  Future<Map<String, dynamic>> downloadBackup() async {
-    return fullBackup ?? <String, dynamic>{};
+  Future<CloudBackupReadResult> downloadBackup() async {
+    onDownloadBackup?.call();
+    return fullReadOverride ??
+        (fullBackup == null
+            ? const CloudBackupReadResult.notFound()
+            : CloudBackupReadResult.found(fullBackup!));
   }
 
   @override
-  Future<Map<String, dynamic>> downloadTasks() async {
-    return tasksBackup ?? <String, dynamic>{};
+  Future<CloudBackupReadResult> downloadTasks() async {
+    return tasksReadOverride ??
+        (tasksBackup == null
+            ? const CloudBackupReadResult.notFound()
+            : CloudBackupReadResult.found(tasksBackup!));
   }
 
   @override
   Future<bool> uploadBackup(Map<String, dynamic> backup) async {
+    uploadBackupCalls += 1;
     if (uploadShouldFail) {
       return false;
     }

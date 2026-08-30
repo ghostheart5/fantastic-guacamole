@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
@@ -221,17 +222,19 @@ void main() {
   test(
     'restoreFullBackup restores profile and settings alongside tasks',
     () async {
-      await service.restoreFullBackup(<String, dynamic>{
-        'tasks': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'id': 'restored',
-            'title': 'Restored task',
-            'createdAt': '2026-07-05T08:00:00.000Z',
-          },
-        ],
-        'profile': <String, dynamic>{'name': 'Recovered', 'xp': 12},
-        'settings': <String, dynamic>{'soundEnabled': true, 'theme': 'neon'},
-      });
+      await service.restoreFullBackup(
+        _fullBackup(
+          tasks: <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 'restored',
+              'title': 'Restored task',
+              'createdAt': '2026-07-05T08:00:00.000Z',
+            },
+          ],
+          profile: <String, dynamic>{'name': 'Recovered', 'xp': 12},
+          settings: <String, dynamic>{'soundEnabled': true, 'theme': 'neon'},
+        ),
+      );
 
       expect((await repository.getAllTasks()).single.id, 'restored');
       expect(
@@ -246,30 +249,31 @@ void main() {
   );
 
   test(
-    'restoreFullBackup accepts legacy user fallback and skips invalid settings',
+    'restoreFullBackup rejects incomplete legacy envelopes before writes',
     () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'existing',
+          title: 'Keep task',
+          createdAt: DateTime.utc(2026, 7, 1),
+        ),
+      );
       await service.prefs.setJson('settings', <String, dynamic>{
         'theme': 'existing',
       });
 
-      await service.restoreFullBackup(<String, dynamic>{
-        'tasks': <Map<String, dynamic>>[],
-        'user': <String, dynamic>{'name': 'Legacy Restore'},
-        'settings': 'not a map',
-      });
-
-      expect(
-        profileStorage.get('profile_state'),
-        jsonEncode(<String, dynamic>{
-          'xp': 0,
-          'level': 1,
-          'streak': 0,
-          'longestStreak': 0,
-          'name': 'Legacy Restore',
-          'soundEnabled': true,
-          'lastActiveDate': null,
+      await expectLater(
+        () => service.restoreFullBackup(<String, dynamic>{
+          'tasks': <Map<String, dynamic>>[],
+          'user': <String, dynamic>{'name': 'Legacy Restore'},
+          'settings': 'not a map',
         }),
+        throwsFormatException,
       );
+
+      expect((await repository.getAllTasks()).single.id, 'existing');
+      await profileStorage.open();
+      expect(profileStorage.get('profile_state'), isNull);
       expect(service.prefs.getJson('settings'), <String, dynamic>{
         'theme': 'existing',
       });
@@ -306,10 +310,16 @@ void main() {
         'theme': 'existing',
       });
 
-      await service.restoreProfile(<String, dynamic>{
-        'user': <String, dynamic>{'name': '   '},
-      });
-      await service.restoreSettings(<String, dynamic>{'settings': 'invalid'});
+      await expectLater(
+        () => service.restoreProfile(<String, dynamic>{
+          'user': <String, dynamic>{'name': '   '},
+        }),
+        throwsFormatException,
+      );
+      await expectLater(
+        () => service.restoreSettings(<String, dynamic>{'settings': 'invalid'}),
+        throwsFormatException,
+      );
 
       expect(
         profileStorage.get('profile_state'),
@@ -321,7 +331,7 @@ void main() {
     },
   );
 
-  test('restoreTasks ignores missing tasks payload', () async {
+  test('restoreTasks rejects missing or invalid tasks payload', () async {
     await repository.saveTask(
       TaskEntity(
         id: 'keep',
@@ -330,7 +340,10 @@ void main() {
       ),
     );
 
-    await service.restoreTasks(<String, dynamic>{'tasks': 'invalid'});
+    await expectLater(
+      () => service.restoreTasks(<String, dynamic>{'tasks': 'invalid'}),
+      throwsFormatException,
+    );
 
     expect((await repository.getAllTasks()).single.id, 'keep');
   });
@@ -345,6 +358,213 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test(
+    'restoreTasks rejects mixed malformed records and duplicate IDs',
+    () async {
+      final Map<String, dynamic> validTask = <String, dynamic>{
+        'id': 'duplicate',
+        'title': 'Valid task',
+        'createdAt': '2026-08-02T00:00:00.000Z',
+      };
+
+      await expectLater(
+        () => service.restoreTasks(<String, dynamic>{
+          'tasks': <Object?>[
+            validTask,
+            <String, dynamic>{'id': 'broken', 'title': 'Missing date'},
+          ],
+        }),
+        throwsFormatException,
+      );
+      await expectLater(
+        () => service.restoreTasks(<String, dynamic>{
+          'tasks': <Object?>[validTask, Map<String, dynamic>.from(validTask)],
+        }),
+        throwsFormatException,
+      );
+      expect(await repository.getAllTasks(), isEmpty);
+    },
+  );
+
+  test(
+    'full restore preflight rejects invalid manifest before any write',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'existing',
+          title: 'Keep me',
+          createdAt: DateTime.utc(2026, 8, 1),
+        ),
+      );
+      await profileStorage.put(
+        'profile_state',
+        jsonEncode(<String, dynamic>{'name': 'Existing'}),
+      );
+      await service.prefs.setJson('settings', <String, dynamic>{
+        'theme': 'existing',
+      });
+      final Map<String, dynamic> backup = _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: <String, dynamic>{'name': 'Incoming'},
+        settings: <String, dynamic>{'theme': 'incoming'},
+      );
+      final Map<String, dynamic> manifest = Map<String, dynamic>.from(
+        backup['manifest'] as Map<String, dynamic>,
+      );
+      manifest['includedDomains'] = <String>['tasks'];
+      backup['manifest'] = manifest;
+
+      await expectLater(
+        () => service.restoreFullBackup(backup),
+        throwsFormatException,
+      );
+
+      expect((await repository.getAllTasks()).single.id, 'existing');
+      expect(
+        profileStorage.get('profile_state'),
+        jsonEncode(<String, dynamic>{'name': 'Existing'}),
+      );
+      expect(service.prefs.getJson('settings'), <String, dynamic>{
+        'theme': 'existing',
+      });
+    },
+  );
+
+  test(
+    'full restore preflight rejects nested non-JSON data before writes',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'existing',
+          title: 'Keep me',
+          createdAt: DateTime.utc(2026, 8, 1),
+        ),
+      );
+      await profileStorage.put(
+        'profile_state',
+        jsonEncode(<String, dynamic>{'name': 'Existing'}),
+      );
+      await service.prefs.setJson('settings', <String, dynamic>{
+        'theme': 'existing',
+      });
+      final Map<String, dynamic> backup = _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: <String, dynamic>{'name': 'Incoming'},
+        settings: <String, dynamic>{'invalid': Object()},
+      );
+
+      await expectLater(
+        () => service.restoreFullBackup(backup),
+        throwsFormatException,
+      );
+
+      expect((await repository.getAllTasks()).single.id, 'existing');
+      expect(
+        profileStorage.get('profile_state'),
+        jsonEncode(<String, dynamic>{'name': 'Existing'}),
+      );
+      expect(service.prefs.getJson('settings'), <String, dynamic>{
+        'theme': 'existing',
+      });
+    },
+  );
+
+  test(
+    'failed restore preserves exact secure and legacy profile states',
+    () async {
+      const List<({String? secure, String? legacy})> cases =
+          <({String? secure, String? legacy})>[
+            (secure: null, legacy: null),
+            (secure: null, legacy: '{"name":"Legacy only"}'),
+            (secure: '{"name":"Secure only"}', legacy: null),
+            (secure: '{"name":"Secure"}', legacy: '{"name":"Legacy"}'),
+          ];
+
+      for (final ({String? secure, String? legacy}) profileCase in cases) {
+        await profileStorage.clear();
+        if (profileCase.legacy != null) {
+          await profileStorage.put('profile_state', profileCase.legacy!);
+        }
+        final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
+        final SecureStore secureStore = SecureStore(backend: backend);
+        if (profileCase.secure != null) {
+          await secureStore.writeString(
+            'profile_state_v2',
+            profileCase.secure!,
+          );
+        }
+        final SharedPreferences rawPrefs =
+            await SharedPreferences.getInstance();
+        await rawPrefs.remove('settings');
+        final BackupService exactService = BackupService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: _WriteThenFailPrefsStorage(rawPrefs),
+          secureProfileStore: secureStore,
+        );
+
+        await expectLater(
+          () => exactService.restoreFullBackup(
+            _fullBackup(
+              tasks: <Map<String, dynamic>>[],
+              profile: <String, dynamic>{'name': 'Incoming'},
+              settings: <String, dynamic>{'theme': 'incoming'},
+            ),
+          ),
+          throwsStateError,
+        );
+
+        expect(
+          await secureStore.readString('profile_state_v2'),
+          profileCase.secure,
+        );
+        expect(profileStorage.get('profile_state'), profileCase.legacy);
+      }
+    },
+  );
+
+  test(
+    'full restore rolls newly created profile and settings back to absence',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'existing',
+          title: 'Keep me',
+          createdAt: DateTime.utc(2026, 8, 1),
+        ),
+      );
+      final SharedPreferences rawPrefs = await SharedPreferences.getInstance();
+      final _WriteThenFailPrefsStorage failingPrefs =
+          _WriteThenFailPrefsStorage(rawPrefs);
+      final BackupService failingService = BackupService(
+        taskRepository: repository,
+        profileStorage: profileStorage,
+        prefs: failingPrefs,
+      );
+
+      await expectLater(
+        () => failingService.restoreFullBackup(
+          _fullBackup(
+            tasks: <Map<String, dynamic>>[
+              <String, dynamic>{
+                'id': 'incoming',
+                'title': 'Incoming',
+                'createdAt': '2026-08-02T00:00:00.000Z',
+              },
+            ],
+            profile: <String, dynamic>{'name': 'Incoming'},
+            settings: <String, dynamic>{'theme': 'incoming'},
+          ),
+        ),
+        throwsStateError,
+      );
+
+      expect((await repository.getAllTasks()).single.id, 'existing');
+      expect(profileStorage.get('profile_state'), isNull);
+      expect(failingPrefs.contains('settings'), isFalse);
+    },
+  );
 
   test(
     'failed task replacement rolls back the complete prior task set',
@@ -380,6 +600,31 @@ void main() {
       expect(tasks.map((TaskEntity task) => task.id), <String>['existing']);
     },
   );
+
+  test('restore reports explicitly when rollback also fails', () async {
+    await repository.saveTask(
+      TaskEntity(
+        id: 'existing',
+        title: 'Existing',
+        createdAt: DateTime.utc(2026, 8, 1),
+      ),
+    );
+    repository.failFirstSaveForId = 'incoming';
+    repository.failEverySaveForId = 'existing';
+
+    await expectLater(
+      () => service.restoreTasks(<String, dynamic>{
+        'tasks': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'incoming',
+            'title': 'Incoming',
+            'createdAt': '2026-08-02T00:00:00.000Z',
+          },
+        ],
+      }),
+      throwsA(isA<BackupRestoreRollbackException>()),
+    );
+  });
 
   test(
     'migrates legacy profile data to secure storage before writes',
@@ -429,6 +674,7 @@ void main() {
 class _MemoryTaskRepository implements ITaskRepository {
   final Map<String, TaskEntity> _tasks = <String, TaskEntity>{};
   String? failFirstSaveForId;
+  String? failEverySaveForId;
   bool _didFailConfiguredSave = false;
 
   @override
@@ -448,11 +694,44 @@ class _MemoryTaskRepository implements ITaskRepository {
 
   @override
   Future<void> saveTask(TaskEntity task) async {
+    if (task.id == failEverySaveForId) {
+      throw StateError('Simulated persistent save failure for ${task.id}.');
+    }
     if (!_didFailConfiguredSave && task.id == failFirstSaveForId) {
       _didFailConfiguredSave = true;
       throw StateError('Simulated restore write failure for ${task.id}.');
     }
     _tasks[task.id] = task;
+  }
+}
+
+Map<String, dynamic> _fullBackup({
+  required List<Map<String, dynamic>> tasks,
+  required Map<String, dynamic>? profile,
+  required Map<String, dynamic> settings,
+}) {
+  return <String, dynamic>{
+    'version': '3.0.0',
+    'manifest': accountDataBackupManifest(),
+    'timestamp': '2026-08-29T12:00:00.000Z',
+    'tasks': tasks,
+    'profile': profile,
+    'settings': settings,
+  };
+}
+
+class _WriteThenFailPrefsStorage extends SharedPrefsStorage {
+  _WriteThenFailPrefsStorage(super.prefs);
+
+  bool _failed = false;
+
+  @override
+  Future<void> setJson(String key, Map<String, dynamic> value) async {
+    await super.setJson(key, value);
+    if (!_failed) {
+      _failed = true;
+      throw StateError('Simulated settings write failure.');
+    }
   }
 }
 

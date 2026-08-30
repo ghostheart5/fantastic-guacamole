@@ -8,11 +8,48 @@ import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
+enum CloudBackupReadStatus {
+  found,
+  notFound,
+  unavailable,
+  malformed,
+  ownerMismatch,
+}
+
+class CloudBackupReadResult {
+  const CloudBackupReadResult._(this.status, this.payload);
+
+  const CloudBackupReadResult.found(Map<String, dynamic> payload)
+    : this._(CloudBackupReadStatus.found, payload);
+  const CloudBackupReadResult.notFound()
+    : this._(CloudBackupReadStatus.notFound, null);
+  const CloudBackupReadResult.unavailable()
+    : this._(CloudBackupReadStatus.unavailable, null);
+  const CloudBackupReadResult.malformed()
+    : this._(CloudBackupReadStatus.malformed, null);
+  const CloudBackupReadResult.ownerMismatch()
+    : this._(CloudBackupReadStatus.ownerMismatch, null);
+
+  final CloudBackupReadStatus status;
+  final Map<String, dynamic>? payload;
+}
+
+enum CloudRestoreOutcome {
+  restored,
+  notFound,
+  unavailable,
+  malformed,
+  ownerMismatch,
+  accountChanged,
+  migrationFailed,
+  disabled,
+}
+
 abstract class CloudBackupGateway {
   Future<bool> uploadBackup(Map<String, dynamic> backup);
-  Future<Map<String, dynamic>> downloadBackup();
+  Future<CloudBackupReadResult> downloadBackup();
   Future<bool> uploadTasks(Map<String, dynamic> backup);
-  Future<Map<String, dynamic>> downloadTasks();
+  Future<CloudBackupReadResult> downloadTasks();
 }
 
 class LocalTestCloudBackupGateway implements CloudBackupGateway {
@@ -24,13 +61,29 @@ class LocalTestCloudBackupGateway implements CloudBackupGateway {
   final SharedPrefsStorage _preferences;
 
   @override
-  Future<Map<String, dynamic>> downloadBackup() async {
-    return _preferences.getJson(_backupKey);
+  Future<CloudBackupReadResult> downloadBackup() async {
+    return _download(_backupKey);
   }
 
   @override
-  Future<Map<String, dynamic>> downloadTasks() async {
-    return _preferences.getJson(_tasksKey);
+  Future<CloudBackupReadResult> downloadTasks() async {
+    return _download(_tasksKey);
+  }
+
+  CloudBackupReadResult _download(String key) {
+    if (!_preferences.contains(key)) {
+      return const CloudBackupReadResult.notFound();
+    }
+    final String? raw = _preferences.getString(key);
+    if (raw == null) return const CloudBackupReadResult.malformed();
+    try {
+      final Object? decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic>
+          ? CloudBackupReadResult.found(decoded)
+          : const CloudBackupReadResult.malformed();
+    } on FormatException {
+      return const CloudBackupReadResult.malformed();
+    }
   }
 
   @override
@@ -50,12 +103,12 @@ class UnavailableCloudBackupGateway implements CloudBackupGateway {
   const UnavailableCloudBackupGateway();
 
   @override
-  Future<Map<String, dynamic>> downloadBackup() async =>
-      const <String, dynamic>{};
+  Future<CloudBackupReadResult> downloadBackup() async =>
+      const CloudBackupReadResult.unavailable();
 
   @override
-  Future<Map<String, dynamic>> downloadTasks() async =>
-      const <String, dynamic>{};
+  Future<CloudBackupReadResult> downloadTasks() async =>
+      const CloudBackupReadResult.unavailable();
 
   @override
   Future<bool> uploadBackup(Map<String, dynamic> backup) async => false;
@@ -80,12 +133,12 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   final String bucket;
 
   @override
-  Future<Map<String, dynamic>> downloadBackup() async {
+  Future<CloudBackupReadResult> downloadBackup() async {
     return _downloadObject(_backupObject);
   }
 
   @override
-  Future<Map<String, dynamic>> downloadTasks() async {
+  Future<CloudBackupReadResult> downloadTasks() async {
     return _downloadObject(_tasksObject);
   }
 
@@ -99,9 +152,9 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
     return _uploadObject(_tasksObject, backup);
   }
 
-  Future<Map<String, dynamic>> _downloadObject(String baseObjectPath) async {
+  Future<CloudBackupReadResult> _downloadObject(String baseObjectPath) async {
     if (!_hasExpectedUser) {
-      return const <String, dynamic>{};
+      return const CloudBackupReadResult.ownerMismatch();
     }
     final String objectPath = _scopedPath(baseObjectPath);
     try {
@@ -110,29 +163,30 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
           .download(objectPath);
       final Object? decoded = jsonDecode(utf8.decode(bytes));
       if (decoded is Map<String, dynamic>) {
-        return decoded;
+        return CloudBackupReadResult.found(decoded);
       }
-      Logger.warn(
-        'Supabase cloud backup payload is not a map at path: $objectPath',
-      );
-      return const <String, dynamic>{};
+      Logger.warn('Supabase cloud backup payload is not a JSON object.');
+      return const CloudBackupReadResult.malformed();
     } on sb.StorageException catch (error) {
       if ((error.statusCode ?? '').contains('404')) {
-        return const <String, dynamic>{};
+        return const CloudBackupReadResult.notFound();
       }
       Logger.errorCategory(
         'Sync Errors',
-        'Supabase download failed for $objectPath',
+        'Supabase cloud backup download failed',
         error,
       );
-      return const <String, dynamic>{};
-    } catch (error) {
+      return const CloudBackupReadResult.unavailable();
+    } on FormatException {
+      Logger.warn('Supabase cloud backup payload contains malformed JSON.');
+      return const CloudBackupReadResult.malformed();
+    } on Object catch (error) {
       Logger.errorCategory(
         'Sync Errors',
-        'Supabase download failed for $objectPath',
+        'Supabase cloud backup download failed',
         error,
       );
-      return const <String, dynamic>{};
+      return const CloudBackupReadResult.unavailable();
     }
   }
 
@@ -182,6 +236,8 @@ class SyncService {
     required this.backup,
     required this.gateway,
     SecureStore? secureStore,
+    this.expectedAccountId,
+    this.currentAccountId,
     this.syncEnabled = LaunchContainment.cloudSyncEnabled,
     this.restoreEnabled = LaunchContainment.cloudRestoreEnabled,
   }) : _cipher = secureStore == null ? null : BackupCipher(secureStore);
@@ -189,11 +245,13 @@ class SyncService {
   final BackupService backup;
   final CloudBackupGateway gateway;
   final BackupCipher? _cipher;
+  final String? expectedAccountId;
+  final String? Function()? currentAccountId;
   final bool syncEnabled;
   final bool restoreEnabled;
 
   Future<bool> syncToCloud() async {
-    if (!syncEnabled) return false;
+    if (!syncEnabled || !_accountStillCurrent) return false;
     final Map<String, dynamic> fullBackup = await backup.createFullBackup();
     final Map<String, dynamic> protectedBackup = _cipher == null
         ? fullBackup
@@ -201,12 +259,13 @@ class SyncService {
     return gateway.uploadBackup(protectedBackup);
   }
 
-  Future<bool> restoreFromCloud() async {
-    if (!restoreEnabled) return false;
-    final Map<String, dynamic> cloudData = await gateway.downloadBackup();
-    if (cloudData.isEmpty) {
-      return false;
-    }
+  Future<CloudRestoreOutcome> restoreFromCloud() async {
+    if (!restoreEnabled) return CloudRestoreOutcome.disabled;
+    if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
+    final CloudBackupReadResult read = await gateway.downloadBackup();
+    final CloudRestoreOutcome? readFailure = _restoreFailureFor(read.status);
+    if (readFailure != null) return readFailure;
+    final Map<String, dynamic> cloudData = read.payload!;
     final bool migrateLegacyPlaintext =
         _cipher != null && _cipher.isLegacyPlaintextBackup(cloudData);
     final Map<String, dynamic> restored = _cipher == null
@@ -220,26 +279,31 @@ class SyncService {
         Logger.warn(
           'Refused to restore legacy plaintext backup before migration.',
         );
-        return false;
+        return CloudRestoreOutcome.migrationFailed;
       }
     }
+    if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
     await backup.restoreFullBackup(restored);
-    return true;
+    return CloudRestoreOutcome.restored;
   }
 
   Future<bool> syncDelta() async {
-    if (!syncEnabled) return false;
+    if (!syncEnabled || !_accountStillCurrent) return false;
     final Map<String, dynamic> localBackup = await backup.createFullBackup();
-    final Map<String, dynamic> downloaded = await gateway.downloadBackup();
-    final Map<String, dynamic> cloudBackup = _cipher == null
-        ? downloaded
-        : await _cipher.decryptPayload(downloaded);
-    if (cloudBackup.isEmpty) {
+    final CloudBackupReadResult read = await gateway.downloadBackup();
+    if (read.status == CloudBackupReadStatus.notFound) {
       final Map<String, dynamic> protectedLocal = _cipher == null
           ? localBackup
           : await _cipher.encryptPayload(localBackup);
       return gateway.uploadBackup(protectedLocal);
     }
+    if (read.status != CloudBackupReadStatus.found) {
+      return false;
+    }
+    final Map<String, dynamic> downloaded = read.payload!;
+    final Map<String, dynamic> cloudBackup = _cipher == null
+        ? downloaded
+        : await _cipher.decryptPayload(downloaded);
 
     final Map<String, dynamic> merged = _mergeBackups(localBackup, cloudBackup);
     final Map<String, dynamic> protectedMerged = _cipher == null
@@ -248,12 +312,13 @@ class SyncService {
     if (!await gateway.uploadBackup(protectedMerged)) {
       return false;
     }
+    if (!_accountStillCurrent) return false;
     await backup.restoreFullBackup(merged);
     return true;
   }
 
   Future<bool> syncTasksOnly() async {
-    if (!syncEnabled) return false;
+    if (!syncEnabled || !_accountStillCurrent) return false;
     final Map<String, dynamic> tasks = await backup.backupTasks();
     return gateway.uploadTasks(
       _cipher == null ? tasks : await _cipher.encryptPayload(tasks),
@@ -262,10 +327,13 @@ class SyncService {
 
   Future<bool> restoreTasksOnly() async {
     if (!restoreEnabled) return false;
-    final Map<String, dynamic> cloudTasks = await gateway.downloadTasks();
-    if (cloudTasks.isEmpty) {
+    if (!_accountStillCurrent) return false;
+    final CloudBackupReadResult read = await gateway.downloadTasks();
+    if (read.status != CloudBackupReadStatus.found) {
       return false;
     }
+    final Map<String, dynamic> cloudTasks = read.payload!;
+    if (!_accountStillCurrent) return false;
     await backup.restoreTasks(
       _cipher == null ? cloudTasks : await _cipher.decryptPayload(cloudTasks),
     );
@@ -278,6 +346,7 @@ class SyncService {
   ) {
     final Map<String, dynamic> merged = <String, dynamic>{
       'version': local['version'] ?? cloud['version'],
+      'manifest': local['manifest'] ?? cloud['manifest'],
       'timestamp': DateTime.now().toUtc().toIso8601String(),
     };
 
@@ -313,6 +382,23 @@ class SyncService {
     merged['profile'] = local['profile'] ?? cloud['profile'] ?? cloud['user'];
     merged['settings'] = local['settings'] ?? cloud['settings'];
     return merged;
+  }
+
+  CloudRestoreOutcome? _restoreFailureFor(CloudBackupReadStatus status) {
+    return switch (status) {
+      CloudBackupReadStatus.found => null,
+      CloudBackupReadStatus.notFound => CloudRestoreOutcome.notFound,
+      CloudBackupReadStatus.unavailable => CloudRestoreOutcome.unavailable,
+      CloudBackupReadStatus.malformed => CloudRestoreOutcome.malformed,
+      CloudBackupReadStatus.ownerMismatch => CloudRestoreOutcome.ownerMismatch,
+    };
+  }
+
+  bool get _accountStillCurrent {
+    final String expected = expectedAccountId?.trim() ?? '';
+    final String? Function()? current = currentAccountId;
+    if (expected.isEmpty && current == null) return true;
+    return expected.isNotEmpty && current?.call() == expected;
   }
 
   DateTime _taskTimestamp(Map<String, dynamic> task) {

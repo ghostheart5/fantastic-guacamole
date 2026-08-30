@@ -21,8 +21,14 @@ void main() {
             expectedUserId: 'user-1',
           );
 
-      expect(await gateway.downloadBackup(), isEmpty);
-      expect(await gateway.downloadTasks(), isEmpty);
+      expect(
+        (await gateway.downloadBackup()).status,
+        CloudBackupReadStatus.ownerMismatch,
+      );
+      expect(
+        (await gateway.downloadTasks()).status,
+        CloudBackupReadStatus.ownerMismatch,
+      );
       expect(
         await gateway.uploadBackup(<String, dynamic>{'version': 3}),
         isFalse,
@@ -86,7 +92,9 @@ void main() {
               bucket: 'backup-bucket',
             );
 
-        expect(await gateway.downloadBackup(), <String, dynamic>{'version': 3});
+        final CloudBackupReadResult read = await gateway.downloadBackup();
+        expect(read.status, CloudBackupReadStatus.found);
+        expect(read.payload, <String, dynamic>{'version': 3});
         expect(
           await gateway.uploadTasks(<String, dynamic>{'tasks': <dynamic>[]}),
           isTrue,
@@ -153,10 +161,22 @@ void main() {
             );
 
         await Logger.withMutedErrors(() async {
-          expect(await gateway.downloadBackup(), isEmpty);
-          expect(await gateway.downloadTasks(), isEmpty);
-          expect(await gateway.downloadBackup(), isEmpty);
-          expect(await gateway.downloadTasks(), isEmpty);
+          expect(
+            (await gateway.downloadBackup()).status,
+            CloudBackupReadStatus.malformed,
+          );
+          expect(
+            (await gateway.downloadTasks()).status,
+            CloudBackupReadStatus.notFound,
+          );
+          expect(
+            (await gateway.downloadBackup()).status,
+            CloudBackupReadStatus.unavailable,
+          );
+          expect(
+            (await gateway.downloadTasks()).status,
+            CloudBackupReadStatus.unavailable,
+          );
           expect(
             await gateway.uploadBackup(<String, dynamic>{'version': 3}),
             isFalse,
@@ -187,7 +207,10 @@ void main() {
               expectedUserId: 'different-user',
             );
 
-        expect(await gateway.downloadBackup(), isEmpty);
+        expect(
+          (await gateway.downloadBackup()).status,
+          CloudBackupReadStatus.ownerMismatch,
+        );
         expect(
           await gateway.uploadBackup(<String, dynamic>{'version': 3}),
           isFalse,
