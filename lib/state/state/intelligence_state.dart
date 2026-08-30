@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/config/launch_containment.dart';
+
 class EnvironmentState {
   const EnvironmentState({
     required this.appName,
@@ -100,7 +102,10 @@ class IntelligenceState {
   final AuthStateSnapshot auth;
   final MockLoginConfigState mockLogin;
 
-  bool get paywallEnabled => !flags.paywallDisabled && !flags.testerFullAccess;
+  bool get paywallEnabled =>
+      LaunchContainment.subscriptionsEnabled &&
+      !flags.paywallDisabled &&
+      !flags.testerFullAccess;
 
   Map<String, Object?> toMap() {
     return <String, Object?>{

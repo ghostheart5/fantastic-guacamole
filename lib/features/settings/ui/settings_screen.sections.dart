@@ -401,12 +401,22 @@ class _PersonalizationSection extends ConsumerWidget {
             onChanged: (bool value) =>
                 _save(context, ref, profile.copyWith(useMemoryContext: value)),
           ),
-          _NeonToggleTile(
-            title: 'Allow external AI assistance',
-            value: profile.externalAiAllowed,
-            onChanged: (bool value) =>
-                _save(context, ref, profile.copyWith(externalAiAllowed: value)),
-          ),
+          if (LaunchContainment.externalAiEnabled)
+            _NeonToggleTile(
+              title: 'Allow external AI assistance',
+              value: profile.externalAiAllowed,
+              onChanged: (bool value) => _save(
+                context,
+                ref,
+                profile.copyWith(externalAiAllowed: value),
+              ),
+            )
+          else
+            const _NeonStatusTile(
+              title: 'External AI assistance',
+              subtitle:
+                  'Unavailable while privacy, safety, and cost gates are completed.',
+            ),
           _NeonStatusTile(
             title: 'Why suggestions appear',
             subtitle: decision.explanation,

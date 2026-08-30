@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
@@ -181,13 +182,18 @@ class SyncService {
     required this.backup,
     required this.gateway,
     SecureStore? secureStore,
+    this.syncEnabled = LaunchContainment.cloudSyncEnabled,
+    this.restoreEnabled = LaunchContainment.cloudRestoreEnabled,
   }) : _cipher = secureStore == null ? null : BackupCipher(secureStore);
 
   final BackupService backup;
   final CloudBackupGateway gateway;
   final BackupCipher? _cipher;
+  final bool syncEnabled;
+  final bool restoreEnabled;
 
   Future<bool> syncToCloud() async {
+    if (!syncEnabled) return false;
     final Map<String, dynamic> fullBackup = await backup.createFullBackup();
     final Map<String, dynamic> protectedBackup = _cipher == null
         ? fullBackup
@@ -196,6 +202,7 @@ class SyncService {
   }
 
   Future<bool> restoreFromCloud() async {
+    if (!restoreEnabled) return false;
     final Map<String, dynamic> cloudData = await gateway.downloadBackup();
     if (cloudData.isEmpty) {
       return false;
@@ -221,6 +228,7 @@ class SyncService {
   }
 
   Future<bool> syncDelta() async {
+    if (!syncEnabled) return false;
     final Map<String, dynamic> localBackup = await backup.createFullBackup();
     final Map<String, dynamic> downloaded = await gateway.downloadBackup();
     final Map<String, dynamic> cloudBackup = _cipher == null
@@ -245,6 +253,7 @@ class SyncService {
   }
 
   Future<bool> syncTasksOnly() async {
+    if (!syncEnabled) return false;
     final Map<String, dynamic> tasks = await backup.backupTasks();
     return gateway.uploadTasks(
       _cipher == null ? tasks : await _cipher.encryptPayload(tasks),
@@ -252,6 +261,7 @@ class SyncService {
   }
 
   Future<bool> restoreTasksOnly() async {
+    if (!restoreEnabled) return false;
     final Map<String, dynamic> cloudTasks = await gateway.downloadTasks();
     if (cloudTasks.isEmpty) {
       return false;

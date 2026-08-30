@@ -108,7 +108,7 @@ void main() {
         final AiCreditWallet wallet = await harness.container.read(
           aiCreditWalletProvider.future,
         );
-        expect(wallet.tier, 'premium');
+        expect(wallet.tier, 'unavailable');
       },
     );
 
@@ -131,7 +131,7 @@ void main() {
       final AiCreditWallet wallet = await harness.container.read(
         aiCreditWalletProvider.future,
       );
-      expect(wallet.tier, 'free');
+      expect(wallet.tier, 'unavailable');
     });
 
     test('expired subscription does not grant premium', () async {
@@ -178,7 +178,7 @@ void main() {
       );
       expect(
         (await harness.container.read(aiCreditWalletProvider.future)).tier,
-        'premium',
+        'unavailable',
       );
 
       await Future<void>.delayed(const Duration(milliseconds: 700));
@@ -227,7 +227,7 @@ void main() {
       );
       expect(
         (await harness.container.read(aiCreditWalletProvider.future)).tier,
-        'free',
+        'unavailable',
       );
       expect(await harness.readOwner(), isNull);
     });
@@ -289,7 +289,7 @@ void main() {
         );
         expect(
           (await harness.container.read(aiCreditWalletProvider.future)).tier,
-          'premium',
+          'unavailable',
         );
 
         harness.signOut();
@@ -305,7 +305,7 @@ void main() {
         );
         expect(
           (await harness.container.read(aiCreditWalletProvider.future)).tier,
-          'free',
+          'unavailable',
         );
       },
     );
@@ -334,7 +334,7 @@ void main() {
       expect(await harness.readOwner(), 'user-a');
       expect(
         (await harness.container.read(aiCreditWalletProvider.future)).tier,
-        'premium',
+        'unavailable',
       );
     });
 

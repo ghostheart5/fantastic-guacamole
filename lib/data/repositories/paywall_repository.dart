@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
@@ -192,4 +193,51 @@ class PaywallRepository implements IPaywallRepository {
     }
     return _subscriptionState;
   }
+}
+
+class ContainedPaywallRepository implements IPaywallRepository {
+  const ContainedPaywallRepository();
+
+  static const SubscriptionState _state = SubscriptionState(
+    isActive: false,
+    status: 'launch_contained',
+    source: 'launch_containment',
+  );
+
+  @override
+  Future<List<PaywallPlan>> getAvailablePlans() async => const <PaywallPlan>[];
+
+  @override
+  Future<PaywallEntity> getPaywallConfig() async => const PaywallEntity(
+    featureId: 'premium',
+    title: 'Plans unavailable',
+    body:
+        'Subscriptions are disabled while launch-readiness work is completed.',
+    plans: <PaywallPlan>[],
+    isUnlocked: false,
+  );
+
+  @override
+  Future<Entitlement> checkEntitlement({String? featureId}) async =>
+      Entitlement(
+        featureId: featureId ?? 'premium',
+        isEntitled: false,
+        source: 'launch_containment',
+      );
+
+  @override
+  Future<SubscriptionState> getUserSubscriptionState() async => _state;
+
+  @override
+  Future<SubscriptionState> startSubscription(String planId) async {
+    throw const LaunchContainedException('Subscriptions');
+  }
+
+  @override
+  Future<SubscriptionState> restorePurchases() async {
+    throw const LaunchContainedException('Purchase restoration');
+  }
+
+  @override
+  Future<SubscriptionState> cancelSubscription() async => _state;
 }

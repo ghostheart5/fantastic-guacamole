@@ -61,6 +61,10 @@ final cloudSyncCapabilityProvider = Provider<bool>(
   (Ref ref) => Env.enableCloudSync,
 );
 
+final cloudRestoreCapabilityProvider = Provider<bool>(
+  (Ref ref) => Env.enableCloudRestore,
+);
+
 /// Account-bound production queue. Tests and alternate local runtimes may
 /// inject an isolated queue while preserving the same replay semantics.
 final offlineSyncQueueProvider = Provider<OfflineSyncQueueService?>((ref) {
@@ -208,7 +212,7 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
   await Future<void>.value();
   ref.read(syncErrorMessageProvider.notifier).clear();
   try {
-    if (!ref.read(cloudSyncCapabilityProvider) ||
+    if (!ref.read(cloudRestoreCapabilityProvider) ||
         !(await ref.read(cloudSyncPreferenceProvider.future))) {
       return false;
     }

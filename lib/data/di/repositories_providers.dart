@@ -144,6 +144,9 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>((
 });
 
 final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
+  if (!Env.subscriptionsEnabled) {
+    return const ContainedPaywallRepository();
+  }
   final bool forceLocalTestingPaywall =
       Env.isMockLoginEnabled ||
       Env.isMockMode ||

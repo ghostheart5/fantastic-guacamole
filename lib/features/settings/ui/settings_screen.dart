@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
@@ -96,16 +97,18 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
 
-              _PlanAndCreditsCard(
-                planStatus: access.subscriptionStatusLabel,
-                planDetail: access.subscriptionStatusDetail,
-                creditLabel: creditLabel,
-                creditValue: creditValue,
-                creditDetail: creditDetail,
-                onOpenPlan: () => context.go(routes.paywall),
-                onOpenCredits: () => context.go(routes.paywall),
-              ),
-              const SizedBox(height: 14),
+              if (LaunchContainment.subscriptionsEnabled) ...<Widget>[
+                _PlanAndCreditsCard(
+                  planStatus: access.subscriptionStatusLabel,
+                  planDetail: access.subscriptionStatusDetail,
+                  creditLabel: creditLabel,
+                  creditValue: creditValue,
+                  creditDetail: creditDetail,
+                  onOpenPlan: () => context.go(routes.paywall),
+                  onOpenCredits: () => context.go(routes.paywall),
+                ),
+                const SizedBox(height: 14),
+              ],
 
               _SettingsCategory(
                 title: 'Appearance & permissions',

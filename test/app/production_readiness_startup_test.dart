@@ -145,10 +145,8 @@ void main() {
       bool endpointIsUnsafe(String value) =>
           value.trim().isEmpty || !Env.resolveIsValidHttpsEndpoint(value);
 
-      expect(
-        issues.contains('Crash reporting is disabled.'),
-        !Env.enableCrashReporting,
-      );
+      expect(Env.enableCrashReporting, isFalse);
+      expect(Env.enableAnalytics, isFalse);
       expect(
         issues.contains('Mock login bypass is enabled.'),
         Env.enableMockLogin,
@@ -173,18 +171,9 @@ void main() {
         issues.contains('Supabase publishable key is missing or malformed.'),
         !Env.resolveIsValidSupabaseAnonKey(Env.supabaseAnonKey),
       );
-      expect(
-        hasEndpointIssue('Receipt verification endpoint'),
-        endpointIsUnsafe(Env.receiptVerifyEndpoint),
-      );
-      expect(
-        hasEndpointIssue('AI proxy endpoint'),
-        endpointIsUnsafe(Env.aiProxyEndpoint),
-      );
-      expect(
-        hasEndpointIssue('AI report endpoint'),
-        endpointIsUnsafe(Env.aiReportEndpoint),
-      );
+      expect(hasEndpointIssue('Receipt verification endpoint'), isFalse);
+      expect(hasEndpointIssue('AI proxy endpoint'), isFalse);
+      expect(hasEndpointIssue('AI report endpoint'), isFalse);
       expect(
         hasEndpointIssue('Account deletion endpoint'),
         endpointIsUnsafe(Env.accountDeleteEndpoint),

@@ -20,7 +20,7 @@ abstract final class _BuildSettings {
   );
   static const bool _enableCrashReportingDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_CRASH_REPORTING',
-    defaultValue: true,
+    defaultValue: false,
   );
   static const String _enableCrashReportingRawDefine = String.fromEnvironment(
     'CHRONOSPARK_ENABLE_CRASH_REPORTING',
@@ -30,7 +30,7 @@ abstract final class _BuildSettings {
   );
   static const bool _enableAnalyticsDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_ANALYTICS',
-    defaultValue: true,
+    defaultValue: false,
   );
   static const String _enableAnalyticsRawDefine = String.fromEnvironment(
     'CHRONOSPARK_ENABLE_ANALYTICS',

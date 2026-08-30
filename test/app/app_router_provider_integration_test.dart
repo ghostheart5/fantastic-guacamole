@@ -11,7 +11,6 @@ import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
-import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
@@ -886,8 +885,9 @@ const List<_RouteExpectation> _canonicalRouteExpectations = <_RouteExpectation>[
   ),
   _RouteExpectation(
     requestedPath: RoutePaths.paywall,
-    finalPath: RoutePaths.paywall,
-    expectedWidget: PaywallPage,
+    finalPath: RoutePaths.settings,
+    expectedWidget: NavigationShell,
+    shellView: AppView.settings,
   ),
   _RouteExpectation(
     requestedPath: RoutePaths.privacy,

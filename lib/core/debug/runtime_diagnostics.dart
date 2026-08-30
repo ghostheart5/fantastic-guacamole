@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -107,6 +108,7 @@ class RuntimeDiagnostics {
   }
 
   static bool get _supportsCrashlytics =>
+      Env.enableCrashReporting &&
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS ||

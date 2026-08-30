@@ -1,8 +1,11 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
     show appPaywallRepositoryProvider;
 import 'package:fantastic_guacamole/data/di/storage_providers.dart'
     show sharedPrefsStoreProvider, supabaseClientProvider;
+import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart'
+    show ContainedPaywallRepository;
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
@@ -27,6 +30,16 @@ final creditServiceProvider = Provider<CreditService>((ref) {
 });
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
+  if (!LaunchContainment.creditSpendingEnabled) {
+    final DateTime now = DateTime.now();
+    return AiCreditWallet(
+      balance: 0,
+      tier: 'unavailable',
+      allowance: 0,
+      resetAt: now,
+      updatedAt: now,
+    );
+  }
   final bool testerAccess = ref.watch(appAccessProvider).hasTesterFullAccess;
   // Wait for entitlement to resolve before touching the wallet. Loading it
   // while access is still unknown would rebuild a premium wallet as free and
@@ -120,6 +133,9 @@ final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
 });
 
 final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
+  if (!LaunchContainment.subscriptionsEnabled) {
+    return const ContainedPaywallRepository().getPaywallConfig();
+  }
   final bool aiProxyConfigured = Env.isAiProxyConfigured;
   final RemotePaywallConfig remoteConfig = await ref.read(
     remotePaywallConfigProvider.future,
@@ -157,6 +173,9 @@ class PaywallActions {
   final Ref _ref;
 
   Future<SubscriptionState> startSubscription(String planId) async {
+    if (!LaunchContainment.subscriptionsEnabled) {
+      throw const LaunchContainedException('Subscriptions');
+    }
     final SubscriptionState purchased = await _ref
         .read(startSubscriptionUseCaseProvider)
         .call(planId);
@@ -164,6 +183,9 @@ class PaywallActions {
   }
 
   Future<SubscriptionState> restorePurchases() async {
+    if (!LaunchContainment.subscriptionsEnabled) {
+      throw const LaunchContainedException('Purchase restoration');
+    }
     final SubscriptionState restored = await _ref
         .read(restorePurchasesUseCaseProvider)
         .call();

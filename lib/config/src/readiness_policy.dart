@@ -40,8 +40,15 @@ abstract final class _ReadinessPolicy {
     }
 
     final List<String> issues = <String>[];
-    if (!_BuildSettings.enableCrashReporting) {
-      issues.add('Crash reporting is disabled.');
+    if (_BuildSettings.enableCrashReporting) {
+      issues.add(
+        'Crash reporting must remain disabled until telemetry consent passes.',
+      );
+    }
+    if (_BuildSettings.enableAnalytics) {
+      issues.add(
+        'Analytics must remain disabled until telemetry consent passes.',
+      );
     }
     if (_FeatureFlags.enableMockLogin) {
       issues.add('Mock login bypass is enabled.');
@@ -65,21 +72,25 @@ abstract final class _ReadinessPolicy {
     )) {
       issues.add('Supabase publishable key is missing or malformed.');
     }
-    _validateHttpsEndpoint(
-      _ServiceEndpoints.receiptVerifyEndpoint,
-      label: 'Receipt verification endpoint',
-      issues: issues,
-    );
-    _validateHttpsEndpoint(
-      _ServiceEndpoints.aiProxyEndpoint,
-      label: 'AI proxy endpoint',
-      issues: issues,
-    );
-    _validateHttpsEndpoint(
-      _ServiceEndpoints.aiReportEndpoint,
-      label: 'AI report endpoint',
-      issues: issues,
-    );
+    if (LaunchContainment.subscriptionsEnabled) {
+      _validateHttpsEndpoint(
+        _ServiceEndpoints.receiptVerifyEndpoint,
+        label: 'Receipt verification endpoint',
+        issues: issues,
+      );
+    }
+    if (LaunchContainment.externalAiEnabled) {
+      _validateHttpsEndpoint(
+        _ServiceEndpoints.aiProxyEndpoint,
+        label: 'AI proxy endpoint',
+        issues: issues,
+      );
+      _validateHttpsEndpoint(
+        _ServiceEndpoints.aiReportEndpoint,
+        label: 'AI report endpoint',
+        issues: issues,
+      );
+    }
     _validateHttpsEndpoint(
       _ServiceEndpoints.accountDeleteEndpoint,
       label: 'Account deletion endpoint',

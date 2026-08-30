@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
@@ -317,6 +318,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.paywall,
+        redirect: (_, _) =>
+            LaunchContainment.subscriptionsEnabled ? null : RoutePaths.settings,
         builder: (BuildContext context, GoRouterState state) =>
             const PaywallPage(),
       ),

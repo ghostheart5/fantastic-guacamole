@@ -1,16 +1,21 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 
 class CreditService {
-  CreditService({required this._prefs});
+  CreditService({
+    required this._prefs,
+    this.spendingEnabled = LaunchContainment.creditSpendingEnabled,
+  });
 
   static const String _walletKey = 'ai_credit_wallet';
   static const int _freeAllowance = 20;
   static const int _freeDailyRefill = 20;
   static const int _premiumAllowance = 300;
   final SharedPrefsStore _prefs;
+  final bool spendingEnabled;
 
   Future<AiCreditWallet> loadWallet({required bool premium}) async {
     await _prefs.init();
@@ -51,6 +56,9 @@ class CreditService {
     required int amount,
   }) async {
     final AiCreditWallet wallet = await loadWallet(premium: premium);
+    if (!spendingEnabled) {
+      return AiCreditSpendResult(wallet: wallet, allowed: false);
+    }
     if (wallet.balance < amount) {
       return AiCreditSpendResult(wallet: wallet, allowed: false);
     }

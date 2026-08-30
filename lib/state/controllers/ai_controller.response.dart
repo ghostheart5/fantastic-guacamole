@@ -226,7 +226,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         personality: personality,
       );
       final bool externalModelRequested = shouldReserveExternalModelCredits(
-        externalAiAllowed: context['externalAiAllowed'] == true,
+        externalAiAllowed:
+            LaunchContainment.externalAiEnabled &&
+            context['externalAiAllowed'] == true,
         preferredAgent: preferredAgent,
       );
       bool externalModelAuthorized = externalModelRequested;

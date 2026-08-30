@@ -37,7 +37,12 @@ void main() {
       prefs: prefs,
     );
     gateway = _MemoryCloudBackupGateway();
-    syncService = SyncService(backup: backupService, gateway: gateway);
+    syncService = SyncService(
+      backup: backupService,
+      gateway: gateway,
+      syncEnabled: true,
+      restoreEnabled: true,
+    );
   });
 
   tearDown(() async {
@@ -79,6 +84,8 @@ void main() {
         backup: backupService,
         gateway: gateway,
         secureStore: secureStore,
+        syncEnabled: true,
+        restoreEnabled: true,
       );
       await repository.saveTask(
         TaskEntity(
@@ -102,42 +109,20 @@ void main() {
     },
   );
 
-  test('migrates a valid legacy plaintext backup before restoring it', () async {
-    final SecureStore secureStore = SecureStore(
-      backend: InMemorySecureStoreBackend(),
-    );
-    final SyncService encryptedService = SyncService(
-      backup: backupService,
-      gateway: gateway,
-      secureStore: secureStore,
-    );
-    gateway.fullBackup = <String, dynamic>{
-      'version': '3.0.0',
-      'tasks': <Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 'legacy-cloud-task',
-          'title': 'Legacy cloud task',
-          'createdAt': '2026-07-05T08:00:00.000Z',
-        },
-      ],
-    };
-
-    expect(await encryptedService.restoreFromCloud(), isTrue);
-    expect(
-      gateway.fullBackup,
-      containsPair('format', 'chronospark_backup_aes256_gcm_v2'),
-    );
-    expect((await repository.getAllTasks()).single.id, 'legacy-cloud-task');
-  });
-
-  test('refuses a legacy plaintext restore when migration upload fails', () async {
-    final SyncService encryptedService = SyncService(
-      backup: backupService,
-      gateway: gateway,
-      secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
-    );
-    gateway
-      ..fullBackup = <String, dynamic>{
+  test(
+    'migrates a valid legacy plaintext backup before restoring it',
+    () async {
+      final SecureStore secureStore = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final SyncService encryptedService = SyncService(
+        backup: backupService,
+        gateway: gateway,
+        secureStore: secureStore,
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+      gateway.fullBackup = <String, dynamic>{
         'version': '3.0.0',
         'tasks': <Map<String, dynamic>>[
           <String, dynamic>{
@@ -146,18 +131,52 @@ void main() {
             'createdAt': '2026-07-05T08:00:00.000Z',
           },
         ],
-      }
-      ..uploadShouldFail = true;
+      };
 
-    expect(await encryptedService.restoreFromCloud(), isFalse);
-    expect(await repository.getAllTasks(), isEmpty);
-  });
+      expect(await encryptedService.restoreFromCloud(), isTrue);
+      expect(
+        gateway.fullBackup,
+        containsPair('format', 'chronospark_backup_aes256_gcm_v2'),
+      );
+      expect((await repository.getAllTasks()).single.id, 'legacy-cloud-task');
+    },
+  );
+
+  test(
+    'refuses a legacy plaintext restore when migration upload fails',
+    () async {
+      final SyncService encryptedService = SyncService(
+        backup: backupService,
+        gateway: gateway,
+        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+      gateway
+        ..fullBackup = <String, dynamic>{
+          'version': '3.0.0',
+          'tasks': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 'legacy-cloud-task',
+              'title': 'Legacy cloud task',
+              'createdAt': '2026-07-05T08:00:00.000Z',
+            },
+          ],
+        }
+        ..uploadShouldFail = true;
+
+      expect(await encryptedService.restoreFromCloud(), isFalse);
+      expect(await repository.getAllTasks(), isEmpty);
+    },
+  );
 
   test('encrypts the first delta upload when cloud storage is empty', () async {
     final SyncService encryptedService = SyncService(
       backup: backupService,
       gateway: gateway,
       secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+      syncEnabled: true,
+      restoreEnabled: true,
     );
     await repository.saveTask(
       TaskEntity(
@@ -179,6 +198,29 @@ void main() {
     final bool restored = await syncService.restoreFromCloud();
 
     expect(restored, isFalse);
+  });
+
+  test('default service cannot read or write cloud data directly', () async {
+    final SyncService contained = SyncService(
+      backup: backupService,
+      gateway: gateway,
+    );
+    gateway.fullBackup = <String, dynamic>{
+      'tasks': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'must-not-restore',
+          'title': 'Contained',
+          'createdAt': '2026-08-29T00:00:00.000Z',
+        },
+      ],
+    };
+
+    expect(await contained.syncToCloud(), isFalse);
+    expect(await contained.syncDelta(), isFalse);
+    expect(await contained.syncTasksOnly(), isFalse);
+    expect(await contained.restoreFromCloud(), isFalse);
+    expect(await contained.restoreTasksOnly(), isFalse);
+    expect(await repository.getAllTasks(), isEmpty);
   });
 
   test('restoreFromCloud restores tasks profile and settings', () async {

@@ -58,7 +58,12 @@ void main() {
           ),
         ),
         syncServiceProvider.overrideWithValue(
-          SyncService(backup: backupService, gateway: gateway),
+          SyncService(
+            backup: backupService,
+            gateway: gateway,
+            syncEnabled: true,
+            restoreEnabled: true,
+          ),
         ),
       ],
     );

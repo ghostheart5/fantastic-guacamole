@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,9 +14,15 @@ class AppAccessState {
   final bool hasTesterFullAccess;
   final bool paywallDisabled;
 
-  bool get paywallEnabled => !paywallDisabled && !hasTesterFullAccess;
+  bool get paywallEnabled =>
+      LaunchContainment.subscriptionsEnabled &&
+      !paywallDisabled &&
+      !hasTesterFullAccess;
 
   String get subscriptionStatusLabel {
+    if (!LaunchContainment.subscriptionsEnabled) {
+      return 'Plans unavailable';
+    }
     if (paywallDisabled || hasTesterFullAccess) {
       return 'Unlocked for testing';
     }
@@ -26,6 +33,9 @@ class AppAccessState {
   }
 
   String get subscriptionStatusDetail {
+    if (!LaunchContainment.subscriptionsEnabled) {
+      return 'Subscriptions are disabled while launch-readiness work is completed.';
+    }
     if (paywallDisabled || hasTesterFullAccess) {
       return 'This QA build bypasses premium restrictions and does not use live billing.';
     }

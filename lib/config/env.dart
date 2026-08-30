@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/app_flavor.dart';
 import 'package:fantastic_guacamole/config/firebase_identity.dart';
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -18,8 +19,11 @@ abstract final class Env {
 
   static String get appFlavor => _BuildSettings.appFlavor;
   static bool get enableVerboseLogs => _BuildSettings.enableVerboseLogs;
-  static bool get enableCrashReporting => _BuildSettings.enableCrashReporting;
-  static bool get enableAnalytics => _BuildSettings.enableAnalytics;
+  static bool get enableCrashReporting =>
+      LaunchContainment.crashReportingEnabled &&
+      _BuildSettings.enableCrashReporting;
+  static bool get enableAnalytics =>
+      LaunchContainment.analyticsEnabled && _BuildSettings.enableAnalytics;
   static String get appLinksAndroidSha256 =>
       _BuildSettings.appLinksAndroidSha256;
   static String get appLinksIosTeamId => _BuildSettings.appLinksIosTeamId;
@@ -35,7 +39,14 @@ abstract final class Env {
       _FeatureFlags.enableRuntimeFeatureFlags;
   static String get remoteConfigDefaultsJson =>
       _FeatureFlags.remoteConfigDefaultsJson;
-  static bool get enableCloudSync => _FeatureFlags.enableCloudSync;
+  static bool get enableCloudSync =>
+      LaunchContainment.cloudSyncEnabled && _FeatureFlags.enableCloudSync;
+  static bool get enableCloudRestore => LaunchContainment.cloudRestoreEnabled;
+  static bool get subscriptionsEnabled =>
+      LaunchContainment.subscriptionsEnabled;
+  static bool get externalAiEnabled => LaunchContainment.externalAiEnabled;
+  static bool get creditSpendingEnabled =>
+      LaunchContainment.creditSpendingEnabled;
   static bool get isMockMode => _FeatureFlags.isMockMode;
   static bool get isPaywallDisabled => _FeatureFlags.isPaywallDisabled;
   static bool get isMockLoginEnabled => _FeatureFlags.isMockLoginEnabled;
@@ -54,7 +65,9 @@ abstract final class Env {
       _ServiceEndpoints.receiptVerifyEndpoint;
   static bool get isSupabaseConfigured =>
       _ServiceEndpoints.isSupabaseConfigured;
-  static bool get isAiProxyConfigured => _ServiceEndpoints.isAiProxyConfigured;
+  static bool get isAiProxyConfigured =>
+      LaunchContainment.externalAiEnabled &&
+      _ServiceEndpoints.isAiProxyConfigured;
 
   static bool get enforceProductionReadiness =>
       _ReadinessPolicy.enforceProductionReadiness;

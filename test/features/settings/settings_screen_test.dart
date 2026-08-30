@@ -6,7 +6,6 @@ import 'package:fantastic_guacamole/state/services/reflection_reminder_service.d
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 
 void main() {
   ProviderContainer createContainer() {
@@ -49,7 +48,7 @@ void main() {
     });
   }
 
-  testWidgets('prioritizes plan and credits above collapsed settings groups', (
+  testWidgets('hides plans and credits while subscriptions are contained', (
     WidgetTester tester,
   ) async {
     useTallSurface(tester);
@@ -65,11 +64,11 @@ void main() {
 
     expect(find.text('SETTINGS'), findsOneWidget);
     expect(find.text('PREFERENCES & ACCOUNT'), findsOneWidget);
-    expect(find.text('PLAN & CREDITS'), findsOneWidget);
-    expect(find.text('SUBSCRIPTION'), findsOneWidget);
-    expect(find.text('20 of 20 available'), findsOneWidget);
-    expect(find.text('Manage plan'), findsOneWidget);
-    expect(find.text('View credits'), findsOneWidget);
+    expect(find.text('PLAN & CREDITS'), findsNothing);
+    expect(find.text('SUBSCRIPTION'), findsNothing);
+    expect(find.text('20 of 20 available'), findsNothing);
+    expect(find.text('Manage plan'), findsNothing);
+    expect(find.text('View credits'), findsNothing);
 
     expect(find.text('Appearance & permissions'), findsOneWidget);
     expect(find.text('Planning & guidance'), findsOneWidget);
@@ -84,57 +83,30 @@ void main() {
     expect(find.text('APPEARANCE & PERMISSIONS'), findsOneWidget);
   });
 
-  testWidgets('subscription and credit actions open the paywall route', (
+  testWidgets('external AI is disclosed as unavailable instead of enabled', (
     WidgetTester tester,
   ) async {
     useTallSurface(tester);
     final ProviderContainer container = createContainer();
-    final GoRouter router = GoRouter(
-      initialLocation: '/settings',
-      routes: <RouteBase>[
-        GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
-        GoRoute(
-          path: '/paywall',
-          builder: (_, _) => const Scaffold(body: Text('PAYWALL ROUTE')),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router),
+        child: const MaterialApp(home: SettingsScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 200));
 
-    final InkWell managePlan = tester.widget<InkWell>(
-      find.descendant(
-        of: find.byKey(const Key('settings_manage_plan')),
-        matching: find.byType(InkWell),
-      ),
-    );
-    managePlan.onTap!();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(router.routeInformationProvider.value.uri.path, '/paywall');
-    expect(find.text('PAYWALL ROUTE'), findsOneWidget);
-
-    router.go('/settings');
-    await tester.pump();
+    await tester.tap(find.text('Planning & guidance'));
     await tester.pump(const Duration(milliseconds: 300));
-    final InkWell viewCredits = tester.widget<InkWell>(
-      find.descendant(
-        of: find.byKey(const Key('settings_view_credits')),
-        matching: find.byType(InkWell),
+
+    expect(find.text('External AI assistance'), findsOneWidget);
+    expect(
+      find.text(
+        'Unavailable while privacy, safety, and cost gates are completed.',
       ),
+      findsOneWidget,
     );
-    viewCredits.onTap!();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(router.routeInformationProvider.value.uri.path, '/paywall');
-    expect(find.text('PAYWALL ROUTE'), findsOneWidget);
+    expect(find.text('Allow external AI assistance'), findsNothing);
   });
 }
 

@@ -46,7 +46,7 @@ void main() {
     late CreditService service;
 
     setUp(() {
-      service = CreditService(prefs: _FakePrefs());
+      service = CreditService(prefs: _FakePrefs(), spendingEnabled: true);
     });
 
     test('returns credits taken by a spend that produced nothing', () async {

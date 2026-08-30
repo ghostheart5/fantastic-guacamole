@@ -136,6 +136,7 @@ class Logger {
   }
 
   static bool get _supportsCrashlytics =>
+      Env.enableCrashReporting &&
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS ||

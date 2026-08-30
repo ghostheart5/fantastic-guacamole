@@ -2,8 +2,11 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +22,7 @@ void main() {
     WidgetTester tester,
     ProfileState state, {
     GoRouter? router,
+    TrajectorySummaryView? trajectory,
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 4000)
@@ -32,6 +36,9 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         profileProvider.overrideWith(() => _StaticProfile(state)),
+        identityStateProvider.overrideWith(_EvidenceIdentity.new),
+        if (trajectory != null)
+          trajectorySummaryProvider.overrideWithValue(trajectory),
         // GoalsNotifier.build schedules a timer that outlives the test frame.
         goalsProvider.overrideWith(_StaticGoals.new),
         // ProfileController.updateName() persists via the real SecureStore by
@@ -87,6 +94,22 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(ProfileScreen), findsOneWidget);
+  });
+
+  testWidgets('does not reveal inferred identity from activity alone', (
+    WidgetTester tester,
+  ) async {
+    await pumpProfile(
+      tester,
+      ProfileState(xp: 640, level: 8, streak: 15, name: 'Keegan'),
+      trajectory: _evidenceTrajectory,
+    );
+
+    expect(find.text('The Executor'), findsNothing);
+    expect(find.text('Discipline'), findsNothing);
+    expect(find.text('Execution'), findsNothing);
+    expect(find.text('Growth'), findsNothing);
+    expect(find.textContaining('PATTERN FORMING'), findsOneWidget);
   });
 
   testWidgets('renders when the account has no display name set', (
@@ -275,3 +298,32 @@ class _StaticGoals extends GoalsNotifier {
   @override
   List<GoalEntity> build() => const <GoalEntity>[];
 }
+
+class _EvidenceIdentity extends IdentityNotifier {
+  @override
+  IdentityState build() => const IdentityState(
+    disciplineIdentity: .82,
+    executionIdentity: .64,
+    growthIdentity: .51,
+  );
+}
+
+const TrajectorySummaryView _evidenceTrajectory = TrajectorySummaryView(
+  pendingTasks: 2,
+  completedTasks: 12,
+  completedToday: 2,
+  level: 4,
+  streak: 5,
+  energy: .7,
+  momentum: .6,
+  adaptability: .5,
+  lastCompletionXp: 20,
+  lastCompletionQuality: .8,
+  pressureIndex: 20,
+  behaviorDivergence: 5,
+  alert: '',
+  predictionTitle: null,
+  predictionOutcome: null,
+  predictionProbability: null,
+  predictionExplanation: null,
+);

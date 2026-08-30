@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'paywallConfigProvider builds testing title from subscription state',
+    'paywallConfigProvider ignores repository state during containment',
     () async {
       final _FakePaywallRepository repository = _FakePaywallRepository(
         subscription: const SubscriptionState(
@@ -28,13 +28,13 @@ void main() {
 
       final config = await container.read(paywallConfigProvider.future);
 
-      expect(config.title, 'Unlocked for testing');
-      expect(config.isUnlocked, isTrue);
-      expect(config.plans, hasLength(2));
+      expect(config.title, 'Plans unavailable');
+      expect(config.isUnlocked, isFalse);
+      expect(config.plans, isEmpty);
     },
   );
 
-  test('paywallActions forwards start and restore to repository', () async {
+  test('paywallActions block start and restore during containment', () async {
     final _FakePaywallRepository repository = _FakePaywallRepository();
     final ProviderContainer container = ProviderContainer(
       overrides: [paywallRepositoryProvider.overrideWithValue(repository)],
@@ -42,13 +42,14 @@ void main() {
     addTearDown(container.dispose);
 
     final actions = container.read(paywallActionsProvider);
-    final started = await actions.startSubscription('monthly');
-    final restored = await actions.restorePurchases();
+    await expectLater(
+      actions.startSubscription('monthly'),
+      throwsA(isA<Exception>()),
+    );
+    await expectLater(actions.restorePurchases(), throwsA(isA<Exception>()));
 
-    expect(started.planId, 'monthly');
-    expect(repository.lastStartedPlanId, 'monthly');
-    expect(restored.status, 'restored');
-    expect(repository.refreshCalls, 2);
+    expect(repository.lastStartedPlanId, isNull);
+    expect(repository.refreshCalls, 0);
   });
 
   test('paywallPromptProvider stores and clears prompt state', () {
@@ -70,7 +71,7 @@ void main() {
     expect(container.read(paywallPromptProvider), isNull);
   });
 
-  test('paywallEnabledProvider follows app access state', () {
+  test('paywallEnabledProvider remains false during containment', () {
     final ProviderContainer enabledContainer = ProviderContainer(
       overrides: [
         appAccessProvider.overrideWith(
@@ -97,7 +98,7 @@ void main() {
     );
     addTearDown(disabledContainer.dispose);
 
-    expect(enabledContainer.read(paywallEnabledProvider), isTrue);
+    expect(enabledContainer.read(paywallEnabledProvider), isFalse);
     expect(disabledContainer.read(paywallEnabledProvider), isFalse);
   });
 }

@@ -48,17 +48,19 @@ void main() {
     await expectLater(cipher.importRecoveryKey('AA=='), throwsFormatException);
   });
 
-  test('rejects malformed plaintext payloads instead of treating them as backups',
-      () async {
-    final BackupCipher cipher = BackupCipher(
-      SecureStore(backend: InMemorySecureStoreBackend()),
-    );
+  test(
+    'rejects malformed plaintext payloads instead of treating them as backups',
+    () async {
+      final BackupCipher cipher = BackupCipher(
+        SecureStore(backend: InMemorySecureStoreBackend()),
+      );
 
-    await expectLater(
-      cipher.decryptPayload(<String, dynamic>{'tasks': <Object?>[]}),
-      throwsFormatException,
-    );
-  });
+      await expectLater(
+        cipher.decryptPayload(<String, dynamic>{'tasks': <Object?>[]}),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('identifies only the supported legacy plaintext full-backup shape', () {
     final BackupCipher cipher = BackupCipher(

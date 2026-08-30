@@ -8,12 +8,15 @@ void main() {
     test('enforce credit limits for free and premium-like access', () async {
       final CreditService baseService = CreditService(
         prefs: _MemoryPrefsStore(),
+        spendingEnabled: true,
       );
       final CreditService premiumService = CreditService(
         prefs: _MemoryPrefsStore(),
+        spendingEnabled: true,
       );
       final CreditService ultimateService = CreditService(
         prefs: _MemoryPrefsStore(),
+        spendingEnabled: true,
       );
 
       final baseWallet = await baseService.loadWallet(premium: false);
@@ -43,8 +46,18 @@ void main() {
         hasTesterFullAccess: true,
         paywallDisabled: false,
       );
-      expect(ultimateLike.subscriptionStatusLabel, 'Unlocked for testing');
+      expect(ultimateLike.subscriptionStatusLabel, 'Plans unavailable');
       expect(ultimateLike.paywallEnabled, isFalse);
+    });
+
+    test('default service refuses to debit credits', () async {
+      final CreditService service = CreditService(prefs: _MemoryPrefsStore());
+      final before = await service.loadWallet(premium: false);
+
+      final result = await service.spend(premium: false, amount: 3);
+
+      expect(result.allowed, isFalse);
+      expect(result.wallet.balance, before.balance);
     });
   });
 }
