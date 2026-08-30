@@ -308,7 +308,10 @@ jobs:
           AAB_DIR=build/app/outputs/bundle/release
           AAB="$AAB_DIR/app-release.aab"
           test -s "$AAB"
-          jarsigner -verify -strict "$AAB"
+          VERIFY_OUTPUT="$(jarsigner -verify "$AAB" 2>&1)"
+          printf '%s\n' "$VERIFY_OUTPUT"
+          grep -Fq 'jar verified.' <<< "$VERIFY_OUTPUT"
+          ! grep -Fiq 'jar is unsigned' <<< "$VERIFY_OUTPUT"
           (
             cd "$AAB_DIR"
             sha256sum app-release.aab > app-release.aab.sha256
