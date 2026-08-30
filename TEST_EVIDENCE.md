@@ -33,6 +33,17 @@ Formatting candidates are `test/data/repositories/google_play_paywall_repository
 
 ## Phase Evidence
 
+### Phase 1 - Startup Recovery Checkpoint
+
+- Code commit: `aca2b6b`
+- Evidence boundary: local host widget/unit tests and analyzer only. No device, signed artifact, production, or human UAT claim.
+
+| Gate | Status | Command/evidence | Result boundary |
+|---|---|---|---|
+| Startup timeout/cancellation suite | PASS | `flutter test test/app/startup_timeout_cancellation_test.dart` | 15 tests passed; includes second bounded timeout, locked recovery, retry readiness, and duplicate-initializer prevention |
+| Analyzer | PASS | `flutter analyze --fatal-infos` | No issues found after startup repair |
+| Device first-run journey | NOT_RUN | Reserved for Phase 10 | Widget evidence does not establish Android lifecycle behavior |
+
 ### Phase 0 - Unsafe Capability Containment
 
 - Code commit: `68bc277b936a49e890a4c1d94bdc05d5a087353d`
