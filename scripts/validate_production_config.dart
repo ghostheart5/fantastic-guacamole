@@ -38,6 +38,7 @@ List<String> validateProductionConfiguration(
     'CHRONOSPARK_SUPABASE_URL',
     'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
     'CHRONOSPARK_AI_PROXY_ENDPOINT',
+    'CHRONOSPARK_AI_REPORT_ENDPOINT',
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
   ]) {
     final String raw = values[name]?.trim() ?? '';
@@ -65,6 +66,24 @@ List<String> validateProductionConfiguration(
       failures.add('$name must identify a non-root service endpoint.');
     }
     urls[name] = uri;
+  }
+
+  final Uri? supabaseUri = urls['CHRONOSPARK_SUPABASE_URL'];
+  final Uri? aiReportUri = urls['CHRONOSPARK_AI_REPORT_ENDPOINT'];
+  if (supabaseUri != null && aiReportUri != null) {
+    final bool sameOrigin =
+        aiReportUri.scheme == supabaseUri.scheme &&
+        aiReportUri.host == supabaseUri.host &&
+        aiReportUri.port == supabaseUri.port;
+    if (!sameOrigin ||
+        aiReportUri.path != '/functions/v1/ai-report' ||
+        aiReportUri.hasQuery ||
+        aiReportUri.hasFragment) {
+      failures.add(
+        'CHRONOSPARK_AI_REPORT_ENDPOINT must be the exact ai-report function '
+        'on CHRONOSPARK_SUPABASE_URL.',
+      );
+    }
   }
 
   final Set<String> serviceEndpoints = <String>{};

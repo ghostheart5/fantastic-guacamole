@@ -120,6 +120,32 @@ void main() {
     );
   });
 
+  test('accepts only the first-party exact AI report function override', () {
+    final Map<String, String> exact = validValues()
+      ..['CHRONOSPARK_AI_REPORT_ENDPOINT'] =
+          'https://project-ref.supabase.co/functions/v1/ai-report';
+    expect(validateProductionConfiguration(exact), isEmpty);
+
+    for (final String hostile in <String>[
+      'https://attacker.example/functions/v1/ai-report',
+      'https://project-ref.supabase.co:8443/functions/v1/ai-report',
+      'https://project-ref.supabase.co/functions/v1/ai-report/',
+      'https://project-ref.supabase.co/functions/v1/ai-report?redirect=evil',
+      'https://project-ref.supabase.co/functions/v1/other',
+    ]) {
+      final Map<String, String> values = validValues()
+        ..['CHRONOSPARK_AI_REPORT_ENDPOINT'] = hostile;
+      expect(
+        validateProductionConfiguration(values),
+        contains(
+          'CHRONOSPARK_AI_REPORT_ENDPOINT must be the exact ai-report function '
+          'on CHRONOSPARK_SUPABASE_URL.',
+        ),
+        reason: hostile,
+      );
+    }
+  });
+
   test('rejects Firebase configuration for another Android package', () {
     final String wrongPackage = validGoogleServices().replaceFirst(
       'com.ghostheart5.chronospark',

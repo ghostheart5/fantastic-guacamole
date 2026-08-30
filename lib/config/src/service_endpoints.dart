@@ -200,16 +200,22 @@ abstract final class _ServiceEndpoints {
     String configuredValue, {
     required String supabaseUrl,
   }) {
+    if (!resolveIsValidSupabaseUrl(supabaseUrl)) {
+      return '';
+    }
+    final Uri supabaseUri = Uri.parse(supabaseUrl.trim());
+    final Uri canonical = supabaseUri.resolve('/functions/v1/ai-report');
     final String configured = configuredValue.trim();
-    if (configured.isNotEmpty) {
-      return configured;
-    }
+    if (configured.isEmpty) return canonical.toString();
 
-    if (resolveIsValidSupabaseUrl(supabaseUrl)) {
-      final Uri supabaseUri = Uri.parse(supabaseUrl.trim());
-      return supabaseUri.resolve('/functions/v1/ai-report').toString();
-    }
-
-    return '';
+    if (!resolveIsValidHttpsEndpoint(configured)) return '';
+    final Uri candidate = Uri.parse(configured);
+    final bool sameOrigin =
+        candidate.scheme == canonical.scheme &&
+        candidate.host == canonical.host &&
+        candidate.port == canonical.port;
+    return sameOrigin && candidate.path == canonical.path
+        ? canonical.toString()
+        : '';
   }
 }

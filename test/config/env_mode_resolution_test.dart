@@ -462,6 +462,31 @@ CHRONOSPARK_PAYWALL_DISABLED=false
         ),
         isEmpty,
       );
+      expect(
+        Env.resolveAiReportEndpoint(
+          'https://project.supabase.co/functions/v1/ai-report',
+          supabaseUrl: 'https://project.supabase.co',
+        ),
+        'https://project.supabase.co/functions/v1/ai-report',
+      );
+      for (final String hostile in <String>[
+        'https://attacker.example/functions/v1/ai-report',
+        'https://project.supabase.co:8443/functions/v1/ai-report',
+        'https://user:password@project.supabase.co/functions/v1/ai-report',
+        'https://project.supabase.co/functions/v1/ai-report/',
+        'https://project.supabase.co/functions/v1/ai-report?redirect=evil',
+        'https://project.supabase.co/functions/v1/ai-report#token',
+        'https://project.supabase.co/functions/v1/ai-report/other',
+      ]) {
+        expect(
+          Env.resolveAiReportEndpoint(
+            hostile,
+            supabaseUrl: 'https://project.supabase.co',
+          ),
+          isEmpty,
+          reason: hostile,
+        );
+      }
     });
 
     test('AI proxy configuration requires a valid HTTPS endpoint', () {
