@@ -520,8 +520,11 @@ class _FakeAuthService implements AuthServiceContract {
       _current == null ? null : 'token';
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) async {
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  }) async {
     await signOut();
+    return const AccountDeletionResult.completed();
   }
 
   @override

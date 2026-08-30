@@ -820,7 +820,9 @@ class _UnavailableAuthService implements AuthServiceContract {
   User? get currentUser => null;
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) async {
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  }) async {
     throw _error();
   }
 

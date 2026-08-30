@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
+import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
@@ -8,6 +9,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('account deletion messages distinguish server and local outcomes', () {
+    expect(
+      accountDeletionOutcomeMessage(const AccountDeletionResult.completed()),
+      'Account deletion completed.',
+    );
+    expect(
+      accountDeletionOutcomeMessage(
+        const AccountDeletionResult.pending(serverState: 'requested'),
+      ),
+      contains('Server cleanup is still in progress'),
+    );
+    expect(
+      accountDeletionOutcomeMessage(
+        const AccountDeletionResult.pending(
+          serverState: 'requested',
+          statusTrackingAvailable: false,
+        ),
+      ),
+      contains('status tracking could not be saved'),
+    );
+    expect(
+      accountDeletionOutcomeMessage(
+        const AccountDeletionResult.completed(localCleanupCompleted: false),
+      ),
+      contains('could not clear all local account data'),
+    );
+  });
+
   ProviderContainer createContainer() {
     final ValueNotifier<bool?> permissionListenable = ValueNotifier<bool?>(
       true,

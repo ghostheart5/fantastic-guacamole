@@ -61,3 +61,26 @@ class UserCredential {
 
   final User? user;
 }
+
+enum AccountDeletionDisposition { completed, pending }
+
+class AccountDeletionResult {
+  const AccountDeletionResult.completed({this.localCleanupCompleted = true})
+    : disposition = AccountDeletionDisposition.completed,
+      serverState = 'completed',
+      statusTrackingAvailable = true;
+
+  const AccountDeletionResult.pending({
+    required this.serverState,
+    this.localCleanupCompleted = true,
+    this.statusTrackingAvailable = true,
+  }) : disposition = AccountDeletionDisposition.pending;
+
+  final AccountDeletionDisposition disposition;
+  final String serverState;
+  final bool localCleanupCompleted;
+  final bool statusTrackingAvailable;
+
+  bool get isCompleted => disposition == AccountDeletionDisposition.completed;
+  bool get isPending => disposition == AccountDeletionDisposition.pending;
+}

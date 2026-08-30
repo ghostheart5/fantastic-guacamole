@@ -95,7 +95,9 @@ class MockAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) async {
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  }) async {
     final String? accountId = _currentUser?.id;
     if (accountId == null) {
       throw FirebaseAuthException(
@@ -106,5 +108,6 @@ class MockAuthService implements AuthServiceContract {
     _currentUser = null;
     await _accountDeletedCallback?.call(accountId);
     await _signedOutCallback?.call();
+    return const AccountDeletionResult.completed();
   }
 }

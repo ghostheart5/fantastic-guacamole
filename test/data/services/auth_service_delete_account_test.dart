@@ -889,7 +889,11 @@ void main() {
             // from the bearer token. Redundant identity fields must not be
             // sent because they can conflict with the authenticated subject.
             expect(jsonDecode(request.body), <String, dynamic>{});
-            return http.Response('{}', 204);
+            return http.Response(
+              jsonEncode(_deletionResponseJson(completed: true)),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
           }
           return http.Response('{}', 200);
         });
@@ -910,13 +914,186 @@ void main() {
           email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
-        await service.deleteCurrentAccount(password: 'correct-pass');
+        final AccountDeletionResult result = await service.deleteCurrentAccount(
+          password: 'correct-pass',
+        );
 
+        expect(result.isCompleted, isTrue);
+        expect(result.isPending, isFalse);
         expect(deleteCalls, 1);
         expect(cleanupCalls, 1);
         expect(cleanedAccountId, 'user-1');
         expect(await store.readString('session-cache'), isNull);
         expect(await store.readString('device-global-key'), 'preserved');
+        expect(service.currentUser, isNull);
+      },
+    );
+
+    test(
+      'deleteCurrentAccount preserves a pending status capability securely',
+      () async {
+        final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
+        final SecureStore store = SecureStore(backend: backend);
+        await store.writeString('session-cache', 'present');
+        int cleanupCalls = 0;
+        final MockClient client = MockClient((http.Request request) async {
+          if (request.url.path.endsWith('/auth/v1/token')) {
+            return http.Response(
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          if (request.url.toString() ==
+              'https://api.chronospark.app/account/delete') {
+            return http.Response(
+              jsonEncode(_deletionResponseJson(completed: false)),
+              202,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 200);
+        });
+        final AuthService service = AuthService(
+          supabaseClient: _supabaseClient(client),
+          store: store,
+          httpClient: client,
+          accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+          onAccountDeleted: (String accountId) async {
+            cleanupCalls += 1;
+            await store.delete('session-cache');
+          },
+        );
+
+        await service.signIn(
+          email: 'planner@chronospark.app',
+          password: 'correct-pass',
+        );
+        final AccountDeletionResult result = await service.deleteCurrentAccount(
+          password: 'correct-pass',
+        );
+
+        expect(result.isPending, isTrue);
+        expect(result.serverState, 'sessions_revoked');
+        expect(cleanupCalls, 1);
+        expect(await store.readString('session-cache'), isNull);
+        expect(service.currentUser, isNull);
+        final Map<String, String> secureValues = await store.readAll();
+        final String capability = secureValues.values.singleWhere(
+          (String value) => value.contains(_deletionRequestId),
+        );
+        final Map<String, dynamic> decoded =
+            jsonDecode(capability) as Map<String, dynamic>;
+        expect(decoded['requestId'], _deletionRequestId);
+        expect(decoded['receipt'], _deletionReceipt);
+        expect(decoded['state'], 'sessions_revoked');
+        expect(decoded['savedAt'], isA<String>());
+      },
+    );
+
+    test(
+      'deleteCurrentAccount rejects malformed or contradictory success bodies',
+      () async {
+        for (final ({int status, String body}) response
+            in <({int status, String body})>[
+              (status: 204, body: ''),
+              (status: 200, body: '{}'),
+              (
+                status: 200,
+                body: jsonEncode(_deletionResponseJson(completed: false)),
+              ),
+              (
+                status: 202,
+                body: jsonEncode(_deletionResponseJson(completed: true)),
+              ),
+            ]) {
+          final InMemorySecureStoreBackend backend =
+              InMemorySecureStoreBackend();
+          final SecureStore store = SecureStore(backend: backend);
+          await store.writeString('session-cache', 'present');
+          int cleanupCalls = 0;
+          final MockClient client = MockClient((http.Request request) async {
+            if (request.url.path.endsWith('/auth/v1/token')) {
+              return http.Response(
+                jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+                200,
+                headers: <String, String>{'content-type': 'application/json'},
+              );
+            }
+            return http.Response(response.body, response.status);
+          });
+          final AuthService service = AuthService(
+            supabaseClient: _supabaseClient(client),
+            store: store,
+            httpClient: client,
+            accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+            onAccountDeleted: (String accountId) async {
+              cleanupCalls += 1;
+            },
+          );
+          await service.signIn(
+            email: 'planner@chronospark.app',
+            password: 'correct-pass',
+          );
+
+          await expectLater(
+            () => service.deleteCurrentAccount(password: 'correct-pass'),
+            throwsA(
+              isA<FirebaseAuthException>().having(
+                (FirebaseAuthException error) => error.code,
+                'code',
+                'invalid-response',
+              ),
+            ),
+          );
+          expect(cleanupCalls, 0);
+          expect(await store.readString('session-cache'), 'present');
+          expect(service.currentUser, isNotNull);
+        }
+      },
+    );
+
+    test(
+      'accepted pending deletion reports local tracking and cleanup failures',
+      () async {
+        final SecureStore store = SecureStore(
+          backend: _FailingWriteSecureStoreBackend(),
+        );
+        final MockClient client = MockClient((http.Request request) async {
+          if (request.url.path.endsWith('/auth/v1/token')) {
+            return http.Response(
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          return http.Response(
+            jsonEncode(_deletionResponseJson(completed: false)),
+            202,
+            headers: <String, String>{'content-type': 'application/json'},
+          );
+        });
+        final AuthService service = AuthService(
+          supabaseClient: _supabaseClient(client),
+          store: store,
+          httpClient: client,
+          accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+          onAccountDeleted: (String accountId) async {
+            throw StateError('simulated local cleanup failure');
+          },
+        );
+
+        await service.signIn(
+          email: 'planner@chronospark.app',
+          password: 'correct-pass',
+        );
+        final AccountDeletionResult result = await service.deleteCurrentAccount(
+          password: 'correct-pass',
+        );
+
+        expect(result.isPending, isTrue);
+        expect(result.statusTrackingAvailable, isFalse);
+        expect(result.localCleanupCompleted, isFalse);
         expect(service.currentUser, isNull);
       },
     );
@@ -1034,6 +1211,22 @@ Map<String, dynamic> _authResponseJson({required String email}) {
   return _authResponseJsonVariant(email: email);
 }
 
+const String _deletionRequestId =
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const String _deletionReceipt =
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
+Map<String, dynamic> _deletionResponseJson({required bool completed}) {
+  return <String, dynamic>{
+    'accepted': true,
+    'completed': completed,
+    'retry': !completed,
+    'state': completed ? 'completed' : 'sessions_revoked',
+    'requestId': _deletionRequestId,
+    'receipt': _deletionReceipt,
+  };
+}
+
 Map<String, dynamic> _authResponseJsonVariant({
   String accessToken = 'access-token',
   String? email = 'planner@chronospark.app',
@@ -1055,4 +1248,23 @@ Map<String, dynamic> _authResponseJsonVariant({
           userMetadata ?? <String, dynamic>{'full_name': 'Planner One'},
     },
   };
+}
+
+class _FailingWriteSecureStoreBackend implements SecureStoreBackend {
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<void> deleteAll() async {}
+
+  @override
+  Future<String?> read({required String key}) async => null;
+
+  @override
+  Future<Map<String, String>> readAll() async => const <String, String>{};
+
+  @override
+  Future<void> write({required String key, required String value}) async {
+    throw StateError('simulated secure write failure');
+  }
 }

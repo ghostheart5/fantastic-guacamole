@@ -539,7 +539,9 @@ class _IntegrationFakeAuthService implements AuthServiceContract {
   Future<String?> getIdToken({bool forceRefresh = false}) async => null;
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) async {}
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  }) async => const AccountDeletionResult.completed();
 
   @override
   Future<User?> reloadCurrentUser() async => null;

@@ -70,8 +70,11 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) async {
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  }) async {
     await _accountDeletedCallback?.call(_user.id);
     await _signedOutCallback?.call();
+    return const AccountDeletionResult.completed();
   }
 }

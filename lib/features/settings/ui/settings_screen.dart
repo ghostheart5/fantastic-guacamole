@@ -36,6 +36,21 @@ import 'package:go_router/go_router.dart';
 
 part 'settings_screen.sections.dart';
 
+String accountDeletionOutcomeMessage(AccountDeletionResult result) {
+  if (!result.localCleanupCompleted) {
+    return result.isCompleted
+        ? 'Account deletion completed on the server, but this device could not clear all local account data.'
+        : 'Account deletion started on the server, but this device could not clear all local account data.';
+  }
+  if (result.isCompleted) {
+    return 'Account deletion completed.';
+  }
+  if (!result.statusTrackingAvailable) {
+    return 'Account deletion started. Server cleanup is still in progress, but status tracking could not be saved on this device.';
+  }
+  return 'Account deletion started. Server cleanup is still in progress. You have been signed out.';
+}
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -819,15 +834,15 @@ class SettingsScreen extends ConsumerWidget {
     ).showSnackBar(const SnackBar(content: Text('Deleting account...')));
 
     try {
-      await ref
+      final AccountDeletionResult result = await ref
           .read(authServiceProvider)
           .deleteCurrentAccount(password: secret);
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Account deleted.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(accountDeletionOutcomeMessage(result))),
+      );
       context.go(routes.login);
     } on FirebaseAuthException catch (error) {
       if (!context.mounted) {
@@ -856,6 +871,7 @@ class SettingsScreen extends ConsumerWidget {
       case 'operation-not-supported':
       case 'operation-failed':
       case 'network-request-failed':
+      case 'invalid-response':
         return 'Account deletion could not be completed. Retry or use the support request path.';
       case 'no-current-user':
         return 'Sign-in expired. Sign in again before deleting the account.';
