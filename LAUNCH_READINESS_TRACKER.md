@@ -27,19 +27,20 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 
 ## Phase 1 Plan - Human Trust And First Proof
 
-- Status: `IN_PROGRESS`; launch verdict remains `NO-GO - NOT READY`.
+- Status: `COMPLETE_LOCAL` at `c72d50b`; launch verdict remains `NO-GO - NOT READY`.
 - Scope: authoritative emotional-state and governed-memory consent; truthful unknown human state; bounded startup recovery; accessible and recoverable guidance; truthful Timeline source states; evidence-gated tutorial completion; auth recovery, pre-account legal access, and protected `returnTo` preservation.
 - Planned code areas: `lib/state/models/personalization_models.dart`, personalization/emotion/memory/SI providers and controllers, Smart Planner context construction, startup gate, adaptive guidance overlays, Timeline state/UI, auth UI, onboarding, and router policy.
 - Planned tests: consent migration/revocation/restart; context omission across Planner/SI/Nexus/Trajectory/AI/memory; startup double-timeout/retry/degraded state; tutorial large-text/focus/skip/restart/resume; Timeline loading/error/empty/offline/evidence states; legal links and auth recovery; protected deep-link continuity.
 - Risks: legacy consent values must fail closed without deleting reviewable memory receipts; internal numeric planning fallbacks must never be labeled observed; startup degradation must not open account-scoped storage before quiescence; tutorial milestones must not advance from navigation alone.
 - Data migration: no destructive migration. Legacy consent payloads without versioned grant timestamps are interpreted as revoked. Existing governed-memory records remain reviewable/exportable/deletable but unavailable for recall while consent is off.
 - Rollback: each Phase 1 subphase is a separate local commit. Revert only the affected subphase after confirming consent remains fail-closed, launch containment remains active, and no unsafe startup/account boundary is reopened.
+- Evidence boundary: source, Windows host tests, and local validators only. Android/device accessibility, visual QA, deployed services, signed artifacts, and human UAT remain unverified.
 
 ## Findings
 
 | ID | Severity | Finding | Phase | Status | Feature state | Repair commit | Evidence |
 |---|---|---|---:|---|---|---|---|
-| P0-01 | P0 | Emotional and governed-memory consent controls are not authoritative | 1 | NOT_RUN | contained pending enforcement | | Audit P0-1 |
+| P0-01 | P0 | Emotional and governed-memory consent controls are not authoritative | 1 | PASS | versioned consent is enforced at context boundaries; saved Planner preferences are disclosed as not used in this build | `4146de5`, `6cdd536`, `c72d50b` | Consent migration/revocation/context tests and full host suite |
 | P0-02 | P0 | Fresh users receive invented personal state and identity | 0/1 | PASS | fresh metrics remain unmeasured; inferred identity hidden | `4649489`, `68bc277` | Nexus/Profile tests and containment test |
 | P0-03 | P0 | Cloud restore can replace valid local data with partial/corrupt data | 0/2 | PASS | restore disabled; integrity repair still pending | `68bc277` | Direct service/provider containment tests |
 | P0-04 | P0 | Client reports account deletion complete for pending `202` | 2 | NOT_RUN | existing flow unsafe | | Audit P0-4 |
@@ -70,11 +71,11 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 | LEGAL-01 | P1 | Public, root, and bundled legal text have drifted | 2/9 | NOT_RUN | canonicalization pending | | Legal audit |
 | VOICE-01 | P1 | Voice can bypass rationale and premium claims are unproven | 0/9 | NOT_RUN | no premium claim allowed | | Platform audit |
 | NOTIF-01 | P1 | Reminders are not clearly opt-in and streak copy is coercive | 5/9 | NOT_RUN | local only | | Platform audit |
-| LINK-01 | P1 | Protected deep-link intent can be lost through onboarding | 1/6 | NOT_RUN | unsafe navigation | | Platform audit |
+| LINK-01 | P1 | Protected deep-link intent can be lost through onboarding | 1/6 | PASS | validated protected URI survives login, onboarding, legal routes, and Back | `c72d50b` | Real `appRouterProvider` and onboarding return-to tests |
 | START-01 | P0 | Startup can wait forever after its timeout | 1 | PASS | timed-out results discarded; bounded locked recovery; retry waits for prior initializer settlement | `aca2b6b`, `bd70c01` | 16 focused startup tests and fatal analyzer gate |
-| A11Y-01 | P0 | Required tutorial can trap large-text/small-viewport users | 1 | NOT_RUN | unsafe first run | | Accessibility audit |
-| TIME-01 | P0 | Timeline maps loading/error to false empty and tutorial can lie | 1 | NOT_RUN | unsafe first proof | | Reliability audit |
-| AUTH-02 | P1 | Auth recovery and pre-account legal access are incomplete | 1 | NOT_RUN | incomplete | | Auth audit |
+| A11Y-01 | P0 | Required tutorial can trap large-text/small-viewport users | 1 | PASS | bounded scrolling, modal focus loop/restoration, reduced motion, and accessible navigation covered locally | `c72d50b` | 11 overlay tests plus login/onboarding reduced-motion tests; device screen-reader proof remains Phase 10 |
+| TIME-01 | P0 | Timeline maps loading/error to false empty and tutorial can lie | 1 | PASS | loading/error/corruption are distinct; unknown schema is quarantined; original bytes are preserved before repair; tutorial proof requires saved evidence | `c72d50b` | Repository, source-state, simultaneous-failure, and tutorial evidence tests |
+| AUTH-02 | P1 | Auth recovery and pre-account legal access are incomplete | 1 | PASS | recovery paths retained; localized pre-account legal actions use production router wiring | `c72d50b` | Auth recovery, legal semantics, and real-router tests |
 | L10N-01 | P1 | English/Spanish product coverage is incomplete | 9 | NOT_RUN | Spanish claim blocked | | Localization audit |
 | PERF-01 | P2 | Bundle/dependency weight is unmeasured and likely wasteful | 9/10 | NOT_RUN | no removal without proof | | Performance audit |
 | MAINT-01 | P2 | Oversized files and dormant rival paths increase risk | 5/9 | NOT_RUN | preserve until parity | | Maintainability audit |

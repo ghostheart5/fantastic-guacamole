@@ -33,6 +33,29 @@ Formatting candidates are `test/data/repositories/google_play_paywall_repository
 
 ## Phase Evidence
 
+### Phase 1 - Human Trust And First Proof Checkpoint
+
+- Code commit: `c72d50b`
+- Environment: local Windows host with Flutter `3.44.6` and Dart `3.12.2`.
+- Evidence boundary: source, host widget/unit tests, and local validators only. No Android/device, deployed-backend, signed-artifact, Play, or human-UAT claim.
+
+| Gate | Status | Command/evidence | Result boundary |
+|---|---|---|---|
+| Formatting | PASS | `dart format --output=none --set-exit-if-changed lib test integration_test` | 960 files, 0 changed |
+| Analyzer | PASS | `flutter analyze --fatal-infos` | No issues found |
+| Full Flutter suite | PASS | `flutter test --no-pub --reporter json` | 1,653 visible tests passed; 265 hidden loader completions; zero failures/errors; one expected QA-define test skipped |
+| QA define-only contract | PASS | `flutter test --no-pub --dart-define-from-file=tool/qa_defines.json test/config/env_mode_resolution_test.dart` | 15 passed, 0 skipped |
+| Timeline integrity and source truth | PASS | Timeline repository and projected-management suites | Unknown enum values and malformed records are quarantined; original payload is preserved before explicit repair; simultaneous task/persistence failures remain visible |
+| Tutorial accessibility | PASS | `test/tutorial/interactive_tutorial_overlay_test.dart` plus login/onboarding tests | 11 overlay tests cover compact/large text, semantics, disabled focus, closed-loop traversal, restoration, and accessible-navigation motion; host evidence only |
+| Auth/legal/return-to | PASS | Login legal tests and real `appRouterProvider` integration | English/Spanish labels and semantics pass; Privacy/Terms pushes preserve the protected login URI on Back |
+| Architecture guard | PASS | `powershell -NoProfile -ExecutionPolicy Bypass -File .\check_architecture.ps1` | No service-layer boundary violations |
+| Secret guards | PASS | `security_secret_guard.ps1`; `secret_content_guard.ps1` | Both passed; no secret values inspected or reproduced |
+| Release/version guards | PASS | `release_guard.ps1`; `version_consistency_guard.ps1` | Both passed |
+| Workflow/Maestro validators | PASS | Repository validators | 11 workflows and 16 Maestro files validated |
+| Edge Function gate | PASS | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\edge_function_gate.ps1 -RunTests` | Six functions type-checked; 28 Deno tests passed; no deployed-backend claim |
+| Android device and screen reader | NOT_RUN | Reserved for Phase 10 | Host widget evidence does not establish Android/TalkBack behavior |
+| Exact-checkpoint remote CI/database gate | NOT_RUN | No remote run requested | Local PASS does not establish GitHub/deployed database evidence |
+
 ### Phase 1 - Startup Recovery Checkpoint
 
 - Code commit: `aca2b6b`

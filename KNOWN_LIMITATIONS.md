@@ -8,12 +8,12 @@ Phase 0 containment is active at `68bc277`: cloud sync/restore, subscriptions, e
 - External generative AI is not a reachable or approved product surface.
 - Cloud restore and multi-device sync are not safe to expose.
 - Paid subscription and credit benefits are not ready to market or enable.
-- Emotional and governed-memory consent enforcement is incomplete.
+- Governed Planner preferences are reviewable but intentionally not recalled by guidance in this build.
 - Account deletion pending/completed semantics are incomplete on the client.
 - Crisis and non-crisis distress handling require qualified review.
 - Whole-person domains and one canonical decision/learning authority are incomplete.
 - Spanish coverage is not complete enough for a launch claim.
-- Accessibility, real-device, performance, exact-artifact, and human UAT evidence is incomplete.
+- Host accessibility checks pass, but real-device screen-reader, visual, performance, exact-artifact, and human UAT evidence is incomplete.
 - Production Firebase, Supabase, provider, billing, monitoring, backup, and retention settings remain external verification gates.
 - Google Play listing, signing, submission, rollout, and publication are excluded and must not be performed in this project.
 
