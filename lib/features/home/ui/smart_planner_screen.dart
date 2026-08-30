@@ -5,7 +5,7 @@ import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -28,8 +28,8 @@ class SmartPlannerScreen extends ConsumerStatefulWidget {
 }
 
 class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
-  double _energy = 0.7;
-  EmotionalState _emotion = EmotionalState.neutral;
+  double? _energy;
+  EmotionalState? _emotion;
   late final Future<void> Function() _stopVoice;
   final _notesController = TextEditingController();
   final _followUpController = TextEditingController();
@@ -60,8 +60,13 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     super.initState();
     final voiceService = ref.read(voiceServiceProvider);
     _stopVoice = voiceService.stop;
-    _energy = ref.read(siStateProvider).energy;
-    _emotion = ref.read(emotionProvider);
+    final ConsentedHumanContext humanContext = ref.read(
+      consentedHumanContextProvider,
+    );
+    _energy = humanContext.siState.hasObservedEnergy
+        ? humanContext.siState.energy
+        : null;
+    _emotion = humanContext.emotion;
   }
 
   @override
@@ -396,6 +401,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ConsentedHumanContext humanContext = ref.watch(
+      consentedHumanContextProvider,
+    );
     final PlannerV2Response? plannerResponse = _plannerResponse;
     final String effectivePlannerMessage =
         plannerResponse?.toAccessibleText() ?? '';
@@ -463,6 +471,14 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                               _emotion = e;
                               _saved = false;
                             }),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            humanContext.emotionAllowed
+                                ? 'Only the state you select is used for this check-in.'
+                                : 'Emotional state is not used. Enable it in Settings to include a selection.',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.white70),
                           ),
                           const SizedBox(height: 12),
                           const Divider(color: Colors.white12),
@@ -1019,7 +1035,7 @@ class _EnergySlider extends StatelessWidget {
     required this.onChanged,
   });
 
-  final double value;
+  final double? value;
   final Color color;
   final ValueChanged<double> onChanged;
 
@@ -1043,7 +1059,7 @@ class _EnergySlider extends StatelessWidget {
               ),
             ),
             Text(
-              '${(value * 100).round()}%',
+              value == null ? 'NOT SET' : '${(value! * 100).round()}%',
               style: TextStyle(
                 color: color,
                 fontSize: 12,
@@ -1055,7 +1071,9 @@ class _EnergySlider extends StatelessWidget {
         const SizedBox(height: 6),
         Semantics(
           label: 'Current energy',
-          value: '${(value * 100).round()} percent',
+          value: value == null
+              ? 'Not set'
+              : '${(value! * 100).round()} percent',
           child: SliderTheme(
             data: SliderThemeData(
               trackHeight: 3,
@@ -1066,7 +1084,7 @@ class _EnergySlider extends StatelessWidget {
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
             ),
             child: Slider(
-              value: value,
+              value: value ?? 0.5,
               onChanged: onChanged,
               semanticFormatterCallback: (double sliderValue) =>
                   '${(sliderValue * 100).round()} percent',
@@ -1081,14 +1099,16 @@ class _EnergySlider extends StatelessWidget {
 class _EmotionStateControl extends StatelessWidget {
   const _EmotionStateControl({required this.selected, required this.onSelect});
 
-  final EmotionalState selected;
+  final EmotionalState? selected;
   final ValueChanged<EmotionalState> onSelect;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: 'Emotional state. ${selected.name} selected.',
+      label: selected == null
+          ? 'Emotional state. Not set.'
+          : 'Emotional state. ${selected!.name} selected.',
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           const double spacing = 8;
@@ -1233,8 +1253,8 @@ class _VoiceSummaryButton extends ConsumerWidget {
   });
 
   final String headline;
-  final double energy;
-  final EmotionalState emotion;
+  final double? energy;
+  final EmotionalState? emotion;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1248,8 +1268,12 @@ class _VoiceSummaryButton extends ConsumerWidget {
               .speakSummary(
                 title: 'Smart Planner voice summary',
                 points: <String>[
-                  'Energy is ${(energy * 100).round()} percent',
-                  'Emotion state is ${emotion.name}',
+                  energy == null
+                      ? 'Energy was not set'
+                      : 'Energy is ${(energy! * 100).round()} percent',
+                  emotion == null
+                      ? 'Emotional state was not used'
+                      : 'Emotion state is ${emotion!.name}',
                   headline,
                 ],
               ),

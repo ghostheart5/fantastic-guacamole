@@ -4,16 +4,18 @@ import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_con
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final tasksAsync = ref.watch(tasksProvider);
   final profile = ref.watch(profileProvider);
-  final energy = ref.watch(energyProvider);
+  final humanContext = ref.watch(consentedHumanContextProvider);
+  final energy = humanContext.siState.energy;
   final learning = ref.watch(learningProvider);
   final learningMetrics = ref.watch(learningMetricsProvider);
   final completionScore = ref.watch(completionScoreProvider);
-  final siState = ref.watch(siStateProvider);
+  final siState = humanContext.siState;
   final personalization = ref.watch(personalizationProfileProvider);
 
   final int pendingTasks = tasksAsync.maybeWhen(
@@ -22,6 +24,7 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   );
   final int completedTasks = learning.completed;
   final int completedToday = siState.completedToday;
+  final bool hasObservedEnergy = siState.hasObservedEnergy;
 
   final CompletionScoreView? lastScore = completionScore;
   final int lastCompletionXp = lastScore?.xp ?? 0;
@@ -29,7 +32,7 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
 
   final int pressureIndex =
       ((pendingTasks * 16) +
-              ((1 - energy) * 32) +
+              (hasObservedEnergy ? (1 - energy) * 32 : 0) +
               ((1 - learningMetrics.momentum) * 18))
           .clamp(0.0, 100.0)
           .round();
@@ -42,6 +45,8 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final bool hasTaskData = tasksAsync is AsyncData;
   final String alert = !hasTaskData
       ? 'SI STATUS: trajectory data is temporarily unavailable.'
+      : !hasObservedEnergy && pendingTasks == 0
+      ? 'SI STATUS: add a current energy check-in before capacity guidance.'
       : pressureIndex >= 70
       ? 'SI ALERT: load is high, reduce task density.'
       : pressureIndex >= 40

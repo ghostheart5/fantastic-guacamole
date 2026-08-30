@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 
 enum OperatingEvidenceKind {
   observed,
@@ -157,6 +158,8 @@ class OperatingSnapshot {
     required this.completedToday,
     required this.energy,
     required this.fatigue,
+    this.energyOrigin = PredictiveEvidenceOrigin.unavailable,
+    this.fatigueOrigin = PredictiveEvidenceOrigin.unavailable,
     required this.momentum,
     required this.pressure,
     required this.topActionId,
@@ -176,6 +179,8 @@ class OperatingSnapshot {
              'completedToday': completedToday,
              'energy': energy,
              'fatigue': fatigue,
+             'energyOrigin': energyOrigin.name,
+             'fatigueOrigin': fatigueOrigin.name,
              'momentum': momentum,
              'pressure': pressure,
              'topActionId': topActionId,
@@ -197,6 +202,8 @@ class OperatingSnapshot {
   final int completedToday;
   final double energy;
   final double fatigue;
+  final PredictiveEvidenceOrigin energyOrigin;
+  final PredictiveEvidenceOrigin fatigueOrigin;
   final int momentum;
   final int pressure;
   final String? topActionId;
@@ -216,6 +223,8 @@ class OperatingSnapshot {
     'completedToday': completedToday,
     'energy': energy,
     'fatigue': fatigue,
+    'energyOrigin': energyOrigin.name,
+    'fatigueOrigin': fatigueOrigin.name,
     'momentum': momentum,
     'pressure': pressure,
     'topActionId': topActionId,
@@ -245,6 +254,14 @@ class OperatingSnapshot {
       completedToday: (json['completedToday'] as num?)?.toInt() ?? 0,
       energy: (json['energy'] as num?)?.toDouble() ?? 0,
       fatigue: (json['fatigue'] as num?)?.toDouble() ?? 0,
+      energyOrigin: PredictiveEvidenceOrigin.values.firstWhere(
+        (PredictiveEvidenceOrigin value) => value.name == json['energyOrigin'],
+        orElse: () => PredictiveEvidenceOrigin.unavailable,
+      ),
+      fatigueOrigin: PredictiveEvidenceOrigin.values.firstWhere(
+        (PredictiveEvidenceOrigin value) => value.name == json['fatigueOrigin'],
+        orElse: () => PredictiveEvidenceOrigin.unavailable,
+      ),
       momentum: (json['momentum'] as num?)?.toInt() ?? 0,
       pressure: (json['pressure'] as num?)?.toInt() ?? 0,
       topActionId: json['topActionId']?.toString(),

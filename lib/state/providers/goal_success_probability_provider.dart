@@ -37,7 +37,7 @@ final goalSuccessProbabilityProvider = Provider<GoalSuccessForecast>((ref) {
   final int probability =
       ((momentum.score * .35) +
               (completionRate * 100 * .40) +
-              (momentum.energyPercent * .15) +
+              (momentum.hasObservedEnergy ? momentum.energyPercent * .15 : 0) +
               ((100 - momentum.pressurePercent) * .10))
           .round()
           .clamp(0, 100);
@@ -48,7 +48,9 @@ final goalSuccessProbabilityProvider = Provider<GoalSuccessForecast>((ref) {
   final int lower = (probability - uncertainty).round().clamp(0, 100);
   final int upper = (probability + uncertainty).round().clamp(0, 100);
   final PredictiveConfidenceProfile confidence = PredictiveConfidenceProfile(
-    sourceCompleteness: sampleSize > 0 ? .85 : .45,
+    sourceCompleteness: sampleSize > 0
+        ? (momentum.hasObservedEnergy ? .85 : .7)
+        : .35,
     freshness: sampleSize > 0 ? 1 : .35,
     sampleSufficiency: (sampleSize / 20).clamp(0.0, 1.0).toDouble(),
     intervalPrecision: (1 - (upper - lower) / 100).clamp(0.0, 1.0),

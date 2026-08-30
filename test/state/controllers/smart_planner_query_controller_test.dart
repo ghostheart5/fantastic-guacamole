@@ -10,16 +10,21 @@ import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/controllers/smart_planner_query_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
+import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   ProviderContainer plannerContainer({
     _MemoryTaskRepository? tasks,
     _MemoryGoalRepository? goals,
+    bool emotionConsent = true,
   }) => ProviderContainer(
     overrides: [
       assistantReleaseConfigProvider.overrideWith(
@@ -39,6 +44,11 @@ void main() {
       ),
       smartPlannerClockProvider.overrideWithValue(
         () => DateTime.utc(2026, 8, 29, 18),
+      ),
+      personalizationProfileProvider.overrideWith(
+        emotionConsent
+            ? _ConsentedPersonalizationController.new
+            : _RevokedPersonalizationController.new,
       ),
     ],
   );
@@ -92,6 +102,38 @@ void main() {
   });
 
   test(
+    'revoked emotion consent removes emotion from Planner context',
+    () async {
+      final ProviderContainer container = plannerContainer(
+        emotionConsent: false,
+      );
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: 0.9,
+            emotion: EmotionalState.engaged,
+            notes: 'Choose a practical next step.',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.request.context, isNot(contains('emotion')));
+      expect(result.request.context['emotionEvidence'], 'unavailable');
+      expect(
+        result.plannerResponse.adaptationReceipt.userSelectedEmotion,
+        isNull,
+      );
+      expect(result.plannerResponse.recommendedKind, PlannerOptionKind.bestFit);
+      expect(
+        result.plannerResponse.verifiedEvidence,
+        contains('Current emotional state was not used.'),
+      );
+    },
+  );
+
+  test(
     'low energy and anxious self-report recommend Minimum without inference',
     () async {
       final ProviderContainer container = plannerContainer();
@@ -123,7 +165,7 @@ void main() {
   );
 
   test('fatigued recovery guidance uses clear actionable language', () {
-    final ProviderContainer container = ProviderContainer();
+    final ProviderContainer container = plannerContainer();
     addTearDown(container.dispose);
     final SmartPlannerQueryController controller = container.read(
       smartPlannerQueryControllerProvider,
@@ -402,7 +444,7 @@ void main() {
   );
 
   test('local timeout result stays explicit and typed', () {
-    final ProviderContainer container = ProviderContainer();
+    final ProviderContainer container = plannerContainer();
     addTearDown(container.dispose);
     final SmartPlannerQueryController controller = container.read(
       smartPlannerQueryControllerProvider,
@@ -507,6 +549,21 @@ void main() {
       ),
     );
   });
+}
+
+class _ConsentedPersonalizationController
+    extends PersonalizationProfileController {
+  @override
+  PersonalizationProfile build() => PersonalizationProfile(
+    useEmotionSignals: true,
+    emotionConsentGrantedAt: DateTime.utc(2026, 8, 29),
+  );
+}
+
+class _RevokedPersonalizationController
+    extends PersonalizationProfileController {
+  @override
+  PersonalizationProfile build() => const PersonalizationProfile();
 }
 
 class _MemoryTaskRepository implements ITaskRepository {

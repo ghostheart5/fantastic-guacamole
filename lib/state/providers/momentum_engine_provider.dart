@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
-import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +16,8 @@ class MomentumEngineState {
     required this.pressurePercent,
     required this.streak,
     required this.completedToday,
+    this.hasObservedEnergy = true,
+    this.hasObservedFatigue = true,
     this.trendDelta,
     this.trendEvidence = 'baseline',
   });
@@ -28,6 +30,8 @@ class MomentumEngineState {
   final int pressurePercent;
   final int streak;
   final int completedToday;
+  final bool hasObservedEnergy;
+  final bool hasObservedFatigue;
   final double? trendDelta;
   final String trendEvidence;
 
@@ -38,19 +42,22 @@ class MomentumEngineState {
 
 final momentumEngineProvider = Provider<MomentumEngineState>((ref) {
   final profile = ref.watch(profileProvider);
-  final siState = ref.watch(siStateProvider);
+  final siState = ref.watch(consentedHumanContextProvider).siState;
   final trajectory = ref.watch(trajectorySummaryProvider);
   final execution = ref.watch(executionSignalsProvider);
-  final int energyPercent = (siState.energy * 100).round().clamp(0, 100);
-  final int fatiguePercent = (siState.fatigue * 100).round().clamp(0, 100);
+  final int energyPercent = siState.hasObservedEnergy
+      ? (siState.energy * 100).round().clamp(0, 100)
+      : 0;
+  final int fatiguePercent = siState.hasObservedFatigue
+      ? (siState.fatigue * 100).round().clamp(0, 100)
+      : 0;
   final int trajectoryMomentum = (trajectory.momentum * 100).round().clamp(
     0,
     100,
   );
-  final int pressurePercent = math.max(
-    fatiguePercent,
-    trajectory.pressureIndex,
-  );
+  final int pressurePercent = siState.hasObservedFatigue
+      ? math.max(fatiguePercent, trajectory.pressureIndex)
+      : trajectory.pressureIndex;
   final double executionRate = execution.completionRate7d;
   final double deferralRate = execution.actioned7d == 0
       ? 0
@@ -58,7 +65,7 @@ final momentumEngineProvider = Provider<MomentumEngineState>((ref) {
   final double streakContinuity = (profile.streak / 14).clamp(0.0, 1.0);
   final int score =
       ((trajectoryMomentum * .25) +
-              (energyPercent * .20) +
+              (siState.hasObservedEnergy ? energyPercent * .20 : 0) +
               (executionRate * 100 * .30) +
               (streakContinuity * 100 * .10) +
               (siState.completedToday.clamp(0, 4) / 4 * 100 * .10) -
@@ -78,9 +85,11 @@ final momentumEngineProvider = Provider<MomentumEngineState>((ref) {
 
   final String recovery = pressurePercent >= 75
       ? 'Recovery Needed'
-      : fatiguePercent >= 45
+      : siState.hasObservedFatigue && fatiguePercent >= 45
       ? 'Watch Load'
-      : 'Recovered';
+      : siState.hasObservedFatigue
+      ? 'Recovered'
+      : 'Not checked';
 
   final String forecast = trendDelta == null
       ? 'Momentum baseline established. More history is needed before claiming a direction.'
@@ -99,6 +108,8 @@ final momentumEngineProvider = Provider<MomentumEngineState>((ref) {
     pressurePercent: pressurePercent,
     streak: profile.streak,
     completedToday: siState.completedToday,
+    hasObservedEnergy: siState.hasObservedEnergy,
+    hasObservedFatigue: siState.hasObservedFatigue,
     trendDelta: trendDelta,
     trendEvidence: trendDelta == null
         ? 'No prior seven-day comparison window is available.'

@@ -44,11 +44,11 @@ import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
-import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/learning_history_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
@@ -205,11 +205,14 @@ class AIController {
     final Map<String, dynamic>? previousState = await _ref
         .read(siEngineServiceProvider)
         .loadState();
-    final si = _ref.read(siStateProvider);
+    final ConsentedHumanContext humanContext = _ref.read(
+      consentedHumanContextProvider,
+    );
+    final si = humanContext.siState;
     final learning = _ref.read(learningProvider);
     final profile = _ref.read(profileProvider);
     final personalization = _ref.read(personalizationProfileProvider);
-    final emotion = _ref.read(emotionProvider);
+    final emotion = humanContext.emotion;
     final goals = _ref.read(goalsProvider);
     final signalsBundle = _ref.read(signalsBundleProvider);
     final logsState = _ref.read(logsProvider);
@@ -401,9 +404,11 @@ class AIController {
       'level': profile.level,
       'xp': profile.xp,
       'streak': profile.streak,
-      'energy': si.energy,
-      'emotion': emotion.name,
-      'fatigue': si.fatigue,
+      'energy': si.hasObservedEnergy ? si.energy : null,
+      'energyEvidence': si.energyOrigin.name,
+      'emotion': emotion?.name,
+      'fatigue': si.hasObservedFatigue ? si.fatigue : null,
+      'fatigueEvidence': si.fatigueOrigin.name,
       'completedToday': si.completedToday,
       'availableSurfaces': <String>[
         'tasks',
@@ -470,11 +475,13 @@ class AIController {
         },
         'plan': <String, dynamic>{
           'preview': planPreview,
-          'generatedFromEnergy': si.energy,
+          'generatedFromEnergy': si.hasObservedEnergy ? si.energy : null,
+          'energyEvidence': si.energyOrigin.name,
         },
         'emotions': <String, dynamic>{
-          'current': emotion.name,
-          'fatigue': si.fatigue,
+          'current': emotion?.name,
+          'fatigue': si.hasObservedFatigue ? si.fatigue : null,
+          'fatigueEvidence': si.fatigueOrigin.name,
         },
         'timeline': <String, dynamic>{
           'count': timelineEvents.length,

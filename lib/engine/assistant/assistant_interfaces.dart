@@ -64,8 +64,8 @@ abstract class RecommendationEngine {
 
 abstract class SmartPlannerInterface<TResult extends Object> {
   Future<TResult> requestPlanningGuidance({
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
@@ -73,8 +73,8 @@ abstract class SmartPlannerInterface<TResult extends Object> {
 
   Future<String> requestFollowUp({
     required String input,
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
   });

@@ -149,7 +149,7 @@ void main() {
       );
 
       expect(find.text('UNMEASURED'), findsOneWidget);
-      expect(find.text('LEARNING'), findsOneWidget);
+      expect(find.text('NOT CHECKED'), findsOneWidget);
       expect(find.text('78%'), findsNothing);
     });
   });

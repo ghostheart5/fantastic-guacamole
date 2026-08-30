@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
@@ -75,7 +76,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
   @override
   Widget build(BuildContext context) {
     final ProfileState profile = ref.watch(profileProvider);
-    final siState = ref.watch(siStateProvider);
+    final siState = ref.watch(consentedHumanContextProvider).siState;
     final double energy = siState.energy;
     final double fatigue = siState.fatigue;
     final NexusDecisionModel decisionModel = ref.watch(nexusDecisionProvider);

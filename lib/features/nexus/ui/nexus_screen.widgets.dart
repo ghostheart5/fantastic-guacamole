@@ -181,7 +181,7 @@ class _NexusVitals extends StatelessWidget {
       container: true,
       label:
           '${hasObservedEnergy ? 'Energy ${(energy * 100).round()} percent' : 'Energy unmeasured'}. '
-          '${hasObservedClarity ? 'Clarity ${((1 - fatigue) * 100).round()} percent' : 'Clarity baseline pending'}. '
+          '${hasObservedClarity ? 'Clarity ${((1 - fatigue) * 100).round()} percent' : 'Clarity not checked'}. '
           'Momentum $momentumLabel.',
       child: Row(
         children: <Widget>[
@@ -201,7 +201,7 @@ class _NexusVitals extends StatelessWidget {
               label: 'CLARITY',
               value: hasObservedClarity
                   ? '${((1 - fatigue) * 100).round()}%'
-                  : 'LEARNING',
+                  : 'NOT CHECKED',
               accent: AppColors.neonViolet,
               pulse: pulse,
             ),

@@ -1,9 +1,9 @@
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/signal_model.dart';
 import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
@@ -16,7 +16,9 @@ final signalsServiceProvider = Provider<SignalsService>(
 );
 
 final signalsBundleProvider = Provider<SignalsBundle>((Ref ref) {
-  return ref.watch(signalsServiceProvider).build(ref.watch(siStateProvider));
+  return ref
+      .watch(signalsServiceProvider)
+      .build(ref.watch(consentedHumanContextProvider).siState);
 });
 
 final signalsActionsProvider = Provider<SignalsActions>((Ref ref) {

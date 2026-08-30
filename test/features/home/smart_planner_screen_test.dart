@@ -400,8 +400,8 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
 
   @override
   Future<SmartPlannerResult> requestPlanningGuidance({
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
@@ -419,8 +419,8 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
   @override
   Future<String> requestFollowUp({
     required String input,
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
   }) async => 'Follow-up response for $input';
@@ -434,8 +434,8 @@ class _BlockedPlannerController extends SmartPlannerQueryController {
 
   @override
   Future<SmartPlannerResult> requestPlanningGuidance({
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,

@@ -22,11 +22,11 @@ String siNormalizeMood(String? value) {
 
 class SIState {
   const SIState({
-    this.energy = 0.7,
-    this.fatigue = 0.3,
+    this.energy = 0.5,
+    this.fatigue = 0.5,
     this.completedToday = 0,
-    this.energyOrigin = PredictiveEvidenceOrigin.estimated,
-    this.fatigueOrigin = PredictiveEvidenceOrigin.estimated,
+    this.energyOrigin = PredictiveEvidenceOrigin.unavailable,
+    this.fatigueOrigin = PredictiveEvidenceOrigin.unavailable,
   });
 
   final double energy;

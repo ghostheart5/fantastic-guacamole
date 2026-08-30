@@ -42,6 +42,8 @@ final operatingSnapshotProvider = FutureProvider<OperatingSnapshot>((
     completedToday: aggregation.planningEvidence.executionCompletedToday,
     energy: aggregation.siState.energy,
     fatigue: aggregation.siState.fatigue,
+    energyOrigin: aggregation.siState.energyOrigin,
+    fatigueOrigin: aggregation.siState.fatigueOrigin,
     momentum: (aggregation.trajectory.momentum * 100).round().clamp(0, 100),
     pressure: aggregation.trajectory.pressureIndex.clamp(0, 100),
     topActionId: subjectId,
@@ -82,8 +84,15 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     OperatingEvidence(
       code: 'energy_state',
       description:
-          'Energy ${(aggregation.siState.energy * 100).round()}% and fatigue ${(aggregation.siState.fatigue * 100).round()}% shaped execution intensity.',
-      kind: OperatingEvidenceKind.observed,
+          aggregation.siState.hasObservedEnergy &&
+              aggregation.siState.hasObservedFatigue
+          ? 'User-reported energy ${(aggregation.siState.energy * 100).round()}% and fatigue ${(aggregation.siState.fatigue * 100).round()}% shaped execution intensity.'
+          : 'Current energy or fatigue was not reported. Neutral internal fallbacks are not treated as personal evidence.',
+      kind:
+          aggregation.siState.hasObservedEnergy &&
+              aggregation.siState.hasObservedFatigue
+          ? OperatingEvidenceKind.observed
+          : OperatingEvidenceKind.unavailable,
       recordedAt: now,
       source: 'current_state',
       freshUntil: now.add(const Duration(minutes: 20)),
@@ -383,6 +392,8 @@ Map<String, String> operatingSourceRevisions(SIStateAggregation aggregation) {
     'state': stableId(<String, dynamic>{
       'energy': aggregation.siState.energy,
       'fatigue': aggregation.siState.fatigue,
+      'energyOrigin': aggregation.siState.energyOrigin.name,
+      'fatigueOrigin': aggregation.siState.fatigueOrigin.name,
       'sourceHealth': <String, String>{
         'tasks': aggregation.sourceHealth.tasks.name,
         'goals': aggregation.sourceHealth.goals.name,

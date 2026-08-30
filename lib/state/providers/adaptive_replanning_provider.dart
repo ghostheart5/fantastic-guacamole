@@ -108,7 +108,7 @@ final adaptiveReplanningProvider = Provider<List<AdaptiveReplanningScenario>>((
     );
   }
 
-  if (momentum.energyPercent < 45) {
+  if (momentum.hasObservedEnergy && momentum.energyPercent < 45) {
     scenarios.add(
       AdaptiveReplanningScenario(
         type: AdaptiveReplanningType.lowEnergy,

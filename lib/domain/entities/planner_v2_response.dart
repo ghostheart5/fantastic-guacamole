@@ -53,7 +53,7 @@ final class PlannerAdaptationReceipt {
     required this.userSelectedEmotion,
     required List<String> adjustments,
   }) : adjustments = List<String>.unmodifiable(adjustments) {
-    if (userSetEnergy < 0 || userSetEnergy > 1) {
+    if (userSetEnergy != null && (userSetEnergy! < 0 || userSetEnergy! > 1)) {
       throw ArgumentError.value(
         userSetEnergy,
         'userSetEnergy',
@@ -69,11 +69,12 @@ final class PlannerAdaptationReceipt {
     }
   }
 
-  final double userSetEnergy;
-  final EmotionalState userSelectedEmotion;
+  final double? userSetEnergy;
+  final EmotionalState? userSelectedEmotion;
   final List<String> adjustments;
 
-  int get energyPercent => (userSetEnergy * 100).round();
+  int? get energyPercent =>
+      userSetEnergy == null ? null : (userSetEnergy! * 100).round();
 }
 
 final class PlannerV2Response {

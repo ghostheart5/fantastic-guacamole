@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -158,8 +159,8 @@ class SmartPlannerQueryController
 
   @override
   Future<SmartPlannerResult> requestPlanningGuidance({
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
@@ -168,6 +169,8 @@ class SmartPlannerQueryController
         ? 'Give me a practical planning check-in for my current energy and emotional state.'
         : notes.trim();
     _requireNonCrisisRoute(prompt);
+    final ({double? energy, EmotionalState? emotion}) authorized =
+        _authorizedCheckIn(energy: energy, emotion: emotion);
     await _requireReleaseCapabilities();
     final _PlannerConversationContext conversation =
         _PlannerConversationContext.resolve(
@@ -182,8 +185,8 @@ class SmartPlannerQueryController
       kind: AssistantRequestKind.planningGuidance,
       input: prompt,
       history: history,
-      energy: energy,
-      emotion: emotion,
+      energy: authorized.energy,
+      emotion: authorized.emotion,
       context: <String, Object?>{
         ...evidence.requestContext,
         'conversationTurnsUsed': conversation.historyTurnsUsed,
@@ -191,8 +194,8 @@ class SmartPlannerQueryController
     );
     final PlannerV2Response response = _buildPlannerResponse(
       input: prompt,
-      energy: energy,
-      emotion: emotion,
+      energy: authorized.energy,
+      emotion: authorized.emotion,
       contextWasProvided: notes.trim().isNotEmpty,
       conversation: conversation,
       evidence: evidence,
@@ -207,8 +210,8 @@ class SmartPlannerQueryController
   @override
   Future<String> requestFollowUp({
     required String input,
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
   }) async {
@@ -223,8 +226,8 @@ class SmartPlannerQueryController
 
   Future<SmartPlannerResult> requestFollowUpResult({
     required String input,
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
   }) async {
@@ -239,6 +242,8 @@ class SmartPlannerQueryController
           isFollowUp: true,
         );
     _requireNonCrisisRoute(conversation.searchText);
+    final ({double? energy, EmotionalState? emotion}) authorized =
+        _authorizedCheckIn(energy: energy, emotion: emotion);
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
       searchText: conversation.searchText,
     );
@@ -246,8 +251,8 @@ class SmartPlannerQueryController
       kind: AssistantRequestKind.followUp,
       input: prompt,
       history: history,
-      energy: energy,
-      emotion: emotion,
+      energy: authorized.energy,
+      emotion: authorized.emotion,
       context: <String, Object?>{
         ...evidence.requestContext,
         'conversationTurnsUsed': conversation.historyTurnsUsed,
@@ -255,8 +260,8 @@ class SmartPlannerQueryController
     );
     final PlannerV2Response response = _buildPlannerResponse(
       input: prompt,
-      energy: energy,
-      emotion: emotion,
+      energy: authorized.energy,
+      emotion: authorized.emotion,
       contextWasProvided: true,
       conversation: conversation,
       evidence: evidence,
@@ -271,19 +276,21 @@ class SmartPlannerQueryController
   SmartPlannerResult localFallbackResult({
     required String input,
     required String message,
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required List<Map<String, String>> history,
     required String reason,
     AssistantRequestKind kind = AssistantRequestKind.planningGuidance,
   }) {
     _requireNonCrisisRoute(input);
+    final ({double? energy, EmotionalState? emotion}) authorized =
+        _authorizedCheckIn(energy: energy, emotion: emotion);
     final AssistantRequestEnvelope request = _requestContract(
       kind: kind,
       input: input,
       history: history,
-      energy: energy,
-      emotion: emotion,
+      energy: authorized.energy,
+      emotion: authorized.emotion,
       context: <String, Object?>{'fallbackReason': reason},
     );
     final PlannerV2Response base = buildPlannerResponse(
@@ -312,17 +319,19 @@ class SmartPlannerQueryController
 
   PlannerV2Response buildPlannerResponse({
     required String input,
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required bool contextWasProvided,
     List<Map<String, String>> history = const <Map<String, String>>[],
     String? reflection,
     bool isFollowUp = false,
   }) {
+    final ({double? energy, EmotionalState? emotion}) authorized =
+        _authorizedCheckIn(energy: energy, emotion: emotion);
     return _buildPlannerResponse(
       input: input,
-      energy: energy,
-      emotion: emotion,
+      energy: authorized.energy,
+      emotion: authorized.emotion,
       contextWasProvided: contextWasProvided,
       conversation: _PlannerConversationContext.resolve(
         input: input,
@@ -336,19 +345,20 @@ class SmartPlannerQueryController
 
   PlannerV2Response _buildPlannerResponse({
     required String input,
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required bool contextWasProvided,
     required _PlannerConversationContext conversation,
     required _PlannerEvidence evidence,
   }) {
-    final double boundedEnergy = energy.clamp(0.0, 1.0);
+    final double? boundedEnergy = energy?.clamp(0.0, 1.0).toDouble();
+    final double planningEnergy = boundedEnergy ?? 0.5;
     final _PlannerTopic topic = _detectTopic(conversation.searchText);
     final _PlannerStrategy strategy = _strategyFor(topic);
-    final _EffortProfile effort = _effortFor(boundedEnergy);
+    final _EffortProfile effort = _effortFor(planningEnergy);
     final PlannerOptionKind recommendation = _evidenceAwareRecommendation(
       base: _recommendedKind(energy: boundedEnergy, emotion: emotion),
-      energy: boundedEnergy,
+      energy: planningEnergy,
       evidence: evidence,
     );
     final String subject = evidence.focusSubject ?? conversation.subject;
@@ -363,9 +373,16 @@ class SmartPlannerQueryController
       (PlannerOption option) => option.kind == recommendation,
     );
     final List<String> adaptations = <String>[
-      _energyAdaptation(boundedEnergy, effort),
-      _emotionAdaptation(emotion),
-      'Used only your selected emotion; no emotion was inferred from your text.',
+      if (boundedEnergy != null)
+        _energyAdaptation(boundedEnergy, effort)
+      else
+        'No current energy check-in was provided; option sizes use a neutral planning fallback.',
+      if (emotion != null)
+        _emotionAdaptation(emotion)
+      else
+        'Emotional state was not used because consent is off or no state was selected.',
+      if (emotion != null)
+        'Used only your selected emotion; no emotion was inferred from your text.',
       evidence.hasStoredEvidence
           ? 'Grounded the plan in ${evidence.activeTasks.length} active task(s) and ${evidence.activeGoals.length} active goal(s) read from this account.'
           : 'No active saved task or goal was available to ground this check-in.',
@@ -373,7 +390,6 @@ class SmartPlannerQueryController
         'Used ${conversation.historyTurnsUsed} recent conversation turn(s) to keep this response connected to your earlier request.',
       'Kept every option reversible and left saving to an explicit Creator confirmation.',
     ];
-    final String receiptLabel = _emotionLabel(emotion);
     final DateTime observedAt = _ref.read(smartPlannerClockProvider)().toUtc();
 
     return PlannerV2Response(
@@ -383,8 +399,14 @@ class SmartPlannerQueryController
       ),
       mattersMost: evidence.mattersMost ?? strategy.mattersMost,
       verifiedEvidence: <String>[
-        'Current check-in energy set by you: ${(boundedEnergy * 100).round()}%.',
-        'Current check-in emotional state selected by you: $receiptLabel.',
+        if (boundedEnergy != null)
+          'Current check-in energy set by you: ${(boundedEnergy * 100).round()}%.'
+        else
+          'Current check-in energy was not provided.',
+        if (emotion != null)
+          'Current check-in emotional state selected by you: ${_emotionLabel(emotion)}.'
+        else
+          'Current emotional state was not used.',
         ...evidence.verifiedEvidence(observedAt),
         conversation.evidenceSummary(contextWasProvided: contextWasProvided),
         'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
@@ -612,8 +634,8 @@ class SmartPlannerQueryController
 
   static String _groundedRecommendationReason(
     PlannerOptionKind kind,
-    double energy,
-    EmotionalState emotion,
+    double? energy,
+    EmotionalState? emotion,
     _PlannerEvidence evidence,
   ) {
     final String base = _recommendationReason(kind, energy, emotion);
@@ -636,8 +658,8 @@ class SmartPlannerQueryController
     required AssistantRequestKind kind,
     required String input,
     required List<Map<String, String>> history,
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     Map<String, Object?> context = const <String, Object?>{},
   }) {
     return createAssistantRequestEnvelope(
@@ -647,12 +669,27 @@ class SmartPlannerQueryController
       input: input,
       history: history,
       context: <String, Object?>{
-        'energy': energy,
-        'emotion': emotion.name,
+        'energy': ?energy,
+        'emotion': ?emotion?.name,
+        'energyEvidence': energy == null ? 'unavailable' : 'user_reported',
+        'emotionEvidence': emotion == null ? 'unavailable' : 'user_reported',
         'responseContract': 'planner_v2',
         'persistenceMode': 'ephemeral_read_only',
         ...context,
       },
+    );
+  }
+
+  ({double? energy, EmotionalState? emotion}) _authorizedCheckIn({
+    required double? energy,
+    required EmotionalState? emotion,
+  }) {
+    final ConsentedHumanContext context = _ref.read(
+      consentedHumanContextProvider,
+    );
+    return (
+      energy: context.authorizeReportedEnergy(energy),
+      emotion: context.authorizeReportedEmotion(emotion),
     );
   }
 
@@ -748,17 +785,18 @@ class SmartPlannerQueryController
   }
 
   static PlannerOptionKind _recommendedKind({
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
   }) {
-    if (energy < 0.42 ||
+    if ((energy != null && energy < 0.42) ||
         emotion == EmotionalState.fatigued ||
         emotion == EmotionalState.anxious ||
         emotion == EmotionalState.scattered ||
         emotion == EmotionalState.negative) {
       return PlannerOptionKind.minimum;
     }
-    if (energy >= 0.82 &&
+    if (energy != null &&
+        energy >= 0.82 &&
         (emotion == EmotionalState.energized ||
             emotion == EmotionalState.engaged)) {
       return PlannerOptionKind.stretch;
@@ -768,16 +806,27 @@ class SmartPlannerQueryController
 
   static String _recommendationReason(
     PlannerOptionKind kind,
-    double energy,
-    EmotionalState emotion,
-  ) => switch (kind) {
-    PlannerOptionKind.minimum =>
-      'Your ${(energy * 100).round()}% energy and selected ${_emotionLabel(emotion)} state favor a low-friction start that preserves capacity.',
-    PlannerOptionKind.bestFit =>
-      'Your reported capacity supports meaningful progress without committing to the highest-cost option.',
-    PlannerOptionKind.stretch =>
-      'Your ${(energy * 100).round()}% energy and selected ${_emotionLabel(emotion)} state can support a deeper work cycle, while the smaller options remain available.',
-  };
+    double? energy,
+    EmotionalState? emotion,
+  ) {
+    if (energy == null && emotion == null) {
+      return 'No current capacity or emotional check-in was used, so the balanced option remains primary.';
+    }
+    final String energyCopy = energy == null
+        ? 'No current energy was provided'
+        : '${(energy * 100).round()}% energy was reported';
+    final String emotionCopy = emotion == null
+        ? 'no emotional state was used'
+        : '${_emotionLabel(emotion)} was selected';
+    return switch (kind) {
+      PlannerOptionKind.minimum =>
+        '$energyCopy and $emotionCopy, favoring a smaller reversible start.',
+      PlannerOptionKind.bestFit =>
+        '$energyCopy and $emotionCopy. The balanced option avoids assuming extra capacity.',
+      PlannerOptionKind.stretch =>
+        '$energyCopy and $emotionCopy, supporting a deeper option while smaller options remain available.',
+    };
+  }
 
   static _EffortProfile _effortFor(double energy) {
     if (energy < 0.42) {
@@ -1457,10 +1506,10 @@ PlannerV2Response _compatibilityPlannerResponse({
     recommendationReason: 'Compatibility response supplied by the caller.',
     nextStep: safeMessage,
     adaptationReceipt: PlannerAdaptationReceipt(
-      userSetEnergy: 0.5,
-      userSelectedEmotion: EmotionalState.neutral,
+      userSetEnergy: null,
+      userSelectedEmotion: null,
       adjustments: const <String>[
-        'Compatibility mode did not infer emotional state.',
+        'Compatibility mode did not use energy or infer emotional state.',
       ],
     ),
     origin: processingMode == AIProcessingMode.external

@@ -10,7 +10,7 @@ import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
-import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,10 +32,13 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   const List<MemoryEntity> memories = <MemoryEntity>[];
   final notifications = ref.watch(notificationProvider);
   final profile = ref.watch(profileProvider);
-  final siState = ref.watch(siStateProvider);
-  final EmotionalState emotion = ref.watch(emotionProvider);
+  final ConsentedHumanContext humanContext = ref.watch(
+    consentedHumanContextProvider,
+  );
+  final siState = humanContext.siState;
+  final EmotionalState? emotion = humanContext.emotion;
   final trajectory = ref.watch(trajectorySummaryProvider);
-  final double energy = ref.watch(energyProvider);
+  final double energy = siState.energy;
   final DateTime observedAt = DateTime.now();
   // Habits feed Smart Planner and SI. Read non-blocking: if habit storage has
   // not resolved (or failed), aggregation continues with none rather than
@@ -87,7 +90,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
         skippedTaskCount: logs
             .where((entry) => entry.source == 'task_skipped')
             .length,
-        emotion: emotion.name,
+        emotion: emotion?.name ?? 'unknown',
         signalsSummary: signalBundle.summary,
       );
 
@@ -111,7 +114,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
           energy: siState.energy,
           attention: (1 - siState.fatigue).clamp(0.0, 1.0),
           fatigue: siState.fatigue,
-          mood: emotion.name,
+          mood: emotion?.name ?? 'unknown',
           avoidOverwhelm: planningSignals.overwhelm,
           frictionScore: planningSignals.friction ? .8 : .2,
           highFriction: planningSignals.friction,
