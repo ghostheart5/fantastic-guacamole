@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/ui/widgets/typing_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -107,5 +108,51 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('SmartPressable activates from keyboard focus', (
+    WidgetTester tester,
+  ) async {
+    int activations = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SmartPressable(
+            semanticLabel: 'Keyboard action',
+            onTap: () => activations += 1,
+            child: const SizedBox(width: 48, height: 48),
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+
+    expect(activations, 1);
+  });
+
+  testWidgets('SmartPressable skips press animation when motion is reduced', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: Scaffold(
+            body: SmartPressable(
+              semanticLabel: 'Reduced motion action',
+              onTap: () {},
+              child: const SizedBox(width: 48, height: 48),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.bySemanticsLabel('Reduced motion action'));
+    await tester.pump();
+
+    expect(tester.binding.transientCallbackCount, 0);
   });
 }

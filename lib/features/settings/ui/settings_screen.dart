@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
+import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
@@ -105,6 +106,29 @@ class SettingsScreen extends ConsumerWidget {
     final bool? voicePermissionGranted = ref.watch(
       voicePermissionStatusProvider,
     );
+    final String? telemetryAccountId = ref
+        .watch(authUserProvider)
+        .asData
+        ?.value
+        ?.id;
+    final AsyncValue<TelemetryConsent>? telemetryConsentAsync =
+        telemetryAccountId == null
+        ? null
+        : ref.watch(telemetryConsentProvider(telemetryAccountId));
+    final TelemetryConsent telemetryConsent =
+        telemetryConsentAsync?.asData?.value ?? const TelemetryConsent();
+
+    Future<void> saveTelemetryConsent(TelemetryConsent next) async {
+      final String? accountId = telemetryAccountId;
+      if (accountId == null) {
+        return;
+      }
+      await ref
+          .read(settingsUiActionsProvider)
+          .saveTelemetryConsent(accountId: accountId, consent: next);
+      ref.invalidate(telemetryConsentProvider(accountId));
+    }
+
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSettingsControlPlane,
       child: Scaffold(
@@ -286,6 +310,55 @@ class SettingsScreen extends ConsumerWidget {
                   children: <Widget>[
                     const _CloudDataControlSection(),
                     const SizedBox(height: 10),
+                    if (telemetryAccountId != null) ...<Widget>[
+                      _Section(
+                        label: 'PRIVATE DIAGNOSTICS',
+                        accentColor: AppColors.neonCyan,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Text(
+                              'Choose whether this account may share anonymous usage or crash diagnostics. Both services remain off in this release until their separate launch gates are approved.',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _NeonToggleTile(
+                              title: 'Anonymous usage diagnostics',
+                              value: telemetryConsent.analytics,
+                              onChanged:
+                                  telemetryConsentAsync?.isLoading == true
+                                  ? null
+                                  : (bool value) => unawaited(
+                                      saveTelemetryConsent(
+                                        telemetryConsent.copyWith(
+                                          analytics: value,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                            _NeonToggleTile(
+                              title: 'Anonymous crash diagnostics',
+                              value: telemetryConsent.crashReporting,
+                              onChanged:
+                                  telemetryConsentAsync?.isLoading == true
+                                  ? null
+                                  : (bool value) => unawaited(
+                                      saveTelemetryConsent(
+                                        telemetryConsent.copyWith(
+                                          crashReporting: value,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     _Section(
                       label: 'ACCOUNT & DEVICE',
                       accentColor: AppColors.neonViolet,

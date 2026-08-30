@@ -95,29 +95,24 @@ void main() {
     }
   });
 
-  testWidgets('localizes pre-account legal actions and semantics in Spanish', (
-    WidgetTester tester,
-  ) async {
-    final SemanticsHandle semantics = tester.ensureSemantics();
-    final _LoginHarness harness = await _pumpLoginRouter(
-      tester,
-      initialLocation: RoutePaths.login,
-      locale: const Locale('es'),
-    );
-    addTearDown(harness.dispose);
+  testWidgets(
+    'Spanish device locale falls back to the English release journey',
+    (WidgetTester tester) async {
+      final SemanticsHandle semantics = tester.ensureSemantics();
+      final _LoginHarness harness = await _pumpLoginRouter(
+        tester,
+        initialLocation: RoutePaths.login,
+        locale: const Locale('es'),
+      );
+      addTearDown(harness.dispose);
 
-    expect(find.text('Privacidad'), findsOneWidget);
-    expect(find.text('Términos'), findsOneWidget);
-    expect(
-      find.bySemanticsLabel('Abrir política de privacidad'),
-      findsOneWidget,
-    );
-    expect(
-      find.bySemanticsLabel('Abrir términos del servicio'),
-      findsOneWidget,
-    );
-    semantics.dispose();
-  });
+      expect(find.text('Privacy'), findsOneWidget);
+      expect(find.text('Terms'), findsOneWidget);
+      expect(find.bySemanticsLabel('Open Privacy Policy'), findsOneWidget);
+      expect(find.bySemanticsLabel('Open Terms of Service'), findsOneWidget);
+      semantics.dispose();
+    },
+  );
 }
 
 Future<_LoginHarness> _pumpLoginRouter(

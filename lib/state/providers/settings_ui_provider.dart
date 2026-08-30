@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
@@ -132,6 +133,13 @@ class SettingsUiActions {
     return false;
   }
 
+  Future<TelemetryConsent> saveTelemetryConsent({
+    required String accountId,
+    required TelemetryConsent consent,
+  }) {
+    return TelemetryConsentStore().save(accountId: accountId, consent: consent);
+  }
+
   Future<String> exportBackupRecoveryKey() {
     return _backupCipher().exportRecoveryKey();
   }
@@ -152,6 +160,11 @@ class SettingsUiActions {
 final settingsUiActionsProvider = Provider<SettingsUiActions>((Ref ref) {
   return SettingsUiActions(ref);
 });
+
+final telemetryConsentProvider =
+    FutureProvider.family<TelemetryConsent, String>(
+      (Ref ref, String accountId) => TelemetryConsentStore().load(accountId),
+    );
 
 const String _cloudSyncPreferenceKey = 'cloud_sync_enabled_v1';
 

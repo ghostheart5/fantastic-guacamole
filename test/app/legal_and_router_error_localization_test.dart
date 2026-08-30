@@ -379,28 +379,12 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     callToAction: 'Open Hosted Privacy Policy',
   ),
   _LocalizedRouteExpectation(
-    path: RoutePaths.privacy,
-    locale: Locale('es'),
-    title: 'Política de privacidad',
-    body:
-        'ChronoSpark publica su política de privacidad autorizada en la URL HTTPS pública de abajo. Usa la política alojada para consultar el manejo de datos, la retención y los términos de soporte actuales.',
-    callToAction: 'Abrir política de privacidad alojada',
-  ),
-  _LocalizedRouteExpectation(
     path: RoutePaths.terms,
     locale: Locale('en'),
     title: 'Terms of Service',
     body:
         'ChronoSpark maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
     callToAction: 'Open Hosted Terms',
-  ),
-  _LocalizedRouteExpectation(
-    path: RoutePaths.terms,
-    locale: Locale('es'),
-    title: 'Términos de servicio',
-    body:
-        'ChronoSpark mantiene sus Términos de servicio actuales en la página HTTPS pública de abajo para que las versiones de lanzamiento y las fichas de tienda apunten a la misma fuente de verdad.',
-    callToAction: 'Abrir términos alojados',
   ),
   _LocalizedRouteExpectation(
     path: RoutePaths.deleteAccount,
@@ -411,28 +395,12 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     callToAction: 'Open Hosted Delete Account Page',
   ),
   _LocalizedRouteExpectation(
-    path: RoutePaths.deleteAccount,
-    locale: Locale('es'),
-    title: 'Eliminar cuenta',
-    body:
-        'ChronoSpark publica los pasos para eliminar una cuenta en la URL HTTPS pública de abajo. Usa la página alojada para enviar una solicitud y revisar los detalles de eliminación y retención.',
-    callToAction: 'Abrir página alojada para eliminar cuenta',
-  ),
-  _LocalizedRouteExpectation(
     path: RoutePaths.support,
     locale: Locale('en'),
     title: 'Support',
     body:
         'ChronoSpark publishes release-facing support and account assistance at the public HTTPS URL below so store reviewers and users can reach the current support process from every build.',
     callToAction: 'Open Hosted Support Page',
-  ),
-  _LocalizedRouteExpectation(
-    path: RoutePaths.support,
-    locale: Locale('es'),
-    title: 'Soporte',
-    body:
-        'ChronoSpark publica soporte y ayuda de cuenta para lanzamientos en la URL HTTPS pública de abajo para que revisores de tienda y usuarios puedan llegar al proceso de soporte actual desde cada versión.',
-    callToAction: 'Abrir página de soporte alojada',
   ),
 ];
 
@@ -444,13 +412,6 @@ _routerErrorExpectations = <_RouterErrorExpectation>[
     body:
         'The link does not match an available ChronoSpark screen. We recorded a safe diagnostic event without exposing technical details.',
     recoveryLabel: 'Return to Nexus',
-  ),
-  _RouterErrorExpectation(
-    locale: Locale('es'),
-    title: 'No pudimos abrir ese enlace',
-    body:
-        'El enlace no coincide con una pantalla disponible de ChronoSpark. Registramos un diagnóstico seguro sin mostrar detalles técnicos.',
-    recoveryLabel: 'Volver a Nexus',
   ),
 ];
 
@@ -464,15 +425,5 @@ const List<_AboutExpectation> _aboutExpectations = <_AboutExpectation>[
     voiceSectionTitle: 'Voice Features',
     voiceSectionBody:
         'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
-  ),
-  _AboutExpectation(
-    locale: Locale('es'),
-    title: 'ACERCA DE CHRONOSPARK',
-    subtitle:
-        'Un planificador adaptativo creado para aportar claridad, impulso y una ejecución reflexiva.',
-    firstSectionTitle: 'Qué hace',
-    voiceSectionTitle: 'Funciones de voz',
-    voiceSectionBody:
-        'El acceso al micrófono permite usar voz a texto de forma opcional en Planificador Inteligente y Consola SI. El audio se usa solo después de que inicias una acción de voz y permanece desactivado durante la planificación normal.',
   ),
 ];

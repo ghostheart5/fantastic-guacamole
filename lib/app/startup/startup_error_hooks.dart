@@ -49,14 +49,11 @@ class AppBootstrapper {
         errorDetails.exception,
         errorDetails.stack,
       );
-      if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-        FirebaseCrashlytics.instance.recordError(
-          Exception(exceptionText),
-          errorDetails.stack,
-          reason: 'Flutter framework error',
-          fatal: true,
-        );
-      }
+      Logger.recordDiagnosticCode(
+        code: 'startup.flutter_framework_error',
+        stackTrace: errorDetails.stack,
+        fatal: true,
+      );
     };
 
     PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
@@ -75,14 +72,11 @@ class AppBootstrapper {
         ),
       );
       ErrorBoundary.reportGlobalError(error, stack);
-      if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-        FirebaseCrashlytics.instance.recordError(
-          Exception(errorText),
-          stack,
-          reason: 'Platform dispatcher uncaught error',
-          fatal: true,
-        );
-      }
+      Logger.recordDiagnosticCode(
+        code: 'startup.platform_dispatcher_error',
+        stackTrace: stack,
+        fatal: true,
+      );
       return true;
     };
 
@@ -106,13 +100,11 @@ class AppBootstrapper {
       ),
     );
     ErrorBoundary.reportGlobalError(error, stack);
-    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      FirebaseCrashlytics.instance.recordError(
-        Exception('Uncaught zone error (${error.runtimeType})'),
-        null,
-        fatal: true,
-      );
-    }
+    Logger.recordDiagnosticCode(
+      code: 'startup.uncaught_zone_error',
+      stackTrace: stack,
+      fatal: true,
+    );
   }
 }
 
@@ -133,10 +125,3 @@ String _formatGlobalErrorForDiagnostics({
   }
   return '$prefix (${error.runtimeType})';
 }
-
-bool get _supportsCrashlytics =>
-    Env.enableCrashReporting &&
-    !kIsWeb &&
-    (defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.macOS);

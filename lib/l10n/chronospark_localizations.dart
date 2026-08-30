@@ -10,10 +10,7 @@ class ChronoSparkLocalizations {
   static const LocalizationsDelegate<ChronoSparkLocalizations> delegate =
       _ChronoSparkLocalizationsDelegate();
 
-  static const List<Locale> supportedLocales = <Locale>[
-    Locale('en'),
-    Locale('es'),
-  ];
+  static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
   static ChronoSparkLocalizations of(BuildContext context) =>
       Localizations.of<ChronoSparkLocalizations>(

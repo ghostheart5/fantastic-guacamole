@@ -346,61 +346,15 @@ Future<void> _captureDiagnosticsContext(
       message: 'Captured app/device diagnostics context',
       data: context.toMap(),
     );
-
-    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      await FirebaseCrashlytics.instance.setCustomKey(
-        'app_version',
-        context.version,
-      );
-      if (cancellationToken.isCancelled) {
-        return;
-      }
-      await FirebaseCrashlytics.instance.setCustomKey(
-        'build_number',
-        context.buildNumber,
-      );
-      if (cancellationToken.isCancelled) {
-        return;
-      }
-      await FirebaseCrashlytics.instance.setCustomKey(
-        'platform',
-        context.platform,
-      );
-      if (cancellationToken.isCancelled) {
-        return;
-      }
-      await FirebaseCrashlytics.instance.setCustomKey(
-        'os_version',
-        context.osVersion,
-      );
-      if (cancellationToken.isCancelled) {
-        return;
-      }
-      await FirebaseCrashlytics.instance.setCustomKey(
-        'device_model',
-        context.model,
-      );
-      if (cancellationToken.isCancelled) {
-        return;
-      }
-      await FirebaseCrashlytics.instance.setCustomKey(
-        'is_physical_device',
-        context.isPhysicalDevice,
-      );
-    }
-  } on Object catch (error, stackTrace) {
+  } on Object catch (_, stackTrace) {
     if (cancellationToken.isCancelled) {
       return;
     }
     Logger.warn('Diagnostics context capture failed (non-fatal).');
-    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      FirebaseCrashlytics.instance.recordError(
-        error,
-        stackTrace,
-        reason: 'Failed to capture diagnostics context',
-        fatal: false,
-      );
-    }
+    Logger.recordDiagnosticCode(
+      code: 'startup.diagnostics_context_capture_failed',
+      stackTrace: stackTrace,
+    );
   }
 }
 
