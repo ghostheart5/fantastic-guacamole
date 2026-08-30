@@ -139,6 +139,105 @@ void main() {
     expect(response.scenarios, isEmpty);
   });
 
+  test('normal-language task wording changes the grounded answer', () {
+    final SIV2Response background = const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: 'What should I do about the background task?',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+    final SIV2Response launch = const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: 'What should I do about the launch task?',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+
+    expect(background.directAnswer, contains('Background task'));
+    expect(background.recommendation, contains('Background task'));
+    expect(launch.directAnswer, contains('Launch task'));
+    expect(background.directAnswer, isNot(launch.directAnswer));
+    expect(background.recommendation, isNot(launch.recommendation));
+  });
+
+  test('a named goal never borrows an unrelated task recommendation', () {
+    final SIV2Response response = const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: 'What should I do for the Prepare follow-up goal?',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+
+    expect(response.directAnswer, contains('Prepare follow-up'));
+    expect(response.directAnswer, isNot(contains('Launch task')));
+    expect(response.recommendation, contains('Prepare follow-up'));
+  });
+
+  test('different planning questions produce materially different answers', () {
+    SIV2Response ask(String text) => const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: text,
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+
+    final SIV2Response workload = ask('How overloaded is my workload?');
+    final SIV2Response progress = ask(
+      'Am I making progress on the Ship release goal?',
+    );
+    final SIV2Response timeline = ask(
+      'What happened at the release checkpoint?',
+    );
+    final SIV2Response unsupported = ask('What is the weather outside?');
+
+    expect(workload.directAnswer, contains('2 active tasks'));
+    expect(progress.directAnswer, contains('50% average'));
+    expect(timeline.directAnswer, contains('Release checkpoint'));
+    expect(timeline.directAnswer, contains('status "active"'));
+    expect(unsupported.directAnswer, contains('cannot answer that question'));
+    expect(<String>{
+      workload.directAnswer,
+      progress.directAnswer,
+      timeline.directAnswer,
+      unsupported.directAnswer,
+    }, hasLength(4));
+  });
+
+  test('a short follow-up resolves against recent user wording', () {
+    final SIV2Query query = SIV2Query.fromUserInput(
+      rawText: 'Why?',
+      selectedIntent: SIV2Intent.answer,
+      selectedSources: SIV2Source.values.toSet(),
+      timeRange: SIV2TimeRange.all,
+      priorUserTurns: const <String>['Should I focus on the Background task?'],
+    );
+    final SIV2Response response = const SIV2Engine().analyze(
+      query: query,
+      snapshot: _snapshot(now),
+      now: now,
+    );
+
+    expect(response.directAnswer, contains('Background task'));
+    expect(query.conversationText, contains('Should I focus'));
+    expect(() => query.priorUserTurns.add('mutate'), throwsUnsupportedError);
+  });
+
   test('snapshot revision covers fields that can change analysis', () {
     final SIV2EvidenceSnapshot base = _snapshot(now);
     final SIV2EvidenceSnapshot changedTaskLink = _snapshot(

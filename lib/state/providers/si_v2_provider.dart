@@ -65,7 +65,7 @@ final class SIV2QueryService implements SIV2QueryPort {
 
   @override
   Future<SIV2Response> analyze(SIV2Query query) async {
-    if (CrisisDetectionPolicy.detects(query.rawText)) {
+    if (CrisisDetectionPolicy.detects(query.conversationText)) {
       throw const AssistantSafetyRouteException(
         'crisis_route_required',
         'SI Console must show the dedicated crisis support route.',
@@ -142,7 +142,7 @@ final class _ReleaseControlledSIV2QueryPort implements SIV2QueryPort {
 
   @override
   Future<SIV2Response> analyze(SIV2Query query) async {
-    if (CrisisDetectionPolicy.detects(query.rawText)) {
+    if (CrisisDetectionPolicy.detects(query.conversationText)) {
       throw const AssistantSafetyRouteException(
         'crisis_route_required',
         'SI Console must show the dedicated crisis support route.',

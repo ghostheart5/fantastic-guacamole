@@ -394,13 +394,23 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _input.clear();
       return;
     }
+    final List<String> priorUserTurns = _messages
+        .where((_Msg message) => message.isUser)
+        .map((_Msg message) => message.text.trim())
+        .where((String value) => value.isNotEmpty)
+        .toList(growable: false);
     _input.clear();
 
     _safeSetState(() => _messages.add(_Msg(text: text, isUser: true)));
     _scrollToBottom();
     _safeSetState(() => _typing = true);
 
-    _dispatchQuery(text);
+    _dispatchQuery(
+      text,
+      priorUserTurns: priorUserTurns.length <= 4
+          ? priorUserTurns
+          : priorUserTurns.sublist(priorUserTurns.length - 4),
+    );
   }
 
   bool _handleLocalShortcut(String text) {
@@ -494,7 +504,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
   }
 
-  Future<void> _dispatchQuery(String text) async {
+  Future<void> _dispatchQuery(
+    String text, {
+    required List<String> priorUserTurns,
+  }) async {
     try {
       final SIV2Query query = SIV2Query.fromUserInput(
         rawText: text,
@@ -503,6 +516,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         timeRange: _timeRange,
         entityFilter: _entityFilter.text,
         scenarioAssumption: _scenarioAssumption.text,
+        priorUserTurns: priorUserTurns,
       );
       final SIV2Response response = await ref
           .read(siV2QueryServiceProvider)

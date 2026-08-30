@@ -65,6 +65,7 @@ void main() {
       expect(port.queries, hasLength(2));
       expect(port.queries[0].rawText, 'What should I do now?');
       expect(port.queries[1].rawText, 'What should I do now, exactly?');
+      expect(port.queries[1].priorUserTurns, contains('What should I do now?'));
       expect(find.byKey(const Key('si-v2-response')), findsOneWidget);
 
       final SIV2Response malformed = await port.analyze(

@@ -68,6 +68,7 @@ final class SIV2Query {
     required this.timeRange,
     String? entityFilter,
     List<String> assumptions = const <String>[],
+    List<String> priorUserTurns = const <String>[],
   }) : rawText = rawText.trim(),
        sources = Set<SIV2Source>.unmodifiable(sources),
        entityFilter = _trimToNull(entityFilter),
@@ -75,7 +76,8 @@ final class SIV2Query {
          assumptions
              .map((String item) => item.trim())
              .where((String item) => item.isNotEmpty),
-       ) {
+       ),
+       priorUserTurns = _normalizePriorUserTurns(priorUserTurns) {
     if (schemaVersion != siV2SchemaVersion || this.rawText.isEmpty) {
       throw ArgumentError('SI V2 queries require a supported schema and text.');
     }
@@ -93,6 +95,7 @@ final class SIV2Query {
     required SIV2TimeRange timeRange,
     String? entityFilter,
     String? scenarioAssumption,
+    List<String> priorUserTurns = const <String>[],
   }) {
     final String normalized = rawText.trim().toLowerCase();
     final Set<SIV2Source> shortcutSources = <SIV2Source>{};
@@ -145,6 +148,7 @@ final class SIV2Query {
         if (_trimToNull(scenarioAssumption) case final String assumption)
           assumption,
       ],
+      priorUserTurns: priorUserTurns,
     );
   }
 
@@ -155,6 +159,9 @@ final class SIV2Query {
   final SIV2TimeRange timeRange;
   final String? entityFilter;
   final List<String> assumptions;
+  final List<String> priorUserTurns;
+
+  String get conversationText => <String>[...priorUserTurns, rawText].join(' ');
 }
 
 final class SIV2TaskEvidence {
@@ -628,6 +635,22 @@ final class SIV2Response {
 String? _trimToNull(String? value) {
   final String normalized = value?.trim() ?? '';
   return normalized.isEmpty ? null : normalized;
+}
+
+List<String> _normalizePriorUserTurns(List<String> values) {
+  final List<String> normalized = values
+      .map((String value) => value.replaceAll(RegExp(r'\s+'), ' ').trim())
+      .where((String value) => value.isNotEmpty)
+      .map(
+        (String value) => value.length <= 240
+            ? value
+            : '${value.substring(0, 239).trimRight()}…',
+      )
+      .toList(growable: false);
+  final List<String> bounded = normalized.length <= 4
+      ? normalized
+      : normalized.sublist(normalized.length - 4);
+  return List<String>.unmodifiable(bounded);
 }
 
 void _validateEntityIdentity(
