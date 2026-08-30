@@ -33,4 +33,26 @@ Formatting candidates are `test/data/repositories/google_play_paywall_repository
 
 ## Phase Evidence
 
-No launch-readiness phase has been verified yet.
+### Phase 0 - Unsafe Capability Containment
+
+- Code commit: `68bc277b936a49e890a4c1d94bdc05d5a087353d`
+- Environment: same local Windows toolchain documented above.
+- Evidence boundary: source, host tests, and local validators only. No production deployment, signed artifact, Play, device journey, or human UAT claim.
+
+| Gate | Status | Command/evidence | Result boundary |
+|---|---|---|---|
+| Formatting | PASS | `dart format --output=none --set-exit-if-changed lib test integration_test` | 955 files, 0 changed; the three baseline formatting failures were repaired mechanically |
+| Analyzer | PASS | `flutter analyze --fatal-infos` | No issues found |
+| Full Flutter suite | PASS | `flutter test --no-pub` | 1,605 passed in 3:57; one QA-define-only test skipped |
+| QA define-only test | PASS | `flutter test --no-pub --dart-define-from-file=tool/qa_defines.json test/config/env_mode_resolution_test.dart` | 15 passed, 0 skipped |
+| Containment matrix | PASS | Targeted config, sync, AI, wallet, paywall, route, settings, Profile, entitlement, and Firebase tests | Direct calls and alternate app routes fail closed; inferred identity remains hidden |
+| Architecture guard | PASS | `powershell -NoProfile -ExecutionPolicy Bypass -File .\check_architecture.ps1` | No service-layer boundary violations |
+| Secret guards | PASS | `security_secret_guard.ps1`; `secret_content_guard.ps1` | Both passed |
+| Release/version guards | PASS | `release_guard.ps1`; `version_consistency_guard.ps1` | Both passed |
+| GitHub workflow validator | PASS | `dart run tool/validate_github_workflows.dart` | 11 workflows passed |
+| Maestro validator | PASS | `dart run tool/validate_maestro_flows.dart` | 16 files passed |
+| Edge Function gate | PASS | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\edge_function_gate.ps1 -RunTests` | Six functions type-checked; 30 tests passed |
+| Diff hygiene | PASS | `git diff --check` and staged diff check | No whitespace errors |
+| Exact-checkpoint Supabase database gate | NOT_RUN | Requires a new exact-commit CI/local database run | Baseline GitHub run does not transfer to `68bc277` |
+| Exact-checkpoint full GitHub CI | NOT_RUN | No remote run requested or triggered | Local PASS is not remote CI evidence |
+| Android/device/human evidence | NOT_RUN | Reserved for Phase 10 | Containment is not launch readiness |

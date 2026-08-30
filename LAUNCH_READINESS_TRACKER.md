@@ -15,24 +15,26 @@
 
 Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is not a completed product repair.
 
-## Phase 0 Plan
+## Phase 0 Checkpoint
 
-- Planned scope: release configuration, direct-call guards, truthful unsupported-state copy, and tests for cloud restore/sync, subscriptions/paywall, external AI/credits, telemetry defaults, and unsupported personal metrics.
-- Planned migrations: none. Production migrations require separate approval.
-- Planned tests: direct provider/service bypass tests, release-config feature-state tests, configuration validation, analyzer, architecture guard, full unit/widget suite, and relevant security/release guards.
-- Risks: hiding a reachable entry point without blocking its underlying service; changing debug/test behavior; conflating containment with permanent repair.
-- Rollback: revert only the Phase 0 checkpoint commit. No user data transformation is permitted in this phase.
+- Commit: `68bc277b936a49e890a4c1d94bdc05d5a087353d`
+- Scope: non-overridable launch switches, route/provider/service guards, truthful unavailable states, native permission/telemetry defaults, inferred-identity hiding, and regression tests.
+- Migrations: none. User data was not transformed.
+- Feature state: cloud sync/restore, subscriptions/paywall, external AI, credit spending, Analytics, Crashlytics, and inferred identity are disabled.
+- Verification: formatting, analyzer, 1,605-test full suite, QA-define test, architecture/security/release/version guards, workflow/Maestro validators, and Edge Function gate passed.
+- Remaining risk: containment is not product completion; deletion, consent, restore integrity, billing, AI safety, device evidence, and external production gates remain open.
+- Rollback: revert only `68bc277b936a49e890a4c1d94bdc05d5a087353d`. Never re-enable an unsafe capability as a side effect of rollback.
 
 ## Findings
 
 | ID | Severity | Finding | Phase | Status | Feature state | Repair commit | Evidence |
 |---|---|---|---:|---|---|---|---|
 | P0-01 | P0 | Emotional and governed-memory consent controls are not authoritative | 1 | NOT_RUN | contained pending enforcement | | Audit P0-1 |
-| P0-02 | P0 | Fresh users receive invented personal state and identity | 0/1 | NOT_RUN | partially repaired at baseline | `4649489` | Delta audit required |
-| P0-03 | P0 | Cloud restore can replace valid local data with partial/corrupt data | 0/2 | NOT_RUN | must remain disabled | | Audit P0-3 |
+| P0-02 | P0 | Fresh users receive invented personal state and identity | 0/1 | PASS | fresh metrics remain unmeasured; inferred identity hidden | `4649489`, `68bc277` | Nexus/Profile tests and containment test |
+| P0-03 | P0 | Cloud restore can replace valid local data with partial/corrupt data | 0/2 | PASS | restore disabled; integrity repair still pending | `68bc277` | Direct service/provider containment tests |
 | P0-04 | P0 | Client reports account deletion complete for pending `202` | 2 | NOT_RUN | existing flow unsafe | | Audit P0-4 |
-| P0-05 | P0 | Premium offer does not visibly unlock advertised benefits | 0/8 | NOT_RUN | must remain disabled | | Audit P0-5 |
-| P0-06 | P0 | External generative AI is dormant and unsafe to expose | 0/7 | NOT_RUN | must remain disabled | | Audit P0-6 |
+| P0-05 | P0 | Premium offer does not visibly unlock advertised benefits | 0/8 | PASS | billing permission, route, UI, provider, and actions disabled | `68bc277` | Paywall, route, settings, and native tests |
+| P0-06 | P0 | External generative AI is dormant and unsafe to expose | 0/7 | PASS | external model calls and credit spending disabled | `68bc277` | Chat agent, controller, wallet, and settings tests |
 | P0-07 | P0 | Crisis and distress routing is too brittle for emotional claims | 7 | NOT_RUN | external AI remains disabled | | Audit P0-7 |
 | P0-08 | P0 | Exact candidate lacks complete app CI and device evidence | 10 | NOT_RUN | release blocked | | Audit P0-8 |
 | BILL-01 | P1 | Purchase lineage and lifecycle ordering have authority edge cases | 8 | NOT_RUN | paywall disabled | | Audit P1 |
@@ -45,11 +47,11 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 | ARCH-02 | P1 | Skipped tasks can reappear as actionable | 5 | NOT_RUN | unsafe behavior | | Architecture audit |
 | ARCH-03 | P1 | Schedule/deadline separation and nullable clearing are incomplete | 4/5 | NOT_RUN | partial repair | | Architecture audit |
 | DATA-01 | P1 | Full backup omits advertised whole-person domains | 2/4 | NOT_RUN | restore disabled | | Data audit |
-| DATA-02 | P0 | Sync maps errors to empty and can overwrite newer cloud state | 0/2 | NOT_RUN | sync disabled | | Data audit |
+| DATA-02 | P0 | Sync maps errors to empty and can overwrite newer cloud state | 0/2 | PASS | sync disabled; data repair still pending | `68bc277` | Direct service and provider containment tests |
 | DATA-03 | P1 | Corrupt local stores can be treated as empty and overwritten | 2 | NOT_RUN | existing data preserved | | Data audit |
 | DATA-04 | P1 | Persistence is global, fragmented, and serializer versions differ | 2/4 | NOT_RUN | no migration yet | | Data audit |
 | SEC-01 | P1 | `ai_content_reports` lacks explicit fresh-project service grants | 2 | NOT_RUN | migration pending approval | | Security audit |
-| PRIV-01 | P0 | Analytics/Crashlytics default on without real user control | 0/9 | NOT_RUN | must default off | | Privacy audit |
+| PRIV-01 | P0 | Analytics/Crashlytics default on without real user control | 0/9 | PASS | native and Dart collection paths default off | `68bc277` | Static native tests, Env tests, Firebase tests |
 | PRIV-02 | P1 | AI response retention and disclosure exceed stated minimization | 7/9 | NOT_RUN | AI disabled | | Privacy audit |
 | SEC-02 | P1 | Storage permits arbitrary own-prefix uploads | 2 | NOT_RUN | sync/restore disabled | | Security audit |
 | SEC-03 | P1 | Deletion reauthentication is not exact-session bound | 2 | NOT_RUN | server change pending approval | | Security audit |

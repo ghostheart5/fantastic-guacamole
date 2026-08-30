@@ -18,6 +18,8 @@
 
 ## Phase 0 Rollback
 
-- Expected data migration: none.
-- Expected user-data mutation: none.
-- Method: revert only the Phase 0 commit, rerun containment tests, and confirm unsafe features remain unreachable before any further release work.
+- Commit: `68bc277b936a49e890a4c1d94bdc05d5a087353d`.
+- Data migration: none.
+- User-data mutation: none.
+- Method: create a reviewed `git revert 68bc277b936a49e890a4c1d94bdc05d5a087353d` commit, then rerun containment tests.
+- Safety condition: cloud restore/sync, subscriptions, external AI, credit spending, telemetry, and inferred identity must remain unreachable after any rollback. If reverting would re-enable them, stop and use a forward containment fix instead.

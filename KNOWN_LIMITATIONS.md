@@ -2,6 +2,8 @@
 
 Current verdict: `NO-GO - NOT READY`.
 
+Phase 0 containment is active at `68bc277`: cloud sync/restore, subscriptions, external AI, credit spending, Analytics, Crashlytics, and inferred identity are disabled. This reduces pilot risk but does not repair the underlying product, data, billing, privacy, or safety gaps.
+
 - ChronoSpark is not yet a coherent whole-person AI/SI companion.
 - External generative AI is not a reachable or approved product surface.
 - Cloud restore and multi-device sync are not safe to expose.
