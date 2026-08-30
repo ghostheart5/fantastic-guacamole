@@ -1,20 +1,23 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/planner_explanation_contract.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planner_explanation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
@@ -50,12 +53,17 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   String? _followUpError;
   String? _guidanceError;
   String? _plannerActionStatus;
+  String? _plannerExplanationError;
+  PlannerExplanationPacket? _pendingExplanationPacket;
+  PlannerExplanationQuote? _pendingExplanationQuote;
+  PlannerExplanationResult? _plannerExplanationResult;
   final List<_Exchange> _followUps = [];
   bool _saved = false;
   bool _gettingPlanningGuidance = false;
   bool _sendingFollowUp = false;
   bool _showWhy = false;
   bool _showEvidence = false;
+  bool _requestingPlannerExplanation = false;
 
   List<_Exchange> get _visibleFollowUps {
     const int maxVisibleFollowUps = 20;
@@ -97,6 +105,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       final double? energy = request.energy;
       if (energy != null) _energy = energy;
       _saved = false;
+      _clearPlannerExplanationState();
     });
     unawaited(_getPlanningGuidance());
   }
@@ -142,8 +151,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       smartPlannerQueryControllerProvider,
     );
 
-    if (planner.detectsCrisis(notes) && mounted) {
-      await showCrisisDialog(context);
+    if (!await _confirmEmotionalSafetyRoute(notes, planner)) {
       return;
     }
 
@@ -180,6 +188,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _planningGuidanceMessage = fallback.message;
         _plannerResponse = fallback.plannerResponse;
         _operatingReceipt = fallback.operatingReceipt;
+        _clearPlannerExplanationState();
       });
       return;
     }
@@ -196,6 +205,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       _plannerActionStatus = null;
       _showWhy = false;
       _showEvidence = false;
+      _clearPlannerExplanationState();
     });
     _recordOperatingReceiptShown(result.operatingReceipt);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -222,9 +232,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       smartPlannerQueryControllerProvider,
     );
 
-    if (planner.detectsCrisis(text)) {
-      if (!mounted) return;
-      await showCrisisDialog(context);
+    if (!await _confirmEmotionalSafetyRoute(text, planner)) {
       return;
     }
     _followUpController.clear();
@@ -250,6 +258,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _showWhy = false;
         _showEvidence = false;
         _plannerActionStatus = null;
+        _clearPlannerExplanationState();
         _sendingFollowUp = false;
       });
       _recordOperatingReceiptShown(result.operatingReceipt);
@@ -283,6 +292,26 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       });
       ErrorBoundary.of(context)?.captureError(error, stackTrace);
     }
+  }
+
+  Future<bool> _confirmEmotionalSafetyRoute(
+    String input,
+    SmartPlannerQueryController planner,
+  ) async {
+    if (planner.detectsCrisis(input)) {
+      if (mounted) await showCrisisDialog(context);
+      return false;
+    }
+    final EmotionalSafetyAssessment assessment = planner.assessEmotionalSafety(
+      input,
+    );
+    if (assessment.route == EmotionalSafetyRoute.routine) return true;
+    if (!mounted) return false;
+    final SupportiveDistressChoice choice = await showSupportiveDistressDialog(
+      context,
+    );
+    return mounted &&
+        choice == SupportiveDistressChoice.continueWithGentleQuestion;
   }
 
   void _useThisPlan() {
@@ -339,6 +368,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     setState(() {
       _plannerResponse = smaller;
       _plannerActionStatus = 'The plan is smaller. Nothing has been saved.';
+      _clearPlannerExplanationState();
     });
     _recordOperatingOutcome(
       DecisionOutcomeKind.deferred,
@@ -360,6 +390,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       );
       _plannerActionStatus =
           'A different approach is selected. Nothing has been saved.';
+      _clearPlannerExplanationState();
     });
     _recordOperatingOutcome(
       DecisionOutcomeKind.rejected,
@@ -548,6 +579,229 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     }
   }
 
+  void _clearPlannerExplanationState() {
+    _pendingExplanationPacket = null;
+    _pendingExplanationQuote = null;
+    _plannerExplanationResult = null;
+    _plannerExplanationError = null;
+    _requestingPlannerExplanation = false;
+  }
+
+  Future<void> _requestPlannerExplanation() async {
+    if (_requestingPlannerExplanation) return;
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null || response.isClarification) return;
+
+    final PlannerExplanationAvailability availability = await ref.read(
+      plannerExplanationAvailabilityProvider.future,
+    );
+    if (!mounted || availability != PlannerExplanationAvailability.available) {
+      return;
+    }
+
+    final PlannerExplanationPacket packet;
+    try {
+      packet = PlannerExplanationPacket.fromPlannerResponse(response);
+      packet.validateForExternalProcessing();
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _plannerExplanationError =
+            'This plan cannot be sent for external explanation. Your deterministic plan is unchanged.';
+      });
+      return;
+    }
+
+    setState(() {
+      _requestingPlannerExplanation = true;
+      _plannerExplanationError = null;
+      _plannerExplanationResult = null;
+      _pendingExplanationPacket = null;
+      _pendingExplanationQuote = null;
+    });
+
+    try {
+      final PlannerExplanationPort port = await ref.read(
+        plannerExplanationPortProvider.future,
+      );
+      final PlannerExplanationQuote quote = await port.quote(packet);
+      if (!mounted || !_plannerResponseMatches(packet)) return;
+      setState(() {
+        _requestingPlannerExplanation = false;
+        _pendingExplanationPacket = packet;
+        _pendingExplanationQuote = quote;
+      });
+      final bool approved = await _confirmPlannerExplanationQuote(quote);
+      if (!mounted) return;
+      if (!approved) {
+        setState(() {
+          _pendingExplanationPacket = null;
+          _pendingExplanationQuote = null;
+        });
+        return;
+      }
+      await _executePlannerExplanation(packet: packet, quote: quote);
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory(
+        'planner_explanation',
+        'Optional Planner explanation quote failed.',
+        error,
+        stackTrace,
+      );
+      if (!mounted) return;
+      setState(() {
+        _requestingPlannerExplanation = false;
+        _pendingExplanationPacket = null;
+        _pendingExplanationQuote = null;
+        _plannerExplanationError =
+            'The optional explanation quote is unavailable. No content was sent to the external provider, no credits were charged, and your plan is unchanged.';
+      });
+    }
+  }
+
+  Future<void> _retryPlannerExplanation() async {
+    if (_requestingPlannerExplanation) return;
+    final PlannerExplanationPacket? packet = _pendingExplanationPacket;
+    final PlannerExplanationQuote? quote = _pendingExplanationQuote;
+    if (packet == null ||
+        quote == null ||
+        quote.expiresAt.isBefore(DateTime.now().toUtc()) ||
+        !_plannerResponseMatches(packet)) {
+      setState(_clearPlannerExplanationState);
+      await _requestPlannerExplanation();
+      return;
+    }
+    await _executePlannerExplanation(packet: packet, quote: quote);
+  }
+
+  Future<void> _executePlannerExplanation({
+    required PlannerExplanationPacket packet,
+    required PlannerExplanationQuote quote,
+  }) async {
+    if (!_plannerResponseMatches(packet)) {
+      setState(() {
+        _clearPlannerExplanationState();
+        _plannerExplanationError =
+            'The plan changed before the explanation was requested. Request a new quote for the visible plan.';
+      });
+      return;
+    }
+    setState(() {
+      _requestingPlannerExplanation = true;
+      _plannerExplanationError = null;
+    });
+    try {
+      final PlannerExplanationPort port = await ref.read(
+        plannerExplanationPortProvider.future,
+      );
+      final PlannerExplanationResult result = await port.execute(
+        packet: packet,
+        quote: quote,
+      );
+      if (!mounted || !_plannerResponseMatches(packet)) return;
+      if (result.status == PlannerExplanationStatus.replayExpired) {
+        setState(() {
+          _clearPlannerExplanationState();
+          _plannerExplanationError =
+              'The short replay window ended. Request a new quote to generate another optional explanation.';
+        });
+        return;
+      }
+      setState(() {
+        _requestingPlannerExplanation = false;
+        _pendingExplanationPacket = null;
+        _pendingExplanationQuote = null;
+        _plannerExplanationResult = result;
+        _plannerExplanationError = null;
+      });
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory(
+        'planner_explanation',
+        'Optional Planner explanation execution failed.',
+        error,
+        stackTrace,
+      );
+      if (!mounted) return;
+      setState(() {
+        _requestingPlannerExplanation = false;
+        _plannerExplanationError =
+            'The optional explanation was not generated. Your deterministic plan is unchanged. Retry reuses the same request so it cannot charge twice.';
+      });
+    }
+  }
+
+  bool _plannerResponseMatches(PlannerExplanationPacket packet) {
+    final PlannerV2Response? response = _plannerResponse;
+    if (response == null || response.isClarification) return false;
+    try {
+      return PlannerExplanationPacket.fromPlannerResponse(
+            response,
+          ).responseDigest ==
+          packet.responseDigest;
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<bool> _confirmPlannerExplanationQuote(
+    PlannerExplanationQuote quote,
+  ) async {
+    final bool? approved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('External AI explanation'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                'Your deterministic Planner V2 result remains the authority. This optional service can explain the visible plan but cannot change, save, schedule, or create anything.',
+              ),
+              const SizedBox(height: 14),
+              Text('Provider: ${quote.provider}'),
+              Text('Model: ${quote.modelLabel}'),
+              Text('Expected cost: ${quote.expectedCredits} AI credits'),
+              Text(
+                'First-party replay window: ${quote.replayWindowSeconds} seconds',
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Data sent after confirmation:',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              ...quote.transmittedDataCategories.map(
+                (String category) => Text('• $category'),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'The quote used this minimized packet only with ChronoSpark\'s first-party function. Nothing has been sent to Anthropic yet.',
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'ChronoSpark keeps response content only for the short replay window, then retains billing metadata. This quote is available only after the first-party service reports the provider-retention and qualified safety-review gates approved. Independent release evidence is still required before this feature can be enabled.',
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('planner-explanation-cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('planner-explanation-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text('Send and spend ${quote.expectedCredits}'),
+          ),
+        ],
+      ),
+    );
+    return approved ?? false;
+  }
+
   List<Map<String, String>> _conversationHistory() {
     final List<Map<String, String>> history = <Map<String, String>>[];
     final String initialPrompt = _planningGuidancePrompt?.trim() ?? '';
@@ -581,6 +835,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     final String effectivePlannerMessage =
         plannerResponse?.toAccessibleText() ?? '';
     final bool hasPlannerMessage = plannerResponse != null;
+    final bool plannerExplanationAvailable =
+        ref.watch(plannerExplanationAvailabilityProvider).asData?.value ==
+        PlannerExplanationAvailability.available;
     final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgHome,
@@ -776,6 +1033,20 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                               unawaited(_rememberPreference()),
                         ),
                       ),
+                      if (plannerExplanationAvailable &&
+                          !plannerResponse.isClarification) ...[
+                        const SizedBox(height: 12),
+                        _PlannerExternalExplanationPanel(
+                          result: _plannerExplanationResult,
+                          error: _plannerExplanationError,
+                          requesting: _requestingPlannerExplanation,
+                          retryingExistingRequest:
+                              _pendingExplanationQuote != null,
+                          onRequest: _pendingExplanationQuote == null
+                              ? () => unawaited(_requestPlannerExplanation())
+                              : () => unawaited(_retryPlannerExplanation()),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 10,
@@ -1069,6 +1340,106 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
     text,
     style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.5),
   );
+}
+
+class _PlannerExternalExplanationPanel extends StatelessWidget {
+  const _PlannerExternalExplanationPanel({
+    required this.result,
+    required this.error,
+    required this.requesting,
+    required this.retryingExistingRequest,
+    required this.onRequest,
+  });
+
+  final PlannerExplanationResult? result;
+  final String? error;
+  final bool requesting;
+  final bool retryingExistingRequest;
+  final VoidCallback onRequest;
+
+  @override
+  Widget build(BuildContext context) {
+    final PlannerExplanationResult? completed = result;
+    final String buttonLabel = requesting
+        ? 'REQUESTING...'
+        : retryingExistingRequest
+        ? 'Retry same request'
+        : completed == null
+        ? 'Explain this plan'
+        : 'Request another explanation';
+    return _PlannerPanel(
+      label: 'EXTERNAL AI EXPLANATION · OPTIONAL · READ-ONLY',
+      labelFontSize: 13,
+      accentColor: AppColors.neonViolet,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Planner V2 remains the decision authority. This separate explanation cannot change or save your plan.',
+            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+          ),
+          if (completed != null) ...[
+            const SizedBox(height: 14),
+            Semantics(
+              liveRegion: true,
+              label: 'Optional external AI explanation ready',
+              child: ExcludeSemantics(
+                child: Text(
+                  completed.explanation ?? '',
+                  key: const Key('planner-explanation-result'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${completed.provider} · ${completed.modelLabel} · ${completed.creditsCharged} AI credits · no plan changes',
+              style: const TextStyle(
+                color: AppColors.neonViolet,
+                fontSize: 12,
+                height: 1.4,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 12),
+            Semantics(
+              liveRegion: true,
+              label: error,
+              child: ExcludeSemantics(
+                child: Text(
+                  error!,
+                  key: const Key('planner-explanation-error'),
+                  style: const TextStyle(
+                    color: AppColors.recallRed,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            key: const Key('planner-explanation-request'),
+            onPressed: requesting ? null : onRequest,
+            icon: requesting
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.auto_awesome_outlined, size: 18),
+            label: Text(buttonLabel),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PlanSpectrumOptionCard extends StatelessWidget {

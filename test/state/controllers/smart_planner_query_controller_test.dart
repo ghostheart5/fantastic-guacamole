@@ -910,6 +910,44 @@ void main() {
     expect(controller.detectsCrisis('I had a difficult day'), isFalse);
   });
 
+  test(
+    'supportive distress returns one question without reading saved work',
+    () async {
+      final _MemoryTaskRepository tasks = _MemoryTaskRepository();
+      final _MemoryGoalRepository goals = _MemoryGoalRepository();
+      final ProviderContainer container = plannerContainer(
+        tasks: tasks,
+        goals: goals,
+      );
+      addTearDown(container.dispose);
+      final SmartPlannerQueryController controller = container.read(
+        smartPlannerQueryControllerProvider,
+      );
+
+      final SmartPlannerResult result = await controller
+          .requestPlanningGuidance(
+            energy: 0.2,
+            emotion: EmotionalState.anxious,
+            notes: 'I am panicking and losing control',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isTrue);
+      expect(result.plannerResponse.options, isEmpty);
+      expect(result.plannerResponse.usefulQuestion, contains('Would you like'));
+      expect(tasks.readCalls, 0);
+      expect(tasks.writeCalls, 0);
+      expect(goals.readCalls, 0);
+      expect(goals.writeCalls, 0);
+      expect(
+        result.request.context['emotionalSafetyRoute'],
+        'supportive_distress',
+      );
+      expect(result.request.context['storedEvidenceUsed'], isFalse);
+    },
+  );
+
   test('direct crisis request cannot enter ordinary planning', () async {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);

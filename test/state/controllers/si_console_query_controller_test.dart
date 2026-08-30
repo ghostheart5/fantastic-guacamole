@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
+import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,6 +54,50 @@ void main() {
     );
     result.contract!.validate();
     result.evidenceManifest!.validateAgainstResponse(result.contract!);
+  });
+
+  test(
+    'supportive distress response is typed and never proposes an action',
+    () {
+      final ProviderContainer container = ProviderContainer();
+      addTearDown(container.dispose);
+      final SIConsoleQueryController controller = container.read(
+        siConsoleQueryControllerProvider,
+      );
+
+      final AIRecommendation result = controller.supportiveSafetyResponse(
+        query: 'I am panicking and losing control',
+      );
+
+      expect(result.message, contains('Pausing productivity guidance'));
+      expect(result.contract?.proposalId, isNull);
+      expect(result.contract?.status, AssistantResponseStatus.completed);
+      result.contract!.validate();
+      result.evidenceManifest!.validateAgainstResponse(result.contract!);
+    },
+  );
+
+  test('ordinary SI fallback cannot bypass the distress route', () {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+    final SIConsoleQueryController controller = container.read(
+      siConsoleQueryControllerProvider,
+    );
+
+    expect(
+      () => controller.localFallbackResponse(
+        query: 'I am panicking and losing control',
+        response: 'Try the next task.',
+        reason: 'test',
+      ),
+      throwsA(
+        isA<AssistantSafetyRouteException>().having(
+          (AssistantSafetyRouteException error) => error.code,
+          'code',
+          'distress_route_required',
+        ),
+      ),
+    );
   });
 
   test('display boundary rejects recommendation and contract divergence', () {

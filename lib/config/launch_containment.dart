@@ -9,6 +9,8 @@ abstract final class LaunchContainment {
   static const bool subscriptionsEnabled = false;
   static const bool externalAiEnabled = false;
   static const bool creditSpendingEnabled = false;
+  static const bool externalAiProviderRetentionVerified = false;
+  static const bool externalAiSafetyReviewApproved = false;
   static const bool analyticsEnabled = false;
   static const bool crashReportingEnabled = false;
   static const bool inferredIdentityEnabled = false;

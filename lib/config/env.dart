@@ -54,6 +54,8 @@ abstract final class Env {
 
   static String get aiProxyEndpoint => _ServiceEndpoints.aiProxyEndpoint;
   static String get aiReportEndpoint => _ServiceEndpoints.aiReportEndpoint;
+  static String get plannerExplanationEndpoint =>
+      _ServiceEndpoints.plannerExplanationEndpoint;
   static String get accountDeleteEndpoint =>
       _ServiceEndpoints.accountDeleteEndpoint;
   static String get oauthRedirectUrl => _ServiceEndpoints.oauthRedirectUrl;
@@ -168,6 +170,14 @@ abstract final class Env {
   }) {
     return _ServiceEndpoints.resolveAiReportEndpoint(
       configuredValue,
+      supabaseUrl: supabaseUrl,
+    );
+  }
+
+  static String resolvePlannerExplanationEndpoint({
+    required String supabaseUrl,
+  }) {
+    return _ServiceEndpoints.resolvePlannerExplanationEndpoint(
       supabaseUrl: supabaseUrl,
     );
   }

@@ -1516,7 +1516,7 @@ class _AssistantReleaseSection extends ConsumerWidget {
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
             child: Text(
-              'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Planner, SI, memory, and critic each have an independent emergency rollback.',
+              'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Planner, SI, memory, critic, and optional external explanation each have an independent emergency rollback.',
               style: TextStyle(
                 color: Colors.white60,
                 fontSize: 12,
@@ -1579,6 +1579,8 @@ String _assistantCapabilityLabel(AssistantReleaseCapability capability) {
     AssistantReleaseCapability.siConsoleV2 => 'SI Console V2',
     AssistantReleaseCapability.governedMemory => 'Governed memory',
     AssistantReleaseCapability.safetyCritic => 'Safety critic',
+    AssistantReleaseCapability.plannerExplanation =>
+      'Optional Planner explanation',
   };
 }
 

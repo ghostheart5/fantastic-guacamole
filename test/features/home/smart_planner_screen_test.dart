@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/services/ai/planner_explanation_service.dart';
+import 'package:fantastic_guacamole/domain/entities/planner_explanation_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
@@ -8,6 +10,7 @@ import 'package:fantastic_guacamole/domain/release/assistant_release_control.dar
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planner_explanation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
@@ -568,6 +571,112 @@ void main() {
     expect(container.read(memoriesProvider), isEmpty);
     expect(find.textContaining('No durable memory was saved'), findsOneWidget);
   });
+
+  testWidgets(
+    'optional explanation quotes before send and cancel executes zero',
+    (WidgetTester tester) async {
+      final _FakePlannerExplanationPort explanation =
+          _FakePlannerExplanationPort();
+      final ProviderContainer container = _container(
+        explanationPort: explanation,
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _requestGuidance(tester);
+
+      final Finder request = find.byKey(
+        const Key('planner-explanation-request'),
+      );
+      await _scrollTo(tester, request);
+      await tester.tap(request);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(explanation.quoteCalls, 1);
+      expect(explanation.executeCalls, 0);
+      expect(find.text('Provider: Anthropic'), findsOneWidget);
+      expect(find.text('Expected cost: 2 AI credits'), findsOneWidget);
+      expect(find.text('• visible deterministic plan clauses'), findsOneWidget);
+      expect(find.text('• visible evidence summaries'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('planner-explanation-cancel')));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(explanation.executeCalls, 0);
+      expect(find.byKey(const Key('planner-explanation-result')), findsNothing);
+      expect(find.text('Balanced release block'), findsOneWidget);
+      expect(find.byKey(const Key('planner-use-this-plan')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'confirmed explanation is read-only and keeps deterministic plan',
+    (WidgetTester tester) async {
+      final _FakePlannerExplanationPort explanation =
+          _FakePlannerExplanationPort();
+      final ProviderContainer container = _container(
+        explanationPort: explanation,
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _requestGuidance(tester);
+
+      final Finder request = find.byKey(
+        const Key('planner-explanation-request'),
+      );
+      await _scrollTo(tester, request);
+      await tester.tap(request);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.byKey(const Key('planner-explanation-confirm')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(explanation.quoteCalls, 1);
+      expect(explanation.executeCalls, 1);
+      expect(
+        find.text('This wording explains the visible recommendation.'),
+        findsOneWidget,
+      );
+      expect(find.text('Balanced release block'), findsOneWidget);
+      expect(find.byKey(const Key('planner-use-this-plan')), findsOneWidget);
+    },
+  );
+
+  testWidgets('failed execution retries the same quoted request once', (
+    WidgetTester tester,
+  ) async {
+    final _FakePlannerExplanationPort explanation = _FakePlannerExplanationPort(
+      failFirstExecution: true,
+    );
+    final ProviderContainer container = _container(
+      explanationPort: explanation,
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await _requestGuidance(tester);
+
+    final Finder request = find.byKey(const Key('planner-explanation-request'));
+    await _scrollTo(tester, request);
+    await tester.tap(request);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const Key('planner-explanation-confirm')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(explanation.quoteCalls, 1);
+    expect(explanation.executeCalls, 1);
+    expect(find.byKey(const Key('planner-explanation-error')), findsOneWidget);
+
+    await _scrollTo(tester, request);
+    await tester.tap(request);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(explanation.quoteCalls, 1);
+    expect(explanation.executeCalls, 2);
+    expect(explanation.requestIds, <String>{'planner-request-test'});
+    expect(find.byKey(const Key('planner-explanation-result')), findsOneWidget);
+  });
 }
 
 ProviderContainer _container({
@@ -576,6 +685,7 @@ ProviderContainer _container({
   List<DecisionOutcomeKind>? outcomes,
   AccountStorageScope? accountScope,
   SmartPlannerQueryController Function(Ref)? plannerBuilder,
+  PlannerExplanationPort? explanationPort,
 }) {
   return ProviderContainer(
     overrides: [
@@ -594,6 +704,14 @@ ProviderContainer _container({
       ),
       if (accountScope != null)
         accountStorageScopeProvider.overrideWithValue(accountScope),
+      if (explanationPort != null)
+        plannerExplanationAvailabilityProvider.overrideWith(
+          (Ref ref) async => PlannerExplanationAvailability.available,
+        ),
+      if (explanationPort != null)
+        plannerExplanationPortProvider.overrideWith(
+          (Ref ref) async => explanationPort,
+        ),
     ],
   );
 }
@@ -880,6 +998,80 @@ class _RecordingDecisionOutcomeActions extends DecisionOutcomeActions {
     expect(receipt.decisionId, 'screen-receipt');
     expect(surface, 'smart_planner');
     outcomes.add(kind);
+  }
+}
+
+class _FakePlannerExplanationPort implements PlannerExplanationPort {
+  _FakePlannerExplanationPort({this.failFirstExecution = false});
+
+  final bool failFirstExecution;
+  int quoteCalls = 0;
+  int executeCalls = 0;
+  final Set<String> requestIds = <String>{};
+
+  @override
+  Future<PlannerExplanationQuote> quote(PlannerExplanationPacket packet) async {
+    quoteCalls += 1;
+    return PlannerExplanationQuote.fromJson(<String, Object?>{
+      'schemaVersion': plannerExplanationSchemaVersion,
+      'operation': 'quote',
+      'surface': plannerExplanationSurface,
+      'requestId': 'planner-request-test',
+      'quoteId': 'planner-quote-test',
+      'expectedCredits': 2,
+      'provider': 'Anthropic',
+      'modelLabel': 'server-selected-model',
+      'promptVersion': 'planner-explanation-v1',
+      'responseSchemaVersion': plannerExplanationSchemaVersion,
+      'disclosureVersion': plannerExplanationDisclosureVersion,
+      'transmittedDataCategories': <String>[
+        'visible deterministic plan clauses',
+        'visible evidence summaries',
+      ],
+      'replayWindowSeconds': 240,
+      'providerRetentionStatus': 'verified_external_gate',
+      'expiresAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 4))
+          .toIso8601String(),
+    });
+  }
+
+  @override
+  Future<PlannerExplanationResult> execute({
+    required PlannerExplanationPacket packet,
+    required PlannerExplanationQuote quote,
+  }) async {
+    executeCalls += 1;
+    requestIds.add(quote.requestId);
+    if (failFirstExecution && executeCalls == 1) {
+      throw const PlannerExplanationServiceException(
+        'simulated_timeout',
+        'simulated timeout',
+      );
+    }
+    return PlannerExplanationResult.fromJson(<String, Object?>{
+      'schemaVersion': plannerExplanationSchemaVersion,
+      'operation': 'execute',
+      'surface': plannerExplanationSurface,
+      'requestId': quote.requestId,
+      'status': 'completed',
+      'responseDigest': packet.responseDigest,
+      'explanation': 'This wording explains the visible recommendation.',
+      'sourceClauseIds': <String>['recommended_title', 'recommendation_reason'],
+      'provider': quote.provider,
+      'modelLabel': quote.modelLabel,
+      'promptVersion': quote.promptVersion,
+      'responseSchemaVersion': plannerExplanationSchemaVersion,
+      'expectedCredits': quote.expectedCredits,
+      'creditsCharged': quote.expectedCredits,
+      'remainingCredits': 8,
+      'contentExpiresAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 5))
+          .toIso8601String(),
+      'replayState': executeCalls == 1 ? 'fresh' : 'replayed',
+    });
   }
 }
 

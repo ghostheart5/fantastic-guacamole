@@ -11,6 +11,8 @@ void main() {
     expect(LaunchContainment.subscriptionsEnabled, isFalse);
     expect(LaunchContainment.externalAiEnabled, isFalse);
     expect(LaunchContainment.creditSpendingEnabled, isFalse);
+    expect(LaunchContainment.externalAiProviderRetentionVerified, isFalse);
+    expect(LaunchContainment.externalAiSafetyReviewApproved, isFalse);
     expect(LaunchContainment.analyticsEnabled, isFalse);
     expect(LaunchContainment.crashReportingEnabled, isFalse);
     expect(LaunchContainment.inferredIdentityEnabled, isFalse);
@@ -23,6 +25,25 @@ void main() {
     expect(Env.enableAnalytics, isFalse);
     expect(Env.enableCrashReporting, isFalse);
     expect(Env.isAiProxyConfigured, isFalse);
+  });
+
+  test('Planner explanation endpoint is canonical to the Supabase origin', () {
+    expect(
+      Env.resolvePlannerExplanationEndpoint(
+        supabaseUrl: 'https://project-ref.supabase.co',
+      ),
+      'https://project-ref.supabase.co/functions/v1/planner-explanation',
+    );
+    expect(
+      Env.resolvePlannerExplanationEndpoint(
+        supabaseUrl: 'https://attacker.example/path',
+      ),
+      isEmpty,
+    );
+    expect(
+      Env.resolvePlannerExplanationEndpoint(supabaseUrl: 'http://localhost'),
+      isEmpty,
+    );
   });
 
   test('native Android telemetry and billing defaults are contained', () {

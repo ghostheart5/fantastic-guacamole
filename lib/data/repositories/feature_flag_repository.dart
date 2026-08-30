@@ -18,6 +18,7 @@ class FeatureFlagRepository {
     'assistant_si_console_v2',
     'assistant_governed_memory',
     'assistant_safety_critic',
+    'assistant_planner_explanation',
   };
 
   static const Map<String, String> _defaultVariants = <String, String>{
@@ -83,7 +84,7 @@ class FeatureFlagRepository {
   }
 
   /// Loads one atomic assistant release snapshot. A malformed stage, cohort,
-  /// or canary value is rejected by the domain object and disables all four
+  /// or canary value is rejected by the domain object and disables every
   /// capabilities instead of partially applying an unsafe configuration.
   Future<AssistantReleaseConfig> loadAssistantReleaseConfig() async {
     await _remoteConfigService.refresh();
@@ -98,6 +99,8 @@ class FeatureFlagRepository {
       AssistantReleaseCapability.governedMemory:
           'kill_assistant_governed_memory',
       AssistantReleaseCapability.safetyCritic: 'kill_assistant_safety_critic',
+      AssistantReleaseCapability.plannerExplanation:
+          'kill_assistant_planner_explanation',
     };
     final Set<AssistantReleaseCapability> rollbacks =
         <AssistantReleaseCapability>{};

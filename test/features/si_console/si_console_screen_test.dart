@@ -205,9 +205,51 @@ void main() {
       await tester.tap(find.byIcon(Icons.send_rounded));
       await tester.pump();
 
-      expect(find.text("You're not alone"), findsOneWidget);
+      expect(find.byKey(const Key('immediate-safety-dialog')), findsOneWidget);
       expect(port.calls, 0);
       expect(find.textContaining('SI QUERY SHORTCUTS'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'non-crisis distress pauses SI and only continues with a gentle local question',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(600, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+      final ProviderContainer container = _container(port, snapshot);
+      addTearDown(() => _dispose(tester, container));
+      await _pumpScreen(tester, container);
+
+      await tester.enterText(
+        find.byKey(const Key('si-query-input')),
+        'I am panicking and losing control',
+      );
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.byKey(const Key('supportive-distress-dialog')),
+        findsOneWidget,
+      );
+      expect(port.calls, 0);
+
+      await tester.tap(find.byKey(const Key('safety-continue-gently')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(port.calls, 0);
+      expect(
+        find.textContaining(
+          'Pausing productivity guidance',
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('External AI', skipOffstage: false), findsNothing);
     },
   );
 

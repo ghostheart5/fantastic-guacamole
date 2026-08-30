@@ -16,17 +16,25 @@ void main() {
     final String memory = File(
       'lib/state/providers/memories_provider.dart',
     ).readAsStringSync();
+    final String explanation = File(
+      'lib/state/providers/planner_explanation_provider.dart',
+    ).readAsStringSync();
 
     expect(repository, contains('loadAssistantReleaseConfig'));
     expect(repository, contains('kill_assistant_smart_planner_v2'));
     expect(repository, contains('kill_assistant_si_console_v2'));
     expect(repository, contains('kill_assistant_governed_memory'));
     expect(repository, contains('kill_assistant_safety_critic'));
+    expect(repository, contains('kill_assistant_planner_explanation'));
     expect(planner, contains('AssistantReleaseCapability.smartPlannerV2'));
     expect(planner, contains('AssistantReleaseCapability.safetyCritic'));
     expect(si, contains('AssistantReleaseCapability.siConsoleV2'));
     expect(si, contains('AssistantReleaseCapability.safetyCritic'));
     expect(memory, contains('AssistantReleaseCapability.governedMemory'));
+    expect(
+      explanation,
+      contains('AssistantReleaseCapability.plannerExplanation'),
+    );
   });
 
   test('shadow mode has no publication or write authority', () {

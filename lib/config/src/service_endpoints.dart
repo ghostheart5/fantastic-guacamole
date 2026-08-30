@@ -79,6 +79,9 @@ abstract final class _ServiceEndpoints {
     supabaseUrl: supabaseUrl,
   );
 
+  static String get plannerExplanationEndpoint =>
+      resolvePlannerExplanationEndpoint(supabaseUrl: supabaseUrl);
+
   static String get accountDeleteEndpoint => Env._readString(
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
     _accountDeleteEndpointDefine,
@@ -217,5 +220,16 @@ abstract final class _ServiceEndpoints {
     return sameOrigin && candidate.path == canonical.path
         ? canonical.toString()
         : '';
+  }
+
+  static String resolvePlannerExplanationEndpoint({
+    required String supabaseUrl,
+  }) {
+    if (!resolveIsValidSupabaseUrl(supabaseUrl)) {
+      return '';
+    }
+    return Uri.parse(
+      supabaseUrl.trim(),
+    ).resolve('/functions/v1/planner-explanation').toString();
   }
 }

@@ -91,14 +91,15 @@ void main() {
     final String policy = read('privacy.html');
     final String bundled = read('assets/legal/privacy_policy.txt');
     expect(policy, contains('GhostHeart5 Supabase project'));
-    expect(policy, contains('report a generated response'));
+    expect(policy, contains('External AI is release-disabled'));
+    expect(policy, contains('to Anthropic'));
+    expect(policy, contains('data minimization, not sanitization'));
+    expect(policy, contains('up to five minutes'));
+    expect(policy, contains('has not been verified'));
     expect(policy, contains('Settings &gt; Account'));
     expect(bundled, contains('support@chronospark.app'));
-    expect(
-      bundled,
-      contains('only the selected response and your chosen reason'),
-    );
-    expect(bundled, contains('not your prompt or conversation history'));
+    expect(bundled, contains('visible deterministic plan clauses'));
+    expect(bundled, contains('expected AI-credit cost'));
     expect(
       bundled.toLowerCase(),
       isNot(

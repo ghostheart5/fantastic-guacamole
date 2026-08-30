@@ -4,7 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
-import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
@@ -80,12 +80,7 @@ final class SIV2QueryService implements SIV2QueryPort {
 
   @override
   Future<SIV2Response> analyze(SIV2Query query) async {
-    if (CrisisDetectionPolicy.detects(query.conversationText)) {
-      throw const AssistantSafetyRouteException(
-        'crisis_route_required',
-        'SI Console must show the dedicated crisis support route.',
-      );
-    }
+    _requireSiEmotionalSafetyRoute(query.conversationText);
     final DateTime now = clock().toUtc();
     final SIV2EvidenceSnapshot snapshot = await readEvidence(now);
     SIV2Response response = engine.analyze(
@@ -178,12 +173,7 @@ final class _ReleaseControlledSIV2QueryPort implements SIV2QueryPort {
 
   @override
   Future<SIV2Response> analyze(SIV2Query query) async {
-    if (CrisisDetectionPolicy.detects(query.conversationText)) {
-      throw const AssistantSafetyRouteException(
-        'crisis_route_required',
-        'SI Console must show the dedicated crisis support route.',
-      );
-    }
+    _requireSiEmotionalSafetyRoute(query.conversationText);
     await requireAssistantReleaseCapability(
       _ref,
       AssistantReleaseCapability.siConsoleV2,
@@ -193,5 +183,21 @@ final class _ReleaseControlledSIV2QueryPort implements SIV2QueryPort {
       AssistantReleaseCapability.safetyCritic,
     );
     return delegate.analyze(query);
+  }
+}
+
+void _requireSiEmotionalSafetyRoute(String input) {
+  final EmotionalSafetyAssessment safety = EmotionalSafetyPolicy.assess(input);
+  if (safety.requiresImmediateSafety) {
+    throw const AssistantSafetyRouteException(
+      'crisis_route_required',
+      'SI Console must show the dedicated crisis support route.',
+    );
+  }
+  if (safety.requiresSupportivePause) {
+    throw const AssistantSafetyRouteException(
+      'distress_route_required',
+      'SI Console must show the dedicated non-crisis support route.',
+    );
   }
 }

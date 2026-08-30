@@ -90,6 +90,11 @@ abstract final class _ReadinessPolicy {
         label: 'AI report endpoint',
         issues: issues,
       );
+      _validateHttpsEndpoint(
+        _ServiceEndpoints.plannerExplanationEndpoint,
+        label: 'Planner explanation endpoint',
+        issues: issues,
+      );
     }
     _validateHttpsEndpoint(
       _ServiceEndpoints.accountDeleteEndpoint,

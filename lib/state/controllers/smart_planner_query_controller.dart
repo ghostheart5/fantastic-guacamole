@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
@@ -178,6 +179,9 @@ class SmartPlannerQueryController
 
   bool detectsCrisis(String text) => CrisisDetectionPolicy.detects(text);
 
+  EmotionalSafetyAssessment assessEmotionalSafety(String text) =>
+      EmotionalSafetyPolicy.assess(text);
+
   @override
   Future<SmartPlannerResult> requestPlanningGuidance({
     required double? energy,
@@ -190,6 +194,9 @@ class SmartPlannerQueryController
         ? 'Give me a practical planning check-in for my current energy and emotional state.'
         : notes.trim();
     _requireNonCrisisRoute(prompt);
+    final EmotionalSafetyAssessment emotionalSafety = assessEmotionalSafety(
+      prompt,
+    );
     final ({double? energy, EmotionalState? emotion}) authorized =
         _authorizedCheckIn(energy: energy, emotion: emotion);
     await _requireReleaseCapabilities();
@@ -199,6 +206,18 @@ class SmartPlannerQueryController
           history: history,
           isFollowUp: false,
         );
+    if (emotionalSafety.requiresSupportivePause) {
+      return _supportivePauseResult(
+        kind: AssistantRequestKind.planningGuidance,
+        input: prompt,
+        history: history,
+        energy: authorized.energy,
+        emotion: authorized.emotion,
+        contextWasProvided: notes.trim().isNotEmpty,
+        conversation: conversation,
+        assessment: emotionalSafety,
+      );
+    }
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
       searchText: conversation.searchText,
     );
@@ -264,8 +283,23 @@ class SmartPlannerQueryController
           isFollowUp: true,
         );
     _requireNonCrisisRoute(conversation.searchText);
+    final EmotionalSafetyAssessment emotionalSafety = assessEmotionalSafety(
+      conversation.searchText,
+    );
     final ({double? energy, EmotionalState? emotion}) authorized =
         _authorizedCheckIn(energy: energy, emotion: emotion);
+    if (emotionalSafety.requiresSupportivePause) {
+      return _supportivePauseResult(
+        kind: AssistantRequestKind.followUp,
+        input: prompt,
+        history: history,
+        energy: authorized.energy,
+        emotion: authorized.emotion,
+        contextWasProvided: true,
+        conversation: conversation,
+        assessment: emotionalSafety,
+      );
+    }
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
       searchText: conversation.searchText,
     );
@@ -389,9 +423,9 @@ class SmartPlannerQueryController
     final _PlannerStrategy strategy = _strategyFor(topic);
     final _EffortProfile effort = _effortFor(planningEnergy);
     final DateTime observedAt = _ref.read(smartPlannerClockProvider)().toUtc();
-    final _ProtectedPlannerConcern? protectedConcern = _detectProtectedConcern(
-      conversation.searchText,
-    );
+    final EmotionalSafetyAssessment emotionalSafety =
+        EmotionalSafetyPolicy.assess(conversation.searchText);
+    final bool supportivePause = emotionalSafety.requiresSupportivePause;
     final List<String> adaptations = <String>[
       if (boundedEnergy != null)
         _energyAdaptation(boundedEnergy, effort)
@@ -412,14 +446,14 @@ class SmartPlannerQueryController
       'Kept every option reversible and left saving to an explicit Creator confirmation.',
     ];
 
-    if (protectedConcern != null || evidence.requiresClarification) {
+    if (supportivePause || evidence.requiresClarification) {
       return PlannerV2Response.clarification(
         whatIHeard: conversation.clarificationSummary(
           contextWasProvided: contextWasProvided,
         ),
-        mattersMost: protectedConcern == null
-            ? 'Connecting your request to the right evidence before proposing a plan.'
-            : _protectedConcernMattersMost(protectedConcern),
+        mattersMost: supportivePause
+            ? EmotionalSafetyPolicy.planningPauseReason(emotionalSafety)
+            : 'Connecting your request to the right evidence before proposing a plan.',
         verifiedEvidence: <String>[
           if (boundedEnergy != null)
             'Current check-in energy set by you: ${(boundedEnergy * 100).round()}%.'
@@ -434,15 +468,17 @@ class SmartPlannerQueryController
           'No saved task, goal, operating receipt action, or Creator draft was attached.',
           'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
         ],
-        question: protectedConcern == null
-            ? 'Which saved task or goal, if any, should this plan support?'
-            : _protectedConcernQuestion(protectedConcern),
+        question: supportivePause
+            ? EmotionalSafetyPolicy.supportiveQuestion(emotionalSafety)
+            : 'Which saved task or goal, if any, should this plan support?',
         adaptationReceipt: PlannerAdaptationReceipt(
           userSetEnergy: boundedEnergy,
           userSelectedEmotion: emotion,
           adjustments: <String>[
             ...adaptations,
             'Paused before proposing actions so unrelated saved evidence could not steer the response.',
+            if (supportivePause)
+              'Used a privacy-safe supportive-distress route. Raw distress text was not added to the receipt.',
           ],
         ),
         origin: PlannerResponseOrigin.deterministic,
@@ -870,6 +906,43 @@ class SmartPlannerQueryController
       savedNotes: null,
       plannerResponse: response,
       operatingReceipt: operatingReceipt,
+    );
+  }
+
+  SmartPlannerResult _supportivePauseResult({
+    required AssistantRequestKind kind,
+    required String input,
+    required List<Map<String, String>> history,
+    required double? energy,
+    required EmotionalState? emotion,
+    required bool contextWasProvided,
+    required _PlannerConversationContext conversation,
+    required EmotionalSafetyAssessment assessment,
+  }) {
+    final AssistantRequestEnvelope request = _requestContract(
+      kind: kind,
+      input: input,
+      history: history,
+      energy: energy,
+      emotion: emotion,
+      context: <String, Object?>{
+        'emotionalSafetyRoute': 'supportive_distress',
+        'safetyFindingCodes': assessment.findingCodes,
+        'storedEvidenceUsed': false,
+      },
+    );
+    final PlannerV2Response response = _buildPlannerResponse(
+      input: input,
+      energy: energy,
+      emotion: emotion,
+      contextWasProvided: contextWasProvided,
+      conversation: conversation,
+      evidence: const _PlannerEvidence.empty(),
+    );
+    return _resultFromResponse(
+      request: request,
+      response: response,
+      sourceId: 'planner_v2_supportive_pause',
     );
   }
 
@@ -1964,85 +2037,6 @@ AssistantSafetyReceipt _requirePublishableSafety(
   }
   return outcome.receipt;
 }
-
-enum _ProtectedPlannerConcern { grief, relationship, abuse }
-
-_ProtectedPlannerConcern? _detectProtectedConcern(String input) {
-  final String normalized = input.toLowerCase();
-  final Set<String> terms = RegExp(
-    r'[a-z]+',
-  ).allMatches(normalized).map((RegExpMatch match) => match.group(0)!).toSet();
-  if (terms.any(
-        const <String>{
-          'abuse',
-          'abused',
-          'abusive',
-          'assault',
-          'assaulted',
-          'coercive',
-          'controlling',
-          'unsafe',
-          'violence',
-          'violent',
-        }.contains,
-      ) ||
-      normalized.contains('hit me') ||
-      normalized.contains('hurting me')) {
-    return _ProtectedPlannerConcern.abuse;
-  }
-  if (terms.any(
-        const <String>{
-          'bereavement',
-          'died',
-          'death',
-          'funeral',
-          'grief',
-          'grieving',
-          'mourning',
-          'widow',
-          'widowed',
-        }.contains,
-      ) ||
-      normalized.contains('lost someone') ||
-      normalized.contains('passed away')) {
-    return _ProtectedPlannerConcern.grief;
-  }
-  if (terms.any(
-    const <String>{
-      'breakup',
-      'divorce',
-      'marriage',
-      'partner',
-      'relationship',
-      'spouse',
-    }.contains,
-  )) {
-    return _ProtectedPlannerConcern.relationship;
-  }
-  return null;
-}
-
-String _protectedConcernMattersMost(
-  _ProtectedPlannerConcern concern,
-) => switch (concern) {
-  _ProtectedPlannerConcern.grief =>
-    'Making room for grief without turning it into an unrelated productivity task.',
-  _ProtectedPlannerConcern.relationship =>
-    'Understanding what kind of relationship support you want before proposing an action.',
-  _ProtectedPlannerConcern.abuse =>
-    'Keeping your safety and control central without redirecting you into routine task work.',
-};
-
-String _protectedConcernQuestion(
-  _ProtectedPlannerConcern concern,
-) => switch (concern) {
-  _ProtectedPlannerConcern.grief =>
-    'Would you like help with one practical obligation, making space for grief, or finding support?',
-  _ProtectedPlannerConcern.relationship =>
-    'Would you like help preparing a conversation, setting a boundary, or deciding what needs attention first?',
-  _ProtectedPlannerConcern.abuse =>
-    'Would you like help thinking through immediate safety, contacting someone you trust, or finding specialized support?',
-};
 
 enum _PlannerTopic {
   overwhelm,

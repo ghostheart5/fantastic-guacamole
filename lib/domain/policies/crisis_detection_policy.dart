@@ -1,19 +1,11 @@
-/// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
-///
-/// Enforced by smartPlannerQueryController and siConsoleQueryController.
-abstract final class CrisisDetectionPolicy {
-  static const List<String> _keywords = <String>[
-    'suicide',
-    'kill myself',
-    'end my life',
-    'self harm',
-    'self-harm',
-    'want to die',
-    'hurt myself',
-  ];
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Emotional safety routing
 
-  static bool detects(String input) {
-    final String normalized = input.toLowerCase();
-    return _keywords.any(normalized.contains);
-  }
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
+
+/// Compatibility boundary for callers that need only the immediate-safety
+/// decision. New surfaces should consume [EmotionalSafetyPolicy.assess] so
+/// non-crisis distress cannot fall into ordinary productivity guidance.
+abstract final class CrisisDetectionPolicy {
+  static bool detects(String input) =>
+      EmotionalSafetyPolicy.assess(input).requiresImmediateSafety;
 }

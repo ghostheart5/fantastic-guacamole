@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
@@ -380,13 +381,34 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _scrollToBottom();
   }
 
-  void _send() {
+  Future<void> _send() async {
     final String text = _input.text.trim();
     if (text.isEmpty) return;
     if (_typing) return;
 
+    final SIConsoleQueryController controller = ref.read(
+      siConsoleQueryControllerProvider,
+    );
     if (ref.read(siConsoleQueryControllerProvider).detectsCrisis(text)) {
-      showCrisisDialog(context);
+      await showCrisisDialog(context);
+      return;
+    }
+    final EmotionalSafetyAssessment safety = controller.assessEmotionalSafety(
+      text,
+    );
+    if (safety.requiresSupportivePause) {
+      final SupportiveDistressChoice choice =
+          await showSupportiveDistressDialog(context);
+      if (!mounted ||
+          choice != SupportiveDistressChoice.continueWithGentleQuestion) {
+        return;
+      }
+      _input.clear();
+      _appendLocalResponse(
+        query: text,
+        typed: controller.supportiveSafetyResponse(query: text),
+        fallbackEmotion: 'balanced',
+      );
       return;
     }
 

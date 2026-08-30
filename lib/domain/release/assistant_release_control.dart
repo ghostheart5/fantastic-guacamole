@@ -12,6 +12,7 @@ enum AssistantReleaseCapability {
   siConsoleV2,
   governedMemory,
   safetyCritic,
+  plannerExplanation,
 }
 
 enum AssistantReleaseCohort { excluded, internal, optedInBeta, canary, general }
