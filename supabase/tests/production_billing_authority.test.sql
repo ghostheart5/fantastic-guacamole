@@ -152,7 +152,7 @@ select is(
     repeat('c', 64), 'chronospark_premium_monthly', 'active', true, true,
     'order-test', now() + interval '30 days', now(),
     'verify:test:subscription',
-    '{"source":"test"}'::jsonb
+    '{"source":"client_verification"}'::jsonb
   )->>'applied')::boolean,
   true,
   'verified subscription initializes the authoritative premium allowance'
@@ -261,7 +261,8 @@ select is(
   (public.reconcile_google_play_subscription(
     repeat('d', 64), 'chronospark_premium_monthly', 'active', true, true,
     'order-old', now() + interval '30 days', now() + interval '2 minutes',
-    'rtdn:test:old-active', '{"source":"test"}'::jsonb
+    'rtdn:test:old-active',
+    '{"source":"google_play_rtdn","notificationType":2}'::jsonb
   )->>'applied')::boolean,
   true,
   'predecessor token becomes active before replacement'
@@ -309,7 +310,8 @@ select is(
   (public.reconcile_google_play_subscription(
     repeat('e', 64), 'chronospark_premium_monthly', 'active', true, true,
     'order-new', now() + interval '31 days', now() + interval '3 minutes',
-    'rtdn:test:new-active', '{"source":"test"}'::jsonb
+    'rtdn:test:new-active',
+    '{"source":"google_play_rtdn","notificationType":2}'::jsonb
   )->>'applied')::boolean,
   true,
   'newer replacement token becomes authoritative'
@@ -424,10 +426,10 @@ select is(
     repeat('e', 64), 'chronospark_premium_monthly', 'active', true, true,
     'order-new-renewed', now() + interval '32 days',
     now() + interval '6 minutes', 'rtdn:test:equal-active-renewal',
-    '{"source":"test"}'::jsonb
+    '{"source":"google_play_rtdn","notificationType":2}'::jsonb
   )->>'applied')::boolean,
   true,
-  'equal-time active event with advanced expiry proves renewal'
+  'provider paid-renewal signal can restore equal-time inactive authority'
 );
 select results_eq(
   $$select s.status, s.is_active, w.balance,
@@ -474,7 +476,7 @@ where user_id = '33333333-3333-4333-8333-333333333333';
 select is(
   public.expire_stale_monetization_subscriptions(),
   1,
-  'scheduled expiry function removes stale premium access'
+  'scheduled expiry function queues stale premium authority for provider recheck'
 );
 select is(
   (select provider_event_time
@@ -488,7 +490,7 @@ select is(
     repeat('e', 64), 'chronospark_premium_monthly', 'active', true, true,
     'order-new-renewed', now() + interval '32 days',
     now() - interval '1 minute', 'verify:test:late-renewal',
-    '{"source":"test"}'::jsonb
+    '{"source":"client_verification"}'::jsonb
   )->>'applied')::boolean,
   true,
   'Play-verified delayed renewal restores locally expired premium'

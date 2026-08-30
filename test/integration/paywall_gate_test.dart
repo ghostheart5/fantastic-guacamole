@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
@@ -25,6 +26,7 @@ void main() {
       final AiCreditWallet exposedWallet = await container.read(
         aiCreditWalletProvider.future,
       );
+      expect(LaunchContainment.paidCreditPlansEnabled, isFalse);
       expect(exposedWallet.balance, 0);
       expect(exposedWallet.tier, 'unavailable');
 
@@ -40,6 +42,11 @@ void main() {
       final config = await container.read(paywallConfigProvider.future);
       expect(config.title, 'Plans unavailable');
       expect(config.plans, isEmpty);
+      expect(container.read(paywallEnabledProvider), isFalse);
+      expect(
+        container.read(paywallRepositoryProvider),
+        isA<ContainedPaywallRepository>(),
+      );
 
       final actions = container.read(paywallActionsProvider);
       await expectLater(

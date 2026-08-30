@@ -13,6 +13,7 @@ void main() {
     expect(LaunchContainment.creditSpendingEnabled, isFalse);
     expect(LaunchContainment.externalAiProviderRetentionVerified, isFalse);
     expect(LaunchContainment.externalAiSafetyReviewApproved, isFalse);
+    expect(LaunchContainment.paidCreditPlansEnabled, isFalse);
     expect(LaunchContainment.analyticsEnabled, isFalse);
     expect(LaunchContainment.crashReportingEnabled, isFalse);
     expect(LaunchContainment.inferredIdentityEnabled, isFalse);
@@ -22,9 +23,35 @@ void main() {
     expect(Env.subscriptionsEnabled, isFalse);
     expect(Env.externalAiEnabled, isFalse);
     expect(Env.creditSpendingEnabled, isFalse);
+    expect(Env.paidCreditPlansEnabled, isFalse);
     expect(Env.enableAnalytics, isFalse);
     expect(Env.enableCrashReporting, isFalse);
     expect(Env.isAiProxyConfigured, isFalse);
+  });
+
+  test('paid credit plans require every monetization trust gate', () {
+    bool resolve({
+      bool subscriptions = true,
+      bool externalAi = true,
+      bool creditSpending = true,
+      bool providerRetention = true,
+      bool safetyApproval = true,
+    }) {
+      return LaunchContainment.resolvePaidCreditPlansEnabled(
+        subscriptionsEnabled: subscriptions,
+        externalAiEnabled: externalAi,
+        creditSpendingEnabled: creditSpending,
+        providerRetentionVerified: providerRetention,
+        safetyReviewApproved: safetyApproval,
+      );
+    }
+
+    expect(resolve(), isTrue);
+    expect(resolve(subscriptions: false), isFalse);
+    expect(resolve(externalAi: false), isFalse);
+    expect(resolve(creditSpending: false), isFalse);
+    expect(resolve(providerRetention: false), isFalse);
+    expect(resolve(safetyApproval: false), isFalse);
   });
 
   test('Planner explanation endpoint is canonical to the Supabase origin', () {

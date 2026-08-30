@@ -133,13 +133,9 @@ final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
 });
 
 final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
-  if (!LaunchContainment.subscriptionsEnabled) {
+  if (!LaunchContainment.paidCreditPlansEnabled) {
     return const ContainedPaywallRepository().getPaywallConfig();
   }
-  final bool aiProxyConfigured = Env.isAiProxyConfigured;
-  final RemotePaywallConfig remoteConfig = await ref.read(
-    remotePaywallConfigProvider.future,
-  );
   final List<PaywallPlan> plans = await ref
       .read(getAvailablePlansUseCaseProvider)
       .call();
@@ -148,20 +144,12 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
       .getUserSubscriptionState();
   return PaywallEntity(
     featureId: 'premium',
-    title: remoteConfig.hasTitleOverride
-        ? remoteConfig.titleOverride
-        : subscription.isTesting
+    title: subscription.isTesting
         ? 'Unlocked for testing'
-        : (aiProxyConfigured
-              ? 'AI Credits + Premium'
-              : 'Smart Credits + Premium'),
-    body: remoteConfig.hasBodyOverride
-        ? remoteConfig.bodyOverride
-        : subscription.isTesting
-        ? 'Premium gates are bypassed in this build.'
-        : (aiProxyConfigured
-              ? 'Unlock AI credits, premium planning guidance, deeper memory, and advanced tools.'
-              : 'Unlock smart credits, premium planning guidance, deeper memory, and advanced tools.'),
+        : 'External-assistant credit plans',
+    body: subscription.isTesting
+        ? 'Subscription checks are bypassed in this testing mode.'
+        : 'Choose a plan. Google Play provides the displayed price and confirms billing frequency and renewal terms before purchase. Credits are granted only after a verified purchase or paid renewal.',
     plans: plans,
     isUnlocked: subscription.isActive,
   );
@@ -173,7 +161,7 @@ class PaywallActions {
   final Ref _ref;
 
   Future<SubscriptionState> startSubscription(String planId) async {
-    if (!LaunchContainment.subscriptionsEnabled) {
+    if (!LaunchContainment.paidCreditPlansEnabled) {
       throw const LaunchContainedException('Subscriptions');
     }
     final SubscriptionState purchased = await _ref
@@ -183,7 +171,7 @@ class PaywallActions {
   }
 
   Future<SubscriptionState> restorePurchases() async {
-    if (!LaunchContainment.subscriptionsEnabled) {
+    if (!LaunchContainment.paidCreditPlansEnabled) {
       throw const LaunchContainedException('Purchase restoration');
     }
     final SubscriptionState restored = await _ref
@@ -195,6 +183,9 @@ class PaywallActions {
   Future<SubscriptionState> _refreshAuthority(
     SubscriptionState fallback,
   ) async {
+    if (!requiresPaywallAuthorityRefresh(fallback)) {
+      return fallback;
+    }
     final repository = _ref.read(paywallRepositoryProvider);
     final ISubscriptionAuthorityRefresher? authorityRefresher =
         repository is ISubscriptionAuthorityRefresher
@@ -205,6 +196,19 @@ class PaywallActions {
     }
     return fallback;
   }
+}
+
+bool requiresPaywallAuthorityRefresh(SubscriptionState result) {
+  if (result.isActive) {
+    return true;
+  }
+  return !const <String>{
+    'purchase_pending',
+    'purchase_canceled',
+    'purchase_cancelled',
+    'nothing_to_restore',
+    'restore_error',
+  }.contains(result.status);
 }
 
 final paywallPromptProvider =
@@ -236,6 +240,9 @@ class PaywallPrompt {
 }
 
 final paywallEnabledProvider = Provider<bool>((ref) {
+  if (!LaunchContainment.paidCreditPlansEnabled) {
+    return false;
+  }
   final bool localEnabled = ref.watch(appAccessProvider).paywallEnabled;
   final bool remoteEnabled = ref
       .watch(remotePaywallConfigProvider)

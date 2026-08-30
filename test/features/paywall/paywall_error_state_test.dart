@@ -113,7 +113,10 @@ void main() {
       find.text("Couldn't load the latest plan details. Showing what we have."),
       findsNothing,
     );
-    expect(find.textContaining('AI CREDITS + PREMIUM'), findsOneWidget);
+    expect(
+      find.textContaining('EXTERNAL-ASSISTANT CREDIT PLANS'),
+      findsOneWidget,
+    );
   });
 }
 
@@ -138,8 +141,9 @@ const IntelligenceState _baseIntelligence = IntelligenceState(
 
 const PaywallEntity _paywallConfig = PaywallEntity(
   featureId: 'premium',
-  title: 'AI Credits + Premium',
-  body: 'Unlock premium intelligence flows.',
+  title: 'External-assistant credit plans',
+  body:
+      'Google Play provides price, billing frequency, and renewal terms before purchase.',
   plans: <PaywallPlan>[
     PaywallPlan(
       id: 'monthly',

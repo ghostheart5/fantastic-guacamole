@@ -164,7 +164,7 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>((
 });
 
 final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
-  if (!Env.subscriptionsEnabled) {
+  if (!Env.paidCreditPlansEnabled) {
     return const ContainedPaywallRepository();
   }
   final bool forceLocalTestingPaywall =

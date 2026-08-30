@@ -120,7 +120,9 @@ void main() {
         AccountDataRegistry.cleanupPlanFor(null);
 
     expect(cleanupPlan.hiveBoxes, AccountDataRegistry.legacyAccountHiveBoxes);
-    expect(cleanupPlan.secureKeyPrefixes, isEmpty);
+    expect(cleanupPlan.secureKeyPrefixes, <String>{
+      AccountDataRegistry.pendingPurchaseOwnerSecureKeyPrefix,
+    });
     expect(cleanupPlan.preferenceKeyPrefixes, isEmpty);
   });
 }

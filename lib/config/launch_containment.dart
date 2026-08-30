@@ -11,9 +11,29 @@ abstract final class LaunchContainment {
   static const bool creditSpendingEnabled = false;
   static const bool externalAiProviderRetentionVerified = false;
   static const bool externalAiSafetyReviewApproved = false;
+  static const bool paidCreditPlansEnabled =
+      subscriptionsEnabled &&
+      externalAiEnabled &&
+      creditSpendingEnabled &&
+      externalAiProviderRetentionVerified &&
+      externalAiSafetyReviewApproved;
   static const bool analyticsEnabled = false;
   static const bool crashReportingEnabled = false;
   static const bool inferredIdentityEnabled = false;
+
+  static bool resolvePaidCreditPlansEnabled({
+    required bool subscriptionsEnabled,
+    required bool externalAiEnabled,
+    required bool creditSpendingEnabled,
+    required bool providerRetentionVerified,
+    required bool safetyReviewApproved,
+  }) {
+    return subscriptionsEnabled &&
+        externalAiEnabled &&
+        creditSpendingEnabled &&
+        providerRetentionVerified &&
+        safetyReviewApproved;
+  }
 }
 
 final class LaunchContainedException implements Exception {

@@ -75,6 +75,10 @@ void main() {
         'si_engine_state_v2.$namespace.console.thread-1',
         'private',
       );
+      final String pendingPurchaseOwnerKey =
+          '${AccountDataRegistry.pendingPurchaseOwnerSecureKeyPrefix}'
+          'chronospark_premium_monthly';
+      await secureStore.writeString(pendingPurchaseOwnerKey, 'owner-digest');
       await secureStore.writeString(
         AccountDataRegistry.notificationSecureKeyFor('account-b'),
         'other-owner',
@@ -134,6 +138,7 @@ void main() {
         ),
         isNull,
       );
+      expect(await secureStore.readString(pendingPurchaseOwnerKey), isNull);
       expect(await secureStore.readString('hive_aes_key'), 'device-global');
       expect(
         await secureStore.readString('cloud_backup_encryption_key_v1'),

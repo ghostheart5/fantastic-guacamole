@@ -32,3 +32,11 @@
 - Tutorial/Timeline rollback is permitted only if a visit or button tap cannot falsely record a saved-item or Timeline-review milestone.
 - Auth/navigation rollback is permitted only if Privacy and Terms remain reachable before account creation and a validated protected `returnTo` survives login and onboarding.
 - No Phase 1 rollback may re-enable a Phase 0 contained capability.
+
+## Phase 8 Rollback Plan
+
+- Revert the Phase 8 app and Edge checkpoint only with a new reviewed revert commit, then rerun containment, billing/paywall tests, Edge tests, analyzer, and release guards.
+- A source rollback must leave subscriptions, paid credit plans, external AI, and credit spending disabled.
+- Do not delete purchase bindings, opaque billing principals, terminal purchase states, entitlement events, allowance grants, credit transactions, or AI settlement rows.
+- If the Phase 8 migration has been applied anywhere, do not reverse it with destructive DDL or manual data edits. Use an approved forward compatibility migration that preserves terminal authority and hashed lineage.
+- Do not deploy, migrate, alter Play configuration, or rotate secrets as part of a local rollback.

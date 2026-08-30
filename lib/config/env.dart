@@ -47,6 +47,8 @@ abstract final class Env {
   static bool get externalAiEnabled => LaunchContainment.externalAiEnabled;
   static bool get creditSpendingEnabled =>
       LaunchContainment.creditSpendingEnabled;
+  static bool get paidCreditPlansEnabled =>
+      LaunchContainment.paidCreditPlansEnabled;
   static bool get isMockMode => _FeatureFlags.isMockMode;
   static bool get isPaywallDisabled => _FeatureFlags.isPaywallDisabled;
   static bool get isMockLoginEnabled => _FeatureFlags.isMockLoginEnabled;

@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/config/app_config.dart';
-import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
@@ -21,6 +21,59 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+bool resolvePaywallRestoreAvailability({required bool paidCreditPlansEnabled}) {
+  return paidCreditPlansEnabled;
+}
+
+String resolvePaywallPurchaseResultMessage(
+  SubscriptionState subscription, {
+  required bool testingMode,
+}) {
+  switch (subscription.status) {
+    case 'purchase_pending':
+      return 'Purchase pending. Your current access stays unchanged while Google Play completes it.';
+    case 'purchase_canceled':
+    case 'purchase_cancelled':
+      return 'Purchase canceled. Your current access was not changed.';
+    case 'verification_failed':
+      return 'Purchase verification could not be confirmed. Your current access stays unchanged; use Restore Purchases to retry.';
+    case 'acknowledgement_failed':
+      return 'Purchase verification succeeded, but final acknowledgement is still pending. Your current access stays unchanged; use Restore Purchases to retry.';
+    default:
+      if (subscription.isActive) {
+        return testingMode
+            ? 'Unlocked for testing.'
+            : 'Subscription activated.';
+      }
+      return 'Subscription access is inactive.';
+  }
+}
+
+String resolvePaywallRestoreResultMessage(
+  SubscriptionState subscription, {
+  required bool testingMode,
+}) {
+  switch (subscription.status) {
+    case 'purchase_pending':
+      return 'Restore pending. Your current access stays unchanged while Google Play completes it.';
+    case 'verification_failed':
+      return 'Restore verification could not be confirmed. Your current access stays unchanged; retry Restore Purchases.';
+    case 'acknowledgement_failed':
+      return 'Restore found the purchase, but final acknowledgement is still pending. Your current access stays unchanged; retry Restore Purchases.';
+    case 'restore_error':
+      return 'Purchase restore failed. Retry.';
+    case 'nothing_to_restore':
+      return 'No active purchases were found to restore.';
+    default:
+      if (subscription.isActive) {
+        return testingMode
+            ? 'Unlocked for testing.'
+            : 'Subscription restored and active.';
+      }
+      return 'No active purchases were found to restore.';
+  }
+}
+
 class PaywallPage extends ConsumerStatefulWidget {
   const PaywallPage({super.key});
 
@@ -31,7 +84,6 @@ class PaywallPage extends ConsumerStatefulWidget {
 class _PaywallPageState extends ConsumerState<PaywallPage> {
   String? _statusMessage;
   bool _showAllPlans = false;
-  bool _showComparison = false;
 
   @override
   void initState() {
@@ -53,30 +105,44 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .startSubscription(planId);
-      await ref
-          .read(entitlementProvider.notifier)
-          .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
+      if (subscription.isActive) {
+        await ref
+            .read(entitlementProvider.notifier)
+            .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
+      } else {
+        ref.invalidate(entitlementProvider);
+      }
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
       if (!mounted) {
         return;
       }
       setState(() {
-        _statusMessage = paywallTestingMode
-            ? 'Unlocked for testing.'
-            : 'Subscription activated.';
+        _statusMessage = resolvePaywallPurchaseResultMessage(
+          subscription,
+          testingMode: paywallTestingMode,
+        );
       });
       if (paywallTestingMode) {
         Logger.log('Paywall', 'Unlocked for testing.');
       }
       AppAnalytics.track(
-        'paywall_unlock',
+        'paywall_purchase_result',
         params: <String, Object?>{
           'plan_id': planId,
           'testing_mode': paywallTestingMode,
+          'status': subscription.status,
+          'is_active': subscription.isActive,
         },
       );
       if (subscription.isActive) {
+        AppAnalytics.track(
+          'paywall_unlock',
+          params: <String, Object?>{
+            'plan_id': planId,
+            'testing_mode': paywallTestingMode,
+          },
+        );
         AppAnalytics.track(
           'subscription_purchased',
           params: <String, Object?>{
@@ -113,24 +179,23 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .restorePurchases();
-      await ref
-          .read(entitlementProvider.notifier)
-          .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
+      if (subscription.isActive) {
+        await ref
+            .read(entitlementProvider.notifier)
+            .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
+      } else {
+        ref.invalidate(entitlementProvider);
+      }
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
       if (!mounted) {
         return;
       }
       setState(() {
-        if (autoPrompt) {
-          _statusMessage = subscription.isActive
-              ? 'We found your previous subscription and restored it.'
-              : 'Restore check complete. No previous subscription was found yet.';
-        } else {
-          _statusMessage = paywallTestingMode
-              ? 'Unlocked for testing.'
-              : 'Purchases restored.';
-        }
+        _statusMessage = resolvePaywallRestoreResultMessage(
+          subscription,
+          testingMode: paywallTestingMode,
+        );
       });
       AppAnalytics.track(
         autoPrompt ? 'paywall_auto_restore' : 'paywall_restore',
@@ -214,7 +279,6 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     );
     final PaywallPrompt? prompt = ref.watch(paywallPromptProvider);
     final bool isPremium = ref.watch(appAccessProvider).hasPremiumAccess;
-    final bool aiProxyConfigured = Env.isAiProxyConfigured;
     final List<PaywallPlan> prioritizedPlans = _prioritizePlans(
       configAsync.asData?.value.plans ?? const <PaywallPlan>[],
     );
@@ -240,15 +304,12 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
 
     final PaywallEntity config =
         configAsync.asData?.value ??
-        PaywallEntity(
+        const PaywallEntity(
           featureId: 'premium',
-          title: aiProxyConfigured
-              ? 'AI Credits + Premium'
-              : 'Smart Credits + Premium',
-          body: aiProxyConfigured
-              ? 'Unlock AI credits, premium planning guidance, deeper memory, and advanced tools.'
-              : 'Unlock smart credits, premium planning guidance, deeper memory, and advanced tools.',
-          plans: const <PaywallPlan>[],
+          title: 'External-assistant credit plans',
+          body:
+              'Choose a plan. Google Play provides the displayed price and confirms billing frequency and renewal terms before purchase. Credits are granted only after a verified purchase or paid renewal.',
+          plans: <PaywallPlan>[],
           isUnlocked: false,
         );
     final SubscriptionState? subscription = subscriptionAsync.asData?.value;
@@ -257,8 +318,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final bool subscriptionError = subscriptionAsync.hasError;
     final bool walletError = walletAsync.hasError;
     final bool anyError = configError || subscriptionError || walletError;
-    final bool canRestore =
-        paywallTestingMode || config.plans.any((plan) => plan.isAvailable);
+    final bool hasActiveSubscription = subscription?.isActive == true;
+    final bool canRestore = resolvePaywallRestoreAvailability(
+      paidCreditPlansEnabled: LaunchContainment.paidCreditPlansEnabled,
+    );
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSettingsControlPlane,
@@ -271,7 +334,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
               TemporalScreenHeader(
                 title: 'PLAN & CREDITS',
                 subtitle:
-                    '${config.title.toUpperCase()} · Subscription access and AI credit balance.',
+                    '${config.title.toUpperCase()} · Subscription status and external-assistant credit allowance.',
                 eyebrow: paywallTestingMode
                     ? 'Unlocked for testing'
                     : 'Temporal commerce',
@@ -302,14 +365,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     paywallTestingMode ||
                     subscription?.isActive == true,
                 wallet: wallet,
-                aiProxyConfigured: aiProxyConfigured,
               ),
-              if (!(isPremium ||
-                  paywallTestingMode ||
-                  subscription?.isActive == true)) ...[
-                const SizedBox(height: 14),
-                _SoftGatePreviewCard(aiProxyConfigured: aiProxyConfigured),
-              ],
               if (prompt != null) ...[
                 const SizedBox(height: 14),
                 _PromptBanner(prompt: prompt),
@@ -323,34 +379,6 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 ),
               ],
               const SizedBox(height: 18),
-              ExpansionTile(
-                initiallyExpanded: _showComparison,
-                onExpansionChanged: (bool expanded) {
-                  if (!mounted) {
-                    return;
-                  }
-                  setState(() {
-                    _showComparison = expanded;
-                  });
-                },
-                title: const Text(
-                  'Compare Free vs Premium',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: const Text(
-                  'Open only if you need the full breakdown.',
-                ),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
-                    child: _ComparisonGrid(
-                      wallet: wallet,
-                      aiProxyConfigured: aiProxyConfigured,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
               if (paywallTestingMode || subscription?.isActive == true) ...[
                 Container(
                   width: double.infinity,
@@ -362,10 +390,12 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                       color: AppColors.neonCyan.withValues(alpha: 0.25),
                     ),
                   ),
-                  child: const Text(
-                    'Unlocked for testing',
+                  child: Text(
+                    paywallTestingMode
+                        ? 'Unlocked for testing'
+                        : 'Subscription active',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.neonCyan,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -404,20 +434,6 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                                 ),
                               ),
                             ),
-                            if (plan.isFeatured)
-                              const Flexible(
-                                child: Text(
-                                  'BEST VALUE',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: AppColors.neonViolet,
-                                    fontSize: 10,
-                                    letterSpacing: 0,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -431,7 +447,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                         if (plan.aiCreditsIncluded > 0) ...[
                           const SizedBox(height: 6),
                           Text(
-                            '${plan.aiCreditsIncluded} ${aiProxyConfigured ? 'AI' : 'smart'} credits included',
+                            'Credits after a verified purchase or paid renewal: ${plan.aiCreditsIncluded}',
                             style: const TextStyle(
                               color: AppColors.neonCyan,
                               fontSize: 12,
@@ -440,54 +456,30 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                           ),
                         ],
                         const SizedBox(height: 6),
-                        Text(
-                          plan.description,
-                          style: const TextStyle(
+                        const Text(
+                          'Google Play confirms billing frequency and renewal terms before purchase.',
+                          style: TextStyle(
                             color: Colors.white54,
                             fontSize: 12,
                             height: 1.4,
                           ),
                         ),
-                        if (plan.benefits.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          ...plan.benefits.map(
-                            (String benefit) => Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.check_circle_outline,
-                                    size: 14,
-                                    color: AppColors.neonCyan,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      benefit,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        height: 1.3,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 12),
                         Row(
                           children: [
                             Expanded(
                               child: FilledButton(
-                                onPressed: plan.isAvailable
+                                onPressed:
+                                    LaunchContainment.paidCreditPlansEnabled &&
+                                        plan.isAvailable &&
+                                        !hasActiveSubscription
                                     ? () => _unlock(plan.id)
                                     : null,
                                 child: Text(
                                   paywallTestingMode
                                       ? 'Simulate unlock'
+                                      : hasActiveSubscription
+                                      ? 'Current subscription active'
                                       : 'Choose plan',
                                 ),
                               ),
@@ -525,7 +517,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
               Text(
                 paywallTestingMode
                     ? 'Testing mode is active; purchases are simulated.'
-                    : 'Cancel anytime. Credits renew automatically. No hidden fees.',
+                    : 'Prices shown above come from Google Play. Google Play confirms billing frequency, renewal terms, and final purchase details before you pay.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white38,
@@ -564,14 +556,12 @@ class _HeroCard extends StatelessWidget {
     required this.body,
     required this.isPremium,
     required this.wallet,
-    required this.aiProxyConfigured,
   });
 
   final String title;
   final String body;
   final bool isPremium;
   final AiCreditWallet? wallet;
-  final bool aiProxyConfigured;
 
   @override
   Widget build(BuildContext context) {
@@ -602,11 +592,7 @@ class _HeroCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                isPremium
-                    ? 'PREMIUM ACTIVE'
-                    : (aiProxyConfigured
-                          ? 'AI CREDIT GATE'
-                          : 'SMART CREDIT GATE'),
+                isPremium ? 'SUBSCRIPTION ACTIVE' : 'CREDIT ALLOWANCE',
                 style: TextStyle(
                   color: isPremium ? AppColors.neonCyan : AppColors.neonViolet,
                   fontSize: 11,
@@ -719,149 +705,6 @@ class _CreditStat extends StatelessWidget {
   }
 }
 
-class _ComparisonGrid extends StatelessWidget {
-  const _ComparisonGrid({
-    required this.wallet,
-    required this.aiProxyConfigured,
-  });
-
-  final AiCreditWallet? wallet;
-  final bool aiProxyConfigured;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _ComparisonCard(
-          title: 'Free',
-          subtitle: 'Keep the habit alive',
-          color: Colors.white54,
-          bullets: <String>[
-            'Basic planning and execution',
-            'Starter ${aiProxyConfigured ? 'AI' : 'smart'} credits',
-            'Limited voice and memory',
-          ],
-          badge: wallet?.tier == 'free' ? 'Current' : null,
-        ),
-        _ComparisonCard(
-          title: 'Premium',
-          subtitle: aiProxyConfigured
-              ? 'Scale the AI workflow'
-              : 'Scale the smart workflow',
-          color: AppColors.neonCyan,
-          bullets: <String>[
-            'Monthly ${aiProxyConfigured ? 'AI' : 'smart'} credit bundle',
-            'Deeper memory and signals',
-            'Voice and advanced agents',
-          ],
-          badge: wallet?.tier == 'premium' ? 'Active' : 'Upgrade',
-        ),
-      ],
-    );
-  }
-}
-
-class _ComparisonCard extends StatelessWidget {
-  const _ComparisonCard({
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    required this.bullets,
-    this.badge,
-  });
-
-  final String title;
-  final String subtitle;
-  final Color color;
-  final List<String> bullets;
-  final String? badge;
-
-  @override
-  Widget build(BuildContext context) {
-    final double cardWidth = MediaQuery.of(context).size.width < 420
-        ? double.infinity
-        : (MediaQuery.of(context).size.width - 52) / 2;
-
-    return Container(
-      width: cardWidth,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (badge != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    badge ?? '',
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          ...bullets.map(
-            (String bullet) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.check, size: 14, color: color),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      bullet,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PaywallErrorBanner extends StatelessWidget {
   const _PaywallErrorBanner({required this.onRetry});
 
@@ -945,54 +788,6 @@ class _PromptBanner extends StatelessWidget {
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _SoftGatePreviewCard extends StatelessWidget {
-  const _SoftGatePreviewCard({required this.aiProxyConfigured});
-
-  final bool aiProxyConfigured;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Preview Premium Before You Commit',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Preview premium capabilities before you commit to a recurring plan.',
-            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            aiProxyConfigured
-                ? 'Example premium output: Prioritize a 40-minute deep work block now, then queue a low-energy admin sweep later.'
-                : 'Example premium output: Prioritize a 40-minute execution block now, then queue a low-energy admin sweep later.',
-            style: const TextStyle(
-              color: AppColors.neonCyan,
-              fontSize: 11,
-              height: 1.4,
-            ),
-          ),
         ],
       ),
     );

@@ -33,6 +33,26 @@ Formatting candidates are `test/data/repositories/google_play_paywall_repository
 
 ## Phase Evidence
 
+### Phase 8 - Billing Authority And Entitlement Truth
+
+- Checkpoint: pending local Phase 8 commit on `fix/chronospark-2040-launch-readiness-20260829`.
+- Evidence boundary: source, local Windows host tests, and repository validators only. No database migration, deployment, live secret, Play Console change, purchase, credit spend, RTDN delivery, signed artifact, device journey, or human UAT occurred.
+
+| Gate | Status | Command/evidence | Result boundary |
+|---|---|---|---|
+| Formatting | PASS | Dart and Deno format checks on all app/test files and six changed billing Edge files | 1,007 Dart files and all changed Edge files formatted |
+| Analyzer | PASS | `flutter analyze --fatal-infos` | No issues found |
+| Focused billing/paywall/cleanup suite | PASS | 9 changed Phase 8 Flutter test files | 93 passed; purchase/restore account isolation, payload validation, acknowledgement, authority refresh, UI truth, containment, and cleanup covered |
+| Full Flutter suite | PASS | `flutter test --no-pub` | 1,930 passed; one expected QA-define-only test skipped; zero failures |
+| QA define-only contract | PASS | `flutter test --no-pub --dart-define-from-file=tool/qa_defines.json test/config/env_mode_resolution_test.dart` | 15 passed, 0 skipped |
+| Edge Function gate | PASS | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\edge_function_gate.ps1 -RunTests` | Seven functions type-checked; 68 Deno tests passed; active authority is ordered after acknowledgement; detached recovery and subscriptions-center re-subscription contexts fail closed |
+| Architecture and migration policy | PASS | `check_architecture.ps1`; `supabase_migration_policy_contract.ps1` | No boundary violations; 21 migrations passed repository replay policy |
+| Secret, release, and version guards | PASS | Repository PowerShell guards | Both secret guards plus release/version checks passed; no secret values inspected or changed |
+| Workflow and Maestro validators | PASS | Repository Dart validators | 11 workflows and 16 Maestro files passed |
+| Disposable PostgreSQL migration/pgTAP/lint | BLOCKED_EXTERNAL | `npx --yes supabase@2.116.0 db lint --local --schema public --fail-on error` | CLI ran, but PostgreSQL at `127.0.0.1:54322` refused the connection; no `docker`, `supabase`, or `psql` command is installed. The 140-assertion Phase 8 pgTAP file was not executed; its assertion plan is checked statically |
+| Deployed Supabase and Google Play lifecycle | NOT_RUN | Requires separate authorization and external environments | Source evidence does not establish deployed migrations/functions/grants, Play sandbox lifecycle, acknowledgement, RTDN, provider rechecks, signed-device behavior, or production configuration |
+| Launch containment | PASS | Config/provider/action/UI tests and direct source review | Subscriptions, paid credit plans, external AI, and credit spending remain disabled |
+
 ### Phase 2 - Account And Data Integrity Checkpoint
 
 - Code commits: `061ea18`, `51b96be`, `bc44261`

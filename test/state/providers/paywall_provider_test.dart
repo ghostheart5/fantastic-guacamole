@@ -52,6 +52,61 @@ void main() {
     expect(repository.refreshCalls, 0);
   });
 
+  test('explicit inactive billing outcomes bypass authority replacement', () {
+    for (final String status in <String>[
+      'purchase_pending',
+      'purchase_canceled',
+      'nothing_to_restore',
+      'restore_error',
+    ]) {
+      expect(
+        requiresPaywallAuthorityRefresh(
+          SubscriptionState(
+            isActive: false,
+            status: status,
+            source: 'google_play',
+          ),
+        ),
+        isFalse,
+        reason: '$status must reach the page unchanged.',
+      );
+    }
+
+    expect(
+      requiresPaywallAuthorityRefresh(
+        const SubscriptionState(
+          isActive: false,
+          status: 'verification_failed',
+          source: 'google_play',
+        ),
+      ),
+      isTrue,
+      reason:
+          'Ambiguous verification failures need an authoritative server read.',
+    );
+
+    expect(
+      requiresPaywallAuthorityRefresh(
+        const SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'google_play',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      requiresPaywallAuthorityRefresh(
+        const SubscriptionState(
+          isActive: false,
+          status: 'locked',
+          source: 'google_play',
+        ),
+      ),
+      isTrue,
+    );
+  });
+
   test('paywallPromptProvider stores and clears prompt state', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);

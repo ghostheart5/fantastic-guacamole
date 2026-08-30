@@ -10,16 +10,19 @@ the backend evidence is captured.
 
 ## Deployment Order
 
-1. Review and apply every tracked migration through
-   `20260827093750_recoverable_account_deletion.sql` to the production project.
+1. In a disposable fresh project, review and pass every tracked migration through
+   `20260830152232_harden_phase8_billing_authority.sql`, both billing pgTAP
+   contracts, and database lint. Only after that independent evidence and a
+   separately approved production change plan may the same migrations be
+   applied to the production project.
    Do not run the Android release while linked migration inventory differs from
    the repository.
 2. Set the required Edge Function secrets without committing their values:
    `ANTHROPIC_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`,
    `ANDROID_PACKAGE_NAME`, `RTDN_AUDIENCE`,
    `RTDN_SERVICE_ACCOUNT_EMAIL`, and `ACCOUNT_DELETE_RECONCILE_SECRET`.
-3. Deploy `ai-proxy`, `ai-report`, `verify-receipt`, `google-play-rtdn`,
-   `account-delete`, and `account-delete-reconcile` from the exact release
+3. Deploy `ai-proxy`, `ai-report`, `planner-explanation`, `verify-receipt`,
+   `google-play-rtdn`, `account-delete`, and `account-delete-reconcile` from the exact release
    commit. `account-delete-reconcile` and `google-play-rtdn` use their own
    fail-closed authentication and therefore have platform JWT verification
    disabled in `supabase/config.toml`.
@@ -33,6 +36,10 @@ the backend evidence is captured.
    production secret must match the Edge `ACCOUNT_DELETE_RECONCILE_SECRET`.
 7. Send the Play Console test notification and retain proof that the matching
    RTDN message reached the production function before rollout.
+8. Deploy and verify the provider-recheck worker. The queue stores only hashed
+   purchase-token identifiers, so the worker must use an approved mechanism to
+   reacquire a usable token before querying Google Play; it must not mark work
+   complete without authoritative reconciliation.
 
 ## GitHub Production Secrets
 
@@ -56,7 +63,8 @@ The protected `production` environment must provide:
 - Android signing and Firebase configuration secrets already required by
   `.github/workflows/android-release.yml`
 
-The Google service account needs Android Publisher read access and permission
+The Google service account needs the least Android Publisher permissions needed
+to read subscription authority and acknowledge verified purchases, plus permission
 to read the configured Pub/Sub subscription. The production backend check reads
 configuration and catalog state only. The scheduled reconciler processes only
 deletion requests that were previously authenticated and persisted by the
@@ -87,4 +95,6 @@ Each release run retains:
 
 These gates do not replace signed-device purchase, renewal, cancellation,
 refund, restore, account deletion, process-death, or RTDN delivery testing.
-Those runtime scenarios must be completed separately before production rollout.
+Those runtime scenarios, including subscriptions-center re-subscription and
+detached-account recreation, must be completed separately before production
+rollout.

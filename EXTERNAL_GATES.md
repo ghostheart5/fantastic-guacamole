@@ -23,7 +23,9 @@ Every row remains `BLOCKED_EXTERNAL` until the required evidence is captured wit
 | Planner explanation deployment and scrub | Backend + privacy owner | Fresh Supabase project and authorized production project | Migration replay, database lint, deployed function/config readback, one quoted cancellation, one safe mock-equivalent execution, one refunded failure, and observed content scrub | No model call before all gates; zero charge on cancel/failure; raw replay content removed within the disclosed target | Data retention, double charge, or source/deployment drift | BLOCKED_EXTERNAL |
 | Privacy/legal review | Qualified reviewer | Final app, policies, data map | Signed dated review | No unresolved launch blocker | Regulatory and trust risk | BLOCKED_EXTERNAL |
 | Mental-health-safety review | Qualified reviewer | Final distress/crisis experience and evals | Signed dated review | Safe bounded behavior | Harmful response | BLOCKED_EXTERNAL |
-| Billing sandbox lifecycle | Billing owner | Play sandbox/test accounts | Full lifecycle evidence | Authority correct for all states | Revenue/access failure | BLOCKED_EXTERNAL |
+| Billing database replay | Billing/backend owner | Disposable Supabase/PostgreSQL environment | Exact migration replay, database lint, and both billing pgTAP files | Schema, functions, RLS, grants, ordering, lineage, wallets, and cleanup pass from a fresh database | Source SQL may not execute as reviewed | BLOCKED_EXTERNAL |
+| Billing recheck worker | Billing/backend owner | Approved token-reacquisition worker plus scheduled queue processing | Claimed/retried/reconciled queue evidence without raw-token persistence | Expired local rows are rechecked against Google Play and cannot be completed by arbitrary service calls | Stale access or unresolvable queue backlog | BLOCKED_EXTERNAL |
+| Billing sandbox lifecycle | Billing owner | Play sandbox/test accounts | Purchase, pending, acknowledgement, renewal, lapsed re-subscription, replacement, cancellation, grace, hold, pause, expiry, revoke, refund, restore, detached-account recreation, account-change, and process-death evidence | Authority and allowance grants are correct for every state | Revenue/access failure | BLOCKED_EXTERNAL |
 | Real Android/TalkBack | Accessibility tester | Representative hardware | Recorded matrix and defects | Required journeys pass | Exclusion/trap | BLOCKED_EXTERNAL |
 | First-time human UAT | Product research owner | No-coaching UAT protocol | Participant results and retest | All mandatory tasks pass | Adoption/trust failure | BLOCKED_EXTERNAL |
 | Production credentials/signing | Release owner | Protected release environment | Signed artifact and provenance | Exact final SHA/artifact | Cannot release safely | BLOCKED_EXTERNAL |
@@ -36,3 +38,10 @@ Every row remains `BLOCKED_EXTERNAL` until the required evidence is captured wit
 - `supabase` command: unavailable in the current PowerShell environment.
 - Consequence: fresh migration replay, pgTAP, database lint, and disposable two-device/deployed-backend verification cannot run locally.
 - Required next environment: a disposable Supabase project or functioning local Docker/Supabase stack, never the production project for first execution.
+
+## Current Phase 8 Stop Evidence
+
+- Phase 8 is source-complete only; subscriptions, paid credits, external AI, and credit spending remain disabled.
+- The repository migration-policy replay, client tests, Edge tests, and static SQL contracts passed locally.
+- No migration, function, secret, Play product, RTDN subscription, purchase, acknowledgement, or wallet operation was performed against a live service.
+- A disposable PostgreSQL/Supabase runtime is still required for migration replay, pgTAP, and database lint. The production project must not be the first execution target.

@@ -7,11 +7,24 @@ import {
   validateGoogleOidcPush,
 } from "../_shared/google_auth.ts";
 import {
+  bindVerifiedLinkedPurchaseToken,
   decodePubSubNotification,
+  googleSubscriptionNotificationCause,
+  googleSubscriptionState,
   googleSubscriptionStateForNotification,
   reconciliationWasHandled,
+  resolveSubscriptionAuthorityPurchase,
   terminalNotificationMatchesSubscriptionState,
+  validatePaidRenewalAuthority,
 } from "../_shared/google_play_rtdn.ts";
+import {
+  acknowledgeGooglePlaySubscription,
+  applyGooglePlayAuthorityAfterAcknowledgement,
+  readLatestSuccessfulOrderId,
+  readLinkedPurchaseToken,
+  readPurchaseLineage,
+  selectSubscriptionAuthorityLine,
+} from "../_shared/subscription_verification.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY") ??
@@ -21,16 +34,13 @@ const ANDROID_PACKAGE_NAME = Deno.env.get("ANDROID_PACKAGE_NAME") ??
 const RTDN_AUDIENCE = Deno.env.get("RTDN_AUDIENCE") ?? "";
 const RTDN_SERVICE_ACCOUNT_EMAIL = Deno.env.get("RTDN_SERVICE_ACCOUNT_EMAIL") ??
   "";
+const ALLOWED_PRODUCT_IDS = new Set([
+  "chronospark_premium_monthly",
+  "chronospark_premium_annual",
+]);
 
 interface PubSubEnvelope {
   message?: { data?: string; messageId?: string };
-}
-
-interface SubscriptionLineItem {
-  productId?: string;
-  expiryTime?: string;
-  autoRenewingPlan?: { autoRenewEnabled?: boolean };
-  offerDetails?: { basePlanId?: string; offerId?: string };
 }
 
 function readServiceAccount(): GoogleServiceAccount | null {
@@ -114,9 +124,8 @@ async function updateEvent(
 
 async function fetchSubscription(
   purchaseToken: string,
-  serviceAccount: GoogleServiceAccount,
+  accessToken: string,
 ): Promise<Record<string, unknown>> {
-  const accessToken = await getGoogleAccessToken(serviceAccount);
   const response = await fetch(
     `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
       encodeURIComponent(ANDROID_PACKAGE_NAME)
@@ -125,6 +134,126 @@ async function fetchSubscription(
   );
   if (!response.ok) throw new Error(`play_subscription_${response.status}`);
   return await response.json() as Record<string, unknown>;
+}
+
+async function reconcileSubscriptionAuthority(input: {
+  messageId: string;
+  eventTime: Date;
+  cause: ReturnType<typeof googleSubscriptionNotificationCause>;
+  purchase: Record<string, unknown>;
+  purchaseToken: string;
+  authoritySource: "notification_token" | "linked_predecessor";
+  lineageSource: "linked_purchase" | "out_of_app_resubscribe" | null;
+  accessToken: string;
+  expectedProductId: string | null;
+}): Promise<boolean> {
+  if (!input.cause.supported) {
+    throw new Error("play_subscription_notification_type_unsupported");
+  }
+  const observedAt = new Date();
+  const line = selectSubscriptionAuthorityLine(
+    input.purchase,
+    ALLOWED_PRODUCT_IDS,
+    observedAt.getTime(),
+  );
+  if (
+    input.expectedProductId !== null &&
+    line.productId !== input.expectedProductId
+  ) {
+    throw new Error("play_subscription_notification_product_mismatch");
+  }
+  const expiresAt = line.expiryTimeMs === null
+    ? null
+    : new Date(line.expiryTimeMs);
+  const subscriptionState = input.purchase.subscriptionState;
+  if (
+    input.authoritySource === "notification_token" &&
+    !terminalNotificationMatchesSubscriptionState(
+      input.cause.notificationType,
+      subscriptionState,
+    )
+  ) {
+    throw new Error("play_subscription_terminal_state_mismatch");
+  }
+  const state = input.authoritySource === "notification_token"
+    ? googleSubscriptionStateForNotification(
+      input.cause.notificationType,
+      subscriptionState,
+      expiresAt,
+      observedAt,
+    )
+    : googleSubscriptionState(subscriptionState, expiresAt, observedAt);
+  if (!state.supported) {
+    throw new Error("play_subscription_state_unsupported");
+  }
+  if (state.active && expiresAt === null) {
+    throw new Error("play_subscription_active_expiry_missing");
+  }
+
+  const orderId = readLatestSuccessfulOrderId(input.purchase, line.raw);
+  validatePaidRenewalAuthority(
+    input.cause,
+    state,
+    line.successfulLineOrderId,
+  );
+  const offerDetails = line.raw.offerDetails !== null &&
+      typeof line.raw.offerDetails === "object" &&
+      !Array.isArray(line.raw.offerDetails)
+    ? line.raw.offerDetails as Record<string, unknown>
+    : null;
+  const purchaseTokenHash = await sha256Hex(input.purchaseToken);
+  const authority = await applyGooglePlayAuthorityAfterAcknowledgement(
+    {
+      active: state.active,
+      acknowledgementState: input.purchase.acknowledgementState,
+    },
+    () =>
+      acknowledgeGooglePlaySubscription({
+        packageName: ANDROID_PACKAGE_NAME,
+        productId: line.productId,
+        purchaseToken: input.purchaseToken,
+        accessToken: input.accessToken,
+      }),
+    () =>
+      serviceRpc("reconcile_google_play_subscription", {
+        p_purchase_token_hash: purchaseTokenHash,
+        p_product_id: line.productId,
+        p_status: state.status,
+        p_is_active: state.active,
+        p_auto_renews: line.autoRenews,
+        p_order_id: orderId,
+        p_expires_at: expiresAt?.toISOString() ?? null,
+        p_provider_event_time: observedAt.toISOString(),
+        p_event_key: input.authoritySource === "notification_token"
+          ? `rtdn:${input.messageId}`
+          : `rtdn:${input.messageId}:linked-predecessor`,
+        p_payload: {
+          source: "google_play_rtdn",
+          authoritySource: input.authoritySource,
+          lineageSource: input.lineageSource,
+          notificationEventTime: input.eventTime.toISOString(),
+          notificationType: input.cause.notificationType,
+          subscriptionState,
+          acknowledgementState: input.purchase.acknowledgementState,
+          basePlanId: offerDetails?.basePlanId,
+          offerId: offerDetails?.offerId,
+          cause: {
+            notificationType: input.cause.notificationType,
+            eventName: input.cause.eventName,
+            paidRenewal: input.cause.paidRenewal,
+          },
+        },
+      }),
+  );
+  if (authority.status === "acknowledgement_unsupported") {
+    throw new Error("play_subscription_acknowledgement_state_unsupported");
+  }
+  if (authority.status === "acknowledgement_retryable") {
+    throw new Error("play_subscription_acknowledgement_retryable");
+  }
+  const result = authority.value;
+  if (!reconciliationWasHandled(result)) return false;
+  return true;
 }
 
 async function processSubscription(
@@ -137,60 +266,63 @@ async function processSubscription(
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
   const subscription = raw as Record<string, unknown>;
   const purchaseToken = typeof subscription.purchaseToken === "string"
-    ? subscription.purchaseToken
+    ? subscription.purchaseToken.trim()
     : "";
   if (!purchaseToken || purchaseToken.length > 4096) return false;
-  const play = await fetchSubscription(purchaseToken, serviceAccount);
-  const lineItems = Array.isArray(play.lineItems)
-    ? play.lineItems as SubscriptionLineItem[]
-    : [];
-  const line = lineItems.find((item) =>
-    item.productId === "chronospark_premium_monthly" ||
-    item.productId === "chronospark_premium_annual"
-  );
-  if (!line?.productId) throw new Error("play_subscription_product_missing");
-  const expiresAt = line.expiryTime ? new Date(line.expiryTime) : null;
-  if (expiresAt !== null && !Number.isFinite(expiresAt.getTime())) {
-    throw new Error("play_subscription_expiry_invalid");
-  }
-  const subscriptionState = String(play.subscriptionState ?? "");
-  if (
-    !terminalNotificationMatchesSubscriptionState(
-      subscription.notificationType,
-      subscriptionState,
-    )
-  ) {
-    throw new Error("play_subscription_terminal_state_mismatch");
-  }
-  const state = googleSubscriptionStateForNotification(
+  const cause = googleSubscriptionNotificationCause(
     subscription.notificationType,
-    subscriptionState,
-    expiresAt,
   );
+  if (!cause.supported) {
+    throw new Error("play_subscription_notification_type_unsupported");
+  }
+  const accessToken = await getGoogleAccessToken(serviceAccount);
+  const play = await fetchSubscription(purchaseToken, accessToken);
   const observedAt = new Date();
-  const result = await serviceRpc("reconcile_google_play_subscription", {
-    p_purchase_token_hash: await sha256Hex(purchaseToken),
-    p_product_id: line.productId,
-    p_status: state.status,
-    p_is_active: state.active,
-    p_auto_renews: line.autoRenewingPlan?.autoRenewEnabled === true,
-    p_order_id: typeof play.latestOrderId === "string"
-      ? play.latestOrderId
+  const providerProductId = selectSubscriptionAuthorityLine(
+    play,
+    ALLOWED_PRODUCT_IDS,
+    observedAt.getTime(),
+  ).productId;
+  const purchaseTokenHash = await sha256Hex(purchaseToken);
+  const linkedPurchaseToken = readLinkedPurchaseToken(play);
+  const lineage = readPurchaseLineage(play);
+  if (
+    lineage?.source === "out_of_app_resubscribe" &&
+    cause.notificationType !== 4
+  ) {
+    throw new Error("out_of_app_resubscribe_notification_mismatch");
+  }
+  const resolved = await resolveSubscriptionAuthorityPurchase({
+    notificationType: cause.notificationType,
+    successorPurchase: play,
+    successorPurchaseToken: purchaseToken,
+    linkedPurchaseToken,
+  }, (token) => fetchSubscription(token, accessToken));
+  if (lineage !== null) {
+    const predecessorTokenHash = await sha256Hex(lineage.purchaseToken);
+    if (predecessorTokenHash === purchaseTokenHash) {
+      throw new Error("purchase_lineage_matches_successor");
+    }
+    await bindVerifiedLinkedPurchaseToken({
+      purchaseTokenHash,
+      predecessorTokenHash,
+      productId: providerProductId,
+      boundAt: observedAt,
+    }, serviceRpc);
+  }
+  return await reconcileSubscriptionAuthority({
+    messageId,
+    eventTime,
+    cause,
+    purchase: resolved.purchase,
+    purchaseToken: resolved.purchaseToken,
+    authoritySource: resolved.source,
+    lineageSource: lineage?.source ?? null,
+    accessToken,
+    expectedProductId: resolved.source === "notification_token"
+      ? providerProductId
       : null,
-    p_expires_at: expiresAt?.toISOString() ?? null,
-    p_provider_event_time: observedAt.toISOString(),
-    p_event_key: `rtdn:${messageId}`,
-    p_payload: {
-      source: "google_play_rtdn",
-      notificationEventTime: eventTime.toISOString(),
-      notificationType: subscription.notificationType,
-      subscriptionState,
-      acknowledgementState: play.acknowledgementState,
-      basePlanId: line.offerDetails?.basePlanId,
-      offerId: line.offerDetails?.offerId,
-    },
   });
-  return reconciliationWasHandled(result);
 }
 
 async function processVoided(

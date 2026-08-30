@@ -204,6 +204,8 @@ abstract final class AccountDataRegistry {
       'auth_boundary_account_marker_v1';
   static const String legacyNotificationSecureKey = 'notification_entries_v1';
   static const String notificationSecureKeyPrefix = 'notification_entries_v2.';
+  static const String pendingPurchaseOwnerSecureKeyPrefix =
+      'paywall_pending_purchase_owner_v1.';
 
   static const Set<String> legacyAccountHiveBoxes = <String>{
     'tasks_box',
@@ -409,7 +411,10 @@ abstract final class AccountDataRegistry {
 
   static Set<String> secureKeyPrefixesForAccount(String accountId) {
     final String namespace = accountNamespace(accountId);
-    return <String>{'si_engine_state_v2.$namespace.'};
+    return <String>{
+      'si_engine_state_v2.$namespace.',
+      pendingPurchaseOwnerSecureKeyPrefix,
+    };
   }
 
   static Set<String> sensitivePreferenceKeysForAccount(String accountId) {
@@ -457,7 +462,7 @@ abstract final class AccountDataRegistry {
       return const AccountDataCleanupPlan(
         hiveBoxes: legacyAccountHiveBoxes,
         secureExactKeys: accountSecureExactKeys,
-        secureKeyPrefixes: <String>{},
+        secureKeyPrefixes: <String>{pendingPurchaseOwnerSecureKeyPrefix},
         sensitivePreferenceKeys: legacySensitivePreferenceKeys,
         preferenceExactKeys: accountPreferenceExactKeys,
         preferenceKeyPrefixes: <String>{},
