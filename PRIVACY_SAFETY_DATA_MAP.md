@@ -5,10 +5,10 @@ This is an initial source-based map. It does not prove live deployment settings.
 | Data/signal | Source classification | Consent/freshness requirement | Local use | External use | Persistence | Current launch state |
 |---|---|---|---|---|---|---|
 | Current energy/capacity | User-reported or Unknown | Explicit check-in; short expiry | Planning and Nexus only when authorized | None while AI disabled | Do not promote to enduring identity | Unknown by default |
-| Emotion | User-reported or Unknown | Explicit emotional-signal consent; revocable | Deterministic guidance only when enabled | Must not enter AI/telemetry while disabled | Current check-in separate from history | Enforcement pending |
+| Emotion | User-reported or Unknown | Explicit emotional-signal consent; revocable | Deterministic guidance only when enabled | Must not enter AI/telemetry while disabled | Current check-in separate from history | Phase 1 enforcement in progress |
 | Identity/archetype | Co-authored only | Opt-in review and correction | Profile only after evidence/review | None | Removable with provenance | Inferred identity hidden until co-authoring exists |
 | Tasks/goals/habits/notes | User-authored | Account ownership and purpose scope | Decision/evidence domains | Supabase only where enabled and promised | Versioned account-scoped storage required | Several domains incomplete |
-| Planner memory | User-approved governed memory | Exact purpose/surface, expiry, correction, deletion | Recall only when consent permits | None while AI disabled | Governed-memory contract | Recall/enforcement pending |
+| Planner memory | User-approved governed memory | Global consent plus exact purpose/surface, expiry, correction, deletion | Recall only when both consent layers permit | None while AI disabled | Existing receipts remain reviewable after revocation | Phase 1 enforcement in progress |
 | Decision evidence/receipts | Calculated from authorized snapshot | Inputs must retain source/freshness | Nexus, Timeline, Trajectory, SI | No external AI required | Correctable receipts/outcomes | Foundation preserved |
 | AI prompt/context | User-authored plus minimized authorized context | Separate opt-in and pre-send disclosure | Prepare only when AI enabled | Anthropic through first-party proxy | Short idempotency window only | Disabled |
 | AI response | External generated content | Schema/safety validation | Optional dialogue only | Provider response | Scrub content after short replay window | Disabled |

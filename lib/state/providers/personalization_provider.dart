@@ -116,8 +116,19 @@ class PersonalizationProfileController
   }
 
   Future<void> update(PersonalizationProfile next) async {
+    final DateTime now = DateTime.now().toUtc();
+    final bool emotionEnabled = next.useEmotionSignals;
+    final bool memoryEnabled = next.useMemoryContext;
     final PersonalizationProfile reviewed = next.copyWith(
-      lastReviewedAt: DateTime.now(),
+      emotionConsentGrantedAt: emotionEnabled
+          ? state.emotionConsentGrantedAt ?? now
+          : null,
+      memoryConsentGrantedAt: memoryEnabled
+          ? state.memoryConsentGrantedAt ?? now
+          : null,
+      clearEmotionConsent: !emotionEnabled,
+      clearMemoryConsent: !memoryEnabled,
+      lastReviewedAt: now,
     );
     state = reviewed;
     await SharedPrefsService.save(

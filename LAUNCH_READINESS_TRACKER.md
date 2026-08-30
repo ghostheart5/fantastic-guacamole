@@ -25,6 +25,16 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 - Remaining risk: containment is not product completion; deletion, consent, restore integrity, billing, AI safety, device evidence, and external production gates remain open.
 - Rollback: revert only `68bc277b936a49e890a4c1d94bdc05d5a087353d`. Never re-enable an unsafe capability as a side effect of rollback.
 
+## Phase 1 Plan - Human Trust And First Proof
+
+- Status: `IN_PROGRESS`; launch verdict remains `NO-GO - NOT READY`.
+- Scope: authoritative emotional-state and governed-memory consent; truthful unknown human state; bounded startup recovery; accessible and recoverable guidance; truthful Timeline source states; evidence-gated tutorial completion; auth recovery, pre-account legal access, and protected `returnTo` preservation.
+- Planned code areas: `lib/state/models/personalization_models.dart`, personalization/emotion/memory/SI providers and controllers, Smart Planner context construction, startup gate, adaptive guidance overlays, Timeline state/UI, auth UI, onboarding, and router policy.
+- Planned tests: consent migration/revocation/restart; context omission across Planner/SI/Nexus/Trajectory/AI/memory; startup double-timeout/retry/degraded state; tutorial large-text/focus/skip/restart/resume; Timeline loading/error/empty/offline/evidence states; legal links and auth recovery; protected deep-link continuity.
+- Risks: legacy consent values must fail closed without deleting reviewable memory receipts; internal numeric planning fallbacks must never be labeled observed; startup degradation must not open account-scoped storage before quiescence; tutorial milestones must not advance from navigation alone.
+- Data migration: no destructive migration. Legacy consent payloads without versioned grant timestamps are interpreted as revoked. Existing governed-memory records remain reviewable/exportable/deletable but unavailable for recall while consent is off.
+- Rollback: each Phase 1 subphase is a separate local commit. Revert only the affected subphase after confirming consent remains fail-closed, launch containment remains active, and no unsafe startup/account boundary is reopened.
+
 ## Findings
 
 | ID | Severity | Finding | Phase | Status | Feature state | Repair commit | Evidence |

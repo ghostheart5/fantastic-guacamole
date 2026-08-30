@@ -23,3 +23,12 @@
 - User-data mutation: none.
 - Method: create a reviewed `git revert 68bc277b936a49e890a4c1d94bdc05d5a087353d` commit, then rerun containment tests.
 - Safety condition: cloud restore/sync, subscriptions, external AI, credit spending, telemetry, and inferred identity must remain unreachable after any rollback. If reverting would re-enable them, stop and use a forward containment fix instead.
+
+## Phase 1 Rollback Plan
+
+- Phase 1 will use separate local commits for consent/context, startup, tutorial/Timeline, auth/navigation, and evidence updates.
+- Consent rollback is permitted only if emotional-state and governed-memory use still fail closed by default and after restart. Existing memory receipts must remain reviewable and deletable even when recall is disabled.
+- Startup rollback is permitted only if both initialization and cancellation quiescence remain bounded and account-scoped storage never opens while the timed-out source is still active.
+- Tutorial/Timeline rollback is permitted only if a visit or button tap cannot falsely record a saved-item or Timeline-review milestone.
+- Auth/navigation rollback is permitted only if Privacy and Terms remain reachable before account creation and a validated protected `returnTo` survives login and onboarding.
+- No Phase 1 rollback may re-enable a Phase 0 contained capability.

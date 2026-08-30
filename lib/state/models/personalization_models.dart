@@ -19,18 +19,22 @@ enum ExplanationDepth { brief, standard, detailed }
 /// silently override a user preference.
 class PersonalizationProfile {
   const PersonalizationProfile({
-    this.version = 1,
+    this.version = currentVersion,
     this.goalCategory = '',
     this.planningStyle = PlanningStyle.flexible,
     this.priorityStrategy = PriorityStrategy.balanced,
     this.recoveryPolicy = RecoveryPolicy.askFirst,
     this.recommendationMode = RecommendationMode.gentle,
     this.explanationDepth = ExplanationDepth.standard,
-    this.useEmotionSignals = true,
+    this.useEmotionSignals = false,
     this.useMemoryContext = false,
     this.externalAiAllowed = false,
+    this.emotionConsentGrantedAt,
+    this.memoryConsentGrantedAt,
     this.lastReviewedAt,
   });
+
+  static const int currentVersion = 2;
 
   final int version;
   final String goalCategory;
@@ -42,7 +46,14 @@ class PersonalizationProfile {
   final bool useEmotionSignals;
   final bool useMemoryContext;
   final bool externalAiAllowed;
+  final DateTime? emotionConsentGrantedAt;
+  final DateTime? memoryConsentGrantedAt;
   final DateTime? lastReviewedAt;
+
+  bool get allowsEmotionSignals =>
+      useEmotionSignals && emotionConsentGrantedAt != null;
+  bool get allowsMemoryContext =>
+      useMemoryContext && memoryConsentGrantedAt != null;
 
   PersonalizationProfile copyWith({
     String? goalCategory,
@@ -54,9 +65,13 @@ class PersonalizationProfile {
     bool? useEmotionSignals,
     bool? useMemoryContext,
     bool? externalAiAllowed,
+    DateTime? emotionConsentGrantedAt,
+    DateTime? memoryConsentGrantedAt,
+    bool clearEmotionConsent = false,
+    bool clearMemoryConsent = false,
     DateTime? lastReviewedAt,
   }) => PersonalizationProfile(
-    version: version,
+    version: currentVersion,
     goalCategory: goalCategory ?? this.goalCategory,
     planningStyle: planningStyle ?? this.planningStyle,
     priorityStrategy: priorityStrategy ?? this.priorityStrategy,
@@ -66,6 +81,12 @@ class PersonalizationProfile {
     useEmotionSignals: useEmotionSignals ?? this.useEmotionSignals,
     useMemoryContext: useMemoryContext ?? this.useMemoryContext,
     externalAiAllowed: externalAiAllowed ?? this.externalAiAllowed,
+    emotionConsentGrantedAt: clearEmotionConsent
+        ? null
+        : emotionConsentGrantedAt ?? this.emotionConsentGrantedAt,
+    memoryConsentGrantedAt: clearMemoryConsent
+        ? null
+        : memoryConsentGrantedAt ?? this.memoryConsentGrantedAt,
     lastReviewedAt: lastReviewedAt ?? this.lastReviewedAt,
   );
 
@@ -80,6 +101,8 @@ class PersonalizationProfile {
     'useEmotionSignals': useEmotionSignals,
     'useMemoryContext': useMemoryContext,
     'externalAiAllowed': externalAiAllowed,
+    'emotionConsentGrantedAt': emotionConsentGrantedAt?.toIso8601String(),
+    'memoryConsentGrantedAt': memoryConsentGrantedAt?.toIso8601String(),
     'lastReviewedAt': lastReviewedAt?.toIso8601String(),
   };
 
@@ -91,8 +114,24 @@ class PersonalizationProfile {
       );
     }
 
+    final int storedVersion = (json['version'] as num?)?.toInt() ?? 1;
+    final DateTime? emotionGrantedAt = DateTime.tryParse(
+      json['emotionConsentGrantedAt']?.toString() ?? '',
+    );
+    final DateTime? memoryGrantedAt = DateTime.tryParse(
+      json['memoryConsentGrantedAt']?.toString() ?? '',
+    );
+    final bool emotionAllowed =
+        storedVersion >= currentVersion &&
+        json['useEmotionSignals'] == true &&
+        emotionGrantedAt != null;
+    final bool memoryAllowed =
+        storedVersion >= currentVersion &&
+        json['useMemoryContext'] == true &&
+        memoryGrantedAt != null;
+
     return PersonalizationProfile(
-      version: (json['version'] as num?)?.toInt() ?? 1,
+      version: currentVersion,
       goalCategory: (json['goalCategory'] as String?)?.trim() ?? '',
       planningStyle: enumValue(
         PlanningStyle.values,
@@ -119,9 +158,11 @@ class PersonalizationProfile {
         json['explanationDepth']?.toString(),
         ExplanationDepth.standard,
       ),
-      useEmotionSignals: json['useEmotionSignals'] as bool? ?? true,
-      useMemoryContext: json['useMemoryContext'] as bool? ?? false,
+      useEmotionSignals: emotionAllowed,
+      useMemoryContext: memoryAllowed,
       externalAiAllowed: json['externalAiAllowed'] as bool? ?? false,
+      emotionConsentGrantedAt: emotionAllowed ? emotionGrantedAt : null,
+      memoryConsentGrantedAt: memoryAllowed ? memoryGrantedAt : null,
       lastReviewedAt: DateTime.tryParse(
         json['lastReviewedAt']?.toString() ?? '',
       ),
