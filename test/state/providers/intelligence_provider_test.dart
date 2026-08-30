@@ -127,6 +127,33 @@ void main() {
     },
   );
 
+  test(
+    'unverified backend user does not satisfy the authenticated guard',
+    () async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          authUserProvider.overrideWith(
+            (Ref ref) => Stream<User?>.value(
+              const User(
+                id: 'pending-user',
+                email: 'pending@chronospark.app',
+                emailVerified: false,
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final ProviderSubscription<AsyncValue<User?>> subscription = container
+          .listen(authUserProvider, (_, _) {});
+      addTearDown(subscription.close);
+
+      await container.read(authUserProvider.future);
+
+      expect(container.read(authenticatedGuardProvider), isFalse);
+    },
+  );
+
   test('repeated input does not duplicate identical output signal', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);

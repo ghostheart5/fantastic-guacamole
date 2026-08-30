@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/tutorial/interactive_tutorial_overlay.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -10,6 +11,7 @@ import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -709,7 +711,9 @@ class _LoginFormCard extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(height: compact ? 14 : 18),
+          SizedBox(height: compact ? 8 : 10),
+          const _LoginLegalActions(),
+          SizedBox(height: compact ? 10 : 14),
           _PrimaryButton(
             label: isSignUpMode ? 'INITIALIZE PROFILE' : 'ENTER SYSTEM',
             isLoading: isSubmitting,
@@ -849,6 +853,92 @@ class _LoginFormCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _LoginLegalActions extends StatelessWidget {
+  const _LoginLegalActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: AppSizes.touchTarget,
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _LoginLegalAction(
+              key: const ValueKey<String>('login-privacy-action'),
+              label: 'Privacy',
+              semanticLabel: 'Open Privacy Policy',
+              icon: Icons.privacy_tip_outlined,
+              onTap: () => context.push(RoutePaths.privacy),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _LoginLegalAction(
+              key: const ValueKey<String>('login-terms-action'),
+              label: 'Terms',
+              semanticLabel: 'Open Terms of Service',
+              icon: Icons.description_outlined,
+              onTap: () => context.push(RoutePaths.terms),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginLegalAction extends StatelessWidget {
+  const _LoginLegalAction({
+    required this.label,
+    required this.semanticLabel,
+    required this.icon,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final String semanticLabel;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SmartPressable(
+      semanticLabel: semanticLabel,
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+          color: Colors.white.withValues(alpha: 0.04),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(icon, size: 17, color: AppColors.neonCyan),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: AppSizes.fontCaption,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

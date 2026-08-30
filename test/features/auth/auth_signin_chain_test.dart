@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +19,53 @@ import 'package:flutter_test/flutter_test.dart';
 /// These drive the contract rather than a backend, so nothing here touches
 /// Firebase or Supabase configuration.
 void main() {
+  testWidgets('failed backend initialization has a working retry action', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAuthService service = _FakeAuthService();
+    addTearDown(service.dispose);
+    int backendAttempts = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(service),
+          intelligenceStateProvider.overrideWithValue(
+            _configuredIntelligenceState,
+          ),
+        ],
+        child: MaterialApp(
+          home: AuthGate(
+            initializeBackend: () async {
+              backendAttempts += 1;
+              return backendAttempts <= 3
+                  ? 'Sign-in services are temporarily unavailable.'
+                  : null;
+            },
+            child: const Scaffold(body: Text('APP_READY')),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(find.text('Sign-in services unavailable'), findsOneWidget);
+    expect(find.text('Retry sign-in services'), findsOneWidget);
+    expect(backendAttempts, 3);
+
+    await tester.tap(find.text('Retry sign-in services'));
+    await tester.pump();
+    for (int i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(backendAttempts, 4);
+    expect(find.text('ENTER SYSTEM'), findsOneWidget);
+  });
+
   Future<void> pumpGate(
     WidgetTester tester,
     AuthServiceContract service,
@@ -392,6 +442,25 @@ void main() {
     },
   );
 }
+
+const IntelligenceState _configuredIntelligenceState = IntelligenceState(
+  environment: EnvironmentState(
+    appName: 'ChronoSpark',
+    appFlavor: 'test',
+    isProduction: false,
+    isSupabaseConfigured: true,
+  ),
+  flags: FeatureFlagsState(
+    verboseLogs: false,
+    analyticsEnabled: false,
+    mockMode: false,
+    mockLoginEnabled: false,
+    paywallDisabled: true,
+    testerFullAccess: false,
+  ),
+  auth: AuthStateSnapshot(hasMockSignIn: false, hasAuthenticatedUser: false),
+  mockLogin: MockLoginConfigState(email: '', password: ''),
+);
 
 /// Drives the auth-state stream the way a real backend would: sign-in and
 /// sign-out push emissions rather than the gate polling for a user.

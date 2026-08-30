@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
@@ -49,6 +50,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     if (mounted) setState(() {});
   }
 
+  String? _validatedReturnTo(GoRouter router) {
+    return RouteAccessPolicy.validatedReturnTo(
+      router
+          .routeInformationProvider
+          .value
+          .uri
+          .queryParameters[RouteAccessPolicy.returnToQueryParameter],
+    );
+  }
+
   Future<void> _completeWelcome() async {
     if (_submitting) return;
     setState(() => _submitting = true);
@@ -72,7 +83,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       } else {
         final GoRouter? router = GoRouter.maybeOf(context);
         if (router != null) {
-          context.go(ref.read(routeSurfaceProvider).login);
+          context.go(
+            RouteAccessPolicy.withReturnTo(
+              ref.read(routeSurfaceProvider).login,
+              _validatedReturnTo(router),
+            ),
+          );
         }
       }
     } on Object catch (error, stackTrace) {
@@ -123,7 +139,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       final routes = ref.read(routeSurfaceProvider);
       final GoRouter? router = GoRouter.maybeOf(context);
       if (router != null) {
-        context.go(routes.creator);
+        context.go(_validatedReturnTo(router) ?? routes.creator);
       }
     } on Object catch (error, stackTrace) {
       Logger.errorCategory(

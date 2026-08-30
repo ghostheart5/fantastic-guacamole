@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
+import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
@@ -83,6 +84,7 @@ class AuthGate extends ConsumerStatefulWidget {
     this.startupError,
     this.deepLinkMode,
     this.enableMockLogin = false,
+    this.initializeBackend,
   });
 
   final Widget child;
@@ -90,28 +92,48 @@ class AuthGate extends ConsumerStatefulWidget {
   final String? startupError;
   final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
+  final Future<String?> Function()? initializeBackend;
 
   @override
   ConsumerState<AuthGate> createState() => _AuthGateState();
 }
 
 class _AuthGateState extends ConsumerState<AuthGate> {
-  late final Future<void> _authReadyFuture;
+  late Future<void> _authReadyFuture;
+  Future<void>? _authInitializationSource;
   AuthServiceContract? _authService;
   String? _authInitError;
   bool _mockSignInActive = false;
   bool _authReadyTimedOut = false;
+  bool _authRetryReady = true;
 
   @override
   void initState() {
     super.initState();
-    _authReadyFuture = _initializeAuth().timeout(
+    _startAuthInitialization();
+  }
+
+  void _startAuthInitialization() {
+    final Future<void> source = _initializeAuth();
+    _authInitializationSource = source;
+    _authRetryReady = false;
+    _authReadyFuture = source.timeout(
       const Duration(seconds: 8),
       onTimeout: () {
         _authReadyTimedOut = true;
         _authInitError = 'Authentication initialization timed out.';
         _authService ??= const _UnavailableAuthService();
       },
+    );
+    unawaited(
+      source.whenComplete(() {
+        if (!mounted || !identical(_authInitializationSource, source)) {
+          return;
+        }
+        setState(() {
+          _authRetryReady = true;
+        });
+      }),
     );
   }
 
@@ -143,10 +165,11 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         }
 
         if (authSnapshot.hasError) {
-          return const _AuthStatusMessage(
+          return _AuthStatusMessage(
             title: 'Authentication unavailable',
-            message:
-                'Auth initialization failed. Please restart and try again.',
+            message: 'Auth initialization failed. Retry when ready.',
+            onRetry: _retryAuthInitialization,
+            retryEnabled: _authRetryReady,
           );
         }
 
@@ -166,16 +189,17 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             message: _authReadyTimedOut
                 ? 'Auth initialization timed out. Please retry.'
                 : 'Auth service is not ready in this runtime.',
+            onRetry: _retryAuthInitialization,
+            retryEnabled: _authRetryReady,
           );
         }
 
-        if (_authInitError != null) {
-          return _AuthScreen(
-            authService: authService,
-            startupError: startupMessage,
-            deepLinkMode: widget.deepLinkMode,
-            enableMockLogin: allowMockAccess,
-            onMockSignIn: _activateMockSignIn,
+        if (_authInitError != null && !allowMockAccess) {
+          return _AuthStatusMessage(
+            title: 'Sign-in services unavailable',
+            message: _authInitError!,
+            onRetry: _retryAuthInitialization,
+            retryEnabled: _authRetryReady,
           );
         }
 
@@ -195,10 +219,12 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               return const _AuthLoadingShell();
             }
             if (snapshot.hasError) {
-              return const _AuthStatusMessage(
+              return _AuthStatusMessage(
                 title: 'Authentication unavailable',
                 message:
-                    'Auth service reported an error. Please restart and try again.',
+                    'Auth service reported an error. Retry the connection.',
+                onRetry: _retryAuthInitialization,
+                retryEnabled: true,
               );
             }
 
@@ -257,6 +283,24 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       const int maxInitAttempts = 3;
 
       for (int attempt = 0; attempt < maxInitAttempts; attempt++) {
+        final String? backendIssue =
+            await (widget.initializeBackend?.call() ??
+                const SupabaseClientService().initialize(
+                  isMockMode: ref
+                      .read(intelligenceStateProvider)
+                      .flags
+                      .mockMode,
+                ));
+        if (backendIssue != null) {
+          final bool shouldRetry = attempt < maxInitAttempts - 1;
+          if (shouldRetry) {
+            await Future<void>.delayed(const Duration(milliseconds: 350));
+            continue;
+          }
+          _authInitError = backendIssue;
+          _authService = const _UnavailableAuthService();
+          return;
+        }
         if (attempt > 0) {
           // Force the providers to rebuild. authServiceProvider is a plain
           // (non-autoDispose) Provider that reads supabaseClientProvider with
@@ -318,6 +362,18 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       return null;
     }
     return issues.join('\n');
+  }
+
+  void _retryAuthInitialization() {
+    if (!_authRetryReady) {
+      return;
+    }
+    setState(() {
+      _authService = null;
+      _authInitError = null;
+      _authReadyTimedOut = false;
+      _startAuthInitialization();
+    });
   }
 
   void _activateMockSignIn() {
@@ -996,10 +1052,17 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
 }
 
 class _AuthStatusMessage extends StatelessWidget {
-  const _AuthStatusMessage({required this.title, required this.message});
+  const _AuthStatusMessage({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+    required this.retryEnabled,
+  });
 
   final String title;
   final String message;
+  final VoidCallback onRetry;
+  final bool retryEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -1024,6 +1087,14 @@ class _AuthStatusMessage extends StatelessWidget {
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: retryEnabled ? onRetry : null,
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(
+                retryEnabled ? 'Retry sign-in services' : 'Stopping safely',
               ),
             ),
             const SizedBox(height: 8),

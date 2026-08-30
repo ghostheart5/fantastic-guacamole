@@ -64,7 +64,10 @@ final intelligenceStateProvider = Provider<IntelligenceState>((ref) {
   final bool hasMockSignIn = ref.watch(mockSignInProvider);
   final bool hasAuthenticatedUser = ref
       .watch(authUserProvider)
-      .maybeWhen(data: (User? user) => user != null, orElse: () => false);
+      .maybeWhen(
+        data: (User? user) => user?.emailVerified ?? false,
+        orElse: () => false,
+      );
 
   return ref
       .read(intelligenceServiceProvider)
