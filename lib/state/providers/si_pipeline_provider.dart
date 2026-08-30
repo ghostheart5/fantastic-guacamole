@@ -18,6 +18,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
 ) async {
+  // Repository providers fail closed until account storage is ready. Keep the
+  // aggregation subscribed to that lifecycle so an early startup failure is
+  // replaced by fresh evidence as soon as the authenticated scope is ready.
+  ref.watch(accountStorageScopeProvider);
   final DateTime observedAt = DateTime.now();
   final List<TaskEntity> taskEntities = await _loadAllActionableTaskEntities(
     ref,

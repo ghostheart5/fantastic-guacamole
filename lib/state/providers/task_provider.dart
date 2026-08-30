@@ -20,6 +20,7 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
@@ -36,6 +37,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
+  // Task repositories fail closed before authenticated storage is ready. This
+  // dependency makes the provider retry when the account boundary advances.
+  ref.watch(accountStorageScopeProvider);
   final List<TaskEntity> tasks = await ref.read(getTasksUseCaseProvider).call();
   final OptimizationConfig optimization = await ref.watch(
     optimizationConfigProvider.future,

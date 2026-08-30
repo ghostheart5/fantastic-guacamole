@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -15,6 +16,7 @@ import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
@@ -52,6 +54,23 @@ void main() {
       container.read(tasksProvider.future),
       throwsA(isA<StateError>()),
     );
+  });
+
+  test('account storage transition refreshes an earlier task read', () async {
+    final _MemoryTaskRepository repository = _MemoryTaskRepository();
+    final ProviderContainer container = _buildTaskContainer(
+      repository,
+      mutableScope: true,
+    );
+    addTearDown(container.dispose);
+
+    await container.read(tasksProvider.future);
+    expect(repository.readCount, 1);
+
+    container.read(_testAccountStorageScopeProvider.notifier).authenticate();
+    await container.read(tasksProvider.future);
+
+    expect(repository.readCount, 2);
   });
 
   test('createQuickTask ignores blank titles', () async {
@@ -233,9 +252,18 @@ void main() {
   });
 }
 
-ProviderContainer _buildTaskContainer(ITaskRepository repository) {
+ProviderContainer _buildTaskContainer(
+  ITaskRepository repository, {
+  AccountStorageScope? scope,
+  bool mutableScope = false,
+}) {
   return ProviderContainer(
     overrides: [
+      if (mutableScope)
+        accountStorageScopeProvider.overrideWith(
+          (Ref ref) => ref.watch(_testAccountStorageScopeProvider),
+        ),
+      if (scope != null) accountStorageScopeProvider.overrideWithValue(scope),
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
@@ -252,8 +280,24 @@ ProviderContainer _buildTaskContainer(ITaskRepository repository) {
   );
 }
 
+final NotifierProvider<_TestAccountStorageScopeController, AccountStorageScope>
+_testAccountStorageScopeProvider =
+    NotifierProvider<_TestAccountStorageScopeController, AccountStorageScope>(
+      _TestAccountStorageScopeController.new,
+    );
+
+class _TestAccountStorageScopeController extends Notifier<AccountStorageScope> {
+  @override
+  AccountStorageScope build() => const AccountStorageScope.signedOut();
+
+  void authenticate() {
+    state = AccountStorageScope.authenticated('account-1');
+  }
+}
+
 class _MemoryTaskRepository implements ITaskRepository {
   final Map<String, TaskEntity> _tasks = <String, TaskEntity>{};
+  int readCount = 0;
 
   List<TaskEntity> get saved => _tasks.values.toList(growable: false);
 
@@ -264,6 +308,7 @@ class _MemoryTaskRepository implements ITaskRepository {
 
   @override
   Future<List<TaskEntity>> getAllTasks() async {
+    readCount += 1;
     return saved;
   }
 
