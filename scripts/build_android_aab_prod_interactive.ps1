@@ -1,6 +1,8 @@
 param(
     [string]$BuildName,
-    [int]$BuildNumber
+    [int]$BuildNumber,
+    [string]$SigningPropertiesPath,
+    [string]$SigningKeystorePath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,6 +44,16 @@ if (-not [string]::IsNullOrWhiteSpace($BuildName)) {
 if ($BuildNumber -gt 0) {
     $guardedArgs += @('-BuildNumber', "$BuildNumber")
 }
+if ([string]::IsNullOrWhiteSpace($SigningPropertiesPath)) {
+    $SigningPropertiesPath = Read-Host 'Enter the external key.properties path'
+}
+if ([string]::IsNullOrWhiteSpace($SigningKeystorePath)) {
+    $SigningKeystorePath = Read-Host 'Enter the external upload-keystore.jks path'
+}
+$guardedArgs += @(
+    '-SigningPropertiesPath', $SigningPropertiesPath,
+    '-SigningKeystorePath', $SigningKeystorePath
+)
 
 & powershell @guardedArgs
 exit $LASTEXITCODE

@@ -287,6 +287,15 @@ jobs:
           flutter build appbundle --release
           --dart-define=CHRONOSPARK_APP_FLAVOR=prod
           --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
+          --dart-define=CHRONOSPARK_VERBOSE_LOGS=false
+          --dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=false
+          --dart-define=CHRONOSPARK_ENABLE_MOCK_MODE=false
+          --dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=false
+          --dart-define=CHRONOSPARK_PAYWALL_DISABLED=false
+          --dart-define=CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS=false
+          --dart-define=CHRONOSPARK_ENABLE_CLOUD_SYNC=false
+          --dart-define=CHRONOSPARK_ENABLE_ANALYTICS=false
+          --dart-define=CHRONOSPARK_ENABLE_CRASH_REPORTING=false
           --dart-define="CHRONOSPARK_SUPABASE_URL=$SUPABASE_URL"
           --dart-define="CHRONOSPARK_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
           --dart-define="CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=$RECEIPT_ENDPOINT"
