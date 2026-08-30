@@ -64,6 +64,9 @@ class IdentityNotifier extends Notifier<IdentityState> {
   String get reinforcementMessage => _engine.reinforceIdentity(state, '');
 
   String get archetype {
+    if (!state.hasMeaningfulEvidence) {
+      return 'Pattern forming';
+    }
     if (state.disciplineIdentity >= state.executionIdentity &&
         state.disciplineIdentity >= state.growthIdentity) {
       return 'The Executor';

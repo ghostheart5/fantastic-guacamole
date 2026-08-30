@@ -40,6 +40,8 @@ void main() {
     expect(state.completedToday, 1);
     expect(state.energy, closeTo(0.62, 0.0001));
     expect(state.fatigue, closeTo(0.4, 0.0001));
+    expect(state.hasObservedEnergy, isFalse);
+    expect(state.hasObservedFatigue, isFalse);
   });
 
   test('adjustEnergy and adjustFatigue clamp between 0 and 1', () {
@@ -94,5 +96,7 @@ void main() {
     expect(state.energy, closeTo(0.62, 0.0001));
     expect(state.fatigue, closeTo(0.4, 0.0001));
     expect(state.completedToday, 1);
+    expect(state.hasObservedEnergy, isFalse);
+    expect(state.hasObservedFatigue, isFalse);
   });
 }

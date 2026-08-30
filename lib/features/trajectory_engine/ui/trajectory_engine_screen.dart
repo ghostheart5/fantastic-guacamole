@@ -54,6 +54,7 @@ class _TrajectoryEngineScreenState
       trajectoryCalibrationSummaryProvider,
     );
     final TrajectoryComparison? comparison = model.comparison;
+    final bool canRecommendScenario = model.canRecommendScenario;
     final TrajectoryScenarioOutcome? selected = _selected(
       comparison,
       _selectedScenarioId,
@@ -61,6 +62,7 @@ class _TrajectoryEngineScreenState
     final bool blocksContent =
         comparison == null &&
         (model.status == TrajectoryEngineStatus.loading ||
+            model.status == TrajectoryEngineStatus.learning ||
             model.status == TrajectoryEngineStatus.error ||
             model.status == TrajectoryEngineStatus.empty);
 
@@ -128,6 +130,7 @@ class _TrajectoryEngineScreenState
                     outcomes: value.outcomes,
                     selectedId: selected?.id,
                     recommendedId: value.recommendedScenarioId,
+                    canRecommend: canRecommendScenario,
                     onSelected: (String id) =>
                         setState(() => _selectedScenarioId = id),
                   ),
@@ -137,7 +140,9 @@ class _TrajectoryEngineScreenState
                     _ScenarioComparisonCard(
                       baseline: value.baseline,
                       outcome: outcome,
-                      isRecommended: outcome.id == value.recommendedScenarioId,
+                      isRecommended:
+                          canRecommendScenario &&
+                          outcome.id == value.recommendedScenarioId,
                       onOpen: () =>
                           _openScenarioDestination(outcome.intervention),
                       onTrack: () => _trackScenario(value.baseline, outcome),
@@ -303,6 +308,11 @@ class _TrajectoryOverviewCard extends StatelessWidget {
         : baseline.pressure >= 50
         ? const Color(0xFFFFC857)
         : const Color(0xFF6EE7F9);
+    final String momentumBand = baseline.momentum >= 72
+        ? 'STRONG'
+        : baseline.momentum >= 45
+        ? 'STEADY'
+        : 'BUILDING';
     return _Panel(
       title: 'Current direction',
       accent: accent,
@@ -355,8 +365,12 @@ class _TrajectoryOverviewCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: _OverviewMetric(
-                  label: 'PRESSURE',
-                  value: '${baseline.pressure}%',
+                  label: 'MODELED LOAD',
+                  value: baseline.pressure >= 80
+                      ? 'HIGH'
+                      : baseline.pressure >= 50
+                      ? 'WATCH'
+                      : 'LOW',
                   accent: accent,
                 ),
               ),
@@ -364,7 +378,7 @@ class _TrajectoryOverviewCard extends StatelessWidget {
               Expanded(
                 child: _OverviewMetric(
                   label: 'MOMENTUM',
-                  value: '${baseline.momentum}%',
+                  value: momentumBand,
                   accent: const Color(0xFF6EE7F9),
                 ),
               ),
@@ -372,7 +386,9 @@ class _TrajectoryOverviewCard extends StatelessWidget {
               Expanded(
                 child: _OverviewMetric(
                   label: 'ENERGY',
-                  value: '${baseline.energy}%',
+                  value: baseline.hasObservedEnergy
+                      ? '${baseline.energy}%'
+                      : 'NOT SET',
                   accent: const Color(0xFFA78BFA),
                 ),
               ),
@@ -389,12 +405,14 @@ class _FutureBranches extends StatelessWidget {
     required this.outcomes,
     required this.selectedId,
     required this.recommendedId,
+    required this.canRecommend,
     required this.onSelected,
   });
 
   final List<TrajectoryScenarioOutcome> outcomes;
   final String? selectedId;
   final String recommendedId;
+  final bool canRecommend;
   final ValueChanged<String> onSelected;
 
   @override
@@ -444,9 +462,9 @@ class _FutureBranches extends StatelessWidget {
           for (int index = 0; index < visible.length; index++) ...<Widget>[
             _BranchRow(
               outcome: visible[index],
-              label: visible[index].id == recommendedId
+              label: canRecommend && visible[index].id == recommendedId
                   ? 'BEST-FIT'
-                  : 'PATH ${index + 1}',
+                  : 'MODELED PATH ${index + 1}',
               accent: switch (index % 3) {
                 0 => AppColors.neonCyan,
                 1 => AppColors.neonViolet,
@@ -481,6 +499,14 @@ class _BranchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final int momentumLow = (outcome.projectedMomentum - outcome.uncertainty)
+        .clamp(0, 100);
+    final int momentumHigh = (outcome.projectedMomentum + outcome.uncertainty)
+        .clamp(0, 100);
+    final int pressureLow = (outcome.projectedPressure - outcome.uncertainty)
+        .clamp(0, 100);
+    final int pressureHigh = (outcome.projectedPressure + outcome.uncertainty)
+        .clamp(0, 100);
     return Semantics(
       button: true,
       selected: selected,
@@ -543,7 +569,7 @@ class _BranchRow extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Momentum ${outcome.projectedMomentum}%  ·  Pressure ${outcome.projectedPressure}%  ·  ${outcome.confidence.band.name} evidence',
+                          'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  ${outcome.confidence.band.name} evidence',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -903,12 +929,14 @@ class _TrajectoryStateNotice extends StatelessWidget {
     final Color accent = switch (status) {
       TrajectoryEngineStatus.error => const Color(0xFFFF5D73),
       TrajectoryEngineStatus.offline ||
+      TrajectoryEngineStatus.learning ||
       TrajectoryEngineStatus.partial ||
       TrajectoryEngineStatus.empty => const Color(0xFFFFC857),
       _ => const Color(0xFF6EE7F9),
     };
     final String label = switch (status) {
       TrajectoryEngineStatus.loading => 'BUILDING BASELINE',
+      TrajectoryEngineStatus.learning => 'LEARNING YOUR PATTERN',
       TrajectoryEngineStatus.ready => 'BASELINE READY',
       TrajectoryEngineStatus.empty => 'EVIDENCE NEEDED',
       TrajectoryEngineStatus.partial => 'PARTIAL EVIDENCE',
@@ -999,20 +1027,27 @@ class _BaselineCard extends StatelessWidget {
             children: <Widget>[
               _BaselineMetric(
                 label: 'Momentum',
-                value: '${baseline.momentum}%',
+                value: 'modeled ${baseline.momentum}%',
               ),
               _BaselineMetric(
                 label: 'Pressure',
-                value: '${baseline.pressure}%',
+                value: 'modeled ${baseline.pressure}%',
               ),
-              _BaselineMetric(label: 'Energy', value: '${baseline.energy}%'),
+              _BaselineMetric(
+                label: 'Energy',
+                value: baseline.hasObservedEnergy
+                    ? '${baseline.energy}% observed'
+                    : 'not observed',
+              ),
               _BaselineMetric(
                 label: 'Observed outcomes',
                 value: '${baseline.observationCount}',
               ),
               _BaselineMetric(
                 label: 'Capacity gap',
-                value: '${baseline.unscheduledMinutes}m',
+                value: baseline.hasObservedAvailability
+                    ? '${baseline.unscheduledMinutes}m'
+                    : 'not scored',
               ),
               _BaselineMetric(
                 label: 'Progression',
@@ -1380,7 +1415,7 @@ class _ScenarioFullDetails extends StatelessWidget {
                 label: 'Accumulated risk',
                 current: outcome.risk.currentScore,
                 projected: outcome.risk.projectedScore,
-                uncertainty: 0,
+                uncertainty: outcome.uncertainty,
                 lowerIsBetter: true,
               ),
             ],

@@ -275,6 +275,8 @@ TrajectoryBaseline _baseline({
         '${progression.progress.level}:${progression.progress.xp}:${progression.progress.streak}',
     'execution':
         '${execution.completed7d}:${execution.skipped7d}:${execution.delayed7d}',
+    'energy_origin': aggregation.siState.energyOrigin.name,
+    'availability_origin': decision.plan.capacity.windowOrigin.name,
   };
   return TrajectoryBaseline(
     accountScope: scope.v2Namespace ?? 'signed-out',
@@ -302,6 +304,8 @@ TrajectoryBaseline _baseline({
     ),
     confidence: decision.confidenceProfile,
     sourceRevisions: Map<String, String>.unmodifiable(revisions),
+    energyOrigin: aggregation.siState.energyOrigin,
+    availabilityOrigin: decision.plan.capacity.windowOrigin,
   );
 }
 

@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -24,6 +25,7 @@ void main() {
     required double width,
     List<Task>? tasks,
     List<TimelineEventEntity>? timeline,
+    bool observedVitals = true,
   }) async {
     tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -34,6 +36,10 @@ void main() {
       overrides: [
         unreadNotificationsProvider.overrideWithValue(0),
         profileProvider.overrideWith(_PopulatedProfileController.new),
+        siStateProvider.overrideWith(
+          () => _TestSIStateController(observed: observedVitals),
+        ),
+        trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
         if (tasks != null) tasksProvider.overrideWith((Ref ref) async => tasks),
         if (timeline != null)
           timelineProvider.overrideWith(
@@ -132,6 +138,20 @@ void main() {
         findsNothing,
       );
     });
+
+    testWidgets('seeded vitals are not presented as personal measurements', (
+      WidgetTester tester,
+    ) async {
+      await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+        observedVitals: false,
+      );
+
+      expect(find.text('UNMEASURED'), findsOneWidget);
+      expect(find.text('LEARNING'), findsOneWidget);
+      expect(find.text('78%'), findsNothing);
+    });
   });
 }
 
@@ -207,6 +227,25 @@ class _StaticTimelineNotifier extends TimelineNotifier {
 
   @override
   List<TimelineEventEntity> build() => events;
+}
+
+class _TestSIStateController extends SIStateController {
+  _TestSIStateController({required this.observed});
+
+  final bool observed;
+
+  @override
+  SIState build() => SIState(
+    energy: .78,
+    fatigue: .24,
+    completedToday: 4,
+    energyOrigin: observed
+        ? PredictiveEvidenceOrigin.observed
+        : PredictiveEvidenceOrigin.estimated,
+    fatigueOrigin: observed
+        ? PredictiveEvidenceOrigin.observed
+        : PredictiveEvidenceOrigin.estimated,
+  );
 }
 
 const TrajectorySummaryView _activeTrajectory = TrajectorySummaryView(

@@ -1,5 +1,9 @@
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../../helpers/trajectory_test_fixture.dart';
 
 void main() {
   group('MomentumEngineState', () {
@@ -46,6 +50,32 @@ void main() {
       expect(stable.isRising, isFalse);
       expect(declining.isDeclining, isTrue);
       expect(declining.isStable, isFalse);
+    });
+  });
+
+  group('trajectory evidence gate', () {
+    test('requires three observed outcomes before forecasts are eligible', () {
+      final insufficient = trajectoryTestComparison(
+        baseline: trajectoryTestBaseline(observationCount: 2),
+      );
+      final sufficient = trajectoryTestComparison(
+        baseline: trajectoryTestBaseline(observationCount: 3),
+      );
+
+      expect(trajectoryHasMinimumEvidence(insufficient), isFalse);
+      expect(trajectoryHasMinimumEvidence(sufficient), isTrue);
+    });
+
+    test('assumed availability cannot earn a best-fit recommendation', () {
+      final assumed = trajectoryTestComparison(
+        baseline: trajectoryTestBaseline(
+          availabilityOrigin: PredictiveEvidenceOrigin.estimated,
+        ),
+      );
+      final observed = trajectoryTestComparison();
+
+      expect(trajectoryCanRecommend(assumed), isFalse);
+      expect(trajectoryCanRecommend(observed), isTrue);
     });
   });
 }

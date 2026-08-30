@@ -1,6 +1,7 @@
 // lib/engine/si/models/si_state.dart
 
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 
 part 'si_memory_store_models.dart';
 
@@ -24,17 +25,34 @@ class SIState {
     this.energy = 0.7,
     this.fatigue = 0.3,
     this.completedToday = 0,
+    this.energyOrigin = PredictiveEvidenceOrigin.estimated,
+    this.fatigueOrigin = PredictiveEvidenceOrigin.estimated,
   });
 
   final double energy;
   final double fatigue;
   final int completedToday;
+  final PredictiveEvidenceOrigin energyOrigin;
+  final PredictiveEvidenceOrigin fatigueOrigin;
 
-  SIState copyWith({double? energy, double? fatigue, int? completedToday}) {
+  bool get hasObservedEnergy =>
+      energyOrigin == PredictiveEvidenceOrigin.observed;
+  bool get hasObservedFatigue =>
+      fatigueOrigin == PredictiveEvidenceOrigin.observed;
+
+  SIState copyWith({
+    double? energy,
+    double? fatigue,
+    int? completedToday,
+    PredictiveEvidenceOrigin? energyOrigin,
+    PredictiveEvidenceOrigin? fatigueOrigin,
+  }) {
     return SIState(
       energy: siClamp01(energy ?? this.energy, fallback: this.energy),
       fatigue: siClamp01(fatigue ?? this.fatigue, fallback: this.fatigue),
       completedToday: completedToday ?? this.completedToday,
+      energyOrigin: energyOrigin ?? this.energyOrigin,
+      fatigueOrigin: fatigueOrigin ?? this.fatigueOrigin,
     );
   }
 }

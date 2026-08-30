@@ -62,6 +62,13 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(ProfileScreen), findsOneWidget);
+    expect(find.textContaining('PATTERN FORMING'), findsOneWidget);
+    expect(find.text('The Executor'), findsNothing);
+    expect(find.text('DISCIPLINE 10%'), findsNothing);
+    expect(
+      find.textContaining('Complete a few tasks to reveal patterns'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders for an established account', (

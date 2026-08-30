@@ -114,6 +114,8 @@ class TrajectoryBaseline {
     required this.progression,
     required this.confidence,
     required Map<String, String> sourceRevisions,
+    this.energyOrigin = PredictiveEvidenceOrigin.observed,
+    this.availabilityOrigin = PredictiveEvidenceOrigin.observed,
   }) : tasks = List<TrajectoryTaskNode>.unmodifiable(tasks),
        goals = List<TrajectoryGoalNode>.unmodifiable(goals),
        blocks = List<TrajectoryBlockNode>.unmodifiable(blocks),
@@ -142,6 +144,13 @@ class TrajectoryBaseline {
   final TrajectoryProgressionSnapshot progression;
   final PredictiveConfidenceProfile confidence;
   final Map<String, String> sourceRevisions;
+  final PredictiveEvidenceOrigin energyOrigin;
+  final PredictiveEvidenceOrigin availabilityOrigin;
+
+  bool get hasObservedEnergy =>
+      energyOrigin == PredictiveEvidenceOrigin.observed;
+  bool get hasObservedAvailability =>
+      availabilityOrigin == PredictiveEvidenceOrigin.observed;
 
   int get requiredMinutes => tasks.fold<int>(
     0,

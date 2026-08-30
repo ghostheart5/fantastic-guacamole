@@ -154,17 +154,25 @@ class _NexusVitals extends StatelessWidget {
     required this.energy,
     required this.fatigue,
     required this.momentum,
+    required this.hasObservedEnergy,
+    required this.hasObservedClarity,
+    required this.hasMomentumEvidence,
     required this.pulse,
   });
 
   final double energy;
   final double fatigue;
   final double momentum;
+  final bool hasObservedEnergy;
+  final bool hasObservedClarity;
+  final bool hasMomentumEvidence;
   final double pulse;
 
   @override
   Widget build(BuildContext context) {
-    final String momentumLabel = momentum >= .72
+    final String momentumLabel = !hasMomentumEvidence
+        ? 'LEARNING'
+        : momentum >= .72
         ? 'STRONG'
         : momentum >= .45
         ? 'STEADY'
@@ -172,13 +180,17 @@ class _NexusVitals extends StatelessWidget {
     return Semantics(
       container: true,
       label:
-          'Energy ${(energy * 100).round()} percent. Clarity ${((1 - fatigue) * 100).round()} percent. Momentum $momentumLabel.',
+          '${hasObservedEnergy ? 'Energy ${(energy * 100).round()} percent' : 'Energy unmeasured'}. '
+          '${hasObservedClarity ? 'Clarity ${((1 - fatigue) * 100).round()} percent' : 'Clarity baseline pending'}. '
+          'Momentum $momentumLabel.',
       child: Row(
         children: <Widget>[
           Expanded(
             child: _VitalMetric(
               label: 'ENERGY',
-              value: '${(energy * 100).round()}%',
+              value: hasObservedEnergy
+                  ? '${(energy * 100).round()}%'
+                  : 'UNMEASURED',
               accent: AppColors.neonCyan,
               pulse: pulse,
             ),
@@ -187,7 +199,9 @@ class _NexusVitals extends StatelessWidget {
           Expanded(
             child: _VitalMetric(
               label: 'CLARITY',
-              value: '${((1 - fatigue) * 100).round()}%',
+              value: hasObservedClarity
+                  ? '${((1 - fatigue) * 100).round()}%'
+                  : 'LEARNING',
               accent: AppColors.neonViolet,
               pulse: pulse,
             ),

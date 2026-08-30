@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +31,8 @@ class SIStateController extends Notifier<SIState> {
         energy: (data['energy'] as num?)?.toDouble() ?? 0.7,
         fatigue: (data['fatigue'] as num?)?.toDouble() ?? 0.3,
         completedToday: (data['completedToday'] as int?) ?? 0,
+        energyOrigin: PredictiveEvidenceOrigin.estimated,
+        fatigueOrigin: PredictiveEvidenceOrigin.estimated,
       );
     } catch (_) {
       // Keep defaults on parse failure.
@@ -64,12 +67,16 @@ class SIStateController extends Notifier<SIState> {
     required double energy,
     required double fatigue,
     int? completedToday,
+    PredictiveEvidenceOrigin? energyOrigin,
+    PredictiveEvidenceOrigin? fatigueOrigin,
   }) {
     _mutationVersion++;
     state = state.copyWith(
       energy: energy.clamp(0.0, 1.0),
       fatigue: fatigue.clamp(0.0, 1.0),
       completedToday: completedToday ?? state.completedToday,
+      energyOrigin: energyOrigin ?? state.energyOrigin,
+      fatigueOrigin: fatigueOrigin ?? state.fatigueOrigin,
     );
   }
 

@@ -111,6 +111,31 @@ void main() {
       expect(find.text('CURRENT TRAJECTORY BASELINE'), findsNothing);
       expect(find.textContaining('No future conclusion'), findsOneWidget);
     });
+
+    testWidgets('cold-start state withholds personal forecasts', (
+      WidgetTester tester,
+    ) async {
+      final TrajectoryEngineModel fixture = trajectoryTestEngineModel();
+      await tester.pumpWidget(
+        _harness(
+          model: TrajectoryEngineModel(
+            status: TrajectoryEngineStatus.learning,
+            summary: fixture.summary,
+            momentum: fixture.momentum,
+            statusDetail:
+                'Record 3 more task outcomes before ChronoSpark compares future paths. No personal forecast is shown yet.',
+            isOnline: true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('LEARNING YOUR PATTERN'), findsOneWidget);
+      expect(find.text('CURRENT DIRECTION'), findsNothing);
+      expect(find.text('MODELED PATH 1'), findsNothing);
+      expect(find.text('RECOMMENDED ADJUSTMENT'), findsNothing);
+      expect(find.textContaining('No personal forecast'), findsOneWidget);
+    });
   });
 }
 

@@ -132,6 +132,10 @@ class FutureConsequenceEngine {
       ],
       assumptions: <String>[
         ...intervention.assumptions,
+        if (!baseline.hasObservedEnergy)
+          'Energy is a seeded planning estimate, not a user observation.',
+        if (!baseline.hasObservedAvailability)
+          'No observed availability is configured. Capacity-based risk and goal completion dates are withheld.',
         'Only the declared intervention changes; unmodeled life events remain outside this scenario.',
         'Projected XP is informational and is never awarded by this simulation.',
       ],
@@ -280,7 +284,9 @@ class FutureConsequenceEngine {
         (baseline.overdueCount * 18 + baseline.atRiskCount * 8).clamp(0, 100);
     final int projectedDeadline =
         (currentDeadline + timeline.deadlineCrossings * 22).clamp(0, 100);
-    final int capacityBase = baseline.availableMinutes <= 0
+    final int capacityBase = !baseline.hasObservedAvailability
+        ? 0
+        : baseline.availableMinutes <= 0
         ? (baseline.requiredMinutes > 0 ? 100 : 0)
         : ((baseline.unscheduledMinutes / baseline.availableMinutes) * 100)
               .round()
@@ -290,18 +296,20 @@ class FutureConsequenceEngine {
         intervention.type == TrajectoryInterventionType.reduceScope) {
       projectedCapacity = (capacityBase - 18).clamp(0, 100);
     }
-    final int current = _combinedRisk(<int>[
+    final List<int> currentRiskSignals = <int>[
       baseline.pressure,
       currentDeferral,
       currentDeadline,
-      capacityBase,
-    ]);
-    final int projected = _combinedRisk(<int>[
+      if (baseline.hasObservedAvailability) capacityBase,
+    ];
+    final List<int> projectedRiskSignals = <int>[
       projectedPressure,
       projectedDeferral,
       projectedDeadline,
-      projectedCapacity,
-    ]);
+      if (baseline.hasObservedAvailability) projectedCapacity,
+    ];
+    final int current = _combinedRisk(currentRiskSignals);
+    final int projected = _combinedRisk(projectedRiskSignals);
     return TrajectoryRiskProjection(
       currentScore: current,
       projectedScore: projected,
@@ -335,8 +343,9 @@ class FutureConsequenceEngine {
           label: 'Capacity overload',
           currentScore: capacityBase,
           projectedScore: projectedCapacity,
-          explanation:
-              'Unscheduled work indicates that current commitments do not fit.',
+          explanation: baseline.hasObservedAvailability
+              ? 'Unscheduled work indicates that current commitments do not fit.'
+              : 'Capacity risk is not scored until working availability is configured.',
         ),
       ],
     );
@@ -365,6 +374,9 @@ class FutureConsequenceEngine {
     required PredictiveConfidenceProfile confidence,
     required int uncertainty,
   }) {
+    if (!baseline.hasObservedAvailability) {
+      return const <GoalDelayProjection>[];
+    }
     final int freeMinutes = math.max(
       30,
       baseline.availableMinutes - baseline.occupiedMinutes,

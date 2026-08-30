@@ -11,6 +11,9 @@ TrajectoryBaseline trajectoryTestBaseline({
   int momentum = 61,
   int pressure = 58,
   int observationCount = 12,
+  PredictiveEvidenceOrigin energyOrigin = PredictiveEvidenceOrigin.observed,
+  PredictiveEvidenceOrigin availabilityOrigin =
+      PredictiveEvidenceOrigin.observed,
 }) => TrajectoryBaseline(
   accountScope: 'v2.test-account',
   revision: 'trajectory-fixture-r1',
@@ -85,12 +88,18 @@ TrajectoryBaseline trajectoryTestBaseline({
     'timeline': '1',
     'plan': '1',
   },
+  energyOrigin: energyOrigin,
+  availabilityOrigin: availabilityOrigin,
 );
 
-TrajectoryComparison trajectoryTestComparison({int horizonDays = 7}) {
-  final TrajectoryBaseline baseline = trajectoryTestBaseline();
+TrajectoryComparison trajectoryTestComparison({
+  int horizonDays = 7,
+  TrajectoryBaseline? baseline,
+}) {
+  final TrajectoryBaseline resolvedBaseline =
+      baseline ?? trajectoryTestBaseline();
   return const FutureConsequenceEngine().compare(
-    baseline: baseline,
+    baseline: resolvedBaseline,
     generatedAt: trajectoryFixtureNow,
     interventions:
         <TrajectoryIntervention>[

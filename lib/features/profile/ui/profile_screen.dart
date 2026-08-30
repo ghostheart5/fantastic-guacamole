@@ -80,6 +80,14 @@ class _ProfileBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actions = ref.watch(profileActionsProvider);
     final data = state.profile;
+    final identity = ref.watch(identityStateProvider);
+    final bool hasIdentityEvidence =
+        ref.watch(
+          trajectorySummaryProvider.select(
+            (summary) => summary.completedTasks >= 3,
+          ),
+        ) &&
+        identity.hasMeaningfulEvidence;
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -88,13 +96,17 @@ class _ProfileBody extends ConsumerWidget {
           onOpenSettings: () => goToAppView(context, ref, AppView.settings),
         ),
         const SizedBox(height: 18),
-        _IdentityConstellation(name: data.name, level: data.level),
+        _IdentityConstellation(
+          name: data.name,
+          level: data.level,
+          hasEvidence: hasIdentityEvidence,
+        ),
         const SizedBox(height: 18),
         _ProfileMetrics(level: data.level, xp: data.xp, streak: data.streak),
         const SizedBox(height: 16),
         _NameEditor(initialName: data.name, onSave: actions.updateName),
         const SizedBox(height: 16),
-        const _IdentityCard(),
+        _IdentityCard(hasEvidence: hasIdentityEvidence),
         const SizedBox(height: 16),
         _NavButtons(
           onTimeline: () => goToAppView(context, ref, AppView.timeline),
@@ -131,10 +143,15 @@ class _ProfileTitle extends StatelessWidget {
 }
 
 class _IdentityConstellation extends ConsumerWidget {
-  const _IdentityConstellation({required this.name, required this.level});
+  const _IdentityConstellation({
+    required this.name,
+    required this.level,
+    required this.hasEvidence,
+  });
 
   final String name;
   final int level;
+  final bool hasEvidence;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -142,13 +159,16 @@ class _IdentityConstellation extends ConsumerWidget {
     final String archetype = ref
         .watch(identityStateProvider.notifier)
         .archetype;
+    final String evidenceLabel = hasEvidence
+        ? 'Discipline ${(identity.disciplineIdentity * 100).round()} percent, '
+              'execution ${(identity.executionIdentity * 100).round()} percent, '
+              'growth ${(identity.growthIdentity * 100).round()} percent.'
+        : 'Identity pattern is still forming.';
     return Semantics(
       container: true,
       label:
           '${name.isEmpty ? 'ChronoSpark user' : name}, level $level. '
-          'Discipline ${(identity.disciplineIdentity * 100).round()} percent, '
-          'execution ${(identity.executionIdentity * 100).round()} percent, '
-          'growth ${(identity.growthIdentity * 100).round()} percent.',
+          '$evidenceLabel',
       child: Column(
         children: <Widget>[
           SizedBox(
@@ -189,6 +209,7 @@ class _IdentityConstellation extends ConsumerWidget {
                   child: _ConstellationLabel(
                     label: 'GROWTH',
                     value: identity.growthIdentity,
+                    showValue: hasEvidence,
                     accent: AppColors.neonViolet,
                     textAlign: TextAlign.right,
                   ),
@@ -199,6 +220,7 @@ class _IdentityConstellation extends ConsumerWidget {
                   child: _ConstellationLabel(
                     label: 'DISCIPLINE',
                     value: identity.disciplineIdentity,
+                    showValue: hasEvidence,
                     accent: AppColors.memoryAmber,
                   ),
                 ),
@@ -208,6 +230,7 @@ class _IdentityConstellation extends ConsumerWidget {
                   child: _ConstellationLabel(
                     label: 'EXECUTION',
                     value: identity.executionIdentity,
+                    showValue: hasEvidence,
                     accent: AppColors.neonCyan,
                     textAlign: TextAlign.right,
                   ),
@@ -228,7 +251,7 @@ class _IdentityConstellation extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '$archetype  ·  CHRONOSPARK LEVEL $level',
+            '${hasEvidence ? archetype : 'PATTERN FORMING'}  ·  CHRONOSPARK LEVEL $level',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -250,12 +273,14 @@ class _ConstellationLabel extends StatelessWidget {
     required this.label,
     required this.value,
     required this.accent,
+    required this.showValue,
     this.textAlign = TextAlign.left,
   });
 
   final String label;
   final double value;
   final Color accent;
+  final bool showValue;
   final TextAlign textAlign;
 
   @override
@@ -263,7 +288,7 @@ class _ConstellationLabel extends StatelessWidget {
     return SizedBox(
       width: 112,
       child: Text(
-        '$label ${(value * 100).round()}%',
+        showValue ? '$label ${(value * 100).round()}%' : '$label LEARNING',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         textAlign: textAlign,
@@ -438,7 +463,9 @@ class _MetricDivider extends StatelessWidget {
 }
 
 class _IdentityCard extends ConsumerWidget {
-  const _IdentityCard();
+  const _IdentityCard({required this.hasEvidence});
+
+  final bool hasEvidence;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -469,28 +496,44 @@ class _IdentityCard extends ConsumerWidget {
             spacing: 10,
             runSpacing: 4,
             children: <Widget>[
-              _ArchetypeLabel(label: archetype, color: AppColors.neonViolet),
-              _ArchetypeLabel(label: growthTitle, color: AppColors.neonCyan),
+              _ArchetypeLabel(
+                label: hasEvidence ? archetype : 'Pattern forming',
+                color: AppColors.neonViolet,
+              ),
+              if (hasEvidence)
+                _ArchetypeLabel(label: growthTitle, color: AppColors.neonCyan),
             ],
           ),
-          const SizedBox(height: 14),
-          _IdentityBar(
-            label: 'Discipline',
-            value: identity.disciplineIdentity,
-            color: AppColors.memoryAmber,
-          ),
-          const SizedBox(height: 8),
-          _IdentityBar(
-            label: 'Execution',
-            value: identity.executionIdentity,
-            color: AppColors.neonCyan,
-          ),
-          const SizedBox(height: 8),
-          _IdentityBar(
-            label: 'Growth',
-            value: identity.growthIdentity,
-            color: AppColors.neonViolet,
-          ),
+          if (!hasEvidence) ...<Widget>[
+            const SizedBox(height: 8),
+            const Text(
+              'Complete a few tasks to reveal patterns grounded in your activity.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ] else ...<Widget>[
+            const SizedBox(height: 14),
+            _IdentityBar(
+              label: 'Discipline',
+              value: identity.disciplineIdentity,
+              color: AppColors.memoryAmber,
+            ),
+            const SizedBox(height: 8),
+            _IdentityBar(
+              label: 'Execution',
+              value: identity.executionIdentity,
+              color: AppColors.neonCyan,
+            ),
+            const SizedBox(height: 8),
+            _IdentityBar(
+              label: 'Growth',
+              value: identity.growthIdentity,
+              color: AppColors.neonViolet,
+            ),
+          ],
         ],
       ),
     );
