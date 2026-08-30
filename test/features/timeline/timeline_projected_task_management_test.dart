@@ -12,6 +12,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('schedule-only task is never presented as due or overdue', (
+    WidgetTester tester,
+  ) async {
+    final Task scheduledTask = Task(
+      id: 'schedule-only',
+      title: 'Scheduled work block',
+      priority: 3,
+      difficulty: 2,
+      energyRequired: 2,
+      scheduledFor: DateTime.now().subtract(const Duration(hours: 1)),
+    );
+    final ProviderContainer container = _buildContainer(task: scheduledTask);
+    addTearDown(container.dispose);
+
+    await _pumpTimeline(tester, container, taskTitle: scheduledTask.title);
+
+    expect(find.textContaining('SCHEDULED '), findsOneWidget);
+    expect(find.textContaining('OVERDUE SINCE'), findsNothing);
+    expect(find.textContaining('Task deadline missed'), findsNothing);
+    expect(find.text('Nothing needs action now'), findsOneWidget);
+  });
+
   testWidgets(
     'edit validates title, prevents duplicate actions, and reports success',
     (WidgetTester tester) async {
@@ -139,6 +161,7 @@ void main() {
 }
 
 ProviderContainer _buildContainer({
+  Task? task,
   void Function(_RecordingTaskActions value)? onActionsBuilt,
   Completer<void>? updateCompleter,
   Object? updateError,
@@ -147,7 +170,9 @@ ProviderContainer _buildContainer({
     overrides: [
       timelineProvider.overrideWith(_EmptyTimelineNotifier.new),
       goalsProvider.overrideWith(_EmptyGoalsNotifier.new),
-      tasksProvider.overrideWith((Ref ref) async => <Task>[_managedTask]),
+      tasksProvider.overrideWith(
+        (Ref ref) async => <Task>[task ?? _managedTask],
+      ),
       taskActionsProvider.overrideWith((Ref ref) {
         final _RecordingTaskActions actions = _RecordingTaskActions(
           ref,
@@ -165,8 +190,9 @@ ProviderContainer _buildContainer({
 
 Future<void> _pumpTimeline(
   WidgetTester tester,
-  ProviderContainer container,
-) async {
+  ProviderContainer container, {
+  String taskTitle = 'Managed task',
+}) async {
   tester.view.physicalSize = const Size(1200, 1400);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -182,7 +208,7 @@ Future<void> _pumpTimeline(
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
-  expect(find.text('Managed task'), findsOneWidget);
+  expect(find.text(taskTitle), findsOneWidget);
 }
 
 final Task _managedTask = Task(

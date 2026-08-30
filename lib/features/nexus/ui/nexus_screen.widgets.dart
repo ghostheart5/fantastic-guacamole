@@ -1169,21 +1169,21 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
   final List<TaskEntity> dueToday =
       active
           .where((TaskEntity task) {
-            final DateTime? commitment = _taskCommitment(task);
-            return commitment != null &&
-                !commitment.isBefore(today) &&
-                commitment.isBefore(tomorrow);
+            final DateTime? deadline = _taskDeadline(task);
+            return deadline != null &&
+                !deadline.isBefore(today) &&
+                deadline.isBefore(tomorrow);
           })
           .toList(growable: false)
-        ..sort(_compareTaskCommitments);
+        ..sort(_compareTaskDeadlines);
   final List<TaskEntity> overdue =
       active
           .where((TaskEntity task) {
-            final DateTime? commitment = _taskCommitment(task);
-            return commitment != null && commitment.isBefore(today);
+            final DateTime? deadline = _taskDeadline(task);
+            return deadline != null && deadline.isBefore(today);
           })
           .toList(growable: false)
-        ..sort(_compareTaskCommitments);
+        ..sort(_compareTaskDeadlines);
   bool unresolvedEvent(TimelineEventEntity event) =>
       event.status != TimelineEventStatus.completed &&
       event.status != TimelineEventStatus.canceled &&
@@ -1193,6 +1193,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
           .where((event) {
             final DateTime? due = event.dueAt;
             return due != null &&
+                _eventHasDeadlineSemantics(event) &&
                 unresolvedEvent(event) &&
                 !activeTaskIds.contains(event.relatedId) &&
                 !due.isBefore(today) &&
@@ -1208,6 +1209,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
           .where((event) {
             final DateTime? due = event.dueAt;
             return due != null &&
+                _eventHasDeadlineSemantics(event) &&
                 unresolvedEvent(event) &&
                 !activeTaskIds.contains(event.relatedId) &&
                 due.isBefore(today);
@@ -1264,7 +1266,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
       detail: dueCount == 1
           ? 'One commitment is due today.'
           : '$dueCount commitments are due today.',
-      when: firstTask == null ? firstEvent!.dueAt : _taskCommitment(firstTask),
+      when: firstTask == null ? firstEvent!.dueAt : _taskDeadline(firstTask),
       accent: AppColors.neonCyan,
     );
   }
@@ -1286,7 +1288,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
               ? 'One commitment needs attention.'
               : '${overdue.length + overdueEvents.length} commitments need attention.',
           when: overdue.isNotEmpty
-              ? _taskCommitment(overdue.first)
+              ? _taskDeadline(overdue.first)
               : overdueEvents.first.dueAt,
           accent: AppColors.recallRed,
         );
@@ -1294,10 +1296,18 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
   return <_TimelineDisplayItem>[latestItem, todayItem, overdueItem];
 }
 
-DateTime? _taskCommitment(TaskEntity task) => task.scheduledFor ?? task.dueDate;
+DateTime? _taskDeadline(TaskEntity task) => task.dueDate;
 
-int _compareTaskCommitments(TaskEntity first, TaskEntity second) =>
-    _taskCommitment(first)!.compareTo(_taskCommitment(second)!);
+int _compareTaskDeadlines(TaskEntity first, TaskEntity second) =>
+    _taskDeadline(first)!.compareTo(_taskDeadline(second)!);
+
+bool _eventHasDeadlineSemantics(TimelineEventEntity event) =>
+    switch (event.type) {
+      TimelineEventType.deadline ||
+      TimelineEventType.goal ||
+      TimelineEventType.milestone => true,
+      _ => false,
+    };
 
 String _latestAdditionTitle(TimelineEventEntity event) {
   final String title = event.title.trim();

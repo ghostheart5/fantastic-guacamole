@@ -161,11 +161,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final int dueTodayCount = windowEvents.where((TimelineEventEntity event) {
       final DateTime? due = event.dueAt;
       return due != null &&
+          _isOpenDeadline(event) &&
           due.year == now.year &&
           due.month == now.month &&
-          due.day == now.day &&
-          event.status != TimelineEventStatus.completed &&
-          event.status != TimelineEventStatus.canceled;
+          due.day == now.day;
     }).length;
     final TimelineEventEntity? nextDeadline = _nearestUpcoming(
       windowEvents,
@@ -303,6 +302,19 @@ class _TimelineEventTile extends StatelessWidget {
 
   String get _visualLabel =>
       _visualType == TimelineEventType.task ? 'Task' : event.shortLabel;
+
+  bool get _isScheduledTask =>
+      event.type == TimelineEventType.task && event.dueAt != null;
+
+  String get _timingLabel {
+    final DateTime date = event.dueAt!;
+    if (_isScheduledTask) {
+      return 'SCHEDULED ${DateTimeFormats.dateShort(date)}';
+    }
+    return event.isOverdue
+        ? 'OVERDUE SINCE ${DateTimeFormats.dateShort(date)}'
+        : 'DUE ${DateTimeFormats.dateShort(date)}';
+  }
 
   Color get _color {
     switch (_visualType) {
@@ -553,9 +565,7 @@ class _TimelineEventTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          event.isOverdue
-                              ? 'OVERDUE SINCE ${DateTimeFormats.dateShort(event.dueAt!)}'
-                              : 'DUE ${DateTimeFormats.dateShort(event.dueAt!)}',
+                          _timingLabel,
                           style: TextStyle(
                             color: event.isOverdue
                                 ? AppColors.recallRed
@@ -1435,6 +1445,19 @@ class _TimelineEmptyState extends StatelessWidget {
 DateTime _eventMoment(TimelineEventEntity event) =>
     event.dueAt ?? event.timestamp;
 
+bool _isOpenDeadline(TimelineEventEntity event) {
+  final bool hasDeadlineSemantics = switch (event.type) {
+    TimelineEventType.deadline ||
+    TimelineEventType.goal ||
+    TimelineEventType.milestone => true,
+    _ => false,
+  };
+  return hasDeadlineSemantics &&
+      event.status != TimelineEventStatus.completed &&
+      event.status != TimelineEventStatus.canceled &&
+      event.status != TimelineEventStatus.skipped;
+}
+
 bool _inWindow({
   required DateTime moment,
   required DateTime now,
@@ -1506,7 +1529,10 @@ TimelineEventEntity? _nearestUpcoming(
       events
           .where((TimelineEventEntity event) {
             final DateTime? due = event.dueAt;
-            return due != null && due.isAfter(now) && !event.isOverdue;
+            return due != null &&
+                _isOpenDeadline(event) &&
+                due.isAfter(now) &&
+                !event.isOverdue;
           })
           .toList(growable: false)
         ..sort(

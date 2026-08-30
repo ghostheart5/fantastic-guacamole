@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/state/models/signal_model.dart';
 import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,8 @@ void main() {
   Future<void> pumpNexusScreen(
     WidgetTester tester, {
     required double width,
+    List<Task>? tasks,
+    List<TimelineEventEntity>? timeline,
   }) async {
     tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -31,6 +34,11 @@ void main() {
       overrides: [
         unreadNotificationsProvider.overrideWithValue(0),
         profileProvider.overrideWith(_PopulatedProfileController.new),
+        if (tasks != null) tasksProvider.overrideWith((Ref ref) async => tasks),
+        if (timeline != null)
+          timelineProvider.overrideWith(
+            () => _StaticTimelineNotifier(timeline),
+          ),
         nexusScreenModelProvider.overrideWith(
           (Ref ref) async => _populatedNexusModel,
         ),
@@ -91,6 +99,37 @@ void main() {
       expect(
         textWidgetContaining(tester, 'LVL 10').style?.fontSize,
         AppSizes.fontSm,
+      );
+    });
+
+    testWidgets('scheduled time does not make a task due or overdue', (
+      WidgetTester tester,
+    ) async {
+      final DateTime now = DateTime.now();
+      await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+        tasks: <Task>[
+          Task(
+            id: 'scheduled-before-due',
+            title: 'Work block before deadline',
+            priority: 3,
+            difficulty: 2,
+            energyRequired: 2,
+            scheduledFor: now.subtract(const Duration(hours: 2)),
+            dueDate: now.add(const Duration(days: 1)),
+          ),
+        ],
+        timeline: const <TimelineEventEntity>[],
+      );
+
+      await tester.scrollUntilVisible(find.text('Today at a glance'), 400);
+
+      expect(find.text('Nothing is due today.'), findsOneWidget);
+      expect(find.text('You’re all caught up'), findsOneWidget);
+      expect(
+        find.text('Review the overdue item below before taking a break.'),
+        findsNothing,
       );
     });
   });
@@ -159,6 +198,15 @@ class _PopulatedProfileController extends ProfileController {
     longestStreak: 21,
     name: 'ChronoSpark User',
   );
+}
+
+class _StaticTimelineNotifier extends TimelineNotifier {
+  _StaticTimelineNotifier(this.events);
+
+  final List<TimelineEventEntity> events;
+
+  @override
+  List<TimelineEventEntity> build() => events;
 }
 
 const TrajectorySummaryView _activeTrajectory = TrajectorySummaryView(

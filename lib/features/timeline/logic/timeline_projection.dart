@@ -14,24 +14,46 @@ List<TimelineEventEntity> projectTimelineEvents({
     if (task.isCompleted || task.isSkipped || task.isCanceled) {
       continue;
     }
-    final DateTime? due = task.scheduledFor ?? task.dueDate;
-    if (due == null) {
+    final DateTime? deadline = task.dueDate;
+    if (deadline != null) {
+      final bool overdue = deadline.isBefore(now);
+      events.add(
+        TimelineEventEntity(
+          id: 'timeline-projected-task-${task.id}',
+          type: TimelineEventType.deadline,
+          title: task.title,
+          detail: overdue
+              ? 'Task deadline missed. Re-plan this task immediately.'
+              : 'Task deadline is upcoming.',
+          timestamp: now,
+          status: overdue
+              ? TimelineEventStatus.overdue
+              : TimelineEventStatus.planned,
+          dueAt: deadline,
+          phase: 'task',
+          relatedId: task.id,
+        ),
+      );
       continue;
     }
-    final bool overdue = due.isBefore(now);
+
+    final DateTime? scheduled = task.scheduledFor;
+    if (scheduled == null) {
+      continue;
+    }
     events.add(
       TimelineEventEntity(
         id: 'timeline-projected-task-${task.id}',
-        type: TimelineEventType.deadline,
+        type: TimelineEventType.task,
         title: task.title,
-        detail: overdue
-            ? 'Task deadline missed. Re-plan this task immediately.'
-            : 'Task is scheduled and approaching deadline.',
+        detail: scheduled.isBefore(now)
+            ? 'Scheduled work time has passed. The task remains open; no deadline was missed.'
+            : 'Task is scheduled for a planned work time.',
         timestamp: now,
-        status: overdue
-            ? TimelineEventStatus.overdue
+        status: scheduled.isBefore(now)
+            ? TimelineEventStatus.active
             : TimelineEventStatus.planned,
-        dueAt: due,
+        dueAt: scheduled,
         phase: 'task',
         relatedId: task.id,
       ),

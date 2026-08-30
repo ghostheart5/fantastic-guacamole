@@ -1138,10 +1138,7 @@ class AIController {
     final int openTasks = tasks.length;
     final DateTime now = DateTime.now();
     final int overdueFromTasks = tasks
-        .where(
-          (TaskEntity task) =>
-              task.scheduledFor != null && task.scheduledFor!.isBefore(now),
-        )
+        .where((TaskEntity task) => task.isOverdueAt(now))
         .length;
     final int overdue = category == 'Timeline Query'
         ? timelineOverdueCount
