@@ -33,6 +33,43 @@ void main() {
     );
   });
 
+  test(
+    'Phase 2 cloud data boundaries fail closed in the forward migration',
+    () {
+      final String migration = read(
+        'supabase/migrations/20260830050000_phase2_data_security_hardening.sql',
+      );
+      final String casTests = read(
+        'supabase/tests/cloud_backup_snapshots_rls.test.sql',
+      );
+      final String securityTests = read(
+        'supabase/tests/phase2_data_security.test.sql',
+      );
+
+      expect(
+        RegExp('account_deletion_in_progress').allMatches(migration).length,
+        greaterThanOrEqualTo(4),
+      );
+      expect(
+        migration,
+        contains(
+          'grant insert on table public.ai_content_reports to service_role',
+        ),
+      );
+      expect(migration, contains('grant usage on sequence'));
+      expect(migration, contains('file_size_limit = 5242880'));
+      expect(
+        migration,
+        contains("allowed_mime_types = array['application/json']"),
+      );
+      expect(migration, contains("'/backup/full_backup.json'"));
+      expect(migration, contains("'/backup/tasks_backup.json'"));
+      expect(migration, isNot(contains("split_part(name, '/', 1)")));
+      expect(casTests, contains('a deletion tombstone blocks CAS inserts'));
+      expect(securityTests, contains('every legacy sync policy is restricted'));
+    },
+  );
+
   test('startup does not request push permission; explicit flow does', () {
     final String source = read(
       'lib/system/firebase/firebase_messaging_bootstrap.dart',

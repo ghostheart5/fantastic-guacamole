@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(16);
 
 select has_table(
   'public',
@@ -119,6 +119,60 @@ select throws_ok(
   'P0001',
   'cloud backup owner is immutable',
   'snapshot ownership cannot be reassigned'
+);
+
+reset role;
+insert into public.account_deletion_requests (
+  request_id,
+  user_id,
+  receipt_hash,
+  state
+) values
+  (repeat('c', 64), '11111111-1111-4111-8111-111111111111', repeat('d', 64), 'completed'),
+  (repeat('e', 64), '22222222-2222-4222-8222-222222222222', repeat('f', 64), 'completed');
+
+select results_eq(
+  $$
+    select count(*)
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'cloud_backup_snapshots'
+      and policyname in (
+        'cloud_backup_snapshots_insert_own',
+        'cloud_backup_snapshots_update_own'
+      )
+      and coalesce(with_check, '') like '%account_deletion_in_progress%'
+  $$,
+  array[2::bigint],
+  'CAS insert and update policies consult deletion tombstones'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
+select results_eq(
+  $$
+    update public.cloud_backup_snapshots
+    set revision = 3
+    where user_id = '11111111-1111-4111-8111-111111111111'
+    returning revision
+  $$,
+  array[]::bigint[],
+  'a deletion tombstone blocks CAS updates from a lingering JWT'
+);
+
+set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
+select throws_ok(
+  $$
+    insert into public.cloud_backup_snapshots (user_id, revision, payload)
+    values (
+      '22222222-2222-4222-8222-222222222222',
+      1,
+      '{"version":"3.0.0"}'::jsonb
+    )
+  $$,
+  '42501',
+  'new row violates row-level security policy for table "cloud_backup_snapshots"',
+  'a deletion tombstone blocks CAS inserts from a lingering JWT'
 );
 
 set local role anon;
