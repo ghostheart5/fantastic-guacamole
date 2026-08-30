@@ -51,6 +51,9 @@ void main() {
     final String guardedBuild = File(
       'scripts/build_android_aab_prod_guarded.ps1',
     ).readAsStringSync();
+    final String interactiveBuild = File(
+      'scripts/build_android_aab_prod_interactive.ps1',
+    ).readAsStringSync();
 
     expect(
       guardedBuild,
@@ -100,5 +103,7 @@ void main() {
       contains(r'Remove-Item -LiteralPath $temporarySigningKeystorePath'),
     );
     expect(guardedBuild, isNot(contains('OneDrive - Heartedghost')));
+    expect(guardedBuild, isNot(contains('CHRONOSPARK_IOS_TEAM_ID')));
+    expect(interactiveBuild, isNot(contains('CHRONOSPARK_IOS_TEAM_ID')));
   });
 }
