@@ -383,6 +383,8 @@ abstract final class AccountDataRegistry {
     return <String>{
       ...legacySensitivePreferenceKeys,
       'governed_memories_v2.$namespace',
+      'person_context_spine_v1.$namespace',
+      'person_context_spine_v1_corrupt.$namespace',
     };
   }
 

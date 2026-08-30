@@ -25,6 +25,7 @@ import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/projects_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/routines_provider.dart';
@@ -77,6 +78,8 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(siConsoleThreadProvider);
   ref.invalidate(trajectoryForecastLedgerProvider);
   ref.invalidate(personalizationProfileProvider);
+  ref.invalidate(personContextRepositoryProvider);
+  ref.invalidate(personContextSpineProvider);
   ref.invalidate(observedPlanningPatternsProvider);
   ref.invalidate(cloudSyncPreferenceProvider);
   ref.invalidate(assistantBetaOptInProvider);
