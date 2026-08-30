@@ -61,6 +61,22 @@ final siV2EvidenceSnapshotProvider = FutureProvider<SIV2EvidenceSnapshot>((
       .read(observedAt: ref.watch(siV2ClockProvider)());
 });
 
+/// The visible console is usable only when both its typed response path and
+/// the safety critic are enabled for the current account cohort.
+final siV2AvailabilityProvider = FutureProvider<bool>((Ref ref) async {
+  final AssistantReleaseDecision console = await ref.watch(
+    assistantReleaseDecisionProvider(
+      AssistantReleaseCapability.siConsoleV2,
+    ).future,
+  );
+  final AssistantReleaseDecision safety = await ref.watch(
+    assistantReleaseDecisionProvider(
+      AssistantReleaseCapability.safetyCritic,
+    ).future,
+  );
+  return console.enabled && safety.enabled;
+});
+
 abstract interface class SIV2QueryPort {
   Future<SIV2Response> analyze(SIV2Query query);
 }

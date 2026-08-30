@@ -36,6 +36,7 @@ void main() {
     final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
         siV2QueryServiceProvider.overrideWithValue(port),
         siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
@@ -68,7 +69,6 @@ void main() {
       expect(find.bySemanticsLabel('Send SI query'), findsOneWidget);
       expect(find.byKey(const Key('si-query-input')), findsOneWidget);
       expect(find.text('What needs attention?'), findsOneWidget);
-      expect(find.text('Why is this goal at risk?'), findsOneWidget);
       expect(find.text('What should I do next?'), findsOneWidget);
       expect(find.byKey(const Key('si-v2-entity-filter')), findsNothing);
       expect(find.byKey(const Key('si-v2-assumption')), findsNothing);
@@ -96,6 +96,7 @@ void main() {
     final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
         siV2QueryServiceProvider.overrideWithValue(port),
         siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
@@ -117,7 +118,6 @@ void main() {
 
     expect(find.byKey(const Key('si-query-input')), findsOneWidget);
     expect(find.text('What needs attention?'), findsOneWidget);
-    expect(find.text('Why is this goal at risk?'), findsOneWidget);
     expect(find.text('What should I do next?'), findsOneWidget);
     expect(find.text('Advanced'), findsOneWidget);
     expect(find.byKey(const Key('si-v2-intent-forecast')), findsNothing);
@@ -159,6 +159,15 @@ void main() {
       contains('A single work block is available.'),
     );
     expect(find.byKey(const Key('si-v2-response')), findsOneWidget);
+    final Finder latestResponse = find.byKey(
+      const Key('si-latest-response-anchor'),
+    );
+    expect(latestResponse, findsOneWidget);
+    expect(tester.getTopLeft(latestResponse).dy, greaterThanOrEqualTo(0));
+    expect(
+      tester.getTopLeft(latestResponse).dy,
+      lessThan(tester.view.physicalSize.height / tester.view.devicePixelRatio),
+    );
     expect(find.text('DIRECT ANSWER', skipOffstage: false), findsOneWidget);
     expect(find.text('RECOMMENDATION', skipOffstage: false), findsOneWidget);
     expect(find.text('OBSERVED FACTS'), findsNothing);
@@ -193,6 +202,7 @@ void main() {
     final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
         siV2QueryServiceProvider.overrideWithValue(port),
         siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),

@@ -31,6 +31,52 @@ void main() {
     expect(find.textContaining('SI V2 could not validate'), findsNothing);
   });
 
+  testWidgets('example question executes in one tap', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(500, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+    final ProviderContainer container = _container(port, snapshot);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    await tester.ensureVisible(find.text('What needs attention?'));
+    await tester.tap(find.text('What needs attention?'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(port.calls, 1);
+    expect(port.lastQuery?.rawText, 'What needs attention?');
+  });
+
+  testWidgets('unavailable console is truthful before the first query', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+    final ProviderContainer container = _container(
+      port,
+      snapshot,
+      available: false,
+    );
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    expect(
+      find.textContaining('SI Console is not enabled for this account'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('si-console-welcome')), findsOneWidget);
+    expect(find.text('SPEAK'), findsNothing);
+    expect(find.text('REPORT'), findsNothing);
+    expect(find.bySemanticsLabel('SI Console unavailable'), findsOneWidget);
+    final TextField field = tester.widget<TextField>(
+      find.byKey(const Key('si-query-input')),
+    );
+    expect(field.enabled, isFalse);
+    expect(port.calls, 0);
+  });
+
   testWidgets('contract failure displays a safe no-mutation response', (
     WidgetTester tester,
   ) async {
@@ -338,10 +384,12 @@ void main() {
 
 ProviderContainer _container(
   SIV2QueryPort port,
-  SIV2EvidenceSnapshot snapshot,
-) {
+  SIV2EvidenceSnapshot snapshot, {
+  bool available = true,
+}) {
   return ProviderContainer(
     overrides: [
+      siV2AvailabilityProvider.overrideWith((Ref ref) async => available),
       siV2QueryServiceProvider.overrideWithValue(port),
       siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
       voiceServiceProvider.overrideWithValue(_NoopVoiceService()),

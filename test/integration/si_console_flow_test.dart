@@ -35,6 +35,7 @@ void main() {
       );
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
           siV2QueryServiceProvider.overrideWithValue(port),
           siV2EvidenceSnapshotProvider.overrideWith(
             (Ref ref) async => snapshot,

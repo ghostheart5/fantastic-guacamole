@@ -65,6 +65,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   final TextEditingController _scenarioAssumption = TextEditingController();
   final ScrollController _scroll = ScrollController();
   final GlobalKey _composerKey = GlobalKey();
+  final GlobalKey _latestResponseKey = GlobalKey();
   // Starting guess only, replaced by the composer's real measured height
   // right after the first frame — see _measureComposer.
   final ValueNotifier<double> _composerHeight = ValueNotifier<double>(220);
@@ -72,6 +73,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   SIV2Intent _intent = SIV2Intent.answer;
   Set<SIV2Source> _sources = SIV2Source.values.toSet();
   SIV2TimeRange _timeRange = SIV2TimeRange.thirtyDays;
+  int _latestResponseScrollRequest = 0;
   late final AnimationController _typingAnim;
 
   /// Captured in [initState] because `ref` cannot be read from [dispose] —
@@ -108,19 +110,23 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final voiceService = ref.read(voiceServiceProvider);
     _stopVoice = voiceService.stop;
     _speakAccessibilityHint = voiceService.speakAccessibilityHint;
-    _messages.add(
-      const _Msg(
-        text:
-            'SI V2 is ready. Analysis uses a read-only Evidence Lens over tasks, goals, milestones, and Timeline. Every substantive answer separates facts, calculations, inferences, scenarios, conflicts, confidence anatomy, and evidence links.',
-        isUser: false,
-        emotion: 'confident',
-        systemPanel: true,
-      ),
-    );
     _typingAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final MediaQueryData media = MediaQuery.of(context);
+    if (media.disableAnimations || media.accessibleNavigation) {
+      _typingAnim
+        ..stop()
+        ..value = .5;
+    } else if (!_typingAnim.isAnimating) {
+      _typingAnim.repeat();
+    }
   }
 
   @override
@@ -378,7 +384,15 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         ),
       );
     });
-    _scrollToBottom();
+    _scrollToLatestResponse();
+  }
+
+  void _sendExample(String question) {
+    if (_typing) return;
+    _input
+      ..text = question
+      ..selection = TextSelection.collapsed(offset: question.length);
+    unawaited(_send());
   }
 
   Future<void> _send() async {
@@ -565,7 +579,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           ),
         );
       });
-      _scrollToBottom();
+      _scrollToLatestResponse();
     } catch (_) {
       if (!mounted) return;
       final AIRecommendation fallback = ref
@@ -603,16 +617,59 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     });
   }
 
+  void _scrollToLatestResponse() {
+    final int request = ++_latestResponseScrollRequest;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          request != _latestResponseScrollRequest ||
+          !_scroll.hasClients) {
+        return;
+      }
+      final BuildContext? responseContext = _latestResponseKey.currentContext;
+      if (responseContext != null) {
+        _ensureLatestResponseVisible(responseContext);
+        return;
+      }
+
+      // A lazily built transcript may not have created the newest bubble yet.
+      // Reveal it first, then align the response from its beginning.
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || request != _latestResponseScrollRequest) return;
+        final BuildContext? revealedContext = _latestResponseKey.currentContext;
+        if (revealedContext != null) {
+          _ensureLatestResponseVisible(revealedContext);
+        }
+      });
+    });
+  }
+
+  void _ensureLatestResponseVisible(BuildContext responseContext) {
+    final MediaQueryData media = MediaQuery.of(context);
+    unawaited(
+      Scrollable.ensureVisible(
+        responseContext,
+        alignment: 0.05,
+        duration: media.disableAnimations || media.accessibleNavigation
+            ? Duration.zero
+            : const Duration(milliseconds: 240),
+        curve: Curves.easeOut,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AsyncValue<SIV2EvidenceSnapshot> snapshotAsync = ref.watch(
       siV2EvidenceSnapshotProvider,
     );
+    final AsyncValue<bool> availabilityAsync = ref.watch(
+      siV2AvailabilityProvider,
+    );
     final SIV2EvidenceSnapshot? snapshot = snapshotAsync.asData?.value;
     final Object? consoleError = snapshotAsync.asError?.error;
-    final String? engineSnapshot = snapshot == null
-        ? null
-        : 'Read-only lens: ${snapshot.tasks.length} tasks, ${snapshot.goals.length} goals, ${snapshot.milestones.length} milestones, ${snapshot.timeline.length} Timeline events';
+    final bool consoleAvailable = availabilityAsync.asData?.value ?? false;
     final MediaQueryData mediaQuery = MediaQuery.of(context);
     final double keyboardInset = mediaQuery.viewInsets.bottom;
     final bool keyboardVisible = keyboardInset > 0;
@@ -639,39 +696,47 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   unawaited(ref.read(voiceServiceProvider).stop());
                   goToAppView(context, ref, AppView.nexus);
                 },
-                engineSnapshot: engineSnapshot,
-                onSpeakSummary: () {
-                  final List<_Msg> recentAssistant = _messages
-                      .where((msg) => !msg.isUser)
-                      .toList(growable: false);
-                  final List<String> points = recentAssistant.reversed
-                      .take(3)
-                      .map((msg) => msg.text)
-                      .toList(growable: false);
-                  unawaited(
-                    ref
-                        .read(voiceServiceProvider)
-                        .speakSummary(
-                          title: 'SI console voice summary',
-                          points: points,
-                        ),
-                  );
-                },
+                onSpeakSummary: _messages.any((_Msg msg) => !msg.isUser)
+                    ? () {
+                        final List<_Msg> recentAssistant = _messages
+                            .where((msg) => !msg.isUser)
+                            .toList(growable: false);
+                        final List<String> points = recentAssistant.reversed
+                            .take(3)
+                            .map((msg) => msg.text)
+                            .toList(growable: false);
+                        unawaited(
+                          ref
+                              .read(voiceServiceProvider)
+                              .speakSummary(
+                                title: 'SI console voice summary',
+                                points: points,
+                              ),
+                        );
+                      }
+                    : null,
                 onSpeakAccessibility: () {
                   unawaited(_showAccessibilityGuide());
                 },
               ),
               _ContextStatusBanner(
+                availabilityLoading: availabilityAsync.isLoading,
+                availabilityError: availabilityAsync.asError?.error,
+                available: consoleAvailable,
                 loading: snapshotAsync.isLoading,
                 error: consoleError,
                 snapshot: snapshot,
-                onRetry: () => ref.invalidate(siV2EvidenceSnapshotProvider),
+                onRetry: () {
+                  ref.invalidate(siV2AvailabilityProvider);
+                  ref.invalidate(siV2EvidenceSnapshotProvider);
+                },
               ),
               Expanded(
                 child: ValueListenableBuilder<double>(
                   valueListenable: _composerHeight,
                   builder: (context, composerHeight, _) {
                     final double composerReservedHeight = composerHeight;
+                    final bool showWelcome = _messages.isEmpty && !_typing;
                     return Stack(
                       children: [
                         Positioned.fill(
@@ -683,12 +748,21 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                               16,
                               composerReservedHeight + composerBottomInset,
                             ),
-                            itemCount: _messages.length + (_typing ? 1 : 0),
+                            itemCount: showWelcome
+                                ? 1
+                                : _messages.length + (_typing ? 1 : 0),
                             itemBuilder: (context, i) {
+                              if (showWelcome) {
+                                return _ConsoleWelcome(
+                                  enabled: consoleAvailable,
+                                  snapshot: snapshot,
+                                  onQuestion: _sendExample,
+                                );
+                              }
                               if (_typing && i == _messages.length) {
                                 return _TypingIndicator(animation: _typingAnim);
                               }
-                              return _BubbleTile(
+                              final Widget bubble = _BubbleTile(
                                 msg: _messages[i],
                                 onReport: _messages[i].isUser
                                     ? null
@@ -696,6 +770,20 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                         _showReportDialog(_messages[i]),
                                       ),
                               );
+                              final bool latestResponse =
+                                  i == _messages.length - 1 &&
+                                  !_messages[i].isUser;
+                              return latestResponse
+                                  ? KeyedSubtree(
+                                      key: _latestResponseKey,
+                                      child: KeyedSubtree(
+                                        key: const Key(
+                                          'si-latest-response-anchor',
+                                        ),
+                                        child: bubble,
+                                      ),
+                                    )
+                                  : bubble;
                             },
                           ),
                         ),
@@ -717,6 +805,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                 onSend: _send,
                                 compact: keyboardVisible,
                                 busy: _typing,
+                                enabled: consoleAvailable,
                                 intent: _intent,
                                 sources: _sources,
                                 timeRange: _timeRange,
@@ -763,12 +852,18 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
 class _ContextStatusBanner extends StatelessWidget {
   const _ContextStatusBanner({
+    required this.availabilityLoading,
+    required this.availabilityError,
+    required this.available,
     required this.loading,
     required this.error,
     required this.snapshot,
     required this.onRetry,
   });
 
+  final bool availabilityLoading;
+  final Object? availabilityError;
+  final bool available;
   final bool loading;
   final Object? error;
   final SIV2EvidenceSnapshot? snapshot;
@@ -779,7 +874,20 @@ class _ContextStatusBanner extends StatelessWidget {
     final String message;
     final IconData icon;
     final Color accent;
-    if (error != null) {
+    if (availabilityError != null) {
+      message = 'SI Console access could not be verified. No query was sent.';
+      icon = Icons.error_outline_rounded;
+      accent = Colors.amberAccent;
+    } else if (availabilityLoading) {
+      message = 'Checking SI Console access...';
+      icon = Icons.sync_rounded;
+      accent = AppColors.neonCyan;
+    } else if (!available) {
+      message =
+          'SI Console is not enabled for this account. No query was sent.';
+      icon = Icons.lock_outline_rounded;
+      accent = Colors.amberAccent;
+    } else if (error != null) {
       message = PublicFailure.from(
         error!,
         fallback:
@@ -792,9 +900,18 @@ class _ContextStatusBanner extends StatelessWidget {
       icon = Icons.sync_rounded;
       accent = AppColors.neonCyan;
     } else {
-      message = snapshot == null
+      final SIV2EvidenceSnapshot? evidence = snapshot;
+      final int evidenceCount = evidence == null
+          ? 0
+          : evidence.tasks.length +
+                evidence.goals.length +
+                evidence.milestones.length +
+                evidence.timeline.length;
+      message = evidence == null
           ? 'Evidence state unavailable.'
-          : 'Read-only evidence ready: ${snapshot!.tasks.length} tasks, ${snapshot!.goals.length} goals, ${snapshot!.milestones.length} milestones, ${snapshot!.timeline.length} Timeline events. ${_personContextBoundary(snapshot!)}';
+          : evidenceCount == 0
+          ? 'No planning evidence yet. SI will identify what it cannot determine. ${_personContextBoundary(evidence)}'
+          : 'Evidence ready: ${evidence.tasks.length} tasks · ${evidence.goals.length} goals · ${evidence.milestones.length} milestones · ${evidence.timeline.length} Timeline. ${_personContextBoundary(evidence)}';
       icon = Icons.verified_rounded;
       accent = Colors.greenAccent;
     }
@@ -828,7 +945,7 @@ class _ContextStatusBanner extends StatelessWidget {
               ),
             ),
           ),
-          if (error != null) ...<Widget>[
+          if (availabilityError != null || error != null) ...<Widget>[
             const SizedBox(width: 8),
             TextButton(
               onPressed: onRetry,
@@ -857,12 +974,10 @@ class _Header extends StatelessWidget {
     required this.onBack,
     required this.onSpeakSummary,
     required this.onSpeakAccessibility,
-    this.engineSnapshot,
   });
   final VoidCallback onBack;
-  final VoidCallback onSpeakSummary;
+  final VoidCallback? onSpeakSummary;
   final VoidCallback onSpeakAccessibility;
-  final String? engineSnapshot;
 
   @override
   Widget build(BuildContext context) {
@@ -924,14 +1039,84 @@ class _Header extends StatelessWidget {
               ),
             ],
           ),
-          if (engineSnapshot != null && !largeText) ...[
-            const SizedBox(height: 8),
-            TemporalStatusRow(
-              icon: Icons.shield_outlined,
-              text: engineSnapshot ?? '',
-              color: AppColors.neonCyan,
+        ],
+      ),
+    );
+  }
+}
+
+class _ConsoleWelcome extends StatelessWidget {
+  const _ConsoleWelcome({
+    required this.enabled,
+    required this.snapshot,
+    required this.onQuestion,
+  });
+
+  final bool enabled;
+  final SIV2EvidenceSnapshot? snapshot;
+  final ValueChanged<String> onQuestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final SIV2EvidenceSnapshot? evidence = snapshot;
+    final int evidenceCount = evidence == null
+        ? 0
+        : evidence.tasks.length +
+              evidence.goals.length +
+              evidence.milestones.length +
+              evidence.timeline.length;
+    final String body = !enabled
+        ? 'This account does not currently have access. Your saved work is unchanged.'
+        : evidenceCount == 0
+        ? 'No planning evidence is available yet. SI will name missing evidence instead of guessing.'
+        : 'Ask about current tasks, goals, milestones, or Timeline. SI reads evidence and cannot change saved data.';
+    final List<String> questions = evidenceCount == 0
+        ? const <String>['What evidence is missing?', 'What can you determine?']
+        : const <String>['What needs attention?', 'What should I do next?'];
+
+    return Padding(
+      key: const Key('si-console-welcome'),
+      padding: const EdgeInsets.fromLTRB(4, 16, 4, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Ask from current evidence',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
             ),
-          ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: questions
+                .map(
+                  (String question) => OutlinedButton.icon(
+                    onPressed: enabled ? () => onQuestion(question) : null,
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 17),
+                    label: Text(question),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
         ],
       ),
     );
@@ -1512,6 +1697,7 @@ class _InputBar extends ConsumerWidget {
     required this.onTimeRangeChanged,
     this.compact = false,
     this.busy = false,
+    this.enabled = true,
   });
   final TextEditingController controller;
   final TextEditingController entityFilterController;
@@ -1525,6 +1711,7 @@ class _InputBar extends ConsumerWidget {
   final ValueChanged<SIV2TimeRange> onTimeRangeChanged;
   final bool compact;
   final bool busy;
+  final bool enabled;
 
   void _insertShortcut(String shortcut) {
     controller
@@ -1532,16 +1719,11 @@ class _InputBar extends ConsumerWidget {
       ..selection = TextSelection.collapsed(offset: shortcut.length + 1);
   }
 
-  void _setQuestion(String question) {
-    controller
-      ..text = question
-      ..selection = TextSelection.collapsed(offset: question.length);
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final VoiceState voice = ref.watch(voiceControllerProvider);
     final bool listening = voice.isListening;
+    final bool interactive = enabled && !busy;
 
     // Recognized speech populates the query box for explicit review and
     // send - it is never auto-sent or routed as a shortcut.
@@ -1583,42 +1765,6 @@ class _InputBar extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (!effectiveCompact) ...[
-                  const Text(
-                    'TRY A QUESTION',
-                    style: TextStyle(
-                      color: AppColors.neonCyan,
-                      fontSize: 10,
-                      letterSpacing: 0,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: <Widget>[
-                      for (final (String, String) example
-                          in const <(String, String)>[
-                            ('attention', 'What needs attention?'),
-                            ('risk', 'Why is this goal at risk?'),
-                            ('next', 'What should I do next?'),
-                          ])
-                        OutlinedButton(
-                          key: ValueKey<String>('si-example-${example.$1}'),
-                          onPressed: busy
-                              ? null
-                              : () => _setQuestion(example.$2),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 44),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Text(example.$2),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
                   Material(
                     color: Colors.transparent,
                     child: ExpansionTile(
@@ -1670,7 +1816,7 @@ class _InputBar extends ConsumerWidget {
                             selected: <SIV2Intent>{intent},
                             showSelectedIcon: false,
                             style: _siSegmentedStyle(AppColors.neonCyan),
-                            onSelectionChanged: busy
+                            onSelectionChanged: !interactive
                                 ? null
                                 : (Set<SIV2Intent> selection) =>
                                       onIntentChanged(selection.first),
@@ -1699,7 +1845,7 @@ class _InputBar extends ConsumerWidget {
                             multiSelectionEnabled: true,
                             emptySelectionAllowed: false,
                             style: _siSegmentedStyle(AppColors.neonViolet),
-                            onSelectionChanged: busy
+                            onSelectionChanged: !interactive
                                 ? null
                                 : (Set<SIV2Source> selection) {
                                     for (final SIV2Source source
@@ -1736,7 +1882,7 @@ class _InputBar extends ConsumerWidget {
                             selected: <SIV2TimeRange>{timeRange},
                             showSelectedIcon: false,
                             style: _siSegmentedStyle(AppColors.memoryAmber),
-                            onSelectionChanged: busy
+                            onSelectionChanged: !interactive
                                 ? null
                                 : (Set<SIV2TimeRange> selection) =>
                                       onTimeRangeChanged(selection.first),
@@ -1753,7 +1899,7 @@ class _InputBar extends ConsumerWidget {
                                 final Widget entityField = TextField(
                                   key: const Key('si-v2-entity-filter'),
                                   controller: entityFilterController,
-                                  enabled: !busy,
+                                  enabled: interactive,
                                   decoration: const InputDecoration(
                                     isDense: true,
                                     labelText: 'Entity filter (optional)',
@@ -1768,7 +1914,7 @@ class _InputBar extends ConsumerWidget {
                                 final Widget assumptionField = TextField(
                                   key: const Key('si-v2-assumption'),
                                   controller: scenarioAssumptionController,
-                                  enabled: !busy,
+                                  enabled: interactive,
                                   decoration: const InputDecoration(
                                     isDense: true,
                                     labelText: 'Scenario assumption (optional)',
@@ -1801,7 +1947,7 @@ class _InputBar extends ConsumerWidget {
                         const SizedBox(height: 6),
                         PopupMenuButton<SIConsoleShortcutDefinition>(
                           key: const Key('si-v2-power-alias-menu'),
-                          enabled: !busy,
+                          enabled: interactive,
                           tooltip: 'Choose a power alias',
                           color: const Color(0xFF0A1520),
                           onSelected:
@@ -1886,7 +2032,7 @@ class _InputBar extends ConsumerWidget {
                                         key: ValueKey<String>(
                                           'si-shortcut-autocomplete-${definition.id}',
                                         ),
-                                        onPressed: busy
+                                        onPressed: !interactive
                                             ? null
                                             : () => _insertShortcut(
                                                 definition.shortcut,
@@ -1921,7 +2067,7 @@ class _InputBar extends ConsumerWidget {
                         controller: controller,
                         minLines: 1,
                         maxLines: 4,
-                        enabled: !busy,
+                        enabled: interactive,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -1977,10 +2123,10 @@ class _InputBar extends ConsumerWidget {
                           ? 'Stop voice input'
                           : 'Start voice input',
                       button: true,
-                      enabled: !busy,
+                      enabled: interactive,
                       liveRegion: listening,
                       child: GestureDetector(
-                        onTap: busy
+                        onTap: !interactive
                             ? null
                             : () async {
                                 if (listening) {
@@ -2000,16 +2146,20 @@ class _InputBar extends ConsumerWidget {
                             shape: BoxShape.circle,
                             color: listening
                                 ? AppColors.neonCyan.withValues(alpha: 0.22)
-                                : busy
+                                : !interactive
                                 ? const Color(0xFF151B22)
                                 : const Color(0xFF102436),
                             border: Border.all(
-                              color: busy ? Colors.white12 : AppColors.neonCyan,
+                              color: !interactive
+                                  ? Colors.white12
+                                  : AppColors.neonCyan,
                             ),
                           ),
                           child: Icon(
                             listening ? Icons.mic : Icons.mic_none_rounded,
-                            color: busy ? Colors.white38 : AppColors.neonCyan,
+                            color: !interactive
+                                ? Colors.white38
+                                : AppColors.neonCyan,
                             size: 18,
                           ),
                         ),
@@ -2017,28 +2167,36 @@ class _InputBar extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
                     Semantics(
-                      label: busy ? 'SI is analyzing' : 'Send SI query',
+                      label: !enabled
+                          ? 'SI Console unavailable'
+                          : busy
+                          ? 'SI is analyzing'
+                          : 'Send SI query',
                       button: true,
-                      enabled: !busy,
+                      enabled: interactive,
                       child: GestureDetector(
-                        onTap: busy ? null : onSend,
+                        onTap: interactive ? onSend : null,
                         child: Container(
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: busy
+                            color: !interactive
                                 ? const Color(0xFF151B22)
                                 : const Color(0xFF102436),
                             border: Border.all(
-                              color: busy ? Colors.white12 : AppColors.neonCyan,
+                              color: !interactive
+                                  ? Colors.white12
+                                  : AppColors.neonCyan,
                             ),
                           ),
                           child: Icon(
                             busy
                                 ? Icons.hourglass_top_rounded
                                 : Icons.send_rounded,
-                            color: busy ? Colors.white38 : AppColors.neonCyan,
+                            color: !interactive
+                                ? Colors.white38
+                                : AppColors.neonCyan,
                             size: 18,
                           ),
                         ),
