@@ -7,11 +7,46 @@ import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('tutorial evidence matches only the Creator receipt task', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = _buildContainer(
+      expectedTutorialTaskIds: <String>{_managedTask.id},
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimeline(tester, container);
+    await tester.pump();
+
+    expect(
+      find.byKey(FirstRunTutorialTargets.timelineEvidence),
+      findsOneWidget,
+    );
+    expect(container.read(timelineTutorialEvidenceProvider), _managedTask.id);
+  });
+
+  testWidgets('unrelated task cannot become first-run Timeline evidence', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = _buildContainer(
+      expectedTutorialTaskIds: const <String>{'different-receipt-task'},
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimeline(tester, container);
+    await tester.pump();
+
+    expect(find.byKey(FirstRunTutorialTargets.timelineEvidence), findsNothing);
+    expect(container.read(timelineTutorialEvidenceProvider), isNull);
+  });
+
   testWidgets('loading saved tasks is not presented as an empty Timeline', (
     WidgetTester tester,
   ) async {
@@ -223,6 +258,7 @@ void main() {
 ProviderContainer _buildContainer({
   Task? task,
   Future<List<Task>> Function(Ref ref)? tasksLoader,
+  Set<String> expectedTutorialTaskIds = const <String>{},
   void Function(_RecordingTaskActions value)? onActionsBuilt,
   Completer<void>? updateCompleter,
   Object? updateError,
@@ -231,6 +267,9 @@ ProviderContainer _buildContainer({
     overrides: [
       timelineProvider.overrideWith(_EmptyTimelineNotifier.new),
       goalsProvider.overrideWith(_EmptyGoalsNotifier.new),
+      adaptiveGuidanceProvider.overrideWith(
+        () => _ExpectedGuidanceNotifier(expectedTutorialTaskIds),
+      ),
       tasksProvider.overrideWith(
         tasksLoader ?? (Ref ref) async => <Task>[task ?? _managedTask],
       ),
@@ -341,4 +380,19 @@ class _EmptyGoalsNotifier extends GoalsNotifier {
 class _EmptyTimelineNotifier extends TimelineNotifier {
   @override
   List<TimelineEventEntity> build() => const <TimelineEventEntity>[];
+}
+
+class _ExpectedGuidanceNotifier extends AdaptiveGuidanceNotifier {
+  _ExpectedGuidanceNotifier(this.expectedTaskIds);
+
+  final Set<String> expectedTaskIds;
+
+  @override
+  Future<AdaptiveGuidanceState> build() async => AdaptiveGuidanceState(
+    milestones: const <GuidanceMilestone, DateTime>{},
+    counts: const <GuidanceMilestone, int>{},
+    skippedLessons: const <GuidanceLessonId>{},
+    completedLessons: const <GuidanceLessonId>{},
+    expectedFirstRunCreatorTaskIds: expectedTaskIds,
+  );
 }

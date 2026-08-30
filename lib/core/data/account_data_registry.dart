@@ -388,6 +388,7 @@ abstract final class AccountDataRegistry {
   static Set<String> preferenceKeyPrefixesForAccount(String accountId) {
     final String namespace = accountNamespace(accountId);
     return <String>{
+      'adaptive_guidance_v3.$namespace.',
       'chronospark.trajectory.forecast_ledger.v1.$namespace.corrupt.',
       'chronospark.operating.history.v1.$namespace.corrupt.',
     };

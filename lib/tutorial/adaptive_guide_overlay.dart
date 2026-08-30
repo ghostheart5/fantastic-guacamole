@@ -59,6 +59,9 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final DailyDecisionIntelligence decision = ref.watch(
       dailyDecisionIntelligenceProvider,
     );
+    final String? timelineEvidenceTaskId = ref.watch(
+      timelineTutorialEvidenceProvider,
+    );
     final GoRouter? router = GoRouter.maybeOf(context);
     final String location =
         router?.routeInformationProvider.value.uri.path ?? '';
@@ -86,14 +89,14 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       if (location != RoutePaths.creator) {
         return _routePrompt(context, lesson);
       }
-      return _creatorLesson(context, handshake);
+      return _creatorLesson(context, handshake, lesson);
     }
 
     if (lesson.id == GuidanceLessonId.reviewTimeline) {
       if (location != RoutePaths.timeline) {
         return _routePrompt(context, lesson);
       }
-      return _timelineLesson(context);
+      return _timelineLesson(context, guidance, timelineEvidenceTaskId);
     }
 
     return _advancedLesson(context, lesson, location);
@@ -108,11 +111,19 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       body: l10n.guideBody(lesson.id.name, lesson.body),
       primaryLabel: l10n.guideAction(lesson.id.name, lesson.actionLabel),
       onPrimary: () => context.go(lesson.route),
+      secondaryLabel: _copy(l10n, 'Later', 'Más tarde'),
+      onSecondary: () => unawaited(
+        ref.read(adaptiveGuidanceProvider.notifier).later(lesson.id),
+      ),
       allowTargetInteraction: false,
     );
   }
 
-  Widget _creatorLesson(BuildContext context, CreatorHandshakeState handshake) {
+  Widget _creatorLesson(
+    BuildContext context,
+    CreatorHandshakeState handshake,
+    GuidanceLesson lesson,
+  ) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final CreatorTutorialDraftState draft = ref.watch(
       creatorTutorialDraftProvider,
@@ -152,6 +163,10 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           _creatorStep = CreatorTutorialStep.values[_creatorStep.index + 1];
         });
       },
+      secondaryLabel: _copy(l10n, 'Finish later', 'Terminar más tarde'),
+      onSecondary: () => unawaited(
+        ref.read(adaptiveGuidanceProvider.notifier).later(lesson.id),
+      ),
     );
   }
 
@@ -170,6 +185,10 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           .read(creatorHandshakeProvider.notifier)
           .confirm();
       if (result.receipt == null || !mounted) return;
+      await ref
+          .read(adaptiveGuidanceProvider.notifier)
+          .recordCreatorHandshakeReceipt(result.receipt!);
+      if (!mounted) return;
       ref.read(creatorTutorialDraftProvider.notifier).reset();
       ref.read(creatorDraftPreviewProvider.notifier).clear();
       setState(() => _creatorStep = CreatorTutorialStep.title);
@@ -181,31 +200,72 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     }
   }
 
-  Widget _timelineLesson(BuildContext context) {
+  Widget _timelineLesson(
+    BuildContext context,
+    AdaptiveGuidanceState guidance,
+    String? timelineEvidenceTaskId,
+  ) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final bool hasExpectedReceipt =
+        guidance.expectedFirstRunCreatorTaskIds.isNotEmpty;
+    final bool hasMatchingEvidence =
+        hasExpectedReceipt &&
+        timelineEvidenceTaskId != null &&
+        guidance.matchesExpectedFirstRunCreatorTask(timelineEvidenceTaskId) &&
+        FirstRunTutorialTargets.timelineEvidence.currentContext != null;
     return InteractiveTutorialOverlay(
       targetKey: FirstRunTutorialTargets.timelineEvidence,
       stepLabel: _copy(l10n, 'First setup 4 of 4', 'Configuración 4 de 4'),
-      title: _copy(
-        l10n,
-        'Your saved task is now on Timeline',
-        'Tu tarea guardada ya está en Línea de Tiempo',
-      ),
-      body: _copy(
-        l10n,
-        'Review where ChronoSpark placed it. Timeline is the history and schedule you will return to as work changes.',
-        'Revisa dónde la colocó ChronoSpark. Línea de Tiempo es el historial y horario al que volverás cuando cambie el trabajo.',
-      ),
+      title: hasMatchingEvidence
+          ? _copy(
+              l10n,
+              'Your saved task is now on Timeline',
+              'Tu tarea guardada ya está en Línea de Tiempo',
+            )
+          : _copy(
+              l10n,
+              'Waiting for saved-task evidence',
+              'Esperando evidencia de la tarea guardada',
+            ),
+      body: hasMatchingEvidence
+          ? _copy(
+              l10n,
+              'Review the highlighted task that matches your Creator receipt.',
+              'Revisa la tarea resaltada que coincide con tu recibo de Creador.',
+            )
+          : _copy(
+              l10n,
+              'ChronoSpark will not mark this lesson complete until the exact task from your Creator receipt appears here.',
+              'ChronoSpark no completará esta lección hasta que aparezca aquí la tarea exacta de tu recibo de Creador.',
+            ),
       primaryLabel: _completingTimeline
           ? _copy(l10n, 'Finishing', 'Finalizando')
           : _copy(l10n, 'I found my task', 'Encontré mi tarea'),
-      primaryEnabled: !_completingTimeline,
+      primaryEnabled: hasMatchingEvidence && !_completingTimeline,
       onPrimary: () => unawaited(_completeTimelineLesson()),
+      secondaryLabel: _copy(l10n, 'Finish later', 'Terminar más tarde'),
+      onSecondary: () => unawaited(
+        ref
+            .read(adaptiveGuidanceProvider.notifier)
+            .later(GuidanceLessonId.reviewTimeline),
+      ),
     );
   }
 
   Future<void> _completeTimelineLesson() async {
     if (_completingTimeline) return;
+    final AdaptiveGuidanceState? guidance = ref
+        .read(adaptiveGuidanceProvider)
+        .asData
+        ?.value;
+    final String? evidenceTaskId = ref.read(timelineTutorialEvidenceProvider);
+    if (guidance == null ||
+        guidance.expectedFirstRunCreatorTaskIds.isEmpty ||
+        evidenceTaskId == null ||
+        !guidance.matchesExpectedFirstRunCreatorTask(evidenceTaskId) ||
+        FirstRunTutorialTargets.timelineEvidence.currentContext == null) {
+      return;
+    }
     setState(() {
       _completingTimeline = true;
       _suppressedLesson = GuidanceLessonId.reviewTimeline;

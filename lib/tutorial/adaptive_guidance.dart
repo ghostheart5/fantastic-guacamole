@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -65,15 +66,25 @@ class AdaptiveGuidanceState {
     required this.counts,
     required this.skippedLessons,
     required this.completedLessons,
+    this.laterLessons = const <GuidanceLessonId>{},
+    this.replayLessons = const <GuidanceLessonId>{},
+    this.expectedFirstRunCreatorTaskIds = const <String>{},
   });
 
   final Map<GuidanceMilestone, DateTime> milestones;
   final Map<GuidanceMilestone, int> counts;
   final Set<GuidanceLessonId> skippedLessons;
   final Set<GuidanceLessonId> completedLessons;
+  final Set<GuidanceLessonId> laterLessons;
+  final Set<GuidanceLessonId> replayLessons;
+  final Set<String> expectedFirstRunCreatorTaskIds;
 
   bool has(GuidanceMilestone milestone) => milestones.containsKey(milestone);
   int count(GuidanceMilestone milestone) => counts[milestone] ?? 0;
+
+  bool matchesExpectedFirstRunCreatorTask(String taskId) {
+    return expectedFirstRunCreatorTaskIds.contains(taskId.trim());
+  }
 
   bool get coreComplete =>
       has(GuidanceMilestone.firstItem) &&
@@ -119,47 +130,25 @@ abstract final class GuidanceInterventionEngine {
   }) {
     GuidanceLesson? unresolved(GuidanceLesson lesson) {
       if (state.skippedLessons.contains(lesson.id) ||
+          state.laterLessons.contains(lesson.id) ||
           state.completedLessons.contains(lesson.id)) {
         return null;
       }
       return lesson;
     }
 
+    for (final GuidanceLessonId id in _replayableCoreLessons) {
+      if (state.replayLessons.contains(id)) return _coreLesson(id);
+    }
+
     if (!state.has(GuidanceMilestone.firstItem)) {
-      return unresolved(
-        const GuidanceLesson(
-          id: GuidanceLessonId.createFirstItem,
-          title: 'Capture the first real commitment',
-          body:
-              'Create one task with a concrete outcome. Guidance advances only after the item is saved.',
-          route: RoutePaths.creator,
-          actionLabel: 'Open Creator',
-        ),
-      );
+      return unresolved(_coreLesson(GuidanceLessonId.createFirstItem));
     }
     if (!state.has(GuidanceMilestone.firstSchedule)) {
-      return unresolved(
-        const GuidanceLesson(
-          id: GuidanceLessonId.scheduleFirstItem,
-          title: 'Give the commitment a real time',
-          body:
-              'Add a date and time. This connects Creator, Smart Planner, and Timeline with evidence the app can use.',
-          route: RoutePaths.creator,
-          actionLabel: 'Schedule in Creator',
-        ),
-      );
+      return unresolved(_coreLesson(GuidanceLessonId.scheduleFirstItem));
     }
     if (!state.has(GuidanceMilestone.firstTimelineReview)) {
-      return unresolved(
-        const GuidanceLesson(
-          id: GuidanceLessonId.reviewTimeline,
-          title: 'Verify where the work landed',
-          body:
-              'Inspect the saved result on Timeline. Visiting the screen is recorded; tapping this prompt is not completion.',
-          route: RoutePaths.timeline,
-          actionLabel: 'Open Timeline',
-        ),
-      );
+      return unresolved(_coreLesson(GuidanceLessonId.reviewTimeline));
     }
 
     if (state.hasDeferralFriction) {
@@ -219,6 +208,43 @@ abstract final class GuidanceInterventionEngine {
       );
     }
     return null;
+  }
+
+  static GuidanceLesson _coreLesson(GuidanceLessonId id) {
+    return switch (id) {
+      GuidanceLessonId.createFirstItem => const GuidanceLesson(
+        id: GuidanceLessonId.createFirstItem,
+        title: 'Capture the first real commitment',
+        body:
+            'Create one task with a concrete outcome. Guidance advances only after the item is saved.',
+        route: RoutePaths.creator,
+        actionLabel: 'Open Creator',
+      ),
+      GuidanceLessonId.scheduleFirstItem => const GuidanceLesson(
+        id: GuidanceLessonId.scheduleFirstItem,
+        title: 'Give the commitment a real time',
+        body:
+            'Add a date and time. This connects Creator, Smart Planner, and Timeline with evidence the app can use.',
+        route: RoutePaths.creator,
+        actionLabel: 'Schedule in Creator',
+      ),
+      GuidanceLessonId.reviewTimeline => const GuidanceLesson(
+        id: GuidanceLessonId.reviewTimeline,
+        title: 'Verify where the work landed',
+        body:
+            'Inspect the saved result on Timeline. Visiting the screen is recorded; tapping this prompt is not completion.',
+        route: RoutePaths.timeline,
+        actionLabel: 'Open Timeline',
+      ),
+      GuidanceLessonId.nexus ||
+      GuidanceLessonId.smartPlanner ||
+      GuidanceLessonId.timelineExecution ||
+      GuidanceLessonId.siConsole ||
+      GuidanceLessonId.trajectoryEngine ||
+      GuidanceLessonId.progression => throw ArgumentError(
+        'Only core lessons can be replayed as first-run guidance.',
+      ),
+    };
   }
 
   static GuidanceLesson _advancedLesson(
@@ -285,6 +311,8 @@ abstract final class GuidanceInterventionEngine {
 
 class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
   static const String _storageKey = 'adaptive_guidance_v3';
+  static const String _expectedCreatorTaskIdsKey =
+      'expected_first_run_creator_task_ids';
 
   String _prefix(String scope) => '$_storageKey.$scope';
 
@@ -333,12 +361,33 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
             )
             .toSet()
           ..addAll(_lessonsCompletedBy(milestones.keys));
+    final Set<GuidanceLessonId> later = GuidanceLessonId.values
+        .where(
+          (GuidanceLessonId id) =>
+              prefs.getBool('$prefix.later.${id.name}') ?? false,
+        )
+        .toSet();
+    final Set<GuidanceLessonId> replay = GuidanceLessonId.values
+        .where(
+          (GuidanceLessonId id) =>
+              prefs.getBool('$prefix.replay.${id.name}') ?? false,
+        )
+        .toSet();
+    final Set<String> expectedCreatorTaskIds =
+        (prefs.getStringList('$prefix.$_expectedCreatorTaskIdsKey') ??
+                const <String>[])
+            .map((String id) => id.trim())
+            .where((String id) => id.isNotEmpty)
+            .toSet();
 
     return AdaptiveGuidanceState(
       milestones: milestones,
       counts: counts,
       skippedLessons: skipped,
       completedLessons: completed,
+      laterLessons: later,
+      replayLessons: replay,
+      expectedFirstRunCreatorTaskIds: expectedCreatorTaskIds,
     );
   }
 
@@ -360,6 +409,11 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     await prefs.setInt('$prefix.${milestone.name}.count', nextCount);
     if (completedLesson != null) {
       await prefs.setBool('$prefix.complete.${completedLesson.name}', true);
+      await prefs.remove('$prefix.later.${completedLesson.name}');
+      await prefs.remove('$prefix.replay.${completedLesson.name}');
+    }
+    if (milestone == GuidanceMilestone.firstTimelineReview) {
+      await prefs.remove('$prefix.$_expectedCreatorTaskIdsKey');
     }
 
     state = AsyncData(
@@ -377,6 +431,14 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
           ...current.completedLessons,
           ?completedLesson,
         },
+        laterLessons: <GuidanceLessonId>{...current.laterLessons}
+          ..remove(completedLesson),
+        replayLessons: <GuidanceLessonId>{...current.replayLessons}
+          ..remove(completedLesson),
+        expectedFirstRunCreatorTaskIds:
+            milestone == GuidanceMilestone.firstTimelineReview
+            ? const <String>{}
+            : current.expectedFirstRunCreatorTaskIds,
       ),
     );
   }
@@ -387,6 +449,63 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     await record(milestone);
   }
 
+  Future<void> recordCreatorHandshakeReceipt(
+    CreatorHandshakeReceipt receipt,
+  ) async {
+    final String? account = _activeScope;
+    if (account == null || receipt.accountScopeId != account) return;
+    final Set<String> taskIds = receipt.taskIds
+        .map((String id) => id.trim())
+        .where((String id) => id.isNotEmpty)
+        .toSet();
+    if (taskIds.isEmpty || receipt.appliedOperationIds.isEmpty) return;
+
+    final AdaptiveGuidanceState current = await _current();
+    if (_activeScope != account) return;
+    final Set<String> expectedTaskIds = <String>{
+      ...current.expectedFirstRunCreatorTaskIds,
+      ...taskIds,
+    };
+    final List<String> persistedTaskIds = expectedTaskIds.toList()..sort();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      '${_prefix(account)}.$_expectedCreatorTaskIdsKey',
+      persistedTaskIds,
+    );
+    state = AsyncData(
+      AdaptiveGuidanceState(
+        milestones: current.milestones,
+        counts: current.counts,
+        skippedLessons: current.skippedLessons,
+        completedLessons: current.completedLessons,
+        laterLessons: current.laterLessons,
+        replayLessons: current.replayLessons,
+        expectedFirstRunCreatorTaskIds: expectedTaskIds,
+      ),
+    );
+  }
+
+  Future<void> later(GuidanceLessonId lesson) async {
+    final String? account = _activeScope;
+    if (account == null) return;
+    await record(GuidanceMilestone.guidanceDismissed);
+    if (_activeScope != account) return;
+    final AdaptiveGuidanceState current = await _current();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('${_prefix(account)}.later.${lesson.name}', true);
+    state = AsyncData(
+      AdaptiveGuidanceState(
+        milestones: current.milestones,
+        counts: current.counts,
+        skippedLessons: current.skippedLessons,
+        completedLessons: current.completedLessons,
+        laterLessons: <GuidanceLessonId>{...current.laterLessons, lesson},
+        replayLessons: current.replayLessons,
+        expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
+      ),
+    );
+  }
+
   Future<void> skip(GuidanceLessonId lesson) async {
     final String? account = _activeScope;
     if (account == null) return;
@@ -395,17 +514,26 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     final AdaptiveGuidanceState current = await _current();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool('${_prefix(account)}.skip.${lesson.name}', true);
+    await prefs.remove('${_prefix(account)}.later.${lesson.name}');
+    await prefs.remove('${_prefix(account)}.replay.${lesson.name}');
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: current.milestones,
         counts: current.counts,
         skippedLessons: <GuidanceLessonId>{...current.skippedLessons, lesson},
         completedLessons: current.completedLessons,
+        laterLessons: <GuidanceLessonId>{...current.laterLessons}
+          ..remove(lesson),
+        replayLessons: <GuidanceLessonId>{...current.replayLessons}
+          ..remove(lesson),
+        expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
       ),
     );
   }
 
-  Future<void> restartLessons() async {
+  Future<void> restartLessons() => _restartLessons(replayCore: false);
+
+  Future<void> _restartLessons({required bool replayCore}) async {
     final String? account = _activeScope;
     if (account == null) return;
     final AdaptiveGuidanceState current = await _current();
@@ -413,15 +541,26 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     final String prefix = _prefix(account);
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     for (final GuidanceLessonId id in GuidanceLessonId.values) {
-      await prefs.remove('$prefix.skip.${id.name}');
       await prefs.remove('$prefix.complete.${id.name}');
+      await prefs.remove('$prefix.later.${id.name}');
+      if (replayCore && _replayableCoreLessons.contains(id)) {
+        await prefs.setBool('$prefix.replay.${id.name}', true);
+      } else {
+        await prefs.remove('$prefix.replay.${id.name}');
+      }
     }
+    await prefs.remove('$prefix.$_expectedCreatorTaskIdsKey');
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: current.milestones,
         counts: current.counts,
-        skippedLessons: const <GuidanceLessonId>{},
+        skippedLessons: current.skippedLessons,
         completedLessons: _lessonsCompletedBy(current.milestones.keys),
+        laterLessons: const <GuidanceLessonId>{},
+        replayLessons: replayCore
+            ? _replayableCoreLessons
+            : const <GuidanceLessonId>{},
+        expectedFirstRunCreatorTaskIds: const <String>{},
       ),
     );
   }
@@ -429,7 +568,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
   Future<void> replayOnboarding() async {
     if (_activeScope == null) return;
     await record(GuidanceMilestone.replayed);
-    await restartLessons();
+    await _restartLessons(replayCore: true);
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool(onboardingWelcomeCompleteStorageKey, false);
     await prefs.setBool(onboardingCompleteStorageKey, false);
@@ -487,8 +626,17 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     counts: <GuidanceMilestone, int>{},
     skippedLessons: <GuidanceLessonId>{},
     completedLessons: <GuidanceLessonId>{},
+    laterLessons: <GuidanceLessonId>{},
+    replayLessons: <GuidanceLessonId>{},
+    expectedFirstRunCreatorTaskIds: <String>{},
   );
 }
+
+const Set<GuidanceLessonId> _replayableCoreLessons = <GuidanceLessonId>{
+  GuidanceLessonId.createFirstItem,
+  GuidanceLessonId.scheduleFirstItem,
+  GuidanceLessonId.reviewTimeline,
+};
 
 Set<GuidanceLessonId> _lessonsCompletedBy(
   Iterable<GuidanceMilestone> milestones,

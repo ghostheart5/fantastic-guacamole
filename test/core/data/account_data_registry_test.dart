@@ -38,6 +38,10 @@ void main() {
       cleanupPlan.secureKeyPrefixes,
       contains('si_engine_state_v2.$namespace.'),
     );
+    expect(
+      cleanupPlan.preferenceKeyPrefixes,
+      contains('adaptive_guidance_v3.$namespace.'),
+    );
   });
 
   test('legacy cleanup plan preserves account-scoped prefix deletion', () {

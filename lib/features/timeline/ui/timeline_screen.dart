@@ -75,6 +75,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   Widget build(BuildContext context) {
     final List<TimelineEventEntity> baseEvents = ref.watch(timelineProvider);
     final List<GoalEntity> goals = ref.watch(goalsProvider);
+    final Set<String> expectedTutorialTaskIds =
+        ref
+            .watch(adaptiveGuidanceProvider)
+            .asData
+            ?.value
+            .expectedFirstRunCreatorTaskIds ??
+        const <String>{};
     final List<Task> tasks = _tasksState.asData?.value ?? const <Task>[];
     final bool tasksLoading = _tasksState is AsyncLoading<List<Task>>;
     final Object? tasksError = _tasksState.hasError ? _tasksState.error : null;
@@ -141,11 +148,26 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     }
     final List<String> days = grouped.keys.toList(growable: false);
     String? tutorialEventId;
+    String? tutorialTaskId;
     for (final TimelineEventEntity event in filtered) {
-      if (event.phase == 'task') {
+      if (event.phase == 'task' &&
+          event.relatedId != null &&
+          expectedTutorialTaskIds.contains(event.relatedId)) {
         tutorialEventId = event.id;
+        tutorialTaskId = event.relatedId;
         break;
       }
+    }
+    final String? publishedTutorialTaskId = ref.watch(
+      timelineTutorialEvidenceProvider,
+    );
+    if (publishedTutorialTaskId != tutorialTaskId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref
+            .read(timelineTutorialEvidenceProvider.notifier)
+            .setTaskId(tutorialTaskId);
+      });
     }
 
     final int overdueCount = windowEvents

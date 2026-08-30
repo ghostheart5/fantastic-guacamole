@@ -42,11 +42,26 @@ final tutorialInteractionPausedProvider =
       TutorialInteractionPausedNotifier.new,
     );
 
+final timelineTutorialEvidenceProvider =
+    NotifierProvider<TimelineTutorialEvidenceNotifier, String?>(
+      TimelineTutorialEvidenceNotifier.new,
+    );
+
 class TutorialInteractionPausedNotifier extends Notifier<bool> {
   @override
   bool build() => false;
 
   void set(bool value) => state = value;
+}
+
+class TimelineTutorialEvidenceNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void setTaskId(String? taskId) {
+    final String? normalized = taskId?.trim();
+    state = normalized == null || normalized.isEmpty ? null : normalized;
+  }
 }
 
 class CreatorTutorialFormController {

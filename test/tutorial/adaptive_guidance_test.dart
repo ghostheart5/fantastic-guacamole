@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -198,6 +199,205 @@ void main() {
     expect(persisted.has(GuidanceMilestone.firstItem), isTrue);
     expect(persisted.has(GuidanceMilestone.firstSchedule), isTrue);
   });
+
+  test(
+    'Later is resumable while Skip remains permanent across restart',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final ProviderContainer first = _guidanceContainer(
+        'guidance-actions-user',
+      );
+      await first.read(adaptiveGuidanceProvider.future);
+      final AdaptiveGuidanceNotifier notifier = first.read(
+        adaptiveGuidanceProvider.notifier,
+      );
+
+      await notifier.record(GuidanceMilestone.firstItem);
+      await notifier.later(GuidanceLessonId.nexus);
+      await notifier.skip(GuidanceLessonId.siConsole);
+      first.dispose();
+
+      final ProviderContainer restarted = _guidanceContainer(
+        'guidance-actions-user',
+      );
+      addTearDown(restarted.dispose);
+      final AdaptiveGuidanceState persisted = await restarted.read(
+        adaptiveGuidanceProvider.future,
+      );
+      expect(persisted.laterLessons, contains(GuidanceLessonId.nexus));
+      expect(persisted.skippedLessons, contains(GuidanceLessonId.siConsole));
+
+      await restarted.read(adaptiveGuidanceProvider.notifier).restartLessons();
+      final AdaptiveGuidanceState afterRestart = restarted
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(afterRestart.laterLessons, isEmpty);
+      expect(afterRestart.skippedLessons, contains(GuidanceLessonId.siConsole));
+      expect(afterRestart.has(GuidanceMilestone.firstItem), isTrue);
+    },
+  );
+
+  test(
+    'Replay reopens core guidance without deleting product milestones',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final ProviderContainer first = _guidanceContainer(
+        'guidance-replay-user',
+      );
+      await first.read(adaptiveGuidanceProvider.future);
+      final AdaptiveGuidanceNotifier notifier = first.read(
+        adaptiveGuidanceProvider.notifier,
+      );
+      await notifier.record(GuidanceMilestone.firstItem);
+      await notifier.record(GuidanceMilestone.firstSchedule);
+      await notifier.record(GuidanceMilestone.firstTimelineReview);
+
+      await notifier.replayOnboarding();
+      final AdaptiveGuidanceState replaying = first
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(replaying.coreComplete, isTrue);
+      expect(replaying.replayLessons, _replayableCoreLessonMatcher);
+      expect(
+        replaying
+            .nextIntervention(
+              currentRoute: RoutePaths.nexus,
+              decision: _decision,
+            )
+            ?.id,
+        GuidanceLessonId.createFirstItem,
+      );
+      first.dispose();
+
+      final ProviderContainer restarted = _guidanceContainer(
+        'guidance-replay-user',
+      );
+      addTearDown(restarted.dispose);
+      final AdaptiveGuidanceState persisted = await restarted.read(
+        adaptiveGuidanceProvider.future,
+      );
+      expect(persisted.coreComplete, isTrue);
+      expect(persisted.replayLessons, _replayableCoreLessonMatcher);
+    },
+  );
+
+  test(
+    'Creator receipt task IDs persist until Timeline review succeeds',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'guidance-receipt-user',
+      );
+      final ProviderContainer first = _guidanceContainer(
+        'guidance-receipt-user',
+      );
+      await first.read(adaptiveGuidanceProvider.future);
+      await first
+          .read(adaptiveGuidanceProvider.notifier)
+          .recordCreatorHandshakeReceipt(
+            _receipt(scope.v2Namespace!, <String>['task-b', 'task-a']),
+          );
+      first.dispose();
+
+      final ProviderContainer restarted = _guidanceContainer(
+        'guidance-receipt-user',
+      );
+      final AdaptiveGuidanceState persisted = await restarted.read(
+        adaptiveGuidanceProvider.future,
+      );
+      expect(persisted.matchesExpectedFirstRunCreatorTask('task-a'), isTrue);
+      expect(persisted.matchesExpectedFirstRunCreatorTask('task-b'), isTrue);
+      expect(
+        persisted.matchesExpectedFirstRunCreatorTask('other-task'),
+        isFalse,
+      );
+
+      await restarted
+          .read(adaptiveGuidanceProvider.notifier)
+          .record(GuidanceMilestone.firstTimelineReview);
+      expect(
+        restarted
+            .read(adaptiveGuidanceProvider)
+            .requireValue
+            .expectedFirstRunCreatorTaskIds,
+        isEmpty,
+      );
+      restarted.dispose();
+
+      final ProviderContainer verified = _guidanceContainer(
+        'guidance-receipt-user',
+      );
+      addTearDown(verified.dispose);
+      expect(
+        (await verified.read(
+          adaptiveGuidanceProvider.future,
+        )).expectedFirstRunCreatorTaskIds,
+        isEmpty,
+      );
+    },
+  );
+
+  test(
+    'Restart clears pending Creator evidence but preserves milestones',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'guidance-restart-user',
+      );
+      final ProviderContainer container = _guidanceContainer(
+        'guidance-restart-user',
+      );
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      final AdaptiveGuidanceNotifier notifier = container.read(
+        adaptiveGuidanceProvider.notifier,
+      );
+      await notifier.record(GuidanceMilestone.firstItem);
+      await notifier.recordCreatorHandshakeReceipt(
+        _receipt(scope.v2Namespace!, <String>['expected-task']),
+      );
+
+      await notifier.restartLessons();
+      final AdaptiveGuidanceState restarted = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(restarted.expectedFirstRunCreatorTaskIds, isEmpty);
+      expect(restarted.has(GuidanceMilestone.firstItem), isTrue);
+    },
+  );
+}
+
+Matcher get _replayableCoreLessonMatcher => containsAll(<GuidanceLessonId>{
+  GuidanceLessonId.createFirstItem,
+  GuidanceLessonId.scheduleFirstItem,
+  GuidanceLessonId.reviewTimeline,
+});
+
+ProviderContainer _guidanceContainer(String accountId) {
+  return ProviderContainer(
+    overrides: [
+      accountStorageScopeProvider.overrideWithValue(
+        AccountStorageScope.authenticated(accountId),
+      ),
+      domainTaskRepositoryProvider.overrideWithValue(
+        _GuidanceTaskRepository(const <TaskEntity>[]),
+      ),
+    ],
+  );
+}
+
+CreatorHandshakeReceipt _receipt(String accountScopeId, List<String> taskIds) {
+  final DateTime appliedAt = DateTime.utc(2026, 8, 29, 12);
+  return CreatorHandshakeReceipt(
+    proposalId: 'proposal-1',
+    accountScopeId: accountScopeId,
+    confirmationTokenId: 'token-1',
+    appliedOperationIds: const <String>['operation-1'],
+    taskIds: taskIds,
+    appliedAt: appliedAt,
+    undoExpiresAt: appliedAt.add(const Duration(minutes: 10)),
+    resultingDomainRevision: 'revision-1',
+  );
 }
 
 class _GuidanceTaskRepository implements ITaskRepository {
