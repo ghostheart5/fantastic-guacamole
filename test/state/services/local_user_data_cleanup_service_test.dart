@@ -259,6 +259,24 @@ void main() {
     expect(preferences.load('notes_v1'), isNull);
     expect(await notes.getNotes(), isEmpty);
   });
+
+  test('detects and clears preserved sensitive corruption backups', () async {
+    final _RecoverableMemoryPreferences sensitive =
+        _RecoverableMemoryPreferences()..hasBackups = true;
+    final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+      hive: const _DirectHiveStore(),
+      secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+      preferences: _MemoryPreferences(),
+      sensitivePreferences: sensitive,
+      notifications: NotificationScheduler(),
+    );
+
+    expect(await service.hasUnownedAccountData(), isTrue);
+
+    await service.clearForAccountSwitch('account-a');
+
+    expect(sensitive.hasCorruptionBackups, isFalse);
+  });
 }
 
 class _DirectHiveStore implements HiveStore {
@@ -331,6 +349,19 @@ class _MemoryPreferences
 
   @override
   Future<Set<String>> keys() async => _values.keys.toSet();
+}
+
+class _RecoverableMemoryPreferences extends _MemoryPreferences
+    implements CorruptionBackupStore {
+  bool hasBackups = false;
+
+  @override
+  bool get hasCorruptionBackups => hasBackups;
+
+  @override
+  Future<void> clearCorruptionBackups() async {
+    hasBackups = false;
+  }
 }
 
 class _RecordingHiveStore implements HiveStore {

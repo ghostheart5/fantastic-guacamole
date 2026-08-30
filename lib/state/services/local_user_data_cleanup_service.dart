@@ -73,6 +73,9 @@ class LocalUserDataCleanupService {
     for (final String key in cleanupPlan.sensitivePreferenceKeys) {
       await _sensitivePreferences.delete(key);
     }
+    if (_sensitivePreferences case final CorruptionBackupStore recoverable) {
+      await recoverable.clearCorruptionBackups();
+    }
 
     for (final String key in cleanupPlan.preferenceExactKeys) {
       await _preferences.delete(key);
@@ -103,6 +106,9 @@ class LocalUserDataCleanupService {
       if (await _secureStore.readString(key) != null) return true;
     }
     await _sensitivePreferences.init();
+    if (_sensitivePreferences case final CorruptionBackupStore recoverable) {
+      if (recoverable.hasCorruptionBackups) return true;
+    }
     for (final String key in cleanupPlan.sensitivePreferenceKeys) {
       if (_sensitivePreferences.load(key) != null) return true;
     }
