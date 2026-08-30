@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
@@ -23,6 +24,9 @@ final taskOccurrenceCoordinatorProvider = Provider<TaskOccurrenceCoordinator>((
 
 final taskOccurrenceCloudReplicaProvider =
     Provider<TaskOccurrenceCloudReplica?>((Ref ref) {
+      if (!Env.enableCloudSync) {
+        return null;
+      }
       final client = ref.watch(supabaseClientProvider);
       if (client == null || client.auth.currentUser == null) {
         return null;
