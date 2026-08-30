@@ -1,0 +1,73 @@
+# ChronoSpark 2040 Launch Readiness Tracker
+
+## Baseline
+
+- Audit: `C:\Users\keegan radetski\Downloads\ChronoSpark_2040_Vision_Reaudit_2026-08-30.md`
+- Audit SHA-256: `7B4E86423D8C5BB78CB59D97075648C8837551327A6A11504E83C7601794BA5D`
+- Audited commit: `c9ad6084e115227770f48fb09d46c364b4cd1a53`
+- Repair baseline: `46494890aa5a8ddbec7c6a3c303fc9aa845651b4`
+- Delta from audit: one commit, 19 files, `+405/-66`, cold-start evidence gating only.
+- Repair branch: `fix/chronospark-2040-launch-readiness-20260829`
+- Repair worktree: `C:\Users\keegan radetski\ChronoSpark-2040-launch-readiness-20260829`
+- Original checkout: preserved with its pre-existing unstaged `android/gradle.properties` change.
+- Recovery snapshot: `C:\Users\keegan radetski\ChronoSpark-snapshots\20260829-2040-readiness-4649489`
+- Current verdict: `NO-GO - NOT READY`
+
+Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is not a completed product repair.
+
+## Phase 0 Plan
+
+- Planned scope: release configuration, direct-call guards, truthful unsupported-state copy, and tests for cloud restore/sync, subscriptions/paywall, external AI/credits, telemetry defaults, and unsupported personal metrics.
+- Planned migrations: none. Production migrations require separate approval.
+- Planned tests: direct provider/service bypass tests, release-config feature-state tests, configuration validation, analyzer, architecture guard, full unit/widget suite, and relevant security/release guards.
+- Risks: hiding a reachable entry point without blocking its underlying service; changing debug/test behavior; conflating containment with permanent repair.
+- Rollback: revert only the Phase 0 checkpoint commit. No user data transformation is permitted in this phase.
+
+## Findings
+
+| ID | Severity | Finding | Phase | Status | Feature state | Repair commit | Evidence |
+|---|---|---|---:|---|---|---|---|
+| P0-01 | P0 | Emotional and governed-memory consent controls are not authoritative | 1 | NOT_RUN | contained pending enforcement | | Audit P0-1 |
+| P0-02 | P0 | Fresh users receive invented personal state and identity | 0/1 | NOT_RUN | partially repaired at baseline | `4649489` | Delta audit required |
+| P0-03 | P0 | Cloud restore can replace valid local data with partial/corrupt data | 0/2 | NOT_RUN | must remain disabled | | Audit P0-3 |
+| P0-04 | P0 | Client reports account deletion complete for pending `202` | 2 | NOT_RUN | existing flow unsafe | | Audit P0-4 |
+| P0-05 | P0 | Premium offer does not visibly unlock advertised benefits | 0/8 | NOT_RUN | must remain disabled | | Audit P0-5 |
+| P0-06 | P0 | External generative AI is dormant and unsafe to expose | 0/7 | NOT_RUN | must remain disabled | | Audit P0-6 |
+| P0-07 | P0 | Crisis and distress routing is too brittle for emotional claims | 7 | NOT_RUN | external AI remains disabled | | Audit P0-7 |
+| P0-08 | P0 | Exact candidate lacks complete app CI and device evidence | 10 | NOT_RUN | release blocked | | Audit P0-8 |
+| BILL-01 | P1 | Purchase lineage and lifecycle ordering have authority edge cases | 8 | NOT_RUN | paywall disabled | | Audit P1 |
+| DOMAIN-01 | P1 | Whole-person concepts collapse into tasks | 4 | NOT_RUN | task-only containment | | Major findings |
+| PLAN-01 | P1 | Planner cannot apply guidance and can choose unrelated evidence | 5 | NOT_RUN | deterministic only | | Major findings |
+| SI-01 | P1 | SI Console is an expert workstation instead of a calm assistant | 5 | NOT_RUN | local read-only | | Major findings |
+| TRAJ-01 | P1 | Trajectory presents fixed-coefficient simulation as calibration | 5 | NOT_RUN | conditional only | | Major findings |
+| HUMAN-01 | P1 | Progression/Profile measure productivity, not whole-person growth | 3/5 | NOT_RUN | identity claims contained | | Major findings |
+| ARCH-01 | P1 | Four competing next-action engines can disagree | 5 | NOT_RUN | legacy paths retained | | Architecture audit |
+| ARCH-02 | P1 | Skipped tasks can reappear as actionable | 5 | NOT_RUN | unsafe behavior | | Architecture audit |
+| ARCH-03 | P1 | Schedule/deadline separation and nullable clearing are incomplete | 4/5 | NOT_RUN | partial repair | | Architecture audit |
+| DATA-01 | P1 | Full backup omits advertised whole-person domains | 2/4 | NOT_RUN | restore disabled | | Data audit |
+| DATA-02 | P0 | Sync maps errors to empty and can overwrite newer cloud state | 0/2 | NOT_RUN | sync disabled | | Data audit |
+| DATA-03 | P1 | Corrupt local stores can be treated as empty and overwritten | 2 | NOT_RUN | existing data preserved | | Data audit |
+| DATA-04 | P1 | Persistence is global, fragmented, and serializer versions differ | 2/4 | NOT_RUN | no migration yet | | Data audit |
+| SEC-01 | P1 | `ai_content_reports` lacks explicit fresh-project service grants | 2 | NOT_RUN | migration pending approval | | Security audit |
+| PRIV-01 | P0 | Analytics/Crashlytics default on without real user control | 0/9 | NOT_RUN | must default off | | Privacy audit |
+| PRIV-02 | P1 | AI response retention and disclosure exceed stated minimization | 7/9 | NOT_RUN | AI disabled | | Privacy audit |
+| SEC-02 | P1 | Storage permits arbitrary own-prefix uploads | 2 | NOT_RUN | sync/restore disabled | | Security audit |
+| SEC-03 | P1 | Deletion reauthentication is not exact-session bound | 2 | NOT_RUN | server change pending approval | | Security audit |
+| SEC-04 | P0 | Sensitive endpoints are not constrained to first-party origin/path | 0/2 | NOT_RUN | external calls contained | | Security audit |
+| AUTH-01 | P1 | OAuth deletion is support-based rather than self-service | 2 | NOT_RUN | incomplete | | Security audit |
+| LEGAL-01 | P1 | Public, root, and bundled legal text have drifted | 2/9 | NOT_RUN | canonicalization pending | | Legal audit |
+| VOICE-01 | P1 | Voice can bypass rationale and premium claims are unproven | 0/9 | NOT_RUN | no premium claim allowed | | Platform audit |
+| NOTIF-01 | P1 | Reminders are not clearly opt-in and streak copy is coercive | 5/9 | NOT_RUN | local only | | Platform audit |
+| LINK-01 | P1 | Protected deep-link intent can be lost through onboarding | 1/6 | NOT_RUN | unsafe navigation | | Platform audit |
+| START-01 | P0 | Startup can wait forever after its timeout | 1 | NOT_RUN | unsafe recovery | | Reliability audit |
+| A11Y-01 | P0 | Required tutorial can trap large-text/small-viewport users | 1 | NOT_RUN | unsafe first run | | Accessibility audit |
+| TIME-01 | P0 | Timeline maps loading/error to false empty and tutorial can lie | 1 | NOT_RUN | unsafe first proof | | Reliability audit |
+| AUTH-02 | P1 | Auth recovery and pre-account legal access are incomplete | 1 | NOT_RUN | incomplete | | Auth audit |
+| L10N-01 | P1 | English/Spanish product coverage is incomplete | 9 | NOT_RUN | Spanish claim blocked | | Localization audit |
+| PERF-01 | P2 | Bundle/dependency weight is unmeasured and likely wasteful | 9/10 | NOT_RUN | no removal without proof | | Performance audit |
+| MAINT-01 | P2 | Oversized files and dormant rival paths increase risk | 5/9 | NOT_RUN | preserve until parity | | Maintainability audit |
+| TEST-01 | P0 | Critical semantic, golden, device, and exact-head evidence is missing | 10 | NOT_RUN | release blocked | | Test audit |
+
+## Protected Foundations
+
+Do not remove Nexus/Decision evidence and reversible actions, Creator confirmation and undo, SI V2 evidence boundaries, Trajectory receipts, governed-memory contracts, account/RLS boundaries, recoverable deletion state machines, bounded deterministic learning, or correct notification/deep-link/voice/analytics sanitization work.

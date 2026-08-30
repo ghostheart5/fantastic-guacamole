@@ -1,0 +1,23 @@
+# ChronoSpark Launch Readiness Rollback
+
+## Baseline Recovery
+
+- Baseline commit: `46494890aa5a8ddbec7c6a3c303fc9aa845651b4`
+- Complete local bundle: `C:\Users\keegan radetski\ChronoSpark-snapshots\20260829-2040-readiness-4649489\repository.bundle`
+- Bundle SHA-256: `EB9414A71782F523A03A2B07CE9DC2693E518CD9CF626FC6D7C6E2AE8C006417`
+- Snapshot manifest SHA-256: `DD010134877D70E906FF7776521667052100DF2F4439077B010E8BF7F190EF4D`
+- Original checkout remains on `integration/production-candidate-hardening-20260827` with its pre-existing Gradle modification preserved.
+
+## Rules
+
+- Never use `git reset --hard`, `git clean`, force push, history rewriting, or branch deletion.
+- Roll back a completed phase with a new `git revert <phase-commit>` commit after reviewing data compatibility.
+- Do not roll back a schema migration by deleting data. Use an approved forward migration or reversible compatibility step.
+- Do not revert user-owned changes or the original checkout's `android/gradle.properties` modification.
+- A containment rollback must not silently re-enable cloud restore/sync, subscriptions, external AI, credit spending, or telemetry.
+
+## Phase 0 Rollback
+
+- Expected data migration: none.
+- Expected user-data mutation: none.
+- Method: revert only the Phase 0 commit, rerun containment tests, and confirm unsafe features remain unreachable before any further release work.
