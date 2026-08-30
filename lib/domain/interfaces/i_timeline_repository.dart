@@ -10,3 +10,13 @@ abstract class ITimelineRepository {
   Future<void> saveEvents(List<TimelineEventEntity> events);
   Future<void> removeEvent(String id);
 }
+
+/// Optional capability for a read-transform-write operation serialized by the
+/// persistence owner. Lifecycle use cases use this when available so a stale
+/// caller snapshot cannot erase a concurrent Timeline write.
+abstract interface class IAtomicTimelineRepository {
+  Future<TimelineEventEntity?> updateEvent(
+    String id,
+    TimelineEventEntity Function(TimelineEventEntity current) transform,
+  );
+}

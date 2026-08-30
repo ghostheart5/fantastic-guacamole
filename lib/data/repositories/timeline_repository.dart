@@ -5,7 +5,8 @@ import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 
-class TimelineRepository implements ITimelineRepository {
+class TimelineRepository
+    implements ITimelineRepository, IAtomicTimelineRepository {
   TimelineRepository(this._store);
 
   static const String _key = 'timeline_events_v1';
@@ -102,7 +103,30 @@ class TimelineRepository implements ITimelineRepository {
     });
   }
 
+  @override
+  Future<TimelineEventEntity?> updateEvent(
+    String id,
+    TimelineEventEntity Function(TimelineEventEntity current) transform,
+  ) {
+    return _enqueueWrite(() async {
+      final List<TimelineEventEntity> current = getEvents();
+      final int index = current.indexWhere(
+        (TimelineEventEntity event) => event.id == id,
+      );
+      if (index < 0) return null;
+      final TimelineEventEntity updated = transform(current[index]);
+      updated.validate();
+      final List<TimelineEventEntity> next = current.toList(growable: true);
+      next[index] = updated;
+      await _saveEventsUnlocked(next);
+      return updated;
+    });
+  }
+
   Future<void> _saveEventsUnlocked(List<TimelineEventEntity> events) async {
+    for (final TimelineEventEntity event in events) {
+      event.validate();
+    }
     await _quarantineCorruptPayloadIfNeeded();
     await _store.save(
       _key,
@@ -127,8 +151,8 @@ class TimelineRepository implements ITimelineRepository {
     );
   }
 
-  Future<void> _enqueueWrite(Future<void> Function() operation) {
-    final Future<void> next = _writeTail.then<void>(
+  Future<T> _enqueueWrite<T>(Future<T> Function() operation) {
+    final Future<T> next = _writeTail.then<T>(
       (_) => operation(),
       onError: (Object _, StackTrace _) => operation(),
     );

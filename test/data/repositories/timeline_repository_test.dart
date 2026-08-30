@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/usecases/timeline_lifecycle_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -153,6 +154,28 @@ void main() {
       containsAll(<String>['first', 'second']),
     );
     expect(repository.getEvents(), hasLength(2));
+  });
+
+  test('concurrent lifecycle update cannot erase an added event', () async {
+    final _MemoryStore store = _MemoryStore();
+    final TimelineRepository repository = TimelineRepository(store);
+    await repository.addEvent(event('existing'));
+
+    final Future<void> pendingAdd = repository.addEvent(event('concurrent'));
+    TimelineEventEntity? completed;
+    final Future<void> pendingCompletion = () async {
+      completed = await CompleteTimelineEvent(repository)('existing');
+    }();
+    await Future.wait<void>(<Future<void>>[pendingAdd, pendingCompletion]);
+
+    expect(completed, isNotNull);
+    final List<TimelineEventEntity> events = repository.getEvents();
+    expect(events.map((item) => item.id), contains('concurrent'));
+    expect(
+      events.singleWhere((item) => item.id == 'existing').status,
+      TimelineEventStatus.completed,
+    );
+    expect(events, hasLength(2));
   });
 }
 
