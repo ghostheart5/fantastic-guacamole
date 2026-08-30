@@ -71,7 +71,7 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 | VOICE-01 | P1 | Voice can bypass rationale and premium claims are unproven | 0/9 | NOT_RUN | no premium claim allowed | | Platform audit |
 | NOTIF-01 | P1 | Reminders are not clearly opt-in and streak copy is coercive | 5/9 | NOT_RUN | local only | | Platform audit |
 | LINK-01 | P1 | Protected deep-link intent can be lost through onboarding | 1/6 | NOT_RUN | unsafe navigation | | Platform audit |
-| START-01 | P0 | Startup can wait forever after its timeout | 1 | PASS | bounded locked recovery; retry waits for prior initializer settlement | `aca2b6b` | 15 focused startup tests and fatal analyzer gate |
+| START-01 | P0 | Startup can wait forever after its timeout | 1 | PASS | timed-out results discarded; bounded locked recovery; retry waits for prior initializer settlement | `aca2b6b`, `bd70c01` | 16 focused startup tests and fatal analyzer gate |
 | A11Y-01 | P0 | Required tutorial can trap large-text/small-viewport users | 1 | NOT_RUN | unsafe first run | | Accessibility audit |
 | TIME-01 | P0 | Timeline maps loading/error to false empty and tutorial can lie | 1 | NOT_RUN | unsafe first proof | | Reliability audit |
 | AUTH-02 | P1 | Auth recovery and pre-account legal access are incomplete | 1 | NOT_RUN | incomplete | | Auth audit |

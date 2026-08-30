@@ -40,7 +40,7 @@ Formatting candidates are `test/data/repositories/google_play_paywall_repository
 
 | Gate | Status | Command/evidence | Result boundary |
 |---|---|---|---|
-| Startup timeout/cancellation suite | PASS | `flutter test test/app/startup_timeout_cancellation_test.dart` | 15 tests passed; includes second bounded timeout, locked recovery, retry readiness, and duplicate-initializer prevention |
+| Startup timeout/cancellation suite | PASS | `flutter test --no-pub test/app/startup_timeout_cancellation_test.dart` | 16 tests passed; includes discarded late results, second bounded timeout, locked recovery, zero account-boundary calls, retry readiness, and duplicate-initializer prevention |
 | Analyzer | PASS | `flutter analyze --fatal-infos` | No issues found after startup repair |
 | Device first-run journey | NOT_RUN | Reserved for Phase 10 | Widget evidence does not establish Android lifecycle behavior |
 
