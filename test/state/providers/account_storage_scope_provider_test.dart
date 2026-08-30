@@ -1,8 +1,10 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -158,4 +160,48 @@ void main() {
     expect(blocked.canClaimPreservedData, isTrue);
     expect(blocked.canRecoverBySigningOut, isTrue);
   });
+
+  test('domain task repository follows an authenticated scope transition', () {
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWith(
+          (Ref ref) => ref.watch(_mutableAccountStorageScopeProvider),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final Object signedOutRepository = container.read(
+      domainTaskRepositoryProvider,
+    );
+    final Object signedOutUseCase = container.read(getTasksUseCaseProvider);
+    container.read(_mutableAccountStorageScopeProvider.notifier).authenticate();
+    final Object authenticatedRepository = container.read(
+      domainTaskRepositoryProvider,
+    );
+    final Object authenticatedUseCase = container.read(getTasksUseCaseProvider);
+
+    expect(authenticatedRepository, isNot(same(signedOutRepository)));
+    expect(authenticatedUseCase, isNot(same(signedOutUseCase)));
+    expect(
+      container.read(taskRepositoryProvider),
+      same(authenticatedRepository),
+    );
+  });
+}
+
+final NotifierProvider<_MutableAccountStorageScopeNotifier, AccountStorageScope>
+_mutableAccountStorageScopeProvider =
+    NotifierProvider<_MutableAccountStorageScopeNotifier, AccountStorageScope>(
+      _MutableAccountStorageScopeNotifier.new,
+    );
+
+class _MutableAccountStorageScopeNotifier
+    extends Notifier<AccountStorageScope> {
+  @override
+  AccountStorageScope build() => const AccountStorageScope.signedOut();
+
+  void authenticate() {
+    state = AccountStorageScope.authenticated('account-a');
+  }
 }

@@ -70,6 +70,7 @@ class _DynamicFormState extends State<DynamicForm> {
   HabitCadence _habitCadence = HabitCadence.daily;
   int _habitTargetCount = 1;
   bool _submitting = false;
+  bool _replacingDraftText = false;
   String? _errorMessage;
   String? _appliedDraftId;
   late CreatorFormKind _type;
@@ -101,11 +102,7 @@ class _DynamicFormState extends State<DynamicForm> {
     if (oldWidget.initialDraftId != widget.initialDraftId) {
       if (oldWidget.initialDraftId != null && widget.initialDraftId == null) {
         _appliedDraftId = null;
-        _titleController.clear();
-        _descriptionController.clear();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _notifyTitleValidity();
-        });
+        _replaceDraftText(title: '', description: '');
       } else {
         _applyDraftIfNeeded();
       }
@@ -116,14 +113,27 @@ class _DynamicFormState extends State<DynamicForm> {
     final String? draftId = widget.initialDraftId;
     if (draftId == null || draftId == _appliedDraftId) return;
     _appliedDraftId = draftId;
-    _titleController.text = widget.initialTitle?.trim() ?? '';
-    _descriptionController.text = widget.initialDescription?.trim() ?? '';
+    _replaceDraftText(
+      title: widget.initialTitle?.trim() ?? '',
+      description: widget.initialDescription?.trim() ?? '',
+    );
+  }
+
+  void _replaceDraftText({required String title, required String description}) {
+    _replacingDraftText = true;
+    try {
+      _titleController.text = title;
+      _descriptionController.text = description;
+    } finally {
+      _replacingDraftText = false;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _notifyTitleValidity();
     });
   }
 
   void _notifyTitleValidity() {
+    if (_replacingDraftText) return;
     widget.onTitleValidityChanged?.call(
       _titleController.text.trim().isNotEmpty,
     );

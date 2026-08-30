@@ -132,7 +132,7 @@ import 'package:fantastic_guacamole/state/services/extended_domain_service.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
-  return ref.read(taskRepositoryProvider);
+  return ref.watch(taskRepositoryProvider);
 });
 
 final domainNotificationRepositoryProvider = Provider<INotificationRepository>((
@@ -368,7 +368,7 @@ final appSettingsProvider = Provider<List<AppSetting>>((ref) {
 });
 
 final getTasksUseCaseProvider = Provider<GetTasks>((ref) {
-  return GetTasks(ref.read(domainTaskRepositoryProvider));
+  return GetTasks(ref.watch(domainTaskRepositoryProvider));
 });
 
 final getGoalsUseCaseProvider = Provider<GetGoals>((ref) {

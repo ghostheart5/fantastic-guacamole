@@ -40,7 +40,9 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   // Task repositories fail closed before authenticated storage is ready. This
   // dependency makes the provider retry when the account boundary advances.
   ref.watch(accountStorageScopeProvider);
-  final List<TaskEntity> tasks = await ref.read(getTasksUseCaseProvider).call();
+  final List<TaskEntity> tasks = await ref
+      .watch(getTasksUseCaseProvider)
+      .call();
   final OptimizationConfig optimization = await ref.watch(
     optimizationConfigProvider.future,
   );

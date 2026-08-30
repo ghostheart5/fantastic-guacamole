@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -345,6 +346,43 @@ void main() {
     expect(fields.elementAt(1).controller?.text, isEmpty);
   });
 
+  testWidgets(
+    'Planner prefill defers tutorial state updates until after build',
+    (WidgetTester tester) async {
+      final ProviderContainer container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: Consumer(
+            builder: (BuildContext context, WidgetRef ref, Widget? child) {
+              ref.watch(_draftTitleValidityProvider);
+              return MaterialApp(
+                home: Scaffold(
+                  body: SingleChildScrollView(
+                    child: DynamicForm(
+                      initialDraftId: 'planner-draft-1',
+                      initialTitle: 'Review the release task',
+                      onTitleValidityChanged: ref
+                          .read(_draftTitleValidityProvider.notifier)
+                          .set,
+                      onSubmit: (_) async {},
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(container.read(_draftTitleValidityProvider), isTrue);
+    },
+  );
+
   testWidgets('schedule picker pauses guidance while its dialog is open', (
     WidgetTester tester,
   ) async {
@@ -465,4 +503,17 @@ void main() {
       'Keep this task',
     );
   });
+}
+
+final NotifierProvider<_DraftTitleValidityNotifier, bool>
+_draftTitleValidityProvider =
+    NotifierProvider<_DraftTitleValidityNotifier, bool>(
+      _DraftTitleValidityNotifier.new,
+    );
+
+class _DraftTitleValidityNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
 }
