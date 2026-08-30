@@ -76,6 +76,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final List<TimelineEventEntity> baseEvents = ref.watch(timelineProvider);
     final List<GoalEntity> goals = ref.watch(goalsProvider);
     final List<Task> tasks = _tasksState.asData?.value ?? const <Task>[];
+    final bool tasksLoading = _tasksState is AsyncLoading<List<Task>>;
+    final Object? tasksError = _tasksState.hasError ? _tasksState.error : null;
     final DateTime now = DateTime.now();
 
     final int combinedKey = Object.hash(
@@ -225,7 +227,17 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
-              if (filtered.isEmpty)
+              if (tasksLoading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _TimelineSourceState.loading(),
+                )
+              else if (tasksError != null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _TimelineSourceState.error(onRetry: _retryTaskSource),
+                )
+              else if (filtered.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: _TimelineEmptyState(
@@ -272,6 +284,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         ),
       ),
     );
+  }
+
+  void _retryTaskSource() {
+    setState(() {
+      _tasksState = const AsyncLoading<List<Task>>();
+      _cachedCombined = null;
+    });
+    ref.invalidate(tasksProvider);
   }
 }
 
@@ -1408,7 +1428,9 @@ class _TimelineEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              isRefined ? 'No matching moments' : 'This part of time is clear',
+              isRefined
+                  ? 'No matching moments'
+                  : 'No saved activity in this view',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 17,
@@ -1419,7 +1441,7 @@ class _TimelineEmptyState extends StatelessWidget {
             Text(
               isRefined
                   ? 'Change the search or activity filter to reveal more of your chronology.'
-                  : 'New tasks, goals, notes, and completed work will connect here as they happen.',
+                  : 'Saved tasks, goals, notes, and completed work will appear here when they exist in this time range.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF93A0BA),
@@ -1436,6 +1458,76 @@ class _TimelineEmptyState extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineSourceState extends StatelessWidget {
+  const _TimelineSourceState.loading() : onRetry = null;
+
+  const _TimelineSourceState.error({required this.onRetry});
+
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool failed = onRetry != null;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Semantics(
+          liveRegion: true,
+          label: failed
+              ? 'Timeline tasks could not be loaded.'
+              : 'Loading saved Timeline activity.',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (failed)
+                const Icon(
+                  Icons.sync_problem_rounded,
+                  color: AppColors.recallRed,
+                  size: 34,
+                )
+              else
+                const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                failed
+                    ? 'Timeline tasks could not be loaded'
+                    : 'Loading your Timeline',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                failed
+                    ? 'Nothing has been labeled empty. Retry the saved-task source.'
+                    : 'Checking saved tasks before showing your chronology.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF93A0BA),
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              if (failed) ...<Widget>[
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  key: const Key('timeline-task-source-retry'),
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry loading tasks'),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

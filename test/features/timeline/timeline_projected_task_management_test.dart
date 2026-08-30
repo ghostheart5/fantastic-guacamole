@@ -12,6 +12,66 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('loading saved tasks is not presented as an empty Timeline', (
+    WidgetTester tester,
+  ) async {
+    final Completer<List<Task>> tasks = Completer<List<Task>>();
+    final ProviderContainer container = _buildContainer(
+      tasksLoader: (Ref ref) => tasks.future,
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimelineShell(tester, container);
+
+    expect(find.text('Loading your Timeline'), findsOneWidget);
+    expect(find.text('No saved activity in this view'), findsNothing);
+    tasks.complete(const <Task>[]);
+  });
+
+  testWidgets('task load failure has an explicit retry and then recovers', (
+    WidgetTester tester,
+  ) async {
+    int calls = 0;
+    final ProviderContainer container = _buildContainer(
+      tasksLoader: (Ref ref) async {
+        calls += 1;
+        if (calls == 1) {
+          throw StateError('read failed');
+        }
+        return <Task>[_managedTask];
+      },
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimelineShell(tester, container);
+    await tester.pump();
+
+    expect(find.text('Timeline tasks could not be loaded'), findsOneWidget);
+    expect(find.text('No saved activity in this view'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('timeline-task-source-retry')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text(_managedTask.title), findsOneWidget);
+    expect(calls, 2);
+  });
+
+  testWidgets('resolved empty sources show a truthful saved-data empty state', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = _buildContainer(
+      tasksLoader: (Ref ref) async => const <Task>[],
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimelineShell(tester, container);
+    await tester.pump();
+
+    expect(find.text('No saved activity in this view'), findsOneWidget);
+    expect(find.text('Loading your Timeline'), findsNothing);
+  });
+
   testWidgets('schedule-only task is never presented as due or overdue', (
     WidgetTester tester,
   ) async {
@@ -162,6 +222,7 @@ void main() {
 
 ProviderContainer _buildContainer({
   Task? task,
+  Future<List<Task>> Function(Ref ref)? tasksLoader,
   void Function(_RecordingTaskActions value)? onActionsBuilt,
   Completer<void>? updateCompleter,
   Object? updateError,
@@ -171,7 +232,7 @@ ProviderContainer _buildContainer({
       timelineProvider.overrideWith(_EmptyTimelineNotifier.new),
       goalsProvider.overrideWith(_EmptyGoalsNotifier.new),
       tasksProvider.overrideWith(
-        (Ref ref) async => <Task>[task ?? _managedTask],
+        tasksLoader ?? (Ref ref) async => <Task>[task ?? _managedTask],
       ),
       taskActionsProvider.overrideWith((Ref ref) {
         final _RecordingTaskActions actions = _RecordingTaskActions(
@@ -186,6 +247,26 @@ ProviderContainer _buildContainer({
   );
   container.read(taskActionsProvider);
   return container;
+}
+
+Future<void> _pumpTimelineShell(
+  WidgetTester tester,
+  ProviderContainer container,
+) async {
+  tester.view.physicalSize = const Size(1200, 1400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        theme: ThemeData(splashFactory: NoSplash.splashFactory),
+        home: const TimelineScreen(),
+      ),
+    ),
+  );
+  await tester.pump();
 }
 
 Future<void> _pumpTimeline(
