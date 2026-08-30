@@ -47,13 +47,47 @@ class VersionedBackupSnapshot {
   final int localGeneration;
 }
 
+class BackupRestorePreview {
+  BackupRestorePreview({
+    required this.backupVersion,
+    required this.createdAt,
+    required Map<String, int> recordCounts,
+    required List<String> includedDomains,
+    required List<String> cloudReplicatedDomains,
+    required List<String> excludedDomains,
+    required this.isLegacyEnvelope,
+  }) : recordCounts = Map<String, int>.unmodifiable(recordCounts),
+       includedDomains = List<String>.unmodifiable(includedDomains),
+       cloudReplicatedDomains = List<String>.unmodifiable(
+         cloudReplicatedDomains,
+       ),
+       excludedDomains = List<String>.unmodifiable(excludedDomains);
+
+  final String backupVersion;
+  final DateTime createdAt;
+  final Map<String, int> recordCounts;
+  final List<String> includedDomains;
+  final List<String> cloudReplicatedDomains;
+  final List<String> excludedDomains;
+  final bool isLegacyEnvelope;
+
+  int get totalRecordCount =>
+      recordCounts.values.fold<int>(0, (int total, int count) => total + count);
+}
+
 class _ValidatedFullBackup {
   const _ValidatedFullBackup({
+    required this.version,
+    required this.createdAt,
+    required this.recordCounts,
     required this.tasks,
     required this.profile,
     required this.settings,
   });
 
+  final String version;
+  final DateTime createdAt;
+  final Map<String, int> recordCounts;
   final List<TaskEntity> tasks;
   final Map<String, dynamic>? profile;
   final Map<String, dynamic> settings;
@@ -90,7 +124,8 @@ class BackupService {
            mutationCoordinator ?? KeyedMutationCoordinator.shared;
 
   static const String _profileStateKey = 'profile_state';
-  static const String _backupVersion = '3.0.0';
+  static const String _backupVersion = '4.0.0';
+  static const String _legacyBackupVersion = '3.0.0';
   static const int _maxTaskRecords = 10000;
   static const int _maxTaskIdLength = 256;
   static const int _maxTaskTitleLength = 4096;
@@ -116,6 +151,11 @@ class BackupService {
       'tasks': tasks.map(TaskEntityMapper.toJson).toList(),
       'profile': profile,
       'settings': settings,
+      'recordCounts': _recordCounts(
+        taskCount: tasks.length,
+        profile: profile,
+        settings: settings,
+      ),
     };
   }
 
@@ -171,6 +211,32 @@ class BackupService {
 
   void validateFullBackup(Map<String, dynamic> backup) {
     _validateFullBackup(backup);
+  }
+
+  BackupRestorePreview previewFullRestore(Map<String, dynamic> backup) {
+    final _ValidatedFullBackup validated = _validateFullBackup(backup);
+    final Map<String, dynamic> manifest = _strictStringKeyMap(
+      backup['manifest'],
+      field: 'manifest',
+    );
+    return BackupRestorePreview(
+      backupVersion: validated.version,
+      createdAt: validated.createdAt,
+      recordCounts: validated.recordCounts,
+      includedDomains: _strictStringList(
+        manifest['includedDomains'],
+        field: 'manifest.includedDomains',
+      ),
+      cloudReplicatedDomains: _strictStringList(
+        manifest['cloudReplicatedDomains'],
+        field: 'manifest.cloudReplicatedDomains',
+      ),
+      excludedDomains: _strictStringList(
+        manifest['excludedDomains'],
+        field: 'manifest.excludedDomains',
+      ),
+      isLegacyEnvelope: validated.version == _legacyBackupVersion,
+    );
   }
 
   Future<void> restoreFullBackup(
@@ -460,13 +526,17 @@ class BackupService {
   }
 
   _ValidatedFullBackup _validateFullBackup(Map<String, dynamic> backup) {
-    if (backup['version'] != _backupVersion) {
+    final String version = backup['version'] is String
+        ? (backup['version'] as String).trim()
+        : '';
+    if (version != _backupVersion && version != _legacyBackupVersion) {
       throw const FormatException('Unsupported full-backup version.');
     }
     final String timestamp = backup['timestamp'] is String
         ? (backup['timestamp'] as String).trim()
         : '';
-    if (timestamp.isEmpty || DateTime.tryParse(timestamp) == null) {
+    final DateTime? createdAt = DateTime.tryParse(timestamp);
+    if (timestamp.isEmpty || createdAt == null) {
       throw const FormatException('Full backup timestamp is invalid.');
     }
     _validateManifest(backup['manifest']);
@@ -487,11 +557,63 @@ class BackupService {
     );
     _validateJsonValue(profile, field: 'profile');
     _validateJsonValue(settings, field: 'settings');
+    final Map<String, int> recordCounts = _recordCounts(
+      taskCount: tasks.length,
+      profile: profile,
+      settings: settings,
+    );
+    if (version == _backupVersion) {
+      _validateRecordCounts(backup['recordCounts'], expected: recordCounts);
+    }
     return _ValidatedFullBackup(
+      version: version,
+      createdAt: createdAt,
+      recordCounts: recordCounts,
       tasks: tasks,
       profile: profile,
       settings: settings,
     );
+  }
+
+  Map<String, int> _recordCounts({
+    required int taskCount,
+    required Map<String, dynamic>? profile,
+    required Map<String, dynamic> settings,
+  }) {
+    return <String, int>{
+      'tasks': taskCount,
+      'profile': profile == null ? 0 : 1,
+      'settings': settings.length,
+    };
+  }
+
+  void _validateRecordCounts(
+    Object? rawCounts, {
+    required Map<String, int> expected,
+  }) {
+    final Map<String, dynamic> counts = _strictStringKeyMap(
+      rawCounts,
+      field: 'recordCounts',
+    );
+    if (counts.length != expected.length ||
+        !counts.keys.every(expected.containsKey)) {
+      throw const FormatException('Full backup record counts are invalid.');
+    }
+    for (final MapEntry<String, int> entry in expected.entries) {
+      final Object? rawValue = counts[entry.key];
+      if (rawValue is! int || rawValue < 0 || rawValue != entry.value) {
+        throw FormatException(
+          'Full backup record count does not match ${entry.key}.',
+        );
+      }
+    }
+  }
+
+  List<String> _strictStringList(Object? value, {required String field}) {
+    if (value is! List || value.any((Object? item) => item is! String)) {
+      throw FormatException('Backup $field must be a string list.');
+    }
+    return value.cast<String>();
   }
 
   void _validateManifest(Object? rawManifest) {

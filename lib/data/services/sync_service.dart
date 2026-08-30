@@ -776,6 +776,14 @@ class SyncService {
     merged['tasks'] = taskMap.values.toList(growable: false);
     merged['profile'] = local['profile'] ?? cloud['profile'] ?? cloud['user'];
     merged['settings'] = local['settings'] ?? cloud['settings'];
+    final List<dynamic> mergedTasks = merged['tasks'] as List<dynamic>;
+    final Map<String, dynamic> mergedSettings =
+        merged['settings'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    merged['recordCounts'] = <String, int>{
+      'tasks': mergedTasks.length,
+      'profile': merged['profile'] == null ? 0 : 1,
+      'settings': mergedSettings.length,
+    };
     return merged;
   }
 

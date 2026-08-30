@@ -141,7 +141,7 @@ void main() {
               (dynamic key, dynamic value) => MapEntry(key.toString(), value),
             );
 
-    expect(backup['version'], '3.0.0');
+    expect(backup['version'], '4.0.0');
     expect(backup['manifest'], isA<Map<String, dynamic>>());
     expect(
       ((backup['manifest'] as Map<String, dynamic>)['includedDomains']
@@ -158,7 +158,92 @@ void main() {
     expect(task['id'], 'task-1');
     expect(backup['profile'], <String, dynamic>{'name': 'Keegan', 'xp': 42});
     expect(backup['settings'], <String, dynamic>{'soundEnabled': false});
+    expect(backup['recordCounts'], <String, int>{
+      'tasks': 1,
+      'profile': 1,
+      'settings': 1,
+    });
   });
+
+  test(
+    'restore preview validates and counts without changing local data',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'preview-task',
+          title: 'Preview only',
+          createdAt: DateTime.utc(2026, 8, 30),
+        ),
+      );
+      await profileStorage.put(
+        'profile_state',
+        jsonEncode(<String, dynamic>{'name': 'Preview Person'}),
+      );
+      await service.prefs.setJson('settings', <String, dynamic>{
+        'soundEnabled': false,
+        'theme': 'neon',
+      });
+      final Map<String, dynamic> backup = await service.createFullBackup();
+      final int generationBefore = service.localGeneration;
+
+      final BackupRestorePreview preview = service.previewFullRestore(backup);
+
+      expect(preview.backupVersion, '4.0.0');
+      expect(preview.isLegacyEnvelope, isFalse);
+      expect(preview.recordCounts, <String, int>{
+        'tasks': 1,
+        'profile': 1,
+        'settings': 2,
+      });
+      expect(preview.totalRecordCount, 4);
+      expect(
+        preview.includedDomains,
+        containsAll(<String>['tasks', 'profile']),
+      );
+      expect((await repository.getAllTasks()).single.id, 'preview-task');
+      expect(service.localGeneration, generationBefore);
+    },
+  );
+
+  test('restore preview identifies supported legacy envelopes', () {
+    final BackupRestorePreview preview = service.previewFullRestore(
+      _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: null,
+        settings: <String, dynamic>{},
+      ),
+    );
+
+    expect(preview.backupVersion, '3.0.0');
+    expect(preview.isLegacyEnvelope, isTrue);
+    expect(preview.totalRecordCount, 0);
+  });
+
+  test(
+    'current backup rejects a mismatched record count before writes',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'counted-task',
+          title: 'Count me',
+          createdAt: DateTime.utc(2026, 8, 30),
+        ),
+      );
+      final Map<String, dynamic> backup = await service.createFullBackup();
+      backup['recordCounts'] = <String, int>{
+        'tasks': 0,
+        'profile': 0,
+        'settings': 0,
+      };
+
+      expect(() => service.previewFullRestore(backup), throwsFormatException);
+      await expectLater(
+        () => service.restoreFullBackup(backup),
+        throwsFormatException,
+      );
+      expect((await repository.getAllTasks()).single.id, 'counted-task');
+    },
+  );
 
   test('backupProfile and backupSettings expose stored state', () async {
     await profileStorage.put(
@@ -211,7 +296,7 @@ void main() {
     final Map<String, dynamic> tasksBackup =
         jsonDecode(await service.exportTasksString()) as Map<String, dynamic>;
 
-    expect(fullBackup['version'], '3.0.0');
+    expect(fullBackup['version'], '4.0.0');
     expect(
       (fullBackup['tasks'] as List<dynamic>).single,
       isA<Map<String, dynamic>>(),
