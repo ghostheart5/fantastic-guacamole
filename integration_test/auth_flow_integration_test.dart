@@ -303,15 +303,15 @@ void main() {
     await tester.ensureVisible(confirmButton);
     await tester.tap(confirmButton);
     await tester.pump();
-    await _waitForRepositoryTask(tester, repository, title: 'UI journey task');
-
-    final Finder openTimelineButton = find.text('Open Timeline');
-    await tester.ensureVisible(openTimelineButton);
-    await tester.tap(openTimelineButton);
-    await tester.pump();
     await _waitForRouterPath(tester, router, RoutePaths.timeline);
     await tester.pump(const Duration(milliseconds: 500));
     expect(container.read(appFlowProvider), AppView.timeline);
+    expect(
+      (await repository.getAllTasks()).where(
+        (TaskEntity task) => task.title == 'UI journey task',
+      ),
+      isNotEmpty,
+    );
     final tasks = await container.read(tasksProvider.future);
     expect(tasks.where((task) => task.title == 'UI journey task'), isNotEmpty);
     final Map<String, dynamic> metrics = await _waitForMetric(
@@ -416,33 +416,6 @@ Future<void> _waitForRouterPath(
     reached,
     isTrue,
     reason: 'Timed out waiting for router path $expectedPath.',
-  );
-}
-
-Future<void> _waitForRepositoryTask(
-  WidgetTester tester,
-  _InMemoryTaskRepository repository, {
-  required String title,
-}) async {
-  final bool persisted =
-      await tester.runAsync<bool>(() async {
-        final DateTime deadline = DateTime.now().add(
-          const Duration(seconds: 15),
-        );
-        do {
-          final List<TaskEntity> tasks = await repository.getAllTasks();
-          if (tasks.any((TaskEntity task) => task.title == title)) {
-            return true;
-          }
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-        } while (DateTime.now().isBefore(deadline));
-        return false;
-      }) ??
-      false;
-  expect(
-    persisted,
-    isTrue,
-    reason: 'Timed out waiting for Creator to persist "$title".',
   );
 }
 
