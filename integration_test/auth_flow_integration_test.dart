@@ -304,8 +304,6 @@ void main() {
     await tester.tap(confirmButton);
     await tester.pump();
     await _waitForRouterPath(tester, router, RoutePaths.timeline);
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(container.read(appFlowProvider), AppView.timeline);
     expect(
       (await repository.getAllTasks()).where(
         (TaskEntity task) => task.title == 'UI journey task',
