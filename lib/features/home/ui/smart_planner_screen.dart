@@ -1292,7 +1292,6 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
             color: AppColors.neonCyan,
           ),
           if (response.isClarification) ...[
-            _section('WHAT I HEARD', _body(response.whatIHeard)),
             _section(
               'ONE CLARIFYING QUESTION',
               _body(response.usefulQuestion!),
