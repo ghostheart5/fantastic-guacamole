@@ -29,7 +29,11 @@ void main() {
     expect(source, contains("labelText: 'SI query'"));
     expect(
       source,
-      contains("label: busy ? 'SI is analyzing' : 'Send SI query'"),
+      contains(
+        RegExp(
+          r"label:\s*!enabled\s*\?\s*'SI Console unavailable'\s*:\s*busy\s*\?\s*'SI is analyzing'\s*:\s*'Send SI query'",
+        ),
+      ),
     );
     expect(source, contains("label: isUser ? 'Your query' : 'SI response'"));
     expect(source, contains('MediaQuery.textScalerOf(context).scale(1) > 1.3'));
