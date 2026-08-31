@@ -270,7 +270,7 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('creator-type-selector')), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Set priority level 4'));
-    final Finder scheduleControl = find.bySemanticsLabel('Schedule date');
+    final Finder scheduleControl = find.text('Schedule date and time...');
     await tester.ensureVisible(scheduleControl);
     await tester.tap(scheduleControl);
     await tester.pump();
