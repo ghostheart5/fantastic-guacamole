@@ -204,11 +204,21 @@ void main() {
     await tester.tap(find.text('SHOW ONE HELPFUL CHOICE'));
     await tester.pump(const Duration(milliseconds: 600));
 
+    expect(tester.takeException(), isNull);
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool(onboardingCompleteStorageKey), isNot(true));
+    expect(prefs.getInt(onboardingContentVersionStorageKey), isNull);
     expect(container.read(onboardingCompleteProvider), isFalse);
     expect(container.read(smartPlannerFirstValueProvider), isNull);
     expect(find.byType(SnackBar), findsOneWidget);
+    expect(
+      find.text('Unable to finish onboarding. Please try again.'),
+      findsOneWidget,
+    );
+    final FilledButton guideButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'SHOW ONE HELPFUL CHOICE'),
+    );
+    expect(guideButton.onPressed, isNotNull);
   });
 
   testWidgets('stops decorative onboarding motion under reduced motion', (

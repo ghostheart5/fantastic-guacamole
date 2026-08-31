@@ -103,16 +103,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final bool canStartPlanner =
         showHelpfulChoice && widget.completedLocation == null;
     setState(() => _submitting = true);
+
+    final accountScope = ref.read(accountStorageScopeProvider);
+    final String? accountScopeId = accountScope.isWritable
+        ? accountScope.v2Namespace
+        : null;
+    if (accountScopeId == null) {
+      Logger.errorCategory(
+        'onboarding',
+        'Onboarding completion blocked because account storage is not ready.',
+      );
+      AppAnalytics.track(
+        'onboarding_complete_failed',
+        params: const <String, Object?>{
+          'reason': 'account_storage_unavailable',
+        },
+      );
+      _surfaceCompletionError();
+      return;
+    }
+
     try {
       SmartPlannerFirstValueRequest? firstValueRequest;
       if (canStartPlanner) {
-        final accountScope = ref.read(accountStorageScopeProvider);
-        final String? accountScopeId = accountScope.isWritable
-            ? accountScope.v2Namespace
-            : null;
-        if (accountScopeId == null) {
-          throw StateError('Account storage is not ready for first value.');
-        }
         firstValueRequest = SmartPlannerFirstValueRequest(
           accountScopeId: accountScopeId,
           prompt: _helpCtrl.text.trim(),
@@ -164,20 +177,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         'onboarding_complete_failed',
         params: <String, Object?>{'error': error.toString()},
       );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ChronoSparkLocalizations.of(
-              context,
-            ).text(ChronoSparkString.onboardingFinishError),
-          ),
-        ),
-      );
+      _surfaceCompletionError();
     }
+  }
+
+  void _surfaceCompletionError() {
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ChronoSparkLocalizations.of(
+            context,
+          ).text(ChronoSparkString.onboardingFinishError),
+        ),
+      ),
+    );
   }
 
   void _next() => unawaited(_completeWelcome());
