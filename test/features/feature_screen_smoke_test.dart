@@ -134,10 +134,9 @@ class _StaticTimelineNotifier extends TimelineNotifier {
       type: TimelineEventType.goalComplete,
       title: 'Completed sprint review',
       detail: 'Closed the review loop for the weekly plan.',
-      // Must be relative to now: TimelineScreen defaults to the "week" window,
-      // so a hardcoded date silently stops matching once it ages out and the
-      // test fails for a reason that has nothing to do with the screen.
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
+      // Keep the fixture in the current week even when CI runs shortly after
+      // the Monday boundary.
+      timestamp: DateTime.now(),
     ),
   ];
 }
