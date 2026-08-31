@@ -66,25 +66,21 @@ void main() {
       contains('Source changed while building the production AAB.'),
     );
     expect(guardedBuild, isNot(contains('Updated pubspec version')));
-    expect(
-      guardedBuild,
-      isNot(contains(r'Set-Content -Path $pubspecPath')),
-    );
+    expect(guardedBuild, isNot(contains(r'Set-Content -Path $pubspecPath')));
     expect(
       guardedBuild,
       isNot(contains(r'Set-Content -Path $androidGradlePropsPath')),
     );
-    expect(
-      guardedBuild,
-      contains('does not match committed version'),
-    );
+    expect(guardedBuild, contains('does not match committed version'));
     expect(
       guardedBuild,
       contains('Signing source files must remain outside the repository.'),
     );
     expect(
       guardedBuild,
-      contains('External key.properties must reference app/upload-keystore.jks.'),
+      contains(
+        'External key.properties must reference app/upload-keystore.jks.',
+      ),
     );
     expect(
       guardedBuild,
