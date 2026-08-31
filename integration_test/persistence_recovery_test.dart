@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
@@ -9,6 +10,7 @@ import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +26,9 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'persistence-integration-user',
+    );
     final Directory tempDir = await Directory.systemTemp.createTemp(
       'chronospark_persistence_integration_',
     );
@@ -37,7 +42,7 @@ void main() {
       }
     });
 
-    final ProviderContainer firstRun = _containerFor(backend);
+    final ProviderContainer firstRun = _containerFor(backend, scope);
     await firstRun
         .read(taskActionsProvider)
         .createQuickTask('Persisted integration task');
@@ -47,7 +52,7 @@ void main() {
     );
     firstRun.dispose();
 
-    final ProviderContainer secondRun = _containerFor(backend);
+    final ProviderContainer secondRun = _containerFor(backend, scope);
     addTearDown(secondRun.dispose);
     final recovered = await secondRun.read(tasksProvider.future);
     expect(
@@ -55,10 +60,12 @@ void main() {
       contains('Persisted integration task'),
     );
 
-    final Box<String> taskBox = await backend.openBox<String>(HiveBoxes.tasks);
+    final Box<String> taskBox = await backend.openBox<String>(
+      HiveBoxes.accountScoped(HiveBoxes.tasks, scope),
+    );
     await taskBox.put('malformed-task', '{ malformed-json');
 
-    final ProviderContainer corruptedRun = _containerFor(backend);
+    final ProviderContainer corruptedRun = _containerFor(backend, scope);
     addTearDown(corruptedRun.dispose);
 
     final recoveredAfterCorruption = await corruptedRun
@@ -87,10 +94,11 @@ void main() {
   });
 }
 
-ProviderContainer _containerFor(HiveStore backend) {
+ProviderContainer _containerFor(HiveStore backend, AccountStorageScope scope) {
   return ProviderContainer(
     overrides: [
       hiveStoreProvider.overrideWithValue(backend),
+      accountStorageScopeProvider.overrideWithValue(scope),
       siStateProvider.overrideWith(_FixedSiStateController.new),
       learningProvider.overrideWith(_FixedLearningController.new),
     ],

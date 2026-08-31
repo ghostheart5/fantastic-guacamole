@@ -25,6 +25,7 @@ import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -87,7 +88,7 @@ void main() {
     expect(find.text('APP_READY'), findsOneWidget);
   });
 
-  testWidgets('two-page onboarding persists welcome and profile completion', (
+  testWidgets('onboarding persists and stages the first helpful choice', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -118,17 +119,24 @@ void main() {
     await tester.tap(find.text('Continue to login'));
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.byType(TextField), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'Integration User');
-    await tester.pump();
-    final Finder completeButton = find.widgetWithText(
-      FilledButton,
-      'Continue to Creator',
+    final Finder firstValueQuestion = find.byKey(
+      const Key('first-value-question'),
     );
+    expect(firstValueQuestion, findsOneWidget);
+    await tester.enterText(
+      firstValueQuestion,
+      'I need one realistic next step.',
+    );
+    await tester.pump();
+    final Finder completeButton = find.byKey(
+      const Key('first-value-show-choice'),
+    );
+    expect(completeButton, findsOneWidget);
     expect(
       tester.widget<FilledButton>(completeButton).onPressed,
       isNotNull,
-      reason: 'The second onboarding page must become actionable after input.',
+      reason:
+          'The first-value page must remain actionable after optional input.',
     );
     await tester.tap(completeButton);
     await _waitForPreference(
@@ -141,7 +149,15 @@ void main() {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool(onboardingWelcomeCompleteStorageKey), isTrue);
     expect(prefs.getBool(onboardingCompleteStorageKey), isTrue);
-    expect(container.read(profileProvider).name, 'Integration User');
+    final SmartPlannerFirstValueRequest? request = container.read(
+      smartPlannerFirstValueProvider,
+    );
+    expect(request, isNotNull);
+    expect(request!.prompt, 'I need one realistic next step.');
+    expect(
+      request.accountScopeId,
+      container.read(accountStorageScopeProvider).v2Namespace,
+    );
   });
 
   test(
@@ -251,7 +267,8 @@ void main() {
           widget is TextField && widget.decoration?.hintText == 'Title *',
     );
     await tester.enterText(titleField, 'UI journey task');
-    await tester.tap(find.text('TASK'));
+    await tester.pump();
+    expect(find.byKey(const Key('creator-type-selector')), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Set priority level 4'));
     final Finder scheduleControl = find.bySemanticsLabel('Schedule date');
     await tester.ensureVisible(scheduleControl);
