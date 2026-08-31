@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
+import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
@@ -9,6 +11,7 @@ import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
@@ -21,6 +24,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 bool _isNewUserDatabaseSaveFailure(String message) {
   final String normalized = message.toLowerCase();
@@ -145,9 +149,14 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     final String? startupMessage = _effectiveStartupError;
     final AuthServiceContract fallbackAuthService =
         _authService ?? const _UnavailableAuthService();
+    final AccountStorageScope accountScope = ref.watch(
+      accountStorageScopeProvider,
+    );
 
     if (_mockSignInActive) {
-      return widget.child;
+      return _scopeIsReadyFor(accountScope, 'mock-user')
+          ? widget.child
+          : const _AuthLoadingShell();
     }
 
     return FutureBuilder<void>(
@@ -255,7 +264,9 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 email: user.email ?? '',
               );
             }
-            return widget.child;
+            return _scopeIsReadyFor(accountScope, user.id)
+                ? widget.child
+                : const _AuthLoadingShell();
           },
         );
       },
@@ -387,6 +398,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   }
 }
 
+bool _scopeIsReadyFor(AccountStorageScope scope, String userId) {
+  return scope.isWritable && scope.rawUserId == userId;
+}
+
 class _AuthScreen extends ConsumerStatefulWidget {
   const _AuthScreen({
     required this.authService,
@@ -419,6 +434,7 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
   bool _signUpMode = false;
   bool _submitting = false;
   bool _dismissRecoveryMode = false;
+  bool _returningToWelcome = false;
 
   @override
   void initState() {
@@ -448,39 +464,80 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       return _buildRecoveryScreen(context);
     }
 
-    return LoginScreen(
-      emailController: _emailController,
-      passwordController: _passwordController,
-      obscurePassword: _obscuredPassword,
-      isSubmitting: _submitting,
-      isSignUpMode: _signUpMode,
-      allowSignUp: !widget.enableMockLogin,
-      startupError: widget.startupError,
-      showMockHint: widget.enableMockLogin,
-      mockHint: widget.enableMockLogin
-          ? 'QA tester build uses an isolated local test profile.'
-          : null,
-      showFirstRunGuide:
-          ref.watch(onboardingWelcomeCompleteProvider) &&
-          !ref.watch(onboardingCompleteProvider),
-      onTogglePassword: () {
-        setState(() => _obscuredPassword = !_obscuredPassword);
+    final bool canReturnToWelcome =
+        ref.watch(onboardingWelcomeCompleteProvider) &&
+        !ref.watch(onboardingCompleteProvider);
+
+    return PopScope<Object?>(
+      canPop: !canReturnToWelcome,
+      onPopInvokedWithResult: (bool didPop, Object? _) {
+        if (!didPop && canReturnToWelcome) {
+          unawaited(_returnToWelcome());
+        }
       },
-      onToggleMode: () {
-        setState(() => _signUpMode = !_signUpMode);
-      },
-      onPrimaryAction: () => _runAuthAction(_handlePrimaryAction),
-      onForgotPassword: () => _runAuthAction(_handleForgotPassword),
-      onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
-      onGitHubSignIn: () => _runAuthAction(_handleGitHubSignIn),
-      onPrivacyPolicy: () =>
-          context.push(ref.read(routeSurfaceProvider).privacy),
-      onTermsOfService: () =>
-          context.push(ref.read(routeSurfaceProvider).terms),
-      onMockLogin: widget.enableMockLogin
-          ? () => _runAuthAction(_handleMockSignIn)
-          : null,
+      child: LoginScreen(
+        emailController: _emailController,
+        passwordController: _passwordController,
+        obscurePassword: _obscuredPassword,
+        isSubmitting: _submitting,
+        isSignUpMode: _signUpMode,
+        allowSignUp: !widget.enableMockLogin,
+        startupError: widget.startupError,
+        showMockHint: widget.enableMockLogin,
+        mockHint: widget.enableMockLogin
+            ? 'QA tester build uses an isolated local test profile.'
+            : null,
+        showFirstRunGuide: canReturnToWelcome,
+        onTogglePassword: () {
+          setState(() => _obscuredPassword = !_obscuredPassword);
+        },
+        onToggleMode: () {
+          setState(() => _signUpMode = !_signUpMode);
+        },
+        onPrimaryAction: () => _runAuthAction(_handlePrimaryAction),
+        onForgotPassword: () => _runAuthAction(_handleForgotPassword),
+        onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
+        onGitHubSignIn: () => _runAuthAction(_handleGitHubSignIn),
+        onPrivacyPolicy: () =>
+            context.push(ref.read(routeSurfaceProvider).privacy),
+        onTermsOfService: () =>
+            context.push(ref.read(routeSurfaceProvider).terms),
+        onMockLogin: widget.enableMockLogin
+            ? () => _runAuthAction(_handleMockSignIn)
+            : null,
+      ),
     );
+  }
+
+  Future<void> _returnToWelcome() async {
+    if (_returningToWelcome) {
+      return;
+    }
+    _returningToWelcome = true;
+    final GoRouter? router = GoRouter.maybeOf(context);
+    final String? returnTo = router
+        ?.routeInformationProvider
+        .value
+        .uri
+        .queryParameters[RouteAccessPolicy.returnToQueryParameter];
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(onboardingWelcomeCompleteStorageKey, false);
+      if (!mounted) {
+        return;
+      }
+      ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
+      if (router != null) {
+        context.go(
+          RouteAccessPolicy.withReturnTo(
+            ref.read(routeSurfaceProvider).onboarding,
+            returnTo,
+          ),
+        );
+      }
+    } finally {
+      _returningToWelcome = false;
+    }
   }
 
   Future<void> _applyDeepLinkModeHint() async {

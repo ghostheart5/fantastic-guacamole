@@ -8,7 +8,6 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
-import 'package:fantastic_guacamole/tutorial/interactive_tutorial_overlay.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -38,7 +37,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   late final PageController _page;
   late int _current;
   final _helpCtrl = TextEditingController();
-  final GlobalKey _welcomeActionKey = GlobalKey(debugLabel: 'welcome-continue');
   double? _capacity;
   bool _submitting = false;
 
@@ -272,12 +270,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             children: [
                               SizedBox(
                                 width: 180,
-                                child: KeyedSubtree(
-                                  key: _welcomeActionKey,
-                                  child: _GradientButton(
-                                    label: continueToLogin,
-                                    onTap: _next,
-                                  ),
+                                child: _GradientButton(
+                                  label: continueToLogin,
+                                  onTap: _next,
                                 ),
                               ),
                             ],
@@ -286,38 +281,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               // Primary action button
-                              KeyedSubtree(
-                                key: _welcomeActionKey,
-                                child: _GradientButton(
-                                  label: continueToLogin,
-                                  onTap: _next,
-                                ),
+                              _GradientButton(
+                                label: continueToLogin,
+                                onTap: _next,
                               ),
                               const SizedBox(height: 17),
                             ],
                           ),
                   ),
                 ),
-              ),
-            if (_current == 0)
-              InteractiveTutorialOverlay(
-                targetKey: _welcomeActionKey,
-                stepLabel: l10n.isSpanish
-                    ? 'Configuración 1 de 3'
-                    : 'First setup 1 of 3',
-                title: l10n.isSpanish
-                    ? 'Bienvenido a ChronoSpark'
-                    : 'Welcome to ChronoSpark',
-                body: l10n.isSpanish
-                    ? 'Empieza aquí e inicia sesión. Después puedes pedir una opción útil o saltarla sin crear nada.'
-                    : 'Start here and sign in. Then you can ask for one helpful choice or skip it without creating anything.',
-                primaryLabel: _submitting
-                    ? (l10n.isSpanish ? 'Espera' : 'Please wait')
-                    : (l10n.isSpanish
-                          ? 'Continuar al acceso'
-                          : 'Continue to login'),
-                primaryEnabled: !_submitting,
-                onPrimary: _next,
               ),
           ],
         ),

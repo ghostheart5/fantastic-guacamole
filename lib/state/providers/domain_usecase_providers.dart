@@ -142,7 +142,7 @@ final domainNotificationRepositoryProvider = Provider<INotificationRepository>((
 });
 
 final domainGoalRepositoryProvider = Provider<IGoalRepository>((ref) {
-  return ref.read(goalRepositoryProvider);
+  return ref.watch(goalRepositoryProvider);
 });
 
 final domainSignalRepositoryProvider = Provider<ISignalRepository>((ref) {
@@ -372,7 +372,7 @@ final getTasksUseCaseProvider = Provider<GetTasks>((ref) {
 });
 
 final getGoalsUseCaseProvider = Provider<GetGoals>((ref) {
-  return GetGoals(ref.read(domainGoalRepositoryProvider));
+  return GetGoals(ref.watch(domainGoalRepositoryProvider));
 });
 
 final getSignalsUseCaseProvider = Provider<GetSignals>((ref) {
@@ -421,23 +421,23 @@ final saveIdentityProfileUseCaseProvider = Provider<SaveIdentityProfile>((ref) {
 });
 
 final createGoalUseCaseProvider = Provider<CreateGoal>((ref) {
-  return CreateGoal(ref.read(domainGoalRepositoryProvider));
+  return CreateGoal(ref.watch(domainGoalRepositoryProvider));
 });
 
 final updateGoalUseCaseProvider = Provider<UpdateGoal>((ref) {
-  return UpdateGoal(ref.read(domainGoalRepositoryProvider));
+  return UpdateGoal(ref.watch(domainGoalRepositoryProvider));
 });
 
 final deleteGoalUseCaseProvider = Provider<DeleteGoal>((ref) {
-  return DeleteGoal(ref.read(domainGoalRepositoryProvider));
+  return DeleteGoal(ref.watch(domainGoalRepositoryProvider));
 });
 
 final completeGoalUseCaseProvider = Provider<CompleteGoal>((ref) {
-  return CompleteGoal(ref.read(domainGoalRepositoryProvider));
+  return CompleteGoal(ref.watch(domainGoalRepositoryProvider));
 });
 
 final saveGoalsUseCaseProvider = Provider<SaveGoals>((ref) {
-  return SaveGoals(ref.read(domainGoalRepositoryProvider));
+  return SaveGoals(ref.watch(domainGoalRepositoryProvider));
 });
 
 final getProjectsUseCaseProvider = Provider<GetProjects>((ref) {

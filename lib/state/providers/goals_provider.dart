@@ -41,7 +41,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     // Completed goals are retained in storage (CompleteGoal no longer deletes)
     // but stay out of the active list, preserving the previous UI behaviour.
     final List<GoalEntity> goals = ref
-        .read(getGoalsUseCaseProvider)
+        .watch(getGoalsUseCaseProvider)
         .call()
         .where((GoalEntity goal) => !goal.isCompleted)
         .toList(growable: false);

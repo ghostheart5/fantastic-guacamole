@@ -117,6 +117,7 @@ extension _NavigationShellUi on _NavigationShellState {
 
   Widget _buildPhoneNavigation(int currentIndex) {
     return SafeArea(
+      key: const ValueKey<String>('phone-bottom-navigation'),
       top: false,
       minimum: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       child: TemporalGlassSurface(
@@ -129,6 +130,8 @@ extension _NavigationShellUi on _NavigationShellState {
             children: <Widget>[
               for (int index = 0; index < _primaryDestinations.length; index++)
                 _buildPhoneDestination(index, currentIndex),
+              const SizedBox(width: 4),
+              _buildPhoneMapAction(),
             ],
           ),
         ),
@@ -342,7 +345,6 @@ extension _NavigationShellUi on _NavigationShellState {
         if (constraints.maxWidth < 600) {
           return Scaffold(
             backgroundColor: AppColors.background,
-            floatingActionButton: _buildPhoneMapAction(),
             body: tabbedBody,
             bottomNavigationBar: _buildPhoneNavigation(tabIndex),
           );

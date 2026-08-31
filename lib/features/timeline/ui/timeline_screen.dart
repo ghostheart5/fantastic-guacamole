@@ -17,6 +17,11 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// Injectable clock for deterministic Timeline windows and projections.
+final timelineClockProvider = Provider<DateTime Function()>(
+  (Ref ref) => DateTime.now,
+);
+
 enum _TimelineWindow { today, week, month, year, all }
 
 enum _TimelineFilter {
@@ -112,7 +117,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       else if (tasksLoading)
         _TimelineSourceIssue.taskLoading,
     ];
-    final DateTime now = DateTime.now();
+    final DateTime now = ref.watch(timelineClockProvider)();
 
     final int combinedKey = Object.hash(
       identityHashCode(baseEvents),
@@ -1918,12 +1923,8 @@ bool _inWindow({
           moment.month == now.month &&
           moment.day == now.day;
     case _TimelineWindow.week:
-      final DateTime start = DateTime(
-        now.year,
-        now.month,
-        now.day - (now.weekday - 1),
-      );
-      final DateTime end = start.add(const Duration(days: 7));
+      final DateTime start = DateTime(now.year, now.month, now.day);
+      final DateTime end = DateTime(start.year, start.month, start.day + 7);
       return !moment.isBefore(start) && moment.isBefore(end);
     case _TimelineWindow.month:
       return moment.year == now.year && moment.month == now.month;

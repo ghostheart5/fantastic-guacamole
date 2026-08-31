@@ -131,10 +131,7 @@ void main() {
     expect(container.read(smartPlannerFirstValueProvider), isNull);
     expect(container.read(memoriesProvider), isEmpty);
     await _scrollTo(tester, find.text('PLANNER V2'));
-    expect(
-      find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC · NOT AI-GENERATED'),
-      findsOneWidget,
-    );
+    expect(find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC'), findsOneWidget);
   });
 
   testWidgets('rebuild does not duplicate staged first-value guidance', (
@@ -212,10 +209,7 @@ void main() {
 
       expect(planner.guidanceRequestCount, 1);
       await _scrollTo(tester, find.text('PLANNER V2'));
-      expect(
-        find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC · NOT AI-GENERATED'),
-        findsOneWidget,
-      );
+      expect(find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC'), findsOneWidget);
     },
   );
 
@@ -341,10 +335,7 @@ void main() {
     await _requestGuidance(tester);
 
     await _scrollTo(tester, find.text('PLANNER V2'));
-    expect(
-      find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC · NOT AI-GENERATED'),
-      findsOneWidget,
-    );
+    expect(find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC'), findsOneWidget);
     expect(find.text('WHAT I HEARD'), findsNothing);
     expect(find.text('YOUR PLAN + TRADEOFF'), findsOneWidget);
     expect(find.text('ONE CONCRETE NEXT STEP'), findsOneWidget);
@@ -395,7 +386,6 @@ void main() {
     expect(find.text('READ ALOUD'), findsOneWidget);
     expect(find.text('VOICE INPUT'), findsOneWidget);
     expect(find.text('SPEAK'), findsNothing);
-    expect(find.text('ON-DEVICE PLANNER · NOT AI-GENERATED'), findsNothing);
     expect(
       find.text('Guidance is advisory; you choose whether to apply it.'),
       findsNothing,

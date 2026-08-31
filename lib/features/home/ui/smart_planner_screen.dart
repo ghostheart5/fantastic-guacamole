@@ -1288,7 +1288,7 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
         children: [
           const TemporalStatusRow(
             icon: Icons.verified_user_outlined,
-            text: 'ON-DEVICE PLANNER V2 · DETERMINISTIC · NOT AI-GENERATED',
+            text: 'ON-DEVICE PLANNER V2 · DETERMINISTIC',
             color: AppColors.neonCyan,
           ),
           if (response.isClarification) ...[

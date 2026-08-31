@@ -205,6 +205,35 @@ void main() {
     expect(find.text('Loading your Timeline'), findsNothing);
   });
 
+  testWidgets(
+    'Week view includes a task just after midnight following Sunday night',
+    (WidgetTester tester) async {
+      final DateTime now = DateTime(2026, 8, 30, 23, 43);
+      final Task afterMidnightTask = Task(
+        id: 'after-midnight-task',
+        title: 'Monday after-midnight task',
+        priority: 3,
+        difficulty: 2,
+        energyRequired: 2,
+        dueDate: DateTime(2026, 8, 31, 0, 38),
+      );
+      final ProviderContainer container = _buildContainer(
+        task: afterMidnightTask,
+        clock: () => now,
+      );
+      addTearDown(container.dispose);
+
+      await _pumpTimeline(
+        tester,
+        container,
+        taskTitle: afterMidnightTask.title,
+      );
+
+      expect(find.text(afterMidnightTask.title), findsOneWidget);
+      expect(find.text('No saved activity in this view'), findsNothing);
+    },
+  );
+
   testWidgets('schedule-only task is never presented as due or overdue', (
     WidgetTester tester,
   ) async {
@@ -363,9 +392,11 @@ ProviderContainer _buildContainer({
   void Function(_RecordingTaskActions value)? onActionsBuilt,
   Completer<void>? updateCompleter,
   Object? updateError,
+  DateTime Function()? clock,
 }) {
   final ProviderContainer container = ProviderContainer(
     overrides: [
+      if (clock != null) timelineClockProvider.overrideWithValue(clock),
       timelineProvider.overrideWith(() {
         final _TimelineNotifier notifier = _TimelineNotifier(baseEvents);
         onTimelineNotifierBuilt?.call(notifier);

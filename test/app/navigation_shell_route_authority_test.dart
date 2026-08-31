@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
@@ -94,6 +95,34 @@ void main() {
     _expectRouterUri(harness, RoutePaths.smartPlanner);
     _expectRouteAndVisibleView(_byRoute(RoutePaths.smartPlanner));
     expect(harness.container.read(appFlowProvider), AppView.smartPlanner);
+  });
+
+  testWidgets('phone navigation contains the map action below app content', (
+    WidgetTester tester,
+  ) async {
+    await _pumpRouteShell(
+      tester,
+      initialLocation: RoutePaths.timeline,
+      surfaceSize: const Size(360, 772),
+      forceOnline: true,
+    );
+
+    const Key navigationKey = ValueKey<String>('phone-bottom-navigation');
+    final Finder navigation = find.byKey(navigationKey);
+    final Finder mapAction = find.byTooltip('Open navigation map');
+
+    expect(navigation, findsOneWidget);
+    expect(
+      find.descendant(of: navigation, matching: mapAction),
+      findsOneWidget,
+    );
+    final Rect navigationRect = tester.getRect(navigation);
+    final Rect mapRect = tester.getRect(mapAction);
+    expect(mapRect.left, greaterThanOrEqualTo(navigationRect.left));
+    expect(mapRect.top, greaterThanOrEqualTo(navigationRect.top));
+    expect(mapRect.right, lessThanOrEqualTo(navigationRect.right));
+    expect(mapRect.bottom, lessThanOrEqualTo(navigationRect.bottom));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('system back produces the expected content and URL', (
@@ -282,9 +311,11 @@ Future<_RouteShellHarness> _pumpRouteShell(
   WidgetTester tester, {
   String initialLocation = RoutePaths.nexus,
   bool reuseShellState = false,
+  Size surfaceSize = const Size(1200, 2400),
+  bool forceOnline = false,
 }) async {
   tester.platformDispatcher.views.first
-    ..physicalSize = const Size(1200, 2400)
+    ..physicalSize = surfaceSize
     ..devicePixelRatio = 1.0;
   addTearDown(() {
     tester.platformDispatcher.views.first
@@ -294,6 +325,7 @@ Future<_RouteShellHarness> _pumpRouteShell(
 
   final ProviderContainer container = ProviderContainer(
     overrides: [
+      if (forceOnline) isOnlineProvider.overrideWithValue(true),
       unreadNotificationsProvider.overrideWithValue(0),
       goalsProvider.overrideWith(_StaticGoals.new),
     ],

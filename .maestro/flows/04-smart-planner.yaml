@@ -13,7 +13,7 @@ tags:
     env:
       TARGET: "Smart Planner"
 
-- assertVisible: "Back to Nexus\\nSMART PLANNER\\nBuild your next plan from real evidence"
+- assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
 
 # The canonical destination must not regress to a retired product label.
 - assertNotVisible: "SMART COACH"

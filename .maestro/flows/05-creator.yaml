@@ -31,10 +31,10 @@ tags:
 
 - scrollUntilVisible:
     element:
-      text: "Schedule date"
+      text: "Schedule date and time"
     direction: DOWN
     timeout: 10000
-- tapOn: "Schedule date"
+- tapOn: "Schedule date and time"
 - extendedWaitUntil:
     visible: "OK"
     timeout: 10000

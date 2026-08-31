@@ -192,6 +192,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('% confident'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Report response').last);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Report response'), findsOneWidget);
+    expect(find.text('Report AI response'), findsNothing);
   });
 
   testWidgets('empty input never reaches the read-only analyzer', (

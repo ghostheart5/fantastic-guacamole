@@ -153,10 +153,12 @@ void main() {
     expect(response.origin, PlannerResponseOrigin.deterministic);
     expect(result.savedNotes, isNull);
     expect(result.processingMode, AIProcessingMode.onDevice);
-    expect(result.evidence, contains(contains('not AI-generated')));
+    expect(
+      result.evidence,
+      contains('Origin: deterministic on-device Planner V2.'),
+    );
     result.request.validate();
     result.response.validateAgainst(result.request);
-    result.evidenceManifest.validateAgainstResponse(result.response);
     expect(
       result.safetyReceipt.disposition,
       AssistantSafetyDisposition.approved,
@@ -648,7 +650,20 @@ void main() {
       );
       expect(
         result.plannerResponse.verifiedEvidence,
-        contains(contains('Current operating receipt matched')),
+        contains(contains('saved planning recommendation matched')),
+      );
+      expect(
+        result.plannerResponse.whatIHeard,
+        contains('saved planning recommendation "Prepare release evidence"'),
+      );
+      expect(
+        <String>[
+          result.message,
+          result.plannerResponse.whatIHeard,
+          result.plannerResponse.recommendationReason,
+          ...result.plannerResponse.verifiedEvidence,
+        ].join('\n').toLowerCase(),
+        isNot(contains('operating receipt')),
       );
       expect(
         result.plannerResponse.options.every(

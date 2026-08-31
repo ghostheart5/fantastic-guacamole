@@ -62,6 +62,11 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('mock-user'),
+          ),
+        ],
         child: MaterialApp(
           home: AuthGate(
             authService: _IntegrationFakeAuthService(),
@@ -80,7 +85,8 @@ void main() {
     );
     expect(testerAccess, findsOneWidget);
     await tester.ensureVisible(testerAccess);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(testerAccess.hitTestable(), findsOneWidget);
     await tester.tap(testerAccess);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
@@ -116,7 +122,7 @@ void main() {
 
     expect(find.text('CHRONOSPARK'), findsOneWidget);
     expect(find.text('SKIP'), findsNothing);
-    await tester.tap(find.text('Continue to login'));
+    await tester.tap(find.text('CONTINUE TO LOGIN'));
     await tester.pump(const Duration(milliseconds: 400));
 
     final Finder firstValueQuestion = find.byKey(
@@ -276,11 +282,21 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(DatePickerDialog), findsOneWidget);
-    await tester.tap(find.text('OK'));
+    final Finder datePickerOk = find.descendant(
+      of: find.byType(DatePickerDialog),
+      matching: find.widgetWithText(TextButton, 'OK'),
+    );
+    expect(datePickerOk.hitTestable(), findsOneWidget);
+    await tester.tap(datePickerOk);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(TimePickerDialog), findsOneWidget);
-    await tester.tap(find.text('OK'));
+    final Finder timePickerOk = find.descendant(
+      of: find.byType(TimePickerDialog),
+      matching: find.widgetWithText(TextButton, 'OK'),
+    );
+    expect(timePickerOk.hitTestable(), findsOneWidget);
+    await tester.tap(timePickerOk);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Schedule date and time...'), findsNothing);

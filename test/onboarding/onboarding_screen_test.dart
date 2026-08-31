@@ -35,7 +35,9 @@ void main() {
 
     expect(find.text('CHRONOSPARK'), findsOneWidget);
     expect(find.text('SKIP'), findsNothing);
-    await tester.tap(find.text('Continue to login'));
+    expect(find.text('CONTINUE TO LOGIN'), findsOneWidget);
+    expect(find.text('Continue to login'), findsNothing);
+    await tester.tap(find.text('CONTINUE TO LOGIN'));
     await tester.pump(const Duration(milliseconds: 300));
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();

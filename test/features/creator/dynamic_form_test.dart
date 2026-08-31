@@ -415,6 +415,56 @@ void main() {
     expect(pickerVisible, isFalse);
   });
 
+  testWidgets('schedule picker does not restore focus to the title field', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(onSubmit: (_) async {}),
+          ),
+        ),
+      ),
+    );
+
+    final Finder titleField = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is TextField && widget.decoration?.hintText == 'Title *',
+    );
+    await tester.tap(titleField);
+    await tester.enterText(titleField, 'Keep this title intact');
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    final Finder schedule = find.text('Schedule date and time...');
+    await tester.ensureVisible(schedule);
+    await tester.tap(schedule);
+    await tester.pumpAndSettle();
+    final Finder datePickerOk = find.descendant(
+      of: find.byType(DatePickerDialog),
+      matching: find.widgetWithText(TextButton, 'OK'),
+    );
+    await tester.tap(datePickerOk);
+    await tester.pumpAndSettle();
+    final Finder timePickerOk = find.descendant(
+      of: find.byType(TimePickerDialog),
+      matching: find.widgetWithText(TextButton, 'OK'),
+    );
+    await tester.tap(timePickerOk);
+    await tester.pumpAndSettle();
+
+    final EditableText titleEditor = tester.widget<EditableText>(
+      find.descendant(of: titleField, matching: find.byType(EditableText)),
+    );
+    expect(titleEditor.focusNode.hasFocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(titleEditor.controller.text, 'Keep this title intact');
+  });
+
   testWidgets('guided first task requires real choices and a schedule', (
     WidgetTester tester,
   ) async {

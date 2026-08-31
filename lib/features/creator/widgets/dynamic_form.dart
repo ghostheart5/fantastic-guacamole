@@ -705,6 +705,7 @@ class _DateField extends StatelessWidget {
   final ValueChanged<bool>? onVisibilityChanged;
 
   Future<void> _pick(BuildContext context) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     onVisibilityChanged?.call(true);
     try {
       final DateTime now = DateTime.now();
@@ -738,6 +739,7 @@ class _DateField extends StatelessWidget {
       if (time == null) return;
       onPick(DateTime(date.year, date.month, date.day, time.hour, time.minute));
     } finally {
+      FocusManager.instance.primaryFocus?.unfocus();
       onVisibilityChanged?.call(false);
     }
   }

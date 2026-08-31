@@ -465,7 +465,7 @@ class SmartPlannerQueryController
             'Current emotional state was not used.',
           ...evidence.clarificationEvidence(observedAt),
           conversation.evidenceSummary(contextWasProvided: contextWasProvided),
-          'No saved task, goal, operating receipt action, or Creator draft was attached.',
+          'No saved task, goal, saved planning recommendation, or Creator draft was attached.',
           'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
         ],
         question: supportivePause
@@ -783,7 +783,7 @@ class SmartPlannerQueryController
     }
     final OperatingDecisionReceipt? receipt = evidence.operatingReceipt.focus;
     if (receipt != null) {
-      return '$base It is grounded in the current operating receipt: ${_condense(receipt.rationale, maxLength: 140)}';
+      return '$base It is grounded in the latest saved planning recommendation: ${_condense(receipt.rationale, maxLength: 140)}';
     }
     final _PlannerPersonContextSignal? personFocus =
         evidence.personContext.planningFocus;
@@ -845,7 +845,7 @@ class SmartPlannerQueryController
   }) {
     final List<String> evidence = <String>[
       ...response.verifiedEvidence,
-      'Origin: deterministic on-device Planner V2; not AI-generated.',
+      'Origin: deterministic on-device Planner V2.',
     ];
     final AIRecommendation recommendation =
         AIRecommendation(
@@ -1476,7 +1476,7 @@ final class _PlannerEvidence {
     }
     final OperatingDecisionReceipt? receipt = operatingReceipt.focus;
     if (receipt != null) {
-      return 'current operating receipt action "${SmartPlannerQueryController._safeEvidenceTitle(receipt.recommendedAction)}"';
+      return 'saved planning recommendation "${SmartPlannerQueryController._safeEvidenceTitle(receipt.recommendedAction)}"';
     }
     return personContext.planningFocus?.subject;
   }
@@ -1638,13 +1638,13 @@ final class _PlannerOperatingReceiptEvidence {
 
   String get adaptationSummary => switch (status) {
     _PlannerOperatingReceiptStatus.matched =>
-      'Used a fresh operating receipt only after a positive relevance match.',
+      'Used a recent saved planning recommendation only after a positive relevance match.',
     _PlannerOperatingReceiptStatus.unmatched =>
-      'A fresh operating receipt was available but not used because it did not match this check-in.',
+      'A recent saved planning recommendation was available but not used because it did not match this check-in.',
     _PlannerOperatingReceiptStatus.expired =>
-      'The operating receipt was expired and was not used.',
+      'The saved planning recommendation had expired and was not used.',
     _PlannerOperatingReceiptStatus.unavailable =>
-      'No current operating receipt was available.',
+      'No recent saved planning recommendation was available.',
   };
 
   Map<String, Object?> get requestContext => <String, Object?>{
@@ -1655,29 +1655,29 @@ final class _PlannerOperatingReceiptEvidence {
 
   List<String> verifiedEvidence() => switch (status) {
     _PlannerOperatingReceiptStatus.matched => <String>[
-      'Current operating receipt matched this check-in: "${SmartPlannerQueryController._safeEvidenceTitle(receipt!.recommendedAction)}"; generated ${receipt!.generatedAt.toUtc().toIso8601String()}; expires ${receipt!.expiresAt.toUtc().toIso8601String()}.',
+      'A saved planning recommendation matched this check-in: "${SmartPlannerQueryController._safeEvidenceTitle(receipt!.recommendedAction)}"; generated ${receipt!.generatedAt.toUtc().toIso8601String()}; expires ${receipt!.expiresAt.toUtc().toIso8601String()}.',
     ],
     _PlannerOperatingReceiptStatus.unmatched => const <String>[
-      'A fresh operating receipt was checked but not attached because it had no positive relevance match.',
+      'A recent saved planning recommendation was checked but not attached because it had no positive relevance match.',
     ],
     _PlannerOperatingReceiptStatus.expired => const <String>[
-      'The available operating receipt was expired and was not used.',
+      'The available saved planning recommendation had expired and was not used.',
     ],
     _PlannerOperatingReceiptStatus.unavailable => const <String>[
-      'No current operating receipt was available for this check-in.',
+      'No recent saved planning recommendation was available for this check-in.',
     ],
   };
 
   List<String> clarificationEvidence() => switch (status) {
     _PlannerOperatingReceiptStatus.matched ||
     _PlannerOperatingReceiptStatus.unmatched => const <String>[
-      'A current operating receipt was checked and was not attached while clarification is needed.',
+      'A recent saved planning recommendation was checked and was not attached while clarification is needed.',
     ],
     _PlannerOperatingReceiptStatus.expired => const <String>[
-      'The available operating receipt was expired and was not used.',
+      'The available saved planning recommendation had expired and was not used.',
     ],
     _PlannerOperatingReceiptStatus.unavailable => const <String>[
-      'No current operating receipt was available for this check-in.',
+      'No recent saved planning recommendation was available for this check-in.',
     ],
   };
 }

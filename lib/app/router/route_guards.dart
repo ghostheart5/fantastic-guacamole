@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     show intelligenceStateProvider;
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
@@ -24,5 +25,6 @@ final onboardingWelcomeCompleteGuardProvider = Provider<bool>((ref) {
 
 final authenticatedGuardProvider = Provider<bool>((ref) {
   final intelligence = ref.watch(intelligenceStateProvider);
-  return intelligence.auth.isAuthenticated;
+  final accountScope = ref.watch(accountStorageScopeProvider);
+  return intelligence.auth.isAuthenticated && accountScope.isWritable;
 });

@@ -183,6 +183,51 @@ void main() {
     expect(response.scenarios, isEmpty);
   });
 
+  test('missing-evidence question names selected empty sources', () {
+    final SIV2Response response = const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: 'What evidence is missing?',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: SIV2EvidenceSnapshot(
+        accountScopeId: 'account:test',
+        observedAt: now,
+        tasks: <SIV2TaskEvidence>[
+          SIV2TaskEvidence(
+            id: 'task',
+            title: 'Prepare release',
+            createdAt: now.subtract(const Duration(days: 2)),
+            priority: 5,
+          ),
+        ],
+        goals: const <SIV2GoalEvidence>[],
+        milestones: const <SIV2MilestoneEvidence>[],
+        timeline: const <SIV2TimelineEvidence>[],
+      ),
+      now: now,
+    );
+
+    expect(
+      response.missingInformation,
+      containsAll(<String>[
+        'No goal evidence matched the current lens.',
+        'No milestone evidence matched the current lens.',
+        'No Timeline evidence matched the current lens.',
+      ]),
+    );
+    expect(
+      response.missingInformation,
+      isNot(contains('No active task evidence matched the current lens.')),
+    );
+    expect(response.directAnswer, contains('No goal evidence matched'));
+    expect(response.directAnswer, contains('No milestone evidence matched'));
+    expect(response.directAnswer, contains('No Timeline evidence matched'));
+    expect(response.directAnswer, isNot(contains('1 evidence item matched')));
+    response.validate();
+  });
+
   test('normal-language task wording changes the grounded answer', () {
     final SIV2Response background = const SIV2Engine().analyze(
       query: SIV2Query.fromUserInput(

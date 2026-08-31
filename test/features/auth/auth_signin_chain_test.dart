@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
@@ -72,6 +74,11 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('user-1'),
+          ),
+        ],
         child: MaterialApp(
           home: AuthGate(
             authService: service,
@@ -122,22 +129,62 @@ void main() {
     expect(find.textContaining('TESTER ACCESS'), findsNothing);
   });
 
-  testWidgets('a successful sign-in admits the user to the app', (
+  testWidgets('regular login leaves normal Back behavior enabled', (
     WidgetTester tester,
   ) async {
     final _FakeAuthService service = _FakeAuthService();
     addTearDown(service.dispose);
 
     await pumpGate(tester, service);
+
+    final PopScope<Object?> backScope = tester.widget<PopScope<Object?>>(
+      find.byType(PopScope<Object?>),
+    );
+    expect(backScope.canPop, isTrue);
+  });
+
+  testWidgets('a successful sign-in admits the user to the app', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAuthService service = _FakeAuthService();
+    addTearDown(service.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountStorageScopeProvider.overrideWith(
+            (Ref ref) => ref.watch(_mutableAccountScopeProvider),
+          ),
+        ],
+        child: MaterialApp(
+          home: AuthGate(
+            authService: service,
+            child: const Scaffold(body: Text('APP_READY')),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('APP_READY'), findsNothing);
 
     // The gate renders from the auth-state stream, not from the return value
-    // of signIn, so the emission is what actually admits the user.
+    // of signIn. The verified user must still wait for matching account
+    // storage before the application surface can mount.
     await service.signIn(email: 'user@chronospark.app', password: 'Correct1!');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(service.signInCalls, 1);
+    expect(find.text('APP_READY'), findsNothing);
+
+    tester
+        .container()
+        .read(_mutableAccountScopeProvider.notifier)
+        .authenticate('user-1');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
     expect(find.text('APP_READY'), findsOneWidget);
   });
 
@@ -330,6 +377,11 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            accountStorageScopeProvider.overrideWith(
+              (Ref ref) => ref.watch(_mutableAccountScopeProvider),
+            ),
+          ],
           child: MaterialApp(
             home: AuthGate(
               authService: service,
@@ -355,6 +407,15 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
 
       expect(service.signInCalls, 0);
+      expect(find.text('APP_READY'), findsNothing);
+
+      tester
+          .container()
+          .read(_mutableAccountScopeProvider.notifier)
+          .authenticate('mock-user');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
       expect(find.text('APP_READY'), findsOneWidget);
     },
   );
@@ -441,6 +502,21 @@ void main() {
       expect(find.text('Continue with GitHub'), findsOneWidget);
     },
   );
+}
+
+final NotifierProvider<_MutableAccountScopeNotifier, AccountStorageScope>
+_mutableAccountScopeProvider =
+    NotifierProvider<_MutableAccountScopeNotifier, AccountStorageScope>(
+      _MutableAccountScopeNotifier.new,
+    );
+
+class _MutableAccountScopeNotifier extends Notifier<AccountStorageScope> {
+  @override
+  AccountStorageScope build() => const AccountStorageScope.signedOut();
+
+  void authenticate(String userId) {
+    state = AccountStorageScope.authenticated(userId);
+  }
 }
 
 const IntelligenceState _configuredIntelligenceState = IntelligenceState(

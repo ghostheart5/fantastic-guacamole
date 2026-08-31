@@ -175,7 +175,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             return AlertDialog(
               backgroundColor: const Color(0xFF0C1420),
               surfaceTintColor: Colors.transparent,
-              title: const Text('Report AI response'),
+              title: const Text('Report response'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

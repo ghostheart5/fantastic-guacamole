@@ -210,6 +210,22 @@ final class SIV2Engine {
       for (final SIV2Source source in query.sources)
         if (snapshot.unavailableSources.contains(source))
           '${source.label} evidence is unavailable.',
+      if (query.sources.contains(SIV2Source.tasks) &&
+          !snapshot.unavailableSources.contains(SIV2Source.tasks) &&
+          tasks.isEmpty)
+        'No active task evidence matched the current lens.',
+      if (query.sources.contains(SIV2Source.goals) &&
+          !snapshot.unavailableSources.contains(SIV2Source.goals) &&
+          goals.isEmpty)
+        'No goal evidence matched the current lens.',
+      if (query.sources.contains(SIV2Source.milestones) &&
+          !snapshot.unavailableSources.contains(SIV2Source.milestones) &&
+          milestones.isEmpty)
+        'No milestone evidence matched the current lens.',
+      if (query.sources.contains(SIV2Source.timeline) &&
+          !snapshot.unavailableSources.contains(SIV2Source.timeline) &&
+          timeline.isEmpty)
+        'No Timeline evidence matched the current lens.',
       if (query.entityFilter != null &&
           tasks.isEmpty &&
           goals.isEmpty &&
@@ -268,6 +284,7 @@ final class SIV2Engine {
       conflicts: conflicts,
       scenarios: scenarios,
       now: observedNow,
+      missingInformation: missing,
       totalMatched:
           tasks.length + goals.length + milestones.length + timeline.length,
     );
@@ -590,8 +607,14 @@ final class SIV2Engine {
     required List<SIV2Conflict> conflicts,
     required List<SIV2Scenario> scenarios,
     required DateTime now,
+    required List<String> missingInformation,
     required int totalMatched,
   }) {
+    if (question.focus == _SIV2QuestionFocus.evidenceGaps) {
+      return missingInformation.isEmpty
+          ? 'No evidence gaps were identified in the selected lens.'
+          : 'The selected lens has these missing or conflicting items: ${missingInformation.join(' ')}';
+    }
     if (totalMatched == 0) {
       return switch (question.focus) {
         _SIV2QuestionFocus.counterfactual =>
@@ -764,6 +787,10 @@ final class SIV2Engine {
         return focusTimeline == null
             ? 'No Timeline record matches the event or history question in the current lens.'
             : 'Timeline records "${focusTimeline.title}" at ${_dateLabel(focusTimeline.timestamp)} with type "${focusTimeline.type}" and status "${focusTimeline.status}".';
+      case _SIV2QuestionFocus.evidenceGaps:
+        return missingInformation.isEmpty
+            ? 'No evidence gaps were identified in the selected lens.'
+            : 'The selected lens has these missing or conflicting items: ${missingInformation.join(' ')}';
       case _SIV2QuestionFocus.overview:
         if (focusTask != null && question.titleScore(focusTask.title) > 0) {
           return 'Your question most closely matches saved task "${focusTask.title}", recorded at priority ${focusTask.priority}/5 with ${_timingLabel(focusTask.dueDate ?? focusTask.scheduledFor, now)}.';
@@ -811,6 +838,8 @@ final class SIV2Engine {
         break;
       case _SIV2QuestionFocus.unsupported:
         return 'Ask a planning question that can be checked against tasks, goals, milestones, or Timeline; SI will not invent an answer.';
+      case _SIV2QuestionFocus.evidenceGaps:
+        return 'Review the named evidence gaps before relying on this lens for a planning decision.$noMutation';
       case _SIV2QuestionFocus.workload:
       case _SIV2QuestionFocus.urgency:
       case _SIV2QuestionFocus.nextAction:
@@ -1125,6 +1154,7 @@ enum _SIV2QuestionFocus {
   conflict,
   counterfactual,
   timeline,
+  evidenceGaps,
   overview,
   unsupported,
 }
@@ -1264,6 +1294,9 @@ final class _SIV2Question {
       };
     }
     bool hasAny(List<String> patterns) => patterns.any(input.contains);
+    if (input.contains('missing') && input.contains('evidence')) {
+      return _SIV2QuestionFocus.evidenceGaps;
+    }
     if (hasAny(<String>['what would change', 'counterfactual'])) {
       return _SIV2QuestionFocus.counterfactual;
     }

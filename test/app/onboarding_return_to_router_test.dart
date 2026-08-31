@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
+import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,7 +49,7 @@ void main() {
       );
       expect(find.byType(OnboardingScreen), findsOneWidget);
 
-      await tester.tap(find.text('Continue to login'));
+      await tester.tap(find.text('CONTINUE TO LOGIN'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
@@ -92,7 +93,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    await tester.tap(find.text('Continue to login'));
+    await tester.tap(find.text('CONTINUE TO LOGIN'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -110,9 +111,44 @@ void main() {
 
     _expectLocation(harness, path: RoutePaths.nexus);
   });
+
+  testWidgets('Back from first-run login returns to the welcome step', (
+    WidgetTester tester,
+  ) async {
+    final _RouterHarness harness = await _pumpRouter(
+      tester,
+      enableMockLogin: true,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tap(find.text('CONTINUE TO LOGIN'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    _expectLocation(harness, path: RoutePaths.login);
+    expect(harness.container.read(onboardingWelcomeCompleteProvider), isTrue);
+    expect(find.byType(PopScope<Object?>), findsOneWidget);
+    expect(
+      tester.widget<PopScope<Object?>>(find.byType(PopScope<Object?>)).canPop,
+      isFalse,
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(harness.container.read(onboardingWelcomeCompleteProvider), isFalse);
+    _expectLocation(harness, path: RoutePaths.onboarding);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(onboardingWelcomeCompleteStorageKey), isFalse);
+  });
 }
 
-Future<_RouterHarness> _pumpRouter(WidgetTester tester) async {
+Future<_RouterHarness> _pumpRouter(
+  WidgetTester tester, {
+  bool enableMockLogin = false,
+}) async {
   tester.view.physicalSize = const Size(1440, 2560);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
@@ -130,6 +166,29 @@ Future<_RouterHarness> _pumpRouter(WidgetTester tester) async {
         (Ref ref) => ref.watch(onboardingCompleteProvider),
       ),
       intelligenceStateProvider.overrideWith((Ref ref) {
+        if (enableMockLogin) {
+          return IntelligenceState(
+            environment: const EnvironmentState(
+              appName: 'ChronoSpark',
+              appFlavor: 'qa',
+              isProduction: false,
+              isSupabaseConfigured: false,
+            ),
+            flags: const FeatureFlagsState(
+              verboseLogs: false,
+              analyticsEnabled: false,
+              mockMode: true,
+              mockLoginEnabled: true,
+              paywallDisabled: true,
+              testerFullAccess: true,
+            ),
+            auth: AuthStateSnapshot(
+              hasMockSignIn: ref.watch(_authenticatedProvider),
+              hasAuthenticatedUser: false,
+            ),
+            mockLogin: const MockLoginConfigState(email: '', password: ''),
+          );
+        }
         return const IntelligenceService().fromRuntime(
           hasMockSignIn: ref.watch(_authenticatedProvider),
           hasAuthenticatedUser: false,

@@ -9,6 +9,7 @@ void main() {
     WidgetTester tester, {
     required double width,
     double height = 900,
+    bool obscurePassword = true,
     VoidCallback? onPrimaryAction,
     bool disableAnimations = false,
   }) async {
@@ -31,7 +32,7 @@ void main() {
             child: LoginScreen(
               emailController: emailController,
               passwordController: passwordController,
-              obscurePassword: true,
+              obscurePassword: obscurePassword,
               isSubmitting: false,
               isSignUpMode: false,
               onPrimaryAction: onPrimaryAction ?? () {},
@@ -148,6 +149,25 @@ void main() {
 
     expect(primaryActionCalls, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('names login fields and the password visibility action', (
+    WidgetTester tester,
+  ) async {
+    final SemanticsHandle semantics = tester.ensureSemantics();
+
+    await pumpLoginScreen(tester, width: 420);
+
+    expect(find.bySemanticsLabel(RegExp(r'^Email field\b')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Password field\b')), findsOneWidget);
+    expect(find.bySemanticsLabel('Show password'), findsOneWidget);
+    expect(find.bySemanticsLabel('Hide password'), findsNothing);
+
+    await pumpLoginScreen(tester, width: 420, obscurePassword: false);
+
+    expect(find.bySemanticsLabel('Hide password'), findsOneWidget);
+    expect(find.bySemanticsLabel('Show password'), findsNothing);
+    semantics.dispose();
   });
 
   testWidgets('does not keep login animations running under reduced motion', (
