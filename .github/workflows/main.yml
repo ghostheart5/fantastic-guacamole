@@ -11,6 +11,15 @@ on:
       - 'web/delete-account/**'
       - 'web/legal.css'
       - '.github/workflows/main.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'web/privacy/**'
+      - 'web/terms/**'
+      - 'web/support/**'
+      - 'web/delete-account/**'
+      - 'web/legal.css'
+      - '.github/workflows/main.yml'
   workflow_dispatch:
 
 permissions:
@@ -39,7 +48,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for path in site/index.html site/app/index.html site/features/index.html site/download/index.html web/privacy/index.html web/terms/index.html web/support/index.html web/delete-account/index.html web/legal.css feature.png; do
+          for path in site/index.html site/app/index.html site/features/index.html site/download/index.html site/assets/site.css site/assets/site.js site/assets/chronospark-temporal-field.jpg site/assets/social-card.png web/privacy/index.html web/terms/index.html web/support/index.html web/delete-account/index.html web/legal.css; do
             if [ ! -f "$path" ]; then
               echo "::error::Static Pages source is incomplete: $path"
               exit 1
@@ -53,7 +62,6 @@ jobs:
           rm -rf _site
           mkdir -p _site
           cp -R site/. _site/
-          cp feature.png _site/assets/social-card.png
           for route in privacy terms support delete-account; do
             mkdir -p "_site/$route"
             cp "web/$route/index.html" "_site/$route/index.html"
@@ -68,14 +76,14 @@ jobs:
 
           root = Path('_site')
           required = {
-              'index.html': ('ChronoSpark', 'Understand the day'),
-              'features/index.html': ('Feature proof', 'Nexus'),
+              'index.html': ('ChronoSpark', 'Understand the day', 'One human loop'),
+              'features/index.html': ('System map', 'Nexus', 'Trajectory', 'Product model, not a screenshot'),
               'download/index.html': ('Install only from a verified path',),
-              'support/index.html': ('ChronoSpark Support',),
-              'privacy/index.html': ('ChronoSpark Privacy Policy',),
-              'terms/index.html': ('ChronoSpark Terms of Service',),
+              'support/index.html': ('Working contact path', 'ghostheart131517@gmail.com'),
+              'privacy/index.html': ('Privacy Policy', 'Current release containment'),
+              'terms/index.html': ('Terms of Service', 'Subscriptions, AI-credit purchases, and credit spending are not enabled'),
               'delete-account/index.html': ('Delete a ChronoSpark Account',),
-              'app/index.html': ('verified web app is not published here yet',),
+              'app/index.html': ('No verified web app is published here',),
               'robots.txt': ('Sitemap:',),
               'sitemap.xml': ('/privacy/', '/delete-account/'),
           }
@@ -104,12 +112,23 @@ jobs:
                   'property="og:description"',
                   f'property="og:url" content="{canonical_url}"',
                   f'property="og:image" content="{social_image}"',
-                  'name="twitter:card" content="summary"',
+                  'name="twitter:card" content="summary_large_image"',
               ):
                   if marker not in text:
                       raise SystemExit(f'{relative} is missing required social metadata: {marker}')
           if not (root / 'assets/social-card.png').is_file():
               raise SystemExit('The public social-card image is missing.')
+          assembled = '\n'.join(
+              path.read_text(encoding='utf-8')
+              for path in root.rglob('*.html')
+          )
+          for forbidden in (
+              'support@chronospark.app',
+              'play.google.com/store/apps/details?id=com.ghostheart5.chronospark',
+              'English and Spanish',
+          ):
+              if forbidden in assembled:
+                  raise SystemExit(f'Public site contains a forbidden or unverified claim: {forbidden}')
           cname = root / 'CNAME'
           if cname.exists() and 'chronospark.app' in cname.read_text(encoding='utf-8'):
               raise SystemExit('A custom domain must not be added without separate approval.')
@@ -120,6 +139,7 @@ jobs:
           path: _site
 
   deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
