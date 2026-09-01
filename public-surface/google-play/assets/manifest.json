@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-08-31",
+  "files": [
+    {
+      "name": "feature-graphic-1024x500.png",
+      "purpose": "Google Play feature graphic candidate",
+      "width": 1024,
+      "height": 500,
+      "bytes": 774794,
+      "sha256": "57D863F88C7A694058F5D3296F2BACF16EFA3DC1E39B94F58F42A16DCE144352"
+    },
+    {
+      "name": "app-icon-512.png",
+      "purpose": "Google Play app icon candidate",
+      "width": 512,
+      "height": 512,
+      "bytes": 425441,
+      "sha256": "2A339F9942EBFF05F67D148C5A270A68CA26B84624C02193418E780417B42A32"
+    },
+    {
+      "name": "feature-graphic-background-v1.png",
+      "purpose": "Generated source background",
+      "width": 1983,
+      "height": 793,
+      "bytes": 1845482,
+      "sha256": "6FD321D255AC8225B437E44F0FA5BAF991607E865B79CC31509B3CD268716FB5"
+    }
+  ]
+}

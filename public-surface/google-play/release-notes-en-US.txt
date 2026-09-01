@@ -1,0 +1,1 @@
+Clearer Creator confirmation, more truthful Timeline labels, evidence-aware planning guidance, improved SI Console responses, stronger account boundaries, and accessibility and privacy controls. Paid subscriptions, AI-credit purchases, cloud sync and restore, analytics, crash reporting, and external generative AI remain disabled in this release.

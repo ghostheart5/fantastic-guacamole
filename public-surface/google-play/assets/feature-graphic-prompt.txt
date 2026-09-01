@@ -1,0 +1,7 @@
+Generation mode: image generation with the existing ChronoSpark temporal-field artwork as a visual reference.
+
+Prompt:
+Create a premium Google Play feature-graphic background for ChronoSpark, a futuristic planning and decision-support app. Use a wide 1024:500 composition with a deep near-black navy field. Keep the left 40 percent calm and mostly empty for text. On the right, visualize a precise temporal decision network: luminous cyan pathways, structured data nodes, and one warm amber route emerging clearly through the system. The result should feel advanced, calm, trustworthy, and technically sophisticated. Use crisp depth and controlled light. No text, logos, devices, people, faces, gradients used as decoration, floating orbs, stock-photo styling, medical imagery, or unsupported feature claims.
+
+Composition:
+The generated background was center-cropped to 1024 x 500. ChronoSpark branding and truthful planning-and-decision-support copy were then composed locally as raster text. The final upload candidate is feature-graphic-1024x500.png.

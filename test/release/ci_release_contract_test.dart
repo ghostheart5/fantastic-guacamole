@@ -317,10 +317,7 @@ void main() {
     final String buildCommands = steps(
       build,
     ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n');
-    expect(
-      buildCommands,
-      contains('verified web app is not published here yet'),
-    );
+    expect(buildCommands, contains('No verified web app is published here'));
     expect(buildCommands, isNot(contains('flutter build')));
     expect(buildCommands, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
   });
