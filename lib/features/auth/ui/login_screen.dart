@@ -705,8 +705,8 @@ class _LoginFormCard extends StatelessWidget {
             controller: emailController,
             icon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
-            hintText: 'Email address',
-            semanticLabel: 'Email field',
+            semanticIdentifier: 'login-email-field',
+            label: 'Email address',
             obscure: false,
             accentColor: AppColors.neonCyan,
           ),
@@ -716,8 +716,8 @@ class _LoginFormCard extends StatelessWidget {
             controller: passwordController,
             icon: Icons.key_rounded,
             keyboardType: TextInputType.visiblePassword,
-            hintText: 'Password',
-            semanticLabel: 'Password field',
+            semanticIdentifier: 'login-password-field',
+            label: 'Password',
             obscure: obscurePassword,
             accentColor: AppColors.neonViolet,
             trailing: SmartPressable(
@@ -1012,8 +1012,8 @@ class _NeonInput extends StatelessWidget {
     required this.controller,
     required this.icon,
     required this.keyboardType,
-    this.hintText,
-    required this.semanticLabel,
+    required this.semanticIdentifier,
+    required this.label,
     required this.obscure,
     required this.accentColor,
     this.trailing,
@@ -1022,8 +1022,8 @@ class _NeonInput extends StatelessWidget {
   final TextEditingController controller;
   final IconData icon;
   final TextInputType keyboardType;
-  final String? hintText;
-  final String semanticLabel;
+  final String semanticIdentifier;
+  final String label;
   final bool obscure;
   final Color accentColor;
   final Widget? trailing;
@@ -1050,25 +1050,28 @@ class _NeonInput extends StatelessWidget {
           Icon(icon, color: accentColor.withValues(alpha: 0.9), size: 20),
           const SizedBox(width: 10),
           Expanded(
-            child: Semantics(
-              label: semanticLabel,
-              child: TextField(
-                controller: controller,
-                obscureText: obscure,
-                keyboardType: keyboardType,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: AppSizes.fontLabel,
-                  letterSpacing: 0,
-                ),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  hintText: hintText,
-                  hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.25),
+            child: MergeSemantics(
+              child: Semantics(
+                identifier: semanticIdentifier,
+                child: TextField(
+                  controller: controller,
+                  obscureText: obscure,
+                  keyboardType: keyboardType,
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontSize: AppSizes.fontLabel,
+                    letterSpacing: 0,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    labelText: label,
+                    floatingLabelBehavior: FloatingLabelBehavior.never,
+                    labelStyle: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      fontSize: AppSizes.fontLabel,
+                    ),
                   ),
                 ),
               ),

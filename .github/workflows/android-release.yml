@@ -259,7 +259,7 @@ jobs:
       - name: Verify upload key fingerprint
         env:
           STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-          EXPECTED_UPLOAD_SHA1: "13:60:98:6B:E3:45:4F:75:52:56:2E:9A:97:CE:CE:37:74:E2:FD:46"
+          EXPECTED_UPLOAD_SHA1: "8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5"
         run: |
           ACTUAL_SHA1=$(keytool -list -v -keystore android/app/key.jks -storepass:env STORE_PASSWORD -alias "$(awk -F= '$1=="keyAlias" {print $2}' android/key.properties)" 2>/dev/null | awk -F': ' '/SHA1:/{print $2; exit}')
           if [ -z "$ACTUAL_SHA1" ]; then

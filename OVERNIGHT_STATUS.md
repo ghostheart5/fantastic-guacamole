@@ -1,0 +1,62 @@
+# ChronoSpark Production-Candidate Status
+
+Updated: 2026-09-01T10:20:00-05:00
+
+Overall status: **FINAL DEVICE VALIDATION STOPPED AT RETRY LIMIT — NOT VERIFIED FOR PRODUCTION**
+
+## Final evidence
+
+- Tested app-source commit: `9b5d0aa925f64d979fa8873172a58d116cd8c048`; source tree was clean during the final build and all runtime checks.
+- PR #83 is open, clean, mergeable, and exact-head run `33519048862` passed. All 10 applicable checks are successful; Supabase Preview is intentionally skipped; no checks are failed or pending.
+- Final signed AAB: `build/app/outputs/bundle/release/app-release-prod-vc2026083003.aab`; 84,769,126 bytes; SHA-256 `161A85F12F910B6B1BBF3D64CD49342B425DEAA7411FE89AC8BAAC1A7B27A6F4`.
+- Exact-AAB APKS archive: `build/app/outputs/bundle/release/app-release-prod-vc2026083003.apks`; 104,876,953 bytes; SHA-256 `FC7AADD110E250B88C113BF425D3918F0FE07EC4011E92CE43EF8C2E2E03A5EB`.
+- `bundletool validate` passed. The selected splits installed successfully on API 24 and API 37 with version `4.1.0` / code `2026083003` and the expected upload certificate.
+- API 24: first 90 seconds, onboarding handoff, background/resume, force-stop/reopen, true airplane-mode startup/reconnection, and all five bounded Monkey stages passed. Strict app crash/ANR/`E/flutter` matches were zero.
+- API 37: first 90 seconds and a repeat 180-second soak, onboarding handoff, background/resume, force-stop/reopen, true airplane-mode startup/reconnection, and all five bounded Monkey stages passed. Strict app crash/ANR/`E/flutter` matches were zero.
+- Monkey total: 3,400 events across the minimum and newest API lanes. The API 24 repository harness could not read focus from that OS's `dumpsys window displays`, so the identical bounded matrix was executed directly with Activity Manager focus evidence. The API 37 lifecycle stage was rerun alone after a system Battery Saver dialog blocked startup before events began.
+- One API 37 fresh-boot process was killed about 129 seconds after first launch by Google Play Services while reloading `measurement.dynamite`. A subsequent 180-second cold-start soak held the same top-resumed PID with no repeat, crash, ANR, or Flutter error.
+- The final API 24 UI tree still exposes both login `EditText` nodes with empty text, content description, hint, and resource ID. The same blocker survived all three permitted repair cycles, so no fourth login attempt was made.
+- The API 37 UI tree exposes `hint="Email address"` and `hint="Password"`, but minimum-supported API 24 remains a release blocker.
+- Live AI calls used: `0`. Other live production API calls: `2` (test-account sign-in and immediate session revocation). No credential was entered into either release install.
+
+## Checkpoint history (superseded where noted)
+
+- GitHub main commit `33a7e39dd3de49b219c0de750bb1fdd31e9d8573` passed run `33481507007`; that full suite will not be repeated locally.
+- Work is isolated on `codex/production-candidate-20260901`; the original dirty checkout is preserved.
+- Local release keystore SHA-1 matches Google Play's registered upload key: `8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5`.
+- The malformed GitHub `CHRONOSPARK_SUPABASE_URL` secret was replaced with the canonical production-project URL without displaying its value.
+- Reconciliation verification attempt 1 of 3 reached the real deployed function. It exposed a response-contract drift: deployed v4 returns `advanced`; current source returns `deferred`.
+- Production `account_deletion_requests` contained zero rows immediately before the verification request; no customer deletion was requested or modified.
+
+## Focused repair validation
+
+- `dart run tool/validate_github_workflows.dart`: PASS (11 workflows).
+- `flutter test test/release/ci_release_contract_test.dart`: PASS (12 tests).
+- `scripts/security_secret_guard.ps1`: PASS.
+- `scripts/secret_content_guard.ps1`: PASS.
+- `git diff --check`: PASS.
+- Candidate checkpoint `26172823fb16322b7a844118563ccf03fdfda5a5` is pushed in PR #83. All 10 applicable checks pass; Supabase Preview is intentionally skipped, with zero failures or pending checks.
+- Exact-head run `33506628774` at documentation checkpoint `fef193c712499299cc7ffeb51e8299fe3f72e074` failed one test after the fixed test receipt expired at `2026-09-01T10:00:00Z`; 1,968 tests passed, 1 failed, and 1 skipped. This was GitHub repair attempt 1 of 3.
+- Only the failing test was reproduced locally. Its receipt fixture now uses a validity window relative to the test clock; `flutter test test/features/home/smart_planner_screen_test.dart --plain-name "records canonical receipt outcomes and stages Creator preview"` and `git diff --check` pass. No app source changed and no unrelated suite ran locally.
+- Reconciliation verification attempt 2 of 3 was rejected before runner startup because the candidate branch is not allowed to use GitHub's `production` environment. No endpoint call or data operation occurred. The environment protection was preserved, and the final live attempt is reserved for an allowed ref.
+- One isolated, auto-confirmed production Supabase Auth test user was created with user authorization. Its generated credential is stored only in Windows Credential Manager under the dedicated production-candidate target.
+- A real production password-grant sign-in returned HTTP 200, and the verification session was immediately revoked. The production verification query found exactly one newly created matching user, confirmed, with no profile row before app onboarding.
+- Candidate checkpoint `8bec7af2780f2e2e07d5ea8d2ea724ea317fa5fa` passed all 10 applicable GitHub checks in run `33508432103`; Supabase Preview was intentionally skipped. No full suite was duplicated locally.
+- A signed release AAB was built from clean exact commit `8bec7af2780f2e2e07d5ea8d2ea724ea317fa5fa` with the guarded production build script. `bundletool validate` passed, exact-AAB APKs were generated and installed on the clean API 24 emulator, and the installed base split carries the expected certificate.
+- The API 24 first launch rendered the welcome screen within approximately 44 seconds, remained stable through the first 90 seconds, and produced zero matches for `FATAL EXCEPTION`, `E/flutter`, or package ANR.
+- The corrected onboarding Maestro flow passed. Login then exposed a real accessibility/automation defect: both editable fields had empty UI Automator labels/IDs, preventing credential entry before any authentication call was sent.
+- The narrow app repair merges each semantic field label with its editable text node. The focused test `names login fields and the password visibility action` now requires the field label and `isTextField` flag on the same semantics node and passes. The stale Maestro selectors were corrected.
+- Because app source changed, the earlier AAB, APKS, install, and runtime evidence are **SUPERSEDED** and cannot be the final candidate. Rebuild is blocked until the repair commit is pushed and GitHub is green at that exact head.
+- Exact-head CI run `33512733923` passed formatting and both secret guards, then stopped at analysis because the strengthened test used deprecated `SemanticsData.hasFlag` under `--fatal-infos`. This is repair attempt 1 of 3 for that CI failure; the assertion now uses the current `flagsCollection.isTextField` API.
+- Exact-head commit `8b9f681ea8bce2ed00151d7852eaef062dce7fc7` passed all 10 applicable GitHub checks in run `33513135260`; Supabase Preview was intentionally skipped and PR #83 was clean/mergeable.
+- Its guarded release AAB validated and its exact APKS archive clean-installed on API 24. The first 90 seconds remained alive on the Welcome screen with zero fatal, Flutter-error, or package-ANR lines; broad AndroidRuntime matches were debug output from test commands only. Onboarding Maestro passed with zero strict critical log matches.
+- Real login still failed before credential entry because API 24 UI Automator showed both native `EditText` nodes with empty labels even after the outer-semantics merge. No authentication request was sent and no credential appeared in evidence. The final repair cycle now uses Flutter's native `InputDecoration.labelText` semantics on the actual editable nodes; no further code repair will be attempted if it fails.
+- Final-repair CI run `33517088967` passed 1,968 tests and failed one login typography assertion because it still inspected the retired `hintStyle` instead of the replacement `labelStyle`; one test was skipped. This is a test-only expectation correction and does not change app code.
+
+## Final blockers and limitations
+
+- **Critical:** minimum-supported API 24 login fields are not usable through the Android accessibility/automation bridge. Real release authentication, session restoration, authenticated storage/provider behavior, authenticated navigation, persistence, permissions behind login, and real AI/SI journeys remain `NOT VERIFIED`.
+- The repaired reconciliation workflow cannot receive a live production-environment verification from this protected candidate branch. Local workflow/contract checks pass; live confirmation remains pending on an allowed ref.
+- No physical Android phone is currently attached; physical-device installation and human testing remain `NOT VERIFIED`.
+- Google Play Internal Testing was not uploaded or exercised.
+- Stable/main was not changed. PR #83 remains open because the task's safety boundary prohibited merging into the protected stable branch.

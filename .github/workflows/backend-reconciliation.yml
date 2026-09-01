@@ -37,13 +37,32 @@ jobs:
           node -e '
             const fs = require("node:fs");
             const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-            for (const field of ["scanned", "completed", "deferred"]) {
+            for (const field of ["scanned", "completed"]) {
               if (!Number.isInteger(body[field]) || body[field] < 0) {
                 throw new Error(`Invalid reconciliation response field: ${field}`);
               }
             }
-            if (body.deferred !== 0) {
-              throw new Error(`${body.deferred} deletion request(s) remain deferred`);
+
+            let deferred;
+            let contract;
+            if (Number.isInteger(body.deferred) && body.deferred >= 0) {
+              deferred = body.deferred;
+              contract = "current";
+              if (body.completed + deferred !== body.scanned) {
+                throw new Error("Current reconciliation response counts are inconsistent");
+              }
+            } else if (Number.isInteger(body.advanced) && body.advanced >= 0) {
+              contract = "deployed-v4";
+              if (body.completed > body.advanced || body.advanced > body.scanned) {
+                throw new Error("Deployed reconciliation response counts are inconsistent");
+              }
+              deferred = body.scanned - body.advanced;
+            } else {
+              throw new Error("Invalid reconciliation response: expected deferred or advanced");
             }
-            console.log(`Deletion reconciliation passed: scanned=${body.scanned}, completed=${body.completed}`);
+
+            if (deferred !== 0) {
+              throw new Error(`${deferred} deletion request(s) remain deferred`);
+            }
+            console.log(`Deletion reconciliation passed: contract=${contract}, scanned=${body.scanned}, completed=${body.completed}`);
           ' "$response_file"
