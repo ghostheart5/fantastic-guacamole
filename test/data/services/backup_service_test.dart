@@ -109,6 +109,25 @@ void main() {
     }
   });
 
+  test('backup exceptions expose stable diagnostic messages', () {
+    expect(
+      const BackupRestoreRollbackException(
+        restoreErrorType: 'StateError',
+        rollbackErrorType: 'FormatException',
+      ).toString(),
+      'Backup restore failed and rollback could not complete '
+      '(restore: StateError, rollback: FormatException).',
+    );
+    expect(
+      const BackupRestoreCancelledException().toString(),
+      'Backup restore was cancelled before commit.',
+    );
+    expect(
+      const BackupConcurrentMutationException().toString(),
+      'Account data changed while backup work was in flight.',
+    );
+  });
+
   test('backs up canonical task fields', () async {
     final DateTime createdAt = DateTime.utc(2026, 7, 4, 12);
     final DateTime dueDate = DateTime.utc(2026, 7, 8);
@@ -600,6 +619,85 @@ void main() {
     },
   );
 
+  test(
+    'current restore rejects a stale local generation before writes',
+    () async {
+      final Map<String, dynamic> backup = await service.createFullBackup();
+
+      await expectLater(
+        () => service.restoreFullBackup(
+          backup,
+          expectedLocalGeneration: service.localGeneration + 1,
+        ),
+        throwsA(isA<BackupConcurrentMutationException>()),
+      );
+      expect(await repository.getAllTasks(), isEmpty);
+    },
+  );
+
+  test('preflight covers precise JSON and manifest boundaries', () {
+    final Map<String, dynamic> wrongCount = _fullBackup(
+      tasks: <Map<String, dynamic>>[],
+      profile: null,
+      settings: <String, dynamic>{},
+    );
+    final Map<String, int> counts = Map<String, int>.from(
+      wrongCount['recordCounts'] as Map<String, int>,
+    );
+    counts['tasks'] = 1;
+    wrongCount['recordCounts'] = counts;
+    expect(() => service.validateFullBackup(wrongCount), throwsFormatException);
+
+    final Map<String, dynamic> duplicateManifestMember = _fullBackup(
+      tasks: <Map<String, dynamic>>[],
+      profile: null,
+      settings: <String, dynamic>{},
+    );
+    final Map<String, dynamic> manifest = Map<String, dynamic>.from(
+      duplicateManifestMember['manifest'] as Map<String, dynamic>,
+    );
+    final List<String> includedDomains = List<String>.from(
+      manifest['includedDomains'] as List<dynamic>,
+    );
+    includedDomains.add(includedDomains.first);
+    manifest['includedDomains'] = includedDomains;
+    duplicateManifestMember['manifest'] = manifest;
+    expect(
+      () => service.validateFullBackup(duplicateManifestMember),
+      throwsFormatException,
+    );
+
+    final Map<String, dynamic> nestedList = _fullBackup(
+      tasks: <Map<String, dynamic>>[],
+      profile: <String, dynamic>{
+        'history': <Object?>[1, 'complete'],
+      },
+      settings: <String, dynamic>{},
+    );
+    expect(() => service.validateFullBackup(nestedList), returnsNormally);
+
+    final Map<String, dynamic> nonFinite = _fullBackup(
+      tasks: <Map<String, dynamic>>[],
+      profile: <String, dynamic>{'score': double.nan},
+      settings: <String, dynamic>{},
+    );
+    expect(() => service.validateFullBackup(nonFinite), throwsFormatException);
+
+    Object? deeplyNested = 'leaf';
+    for (int depth = 0; depth < 52; depth++) {
+      deeplyNested = <Object?>[deeplyNested];
+    }
+    final Map<String, dynamic> excessiveNesting = _fullBackup(
+      tasks: <Map<String, dynamic>>[],
+      profile: <String, dynamic>{'nested': deeplyNested},
+      settings: <String, dynamic>{},
+    );
+    expect(
+      () => service.validateFullBackup(excessiveNesting),
+      throwsFormatException,
+    );
+  });
+
   test('backupProfile and backupSettings expose stored state', () async {
     await profileStorage.put(
       'profile_state',
@@ -771,6 +869,38 @@ void main() {
   });
 
   test(
+    'settings rollback restores every supported native value type',
+    () async {
+      final SharedPreferences rawPrefs = await SharedPreferences.getInstance();
+      await rawPrefs.setInt('cloud_sync_enabled_v1', 7);
+      await rawPrefs.setDouble('goal_reminders_enabled', 1.5);
+      await rawPrefs.setStringList('reflection_reminder_enabled', <String>[
+        'true',
+      ]);
+      final _WriteThenFailPrefsStorage failingPrefs =
+          _WriteThenFailPrefsStorage(rawPrefs);
+      final BackupService failingService = buildService(
+        taskRepository: repository,
+        profileStorage: profileStorage,
+        prefs: failingPrefs,
+      );
+
+      await expectLater(
+        () => failingService.restoreSettings(<String, dynamic>{
+          'settings': <String, dynamic>{'reflection_reminder_time': '20:00'},
+        }),
+        throwsStateError,
+      );
+
+      expect(rawPrefs.getInt('cloud_sync_enabled_v1'), 7);
+      expect(rawPrefs.getDouble('goal_reminders_enabled'), 1.5);
+      expect(rawPrefs.getStringList('reflection_reminder_enabled'), <String>[
+        'true',
+      ]);
+    },
+  );
+
+  test(
     'restoreFullBackup rejects incomplete legacy envelopes before writes',
     () async {
       await repository.saveTask(
@@ -897,6 +1027,37 @@ void main() {
         }),
         throwsFormatException,
       );
+      expect(await repository.getAllTasks(), isEmpty);
+    },
+  );
+
+  test(
+    'restoreTasks rejects invalid optional field types and bounds',
+    () async {
+      final Map<String, dynamic> validTask = <String, dynamic>{
+        'id': 'invalid-optional-field',
+        'title': 'Invalid optional field',
+        'createdAt': '2026-08-02T00:00:00.000Z',
+      };
+      final List<Map<String, dynamic>> invalidFields = <Map<String, dynamic>>[
+        <String, dynamic>{'isCompleted': 'yes'},
+        <String, dynamic>{'priority': -1},
+        <String, dynamic>{'description': 7},
+        <String, dynamic>{
+          'description': List<String>.filled(100001, 'x').join(),
+        },
+      ];
+
+      for (final Map<String, dynamic> invalidField in invalidFields) {
+        await expectLater(
+          () => service.restoreTasks(<String, dynamic>{
+            'tasks': <Map<String, dynamic>>[
+              <String, dynamic>{...validTask, ...invalidField},
+            ],
+          }),
+          throwsFormatException,
+        );
+      }
       expect(await repository.getAllTasks(), isEmpty);
     },
   );

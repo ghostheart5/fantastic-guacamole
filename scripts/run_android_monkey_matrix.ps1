@@ -41,6 +41,82 @@ function Invoke-Adb {
     return [pscustomobject]@{ Output = @($output); ExitCode = $exitCode }
 }
 
+function Wait-ForPackageFocus {
+    param(
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$PackageName,
+        [ValidateRange(1, 120)][int]$TimeoutSeconds = 30,
+        [ValidateRange(1, 10)][int]$RequiredStableSamples = 2,
+        [ValidateRange(100, 5000)][int]$PollMilliseconds = 500
+    )
+
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $focusPattern = '(?i)\bmCurrentFocus=.*\bu\d+\s+' +
+        [regex]::Escape($PackageName) + '(?:/|\.)'
+    $stableSamples = 0
+    $stablePid = ''
+    $lastPid = ''
+    $lastFocus = ''
+
+    do {
+        $pidResult = Invoke-Adb -Arguments @(
+            '-s', $Serial, 'shell', 'pidof', $PackageName
+        )
+        $windowResult = Invoke-Adb -Arguments @(
+            '-s', $Serial, 'shell', 'dumpsys', 'window', 'displays'
+        )
+
+        $lastPid = ($pidResult.Output -join '').Trim()
+        $lastFocus = @(
+            $windowResult.Output |
+                ForEach-Object { [string]$_ } |
+                Where-Object { $_ -match 'mCurrentFocus=' } |
+                Select-Object -Last 1
+        ) -join ''
+
+        $ownsFocus =
+            $pidResult.ExitCode -eq 0 -and
+            -not [string]::IsNullOrWhiteSpace($lastPid) -and
+            $windowResult.ExitCode -eq 0 -and
+            $lastFocus -match $focusPattern
+
+        if ($ownsFocus) {
+            if ($lastPid -eq $stablePid) {
+                $stableSamples++
+            } else {
+                $stablePid = $lastPid
+                $stableSamples = 1
+            }
+
+            if ($stableSamples -ge $RequiredStableSamples) {
+                return [pscustomobject]@{
+                    Ready = $true
+                    ElapsedSeconds = [math]::Round(
+                        $timer.Elapsed.TotalSeconds,
+                        3
+                    )
+                    LastPid = $lastPid
+                    LastFocus = $lastFocus.Trim()
+                }
+            }
+        } else {
+            $stableSamples = 0
+            $stablePid = ''
+        }
+
+        if ($timer.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+            Start-Sleep -Milliseconds $PollMilliseconds
+        }
+    } while ($timer.Elapsed.TotalSeconds -lt $TimeoutSeconds)
+
+    return [pscustomobject]@{
+        Ready = $false
+        ElapsedSeconds = [math]::Round($timer.Elapsed.TotalSeconds, 3)
+        LastPid = $lastPid
+        LastFocus = $lastFocus.Trim()
+    }
+}
+
 if (-not $AllowConnectedDevice) {
     throw 'Monkey testing requires -AllowConnectedDevice and an explicitly selected disposable emulator.'
 }
@@ -185,6 +261,10 @@ foreach ($variant in $variants) {
         throw "Unable to launch the app before variant '$name'."
     }
 
+    $startupReadiness = Wait-ForPackageFocus `
+        -Serial $serial `
+        -PackageName $packageName
+
     $monkeyArgs = [System.Collections.Generic.List[string]]::new()
     foreach ($value in @('-s', $serial, 'shell', 'monkey', '-p', $packageName, '-s', [string]$seed, '--throttle', [string]$throttleMs, '--monitor-native-crashes')) {
         $monkeyArgs.Add($value)
@@ -193,15 +273,26 @@ foreach ($variant in $variants) {
     $monkeyArgs.Add('-v')
     $monkeyArgs.Add([string]$events)
 
-    Write-Host "Running ${name}: seed=$seed events=$events throttle=${throttleMs}ms"
-    $previousPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        & $script:Adb @monkeyArgs 2>&1 | Tee-Object -FilePath $variantLog | Out-Null
-        $monkeyExitCode = $LASTEXITCODE
-    }
-    finally {
-        $ErrorActionPreference = $previousPreference
+    $stressMonkeyStarted = $startupReadiness.Ready
+    $monkeyExitCode = $null
+    if ($stressMonkeyStarted) {
+        Write-Host "Running ${name}: seed=$seed events=$events throttle=${throttleMs}ms"
+        $previousPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            & $script:Adb @monkeyArgs 2>&1 | Tee-Object -FilePath $variantLog | Out-Null
+            $monkeyExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousPreference
+        }
+    } else {
+        @(
+            'Stress Monkey was not started because ChronoSpark did not acquire a stable focused window.'
+            "Startup wait seconds: $($startupReadiness.ElapsedSeconds)"
+            "Last PID: $($startupReadiness.LastPid)"
+            "Last focus: $($startupReadiness.LastFocus)"
+        ) | Set-Content -LiteralPath $variantLog -Encoding utf8
     }
 
     $logcatResult = Invoke-Adb -Arguments @('-s', $serial, 'logcat', '-d', '-v', 'threadtime', '-T', $logcatStart)
@@ -236,7 +327,7 @@ foreach ($variant in $variants) {
     )
     $pidResult = Invoke-Adb -Arguments @('-s', $serial, 'shell', 'pidof', $packageName)
     $relaunchSucceeded = $relaunchResult.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace(($pidResult.Output -join '').Trim())
-    $passed = $monkeyExitCode -eq 0 -and $fatalEvidence.Count -eq 0 -and $relaunchSucceeded
+    $passed = $startupReadiness.Ready -and $monkeyExitCode -eq 0 -and $fatalEvidence.Count -eq 0 -and $relaunchSucceeded
 
     $result = [pscustomobject]@{
         name = $name
@@ -245,6 +336,11 @@ foreach ($variant in $variants) {
         events = $events
         throttleMs = $throttleMs
         percentages = $variant.percentages
+        startupReady = $startupReadiness.Ready
+        startupWaitSeconds = $startupReadiness.ElapsedSeconds
+        startupLastPid = $startupReadiness.LastPid
+        startupLastFocus = $startupReadiness.LastFocus
+        stressMonkeyStarted = $stressMonkeyStarted
         monkeyExitCode = $monkeyExitCode
         fatalMarkerCount = $fatalEvidence.Count
         relaunchSucceeded = $relaunchSucceeded

@@ -17,20 +17,26 @@ class OfflineBanner extends ConsumerWidget {
         .watch(offlineQueueCountProvider)
         .maybeWhen(data: (int count) => count, orElse: () => 0);
 
-    return Column(
-      children: [
-        AnimatedSize(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          child: isOnline
-              ? const SizedBox.shrink()
-              : _OfflineBannerBar(
-                  pendingSyncCount: pendingSyncCount,
-                  cloudSyncAvailable: cloudSyncAvailable,
-                ),
-        ),
-        Expanded(child: child),
-      ],
+    return SafeArea(
+      top: !isOnline,
+      left: !isOnline,
+      right: !isOnline,
+      bottom: false,
+      child: Column(
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: isOnline
+                ? const SizedBox.shrink()
+                : _OfflineBannerBar(
+                    pendingSyncCount: pendingSyncCount,
+                    cloudSyncAvailable: cloudSyncAvailable,
+                  ),
+          ),
+          Expanded(child: child),
+        ],
+      ),
     );
   }
 }
@@ -58,7 +64,7 @@ class _OfflineBannerBar extends StatelessWidget {
       child: ExcludeSemantics(
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           color: AppColors.memoryAmber.withValues(alpha: 0.15),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -69,17 +75,20 @@ class _OfflineBannerBar extends StatelessWidget {
                 color: AppColors.memoryAmber,
               ),
               const SizedBox(width: 6),
-              Text(
-                cloudSyncAvailable
-                    ? pendingSyncCount > 0
-                          ? 'Offline Mode — $pendingSyncCount queued, syncing later'
-                          : 'Offline Mode — actions will sync later'
-                    : 'Offline Mode — local features available; cloud sync unavailable',
-                style: const TextStyle(
-                  color: AppColors.memoryAmber,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
+              Flexible(
+                child: Text(
+                  cloudSyncAvailable
+                      ? pendingSyncCount > 0
+                            ? 'Offline Mode — $pendingSyncCount queued, syncing later'
+                            : 'Offline Mode — actions will sync later'
+                      : 'Offline Mode — local features available; cloud sync unavailable',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.memoryAmber,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
                 ),
               ),
             ],

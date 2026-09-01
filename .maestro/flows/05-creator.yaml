@@ -27,7 +27,11 @@ tags:
 
 - tapOn: "Title *"
 - inputText: "Maestro smoke task"
-- hideKeyboard
+# Maestro's Android hideKeyboard sends Back even when an interrupted IME is gone.
+- tapOn:
+    text: "(?:Done|Enter)"
+    optional: true
+- waitForAnimationToEnd
 
 - scrollUntilVisible:
     element:
@@ -62,12 +66,7 @@ tags:
     timeout: 10000
 - tapOn: "CONFIRM SELECTED"
 
-- extendedWaitUntil:
-    visible: "Open Timeline"
-    timeout: 15000
-- tapOn: "Open Timeline"
-
 # The confirmed creation routes to Timeline and the task must actually be there.
 - extendedWaitUntil:
-    visible: "Maestro smoke task is due.*"
+    visible: "(?s).*Maestro smoke task.*Task is scheduled for a planned work time.*SCHEDULED.*"
     timeout: 15000

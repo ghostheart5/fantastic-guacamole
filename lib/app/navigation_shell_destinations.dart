@@ -6,6 +6,10 @@ final List<AppRouteDefinition> _primaryDestinations =
     ).toList(growable: false);
 
 extension _NavigationShellDestinations on _NavigationShellState {
+  bool _isPrimaryView(AppView view) =>
+      AppRouteRegistry.routeForView(view).navigationGroup ==
+      AppNavigationGroup.primary;
+
   void _restoreDefaultLaunchTab() {
     final int? restoredTab = _preferenceService.getLastOpenedTab();
     final AppView restoredView =

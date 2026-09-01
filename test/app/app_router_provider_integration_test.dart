@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
+import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
@@ -532,6 +533,45 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       harness.dispose();
     });
+
+    testWidgets(
+      'returning from a secondary route mounts only the active primary tab',
+      (WidgetTester tester) async {
+        final _RouterHarness harness = await _pumpRealRouter(
+          tester,
+          initialLocation: RoutePaths.nexus,
+          authenticated: true,
+          welcomeComplete: true,
+          onboardingComplete: true,
+        );
+        await tester.pump();
+        final State<NavigationShell> shellState = tester.state(
+          find.byType(NavigationShell),
+        );
+
+        harness.router.go(RoutePaths.creator);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.byType(CreatorScreen), findsOneWidget);
+        expect(find.byType(NexusScreen, skipOffstage: false), findsNothing);
+
+        harness.router.go(RoutePaths.timeline);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        _expectUri(harness, RoutePaths.timeline);
+        expect(find.byType(TimelineScreen), findsOneWidget);
+        expect(find.byType(NexusScreen, skipOffstage: false), findsNothing);
+        expect(
+          tester.state<State<NavigationShell>>(find.byType(NavigationShell)),
+          same(shellState),
+        );
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+      },
+    );
 
     testWidgets('saved primary tab restores through the persistent shell', (
       WidgetTester tester,

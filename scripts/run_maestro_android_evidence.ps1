@@ -292,7 +292,12 @@ else {
     if ([string]::IsNullOrWhiteSpace($ApkPath)) {
         throw '-ApkPath is required with -SkipBuild.'
     }
-    $resolvedApk = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $ApkPath))
+    $resolvedApk = if ([System.IO.Path]::IsPathRooted($ApkPath)) {
+        [System.IO.Path]::GetFullPath($ApkPath)
+    }
+    else {
+        [System.IO.Path]::GetFullPath((Join-Path $projectRoot $ApkPath))
+    }
     'Build skipped by request.' | Set-Content -LiteralPath $buildLog -Encoding utf8
 }
 
@@ -370,6 +375,8 @@ ConvertTo-SanitizedLog -Source $rawLogcat -Destination $sanitizedLogcat -SecretV
 $fatalPatterns = @(
     'FATAL EXCEPTION',
     'E/flutter',
+    'FLUTTER_ERROR_MARKER\s+>>>',
+    'Tasks require authenticated account storage',
     'ANR in',
     ('Process\s+' + [regex]::Escape($PackageName) + '\s+has died'),
     'MissingPluginException',

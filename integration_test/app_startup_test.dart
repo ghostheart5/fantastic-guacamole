@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/app/app_root.dart';
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
@@ -27,6 +28,11 @@ void main() {
           _OnboardingIncompleteNotifier.new,
         ),
         intelligenceStateProvider.overrideWithValue(_authenticatedIntelligence),
+        authUserProvider.overrideWith(
+          (Ref ref) => Stream<User?>.value(
+            const User(id: 'startup-test-user', emailVerified: true),
+          ),
+        ),
         currentThemeProvider.overrideWith(_StaticThemeController.new),
         siStateProvider.overrideWith(_FixedSiStateController.new),
         learningProvider.overrideWith(_FixedLearningController.new),
@@ -98,7 +104,7 @@ class _ReadyBoundaryNotifier extends AuthSessionBoundaryNotifier {
   @override
   AuthSessionBoundary build() => const AuthSessionBoundary(
     generation: 1,
-    userId: null,
+    userId: 'startup-test-user',
     isTransitioning: false,
     isStorageReady: true,
   );

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -39,7 +40,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   // Task repositories fail closed before authenticated storage is ready. This
   // dependency makes the provider retry when the account boundary advances.
-  ref.watch(accountStorageScopeProvider);
+  final AccountStorageScope accountScope = ref.watch(
+    accountStorageScopeProvider,
+  );
+  if (!accountScope.isWritable) {
+    return const <Task>[];
+  }
   final List<TaskEntity> tasks = await ref
       .watch(getTasksUseCaseProvider)
       .call();
