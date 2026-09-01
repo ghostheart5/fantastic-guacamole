@@ -90,13 +90,23 @@ void main() {
   test('published policy copies identify one current data contract', () {
     final String policy = read('privacy.html');
     final String bundled = read('assets/legal/privacy_policy.txt');
-    expect(policy, contains('GhostHeart5 Supabase project'));
-    expect(policy, contains('External AI is release-disabled'));
-    expect(policy, contains('to Anthropic'));
-    expect(policy, contains('data minimization, not sanitization'));
-    expect(policy, contains('up to five minutes'));
-    expect(policy, contains('has not been verified'));
-    expect(policy, contains('Settings &gt; Account'));
+    expect(
+      policy,
+      contains(
+        'Account and security services may use Supabase for authentication',
+      ),
+    );
+    expect(
+      policy,
+      contains(
+        'current release candidate does not send Planner content to an external generative-AI provider',
+      ),
+    );
+    expect(policy, contains('Anthropic is the disclosed provider'));
+    expect(
+      policy,
+      contains('Firebase Analytics and Crashlytics are release-contained off'),
+    );
     expect(bundled, contains('support@chronospark.app'));
     expect(bundled, contains('visible deterministic plan clauses'));
     expect(bundled, contains('expected AI-credit cost'));

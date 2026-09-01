@@ -36,7 +36,7 @@ void main() {
     expect(urls, contains("privacy = '\$_githubPagesBase/privacy/'"));
     expect(urls, contains("terms = '\$_githubPagesBase/terms/'"));
     expect(privacyRoute, contains('url=../privacy.html'));
-    expect(termsRoute, contains('<h1>ChronoSpark Terms of Service</h1>'));
+    expect(termsRoute, contains('<h1>Terms of Service</h1>'));
     expect(termsRoute, isNot(contains('url=../terms.html')));
   });
 }
