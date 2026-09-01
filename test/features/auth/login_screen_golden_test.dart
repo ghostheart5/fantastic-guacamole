@@ -158,24 +158,20 @@ void main() {
 
     await pumpLoginScreen(tester, width: 420);
 
-    expect(find.bySemanticsLabel(RegExp(r'^Email field\b')), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp(r'^Password field\b')), findsOneWidget);
-    expect(
-      tester
-          .getSemantics(find.bySemanticsLabel(RegExp(r'^Email field\b')))
-          .getSemanticsData()
-          .flagsCollection
-          .isTextField,
-      isTrue,
-    );
-    expect(
-      tester
-          .getSemantics(find.bySemanticsLabel(RegExp(r'^Password field\b')))
-          .getSemanticsData()
-          .flagsCollection
-          .isTextField,
-      isTrue,
-    );
+    final Finder editableFields = find.byType(EditableText);
+    expect(editableFields, findsNWidgets(2));
+
+    final emailField = tester
+        .getSemantics(editableFields.at(0))
+        .getSemanticsData();
+    expect(emailField.label, contains('Email address'));
+    expect(emailField.flagsCollection.isTextField, isTrue);
+
+    final passwordField = tester
+        .getSemantics(editableFields.at(1))
+        .getSemanticsData();
+    expect(passwordField.label, contains('Password'));
+    expect(passwordField.flagsCollection.isTextField, isTrue);
     expect(find.bySemanticsLabel('Show password'), findsOneWidget);
     expect(find.bySemanticsLabel('Hide password'), findsNothing);
 

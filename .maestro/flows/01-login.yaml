@@ -14,10 +14,10 @@ tags:
 - assertVisible: "ENTER SYSTEM"
 - assertVisible: "Forgot Password?"
 
-- tapOn: "Email field"
+- tapOn: "Email address"
 - inputText: "${MAESTRO_TEST_EMAIL}"
 
-- tapOn: "Password field"
+- tapOn: "Password"
 - inputText: "${MAESTRO_TEST_PASSWORD}"
 
 - hideKeyboard

@@ -68,3 +68,6 @@ This report will cover the exact signed AAB built from the final candidate commi
 - The app now wraps the existing field `Semantics` and `TextField` in `MergeSemantics`; the focused widget assertion proves the label and editable-text flag occupy the same semantics node.
 - Focused command: `flutter test test/features/auth/login_screen_golden_test.dart --plain-name "names login fields and the password visibility action"` — PASS.
 - `git diff --check` — PASS. A fresh signed AAB and full release validation are required after exact-head CI passes.
+- Commit `8b9f681ea8bce2ed00151d7852eaef062dce7fc7` subsequently passed all applicable GitHub checks in run `33513135260`, built and validated, and produced an exact APKS archive that clean-installed on API 24.
+- API 24 first launch stayed alive through 90 seconds on the fully rendered Welcome screen. Strict Logcat counts were zero for fatal exceptions, `E/flutter`, app AndroidRuntime errors, and package ANRs. The corrected onboarding Maestro flow passed.
+- Login remained blocked before credential entry: the native API 24 UI tree still reported both `EditText` nodes with empty labels. This is final repair cycle 3 of 3; native non-floating `InputDecoration.labelText` values now provide the visible placeholder and editable-node semantics directly.
