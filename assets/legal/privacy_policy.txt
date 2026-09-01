@@ -1,9 +1,3 @@
-ChronoSpark Privacy Policy
-
-Skip to content
-
-ChronoSparkPublic site
-
 Privacy PolicyLast updated: August 31, 2026
 
 This policy describes the data ChronoSpark may process and the stricter feature containment applied to the current release candidate. A listed provider is not proof that every provider feature is enabled.
@@ -53,5 +47,3 @@ ChronoSpark uses technical and organizational safeguards appropriate to the serv
 Contact
 
 For privacy questions, email ghostheart131517@gmail.com or visit support.
-
-PrivacyTermsSupportDelete account

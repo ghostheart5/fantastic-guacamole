@@ -1,9 +1,3 @@
-ChronoSpark Terms of Service
-
-Skip to content
-
-ChronoSparkPublic site
-
 Terms of ServiceLast updated: August 31, 2026
 
 These terms govern use of ChronoSpark. By using the app, you agree to these terms and the Privacy Policy.
@@ -35,5 +29,3 @@ Account deletion is permanent. Review the in-app and external request paths on t
 Contact
 
 For terms or support questions, email ghostheart131517@gmail.com or visit support.
-
-PrivacyTermsSupportDelete account
