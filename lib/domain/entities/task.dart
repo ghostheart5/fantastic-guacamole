@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: DEPRECATED | Feature: Task compatibility
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
@@ -10,7 +11,7 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 class Task extends TaskEntity {
   // Keep the legacy non-null duration contract while the canonical base is nullable.
   // ignore: use_super_parameters
-  const Task({
+  Task({
     required String id,
     required String title,
     required int priority,
@@ -89,6 +90,7 @@ class Task extends TaskEntity {
     String? id,
     String? title,
     String? description,
+    bool clearDescription = false,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isCompleted,
@@ -96,15 +98,19 @@ class Task extends TaskEntity {
     int? difficulty,
     int? energyRequired,
     Duration? estimatedDuration,
+    bool clearEstimatedDuration = false,
     DateTime? completedAt,
     bool? isSkipped,
     DateTime? skippedAt,
     bool clearCompletedAt = false,
     bool clearSkippedAt = false,
     DateTime? scheduledFor,
+    bool clearScheduledFor = false,
     String? occurrenceKey,
     DateTime? dueDate,
+    bool clearDueDate = false,
     String? goalId,
+    bool clearGoalId = false,
     bool? isCanceled,
     List<String>? subtasks,
     RecurrenceRule? recurrenceRule,
@@ -112,22 +118,26 @@ class Task extends TaskEntity {
     return Task(
       id: id ?? this.id,
       title: title ?? this.title,
-      description: description ?? this.description,
+      description: clearDescription ? null : description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       priority: priority ?? this.priority,
       difficulty: difficulty ?? this.difficulty,
       energyRequired: energyRequired ?? this.energyRequired,
-      scheduledFor: scheduledFor ?? this.scheduledFor,
-      dueDate: dueDate ?? this.dueDate,
-      estimatedDuration: estimatedDuration ?? this.estimatedDuration,
+      scheduledFor: clearScheduledFor
+          ? null
+          : scheduledFor ?? this.scheduledFor,
+      dueDate: clearDueDate ? null : dueDate ?? this.dueDate,
+      estimatedDuration: clearEstimatedDuration
+          ? const Duration(minutes: 30)
+          : estimatedDuration ?? this.estimatedDuration,
       isCompleted: isCompleted ?? this.isCompleted,
       isSkipped: isSkipped ?? this.isSkipped,
       isCanceled: isCanceled ?? this.isCanceled,
       completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
       skippedAt: clearSkippedAt ? null : skippedAt ?? this.skippedAt,
       occurrenceKey: occurrenceKey ?? this.occurrenceKey,
-      goalId: goalId ?? this.goalId,
+      goalId: clearGoalId ? null : goalId ?? this.goalId,
       subtasks: subtasks ?? this.subtasks,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
     );

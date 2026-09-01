@@ -13,7 +13,7 @@
             "request": "launch",
             "flutterMode": "debug",
             "toolArgs": [
-                "--dart-define-from-file=tool/qa_defines.json"
+                "--dart-define-from-file=.env"
             ]
         },
         {

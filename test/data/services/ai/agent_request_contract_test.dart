@@ -6,7 +6,7 @@ void main() {
     test(
       'merges runtime context and resolved history for execution planning',
       () {
-        final AgentRequest request = const AgentRequest(
+        final AgentRequest request = AgentRequest(
           prompt: 'Plan with current workload and limits',
           context: <String, dynamic>{
             'intent': 'planning',
@@ -55,5 +55,36 @@ void main() {
         expect(merged.history.first['role'], 'assistant');
       },
     );
+
+    test('does not expose mutable request collections', () {
+      final Map<String, dynamic> context = <String, dynamic>{
+        'mode': 'focus',
+        'limits': <String, int>{'actions': 3},
+      };
+      final List<Map<String, String>> history = <Map<String, String>>[
+        <String, String>{'role': 'user', 'content': 'Plan my day.'},
+      ];
+      final AgentRequest request = AgentRequest(
+        prompt: 'Plan my day.',
+        context: context,
+        history: history,
+      );
+
+      context['mode'] = 'changed';
+      (context['limits'] as Map<String, int>)['actions'] = 9;
+      history.first['content'] = 'changed';
+
+      expect(request.context['mode'], 'focus');
+      expect(
+        (request.context['limits'] as Map<Object?, Object?>)['actions'],
+        3,
+      );
+      expect(request.history.first['content'], 'Plan my day.');
+      expect(() => request.context['mode'] = 'changed', throwsUnsupportedError);
+      expect(
+        () => request.history.first['content'] = 'changed',
+        throwsUnsupportedError,
+      );
+    });
   });
 }

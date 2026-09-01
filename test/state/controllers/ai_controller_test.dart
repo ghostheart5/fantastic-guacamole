@@ -24,7 +24,7 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         tasksProvider.overrideWith((Ref ref) async {
-          return const <Task>[
+          return <Task>[
             Task(
               id: 't1',
               title: 'Lock release scope',

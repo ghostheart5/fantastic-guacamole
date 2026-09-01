@@ -90,6 +90,7 @@ void main() {
       AppView.progression,
     );
     expect(appViewFromRoutePath(RoutePaths.creator), AppView.creator);
+    expect(appViewFromRoutePath(RoutePaths.creatorGoals), AppView.goals);
     expect(appViewFromRoutePath(RoutePaths.tasks), AppView.creator);
     expect(appViewFromRoutePath(RoutePaths.legacyTasks), AppView.creator);
     expect(appViewFromRoutePath(RoutePaths.plan), AppView.timeline);

@@ -44,8 +44,12 @@ final explainableSIProvider = Provider<ExplainableSIState>((ref) {
     ),
     ExplainableSIReason(
       label: 'Energy',
-      detail: '${momentum.energyPercent}% available',
-      severity: momentum.energyPercent >= 65
+      detail: momentum.hasObservedEnergy
+          ? '${momentum.energyPercent}% available'
+          : 'Not checked',
+      severity: !momentum.hasObservedEnergy
+          ? ExplainableSISeverity.neutral
+          : momentum.energyPercent >= 65
           ? ExplainableSISeverity.positive
           : momentum.energyPercent >= 40
           ? ExplainableSISeverity.neutral
@@ -63,7 +67,9 @@ final explainableSIProvider = Provider<ExplainableSIState>((ref) {
     ExplainableSIReason(
       label: 'Recovery',
       detail: momentum.recovery,
-      severity: momentum.recovery == 'Recovery Needed'
+      severity: momentum.recovery == 'Not checked'
+          ? ExplainableSISeverity.neutral
+          : momentum.recovery == 'Recovery Needed'
           ? ExplainableSISeverity.warning
           : momentum.recovery == 'Watch Load'
           ? ExplainableSISeverity.neutral

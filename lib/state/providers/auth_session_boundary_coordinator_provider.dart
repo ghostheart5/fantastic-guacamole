@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
@@ -136,8 +138,7 @@ class AuthSessionBoundaryCoordinator {
             .writeString(_accountMarkerKey, currentId);
         if (!_isLatest(sequence)) return;
         invalidateAccountOwnedProviders(_ref);
-        boundary.markStorageReady(generation);
-        boundary.complete(generation);
+        _openStorageGate(boundary, generation);
         return;
       }
 
@@ -186,8 +187,7 @@ class AuthSessionBoundaryCoordinator {
           .writeString(_accountMarkerKey, currentId);
       if (!_isLatest(sequence)) return;
       invalidateAccountOwnedProviders(_ref);
-      boundary.markStorageReady(generation);
-      boundary.complete(generation);
+      _openStorageGate(boundary, generation);
     } on Object catch (error, stackTrace) {
       if (!_isLatest(sequence)) return;
       Logger.errorCategory(
@@ -226,8 +226,7 @@ class AuthSessionBoundaryCoordinator {
     final AuthSessionBoundaryNotifier boundary = _ref.read(
       authSessionBoundaryProvider.notifier,
     );
-    boundary.markStorageReady(current.generation);
-    boundary.complete(current.generation);
+    _openStorageGate(boundary, current.generation);
   }
 
   /// Clears preserved account-owned local data only after an explicit user
@@ -245,9 +244,11 @@ class AuthSessionBoundaryCoordinator {
       return;
     }
     final int sequence = _latestSequence;
-    await _ref
-        .read(localUserDataCleanupServiceProvider)
-        .clearForAccountSwitch();
+    await runAccountStorageMutation(
+      () => _ref
+          .read(localUserDataCleanupServiceProvider)
+          .clearForAccountSwitch(),
+    );
     if (!_isLatest(sequence) ||
         _validId(_ref.read(authUserProvider).asData?.value?.id) != userId) {
       return;
@@ -257,8 +258,13 @@ class AuthSessionBoundaryCoordinator {
     final AuthSessionBoundaryNotifier boundary = _ref.read(
       authSessionBoundaryProvider.notifier,
     );
-    boundary.markStorageReady(current.generation);
-    boundary.complete(current.generation);
+    _openStorageGate(boundary, current.generation);
+  }
+
+  void _openStorageGate(AuthSessionBoundaryNotifier boundary, int generation) {
+    boundary.markStorageReady(generation);
+    boundary.complete(generation);
+    _ref.read(getTasksUseCaseProvider);
   }
 
   void _blockForAuthError(int sequence, User? previousUser) {

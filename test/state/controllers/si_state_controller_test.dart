@@ -1,27 +1,10 @@
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
-import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
-import 'package:flutter/services.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUpAll(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMessageHandler('flutter/assets', (ByteData? _) async {
-          return null;
-        });
-  });
-
-  tearDownAll(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMessageHandler('flutter/assets', null);
-  });
-
   test('build starts with default SI state', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
@@ -29,7 +12,7 @@ void main() {
     expect(container.read(siStateProvider), const SIState());
   });
 
-  test('recordCompletion updates energy fatigue and completion count', () {
+  test('recordCompletion does not invent energy or fatigue', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
 
@@ -38,11 +21,13 @@ void main() {
 
     final state = container.read(siStateProvider);
     expect(state.completedToday, 1);
-    expect(state.energy, closeTo(0.62, 0.0001));
-    expect(state.fatigue, closeTo(0.4, 0.0001));
+    expect(state.energy, 0.5);
+    expect(state.fatigue, 0.5);
+    expect(state.hasObservedEnergy, isFalse);
+    expect(state.hasObservedFatigue, isFalse);
   });
 
-  test('adjustEnergy and adjustFatigue clamp between 0 and 1', () {
+  test('explicit adjustments clamp and become observed reports', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
 
@@ -55,6 +40,8 @@ void main() {
     final state = container.read(siStateProvider);
     expect(state.energy, 1.0);
     expect(state.fatigue, 0.0);
+    expect(state.energyOrigin, PredictiveEvidenceOrigin.observed);
+    expect(state.fatigueOrigin, PredictiveEvidenceOrigin.observed);
   });
 
   test('replaceState and reset behave predictably', () {
@@ -70,29 +57,18 @@ void main() {
     expect(container.read(siStateProvider), const SIState());
   });
 
-  test('late asset hydration cannot overwrite a live mutation', () async {
-    final Completer<ByteData?> assetLoad = Completer<ByteData?>();
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMessageHandler(
-          'flutter/assets',
-          (ByteData? _) => assetLoad.future,
-        );
-    addTearDown(() {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMessageHandler('flutter/assets', (ByteData? _) async => null);
-    });
+  test('task evidence never changes unavailable human state', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
 
     container.read(siStateProvider.notifier).recordCompletion();
-    const String encoded = '{"energy":0.99,"fatigue":0.01,"completedToday":99}';
-    final Uint8List bytes = Uint8List.fromList(utf8.encode(encoded));
-    assetLoad.complete(ByteData.sublistView(bytes));
-    await pumpEventQueue();
+    container.read(siStateProvider.notifier).taskSkipped();
 
     final SIState state = container.read(siStateProvider);
-    expect(state.energy, closeTo(0.62, 0.0001));
-    expect(state.fatigue, closeTo(0.4, 0.0001));
+    expect(state.energy, 0.5);
+    expect(state.fatigue, 0.5);
     expect(state.completedToday, 1);
+    expect(state.energyOrigin, PredictiveEvidenceOrigin.unavailable);
+    expect(state.fatigueOrigin, PredictiveEvidenceOrigin.unavailable);
   });
 }

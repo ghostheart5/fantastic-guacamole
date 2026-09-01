@@ -24,11 +24,12 @@ class ExperimentAssignment {
   }
 
   factory ExperimentAssignment.fromJson(Map<String, Object?> json) {
+    final String variant = json['variant']?.toString().trim() ?? 'control';
     return ExperimentAssignment(
       experimentId: json['experimentId']?.toString() ?? '',
-      variant: json['variant']?.toString() ?? 'control',
+      variant: variant.isEmpty ? 'control' : variant,
       bucket: (json['bucket'] is num) ? (json['bucket'] as num).toInt() : 0,
-      isControl: json['isControl'] == true,
+      isControl: variant.isEmpty || variant == 'control',
     );
   }
 }

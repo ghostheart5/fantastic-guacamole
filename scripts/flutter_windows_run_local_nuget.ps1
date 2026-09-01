@@ -18,6 +18,6 @@ if (-not (Test-Path $nugetPath)) {
 # Prepend local tools so CMake/plugin build steps can resolve nuget reliably.
 $env:PATH = "$toolsDir;$env:PATH"
 
-Write-Host 'Running flutter run -d windows with local nuget on PATH...'
-flutter run -d windows
+Write-Host 'Running flutter run -d windows with local nuget and compile-time .env configuration...'
+flutter run -d windows --dart-define-from-file=.env
 exit $LASTEXITCODE

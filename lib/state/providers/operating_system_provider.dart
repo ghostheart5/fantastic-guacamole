@@ -4,10 +4,12 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/operating_continuity_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/operating_system/i_operating_continuity_repository.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
@@ -16,6 +18,47 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final operatingContinuityRepositoryProvider =
     Provider<IOperatingContinuityRepository>((Ref ref) {
       return OperatingContinuityRepository(ref.watch(sharedPrefsStoreProvider));
+    });
+
+final PersonContextAccessRequest nexusPersonContextRequest =
+    PersonContextAccessRequest(
+      surface: PersonContextSurface.nexus,
+      purposes: operationalPersonContextPurposes,
+    );
+
+const Set<PersonContextSurface> sharedDecisionContextSurfaces =
+    <PersonContextSurface>{
+      PersonContextSurface.smartPlanner,
+      PersonContextSurface.siConsole,
+      PersonContextSurface.nexus,
+      PersonContextSurface.trajectory,
+    };
+
+enum OperatingDecisionSurface {
+  smartPlanner,
+  nexus,
+  timeline,
+  trajectory,
+  siConsole,
+  notifications,
+}
+
+class SurfaceDecisionReceipt {
+  const SurfaceDecisionReceipt({required this.surface, required this.receipt});
+
+  final OperatingDecisionSurface surface;
+  final OperatingDecisionReceipt receipt;
+}
+
+final operatingDecisionForSurfaceProvider =
+    FutureProvider.family<SurfaceDecisionReceipt, OperatingDecisionSurface>((
+      Ref ref,
+      OperatingDecisionSurface surface,
+    ) async {
+      final OperatingDecisionReceipt receipt = await ref.watch(
+        operatingDecisionReceiptProvider.future,
+      );
+      return SurfaceDecisionReceipt(surface: surface, receipt: receipt);
     });
 
 final operatingSnapshotProvider = FutureProvider<OperatingSnapshot>((
@@ -42,12 +85,32 @@ final operatingSnapshotProvider = FutureProvider<OperatingSnapshot>((
     completedToday: aggregation.planningEvidence.executionCompletedToday,
     energy: aggregation.siState.energy,
     fatigue: aggregation.siState.fatigue,
+    energyOrigin: aggregation.siState.energyOrigin,
+    fatigueOrigin: aggregation.siState.fatigueOrigin,
     momentum: (aggregation.trajectory.momentum * 100).round().clamp(0, 100),
     pressure: aggregation.trajectory.pressureIndex.clamp(0, 100),
     topActionId: subjectId,
     topActionLabel: recommendedAction,
     activeRisks: supportingOutput.warnings,
     evidenceCoverage: aggregation.sourceHealth.availableFraction,
+  );
+});
+
+final operatingDecisionPlanProvider = FutureProvider<OperatingDecisionPlan>((
+  Ref ref,
+) async {
+  final OperatingSnapshot snapshot = await ref.watch(
+    operatingSnapshotProvider.future,
+  );
+  final SIStateAggregation aggregation = await ref.watch(
+    siStateAggregationProvider.future,
+  );
+  return OperatingDecisionPlan(
+    snapshotId: snapshot.snapshotId,
+    subjectId: snapshot.topActionId,
+    recommendedAction: _canonicalRecommendedAction(aggregation),
+    sourceRevisions: snapshot.sourceRevisions,
+    modelVersion: aggregation.planningDecision.modelVersion,
   );
 });
 
@@ -63,9 +126,30 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
   final OperatingSnapshot snapshot = await ref.watch(
     operatingSnapshotProvider.future,
   );
+  final OperatingDecisionPlan plan = await ref.watch(
+    operatingDecisionPlanProvider.future,
+  );
   final DateTime now = DateTime.now().toUtc();
-  final String? subjectId = snapshot.topActionId;
-  final String recommendedAction = _canonicalRecommendedAction(aggregation);
+  final List<PersonContextSignal>? availablePersonContext =
+      _personContextSignals(
+        ref.watch(personContextForSurfaceProvider(nexusPersonContextRequest)),
+        surface: PersonContextSurface.nexus,
+        purposes: operationalPersonContextPurposes,
+        observedAt: now,
+      );
+  final List<PersonContextSignal>? personContext = availablePersonContext
+      ?.where(
+        (PersonContextSignal signal) =>
+            signal.surfaceScopes.containsAll(sharedDecisionContextSurfaces),
+      )
+      .toList(growable: false);
+  final Map<String, String> receiptRevisions = <String, String>{
+    ...snapshot.sourceRevisions,
+    'person_context_shared': _personContextRevision(personContext),
+    'person_context_nexus': _personContextRevision(personContext),
+  };
+  final String? subjectId = plan.subjectId;
+  final String recommendedAction = plan.recommendedAction;
   final bool isCaptureAction = subjectId == null;
   final List<OperatingEvidence> evidence = <OperatingEvidence>[
     OperatingEvidence(
@@ -82,8 +166,15 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     OperatingEvidence(
       code: 'energy_state',
       description:
-          'Energy ${(aggregation.siState.energy * 100).round()}% and fatigue ${(aggregation.siState.fatigue * 100).round()}% shaped execution intensity.',
-      kind: OperatingEvidenceKind.observed,
+          aggregation.siState.hasObservedEnergy &&
+              aggregation.siState.hasObservedFatigue
+          ? 'User-reported energy ${(aggregation.siState.energy * 100).round()}% and fatigue ${(aggregation.siState.fatigue * 100).round()}% shaped execution intensity.'
+          : 'Current energy or fatigue was not reported. Neutral internal fallbacks are not treated as personal evidence.',
+      kind:
+          aggregation.siState.hasObservedEnergy &&
+              aggregation.siState.hasObservedFatigue
+          ? OperatingEvidenceKind.observed
+          : OperatingEvidenceKind.unavailable,
       recordedAt: now,
       source: 'current_state',
       freshUntil: now.add(const Duration(minutes: 20)),
@@ -97,6 +188,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
       source: 'source_health',
     ),
   ];
+  evidence.addAll(_personContextEvidence(personContext, now));
   final TaskScoreBreakdown? score = _scoreFor(
     aggregation.planningDecision.rankedCandidates,
     subjectId,
@@ -201,6 +293,8 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     targetEntityId: subjectId,
   );
   final OperatingDecisionReceipt receipt = OperatingDecisionReceipt(
+    snapshotId: plan.snapshotId,
+    planId: plan.planId,
     subjectId: subjectId,
     recommendedAction: recommendedAction,
     rationale: rationale,
@@ -213,12 +307,13 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
         aggregation.planningDecision.confidenceProfile.recommendationConfidence,
     evidence: evidence,
     actionIntent: intent,
-    sourceRevisions: snapshot.sourceRevisions,
-    modelVersion: aggregation.planningDecision.modelVersion,
+    sourceRevisions: Map<String, String>.unmodifiable(receiptRevisions),
+    modelVersion: plan.modelVersion,
     assumptions: <String>[
       ...capacity.assumptions,
       'Current local records represent the user intent available to ChronoSpark.',
       'Deterministic ranking is decision support, not a guaranteed outcome.',
+      ..._personContextAssumptions(personContext),
     ],
     warnings: supportingOutput.warnings,
   );
@@ -383,6 +478,8 @@ Map<String, String> operatingSourceRevisions(SIStateAggregation aggregation) {
     'state': stableId(<String, dynamic>{
       'energy': aggregation.siState.energy,
       'fatigue': aggregation.siState.fatigue,
+      'energyOrigin': aggregation.siState.energyOrigin.name,
+      'fatigueOrigin': aggregation.siState.fatigueOrigin.name,
       'sourceHealth': <String, String>{
         'tasks': aggregation.sourceHealth.tasks.name,
         'goals': aggregation.sourceHealth.goals.name,
@@ -418,4 +515,121 @@ TaskScoreBreakdown? _scoreFor(List<RankedTask> ranked, String? subjectId) {
     if (item.task.id == subjectId) return item.breakdown;
   }
   return null;
+}
+
+List<PersonContextSignal>? _personContextSignals(
+  PersonContextView? view, {
+  required PersonContextSurface surface,
+  required Set<PersonContextPurpose> purposes,
+  required DateTime observedAt,
+}) {
+  if (view == null ||
+      view.surface != surface ||
+      !view.purposes.containsAll(purposes)) {
+    return null;
+  }
+  final List<PersonContextSignal> signals =
+      view.signals
+          .where(
+            (PersonContextSignal signal) =>
+                purposes.contains(signal.purpose) &&
+                signal.isAvailableTo(surface, observedAt),
+          )
+          .toList(growable: false)
+        ..sort((PersonContextSignal a, PersonContextSignal b) {
+          final int kind = a.kind.index.compareTo(b.kind.index);
+          return kind != 0 ? kind : a.id.compareTo(b.id);
+        });
+  return List<PersonContextSignal>.unmodifiable(signals);
+}
+
+String _personContextRevision(List<PersonContextSignal>? signals) {
+  if (signals == null) return 'unavailable';
+  if (signals.isEmpty) return 'available_empty';
+  return stableId(<String, dynamic>{
+    'surface': PersonContextSurface.nexus.name,
+    'purposes':
+        operationalPersonContextPurposes
+            .map((PersonContextPurpose value) => value.name)
+            .toList()
+          ..sort(),
+    'signals': signals
+        .map(
+          (PersonContextSignal signal) => <String, dynamic>{
+            'id': signal.id,
+            'kind': signal.kind.name,
+            'value': signal.value,
+            'source': signal.source.name,
+            'purpose': signal.purpose.name,
+            'recordedAt': signal.recordedAt.toUtc().toIso8601String(),
+            'freshUntil': signal.freshUntil.toUtc().toIso8601String(),
+          },
+        )
+        .toList(growable: false),
+  });
+}
+
+List<OperatingEvidence> _personContextEvidence(
+  List<PersonContextSignal>? signals,
+  DateTime recordedAt,
+) {
+  if (signals == null) {
+    return <OperatingEvidence>[
+      OperatingEvidence(
+        code: 'person_context_unavailable',
+        description:
+            'Governed person context was unavailable to the shared decision authority. No personal context was assumed.',
+        kind: OperatingEvidenceKind.unavailable,
+        recordedAt: recordedAt,
+        source: 'person_context',
+      ),
+    ];
+  }
+  if (signals.isEmpty) {
+    return <OperatingEvidence>[
+      OperatingEvidence(
+        code: 'person_context_available_empty',
+        description:
+            'No fresh consented context was authorized across every consuming decision surface.',
+        kind: OperatingEvidenceKind.unavailable,
+        recordedAt: recordedAt,
+        source: 'person_context',
+      ),
+    ];
+  }
+  return signals
+      .map(
+        (PersonContextSignal signal) => OperatingEvidence(
+          code:
+              'person_context_${stableId(<String, dynamic>{'id': signal.id, 'kind': signal.kind.name})}',
+          description:
+              'Consented ${signal.kind.name} context for ${signal.purpose.name}: ${signal.value}',
+          kind: signal.source == PersonContextSource.userAuthored
+              ? OperatingEvidenceKind.userProvided
+              : OperatingEvidenceKind.observed,
+          recordedAt: signal.recordedAt.toUtc(),
+          source: 'person_context:${signal.source.name}',
+          freshUntil: signal.freshUntil.toUtc(),
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<String> _personContextAssumptions(List<PersonContextSignal>? signals) {
+  if (signals == null) {
+    return const <String>[
+      'Person context was unavailable at decision generation, so no personal context was inferred.',
+    ];
+  }
+  if (signals.isEmpty) {
+    return const <String>[
+      'Person context was available but contained no fresh signals authorized across every consuming decision surface.',
+    ];
+  }
+  return signals
+      .map(
+        (PersonContextSignal signal) =>
+            'The consented ${signal.kind.name} context is attached as reviewable ${signal.purpose.name} evidence only. It does not change deterministic ranking and is not treated as identity or a guaranteed outcome.',
+      )
+      .toList(growable: false);
 }

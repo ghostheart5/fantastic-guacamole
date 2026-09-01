@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Task completion
 enum CompletionMutationOutcome { applied, idempotent, conflict, blocked }
 
 enum CompletionSideEffect {

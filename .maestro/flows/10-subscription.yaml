@@ -43,5 +43,5 @@ tags:
     when:
       notVisible: "UNLOCKED FOR TESTING"
     commands:
-      - assertVisible: ".*Cancel anytime.*"
+      - assertVisible: ".*Google Play confirms billing frequency.*"
       - assertNotVisible: "Simulate unlock"

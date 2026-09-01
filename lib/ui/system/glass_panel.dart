@@ -1,4 +1,6 @@
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'dart:ui';
+
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class GlassPanel extends StatelessWidget {
@@ -19,36 +21,45 @@ class GlassPanel extends StatelessWidget {
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
       offset: isActive ? const Offset(0, -0.01) : Offset.zero,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-        padding: padding,
-        decoration: BoxDecoration(
-          image: const DecorationImage(
-            image: AssetImage(AppAssets.bgHomeOrbit),
-            fit: BoxFit.cover,
-          ),
-          color: const Color(0x1A000000),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive ? const Color(0x38C2A7FF) : const Color(0x12FFFFFF),
-          ),
-          boxShadow: <BoxShadow>[
-            const BoxShadow(
-              color: Color(0x16000000),
-              blurRadius: 16,
-              offset: Offset(0, 6),
-            ),
-            if (isActive)
-              const BoxShadow(
-                color: Color(0x1AC2A7FF),
-                blurRadius: 18,
-                spreadRadius: 0.5,
-                offset: Offset(0, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            padding: padding,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  AppColors.bgSecondary.withValues(alpha: 0.93),
+                  AppColors.background.withValues(alpha: 0.86),
+                ],
               ),
-          ],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isActive
+                    ? AppColors.neonCyan.withValues(alpha: 0.52)
+                    : AppColors.panelBorder.withValues(alpha: 0.5),
+              ),
+              boxShadow: <BoxShadow>[
+                const BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
+                if (isActive)
+                  BoxShadow(
+                    color: AppColors.neonCyan.withValues(alpha: 0.12),
+                    blurRadius: 18,
+                  ),
+              ],
+            ),
+            child: child,
+          ),
         ),
-        child: child,
       ),
     );
   }

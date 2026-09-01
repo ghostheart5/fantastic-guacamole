@@ -178,12 +178,44 @@ class TaskOccurrenceCoordinator {
       );
     }
 
+    if (existingPending != null &&
+        (existingPending.outcome != outcome ||
+            existingPending.rescheduledFor != scheduledFor)) {
+      return TaskOccurrenceResult(
+        mutation: TaskOccurrenceMutation.conflict,
+        occurrence: occurrence,
+        task: current,
+      );
+    }
+
+    final DateTime mutationAt = existingPending?.at ?? _clock();
+    if (!current.isActionableAt(mutationAt) &&
+        !_matchesTerminalOutcome(
+          current,
+          existingPending?.outcome ?? outcome,
+        )) {
+      return TaskOccurrenceResult(
+        mutation: TaskOccurrenceMutation.conflict,
+        occurrence: occurrence,
+        task: current,
+        successor: await _existingSuccessor(current, occurrence),
+      );
+    }
+    if (existingPending == null && !current.isActionableAt(mutationAt)) {
+      return TaskOccurrenceResult(
+        mutation: TaskOccurrenceMutation.idempotent,
+        occurrence: occurrence,
+        task: current,
+        successor: await _existingSuccessor(current, occurrence),
+      );
+    }
+
     final TaskOccurrencePendingOperation pending =
         existingPending ??
         TaskOccurrencePendingOperation(
           operationId: resolvedOperationId,
           outcome: outcome,
-          at: _clock(),
+          at: mutationAt,
           rescheduledFor: scheduledFor,
         );
     if (existingPending == null) {
@@ -292,6 +324,7 @@ class TaskOccurrenceCoordinator {
           occurrenceKey: occurrence.occurrenceKey,
           isCompleted: true,
           isSkipped: false,
+          isCanceled: false,
           completedAt: pending.at,
           clearSkippedAt: true,
           updatedAt: updatedAt,
@@ -305,6 +338,7 @@ class TaskOccurrenceCoordinator {
           occurrenceKey: occurrence.occurrenceKey,
           isCompleted: false,
           isSkipped: true,
+          isCanceled: false,
           clearCompletedAt: true,
           skippedAt: pending.at,
           updatedAt: updatedAt,
@@ -337,12 +371,23 @@ class TaskOccurrenceCoordinator {
     final int calendarDays = source.recurrenceRule == RecurrenceRule.daily
         ? 1
         : 7;
-    DateTime next = _addCalendarDays(
-      occurrence.initialScheduledFor ?? source.scheduledFor ?? now,
-      calendarDays,
-    );
+    final DateTime scheduleAnchor =
+        occurrence.initialScheduledFor ??
+        source.scheduledFor ??
+        source.dueDate ??
+        now;
+    DateTime next = _addCalendarDays(scheduleAnchor, calendarDays);
+    DateTime? nextDeadline = source.dueDate == null
+        ? null
+        : _addCalendarDays(source.dueDate!, calendarDays);
     while (!next.isAfter(now)) {
       next = _addCalendarDays(next, calendarDays);
+      if (nextDeadline != null) {
+        nextDeadline = _addCalendarDays(nextDeadline, calendarDays);
+      }
+    }
+    while (nextDeadline != null && !nextDeadline.isAfter(now)) {
+      nextDeadline = _addCalendarDays(nextDeadline, calendarDays);
     }
     return source.copyWith(
       id: '${source.id}::next::${occurrence.occurrenceKey}',
@@ -353,9 +398,17 @@ class TaskOccurrenceCoordinator {
       createdAt: now,
       updatedAt: now,
       scheduledFor: next,
+      dueDate: nextDeadline,
       occurrenceKey: next.toUtc().toIso8601String(),
     );
   }
+
+  bool _matchesTerminalOutcome(
+    TaskEntity task,
+    TaskOccurrenceOutcome outcome,
+  ) =>
+      (outcome == TaskOccurrenceOutcome.completed && task.isCompleted) ||
+      (outcome == TaskOccurrenceOutcome.skipped && task.isSkipped);
 
   Future<TaskEntity?> _existingSuccessor(
     TaskEntity source,

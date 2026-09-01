@@ -8,6 +8,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('mock sign-in always starts signed out', () {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(mockSignInProvider), isFalse);
+  });
+
   test('empty tasks produce fallback recommendation', () {
     final ProviderContainer container = ProviderContainer(
       overrides: [
@@ -38,7 +45,7 @@ void main() {
     final ProviderContainer populatedContainer = ProviderContainer(
       overrides: [
         tasksProvider.overrideWith((Ref ref) async {
-          return const <Task>[
+          return <Task>[
             Task(
               id: 't1',
               title: 'Move launch checklist',
@@ -117,6 +124,33 @@ void main() {
       addTearDown(container.dispose);
 
       expect(container.read(authenticatedGuardProvider), isTrue);
+    },
+  );
+
+  test(
+    'unverified backend user does not satisfy the authenticated guard',
+    () async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          authUserProvider.overrideWith(
+            (Ref ref) => Stream<User?>.value(
+              const User(
+                id: 'pending-user',
+                email: 'pending@chronospark.app',
+                emailVerified: false,
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final ProviderSubscription<AsyncValue<User?>> subscription = container
+          .listen(authUserProvider, (_, _) {});
+      addTearDown(subscription.close);
+
+      await container.read(authUserProvider.future);
+
+      expect(container.read(authenticatedGuardProvider), isFalse);
     },
   );
 

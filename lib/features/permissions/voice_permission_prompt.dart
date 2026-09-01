@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/features/permissions/permission_denied_recov
 import 'package:fantastic_guacamole/features/permissions/permission_explainer.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_rationale_sheet.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 
 class VoicePermissionPrompt extends StatelessWidget {
@@ -27,62 +28,100 @@ class VoicePermissionPrompt extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: AppColors.neonViolet.withValues(alpha: 0.08),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.32)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Allow microphone access to use voice-to-text and spoken Smart Planner guidance in the SI Console.',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12.5,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          FilledButton(
-            onPressed: () async {
-              await showPermissionRationaleSheet<void>(
-                context: context,
-                explainer: PermissionExplainers.voice,
-                onPrimary: () async {
-                  await onRequestPermission();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        TemporalGlassSurface(
+          accent: AppColors.neonViolet,
+          opacity: 0.9,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const SizedBox.square(
+                    dimension: 48,
+                    child: Icon(
+                      Icons.mic_none_rounded,
+                      color: AppColors.neonViolet,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const Text(
+                          'PERMISSION · MICROPHONE',
+                          style: TextStyle(
+                            color: AppColors.neonViolet,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Allow microphone access to use voice-to-text and spoken Smart Planner guidance in the SI Console.',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.45,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const TemporalStatusRow(
+                icon: Icons.mic_off_outlined,
+                text: 'No background recording.',
+                color: AppColors.neonViolet,
+              ),
+              const SizedBox(height: 14),
+              TemporalActionButton(
+                label: 'Enable Voice Access',
+                icon: Icons.mic_none_rounded,
+                accent: AppColors.neonViolet,
+                onPressed: () async {
+                  await showPermissionRationaleSheet<void>(
+                    context: context,
+                    explainer: PermissionExplainers.voice,
+                    onPrimary: () async {
+                      await onRequestPermission();
+                    },
+                  );
                 },
-              );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.neonViolet,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Enable Voice Access'),
+              ),
+            ],
           ),
-          if (denied) ...<Widget>[
-            const SizedBox(height: 10),
-            PermissionDeniedRecovery(
-              title: 'Microphone Permission Denied',
-              message:
-                  'Microphone access is currently blocked. Open system settings to enable voice features.',
-              onOpenSystemSettings: onOpenSystemSettings,
-            ),
-          ],
+        ),
+        if (denied) ...<Widget>[
+          const SizedBox(height: 10),
+          PermissionDeniedRecovery(
+            title: 'Microphone Permission Denied',
+            message:
+                'Microphone access is currently blocked. Open system settings to enable voice features.',
+            onOpenSystemSettings: onOpenSystemSettings,
+          ),
         ],
-      ),
+      ],
     );
   }
 }

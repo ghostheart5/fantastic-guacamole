@@ -3,15 +3,23 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final creatorHandshakeClockProvider = Provider<DateTime Function()>(
@@ -42,6 +50,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     final String account = _verifiedAccountScopeId();
     final DateTime now = _now();
     final String revision = await _domainRevision();
+    final PersonContextView? personContext = _creatorPersonContext(account);
+    final CreatorPersonContextBinding? personContextBinding =
+        personContext == null ? null : _personContextBinding(personContext);
     final int sequence = _proposalSequence++;
     final String proposalSeed = creatorHandshakeDigest(<String, Object?>{
       'account': account,
@@ -52,16 +63,21 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     });
     final String proposalId =
         'creator-proposal-${proposalSeed.substring(0, 24)}';
-    final CreatorTaskMutation task = _taskMutationFromForm(
+    final CreatorEntityMutation mutation = _mutationFromForm(
       data: data,
       proposalId: proposalId,
       createdAt: now,
     );
     final CreatorMutationOperation operation = CreatorMutationOperation(
-      operationId: '$proposalId:create-task',
-      kind: CreatorMutationKind.createTask,
-      label: 'Create ${task.creatorKind.toLowerCase()}',
-      task: task,
+      operationId: '$proposalId:create-${mutation.entityKind.name}',
+      kind: switch (mutation.entityKind) {
+        CreatorEntityKind.task => CreatorMutationKind.createTask,
+        CreatorEntityKind.goal => CreatorMutationKind.createGoal,
+        CreatorEntityKind.habit => CreatorMutationKind.createHabit,
+        CreatorEntityKind.note => CreatorMutationKind.createNote,
+      },
+      label: 'Create ${_entityLabel(mutation.entityKind).toLowerCase()}',
+      mutation: mutation,
     );
     final CreatorHandshakePreview preview = CreatorHandshakePreview(
       proposalId: proposalId,
@@ -72,6 +88,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       expiresAt: now.add(confirmationLifetime),
       operations: <CreatorMutationOperation>[operation],
       selectedOperationIds: <String>{operation.operationId},
+      personContextBinding: personContextBinding,
     );
     final CreatorConfirmationToken token = CreatorConfirmationToken.issue(
       preview: preview,
@@ -81,7 +98,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       phase: CreatorHandshakePhase.preview,
       preview: preview,
       token: token,
-      message: 'Review the exact selected change. Nothing has been saved yet.',
+      message: personContextBinding?.hasBoundEvidence ?? false
+          ? 'Review the exact selected change. Consented person context is bound as review evidence only and did not alter the proposed ${_entityLabel(mutation.entityKind).toLowerCase()}. Nothing has been saved yet.'
+          : 'Review the exact selected change. Nothing has been saved yet.',
       formRevision: state.formRevision,
     );
     return state;
@@ -142,8 +161,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       }
       state = state.copyWith(
         phase: CreatorHandshakePhase.idempotent,
-        message:
-            'This confirmation was already applied. No duplicate task was created.',
+        message: _idempotentMessage(state.preview),
       );
       return state;
     }
@@ -191,7 +209,16 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       return state;
     }
 
+    final CreatorPersonContextBinding? personContextBinding =
+        preview.personContextBinding;
+    if (!_personContextBindingIsCurrent(personContextBinding, account)) {
+      return _rejectStalePersonContext();
+    }
+
     final String currentRevision = await _domainRevision();
+    if (!_personContextBindingIsCurrent(personContextBinding, account)) {
+      return _rejectStalePersonContext();
+    }
     if (currentRevision != preview.baseDomainRevision) {
       return _refreshPreview(
         preview,
@@ -207,30 +234,43 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       message: 'Applying only the selected, confirmed operation…',
     );
 
-    final ITaskRepository repository = ref.read(domainTaskRepositoryProvider);
     final Map<String, Map<String, Object?>> ledger = await _readLedger(account);
     final List<CreatorMutationOperation> toCreate =
         <CreatorMutationOperation>[];
     final List<String> taskIds = <String>[];
+    final List<CreatorEntityId> entityIds = <CreatorEntityId>[];
     bool replayOnly = true;
 
     for (final CreatorMutationOperation operation
         in preview.selectedOperations) {
+      final CreatorEntityId entityId = CreatorEntityId(
+        kind: operation.entityKind,
+        id: operation.entityId,
+      );
+      entityIds.add(entityId);
+      if (operation.entityKind == CreatorEntityKind.task) {
+        taskIds.add(operation.entityId);
+      }
       final Map<String, Object?>? recorded = ledger[operation.operationId];
       final String status = recorded?['status']?.toString() ?? '';
       if (status == 'applied' || status == 'undone') {
-        taskIds.add(operation.task.taskId);
-        continue;
-      }
-      final TaskEntity? existing = await repository.getTaskById(
-        operation.task.taskId,
-      );
-      if (existing != null) {
-        if (!_matchesMutation(existing, operation.task)) {
+        if (!_ledgerEntryMatches(recorded!, operation)) {
           state = state.copyWith(
             phase: CreatorHandshakePhase.conflict,
             message:
-                'The target task identity is already used by different data. Nothing was changed.',
+                'The saved replay record does not match the confirmed ${_entityLabel(operation.entityKind).toLowerCase()}. Nothing was changed.',
+          );
+          return state;
+        }
+        continue;
+      }
+      final Object? existing = await _readExisting(operation);
+      if (existing != null) {
+        if (!_matchesMutation(existing, operation)) {
+          state = state.copyWith(
+            phase: CreatorHandshakePhase.conflict,
+            message:
+                'The target ${_entityLabel(operation.entityKind).toLowerCase()} identity is already used by different data. Nothing was changed.',
           );
           return state;
         }
@@ -239,24 +279,23 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
           status: 'applied',
           timestamp: now,
         );
-        taskIds.add(operation.task.taskId);
         continue;
       }
       replayOnly = false;
       toCreate.add(operation);
-      taskIds.add(operation.task.taskId);
     }
 
     try {
       for (final CreatorMutationOperation operation in toCreate) {
-        final TaskEntity task = _entityFromMutation(operation.task);
-        if (!TaskPolicy.isValid(task)) {
-          throw StateError('The confirmed task no longer passes validation.');
+        if (!_personContextBindingIsCurrent(personContextBinding, account)) {
+          return _rejectStalePersonContext();
         }
-        await repository.saveTask(task);
-        _bestEffort(
-          () => ref.read(localMetricsAccumulatorProvider).recordTaskCreated(),
-        ).ignore();
+        await _applyCreate(operation);
+        if (operation.entityKind == CreatorEntityKind.task) {
+          _bestEffort(
+            () => ref.read(localMetricsAccumulatorProvider).recordTaskCreated(),
+          ).ignore();
+        }
         ledger[operation.operationId] = _ledgerEntry(
           operation,
           status: 'applied',
@@ -273,6 +312,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     }
 
     await _bestEffort(() => _writeLedger(account, ledger));
+    await _bestEffort(() => _recordGuidanceMilestones(preview));
     final String resultingRevision = await _domainRevision();
     final CreatorHandshakeReceipt receipt = CreatorHandshakeReceipt(
       proposalId: preview.proposalId,
@@ -280,18 +320,19 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       confirmationTokenId: token.tokenId,
       appliedOperationIds: preview.selectedOperationIds.toList()..sort(),
       taskIds: List<String>.unmodifiable(taskIds),
+      entityIds: entityIds,
       appliedAt: now,
       undoExpiresAt: now.add(undoLifetime),
       resultingDomainRevision: resultingRevision,
     );
-    ref.invalidate(tasksProvider);
+    _invalidateDomains(preview.selectedOperations);
     state = state.copyWith(
       phase: replayOnly
           ? CreatorHandshakePhase.idempotent
           : CreatorHandshakePhase.applied,
       receipt: receipt,
       message: replayOnly
-          ? 'This confirmation was already applied. No duplicate task was created.'
+          ? _idempotentMessage(preview)
           : 'Saved exactly once from the selected confirmation.',
       formRevision: state.formRevision + 1,
     );
@@ -318,7 +359,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     } on StateError catch (error) {
       state = state.copyWith(
         phase: CreatorHandshakePhase.conflict,
-        message: '${error.message} The saved task was not changed.',
+        message: '${error.message} The saved item was not changed.',
       );
       return state;
     }
@@ -326,7 +367,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       state = state.copyWith(
         phase: CreatorHandshakePhase.conflict,
         message:
-            'Undo is bound to another account. The saved task was not changed.',
+            'Undo is bound to another account. The saved item was not changed.',
       );
       return state;
     }
@@ -334,18 +375,24 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     if (!receipt.canUndoAt(now)) {
       state = state.copyWith(
         phase: CreatorHandshakePhase.expired,
-        message: 'The undo window expired. The saved task was not changed.',
+        message: 'The undo window expired. The saved item was not changed.',
       );
       return state;
     }
 
-    final ITaskRepository repository = ref.read(domainTaskRepositoryProvider);
     final Map<String, Map<String, Object?>> ledger = await _readLedger(account);
     for (final CreatorMutationOperation operation
         in preview.selectedOperations) {
-      final TaskEntity? existing = await repository.getTaskById(
-        operation.task.taskId,
-      );
+      final Map<String, Object?>? recorded = ledger[operation.operationId];
+      if (recorded != null && !_ledgerEntryMatches(recorded, operation)) {
+        state = state.copyWith(
+          phase: CreatorHandshakePhase.conflict,
+          message:
+              'The undo record no longer matches the confirmed ${_entityLabel(operation.entityKind).toLowerCase()}. Nothing was changed.',
+        );
+        return state;
+      }
+      final Object? existing = await _readExisting(operation);
       if (existing == null) {
         ledger[operation.operationId] = _ledgerEntry(
           operation,
@@ -354,11 +401,11 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         );
         continue;
       }
-      if (!_matchesMutation(existing, operation.task)) {
+      if (!_matchesMutation(existing, operation)) {
         state = state.copyWith(
           phase: CreatorHandshakePhase.conflict,
           message:
-              'The created task changed after confirmation, so automatic undo was blocked.',
+              'The created ${_entityLabel(operation.entityKind).toLowerCase()} changed after confirmation, so automatic undo was blocked.',
         );
         return state;
       }
@@ -367,11 +414,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     try {
       for (final CreatorMutationOperation operation
           in preview.selectedOperations) {
-        final TaskEntity? existing = await repository.getTaskById(
-          operation.task.taskId,
-        );
+        final Object? existing = await _readExisting(operation);
         if (existing != null) {
-          await repository.deleteTask(operation.task.taskId);
+          await _applyDelete(operation);
         }
         ledger[operation.operationId] = _ledgerEntry(
           operation,
@@ -383,12 +428,12 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       state = state.copyWith(
         phase: CreatorHandshakePhase.failed,
         message:
-            'Undo could not complete. The current task state was preserved.',
+            'Undo could not complete. The current item state was preserved.',
       );
       return state;
     }
     await _bestEffort(() => _writeLedger(account, ledger));
-    ref.invalidate(tasksProvider);
+    _invalidateDomains(preview.selectedOperations);
     state = state.copyWith(
       phase: CreatorHandshakePhase.undone,
       message:
@@ -418,93 +463,493 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     return state;
   }
 
-  CreatorTaskMutation _taskMutationFromForm({
+  CreatorEntityMutation _mutationFromForm({
     required CreatorFormData data,
     required String proposalId,
     required DateTime createdAt,
   }) {
-    final String kind = data.type.trim().toLowerCase();
-    final recurrence = data.recurrenceRule.name != 'none'
-        ? data.recurrenceRule
-        : switch (kind) {
-            'routine' => RecurrenceRule.daily,
-            _ => data.recurrenceRule,
-          };
-    final int difficulty = kind == 'goal' ? 5 : 3;
-    final int energyRequired = switch (kind) {
-      'goal' => 4,
-      'routine' => 2,
-      'note' => 1,
-      _ => 3,
+    final String title = data.title.trim();
+    final String? description = data.description?.trim().isEmpty ?? true
+        ? null
+        : data.description!.trim();
+    final String idDigest = creatorHandshakeDigest(
+      data.kind == CreatorFormKind.task
+          ? proposalId
+          : '$proposalId:${data.kind.name}',
+    ).substring(0, 24);
+    return switch (data.kind) {
+      CreatorFormKind.task => CreatorTaskMutation(
+        taskId: 'creator-task-$idDigest',
+        creatorKind: 'task',
+        title: title,
+        description: description,
+        priority: data.priority,
+        difficulty: 3,
+        energyRequired: 3,
+        createdAt: createdAt,
+        goalId: _trimmedOrNull(data.goalId),
+        estimatedDuration: data.estimatedDuration,
+        dueDate: data.dueDate,
+        scheduledFor: data.scheduledFor,
+        recurrenceRule: data.recurrenceRule,
+      ),
+      CreatorFormKind.goal => CreatorGoalMutation(
+        goalId: 'creator-goal-$idDigest',
+        title: title,
+        description: description,
+        createdAt: createdAt,
+        targetDate: data.targetDate ?? data.dueDate ?? data.scheduledFor,
+        colorHex: data.goalColorHex,
+      ),
+      CreatorFormKind.habit => CreatorHabitMutation(
+        habitId: 'creator-habit-$idDigest',
+        title: title,
+        description: description,
+        createdAt: createdAt,
+        cadence: switch (data.recurrenceRule) {
+          RecurrenceRule.daily => HabitCadence.daily,
+          RecurrenceRule.weekly => HabitCadence.weekly,
+          RecurrenceRule.none => data.habitCadence,
+        },
+        targetCount: data.habitTargetCount.clamp(1, 365),
+      ),
+      CreatorFormKind.note => CreatorNoteMutation(
+        noteId: 'creator-note-$idDigest',
+        title: title,
+        body: description,
+        createdAt: createdAt,
+      ),
     };
-    final int priority = switch (kind) {
-      'goal' => data.priority < 4 ? 4 : data.priority,
-      'note' => 1,
-      _ => data.priority,
-    };
-    return CreatorTaskMutation(
-      taskId:
-          'creator-task-${creatorHandshakeDigest(proposalId).substring(0, 24)}',
-      creatorKind: kind.isEmpty ? 'task' : kind,
-      title: data.title.trim(),
-      description: data.description?.trim().isEmpty ?? true
-          ? null
-          : data.description!.trim(),
-      priority: priority,
-      difficulty: difficulty,
-      energyRequired: energyRequired,
-      createdAt: createdAt,
-      scheduledFor: data.scheduledFor,
-      recurrenceRule: recurrence,
+  }
+
+  PersonContextView? _creatorPersonContext(String accountScopeId) {
+    final PersonContextView? view = ref.read(
+      personContextForSurfaceProvider(
+        PersonContextAccessRequest(
+          surface: PersonContextSurface.creator,
+          purposes: operationalPersonContextPurposes,
+        ),
+      ),
+    );
+    if (view == null ||
+        view.accountScopeId != accountScopeId ||
+        view.surface != PersonContextSurface.creator ||
+        !setEquals(view.purposes, operationalPersonContextPurposes)) {
+      return null;
+    }
+    return view;
+  }
+
+  CreatorPersonContextBinding _personContextBinding(PersonContextView view) {
+    final List<PersonContextSignal> guidanceSignals =
+        view.signals
+            .where(
+              (PersonContextSignal signal) =>
+                  signal.source == PersonContextSource.userAuthored &&
+                  operationalPersonContextPurposes.contains(signal.purpose) &&
+                  _creatorGuidanceKindRank(signal.kind) != null,
+            )
+            .toList(growable: true)
+          ..sort(_compareCreatorGuidanceSignals);
+    final List<String> evidenceSummary = guidanceSignals
+        .map(_creatorEvidenceSummary)
+        .toList(growable: false);
+    return CreatorPersonContextBinding(
+      revision: _personContextRevision(view, evidenceSummary),
+      hasBoundEvidence: evidenceSummary.isNotEmpty,
+      evidenceSummary: evidenceSummary,
     );
   }
 
-  TaskEntity _entityFromMutation(CreatorTaskMutation mutation) => TaskEntity(
-    id: mutation.taskId,
-    title: mutation.title,
-    description: mutation.description,
-    createdAt: mutation.createdAt,
-    priority: mutation.priority,
-    difficulty: mutation.difficulty,
-    energyRequired: mutation.energyRequired,
-    scheduledFor: mutation.scheduledFor,
-    occurrenceKey: TaskEntity.deriveOccurrenceKey(
-      taskId: mutation.taskId,
-      createdAt: mutation.createdAt,
-    ),
-    recurrenceRule: mutation.recurrenceRule,
-  );
+  String _personContextRevision(
+    PersonContextView view,
+    List<String> displayedEvidence,
+  ) {
+    final String digest = creatorHandshakeDigest(<String, Object?>{
+      'accountScopeId': view.accountScopeId,
+      'displayedEvidence': displayedEvidence,
+      'purposes':
+          view.purposes
+              .map((PersonContextPurpose value) => value.name)
+              .toList(growable: false)
+            ..sort(),
+      'surface': view.surface.name,
+    });
+    return 'person-context-v1-${digest.substring(0, 32)}';
+  }
 
-  bool _matchesMutation(TaskEntity task, CreatorTaskMutation mutation) {
-    final TaskEntity expected = _entityFromMutation(mutation);
-    return task.id == expected.id &&
-        task.title == expected.title &&
-        task.description == expected.description &&
-        task.createdAt.toUtc() == expected.createdAt.toUtc() &&
-        task.priority == expected.priority &&
-        task.difficulty == expected.difficulty &&
-        task.energyRequired == expected.energyRequired &&
-        task.scheduledFor?.toUtc() == expected.scheduledFor?.toUtc() &&
-        task.updatedAt == null &&
-        task.estimatedDuration == null &&
-        task.occurrenceKey == expected.occurrenceKey &&
-        task.dueDate == null &&
-        task.goalId == null &&
-        task.subtasks.isEmpty &&
-        task.recurrenceRule == expected.recurrenceRule &&
-        !task.isCompleted &&
-        !task.isSkipped &&
-        !task.isCanceled;
+  bool _personContextBindingIsCurrent(
+    CreatorPersonContextBinding? binding,
+    String account,
+  ) {
+    if (!(binding?.hasBoundEvidence ?? false)) return true;
+    final PersonContextView? currentContext = _creatorPersonContext(account);
+    if (currentContext == null) return false;
+    return _personContextBinding(currentContext).revision == binding!.revision;
+  }
+
+  CreatorHandshakeState _rejectStalePersonContext() {
+    state = state.copyWith(
+      phase: CreatorHandshakePhase.stale,
+      clearToken: true,
+      message:
+          'Person context changed after this preview. Stage and review a new proposal before confirming. Nothing was saved.',
+    );
+    return state;
+  }
+
+  int _compareCreatorGuidanceSignals(
+    PersonContextSignal left,
+    PersonContextSignal right,
+  ) {
+    final int kindOrder = _creatorGuidanceKindRank(
+      left.kind,
+    )!.compareTo(_creatorGuidanceKindRank(right.kind)!);
+    if (kindOrder != 0) return kindOrder;
+    final int recordedOrder = right.recordedAt.toUtc().compareTo(
+      left.recordedAt.toUtc(),
+    );
+    return recordedOrder != 0 ? recordedOrder : left.id.compareTo(right.id);
+  }
+
+  int? _creatorGuidanceKindRank(PersonContextKind kind) => switch (kind) {
+    PersonContextKind.currentPriority => 0,
+    PersonContextKind.presentCapacity => 1,
+    PersonContextKind.boundary => 2,
+    PersonContextKind.commitment => 3,
+    PersonContextKind.preferredSupportStyle => 4,
+    _ => null,
+  };
+
+  String _creatorEvidenceSummary(PersonContextSignal signal) {
+    return '${signal.kind.name}: ${signal.value}';
+  }
+
+  TaskEntity _taskEntityFromMutation(CreatorTaskMutation mutation) =>
+      TaskEntity(
+        id: mutation.taskId,
+        title: mutation.title,
+        description: mutation.description,
+        createdAt: mutation.createdAt,
+        priority: mutation.priority,
+        difficulty: mutation.difficulty,
+        energyRequired: mutation.energyRequired,
+        estimatedDuration: mutation.estimatedDuration,
+        scheduledFor: mutation.scheduledFor,
+        dueDate: mutation.dueDate,
+        goalId: mutation.goalId,
+        occurrenceKey: TaskEntity.deriveOccurrenceKey(
+          taskId: mutation.taskId,
+          createdAt: mutation.createdAt,
+        ),
+        recurrenceRule: mutation.recurrenceRule,
+      );
+
+  GoalEntity _goalEntityFromMutation(CreatorGoalMutation mutation) =>
+      GoalEntity(
+        id: mutation.goalId,
+        title: mutation.title,
+        createdAt: mutation.createdAt,
+        description: mutation.description,
+        targetDate: mutation.targetDate,
+        colorHex: mutation.colorHex,
+      );
+
+  HabitEntity _habitEntityFromMutation(CreatorHabitMutation mutation) =>
+      HabitEntity(
+        id: mutation.habitId,
+        title: mutation.title,
+        description: mutation.description,
+        createdAt: mutation.createdAt,
+        updatedAt: mutation.createdAt,
+        cadence: mutation.cadence,
+        targetCount: mutation.targetCount,
+      );
+
+  NoteEntity _noteEntityFromMutation(CreatorNoteMutation mutation) =>
+      NoteEntity(
+        id: mutation.noteId,
+        title: mutation.title,
+        body: mutation.body,
+        createdAt: mutation.createdAt,
+        updatedAt: mutation.createdAt,
+      );
+
+  Future<Object?> _readExisting(CreatorMutationOperation operation) async {
+    switch (operation.mutation) {
+      case final CreatorTaskMutation mutation:
+        return ref
+            .read(domainTaskRepositoryProvider)
+            .getTaskById(mutation.taskId);
+      case final CreatorGoalMutation mutation:
+        return _goalById(
+          ref.read(domainGoalRepositoryProvider).getGoals(),
+          mutation.goalId,
+        );
+      case final CreatorHabitMutation mutation:
+        return _habitById(
+          await ref.read(domainHabitRepositoryProvider).getHabits(),
+          mutation.habitId,
+        );
+      case final CreatorNoteMutation mutation:
+        return _noteById(
+          await ref.read(domainNoteRepositoryProvider).getNotes(),
+          mutation.noteId,
+        );
+      default:
+        throw StateError('Creator operation is missing a typed mutation.');
+    }
+  }
+
+  Future<void> _applyCreate(CreatorMutationOperation operation) async {
+    switch (operation.mutation) {
+      case final CreatorTaskMutation mutation:
+        final TaskEntity task = _taskEntityFromMutation(mutation);
+        if (!TaskPolicy.isValid(task)) {
+          throw StateError('The confirmed task no longer passes validation.');
+        }
+        await ref.read(domainTaskRepositoryProvider).saveTask(task);
+        return;
+      case final CreatorGoalMutation mutation:
+        await ref
+            .read(createGoalUseCaseProvider)
+            .call(_goalEntityFromMutation(mutation));
+        return;
+      case final CreatorHabitMutation mutation:
+        final List<HabitEntity> current = await ref
+            .read(domainHabitRepositoryProvider)
+            .getHabits();
+        await ref.read(saveHabitsUseCaseProvider).call(<HabitEntity>[
+          _habitEntityFromMutation(mutation),
+          ...current,
+        ]);
+        return;
+      case final CreatorNoteMutation mutation:
+        final NoteEntity? created = await ref
+            .read(createNoteUseCaseProvider)
+            .call(
+              title: mutation.title,
+              body: mutation.body,
+              id: mutation.noteId,
+              now: mutation.createdAt,
+            );
+        if (created == null) {
+          throw StateError('The confirmed note no longer passes validation.');
+        }
+        return;
+      default:
+        throw StateError('Creator operation is missing a typed mutation.');
+    }
+  }
+
+  Future<void> _applyDelete(CreatorMutationOperation operation) async {
+    switch (operation.mutation) {
+      case final CreatorTaskMutation mutation:
+        await ref.read(deleteTaskUseCaseProvider).call(mutation.taskId);
+        return;
+      case final CreatorGoalMutation mutation:
+        await ref.read(deleteGoalUseCaseProvider).call(mutation.goalId);
+        return;
+      case final CreatorHabitMutation mutation:
+        final List<HabitEntity> current = await ref
+            .read(domainHabitRepositoryProvider)
+            .getHabits();
+        await ref
+            .read(deleteHabitUseCaseProvider)
+            .call(current: current, id: mutation.habitId);
+        return;
+      case final CreatorNoteMutation mutation:
+        await ref.read(deleteNoteUseCaseProvider).call(mutation.noteId);
+        return;
+      default:
+        throw StateError('Creator operation is missing a typed mutation.');
+    }
+  }
+
+  bool _matchesMutation(Object existing, CreatorMutationOperation operation) {
+    switch (operation.mutation) {
+      case final CreatorTaskMutation mutation:
+        if (existing is! TaskEntity) return false;
+        final TaskEntity expected = _taskEntityFromMutation(mutation);
+        return existing.id == expected.id &&
+            existing.title == expected.title &&
+            existing.description == expected.description &&
+            _sameInstant(existing.createdAt, expected.createdAt) &&
+            existing.priority == expected.priority &&
+            existing.difficulty == expected.difficulty &&
+            existing.energyRequired == expected.energyRequired &&
+            existing.estimatedDuration == expected.estimatedDuration &&
+            _sameOptionalInstant(
+              existing.scheduledFor,
+              expected.scheduledFor,
+            ) &&
+            existing.updatedAt == null &&
+            existing.occurrenceKey == expected.occurrenceKey &&
+            _sameOptionalInstant(existing.dueDate, expected.dueDate) &&
+            existing.goalId == expected.goalId &&
+            existing.subtasks.isEmpty &&
+            existing.recurrenceRule == expected.recurrenceRule &&
+            !existing.isCompleted &&
+            !existing.isSkipped &&
+            !existing.isCanceled;
+      case final CreatorGoalMutation mutation:
+        if (existing is! GoalEntity) return false;
+        final GoalEntity expected = _goalEntityFromMutation(mutation);
+        return existing.id == expected.id &&
+            existing.title == expected.title &&
+            existing.description == expected.description &&
+            _sameInstant(existing.createdAt, expected.createdAt) &&
+            _sameOptionalInstant(existing.targetDate, expected.targetDate) &&
+            existing.colorHex == expected.colorHex &&
+            existing.completedAt == null;
+      case final CreatorHabitMutation mutation:
+        if (existing is! HabitEntity) return false;
+        final HabitEntity expected = _habitEntityFromMutation(mutation);
+        return existing.id == expected.id &&
+            existing.title == expected.title &&
+            existing.description == expected.description &&
+            _sameInstant(existing.createdAt, expected.createdAt) &&
+            _sameInstant(existing.updatedAt, expected.updatedAt) &&
+            existing.userId == null &&
+            existing.cadence == expected.cadence &&
+            existing.targetCount == expected.targetCount &&
+            existing.stepTaskIds.isEmpty &&
+            existing.status == HabitStatus.active;
+      case final CreatorNoteMutation mutation:
+        if (existing is! NoteEntity) return false;
+        final NoteEntity expected = _noteEntityFromMutation(mutation);
+        return existing.id == expected.id &&
+            existing.title == expected.title &&
+            existing.body == expected.body &&
+            _sameInstant(existing.createdAt, expected.createdAt) &&
+            _sameInstant(existing.updatedAt, expected.updatedAt) &&
+            existing.userId == null &&
+            !existing.isArchived &&
+            existing.kind == expected.kind &&
+            existing.goalId == null &&
+            existing.taskId == null &&
+            existing.habitId == null;
+      default:
+        return false;
+    }
+  }
+
+  GoalEntity? _goalById(List<GoalEntity> goals, String id) {
+    for (final GoalEntity goal in goals) {
+      if (goal.id == id) return goal;
+    }
+    return null;
+  }
+
+  HabitEntity? _habitById(List<HabitEntity> habits, String id) {
+    for (final HabitEntity habit in habits) {
+      if (habit.id == id) return habit;
+    }
+    return null;
+  }
+
+  NoteEntity? _noteById(List<NoteEntity> notes, String id) {
+    for (final NoteEntity note in notes) {
+      if (note.id == id) return note;
+    }
+    return null;
+  }
+
+  bool _sameInstant(DateTime left, DateTime right) =>
+      left.toUtc() == right.toUtc();
+
+  bool _sameOptionalInstant(DateTime? left, DateTime? right) {
+    if (left == null || right == null) return left == right;
+    return _sameInstant(left, right);
+  }
+
+  String? _trimmedOrNull(String? value) {
+    final String? trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  String _entityLabel(CreatorEntityKind kind) => switch (kind) {
+    CreatorEntityKind.task => 'Task',
+    CreatorEntityKind.goal => 'Goal',
+    CreatorEntityKind.habit => 'Daily Rhythm',
+    CreatorEntityKind.note => 'Note',
+  };
+
+  String _idempotentMessage(CreatorHandshakePreview? preview) {
+    final Set<CreatorEntityKind> kinds =
+        preview?.selectedOperations
+            .map((CreatorMutationOperation operation) => operation.entityKind)
+            .toSet() ??
+        const <CreatorEntityKind>{};
+    if (kinds.length == 1) {
+      final String label = _entityLabel(kinds.single).toLowerCase();
+      return 'This confirmation was already applied. No duplicate $label was created.';
+    }
+    return 'This confirmation was already applied. No duplicate items were created.';
+  }
+
+  void _invalidateDomains(Iterable<CreatorMutationOperation> operations) {
+    final Set<CreatorEntityKind> kinds = operations
+        .map((CreatorMutationOperation operation) => operation.entityKind)
+        .toSet();
+    for (final CreatorEntityKind kind in kinds) {
+      switch (kind) {
+        case CreatorEntityKind.task:
+          ref.invalidate(tasksProvider);
+          break;
+        case CreatorEntityKind.goal:
+          ref.invalidate(goalsProvider);
+          break;
+        case CreatorEntityKind.habit:
+          ref.invalidate(habitsProvider);
+          break;
+        case CreatorEntityKind.note:
+          ref.invalidate(notesProvider);
+          break;
+      }
+    }
   }
 
   Future<String> _domainRevision() async {
     final List<TaskEntity> tasks = List<TaskEntity>.of(
       await ref.read(domainTaskRepositoryProvider).getAllTasks(),
     );
+    final List<GoalEntity> goals = List<GoalEntity>.of(
+      ref.read(domainGoalRepositoryProvider).getGoals(),
+    );
+    final List<HabitEntity> habits = List<HabitEntity>.of(
+      await ref.read(domainHabitRepositoryProvider).getHabits(),
+    );
+    final List<NoteEntity> notes = List<NoteEntity>.of(
+      await ref.read(domainNoteRepositoryProvider).getNotes(),
+    );
     tasks.sort(
       (TaskEntity left, TaskEntity right) => left.id.compareTo(right.id),
     );
-    return 'tasks-v1-${creatorHandshakeDigest(tasks.map((TaskEntity task) => task.toJson()).toList(growable: false)).substring(0, 32)}';
+    goals.sort(
+      (GoalEntity left, GoalEntity right) => left.id.compareTo(right.id),
+    );
+    habits.sort(
+      (HabitEntity left, HabitEntity right) => left.id.compareTo(right.id),
+    );
+    notes.sort(
+      (NoteEntity left, NoteEntity right) => left.id.compareTo(right.id),
+    );
+    final String digest = creatorHandshakeDigest(<String, Object?>{
+      'goals': goals
+          .map((GoalEntity goal) => goal.toJson())
+          .toList(growable: false),
+      'habits': habits
+          .map((HabitEntity habit) => habit.toJson())
+          .toList(growable: false),
+      'notes': notes
+          .map((NoteEntity note) => note.toJson())
+          .toList(growable: false),
+      'tasks': tasks
+          .map((TaskEntity task) => task.toJson())
+          .toList(growable: false),
+    });
+    return 'creator-domains-v2-${digest.substring(0, 32)}';
   }
 
   String _verifiedAccountScopeId() {
@@ -560,18 +1005,72 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     required DateTime timestamp,
   }) => <String, Object?>{
     'operationId': operation.operationId,
-    'taskId': operation.task.taskId,
-    'taskDigest': operation.task.digest,
+    'entityKind': operation.entityKind.name,
+    'entityId': operation.entityId,
+    'entityDigest': operation.entityDigest,
+    if (operation.taskMutation case final CreatorTaskMutation task) ...{
+      'taskId': task.taskId,
+      'taskDigest': task.digest,
+    },
     'status': status,
     'updatedAt': timestamp.toUtc().toIso8601String(),
   };
+
+  bool _ledgerEntryMatches(
+    Map<String, Object?> entry,
+    CreatorMutationOperation operation,
+  ) {
+    final String? entityKind = entry['entityKind']?.toString();
+    final String? entityId = entry['entityId']?.toString();
+    final String? entityDigest = entry['entityDigest']?.toString();
+    if (entityKind != null || entityId != null || entityDigest != null) {
+      return entityKind == operation.entityKind.name &&
+          entityId == operation.entityId &&
+          entityDigest == operation.entityDigest;
+    }
+    final CreatorTaskMutation? task = operation.taskMutation;
+    return task != null &&
+        entry['taskId']?.toString() == task.taskId &&
+        (entry['taskDigest']?.toString() == task.digest ||
+            entry['taskDigest']?.toString() == _legacyTaskDigest(task));
+  }
+
+  String _legacyTaskDigest(CreatorTaskMutation task) {
+    return creatorHandshakeDigest(<String, Object?>{
+      'creatorKind': task.creatorKind,
+      'createdAt': task.createdAt.toUtc().toIso8601String(),
+      'description': task.description,
+      'difficulty': task.difficulty,
+      'energyRequired': task.energyRequired,
+      'priority': task.priority,
+      'recurrenceRule': task.recurrenceRule.name,
+      'scheduledFor': task.scheduledFor?.toUtc().toIso8601String(),
+      'taskId': task.taskId,
+      'title': task.title,
+    });
+  }
+
+  Future<void> _recordGuidanceMilestones(
+    CreatorHandshakePreview preview,
+  ) async {
+    final AdaptiveGuidanceNotifier guidance = ref.read(
+      adaptiveGuidanceProvider.notifier,
+    );
+    await guidance.recordIfMissing(GuidanceMilestone.firstItem);
+    if (preview.selectedOperations.any(
+      (CreatorMutationOperation operation) =>
+          operation.taskMutation?.scheduledFor != null,
+    )) {
+      await guidance.recordIfMissing(GuidanceMilestone.firstSchedule);
+    }
+  }
 
   Future<void> _bestEffort(Future<void> Function() action) async {
     try {
       await action();
     } on Object {
-      // The deterministic task identity remains the source of idempotency if
-      // the optional replay ledger is temporarily unavailable.
+      // The confirmed task remains authoritative if optional telemetry,
+      // guidance, or replay metadata is temporarily unavailable.
     }
   }
 }

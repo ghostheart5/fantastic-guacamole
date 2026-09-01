@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/system/external_url_service.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -58,40 +61,57 @@ class _ExternalLinkPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (body != null) ...<Widget>[
-                Text(body!, style: theme.textTheme.bodyLarge),
-                const SizedBox(height: 16),
-              ],
-              SelectableText(externalUrl, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () async {
-                  final bool opened = await const ExternalUrlService().open(
-                    Uri.parse(externalUrl),
-                  );
-                  if (!context.mounted || opened) {
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        ChronoSparkLocalizations.of(
-                          context,
-                        ).text(ChronoSparkString.unableToOpenWebsite),
-                      ),
+    return AnimatedSystemBackground(
+      backgroundAssetPath: AppAssets.bgSettingsControlPlane,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: <Widget>[
+              TemporalScreenHeader(
+                title: title,
+                eyebrow: 'CHRONOSPARK',
+                onBack: Navigator.canPop(context)
+                    ? () => Navigator.pop(context)
+                    : null,
+              ),
+              const SizedBox(height: 18),
+              TemporalGlassSurface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (body != null) ...<Widget>[
+                      Text(body!, style: theme.textTheme.bodyLarge),
+                      const SizedBox(height: 16),
+                    ],
+                    SelectableText(
+                      externalUrl,
+                      style: theme.textTheme.titleMedium,
                     ),
-                  );
-                },
-                icon: const Icon(Icons.open_in_new),
-                label: Text(callToActionLabel),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () async {
+                        final bool opened = await const ExternalUrlService()
+                            .open(Uri.parse(externalUrl));
+                        if (!context.mounted || opened) {
+                          return;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ChronoSparkLocalizations.of(
+                                context,
+                              ).text(ChronoSparkString.unableToOpenWebsite),
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.open_in_new),
+                      label: Text(callToActionLabel),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -109,16 +129,23 @@ class _StaticPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 12),
-              Text(body),
+    return AnimatedSystemBackground(
+      backgroundAssetPath: AppAssets.bgSettingsControlPlane,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: <Widget>[
+              TemporalScreenHeader(
+                title: title,
+                eyebrow: 'CHRONOSPARK',
+                onBack: Navigator.canPop(context)
+                    ? () => Navigator.pop(context)
+                    : null,
+              ),
+              const SizedBox(height: 18),
+              TemporalGlassSurface(child: Text(body)),
             ],
           ),
         ),
@@ -158,23 +185,42 @@ class _AssetTextPageState extends State<_AssetTextPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
-      body: SafeArea(
-        child: _error
-            ? Center(
-                child: Text(
-                  ChronoSparkLocalizations.of(
-                    context,
-                  ).text(ChronoSparkString.couldNotLoadContent),
-                ),
-              )
-            : _content == null
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Text(_content!),
+    return AnimatedSystemBackground(
+      backgroundAssetPath: AppAssets.bgSettingsControlPlane,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: <Widget>[
+              TemporalScreenHeader(
+                title: widget.title,
+                eyebrow: 'CHRONOSPARK',
+                onBack: Navigator.canPop(context)
+                    ? () => Navigator.pop(context)
+                    : null,
               ),
+              const SizedBox(height: 18),
+              if (_error)
+                TemporalGlassSurface(
+                  child: Text(
+                    ChronoSparkLocalizations.of(
+                      context,
+                    ).text(ChronoSparkString.couldNotLoadContent),
+                  ),
+                )
+              else if (_content == null)
+                const Center(child: CircularProgressIndicator())
+              else
+                TemporalGlassSurface(
+                  child: SelectableText(
+                    _content!,
+                    style: const TextStyle(height: 1.55),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

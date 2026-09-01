@@ -6,112 +6,55 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-function Get-EnvValue {
-    param([string]$Name)
-
-    $processValue = [Environment]::GetEnvironmentVariable($Name, 'Process')
-    if (-not [string]::IsNullOrWhiteSpace($processValue)) {
-        return $processValue
-    }
-
-    $userValue = [Environment]::GetEnvironmentVariable($Name, 'User')
-    if (-not [string]::IsNullOrWhiteSpace($userValue)) {
-        return $userValue
-    }
-
-    $machineValue = [Environment]::GetEnvironmentVariable($Name, 'Machine')
-    if (-not [string]::IsNullOrWhiteSpace($machineValue)) {
-        return $machineValue
-    }
-
-    return $null
-}
-
-function Load-DotEnvFile {
-    param([string]$Path)
-
-    if (-not (Test-Path $Path)) {
-        return @{}
-    }
-
-    $values = @{}
-    foreach ($line in Get-Content -Path $Path) {
-        $trimmed = $line.Trim()
-        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) {
-            continue
-        }
-
-        $equalsIndex = $trimmed.IndexOf('=')
-        if ($equalsIndex -lt 1) {
-            continue
-        }
-
-        $key = $trimmed.Substring(0, $equalsIndex).Trim()
-        $value = $trimmed.Substring($equalsIndex + 1).Trim()
-        if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
-            $value = $value.Substring(1, $value.Length - 2)
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($key)) {
-            $values[$key] = $value
-        }
-    }
-
-    return $values
-}
-
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repoRoot
 
-$dotEnvValues = Load-DotEnvFile -Path (Join-Path $repoRoot '.env')
+$qaDefinesRelativePath = 'tool/qa_defines.json'
+$qaDefinesPath = Join-Path $repoRoot $qaDefinesRelativePath
+if (-not (Test-Path -LiteralPath $qaDefinesPath)) {
+    throw "Missing isolated QA configuration: $qaDefinesPath"
+}
 
-$requiredEnv = @(
+try {
+    $qaDefines = Get-Content -LiteralPath $qaDefinesPath -Raw | ConvertFrom-Json
+}
+catch {
+    throw "Invalid isolated QA configuration: $($_.Exception.Message)"
+}
+
+$expectedQaDefines = [ordered]@{
+    CHRONOSPARK_APP_FLAVOR = 'qa'
+    CHRONOSPARK_ENABLE_MOCK_LOGIN = $true
+    CHRONOSPARK_ENABLE_MOCK_MODE = $true
+    CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS = $true
+    CHRONOSPARK_PAYWALL_DISABLED = $true
+    CHRONOSPARK_ENABLE_CLOUD_SYNC = $false
+    CHRONOSPARK_ENABLE_ANALYTICS = $false
+    CHRONOSPARK_ENABLE_CRASH_REPORTING = $false
+    CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS = $false
+    CHRONOSPARK_VERBOSE_LOGS = $false
+}
+
+foreach ($key in $expectedQaDefines.Keys) {
+    $property = $qaDefines.PSObject.Properties[$key]
+    if ($null -eq $property -or $property.Value -ne $expectedQaDefines[$key]) {
+        throw "Isolated QA configuration has an unsafe or missing value for $key."
+    }
+}
+
+$forbiddenQaDefines = @(
     'CHRONOSPARK_SUPABASE_URL',
-    'CHRONOSPARK_SUPABASE_ANON_KEY'
-)
-
-$optionalEnv = @(
+    'CHRONOSPARK_SUPABASE_ANON_KEY',
     'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
     'CHRONOSPARK_AI_PROXY_ENDPOINT',
-    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
-    'CHRONOSPARK_ANDROID_SHA256_CERT',
-    'CHRONOSPARK_IOS_TEAM_ID'
+    'CHRONOSPARK_AI_REPORT_ENDPOINT',
+    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT'
 )
 
-$envValues = @{}
-$missing = New-Object System.Collections.Generic.List[string]
-
-foreach ($key in $requiredEnv) {
-    $value = Get-EnvValue -Name $key
-    if ([string]::IsNullOrWhiteSpace($value) -and $dotEnvValues.ContainsKey($key)) {
-        $value = $dotEnvValues[$key]
+foreach ($key in $forbiddenQaDefines) {
+    if ($null -ne $qaDefines.PSObject.Properties[$key]) {
+        throw "Isolated QA configuration must not define production-facing service key $key."
     }
-    if ([string]::IsNullOrWhiteSpace($value)) {
-        $missing.Add($key)
-    }
-    else {
-        $envValues[$key] = $value
-    }
-}
-
-foreach ($key in $optionalEnv) {
-    $value = Get-EnvValue -Name $key
-    if ([string]::IsNullOrWhiteSpace($value) -and $dotEnvValues.ContainsKey($key)) {
-        $value = $dotEnvValues[$key]
-    }
-    if (-not [string]::IsNullOrWhiteSpace($value)) {
-        $envValues[$key] = $value
-    }
-}
-
-if ($missing.Count -gt 0) {
-    Write-Host 'Missing required environment variables for tester build:' -ForegroundColor Red
-    foreach ($key in $missing) {
-        Write-Host " - $key" -ForegroundColor Red
-    }
-    Write-Host ''
-    Write-Host 'Set these vars and rerun this script. No bundle was produced.' -ForegroundColor Yellow
-    exit 1
 }
 
 $pubspecPath = Join-Path $repoRoot 'pubspec.yaml'
@@ -190,32 +133,8 @@ $flutterArgs = @(
     '--release',
     "--build-name=$BuildName",
     "--build-number=$BuildNumber",
-    '--dart-define=CHRONOSPARK_APP_FLAVOR=qa',
-    '--dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=true',
-    '--dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=true',
-    '--dart-define=CHRONOSPARK_ENABLE_CLOUD_SYNC=true',
-    '--dart-define=CHRONOSPARK_ENABLE_ANALYTICS=true',
-    '--dart-define=CHRONOSPARK_ENABLE_CRASH_REPORTING=true',
-    '--dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=false',
-    "--dart-define=CHRONOSPARK_SUPABASE_URL=$($envValues['CHRONOSPARK_SUPABASE_URL'])",
-    "--dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=$($envValues['CHRONOSPARK_SUPABASE_ANON_KEY'])"
+    '--dart-define-from-file=tool/qa_defines.json'
 )
-
-if ($envValues.ContainsKey('CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT')) {
-    $flutterArgs += "--dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=$($envValues['CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT'])"
-}
-if ($envValues.ContainsKey('CHRONOSPARK_AI_PROXY_ENDPOINT')) {
-    $flutterArgs += "--dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=$($envValues['CHRONOSPARK_AI_PROXY_ENDPOINT'])"
-}
-if ($envValues.ContainsKey('CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT')) {
-    $flutterArgs += "--dart-define=CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=$($envValues['CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT'])"
-}
-if ($envValues.ContainsKey('CHRONOSPARK_ANDROID_SHA256_CERT')) {
-    $flutterArgs += "--dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=$($envValues['CHRONOSPARK_ANDROID_SHA256_CERT'])"
-}
-if ($envValues.ContainsKey('CHRONOSPARK_IOS_TEAM_ID')) {
-    $flutterArgs += "--dart-define=CHRONOSPARK_IOS_TEAM_ID=$($envValues['CHRONOSPARK_IOS_TEAM_ID'])"
-}
 
 & flutter @flutterArgs
 

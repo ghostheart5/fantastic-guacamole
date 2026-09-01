@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class SmartPressable extends StatefulWidget {
   const SmartPressable({
@@ -64,33 +65,46 @@ class _SmartPressableState extends State<SmartPressable> {
 
   @override
   Widget build(BuildContext context) {
+    final bool disableAnimations = MediaQuery.disableAnimationsOf(context);
     final Widget gesture = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _setPressed(true),
-      onTapUp: (_) => _setPressed(false),
-      onTapCancel: () => _setPressed(false),
+      onTapDown: disableAnimations ? null : (_) => _setPressed(true),
+      onTapUp: disableAnimations ? null : (_) => _setPressed(false),
+      onTapCancel: disableAnimations ? null : () => _setPressed(false),
       onTap: () {
         unawaited(_handleTap());
       },
       child: AnimatedScale(
-        scale: _scale,
-        duration: widget.duration,
+        scale: disableAnimations ? 1.0 : _scale,
+        duration: disableAnimations ? Duration.zero : widget.duration,
         curve: Curves.easeOut,
         child: widget.child,
       ),
     );
+    final Widget focusable = FocusableActionDetector(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+      },
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (ActivateIntent _) {
+            unawaited(_handleTap());
+            return null;
+          },
+        ),
+      },
+      child: gesture,
+    );
     final String? label = widget.semanticLabel;
-    if (label == null) {
-      return gesture;
-    }
-    // The outer node provides both the name and the action. Excluding child
-    // semantics prevents duplicated text while preserving TalkBack activation.
     return Semantics(
       label: label,
       button: widget.button,
       selected: widget.selected,
       onTap: () => unawaited(_handleTap()),
-      child: ExcludeSemantics(child: gesture),
+      // A custom label replaces descendant text; otherwise it remains the
+      // accessible name while this node supplies the button action.
+      child: label == null ? focusable : ExcludeSemantics(child: focusable),
     );
   }
 }

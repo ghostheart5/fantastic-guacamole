@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/rate_limiter.dart';
@@ -38,16 +39,16 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
+import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
-import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/learning_history_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
@@ -204,11 +205,14 @@ class AIController {
     final Map<String, dynamic>? previousState = await _ref
         .read(siEngineServiceProvider)
         .loadState();
-    final si = _ref.read(siStateProvider);
+    final ConsentedHumanContext humanContext = _ref.read(
+      consentedHumanContextProvider,
+    );
+    final si = humanContext.siState;
     final learning = _ref.read(learningProvider);
     final profile = _ref.read(profileProvider);
     final personalization = _ref.read(personalizationProfileProvider);
-    final emotion = _ref.read(emotionProvider);
+    final emotion = humanContext.emotion;
     final goals = _ref.read(goalsProvider);
     final signalsBundle = _ref.read(signalsBundleProvider);
     final logsState = _ref.read(logsProvider);
@@ -400,9 +404,11 @@ class AIController {
       'level': profile.level,
       'xp': profile.xp,
       'streak': profile.streak,
-      'energy': si.energy,
-      'emotion': emotion.name,
-      'fatigue': si.fatigue,
+      'energy': si.hasObservedEnergy ? si.energy : null,
+      'energyEvidence': si.energyOrigin.name,
+      'emotion': emotion?.name,
+      'fatigue': si.hasObservedFatigue ? si.fatigue : null,
+      'fatigueEvidence': si.fatigueOrigin.name,
       'completedToday': si.completedToday,
       'availableSurfaces': <String>[
         'tasks',
@@ -469,11 +475,13 @@ class AIController {
         },
         'plan': <String, dynamic>{
           'preview': planPreview,
-          'generatedFromEnergy': si.energy,
+          'generatedFromEnergy': si.hasObservedEnergy ? si.energy : null,
+          'energyEvidence': si.energyOrigin.name,
         },
         'emotions': <String, dynamic>{
-          'current': emotion.name,
-          'fatigue': si.fatigue,
+          'current': emotion?.name,
+          'fatigue': si.hasObservedFatigue ? si.fatigue : null,
+          'fatigueEvidence': si.fatigueOrigin.name,
         },
         'timeline': <String, dynamic>{
           'count': timelineEvents.length,
@@ -1138,10 +1146,7 @@ class AIController {
     final int openTasks = tasks.length;
     final DateTime now = DateTime.now();
     final int overdueFromTasks = tasks
-        .where(
-          (TaskEntity task) =>
-              task.scheduledFor != null && task.scheduledFor!.isBefore(now),
-        )
+        .where((TaskEntity task) => task.isOverdueAt(now))
         .length;
     final int overdue = category == 'Timeline Query'
         ? timelineOverdueCount
@@ -1318,7 +1323,7 @@ class AIController {
         .read(aiExecutionStatusProvider.notifier)
         .set(const AIExecutionStatus.idle());
     _captureSnapshot(
-      SISnapshot(
+      AssistantMemorySnapshot(
         timestamp: DateTime.now(),
         energy: _ref.read(siStateProvider).energy,
         fatigue: _ref.read(siStateProvider).fatigue,
@@ -1373,7 +1378,7 @@ class AIController {
     _ref.invalidate(siEngineStateProvider);
   }
 
-  void _captureSnapshot(SISnapshot snapshot) {
+  void _captureSnapshot(AssistantMemorySnapshot snapshot) {
     _ref.read(siMemoryProvider.notifier).capture(snapshot);
   }
 }

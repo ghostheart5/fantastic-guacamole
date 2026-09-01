@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
@@ -177,8 +178,10 @@ class ProfileController extends Notifier<ProfileState> {
         await _storage.open();
         raw = _storage.get(_stateKey);
         if (raw != null) {
-          await _secureStore.writeString(_secureStateKey, raw);
-          await _storage.delete(_stateKey);
+          await runAccountStorageMutation(() async {
+            await _secureStore.writeString(_secureStateKey, raw!);
+            await _storage.delete(_stateKey);
+          });
         }
       }
       if (raw == null || !ref.mounted) return;
@@ -201,8 +204,12 @@ class ProfileController extends Notifier<ProfileState> {
     final SecureStore store = _secureStore;
     final String encoded = jsonEncode(state.toJson());
     final Future<void> operation = _pendingSave.then<void>(
-      (_) => store.writeString(_secureStateKey, encoded),
-      onError: (_, _) => store.writeString(_secureStateKey, encoded),
+      (_) => runAccountStorageMutation(
+        () => store.writeString(_secureStateKey, encoded),
+      ),
+      onError: (_, _) => runAccountStorageMutation(
+        () => store.writeString(_secureStateKey, encoded),
+      ),
     );
     _pendingSave = operation.then<void>(
       (_) {},

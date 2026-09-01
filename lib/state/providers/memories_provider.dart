@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/policies/memory_governance_policy.dar
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,6 +41,9 @@ final memoriesProvider = NotifierProvider<MemoriesNotifier, List<MemoryEntity>>(
 /// memory by policy even if a malformed record exists in storage.
 final memoryRecallProvider = Provider.family<List<MemoryEntity>, MemorySurface>(
   (Ref ref, MemorySurface surface) {
+    if (!ref.watch(consentedHumanContextProvider).memoryAllowed) {
+      return const <MemoryEntity>[];
+    }
     final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
     if (!scope.isAuthenticated) return const <MemoryEntity>[];
     return ref
@@ -134,6 +138,12 @@ class MemoryGovernanceController {
     required String whyStored,
     required String provenance,
   }) {
+    if (!_ref.read(consentedHumanContextProvider).memoryAllowed) {
+      throw const MemoryGovernanceException(
+        'global_memory_consent_required',
+        'Enable governed-memory context in Settings before saving a preference.',
+      );
+    }
     return _ref
         .read(memoriesProvider.notifier)
         .rememberPreference(

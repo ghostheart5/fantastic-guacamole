@@ -5,8 +5,14 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show soundEnabledProvider;
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
+import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// Injectable clock for deterministic Timeline windows and projections.
+final timelineClockProvider = Provider<DateTime Function()>(
+  (Ref ref) => DateTime.now,
+);
 
 final timelineActionsProvider = Provider<TimelineActions>((Ref ref) {
   return TimelineActions(ref);
@@ -16,6 +22,11 @@ final timelineProvider =
     NotifierProvider<TimelineNotifier, List<TimelineEventEntity>>(
       TimelineNotifier.new,
     );
+
+final timelinePersistenceCorruptedProvider = Provider<bool>((Ref ref) {
+  ref.watch(timelineProvider);
+  return ref.watch(domainTimelineRepositoryProvider).lastReadCorrupted;
+});
 
 final timelineOverdueProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
   return ref
@@ -131,6 +142,22 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
     return ref.read(getTimelineEventsUseCaseProvider).call();
   }
 
+  void reload() {
+    state = List<TimelineEventEntity>.unmodifiable(
+      ref.read(getTimelineEventsUseCaseProvider).call(),
+    );
+  }
+
+  Future<void> preserveAndRepairCorruptedStorage() async {
+    final List<TimelineEventEntity> validEvents = ref
+        .read(getTimelineEventsUseCaseProvider)
+        .call();
+    await ref
+        .read(saveTimelineEventsUseCaseProvider)
+        .call(validEvents, allowClear: true);
+    state = List<TimelineEventEntity>.unmodifiable(validEvents);
+  }
+
   Future<void> record(
     TimelineEventEntity event, {
     bool refreshPlanner = true,
@@ -232,11 +259,13 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
   }
 
   Future<void> _refreshPlannerDecision() async {
-    try {
-      await ref.read(generateSiDecisionUseCaseProvider).call();
-      ref.invalidate(domainSiDecisionProvider);
-    } catch (_) {
-      // Avoid blocking timeline writes if planner refresh fails.
-    }
+    ref
+      ..invalidate(operatingSnapshotProvider)
+      ..invalidate(operatingDecisionPlanProvider)
+      ..invalidate(operatingDecisionReceiptProvider)
+      ..invalidate(decisionIntelligenceProvider)
+      ..invalidate(
+        operatingDecisionForSurfaceProvider(OperatingDecisionSurface.timeline),
+      );
   }
 }

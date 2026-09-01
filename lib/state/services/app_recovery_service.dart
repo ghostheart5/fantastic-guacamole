@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -37,7 +38,8 @@ class AppRecoveryService {
       if (draftTaskTitle != null) {
         await SharedPrefsService.save(_kDraftTitle, draftTaskTitle);
       }
-    } catch (_) {
+    } on Object catch (error) {
+      Logger.warn('App recovery state save failed: $error');
       // Non-fatal — recovery state is best-effort
     }
   }
@@ -55,7 +57,8 @@ class AppRecoveryService {
         activeTaskId: activeTaskId,
         draftTaskTitle: draftTitle,
       );
-    } catch (_) {
+    } on Object catch (error) {
+      Logger.warn('App recovery state load failed: $error');
       return null;
     }
   }
@@ -63,7 +66,9 @@ class AppRecoveryService {
   Future<void> clearDraft() async {
     try {
       await SharedPrefsService.delete(_kDraftTitle);
-    } catch (_) {}
+    } on Object catch (error) {
+      Logger.warn('App recovery draft clear failed: $error');
+    }
   }
 
   Future<void> clearAll() async {
@@ -71,6 +76,8 @@ class AppRecoveryService {
       await SharedPrefsService.delete(_kLastRoute);
       await SharedPrefsService.delete(_kTaskId);
       await SharedPrefsService.delete(_kDraftTitle);
-    } catch (_) {}
+    } on Object catch (error) {
+      Logger.warn('App recovery clear failed: $error');
+    }
   }
 }

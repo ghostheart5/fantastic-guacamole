@@ -9,12 +9,12 @@ final TextTheme neonTextTheme = _baseNeonTextTheme.copyWith(
   headlineLarge: _baseNeonTextTheme.headlineLarge?.copyWith(
     color: neonCyan,
     fontWeight: FontWeight.w800,
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   ),
   headlineMedium: _baseNeonTextTheme.headlineMedium?.copyWith(
     color: neonViolet,
     fontWeight: FontWeight.w800,
-    letterSpacing: 0.3,
+    letterSpacing: 0,
   ),
   bodyLarge: _baseNeonTextTheme.bodyLarge?.copyWith(
     color: hologramWhite,
@@ -22,8 +22,8 @@ final TextTheme neonTextTheme = _baseNeonTextTheme.copyWith(
     height: 1.5,
   ),
   labelLarge: _baseNeonTextTheme.labelLarge?.copyWith(
-    color: neonMagenta,
+    color: neonCyan,
     fontWeight: FontWeight.w700,
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   ),
 );

@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,10 +21,14 @@ class SIConsoleQueryController {
 
   bool detectsCrisis(String text) => CrisisDetectionPolicy.detects(text);
 
+  EmotionalSafetyAssessment assessEmotionalSafety(String text) =>
+      EmotionalSafetyPolicy.assess(text);
+
   AIRecommendation ensureTypedResponse({
     required String query,
     required AIRecommendation recommendation,
   }) {
+    _requireSafeConsoleRoute(query);
     if (recommendation.contract != null) {
       recommendation.validateContract();
       final AccountStorageScope account = _ref.read(
@@ -105,6 +110,28 @@ class SIConsoleQueryController {
     );
   }
 
+  AIRecommendation supportiveSafetyResponse({required String query}) {
+    final EmotionalSafetyAssessment assessment = assessEmotionalSafety(query);
+    if (!assessment.requiresSupportivePause) {
+      throw const AssistantSafetyRouteException(
+        'supportive_distress_route_not_required',
+        'A supportive safety response requires non-crisis distress language.',
+      );
+    }
+    return _localResponse(
+      query: query,
+      response:
+          '${EmotionalSafetyPolicy.planningPauseReason(assessment)}\n\n'
+          '${EmotionalSafetyPolicy.supportiveQuestion(assessment)}',
+      reason: 'supportive_distress_pause',
+      kind: AssistantRequestKind.consoleQuery,
+      evidence: 'Privacy-safe supportive distress route selected by the user',
+      emotion: 'balanced',
+      status: AssistantResponseStatus.completed,
+      allowSupportivePause: true,
+    );
+  }
+
   AIRecommendation _localResponse({
     required String query,
     required String response,
@@ -113,13 +140,9 @@ class SIConsoleQueryController {
     required String evidence,
     required String emotion,
     required AssistantResponseStatus status,
+    bool allowSupportivePause = false,
   }) {
-    if (detectsCrisis(query)) {
-      throw const AssistantSafetyRouteException(
-        'crisis_route_required',
-        'SI Console must show the dedicated crisis support route.',
-      );
-    }
+    _requireSafeConsoleRoute(query, allowSupportivePause: allowSupportivePause);
     final AccountStorageScope account = _ref.read(accountStorageScopeProvider);
     final AssistantRequestEnvelope request = createAssistantRequestEnvelope(
       accountScopeId: assistantAccountScopeId(
@@ -153,6 +176,25 @@ class SIConsoleQueryController {
         );
     recommendation.validateContractAgainst(request);
     return _attachSafety(recommendation);
+  }
+
+  void _requireSafeConsoleRoute(
+    String query, {
+    bool allowSupportivePause = false,
+  }) {
+    final EmotionalSafetyAssessment safety = assessEmotionalSafety(query);
+    if (safety.requiresImmediateSafety) {
+      throw const AssistantSafetyRouteException(
+        'crisis_route_required',
+        'SI Console must show the dedicated crisis support route.',
+      );
+    }
+    if (safety.requiresSupportivePause && !allowSupportivePause) {
+      throw const AssistantSafetyRouteException(
+        'distress_route_required',
+        'SI Console must show the dedicated non-crisis support route.',
+      );
+    }
   }
 
   AIRecommendation _attachSafety(AIRecommendation recommendation) {

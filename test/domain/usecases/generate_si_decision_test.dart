@@ -92,6 +92,52 @@ void main() {
         expect(decision.recommendedExecutionMinutes, 25);
       },
     );
+
+    test('terminal tasks are treated as unavailable', () async {
+      final DateTime now = DateTime.now();
+      siRepository.state = SiStateEntity(
+        energy: 0.8,
+        attention: 0.8,
+        fatigue: 0.2,
+      );
+      await taskRepository.saveTask(
+        TaskEntity(
+          id: 'completed',
+          title: 'Completed',
+          createdAt: now,
+          isCompleted: true,
+          completedAt: now,
+          priority: 5,
+        ),
+      );
+      await taskRepository.saveTask(
+        TaskEntity(
+          id: 'skipped',
+          title: 'Skipped',
+          createdAt: now,
+          isSkipped: true,
+          skippedAt: now,
+          priority: 5,
+        ),
+      );
+      await taskRepository.saveTask(
+        TaskEntity(
+          id: 'canceled',
+          title: 'Canceled',
+          createdAt: now,
+          isCanceled: true,
+          priority: 5,
+        ),
+      );
+
+      final decision = await GenerateSiDecision(
+        taskRepository,
+        siRepository,
+      ).call();
+
+      expect(decision.selectedTaskId, isNull);
+      expect(decision.rationale, 'No tasks available.');
+    });
   });
 }
 

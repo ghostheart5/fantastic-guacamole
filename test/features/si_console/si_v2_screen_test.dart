@@ -36,6 +36,7 @@ void main() {
     final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
         siV2QueryServiceProvider.overrideWithValue(port),
         siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
@@ -66,13 +67,11 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.bySemanticsLabel('Back to Nexus'), findsOneWidget);
       expect(find.bySemanticsLabel('Send SI query'), findsOneWidget);
-      final Rect entity = tester.getRect(
-        find.byKey(const Key('si-v2-entity-filter')),
-      );
-      final Rect assumption = tester.getRect(
-        find.byKey(const Key('si-v2-assumption')),
-      );
-      expect(assumption.top, greaterThan(entity.bottom));
+      expect(find.byKey(const Key('si-query-input')), findsOneWidget);
+      expect(find.text('What needs attention?'), findsOneWidget);
+      expect(find.text('What should I do next?'), findsOneWidget);
+      expect(find.byKey(const Key('si-v2-entity-filter')), findsNothing);
+      expect(find.byKey(const Key('si-v2-assumption')), findsNothing);
 
       await tester.enterText(
         find.byKey(const Key('si-query-input')),
@@ -82,7 +81,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.bySemanticsLabel(RegExp(r'^SI response')), findsOneWidget);
+      expect(port.calls, 1);
       expect(tester.takeException(), isNull);
     } finally {
       semantics.dispose();
@@ -97,6 +96,7 @@ void main() {
     final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
         siV2QueryServiceProvider.overrideWithValue(port),
         siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
@@ -116,12 +116,30 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
+    expect(find.byKey(const Key('si-query-input')), findsOneWidget);
+    expect(find.text('What needs attention?'), findsOneWidget);
+    expect(find.text('What should I do next?'), findsOneWidget);
+    expect(find.text('Advanced'), findsOneWidget);
+    expect(find.byKey(const Key('si-v2-intent-forecast')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('si-v2-advanced')));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.ensureVisible(find.byKey(const Key('si-v2-intent-forecast')));
+    await tester.pump();
+
     expect(find.text('SI V2 QUERY BUILDER'), findsOneWidget);
     expect(find.byKey(const Key('si-v2-intent-forecast')), findsOneWidget);
     expect(find.byKey(const Key('si-v2-source-tasks')), findsOneWidget);
     expect(find.byKey(const Key('si-v2-range-thirtyDays')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('si-v2-intent-forecast')));
+    final SegmentedButton<SIV2Intent> intentControl = tester.widget(
+      find.ancestor(
+        of: find.byKey(const Key('si-v2-intent-forecast')),
+        matching: find.byType(SegmentedButton<SIV2Intent>),
+      ),
+    );
+    intentControl.onSelectionChanged!(<SIV2Intent>{SIV2Intent.forecast});
+    await tester.pump();
     await tester.enterText(
       find.byKey(const Key('si-v2-assumption')),
       'A single work block is available.',
@@ -141,15 +159,29 @@ void main() {
       contains('A single work block is available.'),
     );
     expect(find.byKey(const Key('si-v2-response')), findsOneWidget);
+    final Finder latestResponse = find.byKey(
+      const Key('si-latest-response-anchor'),
+    );
+    expect(latestResponse, findsOneWidget);
+    expect(tester.getTopLeft(latestResponse).dy, greaterThanOrEqualTo(0));
+    expect(
+      tester.getTopLeft(latestResponse).dy,
+      lessThan(tester.view.physicalSize.height / tester.view.devicePixelRatio),
+    );
+    expect(find.text('DIRECT ANSWER', skipOffstage: false), findsOneWidget);
+    expect(find.text('RECOMMENDATION', skipOffstage: false), findsOneWidget);
+    expect(find.text('OBSERVED FACTS'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('si-v2-response-advanced')));
+    await tester.pump(const Duration(milliseconds: 300));
+
     for (final String section in <String>[
-      'DIRECT ANSWER',
       'OBSERVED FACTS',
       'DETERMINISTIC CALCULATIONS',
       'INFERENCES',
       'MISSING OR CONFLICTING INFORMATION',
       'SCENARIOS',
       'SCENARIO ASSUMPTIONS',
-      'RECOMMENDATION',
       'CONFIDENCE ANATOMY',
       'EVIDENCE LINKS',
     ]) {
@@ -160,6 +192,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('% confident'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Report response').last);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Report response'), findsOneWidget);
+    expect(find.text('Report AI response'), findsNothing);
   });
 
   testWidgets('empty input never reaches the read-only analyzer', (
@@ -170,6 +208,7 @@ void main() {
     final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
         siV2QueryServiceProvider.overrideWithValue(port),
         siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),

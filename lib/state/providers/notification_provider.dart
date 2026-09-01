@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
+import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -270,12 +271,16 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
   void clear() => state = const <NotificationEntity>[];
 
   Future<void> _refreshPlannerDecision() async {
-    try {
-      await ref.read(generateSiDecisionUseCaseProvider).call();
-      ref.invalidate(domainSiDecisionProvider);
-    } catch (_) {
-      // Avoid blocking notification scheduling if planner refresh fails.
-    }
+    ref
+      ..invalidate(operatingSnapshotProvider)
+      ..invalidate(operatingDecisionPlanProvider)
+      ..invalidate(operatingDecisionReceiptProvider)
+      ..invalidate(decisionIntelligenceProvider)
+      ..invalidate(
+        operatingDecisionForSurfaceProvider(
+          OperatingDecisionSurface.notifications,
+        ),
+      );
   }
 
   bool _isCurrent(int generation, INotificationRepository repository) {

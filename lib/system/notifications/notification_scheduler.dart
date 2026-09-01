@@ -184,7 +184,7 @@ class NotificationScheduler {
 
   Future<bool> requestPermissions() => init(requestPermissions: true);
 
-  Future<void> schedule(
+  Future<bool> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async {
@@ -193,7 +193,7 @@ class NotificationScheduler {
       // transient toasts) are persisted for the in-app notification list but
       // must never reach the OS. Without this guard every task interaction
       // posted a real system notification one second later.
-      return;
+      return false;
     }
     if (!_initialized) {
       Logger.warn(
@@ -202,7 +202,7 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because scheduler is not initialized.',
       );
-      return;
+      return false;
     }
     if (!_permissionGranted) {
       Logger.log(
@@ -212,13 +212,13 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because permission is not granted.',
       );
-      return;
+      return false;
     }
     final scheduledTz = tz.TZDateTime.from(notification.scheduledAt, tz.local);
     if (scheduledTz.isBefore(tz.TZDateTime.now(tz.local))) {
       Logger.log('Notifications', 'Skipped schedule for past time.');
       RuntimeDiagnostics.record('Skipped notification schedule for past time.');
-      return;
+      return false;
     }
     await _plugin.zonedSchedule(
       id: _notificationId(_platformKey(notification.id, accountScope)),
@@ -232,9 +232,10 @@ class NotificationScheduler {
           ? notification.id
           : accountPayload(accountScope, notification.id),
     );
+    return true;
   }
 
-  Future<void> scheduleDailyAt({
+  Future<bool> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -250,7 +251,7 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped daily notification schedule: scheduler not initialized.',
       );
-      return;
+      return false;
     }
     if (!_permissionGranted) {
       Logger.log(
@@ -260,7 +261,7 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped daily notification schedule: permission not granted.',
       );
-      return;
+      return false;
     }
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(
@@ -284,9 +285,10 @@ class NotificationScheduler {
       matchDateTimeComponents: DateTimeComponents.time,
       payload: accountScope == null ? id : accountPayload(accountScope, id),
     );
+    return true;
   }
 
-  Future<void> cancel(String id, {String? accountScope}) async {
+  Future<bool> cancel(String id, {String? accountScope}) async {
     if (!_initialized) {
       Logger.log(
         'Notifications',
@@ -295,12 +297,13 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification cancel because scheduler is not initialized.',
       );
-      return;
+      return false;
     }
     await _plugin.cancel(id: _notificationId(_platformKey(id, accountScope)));
+    return true;
   }
 
-  Future<void> cancelAll() async {
+  Future<bool> cancelAll() async {
     if (!_initialized) {
       Logger.log(
         'Notifications',
@@ -309,9 +312,10 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification cancel-all because scheduler is not initialized.',
       );
-      return;
+      return false;
     }
     await _plugin.cancelAll();
+    return true;
   }
 
   static int _notificationId(String value) {

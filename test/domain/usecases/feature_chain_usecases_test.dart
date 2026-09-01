@@ -516,6 +516,9 @@ class _FakeMemoryRepository implements IMemoryRepository {
 }
 
 class _FakeTimelineRepository implements ITimelineRepository {
+  @override
+  bool get lastReadCorrupted => false;
+
   final List<TimelineEventEntity> _events = <TimelineEventEntity>[];
 
   @override

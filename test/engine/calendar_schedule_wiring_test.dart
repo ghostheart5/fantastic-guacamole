@@ -33,7 +33,7 @@ void main() {
 
   test('adaptive plan compares energy on the same normalized scale', () {
     final blocks = CalendarService().generateAdaptivePlan(
-      inputs: PlannerInputAdapter.fromLegacyTasks(const <Task>[
+      inputs: PlannerInputAdapter.fromLegacyTasks(<Task>[
         Task(
           id: 'high-energy',
           title: 'High energy',

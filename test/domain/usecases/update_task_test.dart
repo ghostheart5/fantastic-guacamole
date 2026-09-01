@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/errors/domain_validation_exception.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_task.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,12 +19,12 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 5),
       );
 
-      await UpdateTask(repository).call(task);
+      final DateTime updatedAt = DateTime.utc(2026, 7, 5, 12);
+      await UpdateTask(repository).call(task, now: updatedAt);
 
       final TaskEntity? saved = await repository.getTaskById('task-1');
       expect(saved?.title, 'Refine UI');
-      expect(saved?.updatedAt, isNotNull);
-      expect(saved?.updatedAt?.isAfter(task.createdAt), isTrue);
+      expect(saved?.updatedAt, updatedAt);
     });
 
     test('throws for invalid task', () async {
@@ -35,7 +36,7 @@ void main() {
 
       await expectLater(
         () => UpdateTask(repository).call(invalid),
-        throwsException,
+        throwsA(isA<DomainValidationException>()),
       );
     });
 

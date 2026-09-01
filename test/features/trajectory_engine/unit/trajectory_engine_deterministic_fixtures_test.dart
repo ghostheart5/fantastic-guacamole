@@ -208,6 +208,30 @@ void main() {
       expect(delayed.classification, 'Conditional deterministic scenario');
       expect(delayed.assumptions, contains(contains('unmodeled life events')));
     });
+
+    test('assumed availability cannot produce goal-date precision', () {
+      final TrajectoryComparison comparison = trajectoryTestComparison(
+        baseline: trajectoryTestBaseline(
+          energyOrigin: PredictiveEvidenceOrigin.estimated,
+          availabilityOrigin: PredictiveEvidenceOrigin.estimated,
+        ),
+      );
+
+      for (final TrajectoryScenarioOutcome outcome in comparison.outcomes) {
+        expect(outcome.goals, isEmpty);
+        expect(
+          outcome.assumptions,
+          contains(contains('goal completion dates are withheld')),
+        );
+        final TrajectoryRiskContribution capacity = outcome.risk.contributions
+            .firstWhere(
+              (TrajectoryRiskContribution item) => item.code == 'capacity',
+            );
+        expect(capacity.currentScore, 0);
+        expect(capacity.projectedScore, 0);
+        expect(capacity.explanation, contains('not scored'));
+      }
+    });
   });
 }
 

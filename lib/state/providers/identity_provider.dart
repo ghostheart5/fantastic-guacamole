@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/identity_profile_entity.dart';
 import 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
@@ -64,6 +65,12 @@ class IdentityNotifier extends Notifier<IdentityState> {
   String get reinforcementMessage => _engine.reinforceIdentity(state, '');
 
   String get archetype {
+    if (!LaunchContainment.inferredIdentityEnabled) {
+      return 'Pattern forming';
+    }
+    if (!state.hasMeaningfulEvidence) {
+      return 'Pattern forming';
+    }
     if (state.disciplineIdentity >= state.executionIdentity &&
         state.disciplineIdentity >= state.growthIdentity) {
       return 'The Executor';

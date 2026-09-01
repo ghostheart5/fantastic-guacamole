@@ -123,6 +123,7 @@ import 'package:fantastic_guacamole/domain/usecases/timeline_lifecycle_usecases.
 import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
@@ -131,7 +132,7 @@ import 'package:fantastic_guacamole/state/services/extended_domain_service.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
-  return ref.read(taskRepositoryProvider);
+  return ref.watch(taskRepositoryProvider);
 });
 
 final domainNotificationRepositoryProvider = Provider<INotificationRepository>((
@@ -141,7 +142,7 @@ final domainNotificationRepositoryProvider = Provider<INotificationRepository>((
 });
 
 final domainGoalRepositoryProvider = Provider<IGoalRepository>((ref) {
-  return ref.read(goalRepositoryProvider);
+  return ref.watch(goalRepositoryProvider);
 });
 
 final domainSignalRepositoryProvider = Provider<ISignalRepository>((ref) {
@@ -351,11 +352,6 @@ final siQueriesProvider = Provider<List<SiQuery>>((ref) {
   return ref.read(getSiQueriesExtendedUseCaseProvider).call();
 });
 
-final userIntentsProvider = Provider<List<UserIntent>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getUserIntents();
-});
-
 final reflectionEntriesProvider = Provider<List<ReflectionEntry>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
   return ref.read(getReflectionEntriesUseCaseProvider).call();
@@ -366,67 +362,17 @@ final analyticsMetricsProvider = Provider<List<AnalyticsMetric>>((ref) {
   return ref.read(getAnalyticsMetricsUseCaseProvider).call();
 });
 
-final appNotificationsProvider = Provider<List<AppNotification>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getAppNotifications();
-});
-
-final rewardsProvider = Provider<List<Reward>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getRewards();
-});
-
-final appThemesProvider = Provider<List<AppTheme>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getThemes();
-});
-
 final appSettingsProvider = Provider<List<AppSetting>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
   return ref.read(getExtendedAppSettingsUseCaseProvider).call();
 });
 
-final syncStatesProvider = Provider<List<SyncState>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getSyncStates();
-});
-
-final offlineStatesProvider = Provider<List<OfflineState>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getOfflineStates();
-});
-
-final appErrorsProvider = Provider<List<AppError>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getAppErrors();
-});
-
-final recoveryStatesProvider = Provider<List<RecoveryState>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getRecoveryStates();
-});
-
-final subscriptionPlansProvider = Provider<List<SubscriptionPlanEntity>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getSubscriptionPlans();
-});
-
-final privacyPoliciesProvider = Provider<List<PrivacyPolicy>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getPrivacyPolicies();
-});
-
-final healthChecksProvider = Provider<List<HealthCheckResult>>((ref) {
-  ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getHealthChecks();
-});
-
 final getTasksUseCaseProvider = Provider<GetTasks>((ref) {
-  return GetTasks(ref.read(domainTaskRepositoryProvider));
+  return GetTasks(ref.watch(domainTaskRepositoryProvider));
 });
 
 final getGoalsUseCaseProvider = Provider<GetGoals>((ref) {
-  return GetGoals(ref.read(domainGoalRepositoryProvider));
+  return GetGoals(ref.watch(domainGoalRepositoryProvider));
 });
 
 final getSignalsUseCaseProvider = Provider<GetSignals>((ref) {
@@ -475,23 +421,23 @@ final saveIdentityProfileUseCaseProvider = Provider<SaveIdentityProfile>((ref) {
 });
 
 final createGoalUseCaseProvider = Provider<CreateGoal>((ref) {
-  return CreateGoal(ref.read(domainGoalRepositoryProvider));
+  return CreateGoal(ref.watch(domainGoalRepositoryProvider));
 });
 
 final updateGoalUseCaseProvider = Provider<UpdateGoal>((ref) {
-  return UpdateGoal(ref.read(domainGoalRepositoryProvider));
+  return UpdateGoal(ref.watch(domainGoalRepositoryProvider));
 });
 
 final deleteGoalUseCaseProvider = Provider<DeleteGoal>((ref) {
-  return DeleteGoal(ref.read(domainGoalRepositoryProvider));
+  return DeleteGoal(ref.watch(domainGoalRepositoryProvider));
 });
 
 final completeGoalUseCaseProvider = Provider<CompleteGoal>((ref) {
-  return CompleteGoal(ref.read(domainGoalRepositoryProvider));
+  return CompleteGoal(ref.watch(domainGoalRepositoryProvider));
 });
 
 final saveGoalsUseCaseProvider = Provider<SaveGoals>((ref) {
-  return SaveGoals(ref.read(domainGoalRepositoryProvider));
+  return SaveGoals(ref.watch(domainGoalRepositoryProvider));
 });
 
 final getProjectsUseCaseProvider = Provider<GetProjects>((ref) {
@@ -602,7 +548,7 @@ final recommendNextBlockUseCaseProvider = Provider<RecommendNextBlock>((ref) {
 });
 
 final scoreTasksUseCaseProvider = Provider<ScoreTasks>((ref) {
-  return const ScoreTasks();
+  return const ScoreTasks(TaskRanker());
 });
 
 // --- SI Console ------------------------------------------------------------

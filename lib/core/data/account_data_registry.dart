@@ -2,8 +2,9 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 
-enum AccountDataBackupStatus { backedUp, localOnly, cloudReplicated, internal }
+enum AccountDataBackupStatus { backedUp, localOnly, internal }
 
 class AccountDataDomain {
   const AccountDataDomain({
@@ -12,6 +13,7 @@ class AccountDataDomain {
     required this.owner,
     required this.backupStatus,
     required this.storage,
+    this.cloudReplicated = false,
     this.notes,
   });
 
@@ -20,6 +22,7 @@ class AccountDataDomain {
   final String owner;
   final AccountDataBackupStatus backupStatus;
   final String storage;
+  final bool cloudReplicated;
   final String? notes;
 
   Map<String, dynamic> toManifestJson() => <String, dynamic>{
@@ -28,8 +31,31 @@ class AccountDataDomain {
     'owner': owner,
     'backupStatus': backupStatus.name,
     'storage': storage,
+    'portableBackup': backupStatus == AccountDataBackupStatus.backedUp,
+    'cloudReplicated': cloudReplicated,
     if (notes != null) 'notes': notes,
   };
+}
+
+/// One immutable cleanup inventory for either legacy unowned data or a known
+/// departing account. Consumers should use this plan instead of selecting
+/// individual key sets independently.
+class AccountDataCleanupPlan {
+  const AccountDataCleanupPlan({
+    required this.hiveBoxes,
+    required this.secureExactKeys,
+    required this.secureKeyPrefixes,
+    required this.sensitivePreferenceKeys,
+    required this.preferenceExactKeys,
+    required this.preferenceKeyPrefixes,
+  });
+
+  final Set<String> hiveBoxes;
+  final Set<String> secureExactKeys;
+  final Set<String> secureKeyPrefixes;
+  final Set<String> sensitivePreferenceKeys;
+  final Set<String> preferenceExactKeys;
+  final Set<String> preferenceKeyPrefixes;
 }
 
 /// Single inventory for account-owned local/cloud domains.
@@ -43,7 +69,7 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     label: 'Tasks',
     owner: 'Smart Planner / Timeline',
     backupStatus: AccountDataBackupStatus.backedUp,
-    storage: 'Hive task repository + Supabase Storage backup payload',
+    storage: 'Account-scoped Hive + portable local backup payload',
   ),
   AccountDataDomain(
     id: 'profile',
@@ -57,28 +83,30 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     label: 'Settings',
     owner: 'Settings',
     backupStatus: AccountDataBackupStatus.backedUp,
-    storage: 'SharedPreferences settings payload',
+    storage: 'Allowlisted account-owned SharedPreferences values',
   ),
   AccountDataDomain(
     id: 'task_occurrences',
     label: 'Task occurrences',
     owner: 'Timeline / Smart Planner recurrence ledger',
-    backupStatus: AccountDataBackupStatus.cloudReplicated,
-    storage: 'Account-scoped Hive ledger + Supabase task_occurrences table',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped Hive ledger + portable local backup payload',
+    cloudReplicated: true,
+    notes: 'Cloud replication remains capability-contained.',
   ),
   AccountDataDomain(
     id: 'goals',
     label: 'Goals',
     owner: 'Progression',
-    backupStatus: AccountDataBackupStatus.localOnly,
-    storage: 'Hive goals box',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped Hive + portable local backup payload',
   ),
   AccountDataDomain(
     id: 'habits',
     label: 'Habits',
     owner: 'Progression / Smart Planner',
-    backupStatus: AccountDataBackupStatus.localOnly,
-    storage: 'Hive habits box',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped Hive + portable local backup payload',
   ),
   AccountDataDomain(
     id: 'timeline',
@@ -88,11 +116,34 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     storage: 'Sensitive preferences timeline store',
   ),
   AccountDataDomain(
+    id: 'person_context',
+    label: 'Person context',
+    owner: 'User-controlled intelligence context',
+    backupStatus: AccountDataBackupStatus.localOnly,
+    storage: 'Account-scoped platform secure storage',
+    notes:
+        'Excluded from backup and cloud sync until a merge-safe contract exists.',
+  ),
+  AccountDataDomain(
     id: 'notes',
     label: 'Creator notes',
     owner: 'Creator',
-    backupStatus: AccountDataBackupStatus.localOnly,
-    storage: 'Shared preferences notes store',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped preferences + portable local backup payload',
+  ),
+  AccountDataDomain(
+    id: 'decision_outcomes',
+    label: 'Decision outcomes',
+    owner: 'Decision intelligence evidence ledger',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped preferences + portable local backup payload',
+  ),
+  AccountDataDomain(
+    id: 'habit_occurrences',
+    label: 'Daily Rhythm occurrences',
+    owner: 'Daily Rhythm outcome ledger',
+    backupStatus: AccountDataBackupStatus.backedUp,
+    storage: 'Account-scoped preferences + portable local backup payload',
   ),
   AccountDataDomain(
     id: 'si_state',
@@ -119,10 +170,7 @@ Map<String, dynamic> accountDataBackupManifest() {
       .map((AccountDataDomain domain) => domain.id)
       .toList(growable: false);
   final List<String> cloudReplicated = accountDataDomains
-      .where(
-        (AccountDataDomain domain) =>
-            domain.backupStatus == AccountDataBackupStatus.cloudReplicated,
-      )
+      .where((AccountDataDomain domain) => domain.cloudReplicated)
       .map((AccountDataDomain domain) => domain.id)
       .toList(growable: false);
   final List<String> excluded = accountDataDomains
@@ -135,7 +183,9 @@ Map<String, dynamic> accountDataBackupManifest() {
       .toList(growable: false);
 
   return <String, dynamic>{
-    'manifestVersion': 1,
+    'manifestVersion': 2,
+    'backupKind': 'portableLocal',
+    'cloudRestoreIncluded': false,
     'includedDomains': included,
     'cloudReplicatedDomains': cloudReplicated,
     'excludedDomains': excluded,
@@ -154,6 +204,8 @@ abstract final class AccountDataRegistry {
       'auth_boundary_account_marker_v1';
   static const String legacyNotificationSecureKey = 'notification_entries_v1';
   static const String notificationSecureKeyPrefix = 'notification_entries_v2.';
+  static const String pendingPurchaseOwnerSecureKeyPrefix =
+      'paywall_pending_purchase_owner_v1.';
 
   static const Set<String> legacyAccountHiveBoxes = <String>{
     'tasks_box',
@@ -197,7 +249,6 @@ abstract final class AccountDataRegistry {
     'paywall_subscription_state_v1',
     'entitlement_owner_user_id_v1',
     'bridge.firebase_messaging_token',
-    'cloud_backup_encryption_key_v1',
     'timeline_payload_v1',
     'task_entries_v2',
     'settings_v1_neon_recall',
@@ -224,6 +275,8 @@ abstract final class AccountDataRegistry {
   };
 
   static const Set<String> accountPreferenceExactKeys = <String>{
+    'notes_v1',
+    'notes_v1_corrupt_backup',
     'insights_v1',
     'signals_v1',
     'behavior_state_v1',
@@ -289,6 +342,22 @@ abstract final class AccountDataRegistry {
     'extended_domain.health_checks',
   };
 
+  /// Preferences that are both account-owned and safe to include in a backup.
+  ///
+  /// Keep presentation, navigation, billing, cache, diagnostic, and implicit
+  /// device state out of this list even when account cleanup removes it at
+  /// sign-out. Every included value is an explicit account choice.
+  static const Set<String> accountPreferenceBackupKeys = <String>{
+    'user_preferences_json',
+    'cloud_sync_enabled_v1',
+    'reflection_reminder_enabled',
+    'reflection_reminder_time',
+    'goal_reminders_enabled',
+    'habit_reminders_enabled',
+    'daily_planning_reminder_enabled',
+    'daily_planning_reminder_time',
+  };
+
   static const Set<String> deviceGlobalPreferenceKeys = <String>{
     'app_theme_entity_v1',
     'settings_entity_v1',
@@ -318,10 +387,15 @@ abstract final class AccountDataRegistry {
   }
 
   static Set<String> hiveBoxesForAccount(String accountId) {
-    final String namespace = accountNamespace(accountId);
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      accountId.trim(),
+    );
     return <String>{
       ...legacyAccountHiveBoxes,
-      'task_occurrences_v2.$namespace',
+      HiveBoxes.accountScoped(HiveBoxes.tasks, scope),
+      HiveBoxes.accountScoped(HiveBoxes.goals, scope),
+      HiveBoxes.accountScoped(HiveBoxes.habits, scope),
+      HiveBoxes.accountScoped(HiveBoxes.taskOccurrences, scope),
     };
   }
 
@@ -337,7 +411,10 @@ abstract final class AccountDataRegistry {
 
   static Set<String> secureKeyPrefixesForAccount(String accountId) {
     final String namespace = accountNamespace(accountId);
-    return <String>{'si_engine_state_v2.$namespace.'};
+    return <String>{
+      'si_engine_state_v2.$namespace.',
+      pendingPurchaseOwnerSecureKeyPrefix,
+    };
   }
 
   static Set<String> sensitivePreferenceKeysForAccount(String accountId) {
@@ -345,6 +422,8 @@ abstract final class AccountDataRegistry {
     return <String>{
       ...legacySensitivePreferenceKeys,
       'governed_memories_v2.$namespace',
+      'person_context_spine_v1.$namespace',
+      'person_context_spine_v1_corrupt.$namespace',
     };
   }
 
@@ -355,7 +434,11 @@ abstract final class AccountDataRegistry {
         .toString();
     return <String>{
       ...accountPreferenceExactKeys,
+      'notes_v1.$namespace',
+      'notes_v1.${namespace}_corrupt_backup',
+      'notes_v1.${namespace}_migration_v1',
       'chronospark.decision_outcomes.v1.$namespace',
+      'chronospark.habit_occurrences.v1.$namespace',
       'chronospark.trajectory.forecast_ledger.v1.$namespace',
       'chronospark.operating.history.v1.$namespace',
       'chronospark.operating.ack.v1.$namespace',
@@ -367,8 +450,36 @@ abstract final class AccountDataRegistry {
   static Set<String> preferenceKeyPrefixesForAccount(String accountId) {
     final String namespace = accountNamespace(accountId);
     return <String>{
+      'adaptive_guidance_v3.$namespace.',
       'chronospark.trajectory.forecast_ledger.v1.$namespace.corrupt.',
       'chronospark.operating.history.v1.$namespace.corrupt.',
     };
+  }
+
+  static AccountDataCleanupPlan cleanupPlanFor(String? accountId) {
+    final String normalizedAccountId = accountId?.trim() ?? '';
+    if (normalizedAccountId.isEmpty) {
+      return const AccountDataCleanupPlan(
+        hiveBoxes: legacyAccountHiveBoxes,
+        secureExactKeys: accountSecureExactKeys,
+        secureKeyPrefixes: <String>{pendingPurchaseOwnerSecureKeyPrefix},
+        sensitivePreferenceKeys: legacySensitivePreferenceKeys,
+        preferenceExactKeys: accountPreferenceExactKeys,
+        preferenceKeyPrefixes: <String>{},
+      );
+    }
+
+    return AccountDataCleanupPlan(
+      hiveBoxes: hiveBoxesForAccount(normalizedAccountId),
+      secureExactKeys: secureExactKeysForAccount(normalizedAccountId),
+      secureKeyPrefixes: secureKeyPrefixesForAccount(normalizedAccountId),
+      sensitivePreferenceKeys: sensitivePreferenceKeysForAccount(
+        normalizedAccountId,
+      ),
+      preferenceExactKeys: preferenceExactKeysForAccount(normalizedAccountId),
+      preferenceKeyPrefixes: preferenceKeyPrefixesForAccount(
+        normalizedAccountId,
+      ),
+    );
   }
 }

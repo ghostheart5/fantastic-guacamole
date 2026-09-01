@@ -1,7 +1,6 @@
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
-import 'package:fantastic_guacamole/features/profile/ui/widgets/stats_card.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/profile_view_state.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
@@ -9,8 +8,10 @@ import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +26,7 @@ class ProfileScreen extends ConsumerWidget {
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgProfile,
+      overlayOpacity: .52,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(child: _ProfileBody(state: state)),
@@ -79,53 +81,34 @@ class _ProfileBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actions = ref.watch(profileActionsProvider);
     final data = state.profile;
+    final identity = ref.watch(identityStateProvider);
+    final bool hasIdentityEvidence =
+        LaunchContainment.inferredIdentityEnabled &&
+        ref.watch(
+          trajectorySummaryProvider.select(
+            (summary) => summary.completedTasks >= 3,
+          ),
+        ) &&
+        identity.hasMeaningfulEvidence;
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        ProfileHeader(
-          name: data.name,
-          level: data.level,
+        _ProfileTitle(
           onOpenSettings: () => goToAppView(context, ref, AppView.settings),
         ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            SizedBox(
-              width: 104,
-              child: StatsCard(
-                label: 'LEVEL',
-                value: '${data.level}',
-                color: AppColors.neonCyan,
-                icon: Icons.bolt,
-              ),
-            ),
-            SizedBox(
-              width: 104,
-              child: StatsCard(
-                label: 'XP',
-                value: '${data.xp}',
-                color: AppColors.memoryAmber,
-                icon: Icons.star_outline,
-              ),
-            ),
-            SizedBox(
-              width: 104,
-              child: StatsCard(
-                label: 'STREAK',
-                value: '${data.streak}d',
-                color: AppColors.neonViolet,
-                icon: Icons.local_fire_department,
-              ),
-            ),
-          ],
+        const SizedBox(height: 18),
+        _IdentityConstellation(
+          name: data.name,
+          level: data.level,
+          hasEvidence: hasIdentityEvidence,
         ),
+        const SizedBox(height: 18),
+        _ProfileMetrics(level: data.level, xp: data.xp, streak: data.streak),
         const SizedBox(height: 16),
         _NameEditor(initialName: data.name, onSave: actions.updateName),
         const SizedBox(height: 16),
-        const _IdentityCard(),
+        _IdentityCard(hasEvidence: hasIdentityEvidence),
         const SizedBox(height: 16),
         _NavButtons(
           onTimeline: () => goToAppView(context, ref, AppView.timeline),
@@ -137,8 +120,354 @@ class _ProfileBody extends ConsumerWidget {
   }
 }
 
+class _ProfileTitle extends StatelessWidget {
+  const _ProfileTitle({required this.onOpenSettings});
+
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return TemporalScreenHeader(
+      title: 'PROFILE',
+      subtitle: 'Your patterns, held with context.',
+      eyebrow: 'Identity constellation',
+      trailing: IconButton(
+        tooltip: 'Open settings',
+        constraints: const BoxConstraints.tightFor(
+          width: AppSizes.touchTarget,
+          height: AppSizes.touchTarget,
+        ),
+        onPressed: onOpenSettings,
+        icon: const Icon(Icons.settings),
+      ),
+    );
+  }
+}
+
+class _IdentityConstellation extends ConsumerWidget {
+  const _IdentityConstellation({
+    required this.name,
+    required this.level,
+    required this.hasEvidence,
+  });
+
+  final String name;
+  final int level;
+  final bool hasEvidence;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final identity = ref.watch(identityStateProvider);
+    final String archetype = ref
+        .watch(identityStateProvider.notifier)
+        .archetype;
+    final String evidenceLabel = hasEvidence
+        ? 'Discipline ${(identity.disciplineIdentity * 100).round()} percent, '
+              'execution ${(identity.executionIdentity * 100).round()} percent, '
+              'growth ${(identity.growthIdentity * 100).round()} percent.'
+        : 'Identity pattern is still forming.';
+    return Semantics(
+      container: true,
+      label:
+          '${name.isEmpty ? 'ChronoSpark user' : name}, level $level. '
+          '$evidenceLabel',
+      child: Column(
+        children: <Widget>[
+          SizedBox(
+            height: 250,
+            child: Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                const CustomPaint(painter: _ConstellationPainter()),
+                Align(
+                  alignment: const Alignment(0, .04),
+                  child: Container(
+                    width: 104,
+                    height: 104,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.bgSecondary.withValues(alpha: .86),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: .68),
+                        width: 2,
+                      ),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: AppColors.neonCyan.withValues(alpha: .32),
+                          blurRadius: 28,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.person_outline_rounded,
+                      color: AppColors.neonCyan,
+                      size: 46,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 14,
+                  right: 4,
+                  child: _ConstellationLabel(
+                    label: 'GROWTH',
+                    value: identity.growthIdentity,
+                    showValue: hasEvidence,
+                    accent: AppColors.neonViolet,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Positioned(
+                  top: 106,
+                  left: 4,
+                  child: _ConstellationLabel(
+                    label: 'DISCIPLINE',
+                    value: identity.disciplineIdentity,
+                    showValue: hasEvidence,
+                    accent: AppColors.memoryAmber,
+                  ),
+                ),
+                Positioned(
+                  right: 4,
+                  bottom: 14,
+                  child: _ConstellationLabel(
+                    label: 'EXECUTION',
+                    value: identity.executionIdentity,
+                    showValue: hasEvidence,
+                    accent: AppColors.neonCyan,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            name.trim().isEmpty ? 'CHRONOSPARK USER' : name.toUpperCase(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${hasEvidence ? archetype : 'PATTERN FORMING'}  ·  CHRONOSPARK LEVEL $level',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.neonViolet,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConstellationLabel extends StatelessWidget {
+  const _ConstellationLabel({
+    required this.label,
+    required this.value,
+    required this.accent,
+    required this.showValue,
+    this.textAlign = TextAlign.left,
+  });
+
+  final String label;
+  final double value;
+  final Color accent;
+  final bool showValue;
+  final TextAlign textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 112,
+      child: Text(
+        showValue ? '$label ${(value * 100).round()}%' : '$label LEARNING',
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        textAlign: textAlign,
+        style: TextStyle(
+          color: accent,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConstellationPainter extends CustomPainter {
+  const _ConstellationPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset center = Offset(size.width * .5, size.height * .52);
+    final Paint orbit = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final ({double radius, Color color}) item
+        in <({double radius, Color color})>[
+          (radius: size.shortestSide * .30, color: AppColors.neonCyan),
+          (radius: size.shortestSide * .42, color: AppColors.neonViolet),
+          (radius: size.shortestSide * .50, color: AppColors.memoryAmber),
+        ]) {
+      orbit.color = item.color.withValues(alpha: .28);
+      canvas.drawCircle(center, item.radius, orbit);
+    }
+    final Paint thread = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final List<({Offset end, Color color})> endpoints =
+        <({Offset end, Color color})>[
+          (
+            end: Offset(size.width * .82, size.height * .16),
+            color: AppColors.neonViolet,
+          ),
+          (
+            end: Offset(size.width * .16, size.height * .48),
+            color: AppColors.memoryAmber,
+          ),
+          (
+            end: Offset(size.width * .82, size.height * .86),
+            color: AppColors.neonCyan,
+          ),
+        ];
+    for (final ({Offset end, Color color}) endpoint in endpoints) {
+      thread.color = endpoint.color.withValues(alpha: .55);
+      final Path path = Path()
+        ..moveTo(center.dx, center.dy)
+        ..quadraticBezierTo(
+          (center.dx + endpoint.end.dx) / 2,
+          center.dy,
+          endpoint.end.dx,
+          endpoint.end.dy,
+        );
+      canvas.drawPath(path, thread);
+      canvas.drawCircle(endpoint.end, 3, Paint()..color = endpoint.color);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConstellationPainter oldDelegate) => false;
+}
+
+class _ProfileMetrics extends StatelessWidget {
+  const _ProfileMetrics({
+    required this.level,
+    required this.xp,
+    required this.streak,
+  });
+
+  final int level;
+  final int xp;
+  final int streak;
+
+  @override
+  Widget build(BuildContext context) {
+    return TemporalGlassSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+      accent: AppColors.memoryAmber,
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _ProfileMetric(
+              label: 'LEVEL',
+              value: '$level',
+              accent: AppColors.memoryAmber,
+            ),
+          ),
+          const _MetricDivider(),
+          Expanded(
+            child: _ProfileMetric(
+              label: 'XP',
+              value: '$xp',
+              accent: AppColors.neonViolet,
+            ),
+          ),
+          const _MetricDivider(),
+          Expanded(
+            child: _ProfileMetric(
+              label: 'STREAK',
+              value: '${streak}d',
+              accent: AppColors.neonCyan,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileMetric extends StatelessWidget {
+  const _ProfileMetric({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.fade,
+          softWrap: false,
+          style: TextStyle(
+            color: accent,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricDivider extends StatelessWidget {
+  const _MetricDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 48,
+      color: Colors.white.withValues(alpha: .12),
+    );
+  }
+}
+
 class _IdentityCard extends ConsumerWidget {
-  const _IdentityCard();
+  const _IdentityCard({required this.hasEvidence});
+
+  final bool hasEvidence;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -147,92 +476,88 @@ class _IdentityCard extends ConsumerWidget {
     final growthTitle = ref.watch(userGrowthTitleProvider);
     final archetype = notifier.archetype;
 
-    return Container(
+    return TemporalGlassSurface(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.2)),
-      ),
+      accent: AppColors.neonViolet,
+      opacity: .9,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 2,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.neonViolet,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'ARCHETYPE',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2.5,
-                  color: AppColors.neonViolet,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _ArchetypeBadge(label: archetype, color: AppColors.neonViolet),
-              const SizedBox(width: 10),
-              _ArchetypeBadge(label: growthTitle, color: AppColors.neonCyan),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _IdentityBar(
-            label: 'Discipline',
-            value: identity.disciplineIdentity,
-            color: AppColors.memoryAmber,
+          const Text(
+            'IDENTITY SIGNAL',
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 0,
+              color: AppColors.neonViolet,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 8),
-          _IdentityBar(
-            label: 'Execution',
-            value: identity.executionIdentity,
-            color: AppColors.neonCyan,
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            children: <Widget>[
+              _ArchetypeLabel(
+                label: hasEvidence ? archetype : 'Pattern forming',
+                color: AppColors.neonViolet,
+              ),
+              if (hasEvidence)
+                _ArchetypeLabel(label: growthTitle, color: AppColors.neonCyan),
+            ],
           ),
-          const SizedBox(height: 8),
-          _IdentityBar(
-            label: 'Growth',
-            value: identity.growthIdentity,
-            color: AppColors.neonViolet,
-          ),
+          if (!hasEvidence) ...<Widget>[
+            const SizedBox(height: 8),
+            const Text(
+              'Complete a few tasks to reveal patterns grounded in your activity.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ] else ...<Widget>[
+            const SizedBox(height: 14),
+            _IdentityBar(
+              label: 'Discipline',
+              value: identity.disciplineIdentity,
+              color: AppColors.memoryAmber,
+            ),
+            const SizedBox(height: 8),
+            _IdentityBar(
+              label: 'Execution',
+              value: identity.executionIdentity,
+              color: AppColors.neonCyan,
+            ),
+            const SizedBox(height: 8),
+            _IdentityBar(
+              label: 'Growth',
+              value: identity.growthIdentity,
+              color: AppColors.neonViolet,
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _ArchetypeBadge extends StatelessWidget {
-  const _ArchetypeBadge({required this.label, required this.color});
+class _ArchetypeLabel extends StatelessWidget {
+  const _ArchetypeLabel({required this.label, required this.color});
   final String label;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
+    return Text(
+      label,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: color,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0,
       ),
     );
   }
@@ -297,27 +622,19 @@ class _NavButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _NavBtn(
-                label: 'TIMELINE',
-                icon: Icons.timeline_rounded,
-                color: AppColors.neonViolet,
-                onTap: onTimeline,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _NavBtn(
-                label: 'PROGRESSION',
-                icon: Icons.bolt,
-                color: AppColors.memoryAmber,
-                onTap: onProgression,
-              ),
-            ),
-          ],
+      children: <Widget>[
+        _NavBtn(
+          label: 'VIEW TIMELINE',
+          icon: Icons.timeline_rounded,
+          color: AppColors.neonViolet,
+          onTap: onTimeline,
+        ),
+        const SizedBox(height: 10),
+        _NavBtn(
+          label: 'PROGRESSION',
+          icon: Icons.bolt,
+          color: AppColors.memoryAmber,
+          onTap: onProgression,
         ),
         const SizedBox(height: 10),
         _NavBtn(
@@ -345,32 +662,12 @@ class _NavBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 48,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return TemporalActionButton(
+      label: label,
+      icon: icon,
+      accent: color,
+      filled: false,
+      onPressed: onTap,
     );
   }
 }
@@ -437,45 +734,22 @@ class _NameEditorState extends State<_NameEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return TemporalGlassSurface(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonViolet.withValues(alpha: 0.06),
-            blurRadius: 20,
-            spreadRadius: -2,
-          ),
-        ],
-      ),
+      accent: AppColors.neonCyan,
+      opacity: .9,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 2,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.neonViolet,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'IDENTITY',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2.5,
-                  color: AppColors.neonViolet,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          const Text(
+            'EDIT IDENTITY',
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 0,
+              color: AppColors.neonCyan,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 14),
           TextField(
@@ -487,13 +761,13 @@ class _NameEditorState extends State<_NameEditor> {
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.03),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(
                   color: AppColors.neonViolet.withValues(alpha: 0.2),
                 ),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(
                   color: AppColors.neonViolet.withValues(alpha: 0.2),
                 ),
@@ -508,10 +782,16 @@ class _NameEditorState extends State<_NameEditor> {
             ),
           ],
           const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
+          SizedBox(
+            width: double.infinity,
             child: FilledButton(
               onPressed: _saving ? null : _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               child: _saving
                   ? const SizedBox.square(
                       dimension: 18,

@@ -4,13 +4,16 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
@@ -34,6 +37,55 @@ const SubscriptionState _inactiveSubscription = SubscriptionState(
 
 void main() {
   group('entitlement restores premium across launches', () {
+    test('startup reads the backend authority refresher', () async {
+      final _Harness harness = await _Harness.create(
+        subscription: _inactiveSubscription,
+        user: _user('user-a'),
+      );
+
+      await harness.container.read(entitlementProvider.future);
+
+      expect(harness.repository.refreshCalls, 1);
+    });
+
+    test('legacy retry deadline rebuilds entitlement authority', () async {
+      final _Harness harness = await _Harness.create(
+        subscription: _inactiveSubscription,
+        user: _user('user-a'),
+        legacyRetryAt: DateTime.now().add(const Duration(milliseconds: 30)),
+      );
+      final int initialRefreshes = harness.repository.refreshCalls;
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await harness.settle();
+
+      expect(harness.repository.refreshCalls, greaterThan(initialRefreshes));
+    });
+
+    test(
+      'legacy subscription recovery runs once and claims the account',
+      () async {
+        final _Harness harness = await _Harness.create(
+          subscription: _inactiveSubscription,
+          user: _user('user-a'),
+          legacyRestoreResult: _activeSubscription,
+        );
+
+        await harness.settle();
+
+        expect(harness.repository.legacyRestoreCalls, 1);
+        expect(
+          (await harness.container.read(entitlementProvider.future)).isPremium,
+          isTrue,
+        );
+        expect(await harness.readOwner(), 'user-a');
+
+        harness.container.invalidate(entitlementProvider);
+        await harness.settle();
+        expect(harness.repository.legacyRestoreCalls, 1);
+      },
+    );
+
     test(
       'premium survives restart when the account owns the subscription',
       () async {
@@ -56,7 +108,7 @@ void main() {
         final AiCreditWallet wallet = await harness.container.read(
           aiCreditWalletProvider.future,
         );
-        expect(wallet.tier, 'premium');
+        expect(wallet.tier, 'unavailable');
       },
     );
 
@@ -79,7 +131,7 @@ void main() {
       final AiCreditWallet wallet = await harness.container.read(
         aiCreditWalletProvider.future,
       );
-      expect(wallet.tier, 'free');
+      expect(wallet.tier, 'unavailable');
     });
 
     test('expired subscription does not grant premium', () async {
@@ -106,6 +158,79 @@ void main() {
         isFalse,
       );
     });
+
+    test('premium is revoked when the authoritative expiry passes', () async {
+      final _Harness harness = await _Harness.create(
+        subscription: SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'google_play',
+          planId: 'monthly',
+          renewalDate: DateTime.now().add(const Duration(milliseconds: 500)),
+        ),
+        owner: 'user-a',
+        user: _user('user-a'),
+      );
+
+      expect(
+        (await harness.container.read(entitlementProvider.future)).isPremium,
+        isTrue,
+      );
+      expect(
+        (await harness.container.read(aiCreditWalletProvider.future)).tier,
+        'unavailable',
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      await harness.settle();
+
+      expect(
+        (await harness.container.read(entitlementProvider.future)).isPremium,
+        isFalse,
+      );
+      expect(
+        harness.container.read(appAccessProvider).hasPremiumAccess,
+        isFalse,
+      );
+    });
+
+    test('forced authority refresh invalidates revoked premium', () async {
+      final _Harness harness = await _Harness.create(
+        subscription: SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'supabase_authority',
+          planId: 'monthly',
+          renewalDate: DateTime.now().add(const Duration(days: 1)),
+        ),
+        owner: 'user-a',
+        user: _user('user-a'),
+      );
+      expect(
+        (await harness.container.read(entitlementProvider.future)).isPremium,
+        isTrue,
+      );
+
+      harness.repository.subscription = const SubscriptionState(
+        isActive: false,
+        status: 'revoked',
+        source: 'supabase_authority',
+      );
+      await harness.container.read(entitlementAuthorityRefreshProvider)(
+        force: true,
+      );
+
+      expect(harness.repository.refreshForces, contains(true));
+      expect(
+        (await harness.container.read(entitlementProvider.future)).isPremium,
+        isFalse,
+      );
+      expect(
+        (await harness.container.read(aiCreditWalletProvider.future)).tier,
+        'unavailable',
+      );
+      expect(await harness.readOwner(), isNull);
+    });
   });
 
   group('entitlement is account safe', () {
@@ -124,7 +249,7 @@ void main() {
         );
 
         expect(entitlement.isPremium, isFalse);
-        expect(entitlement.source, 'other_account');
+        expect(entitlement.source, 'unclaimed');
         expect(
           harness.container.read(appAccessProvider).hasPremiumAccess,
           isFalse,
@@ -164,7 +289,7 @@ void main() {
         );
         expect(
           (await harness.container.read(aiCreditWalletProvider.future)).tier,
-          'premium',
+          'unavailable',
         );
 
         harness.signOut();
@@ -180,7 +305,7 @@ void main() {
         );
         expect(
           (await harness.container.read(aiCreditWalletProvider.future)).tier,
-          'free',
+          'unavailable',
         );
       },
     );
@@ -209,7 +334,7 @@ void main() {
       expect(await harness.readOwner(), 'user-a');
       expect(
         (await harness.container.read(aiCreditWalletProvider.future)).tier,
-        'premium',
+        'unavailable',
       );
     });
 
@@ -265,6 +390,29 @@ void main() {
       );
       expect(await harness.readOwner(), isNull);
     });
+
+    test('an account switch rejects an obsolete purchase result', () async {
+      final _Harness harness = await _Harness.create(
+        subscription: _inactiveSubscription,
+        user: _user('user-a'),
+      );
+      await harness.container.read(entitlementProvider.future);
+
+      harness.switchUser(_user('user-b'));
+      await harness.settle();
+
+      await expectLater(
+        () => harness.container
+            .read(entitlementProvider.notifier)
+            .applyPurchaseResult(_activeSubscription, expectedUserId: 'user-a'),
+        throwsStateError,
+      );
+      expect(await harness.readOwner(), isNull);
+      expect(
+        (await harness.container.read(entitlementProvider.future)).isPremium,
+        isFalse,
+      );
+    });
   });
 }
 
@@ -282,35 +430,48 @@ class _Harness {
     required this.container,
     required this.secureStore,
     required this.authController,
+    required this.repository,
   });
 
   final ProviderContainer container;
   final SecureStore secureStore;
   final StreamController<User?> authController;
+  final _FakePaywallRepository repository;
   static Future<_Harness> create({
     required SubscriptionState subscription,
     required User? user,
     String? owner,
     SecureStore? secureStore,
+    SubscriptionState? legacyRestoreResult,
+    DateTime? legacyRetryAt,
   }) async {
     final SecureStore store =
         secureStore ?? SecureStore(backend: InMemorySecureStoreBackend());
     if (owner != null) {
-      await store.writeString(kEntitlementOwnerKey, owner);
+      await store.writeString('$kEntitlementOwnerKey.account.$owner', owner);
     }
 
     // Not broadcast: the seeded value is buffered until Riverpod subscribes.
     final StreamController<User?> authController = StreamController<User?>();
     authController.add(user);
 
+    final _FakePaywallRepository repository = _FakePaywallRepository(
+      subscription: subscription,
+      legacyRestoreResult: legacyRestoreResult,
+      legacyRetryAt: legacyRetryAt,
+    );
     final ProviderContainer container = ProviderContainer(
       overrides: [
         secureStoreProvider.overrideWithValue(store),
         sharedPrefsStoreProvider.overrideWithValue(_InMemoryPrefsStore()),
-        paywallRepositoryProvider.overrideWithValue(
-          _FakePaywallRepository(subscription: subscription),
-        ),
+        paywallRepositoryProvider.overrideWithValue(repository),
         authUserProvider.overrideWith((ref) => authController.stream),
+        accountStorageScopeProvider.overrideWith((Ref ref) {
+          final User? current = ref.watch(authUserProvider).asData?.value;
+          return current == null
+              ? const AccountStorageScope.signedOut()
+              : AccountStorageScope.authenticated(current.id);
+        }),
       ],
     );
     addTearDown(container.dispose);
@@ -325,6 +486,7 @@ class _Harness {
       container: container,
       secureStore: store,
       authController: authController,
+      repository: repository,
     );
     await harness.settle();
     return harness;
@@ -332,7 +494,11 @@ class _Harness {
 
   void signOut() => authController.add(null);
 
-  Future<String?> readOwner() => secureStore.readString(kEntitlementOwnerKey);
+  void switchUser(User user) => authController.add(user);
+
+  Future<String?> readOwner([String userId = 'user-a']) {
+    return secureStore.readString('$kEntitlementOwnerKey.account.$userId');
+  }
 
   /// Lets a stream event propagate and the entitlement rebuild finish.
   Future<void> settle() async {
@@ -367,10 +533,49 @@ class _InMemoryPrefsStore implements SharedPrefsStore {
   }
 }
 
-class _FakePaywallRepository implements IPaywallRepository {
-  _FakePaywallRepository({required this.subscription});
+class _FakePaywallRepository
+    implements IPaywallRepository, ISubscriptionAuthorityRefresher {
+  _FakePaywallRepository({
+    required this.subscription,
+    this.legacyRestoreResult,
+    this.legacyRetryAt,
+  });
 
   SubscriptionState subscription;
+  final SubscriptionState? legacyRestoreResult;
+  final DateTime? legacyRetryAt;
+  int refreshCalls = 0;
+  final List<bool> refreshForces = <bool>[];
+  int legacyRestoreCalls = 0;
+  bool _legacyRestoreAvailable = true;
+
+  @override
+  Future<SubscriptionState> refreshSubscriptionState({
+    bool force = false,
+  }) async {
+    refreshCalls += 1;
+    refreshForces.add(force);
+    return subscription;
+  }
+
+  @override
+  bool get shouldRestoreLegacySubscription {
+    return legacyRestoreResult != null && _legacyRestoreAvailable;
+  }
+
+  @override
+  DateTime? get legacyRestoreNextRetryAt => legacyRetryAt;
+
+  @override
+  Future<SubscriptionState?> restoreLegacySubscription() async {
+    if (!shouldRestoreLegacySubscription) {
+      return null;
+    }
+    legacyRestoreCalls += 1;
+    _legacyRestoreAvailable = false;
+    subscription = legacyRestoreResult!;
+    return subscription;
+  }
 
   @override
   Future<List<PaywallPlan>> getAvailablePlans() async => const <PaywallPlan>[];

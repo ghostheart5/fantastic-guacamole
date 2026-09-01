@@ -65,7 +65,7 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
           ? 'Wait for current decision evidence before changing the plan.'
           : trajectory.pendingTasks == 0
           ? 'Capture one meaningful commitment in Creator.'
-          : momentum.energyPercent < 35
+          : momentum.hasObservedEnergy && momentum.energyPercent < 35
           ? 'Choose the smallest feasible step from the current plan.'
           : 'Open Smart Planner to rank the next feasible action.');
   final String primaryAction = decision?.recommendedAction ?? fallbackAction;
@@ -93,7 +93,10 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
       ? <String>[
           'momentum=${momentum.score}',
           'pressure=${momentum.pressurePercent}',
-          'energy=${momentum.energyPercent}',
+          if (momentum.hasObservedEnergy)
+            'energy=${momentum.energyPercent}'
+          else
+            'energy=unavailable',
           'completed_7d=${execution.completed7d}',
           'deferred_7d=${execution.skipped7d + execution.delayed7d}',
         ]
@@ -108,7 +111,9 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
     primaryAction: primaryAction,
     momentum: '${momentum.score}% ${momentum.trend}',
     trajectory: trajectoryText,
-    energy: '${momentum.energyPercent}% energy',
+    energy: momentum.hasObservedEnergy
+        ? '${momentum.energyPercent}% energy'
+        : 'Energy not checked',
     warning: warning,
     recovery: recovery,
     recommendedAction: recommendedAction,

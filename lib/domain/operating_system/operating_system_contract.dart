@@ -1,6 +1,8 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Operating continuity
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 
 enum OperatingEvidenceKind {
   observed,
@@ -59,7 +61,10 @@ class OperatingEvidence {
   final DateTime? freshUntil;
   final double? weight;
 
-  bool get isFresh => freshUntil == null || freshUntil!.isAfter(DateTime.now());
+  bool isFreshAt(DateTime reference) =>
+      freshUntil == null || freshUntil!.isAfter(reference);
+
+  bool get isFresh => isFreshAt(DateTime.now());
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'code': code,
@@ -153,6 +158,8 @@ class OperatingSnapshot {
     required this.completedToday,
     required this.energy,
     required this.fatigue,
+    this.energyOrigin = PredictiveEvidenceOrigin.unavailable,
+    this.fatigueOrigin = PredictiveEvidenceOrigin.unavailable,
     required this.momentum,
     required this.pressure,
     required this.topActionId,
@@ -172,6 +179,8 @@ class OperatingSnapshot {
              'completedToday': completedToday,
              'energy': energy,
              'fatigue': fatigue,
+             'energyOrigin': energyOrigin.name,
+             'fatigueOrigin': fatigueOrigin.name,
              'momentum': momentum,
              'pressure': pressure,
              'topActionId': topActionId,
@@ -193,6 +202,8 @@ class OperatingSnapshot {
   final int completedToday;
   final double energy;
   final double fatigue;
+  final PredictiveEvidenceOrigin energyOrigin;
+  final PredictiveEvidenceOrigin fatigueOrigin;
   final int momentum;
   final int pressure;
   final String? topActionId;
@@ -212,6 +223,8 @@ class OperatingSnapshot {
     'completedToday': completedToday,
     'energy': energy,
     'fatigue': fatigue,
+    'energyOrigin': energyOrigin.name,
+    'fatigueOrigin': fatigueOrigin.name,
     'momentum': momentum,
     'pressure': pressure,
     'topActionId': topActionId,
@@ -241,6 +254,14 @@ class OperatingSnapshot {
       completedToday: (json['completedToday'] as num?)?.toInt() ?? 0,
       energy: (json['energy'] as num?)?.toDouble() ?? 0,
       fatigue: (json['fatigue'] as num?)?.toDouble() ?? 0,
+      energyOrigin: PredictiveEvidenceOrigin.values.firstWhere(
+        (PredictiveEvidenceOrigin value) => value.name == json['energyOrigin'],
+        orElse: () => PredictiveEvidenceOrigin.unavailable,
+      ),
+      fatigueOrigin: PredictiveEvidenceOrigin.values.firstWhere(
+        (PredictiveEvidenceOrigin value) => value.name == json['fatigueOrigin'],
+        orElse: () => PredictiveEvidenceOrigin.unavailable,
+      ),
       momentum: (json['momentum'] as num?)?.toInt() ?? 0,
       pressure: (json['pressure'] as num?)?.toInt() ?? 0,
       topActionId: json['topActionId']?.toString(),
@@ -301,6 +322,40 @@ class OperatingDelta {
       changes.where((OperatingChange item) => item.material).toList();
 }
 
+class OperatingDecisionPlan {
+  OperatingDecisionPlan({
+    required this.snapshotId,
+    required this.subjectId,
+    required this.recommendedAction,
+    required this.sourceRevisions,
+    required this.modelVersion,
+    String? planId,
+  }) : planId =
+           planId ??
+           stableId(<String, dynamic>{
+             'snapshot': snapshotId,
+             'subjectId': subjectId,
+             'action': recommendedAction,
+             'sources': sourceRevisions,
+             'modelVersion': modelVersion,
+           }) {
+    if (snapshotId.trim().isEmpty ||
+        recommendedAction.trim().isEmpty ||
+        modelVersion.trim().isEmpty) {
+      throw StateError(
+        'A decision plan requires snapshot, action, and model identity.',
+      );
+    }
+  }
+
+  final String planId;
+  final String snapshotId;
+  final String? subjectId;
+  final String recommendedAction;
+  final Map<String, String> sourceRevisions;
+  final String modelVersion;
+}
+
 class OperatingDecisionReceipt {
   OperatingDecisionReceipt({
     required this.subjectId,
@@ -316,16 +371,35 @@ class OperatingDecisionReceipt {
     required this.actionIntent,
     required this.sourceRevisions,
     required this.modelVersion,
+    String? snapshotId,
+    String? planId,
     this.assumptions = const <String>[],
     this.warnings = const <String>[],
     String? decisionId,
-  }) : recommendationConfidence =
+  }) : snapshotId = snapshotId ?? stableId(sourceRevisions),
+       planId =
+           planId ??
+           stableId(<String, dynamic>{
+             'snapshot': snapshotId ?? stableId(sourceRevisions),
+             'subjectId': subjectId,
+             'action': recommendedAction,
+             'modelVersion': modelVersion,
+           }),
+       recommendationConfidence =
            (recommendationConfidence ?? _defaultConfidence(confidence))
                .clamp(0.0, .99)
                .toDouble(),
        decisionId =
            decisionId ??
            stableId(<String, dynamic>{
+             'planId':
+                 planId ??
+                 stableId(<String, dynamic>{
+                   'snapshot': snapshotId ?? stableId(sourceRevisions),
+                   'subjectId': subjectId,
+                   'action': recommendedAction,
+                   'modelVersion': modelVersion,
+                 }),
              'subjectId': subjectId,
              'action': recommendedAction,
              'rationale': rationale,
@@ -334,6 +408,8 @@ class OperatingDecisionReceipt {
            });
 
   final String decisionId;
+  final String snapshotId;
+  final String planId;
   final String? subjectId;
   final String recommendedAction;
   final String rationale;
@@ -350,11 +426,18 @@ class OperatingDecisionReceipt {
   final List<String> assumptions;
   final List<String> warnings;
 
-  bool get isExpired => !expiresAt.isAfter(DateTime.now());
+  bool isExpiredAt(DateTime reference) => !expiresAt.isAfter(reference);
+
+  bool get isExpired => isExpiredAt(DateTime.now());
 
   void validate() {
     if (recommendedAction.trim().isEmpty || rationale.trim().isEmpty) {
       throw StateError('A decision needs one action and its reason.');
+    }
+    if (snapshotId.trim().isEmpty || planId.trim().isEmpty) {
+      throw StateError(
+        'A decision must retain its snapshot and plan identity.',
+      );
     }
     if (!expiresAt.isAfter(generatedAt)) {
       throw StateError('A decision must expire after generation.');

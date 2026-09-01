@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Assistant shared contracts
 enum AssistantSurface {
   smartPlanner('smart_planner'),
   siConsole('si_console');

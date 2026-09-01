@@ -126,15 +126,13 @@ $implScanFiles = Get-ChildItem -Path $libRoot -Filter '*.dart' -Recurse -File |
   Where-Object { -not $_.FullName.Replace('\\', '/').Contains('/domain/interfaces/') }
 
 foreach ($file in $implScanFiles) {
-  $lines = @(Get-Content -Path $file.FullName)
-  foreach ($line in $lines) {
-    if ($line -match 'implements\s+([^\{]+)') {
-      $implementsClause = $matches[1]
-      $tokens = $implementsClause -split '[,\s]+'
-      foreach ($token in $tokens) {
-        if ($token -match '^I[A-Za-z0-9]+Repository$') {
-          [void]$implementedInterfaces.Add($token)
-        }
+  $content = Get-Content -Path $file.FullName -Raw
+  foreach ($implementsMatch in [regex]::Matches($content, '(?s)\bimplements\s+([^\{]+)\{')) {
+    $implementsClause = $implementsMatch.Groups[1].Value
+    $tokens = $implementsClause -split '[,\s]+'
+    foreach ($token in $tokens) {
+      if ($token -match '^I[A-Za-z0-9]+Repository$') {
+        [void]$implementedInterfaces.Add($token)
       }
     }
   }
@@ -382,8 +380,8 @@ if (Test-Path $smartPlannerPath) {
   if ($smartPlannerRaw -notmatch '\.requestPlanningGuidance\(') {
     $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner must request guidance through smartPlannerQueryControllerProvider.requestPlanningGuidance(...)') | Out-Null
   }
-  if ($smartPlannerRaw -notmatch '\.requestFollowUp\(') {
-    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner follow-ups must route through smartPlannerQueryControllerProvider.requestFollowUp(...)') | Out-Null
+  if ($smartPlannerRaw -notmatch '\.requestFollowUp(?:Result)?\(') {
+    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner follow-ups must route through smartPlannerQueryControllerProvider.requestFollowUp(...) or requestFollowUpResult(...)') | Out-Null
   }
   if ($smartPlannerRaw -match 'CrisisDetectionPolicy\.detects\(') {
     $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner must not call CrisisDetectionPolicy directly; use smartPlannerQueryControllerProvider.detectsCrisis(text)') | Out-Null

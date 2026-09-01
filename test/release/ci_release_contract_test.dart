@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/config/firebase_identity.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaml/yaml.dart';
 
@@ -381,6 +382,13 @@ void main() {
       expect(guard, contains("'android.permission.ACCESS_FINE_LOCATION'"));
       expect(firebase, contains("iosBundleId: 'com.ghostheart5.chronospark'"));
       expect(firebase, isNot(contains('com.example.chronospark')));
+      final List<String> firebaseProjectIds = RegExp(
+        r"projectId: '([^']+)'",
+      ).allMatches(firebase).map((Match match) => match.group(1)!).toList();
+      expect(firebaseProjectIds, hasLength(5));
+      expect(firebaseProjectIds.toSet(), <String>{
+        FirebaseIdentity.expectedProjectId,
+      });
     },
   );
 

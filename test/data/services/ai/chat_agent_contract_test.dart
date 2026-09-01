@@ -15,7 +15,7 @@ void main() {
         final Map<String, dynamic> payload = await agent.execute(
           <String, dynamic>{
             'prompt': 'What should I do next?',
-            'tasks': const <Task>[
+            'tasks': <Task>[
               Task(
                 id: 'task-1',
                 title: 'Finish QA checklist',

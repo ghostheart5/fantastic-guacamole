@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const background = Color(0xFF0F172A);
+  static const background = Color(0xFF050D1A);
   static const primary = Color(0xFF6C8CFF);
   static const accent = Color(0xFF9B8AFB);
   static const textPrimary = Colors.white;
@@ -9,8 +9,8 @@ class AppColors {
 
   // Compatibility aliases used across existing UI/theme files.
   static const bgPrimary = background;
-  static const bgSecondary = Color(0xFF141C30);
-  static const bgTertiary = Color(0xFF1C2640);
+  static const bgSecondary = Color(0xFF081426);
+  static const bgTertiary = Color(0xFF0B1930);
 
   static const neonCyan = Color(0xFF00E5FF);
   static const neonViolet = Color(0xFF9B8AFB);
@@ -18,8 +18,8 @@ class AppColors {
   static const recallRed = Color(0xFFFF5A7A);
   static const memoryAmber = Color(0xFFFFC857);
 
-  static const panelGlass = Color(0x22161D30);
-  static const panelBorder = Color(0x55A0B3FF);
+  static const panelGlass = Color(0xCC071426);
+  static const panelBorder = Color(0x557EC8FF);
   static const glowCyan = Color(0x6600E5FF);
   static const glowViolet = Color(0x669B8AFB);
 

@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Assistant safety
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';

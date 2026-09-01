@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/material.dart';
@@ -115,6 +116,67 @@ void main() {
     }
 
     testWidgets(
+      'records a changed error when the mounted error page is updated',
+      (WidgetTester tester) async {
+        RuntimeDiagnostics.events.value = <RuntimeDiagnosticEvent>[];
+        addTearDown(() {
+          RuntimeDiagnostics.events.value = <RuntimeDiagnosticEvent>[];
+        });
+        final Object firstError = StateError('first');
+        final Object secondError = StateError('second');
+
+        Widget errorApp({required String location, required Object error}) {
+          return MaterialApp(
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: RouteErrorPage(
+              key: const ValueKey<String>('route-error'),
+              location: location,
+              error: error,
+              isAuthenticated: true,
+              welcomeComplete: true,
+              onboardingComplete: true,
+            ),
+          );
+        }
+
+        await tester.pumpWidget(
+          errorApp(location: '/missing-one', error: firstError),
+        );
+        expect(
+          RuntimeDiagnostics.events.value.where(
+            (RuntimeDiagnosticEvent event) => event.category == 'router',
+          ),
+          hasLength(1),
+        );
+
+        await tester.pumpWidget(
+          errorApp(location: '/missing-two', error: secondError),
+        );
+        expect(
+          RuntimeDiagnostics.events.value.where(
+            (RuntimeDiagnosticEvent event) => event.category == 'router',
+          ),
+          hasLength(2),
+        );
+
+        await tester.pumpWidget(
+          errorApp(location: '/missing-two', error: secondError),
+        );
+        expect(
+          RuntimeDiagnostics.events.value.where(
+            (RuntimeDiagnosticEvent event) => event.category == 'router',
+          ),
+          hasLength(2),
+        );
+      },
+    );
+
+    testWidgets(
       'unknown-route recovery action navigates to the policy target',
       (WidgetTester tester) async {
         final GoRouter router = GoRouter(
@@ -153,6 +215,34 @@ void main() {
         router.dispose();
       },
     );
+  });
+
+  group('about route localization', () {
+    for (final _AboutExpectation expectation in _aboutExpectations) {
+      testWidgets('renders localized ${expectation.locale.languageCode} copy', (
+        WidgetTester tester,
+      ) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: expectation.locale,
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const AboutPage(),
+          ),
+        );
+
+        expect(find.text(expectation.title), findsOneWidget);
+        expect(find.text(expectation.subtitle), findsOneWidget);
+        expect(find.text(expectation.firstSectionTitle), findsOneWidget);
+        expect(find.text(expectation.voiceSectionTitle), findsOneWidget);
+        expect(find.text(expectation.voiceSectionBody), findsOneWidget);
+      });
+    }
   });
 }
 
@@ -260,6 +350,24 @@ class _RouterErrorExpectation {
   final String recoveryLabel;
 }
 
+class _AboutExpectation {
+  const _AboutExpectation({
+    required this.locale,
+    required this.title,
+    required this.subtitle,
+    required this.firstSectionTitle,
+    required this.voiceSectionTitle,
+    required this.voiceSectionBody,
+  });
+
+  final Locale locale;
+  final String title;
+  final String subtitle;
+  final String firstSectionTitle;
+  final String voiceSectionTitle;
+  final String voiceSectionBody;
+}
+
 const List<_LocalizedRouteExpectation>
 _localizedRouteExpectations = <_LocalizedRouteExpectation>[
   _LocalizedRouteExpectation(
@@ -271,28 +379,12 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     callToAction: 'Open Hosted Privacy Policy',
   ),
   _LocalizedRouteExpectation(
-    path: RoutePaths.privacy,
-    locale: Locale('es'),
-    title: 'Política de privacidad',
-    body:
-        'ChronoSpark publica su política de privacidad autorizada en la URL HTTPS pública de abajo. Usa la política alojada para consultar el manejo de datos, la retención y los términos de soporte actuales.',
-    callToAction: 'Abrir política de privacidad alojada',
-  ),
-  _LocalizedRouteExpectation(
     path: RoutePaths.terms,
     locale: Locale('en'),
     title: 'Terms of Service',
     body:
         'ChronoSpark maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
     callToAction: 'Open Hosted Terms',
-  ),
-  _LocalizedRouteExpectation(
-    path: RoutePaths.terms,
-    locale: Locale('es'),
-    title: 'Términos de servicio',
-    body:
-        'ChronoSpark mantiene sus Términos de servicio actuales en la página HTTPS pública de abajo para que las versiones de lanzamiento y las fichas de tienda apunten a la misma fuente de verdad.',
-    callToAction: 'Abrir términos alojados',
   ),
   _LocalizedRouteExpectation(
     path: RoutePaths.deleteAccount,
@@ -303,28 +395,12 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     callToAction: 'Open Hosted Delete Account Page',
   ),
   _LocalizedRouteExpectation(
-    path: RoutePaths.deleteAccount,
-    locale: Locale('es'),
-    title: 'Eliminar cuenta',
-    body:
-        'ChronoSpark publica los pasos para eliminar una cuenta en la URL HTTPS pública de abajo. Usa la página alojada para enviar una solicitud y revisar los detalles de eliminación y retención.',
-    callToAction: 'Abrir página alojada para eliminar cuenta',
-  ),
-  _LocalizedRouteExpectation(
     path: RoutePaths.support,
     locale: Locale('en'),
     title: 'Support',
     body:
         'ChronoSpark publishes release-facing support and account assistance at the public HTTPS URL below so store reviewers and users can reach the current support process from every build.',
     callToAction: 'Open Hosted Support Page',
-  ),
-  _LocalizedRouteExpectation(
-    path: RoutePaths.support,
-    locale: Locale('es'),
-    title: 'Soporte',
-    body:
-        'ChronoSpark publica soporte y ayuda de cuenta para lanzamientos en la URL HTTPS pública de abajo para que revisores de tienda y usuarios puedan llegar al proceso de soporte actual desde cada versión.',
-    callToAction: 'Abrir página de soporte alojada',
   ),
 ];
 
@@ -337,11 +413,17 @@ _routerErrorExpectations = <_RouterErrorExpectation>[
         'The link does not match an available ChronoSpark screen. We recorded a safe diagnostic event without exposing technical details.',
     recoveryLabel: 'Return to Nexus',
   ),
-  _RouterErrorExpectation(
-    locale: Locale('es'),
-    title: 'No pudimos abrir ese enlace',
-    body:
-        'El enlace no coincide con una pantalla disponible de ChronoSpark. Registramos un diagnóstico seguro sin mostrar detalles técnicos.',
-    recoveryLabel: 'Volver a Nexus',
+];
+
+const List<_AboutExpectation> _aboutExpectations = <_AboutExpectation>[
+  _AboutExpectation(
+    locale: Locale('en'),
+    title: 'ABOUT CHRONOSPARK',
+    subtitle:
+        'An adaptive planner built for clarity, momentum, and reflective execution.',
+    firstSectionTitle: 'What It Does',
+    voiceSectionTitle: 'Voice Features',
+    voiceSectionBody:
+        'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
   ),
 ];

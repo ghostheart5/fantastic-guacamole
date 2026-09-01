@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console intelligence
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 
 enum SIResponseOrigin {
@@ -67,7 +68,9 @@ class SIIntelligenceReceipt {
   final List<String> limitations;
   final OperatingActionIntent? actionIntent;
 
-  bool get isExpired => !expiresAt.isAfter(DateTime.now());
+  bool isExpiredAt(DateTime reference) => !expiresAt.isAfter(reference);
+
+  bool get isExpired => isExpiredAt(DateTime.now());
 
   String get processingLabel => switch (processingMode) {
     SIProcessingMode.localOnly => 'Processed on this device',

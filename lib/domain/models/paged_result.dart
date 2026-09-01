@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Cross-cutting pagination
 class PagedResult<T> {
   const PagedResult({required this.items, required this.nextCursor});
 

@@ -84,18 +84,24 @@ class TimelineEventEntity {
   bool get isOverdue => status == TimelineEventStatus.overdue;
   bool get isSkipped => status == TimelineEventStatus.skipped;
   bool get isCanceled => status == TimelineEventStatus.canceled;
-  bool get isUpcoming {
+  bool get isTerminal =>
+      status == TimelineEventStatus.completed || isSkipped || isCanceled;
+  bool isUpcomingAt(DateTime reference) {
     final DateTime? due = dueAt;
-    if (due == null) {
+    if (due == null || isTerminal || isOverdue) {
       return false;
     }
-    final Duration delta = due.difference(DateTime.now());
-    return !isOverdue && delta.inDays <= 7 && delta.inHours >= 0;
+    final Duration delta = due.difference(reference);
+    return delta.inDays <= 7 && delta.inHours >= 0;
   }
 
+  bool get isUpcoming => isUpcomingAt(DateTime.now());
+
   // Recency logic
-  Duration get age => DateTime.now().difference(timestamp);
-  bool get isRecent => age.inHours < 24;
+  Duration ageAt(DateTime reference) => reference.difference(timestamp);
+  Duration get age => ageAt(DateTime.now());
+  bool isRecentAt(DateTime reference) => ageAt(reference).inHours < 24;
+  bool get isRecent => isRecentAt(DateTime.now());
 
   // Display helpers
   String get shortLabel {

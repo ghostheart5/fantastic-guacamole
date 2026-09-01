@@ -14,7 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('routine maps to daily recurrence with lighter energy demand', () async {
+  test('legacy task API rejects routine instead of converting it', () async {
     final _CaptureCreateTaskUseCase capture = _CaptureCreateTaskUseCase();
     final _FakeLocalMetricsAccumulator metrics = _FakeLocalMetricsAccumulator();
     final ProviderContainer container = ProviderContainer(
@@ -31,72 +31,61 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    await container
-        .read(creatorActionsProvider)
-        .createTask(
-          const CreatorFormData(
-            title: 'Morning reset',
-            type: 'Routine',
-            priority: 2,
+    await expectLater(
+      () => container
+          .read(creatorActionsProvider)
+          .createTask(
+            const CreatorFormData(
+              title: 'Morning reset',
+              type: 'Routine',
+              priority: 2,
+            ),
           ),
-        );
-
-    final TaskEntity created = capture.lastCreated!;
-    expect(created.recurrenceRule.name, 'daily');
-    expect(created.energyRequired, 2);
-    expect(created.difficulty, 3);
-    expect(created.priority, 2);
-    expect(metrics.recordedTaskCreated, 1);
-  });
-
-  test('goal and note apply priority and effort semantics', () async {
-    final _CaptureCreateTaskUseCase capture = _CaptureCreateTaskUseCase();
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        accountStorageScopeProvider.overrideWithValue(
-          AccountStorageScope.authenticated('creator-type-test'),
-        ),
-        secureStoreProvider.overrideWithValue(
-          SecureStore(backend: InMemorySecureStoreBackend()),
-        ),
-        createTaskUseCaseProvider.overrideWithValue(capture),
-        localMetricsAccumulatorProvider.overrideWithValue(
-          _FakeLocalMetricsAccumulator(),
-        ),
-      ],
+      throwsArgumentError,
     );
-    addTearDown(container.dispose);
 
-    await container
-        .read(creatorActionsProvider)
-        .createTask(
-          const CreatorFormData(
-            title: 'Big launch prep',
-            type: 'Goal',
-            priority: 2,
-          ),
-        );
-
-    final TaskEntity goal = capture.lastCreated!;
-    expect(goal.priority, 4);
-    expect(goal.difficulty, 5);
-    expect(goal.energyRequired, 4);
-
-    await container
-        .read(creatorActionsProvider)
-        .createTask(
-          const CreatorFormData(
-            title: 'Capture quick thought',
-            type: 'Note',
-            priority: 5,
-          ),
-        );
-
-    final TaskEntity note = capture.lastCreated!;
-    expect(note.priority, 1);
-    expect(note.energyRequired, 1);
-    expect(note.recurrenceRule.name, 'none');
+    expect(capture.lastCreated, isNull);
+    expect(metrics.recordedTaskCreated, 0);
   });
+
+  test(
+    'legacy task API rejects goal and note instead of converting them',
+    () async {
+      final _CaptureCreateTaskUseCase capture = _CaptureCreateTaskUseCase();
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('creator-type-test'),
+          ),
+          secureStoreProvider.overrideWithValue(
+            SecureStore(backend: InMemorySecureStoreBackend()),
+          ),
+          createTaskUseCaseProvider.overrideWithValue(capture),
+          localMetricsAccumulatorProvider.overrideWithValue(
+            _FakeLocalMetricsAccumulator(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      for (final String type in <String>['Goal', 'Note']) {
+        await expectLater(
+          () => container
+              .read(creatorActionsProvider)
+              .createTask(
+                CreatorFormData(
+                  title: 'Do not convert $type',
+                  type: type,
+                  priority: 2,
+                ),
+              ),
+          throwsArgumentError,
+        );
+      }
+
+      expect(capture.lastCreated, isNull);
+    },
+  );
 }
 
 class _CaptureCreateTaskUseCase extends CreateTask {

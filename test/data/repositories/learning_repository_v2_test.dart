@@ -16,8 +16,8 @@ void main() {
   test(
     'persists stable task affinity and typed outcome observations',
     () async {
-      final LearningEntity state =
-          const LearningEntity(completed: 2, skipped: 1).recordObservation(
+      final LearningEntity state = LearningEntity(completed: 2, skipped: 1)
+          .recordObservation(
             DecisionObservationEntity(
               id: 'observation-1',
               type: DecisionObservationType.taskCompleted,

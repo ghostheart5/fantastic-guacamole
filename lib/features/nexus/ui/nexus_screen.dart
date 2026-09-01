@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -10,11 +8,15 @@ import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
@@ -25,10 +27,10 @@ import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 part 'nexus_screen.widgets.dart';
@@ -77,10 +79,13 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
   @override
   Widget build(BuildContext context) {
     final ProfileState profile = ref.watch(profileProvider);
-    final siState = ref.watch(siStateProvider);
+    final siState = ref.watch(consentedHumanContextProvider).siState;
     final double energy = siState.energy;
     final double fatigue = siState.fatigue;
     final NexusDecisionModel decisionModel = ref.watch(nexusDecisionProvider);
+    final LearningFeedbackChange? learningChange = ref.watch(
+      latestDecisionLearningChangeProvider,
+    );
     _recordDecisionShown(decisionModel.intelligence?.decision);
     final AsyncValue<List<TimeBlock>> nexusBlocks = ref.watch(
       nexusTimeBlocksProvider,
@@ -94,7 +99,8 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     );
     final List<TimelineEventEntity> timeline = ref.watch(timelineProvider);
     return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgTimelineThreads,
+      backgroundAssetPath: AppAssets.bgNexus,
+      overlayOpacity: .54,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -109,11 +115,36 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     builder: (context, _) => _NexusVitals(
                       energy: energy,
                       fatigue: fatigue,
+                      momentum: trajectory.momentum,
+                      hasObservedEnergy: siState.hasObservedEnergy,
+                      hasObservedClarity: siState.hasObservedFatigue,
+                      hasMomentumEvidence: trajectory.completedTasks >= 3,
                       pulse: _pulse.value,
                     ),
                   ),
                 ),
               ),
+              if (learningChange != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _LearningChangePanel(
+                      change: learningChange,
+                      onHelpful: learningChange.isCorrection
+                          ? null
+                          : () => _correctLatestLearning(
+                              learningChange,
+                              DecisionOutcomeKind.accepted,
+                            ),
+                      onNotHelpful: learningChange.isCorrection
+                          ? null
+                          : () => _correctLatestLearning(
+                              learningChange,
+                              DecisionOutcomeKind.rejected,
+                            ),
+                    ),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
@@ -136,8 +167,9 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     tasks: tasks,
                     notes: notes,
                     nextBlock: nextBlock,
-                    onOpenCreator: () =>
-                        goToAppView(context, ref, AppView.creator),
+                    onOpenGoal: () => goToAppView(context, ref, AppView.goals),
+                    onOpenTask: () => _openCreator(CreatorFormKind.task),
+                    onOpenNote: () => _openCreator(CreatorFormKind.note),
                   ),
                 ),
               ),
@@ -167,6 +199,11 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         ),
       ),
     );
+  }
+
+  void _openCreator(CreatorFormKind type) {
+    ref.read(creatorNavigationIntentProvider.notifier).open(type);
+    goToAppView(context, ref, AppView.creator);
   }
 
   Future<void> _completeTimeBlockTask(String taskId) async {
@@ -274,5 +311,27 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
             ),
       );
     });
+  }
+
+  Future<void> _correctLatestLearning(
+    LearningFeedbackChange change,
+    DecisionOutcomeKind replacement,
+  ) async {
+    final OperatingDecisionReceipt? receipt = ref
+        .read(nexusDecisionProvider)
+        .intelligence
+        ?.decision;
+    if (receipt == null || receipt.decisionId != change.decisionId) return;
+    await ref
+        .read(decisionOutcomeActionsProvider)
+        .correct(
+          receipt: receipt,
+          originalKind: change.outcomeKind,
+          replacementKind: replacement,
+          surface: change.surface,
+          reason: replacement == DecisionOutcomeKind.accepted
+              ? 'The person said this guidance helped.'
+              : 'The person said this guidance did not help.',
+        );
   }
 }

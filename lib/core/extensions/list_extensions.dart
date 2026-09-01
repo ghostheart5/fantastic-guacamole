@@ -37,7 +37,9 @@ extension ListExt<T> on List<T> {
   }
 
   List<List<T>> chunked(int size) {
-    assert(size > 0);
+    if (size <= 0) {
+      throw ArgumentError.value(size, 'size', 'must be greater than zero');
+    }
     final List<List<T>> result = [];
     for (int i = 0; i < length; i += size) {
       result.add(sublist(i, (i + size).clamp(0, length)));

@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
@@ -17,7 +18,7 @@ void main() {
     setUp(() => repository = _FakeLearningRepository());
 
     test('success raises effortWeight and increments completed', () async {
-      repository.state = const LearningEntity();
+      repository.state = LearningEntity();
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -30,7 +31,7 @@ void main() {
     });
 
     test('failure lowers effortWeight and increments skipped', () async {
-      repository.state = const LearningEntity();
+      repository.state = LearningEntity();
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -42,7 +43,7 @@ void main() {
     });
 
     test('hard tasks additionally move priorityWeight', () async {
-      repository.state = const LearningEntity();
+      repository.state = LearningEntity();
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -52,7 +53,7 @@ void main() {
     });
 
     test('easy tasks leave priorityWeight untouched', () async {
-      repository.state = const LearningEntity();
+      repository.state = LearningEntity();
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -62,7 +63,7 @@ void main() {
     });
 
     test('weights are clamped to the policy bounds', () async {
-      repository.state = const LearningEntity(effortWeight: 2.0);
+      repository.state = LearningEntity(effortWeight: 2.0);
 
       final LearningEntity updated = await ApplyLearningFeedback(
         repository,
@@ -70,7 +71,7 @@ void main() {
 
       expect(updated.effortWeight, 2.0, reason: 'clamped at the upper bound');
 
-      repository.state = const LearningEntity(effortWeight: 0.5);
+      repository.state = LearningEntity(effortWeight: 0.5);
       final LearningEntity lowered = await ApplyLearningFeedback(
         repository,
       ).call(success: false, difficulty: 3);
@@ -124,7 +125,7 @@ void main() {
 
   group('LearningPolicy is reachable and deterministic', () {
     test('applyFeedback is a pure function of its inputs', () {
-      const LearningEntity current = LearningEntity();
+      final LearningEntity current = LearningEntity();
 
       final LearningEntity a = LearningPolicy.applyFeedback(
         current: current,
@@ -143,10 +144,74 @@ void main() {
     });
   });
 
+  group('receipt outcomes drive bounded, correctable learning', () {
+    test(
+      'accepted and rejected outcomes update task affinity idempotently',
+      () async {
+        final _FakeLearningRepository repository = _FakeLearningRepository();
+        final ApplyLearningFeedback feedback = ApplyLearningFeedback(
+          repository,
+        );
+        final DecisionOutcomeEntity accepted = DecisionOutcomeEntity(
+          decisionId: 'decision-1',
+          kind: DecisionOutcomeKind.accepted,
+          surface: 'smartPlanner',
+          recordedAt: DateTime.utc(2026, 8, 30, 12),
+          modelVersion: 'decision-v1',
+          recommendationConfidence: .7,
+          subjectId: 'task-1',
+        );
+
+        final LearningFeedbackChange first = await feedback
+            .recordDecisionOutcome(accepted);
+        final LearningFeedbackChange duplicate = await feedback
+            .recordDecisionOutcome(accepted);
+
+        expect(first.afterAffinity, closeTo(.6, 1e-9));
+        expect(duplicate.afterAffinity, closeTo(.6, 1e-9));
+        expect(repository.state!.observations, hasLength(1));
+      },
+    );
+
+    test(
+      'a person can correct the learning attached to a receipt outcome',
+      () async {
+        final _FakeLearningRepository repository = _FakeLearningRepository();
+        final ApplyLearningFeedback feedback = ApplyLearningFeedback(
+          repository,
+        );
+        final DecisionOutcomeEntity rejected = DecisionOutcomeEntity(
+          decisionId: 'decision-2',
+          kind: DecisionOutcomeKind.rejected,
+          surface: 'nexus',
+          recordedAt: DateTime.utc(2026, 8, 30, 13),
+          modelVersion: 'decision-v1',
+          recommendationConfidence: .6,
+          subjectId: 'task-2',
+        );
+        await feedback.recordDecisionOutcome(rejected);
+
+        final LearningFeedbackChange correction = await feedback
+            .correctDecisionOutcome(
+              original: rejected,
+              replacement: DecisionOutcomeKind.accepted,
+              correctedAt: DateTime.utc(2026, 8, 30, 14),
+            );
+
+        expect(correction.summary, contains('corrected'));
+        expect(repository.state!.taskAffinity['task-2'], closeTo(.6, 1e-9));
+        expect(
+          repository.state!.observations.single.source,
+          contains('user_correction'),
+        );
+      },
+    );
+  });
+
   group('UpdateLearningState', () {
     test('persists the supplied state verbatim', () async {
       final _FakeLearningRepository repository = _FakeLearningRepository();
-      const LearningEntity state = LearningEntity(
+      final LearningEntity state = LearningEntity(
         effortWeight: 1.4,
         priorityWeight: 0.8,
         completed: 7,

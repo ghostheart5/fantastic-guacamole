@@ -64,7 +64,12 @@ void main() {
           ),
         ),
         syncServiceProvider.overrideWithValue(
-          SyncService(backup: backupService, gateway: gateway),
+          SyncService(
+            backup: backupService,
+            gateway: gateway,
+            syncEnabled: true,
+            restoreEnabled: true,
+          ),
         ),
       ],
     );
@@ -91,6 +96,39 @@ void main() {
     final bool first = await container.read(syncToCloudProvider.future);
     expect(first, isFalse);
     expect(gateway.uploadAttempts, 1);
+  });
+
+  test(
+    'provider queues a safe delta retry after a transient read failure',
+    () async {
+      final OfflineSyncQueueService queue = container.read(
+        offlineSyncQueueProvider,
+      )!;
+      gateway.readOverride = const CloudBackupReadResult.unavailable();
+
+      expect(await container.read(syncToCloudProvider.future), isFalse);
+      expect(gateway.uploadAttempts, 0);
+      expect(container.read(syncErrorMessageProvider), isNotEmpty);
+      expect(await queue.queuedCount(), 1);
+    },
+  );
+
+  test('provider does not queue malformed or owner-mismatched reads', () async {
+    final OfflineSyncQueueService queue = container.read(
+      offlineSyncQueueProvider,
+    )!;
+    for (final CloudBackupReadResult failure in <CloudBackupReadResult>[
+      const CloudBackupReadResult.malformed(),
+      const CloudBackupReadResult.ownerMismatch(),
+    ]) {
+      gateway.readOverride = failure;
+      container.invalidate(syncToCloudProvider);
+
+      expect(await container.read(syncToCloudProvider.future), isFalse);
+      expect(gateway.uploadAttempts, 0);
+      expect(container.read(syncErrorMessageProvider), isNotEmpty);
+      expect(await queue.queuedCount(), 0);
+    }
   });
 
   test(
@@ -153,17 +191,46 @@ class _SequencedCloudBackupGateway implements CloudBackupGateway {
   final List<bool> _uploadOutcomes;
   bool uploadShouldAlwaysSucceed = false;
   int uploadAttempts = 0;
+  int revision = 0;
   Map<String, dynamic> fullBackup = <String, dynamic>{};
+  CloudBackupReadResult? readOverride;
 
   @override
-  Future<Map<String, dynamic>> downloadBackup() async {
-    return fullBackup;
+  Future<CloudBackupReadResult> downloadBackup() async {
+    return readOverride ??
+        (fullBackup.isEmpty
+            ? const CloudBackupReadResult.notFound()
+            : CloudBackupReadResult.found(
+                fullBackup,
+                revision: revision == 0 ? 1 : revision,
+              ));
   }
 
   @override
-  Future<Map<String, dynamic>> downloadTasks() async {
-    return const <String, dynamic>{};
+  Future<CloudBackupWriteResult> compareAndSwapBackup(
+    Map<String, dynamic> backup, {
+    required int expectedRevision,
+  }) async {
+    final int currentRevision = fullBackup.isEmpty
+        ? 0
+        : (revision == 0 ? 1 : revision);
+    if (currentRevision != expectedRevision) {
+      return CloudBackupWriteResult.conflict(currentRevision);
+    }
+    uploadAttempts += 1;
+    final bool outcome =
+        uploadShouldAlwaysSucceed ||
+        uploadAttempts > _uploadOutcomes.length ||
+        _uploadOutcomes[uploadAttempts - 1];
+    if (!outcome) return const CloudBackupWriteResult.unavailable();
+    revision = expectedRevision + 1;
+    fullBackup = backup;
+    return CloudBackupWriteResult.written(revision);
   }
+
+  @override
+  Future<CloudBackupReadResult> downloadTasks() async =>
+      const CloudBackupReadResult.notFound();
 
   @override
   Future<bool> uploadBackup(Map<String, dynamic> backup) async {

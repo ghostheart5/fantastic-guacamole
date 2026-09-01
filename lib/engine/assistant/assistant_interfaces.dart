@@ -1,12 +1,13 @@
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
+import 'package:fantastic_guacamole/domain/ports/i_assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
     as si_models;
 import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_evolution_timeline.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
+import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 
 abstract class AssistantIntentDetector {
@@ -16,7 +17,7 @@ abstract class AssistantIntentDetector {
   });
 }
 
-abstract class AssistantContextBuilder {
+abstract class AssistantContextBuilder implements IAssistantContextBuilder {
   AssistantContext buildSmartPlannerContext({
     required String input,
     required AssistantIntent intent,
@@ -27,6 +28,7 @@ abstract class AssistantContextBuilder {
     required List<String> goalSummaries,
   });
 
+  @override
   AssistantContext buildSIConsoleContext({
     required String input,
     required AssistantIntent intent,
@@ -39,8 +41,8 @@ abstract class AssistantContextBuilder {
 }
 
 abstract class AssistantMemoryInterface {
-  List<SISnapshot> recentSnapshots({int limit = 24});
-  void capture(SISnapshot snapshot);
+  List<AssistantMemorySnapshot> recentSnapshots({int limit = 24});
+  void capture(AssistantMemorySnapshot snapshot);
   void clear();
 }
 
@@ -62,8 +64,8 @@ abstract class RecommendationEngine {
 
 abstract class SmartPlannerInterface<TResult extends Object> {
   Future<TResult> requestPlanningGuidance({
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
@@ -71,8 +73,8 @@ abstract class SmartPlannerInterface<TResult extends Object> {
 
   Future<String> requestFollowUp({
     required String input,
-    required double energy,
-    required EmotionalState emotion,
+    required double? energy,
+    required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
   });

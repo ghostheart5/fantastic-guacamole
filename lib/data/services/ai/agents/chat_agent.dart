@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
 import 'package:fantastic_guacamole/data/services/ai/agents/ai_agent.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -82,9 +83,13 @@ Map<String, dynamic> buildAiProxyRequestBody({
 };
 
 class ChatAgent extends AiAgent {
-  const ChatAgent({this.service});
+  const ChatAgent({
+    this.service,
+    this.externalAiEnabled = LaunchContainment.externalAiEnabled,
+  });
 
   final SIAIService? service;
+  final bool externalAiEnabled;
 
   @override
   String get name => 'chat';
@@ -192,7 +197,7 @@ class ChatAgent extends AiAgent {
     required AIPersonality personality,
     required bool externalAiAllowed,
   }) async {
-    if (!externalAiAllowed) {
+    if (!externalAiEnabled || !externalAiAllowed) {
       return const AiProxyAttempt(AiProxyOutcome.notAttempted);
     }
     final Uri? endpoint = parseSecureHttpsEndpoint(Env.aiProxyEndpoint);

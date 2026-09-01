@@ -81,6 +81,53 @@ void main() {
     );
   });
 
+  test(
+    'recurring successors advance schedules and deadlines together',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'recurring-deadline-user',
+      );
+      final _Tasks tasks = _Tasks(<TaskEntity>[
+        _task(
+          'deadline-daily',
+          recurrenceRule: RecurrenceRule.daily,
+          scheduledFor: DateTime.utc(2026, 8, 18, 10),
+          dueDate: DateTime.utc(2026, 8, 18, 17),
+        ),
+      ]);
+
+      final TaskOccurrenceResult result = await _coordinator(
+        scope,
+        tasks,
+      ).complete('deadline-daily');
+
+      expect(result.successor?.scheduledFor, DateTime.utc(2026, 8, 19, 10));
+      expect(result.successor?.dueDate, DateTime.utc(2026, 8, 19, 17));
+    },
+  );
+
+  test('recurring successor deadlines catch up with stale schedules', () async {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'recurring-deadline-catch-up-user',
+    );
+    final _Tasks tasks = _Tasks(<TaskEntity>[
+      _task(
+        'deadline-catch-up',
+        recurrenceRule: RecurrenceRule.daily,
+        scheduledFor: DateTime.utc(2026, 8, 10, 10),
+        dueDate: DateTime.utc(2026, 8, 10, 17),
+      ),
+    ]);
+
+    final TaskOccurrenceResult result = await _coordinator(
+      scope,
+      tasks,
+    ).complete('deadline-catch-up');
+
+    expect(result.successor?.scheduledFor, DateTime.utc(2026, 8, 19, 10));
+    expect(result.successor?.dueDate, DateTime.utc(2026, 8, 19, 17));
+  });
+
   test('committed occurrences replicate to the cloud contract once', () async {
     final AccountStorageScope scope = AccountStorageScope.authenticated(
       'cloud-user',
@@ -308,6 +355,63 @@ void main() {
       expect(tasks.values['move-me']?.scheduledFor, target);
     },
   );
+
+  test('fresh occurrence mutations cannot alter terminal task state', () async {
+    final DateTime resolvedAt = DateTime.utc(2026, 8, 18, 10);
+    final List<TaskEntity> terminalTasks = <TaskEntity>[
+      _task(
+        'already-completed',
+      ).copyWith(isCompleted: true, completedAt: resolvedAt),
+      _task('already-skipped').copyWith(isSkipped: true, skippedAt: resolvedAt),
+      _task('already-canceled').copyWith(isCanceled: true),
+    ];
+
+    for (final TaskEntity terminal in terminalTasks) {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'terminal-${terminal.id}',
+      );
+      final _Tasks tasks = _Tasks(<TaskEntity>[terminal]);
+      final TaskOccurrenceRepository occurrences = _occurrences(scope);
+      final TaskOccurrenceCoordinator coordinator = TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+        clock: () => DateTime.utc(2026, 8, 18, 11),
+      );
+
+      final TaskOccurrenceResult completed = await coordinator.complete(
+        terminal.id,
+      );
+      final TaskOccurrenceResult skipped = await coordinator.skip(terminal.id);
+      final TaskOccurrenceResult rescheduled = await coordinator.reschedule(
+        terminal.id,
+        scheduledFor: DateTime.utc(2026, 8, 20, 9),
+      );
+
+      expect(
+        completed.mutation,
+        terminal.isCompleted
+            ? TaskOccurrenceMutation.idempotent
+            : TaskOccurrenceMutation.conflict,
+        reason: terminal.id,
+      );
+      expect(
+        skipped.mutation,
+        terminal.isSkipped
+            ? TaskOccurrenceMutation.idempotent
+            : TaskOccurrenceMutation.conflict,
+        reason: terminal.id,
+      );
+      expect(
+        rescheduled.mutation,
+        TaskOccurrenceMutation.conflict,
+        reason: terminal.id,
+      );
+      expect(tasks.saveCalls, 0, reason: terminal.id);
+      expect(await occurrences.listOccurrences(), isEmpty, reason: terminal.id);
+      expect(tasks.values[terminal.id]?.toJson(), terminal.toJson());
+    }
+  });
 
   test('concurrent complete and skip select one terminal outcome', () async {
     final AccountStorageScope scope = AccountStorageScope.authenticated(
@@ -548,11 +652,13 @@ TaskEntity _task(
   String id, {
   RecurrenceRule recurrenceRule = RecurrenceRule.none,
   DateTime? scheduledFor,
+  DateTime? dueDate,
 }) => TaskEntity(
   id: id,
   title: 'Task $id',
   createdAt: DateTime.utc(2026, 8, 18, 9),
   scheduledFor: scheduledFor ?? DateTime.utc(2026, 8, 18, 10),
+  dueDate: dueDate,
   recurrenceRule: recurrenceRule,
 );
 

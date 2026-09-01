@@ -1,5 +1,6 @@
 // Package imports.
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
@@ -30,6 +31,7 @@ import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/workspace_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
@@ -37,11 +39,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 TaskRepository taskRepository(Ref ref) {
+  final scope = ref.watch(accountStorageScopeProvider);
   return TaskRepository(
-    storage: HiveStorage<String>(
-      HiveBoxes.tasks,
+    storage: AccountScopedHiveStorage(
+      baseBox: HiveBoxes.tasks,
+      scope: scope,
       hive: ref.read(hiveStoreProvider),
+      legacyOwnership: LegacyScopeOwnership.ambiguous,
     ),
+    scope: scope,
   );
 }
 
@@ -64,14 +70,28 @@ final taskOccurrenceRepositoryProvider = Provider<TaskOccurrenceRepository>((
 });
 
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
+  final scope = ref.watch(accountStorageScopeProvider);
   return GoalRepository(
-    HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)),
+    AccountScopedHiveStorage(
+      baseBox: HiveBoxes.goals,
+      scope: scope,
+      hive: ref.read(hiveStoreProvider),
+      legacyOwnership: LegacyScopeOwnership.ambiguous,
+    ),
+    scope: scope,
   );
 });
 
 final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
+  final scope = ref.watch(accountStorageScopeProvider);
   return HabitRepository(
-    HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)),
+    AccountScopedHiveStorage(
+      baseBox: HiveBoxes.habits,
+      scope: scope,
+      hive: ref.read(hiveStoreProvider),
+      legacyOwnership: LegacyScopeOwnership.ambiguous,
+    ),
+    scope: scope,
   );
 });
 
@@ -144,6 +164,9 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>((
 });
 
 final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
+  if (!Env.paidCreditPlansEnabled) {
+    return const ContainedPaywallRepository();
+  }
   final bool forceLocalTestingPaywall =
       Env.isMockLoginEnabled ||
       Env.isMockMode ||
@@ -155,6 +178,7 @@ final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
       !forceLocalTestingPaywall) {
     final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
       secureStore: ref.read(secureStoreProvider),
+      supabaseClient: ref.watch(supabaseClientProvider),
     );
     ref.onDispose(repository.dispose);
     return repository;
@@ -208,7 +232,11 @@ final firebaseSupabaseBridgeRepositoryProvider =
       );
     });
 final noteRepositoryProvider = Provider<NoteRepository>(
-  (Ref ref) => NoteRepository(ref.read(sharedPrefsStoreProvider)),
+  (Ref ref) => NoteRepository(
+    ref.read(sharedPrefsStoreProvider),
+    scope: ref.watch(accountStorageScopeProvider),
+    legacyOwnership: LegacyScopeOwnership.ambiguous,
+  ),
 );
 
 final milestoneRepositoryProvider = Provider<MilestoneRepository>(

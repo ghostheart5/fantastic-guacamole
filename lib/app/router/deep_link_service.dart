@@ -42,10 +42,6 @@ class DeepLinkState {
   const DeepLinkState({this.latestUri});
 
   final Uri? latestUri;
-
-  DeepLinkState copyWith({Uri? latestUri}) {
-    return DeepLinkState(latestUri: latestUri ?? this.latestUri);
-  }
 }
 
 class DeepLinkService {

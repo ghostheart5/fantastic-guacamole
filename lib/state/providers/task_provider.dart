@@ -3,7 +3,9 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -19,6 +21,7 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
@@ -35,7 +38,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
-  final List<TaskEntity> tasks = await ref.read(getTasksUseCaseProvider).call();
+  // Task repositories fail closed before authenticated storage is ready. This
+  // dependency makes the provider retry when the account boundary advances.
+  final AccountStorageScope accountScope = ref.watch(
+    accountStorageScopeProvider,
+  );
+  if (!accountScope.isWritable) {
+    return const <Task>[];
+  }
+  final List<TaskEntity> tasks = await ref
+      .watch(getTasksUseCaseProvider)
+      .call();
   final OptimizationConfig optimization = await ref.watch(
     optimizationConfigProvider.future,
   );
@@ -140,6 +153,105 @@ class TaskActions {
       energyRequired: 3,
     );
     await createTask(entity, notify: notify);
+  }
+
+  Future<void> updateTask({required String id, required String title}) =>
+      updateTaskDetails(id: id, title: title);
+
+  Future<void> updateTaskDetails({
+    required String id,
+    required String title,
+    String? description,
+    Duration? estimatedDuration,
+    DateTime? scheduledFor,
+    DateTime? dueDate,
+    String? goalId,
+    bool clearDescription = false,
+    bool clearEstimatedDuration = false,
+    bool clearScheduledFor = false,
+    bool clearDueDate = false,
+    bool clearGoalId = false,
+  }) async {
+    final String taskId = id.trim();
+    final String trimmedTitle = title.trim();
+    if (taskId.isEmpty) {
+      throw ArgumentError.value(id, 'id', 'Task id cannot be blank.');
+    }
+    if (trimmedTitle.isEmpty) {
+      throw ArgumentError.value(title, 'title', 'Task title cannot be blank.');
+    }
+    if (estimatedDuration != null &&
+        (estimatedDuration.inMinutes < 1 ||
+            estimatedDuration.inMinutes > 1440)) {
+      throw ArgumentError.value(
+        estimatedDuration,
+        'estimatedDuration',
+        'Task duration must be between 1 minute and 24 hours.',
+      );
+    }
+    final String? normalizedGoalId = goalId?.trim();
+    if (!clearGoalId && normalizedGoalId?.isNotEmpty == true) {
+      final bool goalExists = _ref
+          .read(domainGoalRepositoryProvider)
+          .getGoals()
+          .any(
+            (GoalEntity goal) => goal.id == normalizedGoalId && goal.isActive,
+          );
+      if (!goalExists) {
+        throw StateError('Linked goal not found.');
+      }
+    }
+
+    final TaskEntity? existing = await _ref
+        .read(domainTaskRepositoryProvider)
+        .getTaskById(taskId);
+    if (existing == null) {
+      throw StateError('Task not found');
+    }
+
+    final DateTime updatedAt = DateTime.now();
+    TaskEntity updated = existing.copyWith(
+      title: trimmedTitle,
+      description: description?.trim(),
+      clearDescription: clearDescription,
+      estimatedDuration: estimatedDuration,
+      clearEstimatedDuration: clearEstimatedDuration,
+      goalId: normalizedGoalId,
+      clearGoalId: clearGoalId,
+      updatedAt: updatedAt,
+    );
+    if (clearScheduledFor) {
+      updated = updated.applyTemporalEdit(const ClearSchedule(), at: updatedAt);
+    } else if (scheduledFor != null) {
+      updated = updated.applyTemporalEdit(
+        SetSchedule(scheduledFor),
+        at: updatedAt,
+      );
+    }
+    if (clearDueDate) {
+      updated = updated.applyTemporalEdit(const ClearDeadline(), at: updatedAt);
+    } else if (dueDate != null) {
+      updated = updated.applyTemporalEdit(SetDeadline(dueDate), at: updatedAt);
+    }
+    await _ref.read(updateTaskUseCaseProvider).call(updated);
+    _publishTaskMutation(updated, action: 'updated');
+  }
+
+  Future<void> deleteTask(String id) async {
+    final String taskId = id.trim();
+    if (taskId.isEmpty) {
+      throw ArgumentError.value(id, 'id', 'Task id cannot be blank.');
+    }
+
+    final TaskEntity? existing = await _ref
+        .read(domainTaskRepositoryProvider)
+        .getTaskById(taskId);
+    if (existing == null) {
+      throw StateError('Task not found');
+    }
+
+    await _ref.read(deleteTaskUseCaseProvider).call(taskId);
+    _publishTaskMutation(existing, action: 'deleted');
   }
 
   Future<void> completeTask(String id, {bool notify = true}) async {
@@ -355,6 +467,21 @@ class TaskActions {
     } catch (_) {
       // Skip planner refresh errors to avoid blocking task mutations.
     }
+  }
+
+  void _publishTaskMutation(TaskEntity task, {required String action}) {
+    _ref
+        .read(eventBusProvider)
+        .emit(
+          TaskLifecycleEvent(
+            taskId: task.id,
+            title: task.title,
+            action: action,
+          ),
+        );
+    _ref.invalidate(tasksProvider);
+    _ref.invalidate(goalProgressProvider);
+    _ref.invalidate(domainSiDecisionProvider);
   }
 
   Future<void> _recordGuidance(GuidanceMilestone milestone) async {

@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Notes
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 
@@ -19,6 +20,13 @@ class CreateNote {
     String? body,
     String? id,
     DateTime? now,
+    NoteKind kind = NoteKind.note,
+    String? goalId,
+    String? taskId,
+    String? habitId,
+    String? occurrenceId,
+    String? outcomeId,
+    String? userId,
   }) async {
     final String trimmed = title.trim();
     if (trimmed.isEmpty) return null;
@@ -28,6 +36,13 @@ class CreateNote {
       title: trimmed,
       body: body?.trim(),
       createdAt: timestamp,
+      kind: kind,
+      goalId: goalId,
+      taskId: taskId,
+      habitId: habitId,
+      occurrenceId: occurrenceId,
+      outcomeId: outcomeId,
+      userId: userId,
     );
     await _repository.saveNote(note);
     return note;

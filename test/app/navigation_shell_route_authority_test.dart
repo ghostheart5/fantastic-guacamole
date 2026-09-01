@@ -1,6 +1,8 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
@@ -60,6 +62,24 @@ void main() {
     expect(harness.container.read(appFlowProvider), AppView.timeline);
   });
 
+  testWidgets(
+    'bottom navigation uses the canonical Trajectory Engine identity',
+    (WidgetTester tester) async {
+      final _RouteShellHarness harness = await _pumpRouteShell(tester);
+
+      expect(find.text('Trajectory Engine'), findsOneWidget);
+      expect(find.text('Trajectory'), findsNothing);
+
+      await tester.tap(find.text('Trajectory Engine'));
+      await tester.pump();
+      await tester.pump();
+
+      _expectRouterUri(harness, RoutePaths.trajectoryEngine);
+      _expectRouteAndVisibleView(_byRoute(RoutePaths.trajectoryEngine));
+      expect(harness.container.read(appFlowProvider), AppView.trajectoryEngine);
+    },
+  );
+
   testWidgets('navigation-map selection updates both content and URL', (
     WidgetTester tester,
   ) async {
@@ -75,6 +95,34 @@ void main() {
     _expectRouterUri(harness, RoutePaths.smartPlanner);
     _expectRouteAndVisibleView(_byRoute(RoutePaths.smartPlanner));
     expect(harness.container.read(appFlowProvider), AppView.smartPlanner);
+  });
+
+  testWidgets('phone navigation contains the map action below app content', (
+    WidgetTester tester,
+  ) async {
+    await _pumpRouteShell(
+      tester,
+      initialLocation: RoutePaths.timeline,
+      surfaceSize: const Size(360, 772),
+      forceOnline: true,
+    );
+
+    const Key navigationKey = ValueKey<String>('phone-bottom-navigation');
+    final Finder navigation = find.byKey(navigationKey);
+    final Finder mapAction = find.byTooltip('Open navigation map');
+
+    expect(navigation, findsOneWidget);
+    expect(
+      find.descendant(of: navigation, matching: mapAction),
+      findsOneWidget,
+    );
+    final Rect navigationRect = tester.getRect(navigation);
+    final Rect mapRect = tester.getRect(mapAction);
+    expect(mapRect.left, greaterThanOrEqualTo(navigationRect.left));
+    expect(mapRect.top, greaterThanOrEqualTo(navigationRect.top));
+    expect(mapRect.right, lessThanOrEqualTo(navigationRect.right));
+    expect(mapRect.bottom, lessThanOrEqualTo(navigationRect.bottom));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('system back produces the expected content and URL', (
@@ -132,6 +180,74 @@ void main() {
     expect(explicitNexus.container.read(appFlowProvider), AppView.nexus);
   });
 
+  testWidgets('mounted shell honors a new saved-tab restore request', (
+    WidgetTester tester,
+  ) async {
+    await PreferenceService().setLastOpenedTab(2);
+
+    final _RouteShellHarness harness = await _pumpRouteShell(
+      tester,
+      initialLocation: RoutePaths.creator,
+      reuseShellState: true,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    _expectRouterUri(harness, RoutePaths.creator);
+    _expectRouteAndVisibleView(_byRoute(RoutePaths.creator));
+    expect(harness.container.read(appFlowProvider), AppView.creator);
+
+    harness.router.go(
+      Uri(
+        path: RoutePaths.nexus,
+        queryParameters: const <String, String>{
+          restoreSavedTabQueryParameter: 'true',
+        },
+      ).toString(),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    _expectRouterUri(harness, RoutePaths.timeline);
+    _expectRouteAndVisibleView(_byRoute(RoutePaths.timeline));
+    expect(harness.container.read(appFlowProvider), AppView.timeline);
+  });
+
+  testWidgets('mounted shell restores Nexus without stale app flow', (
+    WidgetTester tester,
+  ) async {
+    await PreferenceService().setLastOpenedTab(0);
+
+    final _RouteShellHarness harness = await _pumpRouteShell(
+      tester,
+      initialLocation: RoutePaths.creator,
+      reuseShellState: true,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    _expectRouterUri(harness, RoutePaths.creator);
+    expect(harness.container.read(appFlowProvider), AppView.creator);
+
+    harness.router.go(
+      Uri(
+        path: RoutePaths.nexus,
+        queryParameters: const <String, String>{
+          restoreSavedTabQueryParameter: 'true',
+        },
+      ).toString(),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    _expectRouterUri(harness, RoutePaths.nexus);
+    _expectRouteAndVisibleView(_byRoute(RoutePaths.nexus));
+    expect(harness.container.read(appFlowProvider), AppView.nexus);
+  });
+
   test(
     'adaptive guidance receives the route corresponding to the visible screen',
     () {
@@ -167,35 +283,39 @@ void main() {
     },
   );
 
-  testWidgets('legacy routes end at the correct canonical path and view', (
-    WidgetTester tester,
-  ) async {
-    for (final _LegacyExpectation expectation in _legacyExpectations) {
-      final _RouteShellHarness harness = await _pumpRouteShell(
-        tester,
-        initialLocation: expectation.legacyRoute,
-      );
-      await tester.pump();
-      await tester.pump();
+  testWidgets(
+    'compatibility routes end at the correct canonical path and view',
+    (WidgetTester tester) async {
+      for (final _LegacyExpectation expectation in _legacyExpectations) {
+        final _RouteShellHarness harness = await _pumpRouteShell(
+          tester,
+          initialLocation: expectation.legacyRoute,
+        );
+        await tester.pump();
+        await tester.pump();
 
-      _expectRouterUri(harness, expectation.canonical.route);
-      _expectRouteAndVisibleView(expectation.canonical);
-      expect(
-        harness.container.read(appFlowProvider),
-        expectation.canonical.view,
-      );
+        _expectRouterUri(harness, expectation.canonical.route);
+        _expectRouteAndVisibleView(expectation.canonical);
+        expect(
+          harness.container.read(appFlowProvider),
+          expectation.canonical.view,
+        );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-    }
-  });
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+  );
 }
 
 Future<_RouteShellHarness> _pumpRouteShell(
   WidgetTester tester, {
   String initialLocation = RoutePaths.nexus,
+  bool reuseShellState = false,
+  Size surfaceSize = const Size(1200, 2400),
+  bool forceOnline = false,
 }) async {
   tester.platformDispatcher.views.first
-    ..physicalSize = const Size(1200, 2400)
+    ..physicalSize = surfaceSize
     ..devicePixelRatio = 1.0;
   addTearDown(() {
     tester.platformDispatcher.views.first
@@ -205,6 +325,7 @@ Future<_RouteShellHarness> _pumpRouteShell(
 
   final ProviderContainer container = ProviderContainer(
     overrides: [
+      if (forceOnline) isOnlineProvider.overrideWithValue(true),
       unreadNotificationsProvider.overrideWithValue(0),
       goalsProvider.overrideWith(_StaticGoals.new),
     ],
@@ -213,7 +334,10 @@ Future<_RouteShellHarness> _pumpRouteShell(
 
   final GoRouter router = GoRouter(
     initialLocation: initialLocation,
-    routes: <RouteBase>[..._shellRoutes, ..._legacyRedirectRoutes],
+    routes: <RouteBase>[
+      ...(reuseShellState ? _sharedShellRoutes : _shellRoutes),
+      ..._legacyRedirectRoutes,
+    ],
   );
   addTearDown(router.dispose);
 
@@ -279,23 +403,31 @@ List<GoRoute> get _shellRoutes {
   ];
 }
 
+const ValueKey<String> _sharedNavigationShellPageKey = ValueKey<String>(
+  'test-shared-navigation-shell',
+);
+
+List<GoRoute> get _sharedShellRoutes {
+  return <GoRoute>[
+    for (final _ShellExpectation expectation in _shellExpectations)
+      GoRoute(
+        path: expectation.route,
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            NoTransitionPage<void>(
+              key: _sharedNavigationShellPageKey,
+              child: _navigationShellForRoute(state, expectation.view),
+            ),
+      ),
+  ];
+}
+
 List<GoRoute> get _legacyRedirectRoutes {
   return <GoRoute>[
-    GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
-    GoRoute(
-      path: RoutePaths.legacyProgression,
-      redirect: (_, _) => RoutePaths.progression,
-    ),
-    GoRoute(path: RoutePaths.legacySi, redirect: (_, _) => RoutePaths.si),
-    GoRoute(path: RoutePaths.legacyTasks, redirect: (_, _) => RoutePaths.tasks),
-    GoRoute(
-      path: RoutePaths.legacyProfile,
-      redirect: (_, _) => RoutePaths.profile,
-    ),
-    GoRoute(
-      path: RoutePaths.legacyInsights,
-      redirect: (_, _) => RoutePaths.smartPlanner,
-    ),
+    for (final _LegacyExpectation expectation in _legacyExpectations)
+      GoRoute(
+        path: expectation.legacyRoute,
+        redirect: (_, _) => expectation.canonical.route,
+      ),
   ];
 }
 
@@ -391,56 +523,20 @@ const List<_ShellExpectation> _adaptiveGuidanceExpectations =
       ),
     ];
 
-const List<_LegacyExpectation> _legacyExpectations = <_LegacyExpectation>[
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyLogs,
-    canonical: _ShellExpectation(
-      route: RoutePaths.logs,
-      view: AppView.timeline,
-      screenType: TimelineScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyProgression,
-    canonical: _ShellExpectation(
-      route: RoutePaths.progression,
-      view: AppView.progression,
-      screenType: ProgressionScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacySi,
-    canonical: _ShellExpectation(
-      route: RoutePaths.si,
-      view: AppView.console,
-      screenType: SIConsoleScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyTasks,
-    canonical: _ShellExpectation(
-      route: RoutePaths.tasks,
-      view: AppView.creator,
-      screenType: CreatorScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyProfile,
-    canonical: _ShellExpectation(
-      route: RoutePaths.profile,
-      view: AppView.profile,
-      screenType: ProfileScreen,
-    ),
-  ),
-  _LegacyExpectation(
-    legacyRoute: RoutePaths.legacyInsights,
-    canonical: _ShellExpectation(
-      route: RoutePaths.smartPlanner,
-      view: AppView.smartPlanner,
-      screenType: SmartPlannerScreen,
-    ),
-  ),
-];
+final List<_LegacyExpectation> _legacyExpectations = AppRouteRegistry
+    .routerCompatibilityRedirects
+    .where(
+      (AppRouteCompatibility alias) => _shellExpectations.any(
+        (_ShellExpectation route) => route.route == alias.targetPath,
+      ),
+    )
+    .map(
+      (AppRouteCompatibility alias) => _LegacyExpectation(
+        legacyRoute: alias.path!,
+        canonical: _byRoute(alias.targetPath),
+      ),
+    )
+    .toList(growable: false);
 
 const DailyDecisionIntelligence _decision = DailyDecisionIntelligence(
   primaryAction: 'Review the current route.',
@@ -460,12 +556,17 @@ const DailyDecisionIntelligence _decision = DailyDecisionIntelligence(
 GoRoute _shellRoute(String path, AppView view) {
   return GoRoute(
     path: path,
-    builder: (BuildContext context, GoRouterState state) => NavigationShell(
-      initialView: appViewFromRoutePath(state.matchedLocation) ?? view,
-      allowSavedTabRestore:
-          state.matchedLocation == RoutePaths.nexus &&
-          state.uri.queryParameters[restoreSavedTabQueryParameter] == 'true',
-    ),
+    builder: (BuildContext context, GoRouterState state) =>
+        _navigationShellForRoute(state, view),
+  );
+}
+
+NavigationShell _navigationShellForRoute(GoRouterState state, AppView view) {
+  return NavigationShell(
+    initialView: appViewFromRoutePath(state.matchedLocation) ?? view,
+    allowSavedTabRestore:
+        state.matchedLocation == RoutePaths.nexus &&
+        state.uri.queryParameters[restoreSavedTabQueryParameter] == 'true',
   );
 }
 

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
@@ -15,7 +14,7 @@ final mockSignInProvider = NotifierProvider<MockSignInNotifier, bool>(
 
 class MockSignInNotifier extends Notifier<bool> {
   @override
-  bool build() => Env.isMockMode && Env.hasTesterFullAccess;
+  bool build() => false;
 
   void set(bool value) => state = value;
 }
@@ -65,7 +64,10 @@ final intelligenceStateProvider = Provider<IntelligenceState>((ref) {
   final bool hasMockSignIn = ref.watch(mockSignInProvider);
   final bool hasAuthenticatedUser = ref
       .watch(authUserProvider)
-      .maybeWhen(data: (User? user) => user != null, orElse: () => false);
+      .maybeWhen(
+        data: (User? user) => user?.emailVerified ?? false,
+        orElse: () => false,
+      );
 
   return ref
       .read(intelligenceServiceProvider)

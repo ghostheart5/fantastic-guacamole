@@ -60,7 +60,8 @@ void main() {
       contains('memoryRecallProvider(MemorySurface.siConsole)'),
     );
     expect(profile, contains('this.useMemoryContext = false'));
-    expect(profile, contains("json['useMemoryContext'] as bool? ?? false"));
+    expect(profile, contains('storedVersion >= currentVersion'));
+    expect(profile, contains('memoryConsentGrantedAt'));
   });
 
   test('session context is surface-scoped and expires within 24 hours', () {

@@ -1,42 +1,21 @@
+import 'package:fantastic_guacamole/domain/entities/learning_state.dart';
+import 'package:fantastic_guacamole/domain/entities/ranked_task.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/i_task_ranker.dart';
+import 'package:fantastic_guacamole/domain/policies/task_ranking_policy.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
-import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 
-class RankedTask {
-  const RankedTask({
-    required this.task,
-    required this.score,
-    required this.breakdown,
-  });
+export 'package:fantastic_guacamole/domain/entities/ranked_task.dart';
+export 'package:fantastic_guacamole/domain/policies/task_ranking_policy.dart';
 
-  final TaskEntity task;
-  final double score;
-  final TaskScoreBreakdown breakdown;
-}
-
-class TaskRankingPolicy {
-  const TaskRankingPolicy({
-    this.priorityWeight = 1,
-    this.deadlineWeight = 1,
-    this.energyWeight = 1,
-    this.goalBonus = 0,
-    this.quickWinBonus = 0,
-  });
-
-  final double priorityWeight;
-  final double deadlineWeight;
-  final double energyWeight;
-  final double goalBonus;
-  final double quickWinBonus;
-}
-
-class TaskRanker {
+class TaskRanker implements ITaskRanker {
   const TaskRanker();
 
   /// Returns tasks sorted highest-score first.
   /// When [siState.avoidOverwhelm] is true, ranks by ease instead of priority.
+  @override
   List<RankedTask> rank(
     List<TaskEntity> tasks, {
     required LearningState learning,
@@ -72,6 +51,7 @@ class TaskRanker {
   }
 
   /// Top-ranked task, or null if list is empty.
+  @override
   TaskEntity? best(
     List<TaskEntity> tasks, {
     required LearningState learning,

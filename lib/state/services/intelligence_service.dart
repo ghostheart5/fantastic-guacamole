@@ -61,13 +61,21 @@ class IntelligenceService {
   }
 
   MockLoginConfigState mockLoginConfig() {
-    return MockLoginConfigState(
-      email: Env.mockLoginEmail.trim(),
-      password: Env.mockLoginPassword,
+    return const MockLoginConfigState(
+      email: 'tester@chronospark.local',
+      password: '',
     );
   }
 
-  List<String> productionReadinessIssues({bool force = false}) {
-    return Env.productionReadinessIssues(force: force);
+  List<String> productionReadinessIssues({
+    bool force = false,
+    bool? firebaseInitialized,
+    String? firebaseProjectId,
+  }) {
+    return Env.productionReadinessIssues(
+      force: force,
+      firebaseInitialized: firebaseInitialized,
+      firebaseProjectId: firebaseProjectId,
+    );
   }
 }

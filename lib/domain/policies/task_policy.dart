@@ -10,7 +10,6 @@ class TaskPolicy {
     return true;
   }
 
-  static bool canComplete(TaskEntity task) {
-    return !task.isCompleted && !task.isSkipped && !task.isCanceled;
-  }
+  static bool canComplete(TaskEntity task, {DateTime? at}) =>
+      task.isActionableAt(at ?? DateTime.now());
 }

@@ -17,9 +17,13 @@ class NotificationEntity {
   final bool isRead;
 
   // Domain behavior
-  bool get isDue => DateTime.now().isAfter(scheduledAt);
+  bool isDueAt(DateTime reference) => reference.isAfter(scheduledAt);
 
-  Duration get timeUntil => scheduledAt.difference(DateTime.now());
+  bool get isDue => isDueAt(DateTime.now());
+
+  Duration timeUntilAt(DateTime reference) => scheduledAt.difference(reference);
+
+  Duration get timeUntil => timeUntilAt(DateTime.now());
 
   NotificationEntity enable() => copyWith(isEnabled: true);
 

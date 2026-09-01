@@ -1,6 +1,8 @@
 param(
     [string]$BuildName,
-    [int]$BuildNumber
+    [int]$BuildNumber,
+    [string]$SigningPropertiesPath,
+    [string]$SigningKeystorePath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,8 +17,7 @@ $requiredEnv = @(
     'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
     'CHRONOSPARK_AI_PROXY_ENDPOINT',
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
-    'CHRONOSPARK_ANDROID_SHA256_CERT',
-    'CHRONOSPARK_IOS_TEAM_ID'
+    'CHRONOSPARK_ANDROID_SHA256_CERT'
 )
 
 foreach ($key in $requiredEnv) {
@@ -42,6 +43,16 @@ if (-not [string]::IsNullOrWhiteSpace($BuildName)) {
 if ($BuildNumber -gt 0) {
     $guardedArgs += @('-BuildNumber', "$BuildNumber")
 }
+if ([string]::IsNullOrWhiteSpace($SigningPropertiesPath)) {
+    $SigningPropertiesPath = Read-Host 'Enter the external key.properties path'
+}
+if ([string]::IsNullOrWhiteSpace($SigningKeystorePath)) {
+    $SigningKeystorePath = Read-Host 'Enter the external upload-keystore.jks path'
+}
+$guardedArgs += @(
+    '-SigningPropertiesPath', $SigningPropertiesPath,
+    '-SigningKeystorePath', $SigningKeystorePath
+)
 
 & powershell @guardedArgs
 exit $LASTEXITCODE

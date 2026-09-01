@@ -85,6 +85,65 @@ void main() {
       ),
     );
   });
+
+  test('non-crisis distress stops before SI evidence is read', () async {
+    int evidenceReads = 0;
+    final SIV2QueryService service = SIV2QueryService(
+      readEvidence: (_) async {
+        evidenceReads += 1;
+        return _snapshot(now, title: 'Launch review');
+      },
+      clock: () => now,
+    );
+
+    await expectLater(
+      service.analyze(
+        SIV2Query(
+          rawText: 'I am panicking and losing control',
+          intent: SIV2Intent.answer,
+          sources: const <SIV2Source>{SIV2Source.tasks},
+          timeRange: SIV2TimeRange.all,
+        ),
+      ),
+      throwsA(
+        isA<AssistantSafetyRouteException>().having(
+          (AssistantSafetyRouteException error) => error.code,
+          'code',
+          'distress_route_required',
+        ),
+      ),
+    );
+    expect(evidenceReads, 0);
+  });
+
+  test(
+    'recent user crisis context cannot be bypassed by a follow-up',
+    () async {
+      final SIV2QueryService service = SIV2QueryService(
+        readEvidence: (_) async => _snapshot(now, title: 'Launch review'),
+        clock: () => now,
+      );
+
+      await expectLater(
+        service.analyze(
+          SIV2Query(
+            rawText: 'What should I do next?',
+            intent: SIV2Intent.answer,
+            sources: const <SIV2Source>{SIV2Source.tasks},
+            timeRange: SIV2TimeRange.all,
+            priorUserTurns: const <String>['I want to end my life'],
+          ),
+        ),
+        throwsA(
+          isA<AssistantSafetyRouteException>().having(
+            (AssistantSafetyRouteException error) => error.code,
+            'code',
+            'crisis_route_required',
+          ),
+        ),
+      );
+    },
+  );
 }
 
 SIV2EvidenceSnapshot _snapshot(DateTime now, {required String title}) =>

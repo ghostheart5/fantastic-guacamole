@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
@@ -25,17 +26,9 @@ import 'package:fantastic_guacamole/state/services/stale_notification_cleanup.da
 import 'package:fantastic_guacamole/state/services/state_si_engine_service.dart';
 import 'package:fantastic_guacamole/system/external_url_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
-
-bool get _supportsCrashlytics =>
-    !kIsWeb &&
-    (defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.macOS);
 
 final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
   if (Env.isMockMode || Env.isMockLoginEnabled) {
@@ -173,7 +166,6 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
   final FirebaseSupabaseBridgeRepository bridgeRepository = ref.read(
     firebaseSupabaseBridgeRepositoryProvider,
   );
-  String? observedOwnerId = client?.auth.currentUser?.id;
   Future<void> authTransitionTail = Future<void>.value();
 
   Future<void> syncIfPossible({required String source}) async {
@@ -202,50 +194,46 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
     unawaited(syncIfPossible(source: 'bridge-bootstrap'));
   }
 
+  void syncRefreshedToken() {
+    unawaited(syncIfPossible(source: 'token-refresh'));
+  }
+
+  FirebaseMessagingBootstrap.tokenListenable.addListener(syncRefreshedToken);
+  ref.onDispose(() {
+    FirebaseMessagingBootstrap.tokenListenable.removeListener(
+      syncRefreshedToken,
+    );
+  });
+
   ref.listen<AsyncValue<User?>>(authUserProvider, (_, next) {
     if (next is! AsyncData<User?>) return;
     final User? user = next.value;
     authTransitionTail = authTransitionTail
         .then((_) async {
-          final String? departingOwnerId = observedOwnerId;
-          if (departingOwnerId != null && departingOwnerId != user?.id) {
-            await ref
-                .read(localUserDataCleanupServiceProvider)
-                .clearForAccountSwitch(departingOwnerId);
-          }
-          observedOwnerId = user?.id;
           if (user != null) {
             await syncIfPossible(source: 'auth-state-change');
           }
         })
         .catchError((Object error, StackTrace stackTrace) {
           Logger.errorCategory(
-            'AccountCleanup',
-            'Departing-account cleanup failed.',
+            'Bridge',
+            'Firebase->Supabase bridge auth-state sync failed.',
             error,
             stackTrace,
           );
         });
   });
 
-  // Crashes today are anonymous; tying them to the signed-in user (cleared on
-  // sign-out) is the only place this is wired in the whole app.
+  // Runtime collection is both user-consented and build-gated. It is reset at
+  // account boundaries so a prior person's preference cannot carry over.
   ref.listen<AsyncValue<User?>>(authUserProvider, (_, next) {
     if (next is! AsyncData<User?>) {
       return;
     }
-    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      unawaited(
-        FirebaseCrashlytics.instance.setUserIdentifier(
-          crashlyticsUserId(next.value),
-        ),
-      );
-    }
+    unawaited(TelemetryConsentStore().applyForAccount(next.value?.id));
   });
 });
 
-/// Pure derivation of the id Crashlytics should tag a crash report with —
-/// the signed-in user's id, or `''` once signed out. Extracted so it's
-/// directly unit-testable without touching the real Crashlytics plugin.
+/// Crash reports are deliberately anonymous. Never attach an account UID.
 @visibleForTesting
-String crashlyticsUserId(User? user) => user?.id ?? '';
+String crashlyticsUserId(User? user) => '';

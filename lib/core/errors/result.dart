@@ -55,9 +55,8 @@ class AppResult<T> {
       final T value = await operation();
       return AppResult<T>.success(value);
     } on Object catch (error, stackTrace) {
-      final String fallbackMessage = error.toString();
       return AppResult<T>.failure(
-        messageFor?.call(error) ?? fallbackMessage,
+        messageFor?.call(error) ?? 'Something went wrong. Please try again.',
         errorCode: errorCodeFor?.call(error) ?? _inferErrorCode(error),
         error: error,
         stackTrace: stackTrace,

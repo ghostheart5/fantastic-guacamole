@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 class KillSwitchRegistry {
-  const KillSwitchRegistry({this.disabledCapabilities = const <String>{}});
+  KillSwitchRegistry({Set<String> disabledCapabilities = const <String>{}})
+    : disabledCapabilities = Set<String>.unmodifiable(disabledCapabilities);
 
   final Set<String> disabledCapabilities;
 

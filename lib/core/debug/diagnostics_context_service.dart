@@ -48,7 +48,16 @@ class DiagnosticsContextService {
   static Future<DiagnosticsContext>? _cachedFuture;
 
   static Future<DiagnosticsContext> collect() {
-    return _cachedFuture ??= _collectInternal();
+    return _cachedFuture ??= _collectAndResetOnFailure();
+  }
+
+  static Future<DiagnosticsContext> _collectAndResetOnFailure() async {
+    try {
+      return await _collectInternal();
+    } on Object {
+      _cachedFuture = null;
+      rethrow;
+    }
   }
 
   static Future<DiagnosticsContext> _collectInternal() async {

@@ -1,20 +1,30 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
+import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
+import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-const Color _authBackgroundColor = Color(0xFF0C0812);
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 bool _isNewUserDatabaseSaveFailure(String message) {
   final String normalized = message.toLowerCase();
@@ -79,9 +89,8 @@ class AuthGate extends ConsumerStatefulWidget {
     this.authService,
     this.startupError,
     this.deepLinkMode,
-    this.enableMockLogin = !kReleaseMode,
-    this.mockLoginEmail = '',
-    this.mockLoginPassword = '',
+    this.enableMockLogin = false,
+    this.initializeBackend,
   });
 
   final Widget child;
@@ -89,24 +98,32 @@ class AuthGate extends ConsumerStatefulWidget {
   final String? startupError;
   final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
-  final String mockLoginEmail;
-  final String mockLoginPassword;
+  final Future<String?> Function()? initializeBackend;
 
   @override
   ConsumerState<AuthGate> createState() => _AuthGateState();
 }
 
 class _AuthGateState extends ConsumerState<AuthGate> {
-  late final Future<void> _authReadyFuture;
+  late Future<void> _authReadyFuture;
+  Future<void>? _authInitializationSource;
   AuthServiceContract? _authService;
   String? _authInitError;
   bool _mockSignInActive = false;
   bool _authReadyTimedOut = false;
+  bool _authRetryReady = true;
 
   @override
   void initState() {
     super.initState();
-    _authReadyFuture = _initializeAuth().timeout(
+    _startAuthInitialization();
+  }
+
+  void _startAuthInitialization() {
+    final Future<void> source = _initializeAuth();
+    _authInitializationSource = source;
+    _authRetryReady = false;
+    _authReadyFuture = source.timeout(
       const Duration(seconds: 8),
       onTimeout: () {
         _authReadyTimedOut = true;
@@ -114,18 +131,32 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         _authService ??= const _UnavailableAuthService();
       },
     );
+    unawaited(
+      source.whenComplete(() {
+        if (!mounted || !identical(_authInitializationSource, source)) {
+          return;
+        }
+        setState(() {
+          _authRetryReady = true;
+        });
+      }),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool allowMockAccess =
-        widget.enableMockLogin || (!kReleaseMode && _authInitError != null);
+    final bool allowMockAccess = widget.enableMockLogin;
     final String? startupMessage = _effectiveStartupError;
     final AuthServiceContract fallbackAuthService =
         _authService ?? const _UnavailableAuthService();
+    final AccountStorageScope accountScope = ref.watch(
+      accountStorageScopeProvider,
+    );
 
     if (_mockSignInActive) {
-      return widget.child;
+      return _scopeIsReadyFor(accountScope, 'mock-user')
+          ? widget.child
+          : const _AuthLoadingShell();
     }
 
     return FutureBuilder<void>(
@@ -138,22 +169,18 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               startupError: startupMessage,
               deepLinkMode: widget.deepLinkMode,
               enableMockLogin: true,
-              mockLoginEmail: widget.mockLoginEmail,
-              mockLoginPassword: widget.mockLoginPassword,
               onMockSignIn: _activateMockSignIn,
             );
           }
-          return const Scaffold(
-            backgroundColor: _authBackgroundColor,
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const _AuthLoadingShell();
         }
 
         if (authSnapshot.hasError) {
-          return const _AuthStatusMessage(
+          return _AuthStatusMessage(
             title: 'Authentication unavailable',
-            message:
-                'Auth initialization failed. Please restart and try again.',
+            message: 'Auth initialization failed. Retry when ready.',
+            onRetry: _retryAuthInitialization,
+            retryEnabled: _authRetryReady,
           );
         }
 
@@ -165,8 +192,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               startupError: startupMessage,
               deepLinkMode: widget.deepLinkMode,
               enableMockLogin: true,
-              mockLoginEmail: widget.mockLoginEmail,
-              mockLoginPassword: widget.mockLoginPassword,
               onMockSignIn: _activateMockSignIn,
             );
           }
@@ -175,18 +200,17 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             message: _authReadyTimedOut
                 ? 'Auth initialization timed out. Please retry.'
                 : 'Auth service is not ready in this runtime.',
+            onRetry: _retryAuthInitialization,
+            retryEnabled: _authRetryReady,
           );
         }
 
-        if (_authInitError != null) {
-          return _AuthScreen(
-            authService: authService,
-            startupError: startupMessage,
-            deepLinkMode: widget.deepLinkMode,
-            enableMockLogin: allowMockAccess,
-            mockLoginEmail: widget.mockLoginEmail,
-            mockLoginPassword: widget.mockLoginPassword,
-            onMockSignIn: _activateMockSignIn,
+        if (_authInitError != null && !allowMockAccess) {
+          return _AuthStatusMessage(
+            title: 'Sign-in services unavailable',
+            message: _authInitError!,
+            onRetry: _retryAuthInitialization,
+            retryEnabled: _authRetryReady,
           );
         }
 
@@ -200,21 +224,18 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                   startupError: startupMessage,
                   deepLinkMode: widget.deepLinkMode,
                   enableMockLogin: true,
-                  mockLoginEmail: widget.mockLoginEmail,
-                  mockLoginPassword: widget.mockLoginPassword,
                   onMockSignIn: _activateMockSignIn,
                 );
               }
-              return const Scaffold(
-                backgroundColor: _authBackgroundColor,
-                body: Center(child: CircularProgressIndicator()),
-              );
+              return const _AuthLoadingShell();
             }
             if (snapshot.hasError) {
-              return const _AuthStatusMessage(
+              return _AuthStatusMessage(
                 title: 'Authentication unavailable',
                 message:
-                    'Auth service reported an error. Please restart and try again.',
+                    'Auth service reported an error. Retry the connection.',
+                onRetry: _retryAuthInitialization,
+                retryEnabled: true,
               );
             }
 
@@ -225,8 +246,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 startupError: startupMessage,
                 deepLinkMode: widget.deepLinkMode,
                 enableMockLogin: allowMockAccess,
-                mockLoginEmail: widget.mockLoginEmail,
-                mockLoginPassword: widget.mockLoginPassword,
                 onMockSignIn: _activateMockSignIn,
               );
             }
@@ -236,8 +255,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 startupError: startupMessage,
                 deepLinkMode: widget.deepLinkMode,
                 enableMockLogin: allowMockAccess,
-                mockLoginEmail: widget.mockLoginEmail,
-                mockLoginPassword: widget.mockLoginPassword,
                 onMockSignIn: _activateMockSignIn,
               );
             }
@@ -247,7 +264,9 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 email: user.email ?? '',
               );
             }
-            return widget.child;
+            return _scopeIsReadyFor(accountScope, user.id)
+                ? widget.child
+                : const _AuthLoadingShell();
           },
         );
       },
@@ -277,6 +296,24 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       const int maxInitAttempts = 3;
 
       for (int attempt = 0; attempt < maxInitAttempts; attempt++) {
+        final String? backendIssue =
+            await (widget.initializeBackend?.call() ??
+                const SupabaseClientService().initialize(
+                  isMockMode: ref
+                      .read(intelligenceStateProvider)
+                      .flags
+                      .mockMode,
+                ));
+        if (backendIssue != null) {
+          final bool shouldRetry = attempt < maxInitAttempts - 1;
+          if (shouldRetry) {
+            await Future<void>.delayed(const Duration(milliseconds: 350));
+            continue;
+          }
+          _authInitError = backendIssue;
+          _authService = const _UnavailableAuthService();
+          return;
+        }
         if (attempt > 0) {
           // Force the providers to rebuild. authServiceProvider is a plain
           // (non-autoDispose) Provider that reads supabaseClientProvider with
@@ -340,6 +377,18 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     return issues.join('\n');
   }
 
+  void _retryAuthInitialization() {
+    if (!_authRetryReady) {
+      return;
+    }
+    setState(() {
+      _authService = null;
+      _authInitError = null;
+      _authReadyTimedOut = false;
+      _startAuthInitialization();
+    });
+  }
+
   void _activateMockSignIn() {
     if (_mockSignInActive || !mounted) {
       return;
@@ -349,14 +398,16 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   }
 }
 
+bool _scopeIsReadyFor(AccountStorageScope scope, String userId) {
+  return scope.isWritable && scope.rawUserId == userId;
+}
+
 class _AuthScreen extends ConsumerStatefulWidget {
   const _AuthScreen({
     required this.authService,
     required this.startupError,
     required this.deepLinkMode,
     required this.enableMockLogin,
-    required this.mockLoginEmail,
-    required this.mockLoginPassword,
     required this.onMockSignIn,
   });
 
@@ -364,8 +415,6 @@ class _AuthScreen extends ConsumerStatefulWidget {
   final String? startupError;
   final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
-  final String mockLoginEmail;
-  final String mockLoginPassword;
   final VoidCallback onMockSignIn;
 
   @override
@@ -385,6 +434,7 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
   bool _signUpMode = false;
   bool _submitting = false;
   bool _dismissRecoveryMode = false;
+  bool _returningToWelcome = false;
 
   @override
   void initState() {
@@ -414,33 +464,80 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       return _buildRecoveryScreen(context);
     }
 
-    return LoginScreen(
-      emailController: _emailController,
-      passwordController: _passwordController,
-      obscurePassword: _obscuredPassword,
-      isSubmitting: _submitting,
-      isSignUpMode: _signUpMode,
-      allowSignUp: !widget.enableMockLogin,
-      startupError: widget.startupError,
-      showMockHint: widget.enableMockLogin,
-      mockHint: widget.enableMockLogin
-          ? 'Mock login: ${widget.mockLoginEmail}  /  ${widget.mockLoginPassword}'
-          : null,
-      showFirstRunGuide:
-          ref.watch(onboardingWelcomeCompleteProvider) &&
-          !ref.watch(onboardingCompleteProvider),
-      onTogglePassword: () {
-        setState(() => _obscuredPassword = !_obscuredPassword);
+    final bool canReturnToWelcome =
+        ref.watch(onboardingWelcomeCompleteProvider) &&
+        !ref.watch(onboardingCompleteProvider);
+
+    return PopScope<Object?>(
+      canPop: !canReturnToWelcome,
+      onPopInvokedWithResult: (bool didPop, Object? _) {
+        if (!didPop && canReturnToWelcome) {
+          unawaited(_returnToWelcome());
+        }
       },
-      onToggleMode: () {
-        setState(() => _signUpMode = !_signUpMode);
-      },
-      onPrimaryAction: () => _runAuthAction(_handlePrimaryAction),
-      onForgotPassword: () => _runAuthAction(_handleForgotPassword),
-      onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
-      onGitHubSignIn: () => _runAuthAction(_handleGitHubSignIn),
-      onMockLogin: null,
+      child: LoginScreen(
+        emailController: _emailController,
+        passwordController: _passwordController,
+        obscurePassword: _obscuredPassword,
+        isSubmitting: _submitting,
+        isSignUpMode: _signUpMode,
+        allowSignUp: !widget.enableMockLogin,
+        startupError: widget.startupError,
+        showMockHint: widget.enableMockLogin,
+        mockHint: widget.enableMockLogin
+            ? 'QA tester build uses an isolated local test profile.'
+            : null,
+        showFirstRunGuide: canReturnToWelcome,
+        onTogglePassword: () {
+          setState(() => _obscuredPassword = !_obscuredPassword);
+        },
+        onToggleMode: () {
+          setState(() => _signUpMode = !_signUpMode);
+        },
+        onPrimaryAction: () => _runAuthAction(_handlePrimaryAction),
+        onForgotPassword: () => _runAuthAction(_handleForgotPassword),
+        onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
+        onGitHubSignIn: () => _runAuthAction(_handleGitHubSignIn),
+        onPrivacyPolicy: () =>
+            context.push(ref.read(routeSurfaceProvider).privacy),
+        onTermsOfService: () =>
+            context.push(ref.read(routeSurfaceProvider).terms),
+        onMockLogin: widget.enableMockLogin
+            ? () => _runAuthAction(_handleMockSignIn)
+            : null,
+      ),
     );
+  }
+
+  Future<void> _returnToWelcome() async {
+    if (_returningToWelcome) {
+      return;
+    }
+    _returningToWelcome = true;
+    final GoRouter? router = GoRouter.maybeOf(context);
+    final String? returnTo = router
+        ?.routeInformationProvider
+        .value
+        .uri
+        .queryParameters[RouteAccessPolicy.returnToQueryParameter];
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(onboardingWelcomeCompleteStorageKey, false);
+      if (!mounted) {
+        return;
+      }
+      ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
+      if (router != null) {
+        context.go(
+          RouteAccessPolicy.withReturnTo(
+            ref.read(routeSurfaceProvider).onboarding,
+            returnTo,
+          ),
+        );
+      }
+    } finally {
+      _returningToWelcome = false;
+    }
   }
 
   Future<void> _applyDeepLinkModeHint() async {
@@ -489,17 +586,6 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       return;
     }
 
-    if (widget.enableMockLogin &&
-        email.toLowerCase() == widget.mockLoginEmail.trim().toLowerCase() &&
-        password == widget.mockLoginPassword) {
-      AppAnalytics.track(
-        'login_event',
-        params: <String, Object?>{'provider': 'mock', 'mode': 'email_signin'},
-      );
-      widget.onMockSignIn();
-      return;
-    }
-
     if (_signUpMode) {
       if (!Validators.isStrongPassword(password)) {
         _showMessage('Use 8+ chars with upper, lower, and a number.');
@@ -532,13 +618,20 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
     _showMessage('Password reset link sent.');
   }
 
+  Future<void> _handleMockSignIn() async {
+    if (!widget.enableMockLogin) {
+      return;
+    }
+    AppAnalytics.track(
+      'login_event',
+      params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
+    );
+    widget.onMockSignIn();
+  }
+
   Future<void> _handleGoogleSignIn() async {
     if (widget.enableMockLogin) {
-      AppAnalytics.track(
-        'login_event',
-        params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
-      );
-      widget.onMockSignIn();
+      await _handleMockSignIn();
       return;
     }
     await widget.authService.signInWithGoogle();
@@ -550,11 +643,7 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
 
   Future<void> _handleGitHubSignIn() async {
     if (widget.enableMockLogin) {
-      AppAnalytics.track(
-        'login_event',
-        params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
-      );
-      widget.onMockSignIn();
+      await _handleMockSignIn();
       return;
     }
     await widget.authService.signInWithGitHub();
@@ -591,86 +680,142 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
   }
 
   Widget _buildRecoveryScreen(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _authBackgroundColor,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Icon(Icons.lock_reset, size: 64),
-                const SizedBox(height: 12),
-                const Text('Reset password to continue'),
-                const SizedBox(height: 8),
-                const Text(
-                  'Set a new strong password for your account.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _recoveryPasswordController,
-                  obscureText: _obscuredRecoveryPassword,
-                  enableSuggestions: false,
-                  autocorrect: false,
-                  decoration: InputDecoration(
-                    labelText: 'New Password',
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(
-                        () => _obscuredRecoveryPassword =
-                            !_obscuredRecoveryPassword,
-                      ),
-                      icon: Icon(
-                        _obscuredRecoveryPassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _recoveryConfirmController,
-                  obscureText: _obscuredRecoveryConfirm,
-                  enableSuggestions: false,
-                  autocorrect: false,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm Password',
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(
-                        () => _obscuredRecoveryConfirm =
-                            !_obscuredRecoveryConfirm,
-                      ),
-                      icon: Icon(
-                        _obscuredRecoveryConfirm
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _submitting
-                        ? null
-                        : () => _runAuthAction(_handleRecoveryUpdatePassword),
-                    child: const Text('Update Password'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _submitting
-                      ? null
-                      : () => setState(() => _dismissRecoveryMode = true),
-                  child: const Text('Back to Sign In'),
-                ),
-              ],
+    return _AuthGlassShell(
+      backgroundAssetPath: AppAssets.bgTemporalRecovery,
+      maxWidth: 620,
+      child: TemporalGlassSurface(
+        accent: AppColors.neonCyan,
+        opacity: 0.94,
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const TemporalStatusRow(
+              icon: Icons.link_rounded,
+              text: 'Recovery link accepted',
+              color: AppColors.neonCyan,
             ),
-          ),
+            const SizedBox(height: 18),
+            const Text(
+              'ACCOUNT RECOVERY',
+              style: TextStyle(
+                color: AppColors.neonViolet,
+                fontSize: AppSizes.fontBody,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Choose a new password',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Set a new strong password for your ChronoSpark account.',
+              style: TextStyle(color: Colors.white70, height: 1.45),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _recoveryPasswordController,
+              obscureText: _obscuredRecoveryPassword,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: const TextStyle(color: Colors.white, letterSpacing: 0),
+              decoration: _authFieldDecoration(
+                label: 'New Password',
+                icon: Icons.key_rounded,
+                accent: AppColors.neonCyan,
+                trailing: IconButton(
+                  tooltip: _obscuredRecoveryPassword
+                      ? 'Show password'
+                      : 'Hide password',
+                  constraints: const BoxConstraints.tightFor(
+                    width: AppSizes.touchTarget,
+                    height: AppSizes.touchTarget,
+                  ),
+                  onPressed: () => setState(
+                    () =>
+                        _obscuredRecoveryPassword = !_obscuredRecoveryPassword,
+                  ),
+                  icon: Icon(
+                    _obscuredRecoveryPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _recoveryConfirmController,
+              obscureText: _obscuredRecoveryConfirm,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: const TextStyle(color: Colors.white, letterSpacing: 0),
+              decoration: _authFieldDecoration(
+                label: 'Confirm Password',
+                icon: Icons.key_rounded,
+                accent: AppColors.neonViolet,
+                trailing: IconButton(
+                  tooltip: _obscuredRecoveryConfirm
+                      ? 'Show password confirmation'
+                      : 'Hide password confirmation',
+                  constraints: const BoxConstraints.tightFor(
+                    width: AppSizes.touchTarget,
+                    height: AppSizes.touchTarget,
+                  ),
+                  onPressed: () => setState(
+                    () => _obscuredRecoveryConfirm = !_obscuredRecoveryConfirm,
+                  ),
+                  icon: Icon(
+                    _obscuredRecoveryConfirm
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const TemporalDivider(color: AppColors.neonViolet),
+            const SizedBox(height: 18),
+            TemporalActionButton(
+              label: 'Update Password',
+              icon: Icons.verified_user_outlined,
+              onPressed: _submitting
+                  ? null
+                  : () => _runAuthAction(_handleRecoveryUpdatePassword),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.neonCyan,
+                  minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: _submitting
+                    ? null
+                    : () => setState(() => _dismissRecoveryMode = true),
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: const Text('Back to Sign In'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const TemporalStatusRow(
+              icon: Icons.shield_outlined,
+              text:
+                  'ChronoSpark never displays or stores your password in readable form.',
+            ),
+          ],
         ),
       ),
     );
@@ -732,7 +877,9 @@ class _UnavailableAuthService implements AuthServiceContract {
   User? get currentUser => null;
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) async {
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  }) async {
     throw _error();
   }
 
@@ -806,47 +953,117 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _authBackgroundColor,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Icon(Icons.mark_email_unread_outlined, size: 64),
-                const SizedBox(height: 12),
-                const Text('Verify email to unlock access'),
-                const SizedBox(height: 8),
-                Text(
-                  widget.email.isEmpty
-                      ? 'Open inbox and confirm account access.'
-                      : widget.email,
-                ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: _busy ? null : _refreshVerification,
-                  child: const Text('Verified · Continue'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: _busy ? null : _resendVerification,
-                  child: const Text('Resend Verification Link'),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          await widget.authService.signOut();
-                        },
-                  child: const Text('Sign Out'),
-                ),
-              ],
+    final String email = widget.email.trim();
+    return _AuthGlassShell(
+      backgroundAssetPath: AppAssets.bgArrival,
+      maxWidth: 580,
+      child: TemporalGlassSurface(
+        accent: AppColors.neonViolet,
+        opacity: 0.94,
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Icon(
+              Icons.mark_email_unread_outlined,
+              size: 48,
+              color: AppColors.neonCyan,
             ),
-          ),
+            const SizedBox(height: 18),
+            const Text(
+              'ACCOUNT VERIFICATION',
+              style: TextStyle(
+                color: AppColors.neonViolet,
+                fontSize: AppSizes.fontBody,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Verify email to unlock access',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Open the verification link in your inbox, then return here to continue securely.',
+              style: TextStyle(color: Colors.white70, height: 1.45),
+            ),
+            if (email.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 16),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.bgSecondary.withValues(alpha: 0.86),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.alternate_email_rounded,
+                        color: AppColors.neonCyan,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          email,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            const TemporalDivider(color: AppColors.neonViolet),
+            const SizedBox(height: 18),
+            TemporalActionButton(
+              label: 'Verified · Continue',
+              icon: Icons.verified_outlined,
+              onPressed: _busy ? null : _refreshVerification,
+            ),
+            const SizedBox(height: 10),
+            TemporalActionButton(
+              label: 'Resend Verification Link',
+              icon: Icons.outgoing_mail,
+              filled: false,
+              accent: AppColors.neonViolet,
+              onPressed: _busy ? null : _resendVerification,
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                  minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        await widget.authService.signOut();
+                      },
+                child: const Text('Sign Out'),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -900,28 +1117,164 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
 }
 
 class _AuthStatusMessage extends StatelessWidget {
-  const _AuthStatusMessage({required this.title, required this.message});
+  const _AuthStatusMessage({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+    required this.retryEnabled,
+  });
 
   final String title;
   final String message;
+  final VoidCallback onRetry;
+  final bool retryEnabled;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _authBackgroundColor,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(message, textAlign: TextAlign.center),
-            ],
+    return _AuthGlassShell(
+      backgroundAssetPath: AppAssets.bgTemporalRecovery,
+      child: TemporalGlassSurface(
+        accent: AppColors.memoryAmber,
+        opacity: 0.94,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 44,
+              color: AppColors.memoryAmber,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: retryEnabled ? onRetry : null,
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(
+                retryEnabled ? 'Retry sign-in services' : 'Stopping safely',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, height: 1.45),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthLoadingShell extends StatelessWidget {
+  const _AuthLoadingShell();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _AuthGlassShell(
+      backgroundAssetPath: AppAssets.bgArrival,
+      maxWidth: 160,
+      child: TemporalGlassSurface(
+        padding: EdgeInsets.all(22),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.neonCyan,
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _AuthGlassShell extends StatelessWidget {
+  const _AuthGlassShell({
+    required this.backgroundAssetPath,
+    required this.child,
+    this.maxWidth = 520,
+  });
+
+  final String backgroundAssetPath;
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSystemBackground(
+      backgroundAssetPath: backgroundAssetPath,
+      overlayOpacity: 0.56,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: true,
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  24,
+                  20,
+                  MediaQuery.viewInsetsOf(context).bottom + 24,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: (constraints.maxHeight - 48).clamp(
+                      0,
+                      double.infinity,
+                    ),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: child,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration _authFieldDecoration({
+  required String label,
+  required IconData icon,
+  required Color accent,
+  required Widget trailing,
+}) {
+  final OutlineInputBorder border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    borderSide: BorderSide(color: accent.withValues(alpha: 0.42)),
+  );
+  return InputDecoration(
+    labelText: label,
+    labelStyle: TextStyle(color: accent, letterSpacing: 0),
+    prefixIcon: Icon(icon, color: accent),
+    suffixIcon: trailing,
+    filled: true,
+    fillColor: AppColors.bgSecondary.withValues(alpha: 0.86),
+    constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: BorderSide(color: accent, width: 1.4),
+    ),
+  );
 }

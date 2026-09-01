@@ -1,13 +1,41 @@
 class AgentResult {
-  const AgentResult({
+  AgentResult({
     required this.selectedAgent,
     required this.workflow,
-    required this.payload,
-  });
+    required Map<String, dynamic> payload,
+  }) : payload = Map<String, dynamic>.unmodifiable(
+         payload.map<String, dynamic>(
+           (String key, dynamic value) => MapEntry(key, _freezeValue(value)),
+         ),
+       );
 
   final String selectedAgent;
   final String workflow;
   final Map<String, dynamic> payload;
+
+  static dynamic _freezeValue(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return Map<String, dynamic>.unmodifiable(
+        value.map<String, dynamic>(
+          (String key, dynamic item) => MapEntry(key, _freezeValue(item)),
+        ),
+      );
+    }
+    if (value is Map) {
+      return Map<Object?, Object?>.unmodifiable(
+        value.map<Object?, Object?>(
+          (dynamic key, dynamic item) => MapEntry(key, _freezeValue(item)),
+        ),
+      );
+    }
+    if (value is List<String>) {
+      return List<String>.unmodifiable(value);
+    }
+    if (value is Iterable) {
+      return List<Object?>.unmodifiable(value.map(_freezeValue));
+    }
+    return value;
+  }
 
   String get message => payload['message']?.toString() ?? '';
   String get reasoning => payload['reasoning']?.toString() ?? message;
@@ -24,11 +52,21 @@ class AgentResult {
           .toList(growable: false) ??
       const <String>[];
   String get quality => payload['quality']?.toString() ?? 'unknown';
-  Map<String, dynamic>? get taskMap => payload['task'] as Map<String, dynamic>?;
+  Map<String, dynamic>? get taskMap {
+    final Object? task = payload['task'];
+    if (task is! Map) {
+      return null;
+    }
+    return Map<String, dynamic>.unmodifiable(
+      task.map<String, dynamic>(
+        (Object? key, Object? value) => MapEntry(key.toString(), value),
+      ),
+    );
+  }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'selectedAgent': selectedAgent,
     'workflow': workflow,
-    'payload': payload,
+    'payload': Map<String, dynamic>.from(payload),
   };
 }

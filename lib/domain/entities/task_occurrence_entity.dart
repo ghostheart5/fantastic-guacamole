@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Task occurrences
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
 enum TaskOccurrenceOutcome { completed, skipped, rescheduled }

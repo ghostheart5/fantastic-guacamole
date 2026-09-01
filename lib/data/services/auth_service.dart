@@ -8,19 +8,20 @@ import 'package:fantastic_guacamole/data/network/secure_endpoint.dart'
     as secure_endpoint;
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class AuthService implements AuthServiceContract {
   AuthService({
     required sb.SupabaseClient supabaseClient,
-    required SecureStore store,
+    required this.store,
     http.Client? httpClient,
     String? accountDeleteEndpoint,
     String? oauthGoogleRedirectUrl,
     String? oauthGitHubRedirectUrl,
     Future<void> Function()? onSignedOut,
-    Future<void> Function(String? accountId)? onAccountSignedOut,
+    Future<void> Function(String accountId)? onAccountDeleted,
   }) : _auth = supabaseClient,
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
@@ -29,17 +30,21 @@ class AuthService implements AuthServiceContract {
        _oauthGitHubRedirectUrl =
            oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
        _signedOutCallback = onSignedOut,
-       _accountSignedOutCallback = onAccountSignedOut;
+       _accountDeletedCallback = onAccountDeleted;
 
   static final http.Client _sharedHttpClient = http.Client();
+  static const String _pendingDeletionCapabilityKey =
+      'account_deletion_pending_capability_v1';
+  static final RegExp _opaqueCapabilityPattern = RegExp(r'^[0-9a-f]{64}$');
 
   final sb.SupabaseClient _auth;
+  final SecureStore store;
   final http.Client _httpClient;
   final String _accountDeleteEndpoint;
   final String _oauthGoogleRedirectUrl;
   final String _oauthGitHubRedirectUrl;
   final Future<void> Function()? _signedOutCallback;
-  final Future<void> Function(String? accountId)? _accountSignedOutCallback;
+  final Future<void> Function(String accountId)? _accountDeletedCallback;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
@@ -121,14 +126,31 @@ class AuthService implements AuthServiceContract {
   Future<UserCredential> signInWithGoogle() async {
     try {
       final String redirectTo = _oauthGoogleRedirectUrl.trim();
-      await _auth.auth.signInWithOAuth(
+      final bool launched = await _auth.auth.signInWithOAuth(
         sb.OAuthProvider.google,
         redirectTo: redirectTo.isEmpty ? null : redirectTo,
       );
+      if (!launched) {
+        Logger.error('Google OAuth browser launch returned false.');
+        throw FirebaseAuthException(
+          code: 'auth-unavailable',
+          message: 'Google sign-in browser could not be opened.',
+        );
+      }
       return UserCredential(user: currentUser);
     } on sb.AuthException catch (error) {
+      Logger.error(
+        'Google OAuth provider rejected the request '
+        '(status ${error.statusCode ?? 'unknown'}).',
+      );
       throw _mapAuthException(error);
-    } on Object {
+    } on FirebaseAuthException {
+      rethrow;
+    } on Object catch (error) {
+      final String diagnostic = error is PlatformException
+          ? 'PlatformException(${error.code})'
+          : error.runtimeType.toString();
+      Logger.error('Google OAuth launch failed: $diagnostic.');
       throw FirebaseAuthException(
         code: 'auth-unavailable',
         message: 'Google sign-in is currently unavailable.',
@@ -255,12 +277,13 @@ class AuthService implements AuthServiceContract {
       }
     }
     await _auth.auth.signOut();
-    await _accountSignedOutCallback?.call(user?.id);
     await _signedOutCallback?.call();
   }
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) async {
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  }) async {
     final User? user = currentUser;
     if (user == null) {
       throw FirebaseAuthException(
@@ -299,7 +322,8 @@ class AuthService implements AuthServiceContract {
       );
     }
 
-    bool deleted = false;
+    AccountDeletionResult? acceptedResult;
+    Map<String, String>? pendingCapability;
 
     try {
       await _auth.auth.signInWithPassword(email: email, password: password);
@@ -335,7 +359,41 @@ class AuthService implements AuthServiceContract {
         );
       }
 
-      deleted = true;
+      final Map<String, dynamic> body = _parseDeletionSuccessBody(
+        response: response,
+      );
+      final bool accepted = body['accepted'] == true;
+      final bool completed = body['completed'] == true;
+      final bool retry = body['retry'] == true;
+      final String state = (body['state'] as String?)?.trim() ?? '';
+      final String requestId = (body['requestId'] as String?)?.trim() ?? '';
+      final String receipt = (body['receipt'] as String?)?.trim() ?? '';
+      final bool validCapability =
+          _opaqueCapabilityPattern.hasMatch(requestId) &&
+          _opaqueCapabilityPattern.hasMatch(receipt);
+
+      if (!accepted || state.isEmpty || !validCapability) {
+        throw _invalidDeletionResponse();
+      }
+      if (response.statusCode == 200 &&
+          completed &&
+          !retry &&
+          state == 'completed') {
+        acceptedResult = const AccountDeletionResult.completed();
+      } else if (response.statusCode == 202 &&
+          !completed &&
+          retry &&
+          state != 'completed') {
+        acceptedResult = AccountDeletionResult.pending(serverState: state);
+        pendingCapability = <String, String>{
+          'requestId': requestId,
+          'receipt': receipt,
+          'state': state,
+          'savedAt': DateTime.now().toUtc().toIso8601String(),
+        };
+      } else {
+        throw _invalidDeletionResponse();
+      }
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
     } on TimeoutException {
@@ -343,13 +401,96 @@ class AuthService implements AuthServiceContract {
         code: 'network-request-failed',
         message: 'Account deletion timed out. Check your connection and retry.',
       );
-    } finally {
-      if (deleted) {
-        await _auth.auth.signOut();
-        await _accountSignedOutCallback?.call(user.id);
-        await _signedOutCallback?.call();
-      }
     }
+
+    return _finalizeAcceptedDeletion(
+      accountId: user.id,
+      result: acceptedResult,
+      pendingCapability: pendingCapability,
+    );
+  }
+
+  Future<AccountDeletionResult> _finalizeAcceptedDeletion({
+    required String accountId,
+    required AccountDeletionResult result,
+    required Map<String, String>? pendingCapability,
+  }) async {
+    bool localCleanupCompleted = true;
+    bool statusTrackingAvailable = true;
+
+    try {
+      if (pendingCapability == null) {
+        await store.delete(_pendingDeletionCapabilityKey);
+      } else {
+        await store.writeString(
+          _pendingDeletionCapabilityKey,
+          jsonEncode(pendingCapability),
+        );
+      }
+    } on Object {
+      localCleanupCompleted = false;
+      statusTrackingAvailable = pendingCapability == null;
+      Logger.warn(
+        'Account deletion capability bookkeeping failed after server acceptance.',
+      );
+    }
+
+    try {
+      await _auth.auth.signOut();
+    } on Object {
+      localCleanupCompleted = false;
+      Logger.warn(
+        'Local sign-out failed after server accepted account deletion.',
+      );
+    }
+    try {
+      await _accountDeletedCallback?.call(accountId);
+    } on Object {
+      localCleanupCompleted = false;
+      Logger.warn(
+        'Local account-data cleanup failed after server accepted account deletion.',
+      );
+    }
+    try {
+      await _signedOutCallback?.call();
+    } on Object {
+      localCleanupCompleted = false;
+      Logger.warn(
+        'Post-sign-out cleanup failed after server accepted account deletion.',
+      );
+    }
+
+    return result.isCompleted
+        ? AccountDeletionResult.completed(
+            localCleanupCompleted: localCleanupCompleted,
+          )
+        : AccountDeletionResult.pending(
+            serverState: result.serverState,
+            localCleanupCompleted: localCleanupCompleted,
+            statusTrackingAvailable: statusTrackingAvailable,
+          );
+  }
+
+  static Map<String, dynamic> _parseDeletionSuccessBody({
+    required http.Response response,
+  }) {
+    try {
+      final Object? decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } on FormatException {
+      // Converted below into a stable, non-sensitive client error.
+    }
+    throw _invalidDeletionResponse();
+  }
+
+  static FirebaseAuthException _invalidDeletionResponse() {
+    return FirebaseAuthException(
+      code: 'invalid-response',
+      message:
+          'Account deletion returned an invalid success response. Your local account data was preserved.',
+    );
   }
 
   static Uri? parseSecureHttpsEndpoint(String endpoint) {

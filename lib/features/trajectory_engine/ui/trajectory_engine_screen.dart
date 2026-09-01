@@ -6,12 +6,17 @@ import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_con
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/decision_intelligence_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,6 +56,7 @@ class _TrajectoryEngineScreenState
       trajectoryCalibrationSummaryProvider,
     );
     final TrajectoryComparison? comparison = model.comparison;
+    final bool canRecommendScenario = model.canRecommendScenario;
     final TrajectoryScenarioOutcome? selected = _selected(
       comparison,
       _selectedScenarioId,
@@ -58,6 +64,7 @@ class _TrajectoryEngineScreenState
     final bool blocksContent =
         comparison == null &&
         (model.status == TrajectoryEngineStatus.loading ||
+            model.status == TrajectoryEngineStatus.learning ||
             model.status == TrajectoryEngineStatus.error ||
             model.status == TrajectoryEngineStatus.empty);
 
@@ -66,126 +73,143 @@ class _TrajectoryEngineScreenState
       overlayOpacity: .58,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            tooltip: 'Back to Nexus',
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => goToAppView(context, ref, AppView.nexus),
-          ),
-          title: const Text('Trajectory Engine'),
-          actions: <Widget>[
-            IconButton(
-              tooltip: 'Recalculate trajectory',
-              onPressed: () => _refresh(comparison),
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-          ],
-        ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-          children: <Widget>[
-            _TrajectoryStateNotice(
-              status: model.status,
-              detail: model.statusDetail,
-              onRetry: () =>
-                  ref.read(trajectoryEngineActionsProvider).refresh(),
-              onCreate: () => goToAppView(context, ref, AppView.creator),
-            ),
-            if (blocksContent) const SizedBox(height: 8),
-            if (blocksContent && model.status == TrajectoryEngineStatus.loading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            children: <Widget>[
+              TemporalScreenHeader(
+                title: 'TRAJECTORY',
+                subtitle: 'See the consequence before you commit.',
+                eyebrow: 'Future branches',
+                onBack: () => goToAppView(context, ref, AppView.nexus),
+                trailing: IconButton(
+                  tooltip: 'Recalculate trajectory',
+                  constraints: const BoxConstraints.tightFor(
+                    width: AppSizes.touchTarget,
+                    height: AppSizes.touchTarget,
+                  ),
+                  onPressed: () => _refresh(comparison),
+                  icon: const Icon(Icons.refresh_rounded),
                 ),
               ),
-            if (!blocksContent) ...<Widget>[
-              if (comparison case final TrajectoryComparison value) ...<Widget>[
-                const SizedBox(height: 8),
-                _TrajectoryOverviewCard(
-                  baseline: value.baseline,
-                  horizonDays: horizonDays,
-                ),
-                const SizedBox(height: 8),
-                _HorizonSelector(
-                  selectedDays: horizonDays,
-                  onSelected: (int days) {
-                    setState(() => _selectedScenarioId = null);
-                    ref
-                        .read(trajectoryHorizonDaysProvider.notifier)
-                        .select(days);
-                  },
-                ),
-                if (selected
-                    case final TrajectoryScenarioOutcome outcome) ...<Widget>[
-                  const SizedBox(height: 8),
-                  _ScenarioComparisonCard(
-                    baseline: value.baseline,
-                    outcome: outcome,
-                    isRecommended: outcome.id == value.recommendedScenarioId,
-                    onOpen: () =>
-                        _openScenarioDestination(outcome.intervention),
-                    onTrack: () => _trackScenario(value.baseline, outcome),
+              const SizedBox(height: 20),
+              _TrajectoryStateNotice(
+                status: model.status,
+                detail: model.statusDetail,
+                onRetry: () =>
+                    ref.read(trajectoryEngineActionsProvider).refresh(),
+                onCreate: () => goToAppView(context, ref, AppView.creator),
+              ),
+              if (blocksContent) const SizedBox(height: 12),
+              if (blocksContent &&
+                  model.status == TrajectoryEngineStatus.loading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: CircularProgressIndicator(),
                   ),
-                ],
-                const SizedBox(height: 8),
-                _DisclosurePanel(
-                  title: 'Try a custom what-if',
-                  subtitle: 'Optional simulation tools',
-                  child: _CustomScenarioComposer(
+                ),
+              if (!blocksContent) ...<Widget>[
+                if (comparison
+                    case final TrajectoryComparison value) ...<Widget>[
+                  const SizedBox(height: 12),
+                  _HorizonSelector(
+                    selectedDays: horizonDays,
+                    onSelected: (int days) {
+                      setState(() => _selectedScenarioId = null);
+                      ref
+                          .read(trajectoryHorizonDaysProvider.notifier)
+                          .select(days);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _TrajectoryOverviewCard(
                     baseline: value.baseline,
                     horizonDays: horizonDays,
-                    onComposed: (TrajectoryCustomScenarioDraft draft) {
-                      ref
-                          .read(trajectoryCustomScenarioProvider.notifier)
-                          .compose(draft);
-                      setState(
-                        () => _selectedScenarioId = trajectoryCustomScenarioId(
-                          draft,
-                          horizonDays: horizonDays,
-                        ),
-                      );
-                    },
-                    onClear: () {
-                      ref
-                          .read(trajectoryCustomScenarioProvider.notifier)
-                          .clear();
-                      setState(() => _selectedScenarioId = null);
-                    },
                   ),
-                ),
-                const SizedBox(height: 8),
-                _DisclosurePanel(
-                  title: 'Evidence and model details',
-                  subtitle: 'Baseline, calibration, and forecast sources',
-                  child: Column(
-                    children: <Widget>[
-                      if (model.decisionIntelligence
-                          case final DecisionIntelligence
-                              intelligence) ...<Widget>[
-                        DecisionIntelligenceCard(
-                          intelligence: intelligence,
-                          title: 'Decision context',
-                          compact: true,
-                          onAction: () => _openDecisionAction(
-                            intelligence.decision.actionIntent,
+                  const SizedBox(height: 12),
+                  _FutureBranches(
+                    outcomes: value.outcomes,
+                    selectedId: selected?.id,
+                    recommendedId: value.recommendedScenarioId,
+                    canRecommend: canRecommendScenario,
+                    onSelected: (String id) =>
+                        setState(() => _selectedScenarioId = id),
+                  ),
+                  if (selected
+                      case final TrajectoryScenarioOutcome outcome) ...<Widget>[
+                    const SizedBox(height: 12),
+                    _ScenarioComparisonCard(
+                      baseline: value.baseline,
+                      outcome: outcome,
+                      isRecommended:
+                          canRecommendScenario &&
+                          outcome.id == value.recommendedScenarioId,
+                      onOpen: () =>
+                          _openScenarioDestination(outcome.intervention),
+                      onTrack: () => _trackScenario(value.baseline, outcome),
+                      onCorrect: () =>
+                          _correctAssumptions(value.baseline, outcome),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  _DisclosurePanel(
+                    title: 'Try a custom what-if',
+                    subtitle: 'Optional simulation tools',
+                    child: _CustomScenarioComposer(
+                      baseline: value.baseline,
+                      horizonDays: horizonDays,
+                      onComposed: (TrajectoryCustomScenarioDraft draft) {
+                        ref
+                            .read(trajectoryCustomScenarioProvider.notifier)
+                            .compose(draft);
+                        setState(
+                          () =>
+                              _selectedScenarioId = trajectoryCustomScenarioId(
+                                draft,
+                                horizonDays: horizonDays,
+                              ),
+                        );
+                      },
+                      onClear: () {
+                        ref
+                            .read(trajectoryCustomScenarioProvider.notifier)
+                            .clear();
+                        setState(() => _selectedScenarioId = null);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _DisclosurePanel(
+                    title: 'Evidence and model details',
+                    subtitle: 'Baseline, monitoring, and forecast sources',
+                    child: Column(
+                      children: <Widget>[
+                        if (model.decisionIntelligence
+                            case final DecisionIntelligence
+                                intelligence) ...<Widget>[
+                          DecisionIntelligenceCard(
+                            intelligence: intelligence,
+                            title: 'Decision context',
+                            compact: true,
+                            onAction: () => _openDecisionAction(
+                              intelligence.decision.actionIntent,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                        ],
+                        _BaselineCard(baseline: value.baseline),
                         const SizedBox(height: 8),
+                        _CalibrationCard(summary: calibration),
+                        const SizedBox(height: 8),
+                        _TaskPredictionCard(model: model),
                       ],
-                      _BaselineCard(baseline: value.baseline),
-                      const SizedBox(height: 8),
-                      _CalibrationCard(summary: calibration),
-                      const SizedBox(height: 8),
-                      _TaskPredictionCard(model: model),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -193,8 +217,18 @@ class _TrajectoryEngineScreenState
 
   void _openDecisionAction(OperatingActionIntent intent) {
     switch (NexusActionResolver.resolve(intent)) {
-      case NexusActionDestination.creator:
+      case NexusActionDestination.creatorTask:
+        ref
+            .read(creatorNavigationIntentProvider.notifier)
+            .open(CreatorFormKind.task);
         goToAppView(context, ref, AppView.creator);
+      case NexusActionDestination.creatorNote:
+        ref
+            .read(creatorNavigationIntentProvider.notifier)
+            .open(CreatorFormKind.note);
+        goToAppView(context, ref, AppView.creator);
+      case NexusActionDestination.goals:
+        goToAppView(context, ref, AppView.goals);
       case NexusActionDestination.timeline:
         goToAppView(context, ref, AppView.timeline);
       case NexusActionDestination.smartPlanner:
@@ -246,8 +280,32 @@ class _TrajectoryEngineScreenState
       SnackBar(
         content: Text(
           stored
-              ? 'Path tracked. Its forecast will be compared with future observed evidence.'
+              ? 'Path tracked. Its forecast will be monitored against future observed evidence.'
               : 'Sign in to keep an account-scoped forecast receipt.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _correctAssumptions(
+    TrajectoryBaseline baseline,
+    TrajectoryScenarioOutcome outcome,
+  ) async {
+    final bool stored = await ref
+        .read(trajectoryForecastLedgerRepositoryProvider)
+        .recordAssumptionCorrection(
+          baseline: baseline,
+          outcome: outcome,
+          correctedAt: DateTime.now().toUtc(),
+        );
+    if (stored) ref.invalidate(trajectoryForecastLedgerProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          stored
+              ? 'Correction saved locally. This result will not count as monitoring evidence.'
+              : 'Sign in to save an account-scoped assumption correction.',
         ),
       ),
     );
@@ -288,8 +346,14 @@ class _TrajectoryOverviewCard extends StatelessWidget {
         : baseline.pressure >= 50
         ? const Color(0xFFFFC857)
         : const Color(0xFF6EE7F9);
+    final String momentumBand = baseline.momentum >= 72
+        ? 'STRONG'
+        : baseline.momentum >= 45
+        ? 'STEADY'
+        : 'BUILDING';
     return _Panel(
       title: 'Current direction',
+      accent: accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -302,7 +366,7 @@ class _TrajectoryOverviewCard extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: accent.withValues(alpha: .35)),
                 ),
                 child: Icon(Icons.route_rounded, color: accent),
@@ -339,8 +403,12 @@ class _TrajectoryOverviewCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: _OverviewMetric(
-                  label: 'PRESSURE',
-                  value: '${baseline.pressure}%',
+                  label: 'MODELED LOAD',
+                  value: baseline.pressure >= 80
+                      ? 'HIGH'
+                      : baseline.pressure >= 50
+                      ? 'WATCH'
+                      : 'LOW',
                   accent: accent,
                 ),
               ),
@@ -348,7 +416,7 @@ class _TrajectoryOverviewCard extends StatelessWidget {
               Expanded(
                 child: _OverviewMetric(
                   label: 'MOMENTUM',
-                  value: '${baseline.momentum}%',
+                  value: momentumBand,
                   accent: const Color(0xFF6EE7F9),
                 ),
               ),
@@ -356,13 +424,302 @@ class _TrajectoryOverviewCard extends StatelessWidget {
               Expanded(
                 child: _OverviewMetric(
                   label: 'ENERGY',
-                  value: '${baseline.energy}%',
+                  value: baseline.hasObservedEnergy
+                      ? '${baseline.energy}%'
+                      : 'NOT SET',
                   accent: const Color(0xFFA78BFA),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          _EvidenceOriginBoundary(baseline: baseline),
         ],
+      ),
+    );
+  }
+}
+
+class _EvidenceOriginBoundary extends StatelessWidget {
+  const _EvidenceOriginBoundary({required this.baseline});
+
+  final TrajectoryBaseline baseline;
+
+  @override
+  Widget build(BuildContext context) {
+    final String energy = baseline.hasObservedEnergy
+        ? 'recorded'
+        : '${baseline.energyOrigin.name}; not observed';
+    final String availability = baseline.hasObservedAvailability
+        ? 'recorded'
+        : '${baseline.availabilityOrigin.name}; not observed';
+    return Text(
+      'Evidence boundary: energy is $energy; availability is $availability. '
+      'Task durations remain estimates and deadline effects remain projections.',
+      style: const TextStyle(
+        color: Color(0xFFB8C7E8),
+        fontSize: 11,
+        height: 1.35,
+      ),
+    );
+  }
+}
+
+class _ResultAssumptions extends StatelessWidget {
+  const _ResultAssumptions({required this.assumptions});
+
+  final List<String> assumptions;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> visible = assumptions
+        .map((String value) => value.trim())
+        .where((String value) => value.isNotEmpty)
+        .toList(growable: false);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFC857).withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: const Color(0xFFFFC857).withValues(alpha: .24),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'ASSUMPTIONS FOR THIS RESULT',
+            style: TextStyle(
+              color: Color(0xFFFFC857),
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          if (visible.isEmpty)
+            const Text(
+              'No additional scenario assumptions were listed. Task durations and future availability remain modeled.',
+              style: TextStyle(
+                color: Color(0xFFD8E2FF),
+                fontSize: 10,
+                height: 1.3,
+              ),
+            )
+          else
+            for (final String assumption in visible)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  '• $assumption',
+                  style: const TextStyle(
+                    color: Color(0xFFD8E2FF),
+                    fontSize: 10,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FutureBranches extends StatelessWidget {
+  const _FutureBranches({
+    required this.outcomes,
+    required this.selectedId,
+    required this.recommendedId,
+    required this.canRecommend,
+    required this.onSelected,
+  });
+
+  final List<TrajectoryScenarioOutcome> outcomes;
+  final String? selectedId;
+  final String recommendedId;
+  final bool canRecommend;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<TrajectoryScenarioOutcome> visible = outcomes.take(3).toList();
+    TrajectoryScenarioOutcome? selected;
+    for (final TrajectoryScenarioOutcome item in outcomes) {
+      if (item.id == selectedId) {
+        selected = item;
+        break;
+      }
+    }
+    if (selected case final TrajectoryScenarioOutcome selectedOutcome) {
+      if (!visible.any(
+        (TrajectoryScenarioOutcome item) => item.id == selectedOutcome.id,
+      )) {
+        visible.add(selectedOutcome);
+      }
+    }
+
+    return TemporalGlassSurface(
+      accent: AppColors.neonViolet,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'FUTURE BRANCHES',
+            style: TextStyle(
+              color: AppColors.neonViolet,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Select a path to preview its projected consequences.',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.35,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (int index = 0; index < visible.length; index++) ...<Widget>[
+            _BranchRow(
+              outcome: visible[index],
+              label: canRecommend && visible[index].id == recommendedId
+                  ? 'BEST-FIT'
+                  : 'MODELED PATH ${index + 1}',
+              accent: switch (index % 3) {
+                0 => AppColors.neonCyan,
+                1 => AppColors.neonViolet,
+                _ => AppColors.memoryAmber,
+              },
+              selected: visible[index].id == selectedId,
+              onTap: () => onSelected(visible[index].id),
+            ),
+            if (index != visible.length - 1)
+              Divider(color: Colors.white.withValues(alpha: .09), height: 1),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BranchRow extends StatelessWidget {
+  const _BranchRow({
+    required this.outcome,
+    required this.label,
+    required this.accent,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final TrajectoryScenarioOutcome outcome;
+  final String label;
+  final Color accent;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final int momentumLow = (outcome.projectedMomentum - outcome.uncertainty)
+        .clamp(0, 100);
+    final int momentumHigh = (outcome.projectedMomentum + outcome.uncertainty)
+        .clamp(0, 100);
+    final int pressureLow = (outcome.projectedPressure - outcome.uncertainty)
+        .clamp(0, 100);
+    final int pressureHigh = (outcome.projectedPressure + outcome.uncertainty)
+        .clamp(0, 100);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label. ${outcome.intervention.title}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 64),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Container(
+                    width: 12,
+                    height: 12,
+                    margin: const EdgeInsets.only(top: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: accent,
+                      border: Border.all(color: Colors.white70),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: accent.withValues(alpha: selected ? .72 : .32),
+                          blurRadius: selected ? 12 : 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          label,
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          outcome.intervention.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: selected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  ${outcome.confidence.band.name} evidence',
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 11,
+                            height: 1.3,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        _ResultAssumptions(assumptions: outcome.assumptions),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: accent,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -381,13 +738,8 @@ class _OverviewMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: accent.withValues(alpha: .22)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       child: Column(
         children: <Widget>[
           Text(
@@ -397,7 +749,7 @@ class _OverviewMetric extends StatelessWidget {
               color: Color(0xFF93A4C9),
               fontSize: 8,
               fontWeight: FontWeight.w900,
-              letterSpacing: .8,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 3),
@@ -428,17 +780,18 @@ class _DisclosurePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xE611192A),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFF24345B)),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: .2),
+          ),
+        ),
       ),
-      clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
-        childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-        iconColor: const Color(0xFF6EE7F9),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+        iconColor: AppColors.neonCyan,
         collapsedIconColor: const Color(0xFF93A4C9),
         title: Text(
           title,
@@ -547,6 +900,17 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
             ],
             selected: <TrajectoryCustomAdjustment>{_adjustment},
             showSelectedIcon: false,
+            style: ButtonStyle(
+              minimumSize: const WidgetStatePropertyAll<Size>(
+                Size(0, AppSizes.touchTarget),
+              ),
+              shape: WidgetStatePropertyAll<OutlinedBorder>(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              textStyle: const WidgetStatePropertyAll<TextStyle>(
+                TextStyle(letterSpacing: 0),
+              ),
+            ),
             onSelectionChanged: (Set<TrajectoryCustomAdjustment> selected) {
               setState(() => _adjustment = selected.first);
             },
@@ -583,9 +947,21 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
                       ),
                 icon: const Icon(Icons.alt_route_rounded),
                 label: Text('Compare ${widget.horizonDays}-day path'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, AppSizes.touchTarget),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
               TextButton(
                 onPressed: widget.onClear,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, AppSizes.touchTarget),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
                 child: const Text('Clear my scenario'),
               ),
             ],
@@ -606,17 +982,19 @@ class _CalibrationCard extends StatelessWidget {
     final TrajectoryCalibrationSummary? value = summary.asData?.value;
     final String state = value == null
         ? (summary.isLoading ? 'loading' : 'unavailable')
-        : value.state.name;
+        : value.resolvedForecasts == 0
+        ? 'provisional'
+        : 'monitored';
     final String detail = value == null
-        ? 'Calibration evidence is not currently available.'
+        ? 'Monitoring evidence is not currently available.'
         : value.resolvedForecasts == 0
         ? 'No tracked path has reached its horizon yet. Forecasts remain provisional.'
-        : '${value.resolvedForecasts} resolved • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%.';
+        : '${value.resolvedForecasts} resolved and monitored • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%. Coefficients and uncertainty are unchanged.';
     return _Panel(
-      title: 'Forecast calibration',
+      title: 'Forecast monitoring',
       child: Semantics(
         container: true,
-        label: 'Forecast calibration $state. $detail',
+        label: 'Forecast monitoring $state. $detail',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -626,7 +1004,7 @@ class _CalibrationCard extends StatelessWidget {
                 color: Color(0xFFFFC857),
                 fontSize: 11,
                 fontWeight: FontWeight.w900,
-                letterSpacing: 1,
+                letterSpacing: 0,
               ),
             ),
             const SizedBox(height: 4),
@@ -679,12 +1057,14 @@ class _TrajectoryStateNotice extends StatelessWidget {
     final Color accent = switch (status) {
       TrajectoryEngineStatus.error => const Color(0xFFFF5D73),
       TrajectoryEngineStatus.offline ||
+      TrajectoryEngineStatus.learning ||
       TrajectoryEngineStatus.partial ||
       TrajectoryEngineStatus.empty => const Color(0xFFFFC857),
       _ => const Color(0xFF6EE7F9),
     };
     final String label = switch (status) {
       TrajectoryEngineStatus.loading => 'BUILDING BASELINE',
+      TrajectoryEngineStatus.learning => 'LEARNING YOUR PATTERN',
       TrajectoryEngineStatus.ready => 'BASELINE READY',
       TrajectoryEngineStatus.empty => 'EVIDENCE NEEDED',
       TrajectoryEngineStatus.partial => 'PARTIAL EVIDENCE',
@@ -695,14 +1075,11 @@ class _TrajectoryStateNotice extends StatelessWidget {
       container: true,
       liveRegion: true,
       label: '$label. $detail',
-      child: Container(
+      child: TemporalGlassSurface(
         width: double.infinity,
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: .08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accent.withValues(alpha: .35)),
-        ),
+        accent: accent,
+        opacity: .9,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -718,7 +1095,7 @@ class _TrajectoryStateNotice extends StatelessWidget {
                       color: accent,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -738,6 +1115,15 @@ class _TrajectoryStateNotice extends StatelessWidget {
                 onPressed: status == TrajectoryEngineStatus.empty
                     ? onCreate
                     : onRetry,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(
+                    AppSizes.touchTarget,
+                    AppSizes.touchTarget,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
                 child: Text(
                   status == TrajectoryEngineStatus.empty
                       ? 'Open Creator'
@@ -767,18 +1153,31 @@ class _BaselineCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
-              _ValuePill(label: 'Momentum', value: '${baseline.momentum}%'),
-              _ValuePill(label: 'Pressure', value: '${baseline.pressure}%'),
-              _ValuePill(label: 'Energy', value: '${baseline.energy}%'),
-              _ValuePill(
+              _BaselineMetric(
+                label: 'Momentum',
+                value: 'modeled ${baseline.momentum}%',
+              ),
+              _BaselineMetric(
+                label: 'Pressure',
+                value: 'modeled ${baseline.pressure}%',
+              ),
+              _BaselineMetric(
+                label: 'Energy',
+                value: baseline.hasObservedEnergy
+                    ? '${baseline.energy}% observed'
+                    : 'not observed',
+              ),
+              _BaselineMetric(
                 label: 'Observed outcomes',
                 value: '${baseline.observationCount}',
               ),
-              _ValuePill(
+              _BaselineMetric(
                 label: 'Capacity gap',
-                value: '${baseline.unscheduledMinutes}m',
+                value: baseline.hasObservedAvailability
+                    ? '${baseline.unscheduledMinutes}m'
+                    : 'not scored',
               ),
-              _ValuePill(
+              _BaselineMetric(
                 label: 'Progression',
                 value:
                     'L${baseline.progression.level} • ${baseline.progression.streak}d',
@@ -888,8 +1287,9 @@ class _HorizonSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Panel(
-      title: 'Look ahead',
+    return Semantics(
+      container: true,
+      label: 'Forecast horizon. $selectedDays days selected.',
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
@@ -898,7 +1298,25 @@ class _HorizonSelector extends StatelessWidget {
             ChoiceChip(
               label: Text('$days DAYS'),
               selected: selectedDays == days,
+              showCheckmark: false,
               onSelected: (_) => onSelected(days),
+              labelStyle: TextStyle(
+                color: selectedDays == days
+                    ? AppColors.background
+                    : Colors.white70,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+              backgroundColor: AppColors.bgSecondary.withValues(alpha: .82),
+              selectedColor: AppColors.neonCyan,
+              side: BorderSide(
+                color: AppColors.neonCyan.withValues(alpha: .42),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              materialTapTargetSize: MaterialTapTargetSize.padded,
             ),
         ],
       ),
@@ -931,6 +1349,7 @@ class _ScenarioComparisonCard extends StatelessWidget {
     required this.isRecommended,
     required this.onOpen,
     required this.onTrack,
+    required this.onCorrect,
   });
 
   final TrajectoryBaseline baseline;
@@ -938,11 +1357,13 @@ class _ScenarioComparisonCard extends StatelessWidget {
   final bool isRecommended;
   final VoidCallback onOpen;
   final VoidCallback onTrack;
+  final VoidCallback onCorrect;
 
   @override
   Widget build(BuildContext context) {
     return _Panel(
       title: isRecommended ? 'Recommended adjustment' : 'Custom forecast',
+      accent: isRecommended ? AppColors.neonViolet : AppColors.neonCyan,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -996,11 +1417,19 @@ class _ScenarioComparisonCard extends StatelessWidget {
               height: 1.4,
             ),
           ),
+          const SizedBox(height: 8),
+          _ResultAssumptions(assumptions: outcome.assumptions),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: onOpen,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               icon: Icon(
                 outcome.intervention.type ==
                         TrajectoryInterventionType.applySmartPlanner
@@ -1014,6 +1443,19 @@ class _ScenarioComparisonCard extends StatelessWidget {
                     : 'Review on Timeline',
               ),
             ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('trajectory-correct-assumptions'),
+            onPressed: onCorrect,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            icon: const Icon(Icons.edit_note_rounded),
+            label: const Text('Correct assumptions'),
           ),
           const SizedBox(height: 4),
           ExpansionTile(
@@ -1064,11 +1506,21 @@ class _ScenarioFullDetails extends StatelessWidget {
     final MaterialLocalizations localizations = MaterialLocalizations.of(
       context,
     );
-    return _Panel(
-      title: 'Full impact report',
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          const Text(
+            'FULL IMPACT REPORT',
+            style: TextStyle(
+              color: AppColors.neonViolet,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 8),
           Text(
             outcome.intervention.title,
             style: const TextStyle(
@@ -1108,7 +1560,7 @@ class _ScenarioFullDetails extends StatelessWidget {
                 label: 'Accumulated risk',
                 current: outcome.risk.currentScore,
                 projected: outcome.risk.projectedScore,
-                uncertainty: 0,
+                uncertainty: outcome.uncertainty,
                 lowerIsBetter: true,
               ),
             ],
@@ -1131,7 +1583,7 @@ class _ScenarioFullDetails extends StatelessWidget {
                 color: Color(0xFF6EE7F9),
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
+                letterSpacing: 0,
               ),
             ),
             const SizedBox(height: 6),
@@ -1155,7 +1607,7 @@ class _ScenarioFullDetails extends StatelessWidget {
               color: Color(0xFF6EE7F9),
               fontSize: 10,
               fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 6),
@@ -1210,13 +1662,19 @@ class _ScenarioFullDetails extends StatelessWidget {
                 color: Color(0xFFFFC857),
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
-                letterSpacing: .6,
+                letterSpacing: 0,
               ),
             ),
           ),
           const SizedBox(height: 10),
           FilledButton.icon(
             onPressed: onOpen,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             icon: Icon(
               outcome.intervention.type ==
                       TrajectoryInterventionType.applySmartPlanner
@@ -1233,8 +1691,14 @@ class _ScenarioFullDetails extends StatelessWidget {
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: onTrack,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             icon: const Icon(Icons.query_stats_rounded),
-            label: const Text('Track this path for calibration'),
+            label: const Text('Track this path for monitoring'),
           ),
         ],
       ),
@@ -1268,7 +1732,7 @@ class _MetricDelta extends StatelessWidget {
       padding: const EdgeInsets.all(9),
       decoration: BoxDecoration(
         color: const Color(0xFF10182A),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFF24345B)),
       ),
       child: Column(
@@ -1280,7 +1744,7 @@ class _MetricDelta extends StatelessWidget {
               color: Color(0xFF93A4D6),
               fontSize: 9,
               fontWeight: FontWeight.w800,
-              letterSpacing: 1,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 4),
@@ -1310,8 +1774,8 @@ class _MetricDelta extends StatelessWidget {
   }
 }
 
-class _ValuePill extends StatelessWidget {
-  const _ValuePill({required this.label, required this.value});
+class _BaselineMetric extends StatelessWidget {
+  const _BaselineMetric({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1319,19 +1783,37 @@ class _ValuePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      constraints: const BoxConstraints(minWidth: 112, minHeight: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF10182A),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFF24345B)),
+        color: AppColors.bgSecondary.withValues(alpha: .7),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: .18)),
       ),
-      child: Text(
-        '$label: $value',
-        style: const TextStyle(
-          color: Color(0xFFD8E2FF),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1356,7 +1838,7 @@ class _Section extends StatelessWidget {
               color: Color(0xFF6EE7F9),
               fontSize: 10,
               fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 3),
@@ -1400,44 +1882,38 @@ class _EvidenceList extends StatelessWidget {
 }
 
 class _Panel extends StatelessWidget {
-  const _Panel({required this.title, required this.child});
+  const _Panel({
+    required this.title,
+    required this.child,
+    this.accent = AppColors.neonCyan,
+  });
 
   final String title;
   final Widget child;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF0D1322),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFF24345B)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Ink(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[Color(0xFF0D1322), Color(0xFF15233F)],
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              title.toUpperCase(),
-              style: const TextStyle(
-                color: Color(0xFF6EE7F9),
-                fontSize: 10,
-                letterSpacing: 1,
-                fontWeight: FontWeight.w800,
-              ),
+    return TemporalGlassSurface(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      accent: accent,
+      opacity: .9,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              color: accent,
+              fontSize: 10,
+              letterSpacing: 0,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 8),
-            child,
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          child,
+        ],
       ),
     );
   }

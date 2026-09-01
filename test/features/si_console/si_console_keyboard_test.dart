@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ void main() {
     (WidgetTester tester) async {
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
           aiControllerProvider.overrideWith(
             (Ref ref) => _RecordingAiController(ref),
           ),
@@ -72,6 +74,7 @@ void main() {
     (WidgetTester tester) async {
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
           aiControllerProvider.overrideWith(
             (Ref ref) => _RecordingAiController(ref),
           ),
@@ -119,22 +122,13 @@ void main() {
       // frames. Poll until both settle instead of guessing a frame count.
       await _pumpUntilScrollSettled(tester, scrollable);
       expect(scrollable.position.maxScrollExtent, greaterThan(0));
-      expect(scrollable.position.pixels, scrollable.position.maxScrollExtent);
+      expect(scrollable.position.pixels, greaterThan(0));
 
-      // Move the transcript directly. The Phase 7 query builder intentionally
-      // overlaps the lower part of the transcript, so a center-point drag can
-      // correctly hit the composer instead of the ListView.
-      scrollable.position.jumpTo(
-        (scrollable.position.maxScrollExtent - 300).clamp(
-          0,
-          scrollable.position.maxScrollExtent,
-        ),
-      );
+      // Move away from the latest response using a stable absolute position.
+      // A lazy ListView's estimated maximum can change as children materialize.
+      scrollable.position.jumpTo(0);
       await tester.pump();
-      expect(
-        scrollable.position.pixels,
-        lessThan(scrollable.position.maxScrollExtent),
-      );
+      expect(scrollable.position.pixels, 0);
 
       // Simulate the keyboard opening. didChangeMetrics should re-anchor
       // the transcript to the latest message even though

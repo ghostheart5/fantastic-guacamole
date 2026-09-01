@@ -26,7 +26,7 @@ class CompleteTask {
   final IProgressionRepository? progressionRepo;
   final DurableCompleteMutation? durableMutation;
 
-  Future<CompletionSideEffectDecision> call(String id) async {
+  Future<CompletionSideEffectDecision> call(String id, {DateTime? now}) async {
     CompletionMutationOutcome outcome = CompletionMutationOutcome.applied;
     final DurableCompleteMutation? mutation = durableMutation;
     if (mutation != null) {
@@ -45,9 +45,13 @@ class CompleteTask {
           'Recurring completion requires the durable occurrence authority.',
         );
       }
-      final DateTime now = DateTime.now();
+      final DateTime timestamp = now ?? DateTime.now();
       await repository.saveTask(
-        task.copyWith(isCompleted: true, completedAt: now, updatedAt: now),
+        task.copyWith(
+          isCompleted: true,
+          completedAt: timestamp,
+          updatedAt: timestamp,
+        ),
       );
     }
 

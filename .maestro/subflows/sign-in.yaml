@@ -8,14 +8,9 @@ appId: com.ghostheart5.chronospark
 
 - runFlow:
     when:
-      visible: "Mock login:.*"
+      visible: "TESTER ACCESS.*TEST LOGIN"
     commands:
-      - tapOn: "Email address"
-      - inputText: "mock@chronospark.app"
-      - tapOn: "Password"
-      - inputText: "ChronoSpark123!"
-      - hideKeyboard
-      - tapOn: "ENTER SYSTEM"
+      - tapOn: "TESTER ACCESS.*TEST LOGIN"
 
 - runFlow:
     when:

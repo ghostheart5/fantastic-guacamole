@@ -15,5 +15,5 @@ tags:
 - assertVisible: "SI CONSOLE.*"
 
 # The screen must expose its current source-aware contract, not only a title.
-- assertVisible: "Systems intelligence - source-aware guidance"
-- assertVisible: "Read-only evidence ready:.*"
+- assertVisible: "Systems intelligence · source-aware guidance"
+- assertVisible: "No planning evidence yet. SI will identify what it cannot determine. Person context: shared but empty; not used for answers."

@@ -57,8 +57,8 @@ void main() {
     expect(restored.toJson(), fullEntity.toJson());
   });
 
-  test('legacy const construction retains a deterministic creation epoch', () {
-    const Task task = Task(
+  test('legacy construction retains a deterministic creation epoch', () {
+    final Task task = Task(
       id: 'task-2',
       title: 'Legacy fixture',
       priority: 3,

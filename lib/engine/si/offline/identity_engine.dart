@@ -13,6 +13,15 @@ class IdentityState {
   final double executionIdentity;
   final double growthIdentity;
 
+  bool get hasMeaningfulEvidence {
+    final List<double> scores = <double>[
+      disciplineIdentity,
+      executionIdentity,
+      growthIdentity,
+    ]..sort();
+    return scores.last >= .16 && scores.last - scores.first >= .02;
+  }
+
   IdentityState copyWith({
     double? disciplineIdentity,
     double? executionIdentity,

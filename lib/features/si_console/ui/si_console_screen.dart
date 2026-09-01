@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
@@ -16,6 +17,7 @@ import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/typing_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -63,6 +65,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   final TextEditingController _scenarioAssumption = TextEditingController();
   final ScrollController _scroll = ScrollController();
   final GlobalKey _composerKey = GlobalKey();
+  final GlobalKey _latestResponseKey = GlobalKey();
   // Starting guess only, replaced by the composer's real measured height
   // right after the first frame — see _measureComposer.
   final ValueNotifier<double> _composerHeight = ValueNotifier<double>(220);
@@ -70,6 +73,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   SIV2Intent _intent = SIV2Intent.answer;
   Set<SIV2Source> _sources = SIV2Source.values.toSet();
   SIV2TimeRange _timeRange = SIV2TimeRange.thirtyDays;
+  int _latestResponseScrollRequest = 0;
   late final AnimationController _typingAnim;
 
   /// Captured in [initState] because `ref` cannot be read from [dispose] —
@@ -106,19 +110,23 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final voiceService = ref.read(voiceServiceProvider);
     _stopVoice = voiceService.stop;
     _speakAccessibilityHint = voiceService.speakAccessibilityHint;
-    _messages.add(
-      const _Msg(
-        text:
-            'SI V2 is ready. Analysis uses a read-only Evidence Lens over tasks, goals, milestones, and Timeline. Every substantive answer separates facts, calculations, inferences, scenarios, conflicts, confidence anatomy, and evidence links.',
-        isUser: false,
-        emotion: 'confident',
-        systemPanel: true,
-      ),
-    );
     _typingAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final MediaQueryData media = MediaQuery.of(context);
+    if (media.disableAnimations || media.accessibleNavigation) {
+      _typingAnim
+        ..stop()
+        ..value = .5;
+    } else if (!_typingAnim.isAnimating) {
+      _typingAnim.repeat();
+    }
   }
 
   @override
@@ -167,7 +175,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             return AlertDialog(
               backgroundColor: const Color(0xFF0C1420),
               surfaceTintColor: Colors.transparent,
-              title: const Text('Report AI response'),
+              title: const Text('Report response'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -376,16 +384,45 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         ),
       );
     });
-    _scrollToBottom();
+    _scrollToLatestResponse();
   }
 
-  void _send() {
+  void _sendExample(String question) {
+    if (_typing) return;
+    _input
+      ..text = question
+      ..selection = TextSelection.collapsed(offset: question.length);
+    unawaited(_send());
+  }
+
+  Future<void> _send() async {
     final String text = _input.text.trim();
     if (text.isEmpty) return;
     if (_typing) return;
 
+    final SIConsoleQueryController controller = ref.read(
+      siConsoleQueryControllerProvider,
+    );
     if (ref.read(siConsoleQueryControllerProvider).detectsCrisis(text)) {
-      showCrisisDialog(context);
+      await showCrisisDialog(context);
+      return;
+    }
+    final EmotionalSafetyAssessment safety = controller.assessEmotionalSafety(
+      text,
+    );
+    if (safety.requiresSupportivePause) {
+      final SupportiveDistressChoice choice =
+          await showSupportiveDistressDialog(context);
+      if (!mounted ||
+          choice != SupportiveDistressChoice.continueWithGentleQuestion) {
+        return;
+      }
+      _input.clear();
+      _appendLocalResponse(
+        query: text,
+        typed: controller.supportiveSafetyResponse(query: text),
+        fallbackEmotion: 'balanced',
+      );
       return;
     }
 
@@ -393,13 +430,23 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _input.clear();
       return;
     }
+    final List<String> priorUserTurns = _messages
+        .where((_Msg message) => message.isUser)
+        .map((_Msg message) => message.text.trim())
+        .where((String value) => value.isNotEmpty)
+        .toList(growable: false);
     _input.clear();
 
     _safeSetState(() => _messages.add(_Msg(text: text, isUser: true)));
     _scrollToBottom();
     _safeSetState(() => _typing = true);
 
-    _dispatchQuery(text);
+    _dispatchQuery(
+      text,
+      priorUserTurns: priorUserTurns.length <= 4
+          ? priorUserTurns
+          : priorUserTurns.sublist(priorUserTurns.length - 4),
+    );
   }
 
   bool _handleLocalShortcut(String text) {
@@ -440,7 +487,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           response:
               '${SIConsoleShortcutRegistry.buildHelp(filter: invocation.arguments)}\n\n'
               'Rules:\n'
-              '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
+              '- Task creation is Creator-only. Use Creator to create tasks.\n'
               '- SI V2 has read-only evidence capability and cannot mutate domain data.\n'
               '- The visible query builder is primary; shortcuts are aliases.\n\n'
               'High-signal SI V2 prompts:\n'
@@ -493,7 +540,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
   }
 
-  Future<void> _dispatchQuery(String text) async {
+  Future<void> _dispatchQuery(
+    String text, {
+    required List<String> priorUserTurns,
+  }) async {
     try {
       final SIV2Query query = SIV2Query.fromUserInput(
         rawText: text,
@@ -502,6 +552,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         timeRange: _timeRange,
         entityFilter: _entityFilter.text,
         scenarioAssumption: _scenarioAssumption.text,
+        priorUserTurns: priorUserTurns,
       );
       final SIV2Response response = await ref
           .read(siV2QueryServiceProvider)
@@ -528,7 +579,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           ),
         );
       });
-      _scrollToBottom();
+      _scrollToLatestResponse();
     } catch (_) {
       if (!mounted) return;
       final AIRecommendation fallback = ref
@@ -566,16 +617,59 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     });
   }
 
+  void _scrollToLatestResponse() {
+    final int request = ++_latestResponseScrollRequest;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          request != _latestResponseScrollRequest ||
+          !_scroll.hasClients) {
+        return;
+      }
+      final BuildContext? responseContext = _latestResponseKey.currentContext;
+      if (responseContext != null) {
+        _ensureLatestResponseVisible(responseContext);
+        return;
+      }
+
+      // A lazily built transcript may not have created the newest bubble yet.
+      // Reveal it first, then align the response from its beginning.
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || request != _latestResponseScrollRequest) return;
+        final BuildContext? revealedContext = _latestResponseKey.currentContext;
+        if (revealedContext != null) {
+          _ensureLatestResponseVisible(revealedContext);
+        }
+      });
+    });
+  }
+
+  void _ensureLatestResponseVisible(BuildContext responseContext) {
+    final MediaQueryData media = MediaQuery.of(context);
+    unawaited(
+      Scrollable.ensureVisible(
+        responseContext,
+        alignment: 0.05,
+        duration: media.disableAnimations || media.accessibleNavigation
+            ? Duration.zero
+            : const Duration(milliseconds: 240),
+        curve: Curves.easeOut,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AsyncValue<SIV2EvidenceSnapshot> snapshotAsync = ref.watch(
       siV2EvidenceSnapshotProvider,
     );
+    final AsyncValue<bool> availabilityAsync = ref.watch(
+      siV2AvailabilityProvider,
+    );
     final SIV2EvidenceSnapshot? snapshot = snapshotAsync.asData?.value;
     final Object? consoleError = snapshotAsync.asError?.error;
-    final String? engineSnapshot = snapshot == null
-        ? null
-        : 'Read-only lens: ${snapshot.tasks.length} tasks, ${snapshot.goals.length} goals, ${snapshot.milestones.length} milestones, ${snapshot.timeline.length} Timeline events';
+    final bool consoleAvailable = availabilityAsync.asData?.value ?? false;
     final MediaQueryData mediaQuery = MediaQuery.of(context);
     final double keyboardInset = mediaQuery.viewInsets.bottom;
     final bool keyboardVisible = keyboardInset > 0;
@@ -602,39 +696,47 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   unawaited(ref.read(voiceServiceProvider).stop());
                   goToAppView(context, ref, AppView.nexus);
                 },
-                engineSnapshot: engineSnapshot,
-                onSpeakSummary: () {
-                  final List<_Msg> recentAssistant = _messages
-                      .where((msg) => !msg.isUser)
-                      .toList(growable: false);
-                  final List<String> points = recentAssistant.reversed
-                      .take(3)
-                      .map((msg) => msg.text)
-                      .toList(growable: false);
-                  unawaited(
-                    ref
-                        .read(voiceServiceProvider)
-                        .speakSummary(
-                          title: 'SI console voice summary',
-                          points: points,
-                        ),
-                  );
-                },
+                onSpeakSummary: _messages.any((_Msg msg) => !msg.isUser)
+                    ? () {
+                        final List<_Msg> recentAssistant = _messages
+                            .where((msg) => !msg.isUser)
+                            .toList(growable: false);
+                        final List<String> points = recentAssistant.reversed
+                            .take(3)
+                            .map((msg) => msg.text)
+                            .toList(growable: false);
+                        unawaited(
+                          ref
+                              .read(voiceServiceProvider)
+                              .speakSummary(
+                                title: 'SI console voice summary',
+                                points: points,
+                              ),
+                        );
+                      }
+                    : null,
                 onSpeakAccessibility: () {
                   unawaited(_showAccessibilityGuide());
                 },
               ),
               _ContextStatusBanner(
+                availabilityLoading: availabilityAsync.isLoading,
+                availabilityError: availabilityAsync.asError?.error,
+                available: consoleAvailable,
                 loading: snapshotAsync.isLoading,
                 error: consoleError,
                 snapshot: snapshot,
-                onRetry: () => ref.invalidate(siV2EvidenceSnapshotProvider),
+                onRetry: () {
+                  ref.invalidate(siV2AvailabilityProvider);
+                  ref.invalidate(siV2EvidenceSnapshotProvider);
+                },
               ),
               Expanded(
                 child: ValueListenableBuilder<double>(
                   valueListenable: _composerHeight,
                   builder: (context, composerHeight, _) {
                     final double composerReservedHeight = composerHeight;
+                    final bool showWelcome = _messages.isEmpty && !_typing;
                     return Stack(
                       children: [
                         Positioned.fill(
@@ -646,12 +748,21 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                               16,
                               composerReservedHeight + composerBottomInset,
                             ),
-                            itemCount: _messages.length + (_typing ? 1 : 0),
+                            itemCount: showWelcome
+                                ? 1
+                                : _messages.length + (_typing ? 1 : 0),
                             itemBuilder: (context, i) {
+                              if (showWelcome) {
+                                return _ConsoleWelcome(
+                                  enabled: consoleAvailable,
+                                  snapshot: snapshot,
+                                  onQuestion: _sendExample,
+                                );
+                              }
                               if (_typing && i == _messages.length) {
                                 return _TypingIndicator(animation: _typingAnim);
                               }
-                              return _BubbleTile(
+                              final Widget bubble = _BubbleTile(
                                 msg: _messages[i],
                                 onReport: _messages[i].isUser
                                     ? null
@@ -659,6 +770,20 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                         _showReportDialog(_messages[i]),
                                       ),
                               );
+                              final bool latestResponse =
+                                  i == _messages.length - 1 &&
+                                  !_messages[i].isUser;
+                              return latestResponse
+                                  ? KeyedSubtree(
+                                      key: _latestResponseKey,
+                                      child: KeyedSubtree(
+                                        key: const Key(
+                                          'si-latest-response-anchor',
+                                        ),
+                                        child: bubble,
+                                      ),
+                                    )
+                                  : bubble;
                             },
                           ),
                         ),
@@ -680,6 +805,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                 onSend: _send,
                                 compact: keyboardVisible,
                                 busy: _typing,
+                                enabled: consoleAvailable,
                                 intent: _intent,
                                 sources: _sources,
                                 timeRange: _timeRange,
@@ -726,12 +852,18 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
 class _ContextStatusBanner extends StatelessWidget {
   const _ContextStatusBanner({
+    required this.availabilityLoading,
+    required this.availabilityError,
+    required this.available,
     required this.loading,
     required this.error,
     required this.snapshot,
     required this.onRetry,
   });
 
+  final bool availabilityLoading;
+  final Object? availabilityError;
+  final bool available;
   final bool loading;
   final Object? error;
   final SIV2EvidenceSnapshot? snapshot;
@@ -742,7 +874,20 @@ class _ContextStatusBanner extends StatelessWidget {
     final String message;
     final IconData icon;
     final Color accent;
-    if (error != null) {
+    if (availabilityError != null) {
+      message = 'SI Console access could not be verified. No query was sent.';
+      icon = Icons.error_outline_rounded;
+      accent = Colors.amberAccent;
+    } else if (availabilityLoading) {
+      message = 'Checking SI Console access...';
+      icon = Icons.sync_rounded;
+      accent = AppColors.neonCyan;
+    } else if (!available) {
+      message =
+          'SI Console is not enabled for this account. No query was sent.';
+      icon = Icons.lock_outline_rounded;
+      accent = Colors.amberAccent;
+    } else if (error != null) {
       message = PublicFailure.from(
         error!,
         fallback:
@@ -755,9 +900,18 @@ class _ContextStatusBanner extends StatelessWidget {
       icon = Icons.sync_rounded;
       accent = AppColors.neonCyan;
     } else {
-      message = snapshot == null
+      final SIV2EvidenceSnapshot? evidence = snapshot;
+      final int evidenceCount = evidence == null
+          ? 0
+          : evidence.tasks.length +
+                evidence.goals.length +
+                evidence.milestones.length +
+                evidence.timeline.length;
+      message = evidence == null
           ? 'Evidence state unavailable.'
-          : 'Read-only evidence ready: ${snapshot!.tasks.length} tasks, ${snapshot!.goals.length} goals, ${snapshot!.milestones.length} milestones, ${snapshot!.timeline.length} Timeline events.';
+          : evidenceCount == 0
+          ? 'No planning evidence yet. SI will identify what it cannot determine. ${_personContextBoundary(evidence)}'
+          : 'Evidence ready: ${evidence.tasks.length} tasks · ${evidence.goals.length} goals · ${evidence.milestones.length} milestones · ${evidence.timeline.length} Timeline. ${_personContextBoundary(evidence)}';
       icon = Icons.verified_rounded;
       accent = Colors.greenAccent;
     }
@@ -765,9 +919,11 @@ class _ContextStatusBanner extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      decoration: const BoxDecoration(
-        color: Color(0xFF07111C),
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+      decoration: BoxDecoration(
+        color: AppColors.bgSecondary.withValues(alpha: 0.82),
+        border: Border(
+          bottom: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.18)),
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -789,7 +945,7 @@ class _ContextStatusBanner extends StatelessWidget {
               ),
             ),
           ),
-          if (error != null) ...<Widget>[
+          if (availabilityError != null || error != null) ...<Widget>[
             const SizedBox(width: 8),
             TextButton(
               onPressed: onRetry,
@@ -802,142 +958,164 @@ class _ContextStatusBanner extends StatelessWidget {
   }
 }
 
+String _personContextBoundary(SIV2EvidenceSnapshot snapshot) {
+  final SIV2PersonContextEvidence? context = snapshot.personContext;
+  if (context == null) {
+    return 'Person context: unavailable; not used for answers.';
+  }
+  if (context.isEmpty) {
+    return 'Person context: shared but empty; not used for answers.';
+  }
+  return 'Person context: ${context.signals.length} user-reported ${context.signals.length == 1 ? 'item' : 'items'}, provenance only; not used for answers or answer evidence.';
+}
+
 class _Header extends StatelessWidget {
   const _Header({
     required this.onBack,
     required this.onSpeakSummary,
     required this.onSpeakAccessibility,
-    this.engineSnapshot,
   });
   final VoidCallback onBack;
-  final VoidCallback onSpeakSummary;
+  final VoidCallback? onSpeakSummary;
   final VoidCallback onSpeakAccessibility;
-  final String? engineSnapshot;
 
   @override
   Widget build(BuildContext context) {
-    final bool compact = MediaQuery.sizeOf(context).width < 760;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: const BoxDecoration(
-        color: Color(0xFF07111C),
-        border: Border(bottom: BorderSide(color: Colors.white10)),
-      ),
+    final bool largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: <Widget>[
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
               Semantics(
                 label: 'Back to Nexus',
+                button: true,
+                onTap: onBack,
                 child: IconButton(
-                  onPressed: onBack,
                   tooltip: 'Back to Nexus',
-                  icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white70,
-                    size: 20,
+                  onPressed: onBack,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 48,
+                    height: 48,
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Colors.greenAccent,
-                  shape: BoxShape.circle,
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(width: 8),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'SI CONSOLE V2',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 3,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    // "SI" is the app's own coinage and appears nowhere in
-                    // onboarding, so expand it here: a user arriving on this
-                    // screen otherwise has no way to learn what it means.
-                    Text(
-                      'Systems intelligence - source-aware guidance',
-                      style: TextStyle(
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
+              Expanded(
+                child: TemporalScreenHeader(
+                  title: 'SI Console V2',
+                  subtitle: largeText
+                      ? null
+                      : 'Systems intelligence · source-aware guidance',
+                  eyebrow: largeText ? null : 'Evidence trace',
                 ),
               ),
-              // No hardcoded 'ONLINE' chip here: it was a constant, so it
-              // claimed a live connection even when the device was offline.
-              // Real connectivity is surfaced by the global OfflineBanner.
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: IconButton(
+                  tooltip: 'Read summary',
+                  onPressed: onSpeakSummary,
+                  color: AppColors.neonCyan,
+                  icon: const Icon(Icons.volume_up_rounded),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: IconButton(
+                  tooltip: 'Accessibility guide',
+                  onPressed: onSpeakAccessibility,
+                  color: Colors.white70,
+                  icon: const Icon(Icons.accessibility_new_rounded),
+                ),
+              ),
             ],
           ),
-          if (engineSnapshot != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              engineSnapshot ?? '',
-              style: const TextStyle(
-                fontSize: 12,
-                letterSpacing: 1,
-                color: Colors.white54,
-              ),
-              maxLines: 4,
+        ],
+      ),
+    );
+  }
+}
+
+class _ConsoleWelcome extends StatelessWidget {
+  const _ConsoleWelcome({
+    required this.enabled,
+    required this.snapshot,
+    required this.onQuestion,
+  });
+
+  final bool enabled;
+  final SIV2EvidenceSnapshot? snapshot;
+  final ValueChanged<String> onQuestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final SIV2EvidenceSnapshot? evidence = snapshot;
+    final int evidenceCount = evidence == null
+        ? 0
+        : evidence.tasks.length +
+              evidence.goals.length +
+              evidence.milestones.length +
+              evidence.timeline.length;
+    final String body = !enabled
+        ? 'This account does not currently have access. Your saved work is unchanged.'
+        : evidenceCount == 0
+        ? 'No planning evidence is available yet. SI will name missing evidence instead of guessing.'
+        : 'Ask about current tasks, goals, milestones, or Timeline. SI reads evidence and cannot change saved data.';
+    final List<String> questions = evidenceCount == 0
+        ? const <String>['What evidence is missing?', 'What can you determine?']
+        : const <String>['What needs attention?', 'What should I do next?'];
+
+    return Padding(
+      key: const Key('si-console-welcome'),
+      padding: const EdgeInsets.fromLTRB(4, 16, 4, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Ask from current evidence',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
             ),
-          ],
+          ),
           const SizedBox(height: 8),
+          Text(
+            body,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 14),
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              SizedBox(
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: onSpeakSummary,
-                  icon: const Icon(Icons.summarize_rounded, size: 16),
-                  label: Text(compact ? 'Summary' : 'Read Summary'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.neonCyan,
-                    side: const BorderSide(color: AppColors.neonCyan),
-                    backgroundColor: const Color(0xFF102436),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
+            spacing: 8,
+            runSpacing: 8,
+            children: questions
+                .map(
+                  (String question) => OutlinedButton.icon(
+                    onPressed: enabled ? () => onQuestion(question) : null,
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 17),
+                    label: Text(question),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              SizedBox(
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: onSpeakAccessibility,
-                  icon: const Icon(Icons.accessibility_new_rounded, size: 16),
-                  label: Text(compact ? 'Access' : 'Accessibility'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: const BorderSide(color: Colors.white30),
-                    backgroundColor: const Color(0xFF161D27),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+                )
+                .toList(growable: false),
           ),
         ],
       ),
@@ -960,10 +1138,8 @@ class _BubbleTile extends ConsumerWidget {
     final String? emotion = msg.emotion;
     final bool systemPanel = msg.systemPanel && !isUser;
     final Color bubbleColor = isUser
-        ? const Color(0xFF1A1330)
-        : systemPanel
-        ? const Color(0xFF101A24)
-        : const Color(0xFF0B1622);
+        ? AppColors.neonViolet.withValues(alpha: 0.16)
+        : AppColors.bgSecondary.withValues(alpha: 0.9);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -991,12 +1167,7 @@ class _BubbleTile extends ConsumerWidget {
                     ),
                     decoration: BoxDecoration(
                       color: bubbleColor,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(systemPanel ? 8 : 16),
-                        topRight: Radius.circular(systemPanel ? 8 : 16),
-                        bottomLeft: Radius.circular(isUser ? 16 : 6),
-                        bottomRight: Radius.circular(isUser ? 6 : 16),
-                      ),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: isUser
                             ? Colors.purple.withValues(alpha: 0.25)
@@ -1011,7 +1182,7 @@ class _BubbleTile extends ConsumerWidget {
                         if (!isUser && emotion != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 5),
-                            child: _EmotionTag(emotion: emotion),
+                            child: _ResponseToneTag(tone: emotion),
                           ),
                         if (!isUser &&
                             msg.processingMode != AIProcessingMode.unknown)
@@ -1109,53 +1280,80 @@ class _SIV2ResponseCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _section('DIRECT ANSWER', <String>[response.directAnswer]),
-          _section(
-            'OBSERVED FACTS',
-            response.observedFacts
-                .map((SIV2Statement item) => item.text)
-                .toList(),
-          ),
-          _section(
-            'DETERMINISTIC CALCULATIONS',
-            response.calculations
-                .map((SIV2Statement item) => item.text)
-                .toList(),
-          ),
-          _section(
-            'INFERENCES',
-            response.inferences.map((SIV2Statement item) => item.text).toList(),
-          ),
-          _section('MISSING OR CONFLICTING INFORMATION', <String>[
-            ...response.missingInformation,
-            ...response.conflicts.map(
-              (SIV2Conflict item) =>
-                  '${item.severity.name.toUpperCase()}: ${item.summary}',
-            ),
-          ]),
-          _section(
-            'SCENARIOS',
-            response.scenarios
-                .map(
-                  (SIV2Scenario item) =>
-                      '${item.label}: ${item.projectedEffect}',
-                )
-                .toList(),
-          ),
-          _section('SCENARIO ASSUMPTIONS', response.scenarioAssumptions),
           _section('RECOMMENDATION', <String>[response.recommendation]),
-          _section('CONFIDENCE ANATOMY', <String>[
-            'Evidence strength: ${response.confidence.strength.name}',
-            'Coverage: ${response.confidence.coveredSignals} of ${response.confidence.requiredSignals} required signals',
-            'Freshness: ${response.confidence.freshness.name}',
-            'Conflicts: ${response.confidence.conflictCount}',
-            'Assumptions: ${response.confidence.assumptionCount}',
-          ]),
-          _section(
-            'EVIDENCE LINKS',
-            response.evidenceLinks
-                .map((SIV2EvidenceLink item) => '${item.label} — ${item.uri}')
-                .toList(),
-            bottomPadding: 0,
+          Material(
+            color: Colors.transparent,
+            child: ExpansionTile(
+              key: const Key('si-v2-response-advanced'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: const Text(
+                'Advanced',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: const Text(
+                'Confidence, evidence, calculations, and assumptions',
+                style: TextStyle(color: Colors.white60, fontSize: 11),
+              ),
+              children: <Widget>[
+                _section(
+                  'OBSERVED FACTS',
+                  response.observedFacts
+                      .map((SIV2Statement item) => item.text)
+                      .toList(),
+                ),
+                _section(
+                  'DETERMINISTIC CALCULATIONS',
+                  response.calculations
+                      .map((SIV2Statement item) => item.text)
+                      .toList(),
+                ),
+                _section(
+                  'INFERENCES',
+                  response.inferences
+                      .map((SIV2Statement item) => item.text)
+                      .toList(),
+                ),
+                _section('MISSING OR CONFLICTING INFORMATION', <String>[
+                  ...response.missingInformation,
+                  ...response.conflicts.map(
+                    (SIV2Conflict item) =>
+                        '${item.severity.name.toUpperCase()}: ${item.summary}',
+                  ),
+                ]),
+                _section(
+                  'SCENARIOS',
+                  response.scenarios
+                      .map(
+                        (SIV2Scenario item) =>
+                            '${item.label}: ${item.projectedEffect}',
+                      )
+                      .toList(),
+                ),
+                _section('SCENARIO ASSUMPTIONS', response.scenarioAssumptions),
+                _section('CONFIDENCE ANATOMY', <String>[
+                  'Evidence strength: ${response.confidence.strength.name}',
+                  'Coverage: ${response.confidence.coveredSignals} of ${response.confidence.requiredSignals} required signals',
+                  'Freshness: ${response.confidence.freshness.name}',
+                  'Conflicts: ${response.confidence.conflictCount}',
+                  'Assumptions: ${response.confidence.assumptionCount}',
+                ]),
+                _section(
+                  'EVIDENCE LINKS',
+                  response.evidenceLinks
+                      .map(
+                        (SIV2EvidenceLink item) =>
+                            '${item.label} — ${item.uri}',
+                      )
+                      .toList(),
+                  bottomPadding: 0,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1171,48 +1369,65 @@ class _SIV2ResponseCard extends StatelessWidget {
         .map((String item) => item.trim())
         .where((String item) => item.isNotEmpty)
         .toList(growable: false);
+    final Color accent = switch (title) {
+      'OBSERVED FACTS' => AppColors.neonCyan,
+      'DETERMINISTIC CALCULATIONS' => AppColors.neonViolet,
+      'INFERENCES' ||
+      'SCENARIOS' ||
+      'SCENARIO ASSUMPTIONS' => AppColors.memoryAmber,
+      'MISSING OR CONFLICTING INFORMATION' => AppColors.recallRed,
+      _ => AppColors.neonCyan,
+    };
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Semantics(
-            header: true,
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: AppColors.neonCyan,
-                fontSize: 10,
-                letterSpacing: 1.4,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          if (visible.isEmpty)
-            const Text(
-              'None identified.',
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 12,
-                height: 1.4,
-              ),
-            )
-          else
-            ...visible.map(
-              (String item) => Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text(
-                  visible.length == 1 ? item : '• $item',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    height: 1.45,
-                  ),
+      child: Container(
+        padding: const EdgeInsets.only(left: 12),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: accent, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Semantics(
+              header: true,
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 10,
+                  letterSpacing: 0,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
-        ],
+            const SizedBox(height: 4),
+            if (visible.isEmpty)
+              const Text(
+                'None identified.',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 12,
+                  height: 1.4,
+                  letterSpacing: 0,
+                ),
+              )
+            else
+              ...visible.map(
+                (String item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(
+                    visible.length == 1 ? item : '• $item',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      height: 1.45,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1259,7 +1474,7 @@ class _SIAvatar extends StatelessWidget {
             style: TextStyle(
               fontSize: 8,
               fontWeight: FontWeight.bold,
-              letterSpacing: 1,
+              letterSpacing: 0,
               color: _color,
             ),
           ),
@@ -1269,12 +1484,12 @@ class _SIAvatar extends StatelessWidget {
   }
 }
 
-class _EmotionTag extends StatelessWidget {
-  const _EmotionTag({required this.emotion});
-  final String emotion;
+class _ResponseToneTag extends StatelessWidget {
+  const _ResponseToneTag({required this.tone});
+  final String tone;
 
   Color get _color {
-    switch (emotion) {
+    switch (tone) {
       case 'engaged':
         return Colors.blueAccent;
       case 'confident':
@@ -1300,10 +1515,10 @@ class _EmotionTag extends StatelessWidget {
         border: Border.all(color: _color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        emotion.toUpperCase(),
+        'RESPONSE TONE: ${tone.toUpperCase()}',
         style: TextStyle(
           fontSize: 8,
-          letterSpacing: 1.5,
+          letterSpacing: 0,
           color: _color,
           fontWeight: FontWeight.w600,
         ),
@@ -1395,12 +1610,7 @@ class _TypingIndicator extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0D1A2A),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(4),
-                  ),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: AppColors.neonCyan.withValues(alpha: 0.18),
                   ),
@@ -1448,6 +1658,31 @@ class _TypingIndicator extends StatelessWidget {
 // Input bar
 // ---------------------------------------------------------------------------
 
+ButtonStyle _siSegmentedStyle(Color accent) {
+  return ButtonStyle(
+    minimumSize: const WidgetStatePropertyAll<Size>(Size(0, 48)),
+    shape: WidgetStatePropertyAll<OutlinedBorder>(
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ),
+    textStyle: const WidgetStatePropertyAll<TextStyle>(
+      TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0),
+    ),
+    foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+      return states.contains(WidgetState.selected)
+          ? AppColors.background
+          : Colors.white70;
+    }),
+    backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+      return states.contains(WidgetState.selected)
+          ? accent
+          : AppColors.bgSecondary.withValues(alpha: 0.9);
+    }),
+    side: WidgetStatePropertyAll<BorderSide>(
+      BorderSide(color: accent.withValues(alpha: 0.42)),
+    ),
+  );
+}
+
 class _InputBar extends ConsumerWidget {
   const _InputBar({
     required this.controller,
@@ -1462,6 +1697,7 @@ class _InputBar extends ConsumerWidget {
     required this.onTimeRangeChanged,
     this.compact = false,
     this.busy = false,
+    this.enabled = true,
   });
   final TextEditingController controller;
   final TextEditingController entityFilterController;
@@ -1475,6 +1711,7 @@ class _InputBar extends ConsumerWidget {
   final ValueChanged<SIV2TimeRange> onTimeRangeChanged;
   final bool compact;
   final bool busy;
+  final bool enabled;
 
   void _insertShortcut(String shortcut) {
     controller
@@ -1486,6 +1723,7 @@ class _InputBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final VoiceState voice = ref.watch(voiceControllerProvider);
     final bool listening = voice.isListening;
+    final bool interactive = enabled && !busy;
 
     // Recognized speech populates the query box for explicit review and
     // send - it is never auto-sent or routed as a shortcut.
@@ -1505,6 +1743,9 @@ class _InputBar extends ConsumerWidget {
         final bool effectiveCompact = compact || forceCompact;
 
         return Container(
+          constraints: BoxConstraints(
+            maxHeight: math.max(160, MediaQuery.sizeOf(context).height * 0.64),
+          ),
           padding: EdgeInsets.fromLTRB(
             16,
             effectiveCompact ? 8 : 10,
@@ -1516,201 +1757,307 @@ class _InputBar extends ConsumerWidget {
             border: Border(top: BorderSide(color: Colors.white24)),
           ),
           child: SingleChildScrollView(
+            key: const Key('si-input-scroll'),
+            reverse: true,
             physics: const ClampingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (!effectiveCompact) ...[
-                  const Text(
-                    'SI V2 QUERY BUILDER',
-                    style: TextStyle(
-                      color: AppColors.neonCyan,
-                      fontSize: 10,
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: SIV2Intent.values
-                          .map(
-                            (SIV2Intent option) => Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ChoiceChip(
-                                key: ValueKey<String>(
-                                  'si-v2-intent-${option.name}',
-                                ),
-                                label: Text(option.label),
-                                selected: intent == option,
-                                onSelected: busy
-                                    ? null
-                                    : (bool selected) {
-                                        if (selected) onIntentChanged(option);
-                                      },
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: SIV2Source.values
-                        .map(
-                          (SIV2Source source) => FilterChip(
-                            key: ValueKey<String>(
-                              'si-v2-source-${source.name}',
-                            ),
-                            label: Text(source.label),
-                            selected: sources.contains(source),
-                            onSelected: busy
-                                ? null
-                                : (bool selected) =>
-                                      onSourceChanged(source, selected),
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
-                  const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: SIV2TimeRange.values
-                          .map(
-                            (SIV2TimeRange option) => Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ChoiceChip(
-                                key: ValueKey<String>(
-                                  'si-v2-range-${option.name}',
-                                ),
-                                label: Text(option.label),
-                                selected: timeRange == option,
-                                onSelected: busy
-                                    ? null
-                                    : (bool selected) {
-                                        if (selected) {
-                                          onTimeRangeChanged(option);
-                                        }
-                                      },
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  LayoutBuilder(
-                    builder: (BuildContext context, BoxConstraints fields) {
-                      final bool stackFields =
-                          fields.maxWidth < 600 ||
-                          MediaQuery.textScalerOf(context).scale(1) > 1.3;
-                      final Widget entityField = TextField(
-                        key: const Key('si-v2-entity-filter'),
-                        controller: entityFilterController,
-                        enabled: !busy,
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          labelText: 'Entity filter (optional)',
+                  Material(
+                    color: Colors.transparent,
+                    child: ExpansionTile(
+                      key: const Key('si-v2-advanced'),
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Advanced',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
-                      );
-                      final Widget assumptionField = TextField(
-                        key: const Key('si-v2-assumption'),
-                        controller: scenarioAssumptionController,
-                        enabled: !busy,
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          labelText: 'Scenario assumption (optional)',
-                        ),
-                      );
-                      if (stackFields) {
-                        return Column(
-                          children: <Widget>[
-                            entityField,
-                            const SizedBox(height: 8),
-                            assumptionField,
-                          ],
-                        );
-                      }
-                      return Row(
-                        children: <Widget>[
-                          Expanded(child: entityField),
-                          const SizedBox(width: 8),
-                          Expanded(child: assumptionField),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
+                      ),
+                      subtitle: const Text(
+                        'Intent, sources, range, filters, assumptions, and aliases',
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
                       children: <Widget>[
-                        const Padding(
-                          padding: EdgeInsets.only(right: 8),
+                        const Align(
+                          alignment: Alignment.centerLeft,
                           child: Text(
-                            'Power aliases',
+                            'SI V2 QUERY BUILDER',
                             style: TextStyle(
-                              color: Colors.white38,
+                              color: AppColors.neonCyan,
                               fontSize: 10,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
-                        ...SIConsoleShortcutRegistry.chips.map(
-                          (SIConsoleShortcutDefinition definition) => Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ActionChip(
-                              key: ValueKey<String>(
-                                'si-v2-alias-${definition.id}',
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SegmentedButton<SIV2Intent>(
+                            segments: SIV2Intent.values
+                                .map(
+                                  (SIV2Intent option) =>
+                                      ButtonSegment<SIV2Intent>(
+                                        value: option,
+                                        label: Text(
+                                          option.label,
+                                          key: ValueKey<String>(
+                                            'si-v2-intent-${option.name}',
+                                          ),
+                                        ),
+                                      ),
+                                )
+                                .toList(growable: false),
+                            selected: <SIV2Intent>{intent},
+                            showSelectedIcon: false,
+                            style: _siSegmentedStyle(AppColors.neonCyan),
+                            onSelectionChanged: !interactive
+                                ? null
+                                : (Set<SIV2Intent> selection) =>
+                                      onIntentChanged(selection.first),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SegmentedButton<SIV2Source>(
+                            segments: SIV2Source.values
+                                .map(
+                                  (SIV2Source source) =>
+                                      ButtonSegment<SIV2Source>(
+                                        value: source,
+                                        label: Text(
+                                          source.label,
+                                          key: ValueKey<String>(
+                                            'si-v2-source-${source.name}',
+                                          ),
+                                        ),
+                                      ),
+                                )
+                                .toList(growable: false),
+                            selected: sources,
+                            showSelectedIcon: false,
+                            multiSelectionEnabled: true,
+                            emptySelectionAllowed: false,
+                            style: _siSegmentedStyle(AppColors.neonViolet),
+                            onSelectionChanged: !interactive
+                                ? null
+                                : (Set<SIV2Source> selection) {
+                                    for (final SIV2Source source
+                                        in SIV2Source.values) {
+                                      final bool selected = selection.contains(
+                                        source,
+                                      );
+                                      if (selected !=
+                                          sources.contains(source)) {
+                                        onSourceChanged(source, selected);
+                                      }
+                                    }
+                                  },
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SegmentedButton<SIV2TimeRange>(
+                            segments: SIV2TimeRange.values
+                                .map(
+                                  (SIV2TimeRange option) =>
+                                      ButtonSegment<SIV2TimeRange>(
+                                        value: option,
+                                        label: Text(
+                                          option.label,
+                                          key: ValueKey<String>(
+                                            'si-v2-range-${option.name}',
+                                          ),
+                                        ),
+                                      ),
+                                )
+                                .toList(growable: false),
+                            selected: <SIV2TimeRange>{timeRange},
+                            showSelectedIcon: false,
+                            style: _siSegmentedStyle(AppColors.memoryAmber),
+                            onSelectionChanged: !interactive
+                                ? null
+                                : (Set<SIV2TimeRange> selection) =>
+                                      onTimeRangeChanged(selection.first),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        LayoutBuilder(
+                          builder:
+                              (BuildContext context, BoxConstraints fields) {
+                                final bool stackFields =
+                                    fields.maxWidth < 600 ||
+                                    MediaQuery.textScalerOf(context).scale(1) >
+                                        1.3;
+                                final Widget entityField = TextField(
+                                  key: const Key('si-v2-entity-filter'),
+                                  controller: entityFilterController,
+                                  enabled: interactive,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Entity filter (optional)',
+                                    labelStyle: TextStyle(
+                                      color: AppColors.neonCyan,
+                                    ),
+                                    floatingLabelStyle: TextStyle(
+                                      color: AppColors.neonCyan,
+                                    ),
+                                  ),
+                                );
+                                final Widget assumptionField = TextField(
+                                  key: const Key('si-v2-assumption'),
+                                  controller: scenarioAssumptionController,
+                                  enabled: interactive,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Scenario assumption (optional)',
+                                    labelStyle: TextStyle(
+                                      color: AppColors.neonCyan,
+                                    ),
+                                    floatingLabelStyle: TextStyle(
+                                      color: AppColors.neonCyan,
+                                    ),
+                                  ),
+                                );
+                                if (stackFields) {
+                                  return Column(
+                                    children: <Widget>[
+                                      entityField,
+                                      const SizedBox(height: 8),
+                                      assumptionField,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  children: <Widget>[
+                                    Expanded(child: entityField),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: assumptionField),
+                                  ],
+                                );
+                              },
+                        ),
+                        const SizedBox(height: 6),
+                        PopupMenuButton<SIConsoleShortcutDefinition>(
+                          key: const Key('si-v2-power-alias-menu'),
+                          enabled: interactive,
+                          tooltip: 'Choose a power alias',
+                          color: const Color(0xFF0A1520),
+                          onSelected:
+                              (SIConsoleShortcutDefinition definition) =>
+                                  _insertShortcut(definition.shortcut),
+                          itemBuilder: (BuildContext context) =>
+                              SIConsoleShortcutRegistry.chips
+                                  .map(
+                                    (SIConsoleShortcutDefinition definition) =>
+                                        PopupMenuItem<
+                                          SIConsoleShortcutDefinition
+                                        >(
+                                          value: definition,
+                                          child: Text(definition.shortcut),
+                                        ),
+                                  )
+                                  .toList(growable: false),
+                          child: Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(minHeight: 48),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0A1520),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.34,
+                                ),
                               ),
-                              label: Text(definition.shortcut),
-                              onPressed: busy
-                                  ? null
-                                  : () => _insertShortcut(definition.shortcut),
+                            ),
+                            child: const Row(
+                              children: <Widget>[
+                                Icon(
+                                  Icons.terminal_rounded,
+                                  size: 18,
+                                  color: AppColors.neonCyan,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'POWER ALIASES',
+                                    style: TextStyle(
+                                      color: AppColors.neonCyan,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.expand_more_rounded,
+                                  size: 18,
+                                  color: Color(0xFFAEB9D0),
+                                ),
+                              ],
                             ),
                           ),
+                        ),
+                        const SizedBox(height: 8),
+                        ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: controller,
+                          builder: (context, value, child) {
+                            final List<SIConsoleShortcutDefinition>
+                            suggestions =
+                                SIConsoleShortcutRegistry.autocomplete(
+                                  value.text,
+                                );
+                            if (suggestions.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: suggestions
+                                    .map(
+                                      (definition) => OutlinedButton(
+                                        key: ValueKey<String>(
+                                          'si-shortcut-autocomplete-${definition.id}',
+                                        ),
+                                        onPressed: !interactive
+                                            ? null
+                                            : () => _insertShortcut(
+                                                definition.shortcut,
+                                              ),
+                                        style: OutlinedButton.styleFrom(
+                                          minimumSize: const Size(0, 48),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(definition.shortcut),
+                                      ),
+                                    )
+                                    .toList(growable: false),
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 8),
                 ],
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: controller,
-                  builder: (context, value, child) {
-                    final List<SIConsoleShortcutDefinition> suggestions =
-                        SIConsoleShortcutRegistry.autocomplete(value.text);
-                    if (suggestions.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: suggestions
-                            .map(
-                              (definition) => ActionChip(
-                                key: ValueKey<String>(
-                                  'si-shortcut-autocomplete-${definition.id}',
-                                ),
-                                label: Text(definition.shortcut),
-                                tooltip: definition.description,
-                                onPressed: busy
-                                    ? null
-                                    : () =>
-                                          _insertShortcut(definition.shortcut),
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
-                    );
-                  },
-                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -1720,7 +2067,7 @@ class _InputBar extends ConsumerWidget {
                         controller: controller,
                         minLines: 1,
                         maxLines: 4,
-                        enabled: !busy,
+                        enabled: interactive,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -1729,6 +2076,12 @@ class _InputBar extends ConsumerWidget {
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
                           labelText: 'SI query',
+                          labelStyle: const TextStyle(
+                            color: AppColors.neonCyan,
+                          ),
+                          floatingLabelStyle: const TextStyle(
+                            color: AppColors.neonCyan,
+                          ),
                           hintText: 'Ask SI V2 about current evidence...',
                           hintStyle: const TextStyle(
                             color: Colors.white60,
@@ -1741,19 +2094,19 @@ class _InputBar extends ConsumerWidget {
                             vertical: 12,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
                               color: AppColors.neonCyan.withValues(alpha: 0.2),
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
                               color: AppColors.neonCyan.withValues(alpha: 0.15),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
                               color: AppColors.neonCyan.withValues(alpha: 0.5),
                             ),
@@ -1770,10 +2123,10 @@ class _InputBar extends ConsumerWidget {
                           ? 'Stop voice input'
                           : 'Start voice input',
                       button: true,
-                      enabled: !busy,
+                      enabled: interactive,
                       liveRegion: listening,
                       child: GestureDetector(
-                        onTap: busy
+                        onTap: !interactive
                             ? null
                             : () async {
                                 if (listening) {
@@ -1793,16 +2146,20 @@ class _InputBar extends ConsumerWidget {
                             shape: BoxShape.circle,
                             color: listening
                                 ? AppColors.neonCyan.withValues(alpha: 0.22)
-                                : busy
+                                : !interactive
                                 ? const Color(0xFF151B22)
                                 : const Color(0xFF102436),
                             border: Border.all(
-                              color: busy ? Colors.white12 : AppColors.neonCyan,
+                              color: !interactive
+                                  ? Colors.white12
+                                  : AppColors.neonCyan,
                             ),
                           ),
                           child: Icon(
                             listening ? Icons.mic : Icons.mic_none_rounded,
-                            color: busy ? Colors.white38 : AppColors.neonCyan,
+                            color: !interactive
+                                ? Colors.white38
+                                : AppColors.neonCyan,
                             size: 18,
                           ),
                         ),
@@ -1810,28 +2167,36 @@ class _InputBar extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
                     Semantics(
-                      label: busy ? 'SI is analyzing' : 'Send SI query',
+                      label: !enabled
+                          ? 'SI Console unavailable'
+                          : busy
+                          ? 'SI is analyzing'
+                          : 'Send SI query',
                       button: true,
-                      enabled: !busy,
+                      enabled: interactive,
                       child: GestureDetector(
-                        onTap: busy ? null : onSend,
+                        onTap: interactive ? onSend : null,
                         child: Container(
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: busy
+                            color: !interactive
                                 ? const Color(0xFF151B22)
                                 : const Color(0xFF102436),
                             border: Border.all(
-                              color: busy ? Colors.white12 : AppColors.neonCyan,
+                              color: !interactive
+                                  ? Colors.white12
+                                  : AppColors.neonCyan,
                             ),
                           ),
                           child: Icon(
                             busy
                                 ? Icons.hourglass_top_rounded
                                 : Icons.send_rounded,
-                            color: busy ? Colors.white38 : AppColors.neonCyan,
+                            color: !interactive
+                                ? Colors.white38
+                                : AppColors.neonCyan,
                             size: 18,
                           ),
                         ),

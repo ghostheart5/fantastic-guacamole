@@ -46,7 +46,7 @@ void main() {
     late CreditService service;
 
     setUp(() {
-      service = CreditService(prefs: _FakePrefs());
+      service = CreditService(prefs: _FakePrefs(), spendingEnabled: true);
     });
 
     test('returns credits taken by a spend that produced nothing', () async {
@@ -91,6 +91,19 @@ void main() {
       }
       final AiCreditWallet after = await service.loadWallet(premium: false);
       expect(after.balance, before.balance);
+    });
+
+    test('replaces a malformed persisted wallet with a fresh wallet', () async {
+      final _FakePrefs prefs = _FakePrefs();
+      await prefs.save('ai_credit_wallet', '{"balance":999}');
+      final CreditService corruptWalletService = CreditService(prefs: prefs);
+
+      final AiCreditWallet wallet = await corruptWalletService.loadWallet(
+        premium: false,
+      );
+
+      expect(wallet.tier, 'free');
+      expect(wallet.balance, wallet.allowance);
     });
   });
 

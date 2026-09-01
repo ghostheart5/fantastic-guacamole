@@ -199,7 +199,7 @@ void main() {
       tester,
       trajectory: _activeTrajectory,
       weeklySummaryOverride: (Ref ref) async => _summaryText,
-      tasksOverride: (Ref ref) async => const <Task>[
+      tasksOverride: (Ref ref) async => <Task>[
         Task(
           id: 'task-1',
           title: 'Finish the active thing',

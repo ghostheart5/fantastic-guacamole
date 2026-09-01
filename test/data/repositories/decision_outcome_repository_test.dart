@@ -60,6 +60,28 @@ void main() {
 
     await expectLater(repository.load(), throwsStateError);
   });
+
+  test(
+    'production default does not silently truncate outcome history',
+    () async {
+      final DecisionOutcomeRepository repository = DecisionOutcomeRepository(
+        _MemoryPrefs(),
+        AccountStorageScope.authenticated('account-a'),
+      );
+
+      for (int index = 0; index < 205; index += 1) {
+        await repository.record(
+          _outcome(
+            decisionId: 'decision-$index',
+            kind: DecisionOutcomeKind.shown,
+            at: DateTime.utc(2026, 8, 18).add(Duration(minutes: index)),
+          ),
+        );
+      }
+
+      expect(await repository.load(), hasLength(205));
+    },
+  );
 }
 
 DecisionOutcomeEntity _outcome({

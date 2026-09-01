@@ -1,8 +1,8 @@
+// CHRONOSPARK-CLASS: PLANNED | Feature: Assistant launch certification
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
-import 'package:flutter/foundation.dart';
 
 const int assistantLaunchCertificationSchemaVersion = 1;
 const int assistantRequiredSustainedWindows = 3;
@@ -47,7 +47,6 @@ enum AssistantLaunchStatus {
   authorized,
 }
 
-@immutable
 final class AssistantLaunchThreshold {
   const AssistantLaunchThreshold({
     required this.direction,
@@ -120,7 +119,6 @@ assistantLaunchThresholds = <AssistantLaunchGateId, AssistantLaunchThreshold>{
   ),
 };
 
-@immutable
 final class AssistantPhaseEvidence {
   AssistantPhaseEvidence({
     required this.phase,
@@ -144,7 +142,6 @@ final class AssistantPhaseEvidence {
   final bool verified;
 }
 
-@immutable
 final class AssistantBuildVerification {
   const AssistantBuildVerification({
     required this.staticAnalysisPassed,
@@ -171,7 +168,6 @@ final class AssistantBuildVerification {
       RegExp(r'^[a-f0-9]{7,40}$').hasMatch(sourceHeadSha.trim().toLowerCase());
 }
 
-@immutable
 final class AssistantLaunchEvidenceWindow {
   AssistantLaunchEvidenceWindow({
     required String windowId,
@@ -241,7 +237,6 @@ final class AssistantLaunchEvidenceWindow {
   }
 }
 
-@immutable
 final class AssistantLaunchCertificationResult {
   const AssistantLaunchCertificationResult({
     required this.status,

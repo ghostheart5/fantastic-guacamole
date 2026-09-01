@@ -20,7 +20,9 @@ abstract class AuthServiceContract {
   Future<User?> reloadCurrentUser();
   Future<String?> getIdToken({bool forceRefresh = false});
   Future<void> signOut();
-  Future<void> deleteCurrentAccount({required String password});
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  });
 }
 
 extension AuthServiceContractResultX on AuthServiceContract {
@@ -70,10 +72,10 @@ extension AuthServiceContractResultX on AuthServiceContract {
     );
   }
 
-  Future<AppResult<void>> deleteCurrentAccountResult({
+  Future<AppResult<AccountDeletionResult>> deleteCurrentAccountResult({
     required String password,
   }) {
-    return AppResult.guard<void>(
+    return AppResult.guard<AccountDeletionResult>(
       () => deleteCurrentAccount(password: password),
       messageFor: (Object error) => 'Account deletion failed: $error',
       errorCodeFor: _authErrorCodeFor,

@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/data/repositories/note_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/state/services/local_user_data_cleanup_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -71,11 +75,26 @@ void main() {
         'si_engine_state_v2.$namespace.console.thread-1',
         'private',
       );
+      final String pendingPurchaseOwnerKey =
+          '${AccountDataRegistry.pendingPurchaseOwnerSecureKeyPrefix}'
+          'chronospark_premium_monthly';
+      await secureStore.writeString(pendingPurchaseOwnerKey, 'owner-digest');
       await secureStore.writeString(
         AccountDataRegistry.notificationSecureKeyFor('account-b'),
         'other-owner',
       );
       await secureStore.writeString('hive_aes_key', 'device-global');
+      await secureStore.writeString(
+        'cloud_backup_encryption_key_v1',
+        'legacy-recovery-key',
+      );
+      await secureStore.writeString(
+        'cloud_backup_encryption_key_v1_owner_digest',
+        AccountDataRegistry.accountDigest('account-a'),
+      );
+      final String scopedBackupKey =
+          'cloud_backup_encryption_key_v2.${AccountDataRegistry.accountDigest('account-a')}';
+      await secureStore.writeString(scopedBackupKey, 'account-recovery-key');
 
       for (final String key
           in AccountDataRegistry.preferenceExactKeysForAccount('account-a')) {
@@ -119,7 +138,22 @@ void main() {
         ),
         isNull,
       );
+      expect(await secureStore.readString(pendingPurchaseOwnerKey), isNull);
       expect(await secureStore.readString('hive_aes_key'), 'device-global');
+      expect(
+        await secureStore.readString('cloud_backup_encryption_key_v1'),
+        'legacy-recovery-key',
+      );
+      expect(
+        await secureStore.readString(
+          'cloud_backup_encryption_key_v1_owner_digest',
+        ),
+        AccountDataRegistry.accountDigest('account-a'),
+      );
+      expect(
+        await secureStore.readString(scopedBackupKey),
+        'account-recovery-key',
+      );
       expect(
         await secureStore.readString(
           AccountDataRegistry.notificationSecureKeyFor('account-b'),
@@ -129,6 +163,8 @@ void main() {
       for (final String key in AccountDataRegistry.deviceGlobalPreferenceKeys) {
         expect(preferences.load(key), 'device-global', reason: key);
       }
+      expect(preferences.load('notes_v1'), isNull);
+      expect(preferences.load('notes_v1_corrupt_backup'), isNull);
       expect(sensitivePreferences.load(otherMemory), 'other-owner');
       expect(
         sensitivePreferences.load('governed_memories_v2.$namespace'),
@@ -184,6 +220,68 @@ void main() {
       );
     },
   );
+
+  test('account cleanup cannot race with an in-flight Notes write', () async {
+    final KeyedMutationCoordinator coordinator = KeyedMutationCoordinator();
+    final Completer<void> saveEntered = Completer<void>();
+    final Completer<void> releaseSave = Completer<void>();
+    final _MemoryPreferences preferences = _MemoryPreferences(
+      blockedSaveKey: 'notes_v1',
+      saveEntered: saveEntered,
+      releaseSave: releaseSave,
+    );
+    final NoteRepository notes = NoteRepository(
+      preferences,
+      mutationCoordinator: coordinator,
+    );
+    final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+      hive: _RecordingHiveStore(),
+      secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+      preferences: preferences,
+      sensitivePreferences: _MemoryPreferences(),
+      notifications: NotificationScheduler(),
+      mutationCoordinator: coordinator,
+    );
+
+    final Future<void> save = notes.saveNote(
+      NoteEntity(
+        id: 'departing-note',
+        title: 'Private note',
+        createdAt: DateTime.utc(2026, 8, 30, 12),
+      ),
+    );
+    await saveEntered.future;
+    bool cleanupCompleted = false;
+    final Future<void> cleanup = service
+        .clearForAccountSwitch('account-a')
+        .whenComplete(() => cleanupCompleted = true);
+    await Future<void>.delayed(Duration.zero);
+    expect(cleanupCompleted, isFalse);
+
+    releaseSave.complete();
+    await Future.wait(<Future<void>>[save, cleanup]);
+
+    expect(preferences.load('notes_v1'), isNull);
+    expect(await notes.getNotes(), isEmpty);
+  });
+
+  test('detects and clears preserved sensitive corruption backups', () async {
+    final _RecoverableMemoryPreferences sensitive =
+        _RecoverableMemoryPreferences()..hasBackups = true;
+    final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+      hive: const _DirectHiveStore(),
+      secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+      preferences: _MemoryPreferences(),
+      sensitivePreferences: sensitive,
+      notifications: NotificationScheduler(),
+    );
+
+    expect(await service.hasUnownedAccountData(), isTrue);
+
+    await service.clearForAccountSwitch('account-a');
+
+    expect(sensitive.hasCorruptionBackups, isFalse);
+  });
 }
 
 class _DirectHiveStore implements HiveStore {
@@ -222,6 +320,11 @@ class _DirectHiveStore implements HiveStore {
 
 class _MemoryPreferences
     implements SharedPrefsStore, EnumerableSharedPrefsStore {
+  _MemoryPreferences({this.blockedSaveKey, this.saveEntered, this.releaseSave});
+
+  final String? blockedSaveKey;
+  final Completer<void>? saveEntered;
+  final Completer<void>? releaseSave;
   final Map<String, String> _values = <String, String>{};
 
   @override
@@ -229,6 +332,10 @@ class _MemoryPreferences
 
   @override
   Future<void> save(String key, String value) async {
+    if (key == blockedSaveKey) {
+      if (!(saveEntered?.isCompleted ?? true)) saveEntered!.complete();
+      await releaseSave?.future;
+    }
     _values[key] = value;
   }
 
@@ -247,6 +354,19 @@ class _MemoryPreferences
 
   @override
   Future<Set<String>> keys() async => _values.keys.toSet();
+}
+
+class _RecoverableMemoryPreferences extends _MemoryPreferences
+    implements CorruptionBackupStore {
+  bool hasBackups = false;
+
+  @override
+  bool get hasCorruptionBackups => hasBackups;
+
+  @override
+  Future<void> clearCorruptionBackups() async {
+    hasBackups = false;
+  }
 }
 
 class _RecordingHiveStore implements HiveStore {

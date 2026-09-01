@@ -1,16 +1,16 @@
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
     show SIState;
-import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
+import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 
 class SystemBoot {
   const SystemBoot();
 
-  SISnapshot initialSnapshot({
+  AssistantMemorySnapshot initialSnapshot({
     required SIState si,
     required LearningState learning,
   }) {
-    return SISnapshot(
+    return AssistantMemorySnapshot(
       timestamp: DateTime.now(),
       energy: si.energy,
       fatigue: si.fatigue,

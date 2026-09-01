@@ -120,7 +120,7 @@ void main() {
 
   test('modular SI core produces a response and retains pipeline memory', () {
     final SICore core = SICore();
-    const Task task = Task(
+    final Task task = Task(
       id: 'attention',
       title: 'Write the project outline',
       priority: 5,

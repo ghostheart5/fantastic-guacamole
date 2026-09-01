@@ -1,9 +1,11 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -11,6 +13,8 @@ import 'package:fantastic_guacamole/state/models/signal_model.dart';
 import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +25,9 @@ void main() {
   Future<void> pumpNexusScreen(
     WidgetTester tester, {
     required double width,
+    List<Task>? tasks,
+    List<TimelineEventEntity>? timeline,
+    bool observedVitals = true,
   }) async {
     tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -31,6 +38,23 @@ void main() {
       overrides: [
         unreadNotificationsProvider.overrideWithValue(0),
         profileProvider.overrideWith(_PopulatedProfileController.new),
+        siStateProvider.overrideWith(
+          () => _TestSIStateController(observed: observedVitals),
+        ),
+        trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
+        goalsProvider.overrideWith(
+          () => _StaticGoalsNotifier(_populatedNexusModel.aggregation.goals),
+        ),
+        tasksProvider.overrideWith(
+          (Ref ref) async => tasks ?? _populatedNexusModel.aggregation.tasks,
+        ),
+        notesProvider.overrideWith(
+          () => _StaticNotesNotifier(const <NoteEntity>[]),
+        ),
+        if (timeline != null)
+          timelineProvider.overrideWith(
+            () => _StaticTimelineNotifier(timeline),
+          ),
         nexusScreenModelProvider.overrideWith(
           (Ref ref) async => _populatedNexusModel,
         ),
@@ -93,13 +117,76 @@ void main() {
         AppSizes.fontSm,
       );
     });
+
+    testWidgets('scheduled time does not make a task due or overdue', (
+      WidgetTester tester,
+    ) async {
+      final DateTime now = DateTime.now();
+      await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+        tasks: <Task>[
+          Task(
+            id: 'scheduled-before-due',
+            title: 'Work block before deadline',
+            priority: 3,
+            difficulty: 2,
+            energyRequired: 2,
+            scheduledFor: now.subtract(const Duration(hours: 2)),
+            dueDate: now.add(const Duration(days: 1)),
+          ),
+        ],
+        timeline: const <TimelineEventEntity>[],
+      );
+
+      await tester.scrollUntilVisible(find.text('Today at a glance'), 400);
+
+      expect(find.text('Nothing is due today.'), findsOneWidget);
+      expect(find.text('You’re all caught up'), findsOneWidget);
+      expect(
+        find.text('Review the overdue item below before taking a break.'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('seeded vitals are not presented as personal measurements', (
+      WidgetTester tester,
+    ) async {
+      await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+        observedVitals: false,
+      );
+
+      expect(find.text('UNMEASURED'), findsOneWidget);
+      expect(find.text('NOT CHECKED'), findsOneWidget);
+      expect(find.text('78%'), findsNothing);
+    });
   });
+}
+
+class _StaticGoalsNotifier extends GoalsNotifier {
+  _StaticGoalsNotifier(this.goals);
+
+  final List<GoalEntity> goals;
+
+  @override
+  List<GoalEntity> build() => goals;
+}
+
+class _StaticNotesNotifier extends NotesNotifier {
+  _StaticNotesNotifier(this.notes);
+
+  final List<NoteEntity> notes;
+
+  @override
+  Future<List<NoteEntity>> build() async => notes;
 }
 
 final NexusScreenModel _populatedNexusModel = NexusScreenModel(
   aggregation: SIStateAggregation(
     tasks: <Task>[
-      const Task(
+      Task(
         id: 'task-1',
         title: 'Finish quarterly review',
         priority: 3,
@@ -158,6 +245,34 @@ class _PopulatedProfileController extends ProfileController {
     streak: 21,
     longestStreak: 21,
     name: 'ChronoSpark User',
+  );
+}
+
+class _StaticTimelineNotifier extends TimelineNotifier {
+  _StaticTimelineNotifier(this.events);
+
+  final List<TimelineEventEntity> events;
+
+  @override
+  List<TimelineEventEntity> build() => events;
+}
+
+class _TestSIStateController extends SIStateController {
+  _TestSIStateController({required this.observed});
+
+  final bool observed;
+
+  @override
+  SIState build() => SIState(
+    energy: .78,
+    fatigue: .24,
+    completedToday: 4,
+    energyOrigin: observed
+        ? PredictiveEvidenceOrigin.observed
+        : PredictiveEvidenceOrigin.estimated,
+    fatigueOrigin: observed
+        ? PredictiveEvidenceOrigin.observed
+        : PredictiveEvidenceOrigin.estimated,
   );
 }
 

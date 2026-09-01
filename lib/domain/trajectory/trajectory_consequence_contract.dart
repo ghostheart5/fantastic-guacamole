@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Trajectory forecasting
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 
 enum TrajectorySourceState { loading, ready, empty, partial, offline, error }
@@ -34,12 +35,12 @@ class TrajectoryTaskNode {
 }
 
 class TrajectoryGoalNode {
-  const TrajectoryGoalNode({
+  TrajectoryGoalNode({
     required this.id,
     required this.title,
-    required this.linkedTaskIds,
+    required List<String> linkedTaskIds,
     this.targetDate,
-  });
+  }) : linkedTaskIds = List<String>.unmodifiable(linkedTaskIds);
 
   final String id;
   final String title;
@@ -92,7 +93,7 @@ class TrajectoryProgressionSnapshot {
 }
 
 class TrajectoryBaseline {
-  const TrajectoryBaseline({
+  TrajectoryBaseline({
     required this.accountScope,
     required this.revision,
     required this.observedAt,
@@ -106,14 +107,22 @@ class TrajectoryBaseline {
     required this.availableMinutes,
     required this.occupiedMinutes,
     required this.unscheduledMinutes,
-    required this.tasks,
-    required this.goals,
-    required this.blocks,
-    required this.timelineSignals,
+    required List<TrajectoryTaskNode> tasks,
+    required List<TrajectoryGoalNode> goals,
+    required List<TrajectoryBlockNode> blocks,
+    required List<TrajectoryTimelineSignal> timelineSignals,
     required this.progression,
     required this.confidence,
-    required this.sourceRevisions,
-  });
+    required Map<String, String> sourceRevisions,
+    this.energyOrigin = PredictiveEvidenceOrigin.observed,
+    this.availabilityOrigin = PredictiveEvidenceOrigin.observed,
+  }) : tasks = List<TrajectoryTaskNode>.unmodifiable(tasks),
+       goals = List<TrajectoryGoalNode>.unmodifiable(goals),
+       blocks = List<TrajectoryBlockNode>.unmodifiable(blocks),
+       timelineSignals = List<TrajectoryTimelineSignal>.unmodifiable(
+         timelineSignals,
+       ),
+       sourceRevisions = Map<String, String>.unmodifiable(sourceRevisions);
 
   final String accountScope;
   final String revision;
@@ -135,6 +144,13 @@ class TrajectoryBaseline {
   final TrajectoryProgressionSnapshot progression;
   final PredictiveConfidenceProfile confidence;
   final Map<String, String> sourceRevisions;
+  final PredictiveEvidenceOrigin energyOrigin;
+  final PredictiveEvidenceOrigin availabilityOrigin;
+
+  bool get hasObservedEnergy =>
+      energyOrigin == PredictiveEvidenceOrigin.observed;
+  bool get hasObservedAvailability =>
+      availabilityOrigin == PredictiveEvidenceOrigin.observed;
 
   int get requiredMinutes => tasks.fold<int>(
     0,
@@ -151,7 +167,7 @@ class TrajectoryBaseline {
 }
 
 class TrajectoryIntervention {
-  const TrajectoryIntervention({
+  TrajectoryIntervention({
     required this.id,
     required this.type,
     required this.title,
@@ -159,10 +175,12 @@ class TrajectoryIntervention {
     required this.description,
     this.subjectId,
     this.delay = Duration.zero,
-    this.proposedBlocks = const <TrajectoryBlockNode>[],
-    this.displacedSubjectIds = const <String>[],
-    this.assumptions = const <String>[],
-  });
+    List<TrajectoryBlockNode> proposedBlocks = const <TrajectoryBlockNode>[],
+    List<String> displacedSubjectIds = const <String>[],
+    List<String> assumptions = const <String>[],
+  }) : proposedBlocks = List<TrajectoryBlockNode>.unmodifiable(proposedBlocks),
+       displacedSubjectIds = List<String>.unmodifiable(displacedSubjectIds),
+       assumptions = List<String>.unmodifiable(assumptions);
 
   final String id;
   final TrajectoryInterventionType type;
@@ -193,12 +211,14 @@ class TrajectoryRiskContribution {
 }
 
 class TrajectoryRiskProjection {
-  const TrajectoryRiskProjection({
+  TrajectoryRiskProjection({
     required this.currentScore,
     required this.projectedScore,
     required this.band,
-    required this.contributions,
-  });
+    required List<TrajectoryRiskContribution> contributions,
+  }) : contributions = List<TrajectoryRiskContribution>.unmodifiable(
+         contributions,
+       );
 
   final int currentScore;
   final int projectedScore;
@@ -233,13 +253,14 @@ class GoalDelayProjection {
 }
 
 class TimelineConsequence {
-  const TimelineConsequence({
-    required this.affectedBlockIds,
-    required this.displacedSubjectIds,
+  TimelineConsequence({
+    required List<String> affectedBlockIds,
+    required List<String> displacedSubjectIds,
     required this.deadlineCrossings,
     required this.minutesAdded,
     required this.summary,
-  });
+  }) : affectedBlockIds = List<String>.unmodifiable(affectedBlockIds),
+       displacedSubjectIds = List<String>.unmodifiable(displacedSubjectIds);
 
   final List<String> affectedBlockIds;
   final List<String> displacedSubjectIds;
@@ -262,7 +283,7 @@ class ProgressionConsequence {
 }
 
 class TrajectoryScenarioOutcome {
-  const TrajectoryScenarioOutcome({
+  TrajectoryScenarioOutcome({
     required this.id,
     required this.baselineRevision,
     required this.intervention,
@@ -273,14 +294,16 @@ class TrajectoryScenarioOutcome {
     required this.confidence,
     required this.risk,
     required this.timeline,
-    required this.goals,
+    required List<GoalDelayProjection> goals,
     required this.progression,
-    required this.evidence,
-    required this.assumptions,
+    required List<String> evidence,
+    required List<String> assumptions,
     required this.explanation,
     required this.utilityScore,
     this.modelVersion = 'trajectory-consequence-v3',
-  });
+  }) : goals = List<GoalDelayProjection>.unmodifiable(goals),
+       evidence = List<String>.unmodifiable(evidence),
+       assumptions = List<String>.unmodifiable(assumptions);
 
   final String id;
   final String baselineRevision;
@@ -302,11 +325,11 @@ class TrajectoryScenarioOutcome {
 }
 
 class TrajectoryComparison {
-  const TrajectoryComparison({
+  TrajectoryComparison({
     required this.baseline,
-    required this.outcomes,
+    required List<TrajectoryScenarioOutcome> outcomes,
     required this.recommendedScenarioId,
-  });
+  }) : outcomes = List<TrajectoryScenarioOutcome>.unmodifiable(outcomes);
 
   final TrajectoryBaseline baseline;
   final List<TrajectoryScenarioOutcome> outcomes;

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 4.0.0+2026071133
+version: 4.1.0+2026083003
 environment:
   sdk: ^3.12.0
 
@@ -92,6 +92,9 @@ dev_dependencies:
   # Used only by tool/validate_maestro_flows.dart to parse the Maestro flows in
   # CI. Dev-only, so it is never bundled into the shipped app.
   yaml: ^3.1.2
+  # Parses canonical legal HTML when generating and verifying public/bundled
+  # copies. Dev-only, so it is never bundled into the shipped app.
+  html: ^0.15.6
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -115,7 +118,6 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    - .env
     - assets/animations/level_up.json
     - assets/animations/signal_pulse.json
     - assets/audio/error_soft.wav

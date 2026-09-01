@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: AI content reporting
 enum AiContentReportReason { unsafe, inaccurate, privacy, other }
 
 extension AiContentReportReasonCode on AiContentReportReason {

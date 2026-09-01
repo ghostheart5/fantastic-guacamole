@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
@@ -7,10 +8,13 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
+import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
+import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
-import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,7 +54,9 @@ void _setGuardState(
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    NotificationScheduler.tappedPayloadListenable.value = null;
   });
+  tearDown(() => NotificationScheduler.tappedPayloadListenable.value = null);
 
   group('appRouterProvider integration', () {
     testWidgets('selects initial location for all guard combinations', (
@@ -141,33 +147,34 @@ void main() {
       allowed.dispose();
     });
 
-    testWidgets('all registered legacy redirects end at canonical routes', (
-      WidgetTester tester,
-    ) async {
-      for (final _LegacyRouteExpectation item in _legacyRouteExpectations) {
-        final _RouterHarness harness = await _pumpRealRouter(
-          tester,
-          initialLocation: item.legacyPath,
-          authenticated: true,
-          welcomeComplete: true,
-          onboardingComplete: true,
-        );
-        await tester.pump();
-        await tester.pump();
-
-        _expectUri(harness, item.canonical.finalPath);
-        expect(find.byType(item.canonical.expectedWidget), findsWidgets);
-        if (item.canonical.shellView != null) {
-          expect(
-            harness.container.read(appFlowProvider),
-            item.canonical.shellView,
+    testWidgets(
+      'all registered compatibility redirects end at canonical routes',
+      (WidgetTester tester) async {
+        for (final _LegacyRouteExpectation item in _legacyRouteExpectations) {
+          final _RouterHarness harness = await _pumpRealRouter(
+            tester,
+            initialLocation: item.legacyPath,
+            authenticated: true,
+            welcomeComplete: true,
+            onboardingComplete: true,
           );
-        }
+          await tester.pump();
+          await tester.pump();
 
-        await tester.pumpWidget(const SizedBox.shrink());
-        harness.dispose();
-      }
-    });
+          _expectUri(harness, item.canonical.finalPath);
+          expect(find.byType(item.canonical.expectedWidget), findsWidgets);
+          if (item.canonical.shellView != null) {
+            expect(
+              harness.container.read(appFlowProvider),
+              item.canonical.shellView,
+            );
+          }
+
+          await tester.pumpWidget(const SizedBox.shrink());
+          harness.dispose();
+        }
+      },
+    );
 
     testWidgets('preserves full callback URIs and query parameters', (
       WidgetTester tester,
@@ -266,6 +273,68 @@ void main() {
       }
     });
 
+    testWidgets(
+      'real signed-out AuthGate legal actions preserve the protected return URI',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        const String returnTo = '/timeline?day=2026-08-29#block-7';
+        final String initialLocation = Uri(
+          path: RoutePaths.login,
+          queryParameters: <String, String>{'returnTo': returnTo},
+        ).toString();
+        final _RouterHarness harness = await _pumpRealRouter(
+          tester,
+          initialLocation: initialLocation,
+          authenticated: false,
+          welcomeComplete: true,
+          onboardingComplete: true,
+        );
+        addTearDown(harness.dispose);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 900));
+
+        expect(find.byType(AuthGate), findsOneWidget);
+        final Finder dismissGuide = find.text('Start login').hitTestable();
+        if (dismissGuide.evaluate().isNotEmpty) {
+          await tester.tap(dismissGuide);
+          await tester.pump();
+        }
+        for (final ({String label, String path}) destination
+            in <({String label, String path})>[
+              (label: 'Privacy', path: RoutePaths.privacy),
+              (label: 'Terms', path: RoutePaths.terms),
+            ]) {
+          final Finder action = find
+              .byKey(
+                ValueKey<String>(
+                  destination.path == RoutePaths.privacy
+                      ? 'login-privacy-action'
+                      : 'login-terms-action',
+                ),
+              )
+              .hitTestable();
+          expect(action, findsOneWidget);
+          await tester.ensureVisible(action);
+          await tester.tap(action);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 900));
+
+          expect(harness.router.state.uri.path, destination.path);
+          expect(find.byType(WebPageView), findsOneWidget);
+          expect(harness.router.canPop(), isTrue);
+
+          harness.router.pop();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 900));
+
+          _expectUri(harness, RoutePaths.login);
+          expect(_returnTo(harness), returnTo);
+        }
+      },
+    );
+
     testWidgets('restores validated return destinations', (
       WidgetTester tester,
     ) async {
@@ -360,6 +429,295 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
       expect(fresh.dispose, returnsNormally);
+    });
+
+    testWidgets('primary routes retain one shell-owned service lifecycle', (
+      WidgetTester tester,
+    ) async {
+      final _RouterHarness harness = await _pumpRealRouter(
+        tester,
+        initialLocation: RoutePaths.nexus,
+        authenticated: true,
+        welcomeComplete: true,
+        onboardingComplete: true,
+      );
+      await tester.pump();
+
+      final State<NavigationShell> originalShellState = tester.state(
+        find.byType(NavigationShell),
+      );
+
+      for (final String route in <String>[
+        RoutePaths.timeline,
+        RoutePaths.trajectoryEngine,
+        RoutePaths.profile,
+        RoutePaths.nexus,
+      ]) {
+        harness.router.go(route);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        _expectUri(harness, route);
+        expect(
+          tester.state<State<NavigationShell>>(
+            find.byType(NavigationShell).last,
+          ),
+          same(originalShellState),
+          reason:
+              'Primary route changes must not restart shell-owned services.',
+        );
+      }
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+
+    testWidgets('primary tab widget state survives URL-driven tab changes', (
+      WidgetTester tester,
+    ) async {
+      final _RouterHarness harness = await _pumpRealRouter(
+        tester,
+        initialLocation: RoutePaths.nexus,
+        authenticated: true,
+        welcomeComplete: true,
+        onboardingComplete: true,
+      );
+      await tester.pump();
+
+      final Element originalNexusElement = tester.element(
+        find.byType(NexusScreen),
+      );
+
+      harness.router.go(RoutePaths.timeline);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      _expectUri(harness, RoutePaths.timeline);
+      expect(find.byType(TimelineScreen), findsOneWidget);
+      expect(find.byType(NexusScreen, skipOffstage: false), findsOneWidget);
+      final Element timelineElement = tester.element(
+        find.byType(TimelineScreen),
+      );
+      expect(
+        tester.element(find.byType(NexusScreen, skipOffstage: false)),
+        same(originalNexusElement),
+      );
+      expect(TickerMode.valuesOf(originalNexusElement).enabled, isFalse);
+      expect(TickerMode.valuesOf(timelineElement).enabled, isTrue);
+
+      harness.router.go(RoutePaths.nexus);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      _expectUri(harness, RoutePaths.nexus);
+      expect(
+        tester.element(find.byType(NexusScreen)),
+        same(originalNexusElement),
+      );
+      expect(
+        tester.element(find.byType(TimelineScreen, skipOffstage: false)),
+        same(timelineElement),
+      );
+      expect(TickerMode.valuesOf(originalNexusElement).enabled, isTrue);
+      expect(TickerMode.valuesOf(timelineElement).enabled, isFalse);
+
+      harness.router.go(RoutePaths.timeline);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(
+        tester.element(find.byType(TimelineScreen)),
+        same(timelineElement),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+
+    testWidgets(
+      'returning from a secondary route mounts only the active primary tab',
+      (WidgetTester tester) async {
+        final _RouterHarness harness = await _pumpRealRouter(
+          tester,
+          initialLocation: RoutePaths.nexus,
+          authenticated: true,
+          welcomeComplete: true,
+          onboardingComplete: true,
+        );
+        await tester.pump();
+        final State<NavigationShell> shellState = tester.state(
+          find.byType(NavigationShell),
+        );
+
+        harness.router.go(RoutePaths.creator);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.byType(CreatorScreen), findsOneWidget);
+        expect(find.byType(NexusScreen, skipOffstage: false), findsNothing);
+
+        harness.router.go(RoutePaths.timeline);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        _expectUri(harness, RoutePaths.timeline);
+        expect(find.byType(TimelineScreen), findsOneWidget);
+        expect(find.byType(NexusScreen, skipOffstage: false), findsNothing);
+        expect(
+          tester.state<State<NavigationShell>>(find.byType(NavigationShell)),
+          same(shellState),
+        );
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+      },
+    );
+
+    testWidgets('saved primary tab restores through the persistent shell', (
+      WidgetTester tester,
+    ) async {
+      final _RouterHarness firstLaunch = await _pumpRealRouter(
+        tester,
+        initialLocation: RoutePaths.nexus,
+        authenticated: true,
+        welcomeComplete: true,
+        onboardingComplete: true,
+      );
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Timeline'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      _expectUri(firstLaunch, RoutePaths.timeline);
+      expect(PreferenceService().getLastOpenedTab(), 2);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      firstLaunch.dispose();
+
+      final _RouterHarness restoredLaunch = await _pumpRealRouter(
+        tester,
+        authenticated: true,
+        welcomeComplete: true,
+        onboardingComplete: true,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      _expectUri(restoredLaunch, RoutePaths.timeline);
+      expect(restoredLaunch.container.read(appFlowProvider), AppView.timeline);
+      expect(find.byType(TimelineScreen), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      restoredLaunch.dispose();
+    });
+
+    testWidgets('notification routing retains the persistent shell owner', (
+      WidgetTester tester,
+    ) async {
+      final _RouterHarness harness = await _pumpRealRouter(
+        tester,
+        initialLocation: RoutePaths.nexus,
+        authenticated: true,
+        welcomeComplete: true,
+        onboardingComplete: true,
+      );
+      await tester.pump();
+
+      final State<NavigationShell> shellState = tester.state(
+        find.byType(NavigationShell),
+      );
+      NotificationScheduler.tappedPayloadListenable.value =
+          'daily_planning_reminder';
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      _expectUri(harness, RoutePaths.timeline);
+      expect(harness.container.read(appFlowProvider), AppView.timeline);
+      expect(
+        tester.state<State<NavigationShell>>(find.byType(NavigationShell)),
+        same(shellState),
+      );
+      expect(NotificationScheduler.tappedPayloadListenable.value, isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+
+    testWidgets('app resume keeps the active primary route and shell owner', (
+      WidgetTester tester,
+    ) async {
+      final _RouterHarness harness = await _pumpRealRouter(
+        tester,
+        initialLocation: RoutePaths.nexus,
+        authenticated: true,
+        welcomeComplete: true,
+        onboardingComplete: true,
+      );
+      await tester.pump();
+
+      harness.router.go(RoutePaths.timeline);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      final State<NavigationShell> shellState = tester.state(
+        find.byType(NavigationShell),
+      );
+
+      for (final AppLifecycleState state in <AppLifecycleState>[
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+        await tester.pump();
+      }
+
+      _expectUri(harness, RoutePaths.timeline);
+      expect(harness.container.read(appFlowProvider), AppView.timeline);
+      expect(
+        tester.state<State<NavigationShell>>(find.byType(NavigationShell)),
+        same(shellState),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+
+    testWidgets('Back returns to Nexus without replacing the shell owner', (
+      WidgetTester tester,
+    ) async {
+      final _RouterHarness harness = await _pumpRealRouter(
+        tester,
+        initialLocation: RoutePaths.nexus,
+        authenticated: true,
+        welcomeComplete: true,
+        onboardingComplete: true,
+      );
+      await tester.pump();
+
+      harness.router.go(RoutePaths.profile);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      final State<NavigationShell> shellState = tester.state(
+        find.byType(NavigationShell),
+      );
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      _expectUri(harness, RoutePaths.nexus);
+      expect(harness.container.read(appFlowProvider), AppView.nexus);
+      expect(
+        tester.state<State<NavigationShell>>(find.byType(NavigationShell)),
+        same(shellState),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
     });
   });
 }
@@ -558,6 +916,12 @@ const List<_RouteExpectation> _canonicalRouteExpectations = <_RouteExpectation>[
     shellView: AppView.creator,
   ),
   _RouteExpectation(
+    requestedPath: RoutePaths.creatorGoals,
+    finalPath: RoutePaths.creatorGoals,
+    expectedWidget: NavigationShell,
+    shellView: AppView.goals,
+  ),
+  _RouteExpectation(
     requestedPath: RoutePaths.settings,
     finalPath: RoutePaths.settings,
     expectedWidget: NavigationShell,
@@ -623,8 +987,9 @@ const List<_RouteExpectation> _canonicalRouteExpectations = <_RouteExpectation>[
   ),
   _RouteExpectation(
     requestedPath: RoutePaths.paywall,
-    finalPath: RoutePaths.paywall,
-    expectedWidget: PaywallPage,
+    finalPath: RoutePaths.settings,
+    expectedWidget: NavigationShell,
+    shellView: AppView.settings,
   ),
   _RouteExpectation(
     requestedPath: RoutePaths.privacy,
@@ -681,71 +1046,17 @@ const List<_RouteExpectation> _signedOutPublicRoutes = <_RouteExpectation>[
   ),
 ];
 
-const List<_LegacyRouteExpectation> _legacyRouteExpectations =
-    <_LegacyRouteExpectation>[
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyLogs,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.logs,
-          finalPath: RoutePaths.logs,
-          expectedWidget: NavigationShell,
-          shellView: AppView.timeline,
+final List<_LegacyRouteExpectation> _legacyRouteExpectations = AppRouteRegistry
+    .routerCompatibilityRedirects
+    .map(
+      (AppRouteCompatibility alias) => _LegacyRouteExpectation(
+        legacyPath: alias.path!,
+        canonical: _canonicalRouteExpectations.singleWhere(
+          (_RouteExpectation route) => route.requestedPath == alias.targetPath,
         ),
       ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyNotifications,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.notifications,
-          finalPath: RoutePaths.notifications,
-          expectedWidget: NotificationsPage,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyProgression,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.progression,
-          finalPath: RoutePaths.progression,
-          expectedWidget: NavigationShell,
-          shellView: AppView.progression,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacySi,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.si,
-          finalPath: RoutePaths.si,
-          expectedWidget: NavigationShell,
-          shellView: AppView.console,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyTasks,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.tasks,
-          finalPath: RoutePaths.tasks,
-          expectedWidget: NavigationShell,
-          shellView: AppView.creator,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyProfile,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.profile,
-          finalPath: RoutePaths.profile,
-          expectedWidget: NavigationShell,
-          shellView: AppView.profile,
-        ),
-      ),
-      _LegacyRouteExpectation(
-        legacyPath: RoutePaths.legacyInsights,
-        canonical: _RouteExpectation(
-          requestedPath: RoutePaths.smartPlanner,
-          finalPath: RoutePaths.smartPlanner,
-          expectedWidget: NavigationShell,
-          shellView: AppView.smartPlanner,
-        ),
-      ),
-    ];
+    )
+    .toList(growable: false);
 
 class _StaticGoals extends GoalsNotifier {
   @override

@@ -1,7 +1,10 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console V2
 import 'dart:collection';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 
 const int siV2SchemaVersion = 1;
@@ -67,6 +70,7 @@ final class SIV2Query {
     required this.timeRange,
     String? entityFilter,
     List<String> assumptions = const <String>[],
+    List<String> priorUserTurns = const <String>[],
   }) : rawText = rawText.trim(),
        sources = Set<SIV2Source>.unmodifiable(sources),
        entityFilter = _trimToNull(entityFilter),
@@ -74,7 +78,8 @@ final class SIV2Query {
          assumptions
              .map((String item) => item.trim())
              .where((String item) => item.isNotEmpty),
-       ) {
+       ),
+       priorUserTurns = _normalizePriorUserTurns(priorUserTurns) {
     if (schemaVersion != siV2SchemaVersion || this.rawText.isEmpty) {
       throw ArgumentError('SI V2 queries require a supported schema and text.');
     }
@@ -92,6 +97,7 @@ final class SIV2Query {
     required SIV2TimeRange timeRange,
     String? entityFilter,
     String? scenarioAssumption,
+    List<String> priorUserTurns = const <String>[],
   }) {
     final String normalized = rawText.trim().toLowerCase();
     final Set<SIV2Source> shortcutSources = <SIV2Source>{};
@@ -144,6 +150,7 @@ final class SIV2Query {
         if (_trimToNull(scenarioAssumption) case final String assumption)
           assumption,
       ],
+      priorUserTurns: priorUserTurns,
     );
   }
 
@@ -154,6 +161,9 @@ final class SIV2Query {
   final SIV2TimeRange timeRange;
   final String? entityFilter;
   final List<String> assumptions;
+  final List<String> priorUserTurns;
+
+  String get conversationText => <String>[...priorUserTurns, rawText].join(' ');
 }
 
 final class SIV2TaskEvidence {
@@ -238,6 +248,78 @@ final class SIV2TimelineEvidence {
   final String? sourceFeature;
 }
 
+/// Bounded, read-only person context projected for the SI Console.
+///
+/// [userReportedValue] remains untrusted provenance. The current SI V2 engine
+/// does not use it to construct an answer or expose it as answer evidence. It
+/// must never be interpreted as an instruction or mutation request.
+final class SIV2PersonContextSignalEvidence {
+  SIV2PersonContextSignalEvidence({
+    required String id,
+    required this.kind,
+    required String userReportedValue,
+    required this.source,
+    required this.purpose,
+    required this.recordedAt,
+    required this.freshUntil,
+    required this.expiresAt,
+  }) : id = id.trim(),
+       userReportedValue = userReportedValue.trim().replaceAll(
+         RegExp(r'\s+'),
+         ' ',
+       ) {
+    if (this.id.isEmpty ||
+        this.id.length > maxIdLength ||
+        this.userReportedValue.isEmpty ||
+        this.userReportedValue.length > maxValueLength) {
+      throw ArgumentError('SI V2 person context evidence is malformed.');
+    }
+  }
+
+  static const int maxIdLength = PersonContextSignal.maxIdLength;
+  static const int maxValueLength = PersonContextSignal.maxValueLength;
+
+  final String id;
+  final PersonContextKind kind;
+  final String userReportedValue;
+  final PersonContextSource source;
+  final PersonContextPurpose purpose;
+  final DateTime recordedAt;
+  final DateTime freshUntil;
+  final DateTime expiresAt;
+}
+
+final class SIV2PersonContextEvidence {
+  SIV2PersonContextEvidence({
+    required this.observedAt,
+    required Set<PersonContextPurpose> purposes,
+    required List<SIV2PersonContextSignalEvidence> signals,
+    required Set<PersonContextKind> unknownKinds,
+  }) : purposes = Set<PersonContextPurpose>.unmodifiable(purposes),
+       signals = List<SIV2PersonContextSignalEvidence>.unmodifiable(signals),
+       unknownKinds = Set<PersonContextKind>.unmodifiable(unknownKinds) {
+    if (this.purposes.isEmpty || this.signals.length > maxSignals) {
+      throw ArgumentError('SI V2 person context evidence is unbounded.');
+    }
+    _validateEntityIdentity(
+      this.signals.map(
+        (SIV2PersonContextSignalEvidence item) =>
+            (item.id, item.userReportedValue),
+      ),
+      'person context',
+    );
+  }
+
+  static const int maxSignals = PersonContextSpine.maxSignals;
+
+  final DateTime observedAt;
+  final Set<PersonContextPurpose> purposes;
+  final List<SIV2PersonContextSignalEvidence> signals;
+  final Set<PersonContextKind> unknownKinds;
+
+  bool get isEmpty => signals.isEmpty;
+}
+
 final class SIV2EvidenceSnapshot {
   SIV2EvidenceSnapshot({
     this.schemaVersion = siV2SchemaVersion,
@@ -247,6 +329,7 @@ final class SIV2EvidenceSnapshot {
     required List<SIV2GoalEvidence> goals,
     required List<SIV2MilestoneEvidence> milestones,
     required List<SIV2TimelineEvidence> timeline,
+    this.personContext,
     Set<SIV2Source> unavailableSources = const <SIV2Source>{},
   }) : accountScopeId = accountScopeId.trim(),
        tasks = List<SIV2TaskEvidence>.unmodifiable(tasks),
@@ -292,6 +375,7 @@ final class SIV2EvidenceSnapshot {
   final List<SIV2GoalEvidence> goals;
   final List<SIV2MilestoneEvidence> milestones;
   final List<SIV2TimelineEvidence> timeline;
+  final SIV2PersonContextEvidence? personContext;
   final Set<SIV2Source> unavailableSources;
 
   String get revision => sha256
@@ -354,6 +438,37 @@ final class SIV2EvidenceSnapshot {
                   ],
                 )
                 .toList(growable: false),
+            'personContext': personContext == null
+                ? null
+                : <String, Object?>{
+                    'observedAt': personContext!.observedAt
+                        .toUtc()
+                        .toIso8601String(),
+                    'purposes':
+                        personContext!.purposes
+                            .map((PersonContextPurpose purpose) => purpose.name)
+                            .toList()
+                          ..sort(),
+                    'signals': personContext!.signals
+                        .map(
+                          (SIV2PersonContextSignalEvidence item) => <Object?>[
+                            item.id,
+                            item.kind.name,
+                            item.userReportedValue,
+                            item.source.name,
+                            item.purpose.name,
+                            item.recordedAt.toUtc().toIso8601String(),
+                            item.freshUntil.toUtc().toIso8601String(),
+                            item.expiresAt.toUtc().toIso8601String(),
+                          ],
+                        )
+                        .toList(growable: false),
+                    'unknownKinds':
+                        personContext!.unknownKinds
+                            .map((PersonContextKind kind) => kind.name)
+                            .toList()
+                          ..sort(),
+                  },
             'unavailable':
                 unavailableSources
                     .map((SIV2Source source) => source.name)
@@ -523,6 +638,47 @@ final class SIV2Response {
         safetyReceipt: receipt,
       );
 
+  SIV2Response withOperatingDecision(
+    OperatingDecisionReceipt receipt, {
+    DateTime? now,
+  }) {
+    if (receipt.isExpiredAt((now ?? DateTime.now()).toUtc())) return this;
+    final SIV2EvidenceLink authorityLink = SIV2EvidenceLink(
+      evidenceId: 'decision:${receipt.decisionId}',
+      source: SIV2Source.tasks,
+      label: 'Shared decision receipt',
+      entityId: receipt.subjectId ?? receipt.planId,
+      observedAt: receipt.generatedAt,
+      uri: 'chronospark://decision/${receipt.decisionId}',
+    );
+    return SIV2Response(
+      schemaVersion: schemaVersion,
+      query: query,
+      snapshotRevision: snapshotRevision,
+      directAnswer: directAnswer,
+      observedFacts: observedFacts,
+      calculations: calculations,
+      inferences: inferences,
+      missingInformation: missingInformation,
+      conflicts: conflicts,
+      scenarios: scenarios,
+      scenarioAssumptions: <String>[
+        ...scenarioAssumptions,
+        'The next action is read from shared decision plan ${receipt.planId}; SI Console did not independently rank another action.',
+      ],
+      recommendation: receipt.recommendedAction,
+      confidence: confidence,
+      evidenceLinks: <SIV2EvidenceLink>[
+        ...evidenceLinks.where(
+          (SIV2EvidenceLink item) =>
+              item.evidenceId != authorityLink.evidenceId,
+        ),
+        authorityLink,
+      ],
+      safetyReceipt: safetyReceipt,
+    );
+  }
+
   void validate() {
     if (schemaVersion != siV2SchemaVersion ||
         directAnswer.isEmpty ||
@@ -627,6 +783,22 @@ final class SIV2Response {
 String? _trimToNull(String? value) {
   final String normalized = value?.trim() ?? '';
   return normalized.isEmpty ? null : normalized;
+}
+
+List<String> _normalizePriorUserTurns(List<String> values) {
+  final List<String> normalized = values
+      .map((String value) => value.replaceAll(RegExp(r'\s+'), ' ').trim())
+      .where((String value) => value.isNotEmpty)
+      .map(
+        (String value) => value.length <= 240
+            ? value
+            : '${value.substring(0, 239).trimRight()}…',
+      )
+      .toList(growable: false);
+  final List<String> bounded = normalized.length <= 4
+      ? normalized
+      : normalized.sublist(normalized.length - 4);
+  return List<String>.unmodifiable(bounded);
 }
 
 void _validateEntityIdentity(

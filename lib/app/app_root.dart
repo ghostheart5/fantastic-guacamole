@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
@@ -6,6 +7,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -18,6 +20,162 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+@visibleForTesting
+class DeepLinkEventDeduplicator {
+  DeepLinkState? _lastHandledEvent;
+
+  void handleIfNew(DeepLinkState event, void Function(Uri uri) onHandle) {
+    final Uri? uri = event.latestUri;
+    if (uri == null || identical(_lastHandledEvent, event)) {
+      return;
+    }
+
+    _lastHandledEvent = event;
+    onHandle(uri);
+  }
+}
+
+const String _authCallbackTypeQueryParameter = 'type';
+
+@visibleForTesting
+String resolveExternalDeepLinkLocation(Uri uri) {
+  final String appPath = _normalizeExternalAppPath(uri.path);
+  if (appPath.isEmpty) {
+    return '';
+  }
+
+  if (appPath == '/app/auth/callback') {
+    final String type =
+        (_singleAllowedInputParameter(uri, _authCallbackTypeQueryParameter) ??
+                '')
+            .toLowerCase();
+    final String mode = switch (type) {
+      'recovery' => 'recovery',
+      'signup' || 'email_change' || 'invite' => 'verify-email',
+      _ => 'auth-callback',
+    };
+    final String? returnTo = _sanitizeReturnTo(
+      _singleAllowedInputParameter(
+        uri,
+        RouteAccessPolicy.returnToQueryParameter,
+      ),
+    );
+    final Map<String, String> queryParameters = <String, String>{'mode': mode};
+    if (returnTo != null) {
+      queryParameters[RouteAccessPolicy.returnToQueryParameter] = returnTo;
+    }
+    return Uri(
+      path: RoutePaths.login,
+      queryParameters: queryParameters,
+    ).toString();
+  }
+
+  if (appPath == '/app' || appPath == '/app/') {
+    return RoutePaths.nexus;
+  }
+
+  final String leaf = appPath.substring('/app/'.length);
+  final AppRouteDefinition? route = AppRouteRegistry.routeForExternalSlug(leaf);
+  if (route == null) {
+    return '';
+  }
+  return _sanitizedRouteLocation(
+    route.path,
+    uri,
+    allowSavedTabRestore: route.allowSavedTabRestore,
+  );
+}
+
+String _sanitizedRouteLocation(
+  String route,
+  Uri source, {
+  bool allowSavedTabRestore = false,
+}) {
+  final Map<String, String> queryParameters = <String, String>{};
+  final List<String>? restoreValues =
+      source.queryParametersAll[restoreSavedTabQueryParameter];
+  final String fragment = source.fragment.trim();
+  final List<String>? fragmentRestoreValues = fragment.isEmpty
+      ? <String>[]
+      : _fragmentValuesForKey(fragment, restoreSavedTabQueryParameter);
+  if (allowSavedTabRestore &&
+      restoreValues != null &&
+      restoreValues.length == 1 &&
+      restoreValues.single == 'true' &&
+      fragmentRestoreValues != null &&
+      fragmentRestoreValues.isEmpty) {
+    queryParameters[restoreSavedTabQueryParameter] = 'true';
+  }
+  return Uri(
+    path: route,
+    queryParameters: queryParameters.isEmpty ? null : queryParameters,
+  ).toString();
+}
+
+String? _sanitizeReturnTo(String? rawReturnTo) {
+  final String? validated = RouteAccessPolicy.validatedReturnTo(rawReturnTo);
+  if (validated == null) {
+    return null;
+  }
+  final Uri candidate = Uri.parse(validated);
+  if (!AppRouteRegistry.isExternallyReachablePath(candidate.path)) {
+    return null;
+  }
+  return _sanitizedRouteLocation(
+    candidate.path,
+    candidate,
+    allowSavedTabRestore: candidate.path == RoutePaths.nexus,
+  );
+}
+
+String? _singleAllowedInputParameter(Uri uri, String key) {
+  final List<String> values = <String>[...?uri.queryParametersAll[key]];
+  final String fragment = uri.fragment.trim();
+  if (fragment.isNotEmpty) {
+    final List<String>? fragmentValues = _fragmentValuesForKey(fragment, key);
+    if (fragmentValues == null) {
+      return null;
+    }
+    values.addAll(fragmentValues);
+  }
+  return values.length == 1 ? values.single : null;
+}
+
+List<String>? _fragmentValuesForKey(String fragment, String key) {
+  final List<String> values = <String>[];
+  for (final String segment in fragment.split('&')) {
+    if (segment.isEmpty) {
+      continue;
+    }
+    final int separator = segment.indexOf('=');
+    final String rawKey = separator < 0
+        ? segment
+        : segment.substring(0, separator);
+    final String rawValue = separator < 0
+        ? ''
+        : segment.substring(separator + 1);
+    try {
+      if (Uri.decodeQueryComponent(rawKey) == key) {
+        values.add(Uri.decodeQueryComponent(rawValue));
+      }
+    } on FormatException {
+      return null;
+    }
+  }
+  return values;
+}
+
+String _normalizeExternalAppPath(String path) {
+  if (path == '/app' || path == '/app/' || path.startsWith('/app/')) {
+    return path;
+  }
+  final int appStart = path.indexOf('/app');
+  if (appStart >= 0) {
+    return path.substring(appStart);
+  }
+  return '';
+}
 
 class AppRoot extends ConsumerStatefulWidget {
   const AppRoot({
@@ -35,7 +193,7 @@ class AppRoot extends ConsumerStatefulWidget {
 
 class _AppRootState extends ConsumerState<AppRoot> {
   GoRouter? _router;
-  final Set<String> _handledDeepLinks = <String>{};
+  final DeepLinkEventDeduplicator _deepLinkEvents = DeepLinkEventDeduplicator();
 
   @override
   Widget build(BuildContext context) {
@@ -53,12 +211,12 @@ class _AppRootState extends ConsumerState<AppRoot> {
       authSessionBoundaryProvider,
     );
     final String startupMessage = widget.startupError?.trim() ?? '';
-    final bool showQaDiagnostics = ref
-        .watch(intelligenceStateProvider)
-        .flags
-        .testerFullAccess;
+    final intelligenceState = ref.watch(intelligenceStateProvider);
+    final accountScope = ref.watch(accountStorageScopeProvider);
+    final bool showQaDiagnostics = intelligenceState.flags.testerFullAccess;
     if (accountBoundary.isTransitioning ||
-        accountBoundary.blockingIssue != null) {
+        accountBoundary.blockingIssue != null ||
+        (intelligenceState.auth.isAuthenticated && !accountScope.isWritable)) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         title: AppConfig.fromEnv().appName,
@@ -89,11 +247,14 @@ class _AppRootState extends ConsumerState<AppRoot> {
       AsyncValue<DeepLinkState>? _,
       AsyncValue<DeepLinkState> next,
     ) {
-      final Uri? uri = next.asData?.value.latestUri;
-      if (uri == null) {
+      final DeepLinkState? event = next.asData?.value;
+      if (event == null) {
         return;
       }
-      _handleDeepLink(uri, router);
+      _deepLinkEvents.handleIfNew(
+        event,
+        (Uri uri) => _handleDeepLink(uri, router),
+      );
     });
 
     return MaterialApp.router(
@@ -204,7 +365,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
                   ),
                 ),
               ),
-            if (showQaDiagnostics)
+            if (showQaDiagnostics && startupBannerMessage.isNotEmpty)
               Align(
                 alignment: Alignment.topRight,
                 child: SafeArea(
@@ -248,108 +409,21 @@ class _AppRootState extends ConsumerState<AppRoot> {
   }
 
   void _handleDeepLink(Uri uri, GoRouter router) {
-    final String deepLinkKey = uri.toString();
-    if (_handledDeepLinks.contains(deepLinkKey)) {
-      return;
-    }
-
-    final String location = _resolveDeepLinkLocation(uri);
+    final String location = resolveExternalDeepLinkLocation(uri);
     if (location.isEmpty) {
       return;
     }
     final String currentLocation = router.state.matchedLocation;
     if (currentLocation == location) {
-      _handledDeepLinks.add(deepLinkKey);
       return;
     }
     // Deep links are handled automatically without direct user interaction.
     // Use replace to avoid creating a synthetic browser history entry.
     try {
       router.replace<Object?>(location);
-      _handledDeepLinks.add(deepLinkKey);
     } on Exception {
-      // Do not mark the link handled unless the router accepted the target.
+      // A later deep-link event can retry a target rejected by the router.
     }
-  }
-
-  String _resolveDeepLinkLocation(Uri uri) {
-    final String appPath = _normalizeAppPath(uri.path);
-    if (appPath.isEmpty) {
-      return '';
-    }
-
-    final Map<String, String> params = _allLinkParams(uri);
-
-    if (appPath == '/app/auth/callback') {
-      final String type = (params['type'] ?? '').toLowerCase();
-      final String mode = switch (type) {
-        'recovery' => 'recovery',
-        'signup' || 'email_change' || 'invite' => 'verify-email',
-        _ => 'auth-callback',
-      };
-      final String? returnTo = RouteAccessPolicy.validatedReturnTo(
-        params[RouteAccessPolicy.returnToQueryParameter],
-      );
-      final Map<String, String> queryParameters = <String, String>{
-        'mode': mode,
-      };
-      if (returnTo != null) {
-        queryParameters[RouteAccessPolicy.returnToQueryParameter] = returnTo;
-      }
-      return Uri(
-        path: RoutePaths.login,
-        queryParameters: queryParameters,
-      ).toString();
-    }
-
-    if (appPath == '/app' || appPath == '/app/') {
-      return RoutePaths.nexus;
-    }
-
-    final String leaf = appPath.substring('/app/'.length);
-    final String route = switch (leaf) {
-      'home' || 'nexus' => RoutePaths.nexus,
-      'plan' => RoutePaths.timeline,
-      'creator' => RoutePaths.creator,
-      'settings' => RoutePaths.settings,
-      'notifications' => RoutePaths.notifications,
-      'support' => RoutePaths.support,
-      'privacy' => RoutePaths.privacy,
-      'terms' => RoutePaths.terms,
-      _ => RoutePaths.nexus,
-    };
-    return _withAllowedLinkParts(route, uri);
-  }
-
-  String _withAllowedLinkParts(String route, Uri source) {
-    final Map<String, String> query = Map<String, String>.of(
-      source.queryParameters,
-    )..remove(RouteAccessPolicy.returnToQueryParameter);
-    return Uri(
-      path: route,
-      queryParameters: query.isEmpty ? null : query,
-      fragment: source.fragment.isEmpty ? null : source.fragment,
-    ).toString();
-  }
-
-  String _normalizeAppPath(String path) {
-    if (path == '/app' || path == '/app/' || path.startsWith('/app/')) {
-      return path;
-    }
-    final int appStart = path.indexOf('/app');
-    if (appStart >= 0) {
-      return path.substring(appStart);
-    }
-    return '';
-  }
-
-  Map<String, String> _allLinkParams(Uri uri) {
-    final Map<String, String> merged = <String, String>{...uri.queryParameters};
-    final String fragment = uri.fragment.trim();
-    if (fragment.isNotEmpty) {
-      merged.addAll(Uri.splitQueryString(fragment));
-    }
-    return merged;
   }
 
   String _startupBannerMessage(

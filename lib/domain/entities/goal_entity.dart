@@ -52,6 +52,18 @@ class GoalEntity {
 
   GoalEntity reopen() => copyWith(clearCompletedAt: true);
 
+  void validate() {
+    if (id.trim().isEmpty) {
+      throw StateError('Goals require an id.');
+    }
+    if (title.trim().isEmpty) {
+      throw StateError('Goals require a title.');
+    }
+    if (completedAt?.isBefore(createdAt) ?? false) {
+      throw StateError('Goal completion cannot predate creation.');
+    }
+  }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,

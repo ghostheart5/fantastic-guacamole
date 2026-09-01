@@ -67,22 +67,26 @@ class MilestoneEntity {
   bool get isCompleted => status == MilestoneStatus.completed;
   bool get isArchived =>
       status == MilestoneStatus.archived || archivedAt != null;
-  bool get isOverdue {
+  bool isOverdueAt(DateTime reference) {
     final DateTime? due = targetDate;
     if (due == null || isCompleted || isArchived) {
       return false;
     }
-    return due.isBefore(DateTime.now()) || status == MilestoneStatus.overdue;
+    return due.isBefore(reference) || status == MilestoneStatus.overdue;
   }
 
-  bool get isUpcoming {
+  bool get isOverdue => isOverdueAt(DateTime.now());
+
+  bool isUpcomingAt(DateTime reference) {
     final DateTime? due = targetDate;
     if (due == null || isCompleted || isArchived) {
       return false;
     }
-    final Duration delta = due.difference(DateTime.now());
+    final Duration delta = due.difference(reference);
     return delta.inDays <= 14 && delta.inHours >= 0;
   }
+
+  bool get isUpcoming => isUpcomingAt(DateTime.now());
 
   bool get isActive => !isCompleted && !isArchived;
 

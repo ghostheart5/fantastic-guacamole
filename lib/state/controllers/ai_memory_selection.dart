@@ -1,12 +1,12 @@
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
-import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
+import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 
 List<String> recentResponseSummaries({
-  required List<SISnapshot> recentSnapshots,
+  required List<AssistantMemorySnapshot> recentSnapshots,
   required Map<String, dynamic>? previousState,
 }) {
   final List<String> summaries = recentSnapshots
-      .map((SISnapshot snapshot) => snapshot.responseSummary)
+      .map((AssistantMemorySnapshot snapshot) => snapshot.responseSummary)
       .whereType<String>()
       .where((String summary) => summary.trim().isNotEmpty)
       .toList(growable: true);
@@ -33,7 +33,7 @@ List<String> recentResponseSummaries({
 List<String> selectRelevantMemorySummaries({
   required String query,
   required SIIntent intent,
-  required List<SISnapshot> recentSnapshots,
+  required List<AssistantMemorySnapshot> recentSnapshots,
   required Map<String, dynamic>? previousState,
 }) {
   final String normalizedQuery = responseSummaryFor(query, maxWords: 24);
@@ -41,7 +41,7 @@ List<String> selectRelevantMemorySummaries({
   final List<_ScoredMemory> scored = <_ScoredMemory>[];
 
   for (int i = 0; i < recentSnapshots.length; i++) {
-    final SISnapshot snapshot = recentSnapshots[i];
+    final AssistantMemorySnapshot snapshot = recentSnapshots[i];
     final String text = snapshot.responseSummary?.trim() ?? '';
     if (text.isEmpty) {
       continue;

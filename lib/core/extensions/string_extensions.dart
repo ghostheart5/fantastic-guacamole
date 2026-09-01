@@ -24,8 +24,12 @@ extension StringExt on String {
   // Truncation
   // ------------------------------------------------------------------
 
-  String truncate(int maxLength, {String ellipsis = '…'}) =>
-      length <= maxLength ? this : '${substring(0, maxLength)}$ellipsis';
+  String truncate(int maxLength, {String ellipsis = '…'}) {
+    if (maxLength < 0) {
+      throw ArgumentError.value(maxLength, 'maxLength', 'must not be negative');
+    }
+    return length <= maxLength ? this : '${substring(0, maxLength)}$ellipsis';
+  }
 
   // ------------------------------------------------------------------
   // Parsing
@@ -35,27 +39,13 @@ extension StringExt on String {
   double? get toDoubleOrNull => double.tryParse(trim());
 
   // ------------------------------------------------------------------
-  // Validation helpers
-  // ------------------------------------------------------------------
-
-  bool get isValidEmail =>
-      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trim());
-
-  bool get isStrongPassword {
-    final s = trim();
-    if (s.length < 8) return false;
-    return RegExp(r'[A-Z]').hasMatch(s) &&
-        RegExp(r'[a-z]').hasMatch(s) &&
-        RegExp(r'\d').hasMatch(s);
-  }
-
-  // ------------------------------------------------------------------
   // Initials
   // ------------------------------------------------------------------
 
   String get initials {
-    final words = trim().split(RegExp(r'\s+'));
-    if (words.isEmpty) return '';
+    final String trimmed = trim();
+    if (trimmed.isEmpty) return '';
+    final words = trimmed.split(RegExp(r'\s+'));
     if (words.length == 1) return words[0][0].toUpperCase();
     return '${words.first[0]}${words.last[0]}'.toUpperCase();
   }

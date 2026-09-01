@@ -1,5 +1,6 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Governed memory
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
-import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 
 final class MemoryGovernanceException implements Exception {
   const MemoryGovernanceException(this.code, this.message);
@@ -23,10 +24,11 @@ abstract final class MemoryGovernancePolicy {
   );
 
   static MemorySensitivity classify(String text) {
-    if (CrisisDetectionPolicy.detects(text)) {
+    final EmotionalSafetyAssessment safety = EmotionalSafetyPolicy.assess(text);
+    if (safety.requiresImmediateSafety) {
       return MemorySensitivity.crisis;
     }
-    if (_emotionalDisclosure.hasMatch(text)) {
+    if (safety.requiresSupportivePause || _emotionalDisclosure.hasMatch(text)) {
       return MemorySensitivity.emotional;
     }
     return MemorySensitivity.personal;

@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Operating continuity
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 
 abstract interface class IOperatingContinuityRepository {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
@@ -28,6 +29,52 @@ void main() {
 
     expect(port.calls, 0);
     expect(find.textContaining('SI V2 could not validate'), findsNothing);
+  });
+
+  testWidgets('example question executes in one tap', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(500, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+    final ProviderContainer container = _container(port, snapshot);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    await tester.ensureVisible(find.text('What needs attention?'));
+    await tester.tap(find.text('What needs attention?'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(port.calls, 1);
+    expect(port.lastQuery?.rawText, 'What needs attention?');
+  });
+
+  testWidgets('unavailable console is truthful before the first query', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+    final ProviderContainer container = _container(
+      port,
+      snapshot,
+      available: false,
+    );
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    expect(
+      find.textContaining('SI Console is not enabled for this account'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('si-console-welcome')), findsOneWidget);
+    expect(find.text('SPEAK'), findsNothing);
+    expect(find.text('REPORT'), findsNothing);
+    expect(find.bySemanticsLabel('SI Console unavailable'), findsOneWidget);
+    final TextField field = tester.widget<TextField>(
+      find.byKey(const Key('si-query-input')),
+    );
+    expect(field.enabled, isFalse);
+    expect(port.calls, 0);
   });
 
   testWidgets('contract failure displays a safe no-mutation response', (
@@ -90,7 +137,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.byKey(const Key('si-v2-response')), findsOneWidget);
+    expect(find.byIcon(Icons.send_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.hourglass_top_rounded), findsNothing);
+    expect(port.calls, 1);
   });
 
   testWidgets('assistant response identifies read-only on-device provenance', (
@@ -120,6 +169,73 @@ void main() {
     expect(find.text('External AI', skipOffstage: false), findsNothing);
   });
 
+  testWidgets('status discloses unavailable person context', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+    final ProviderContainer container = _container(port, snapshot);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    expect(
+      find.textContaining('Person context: unavailable; not used for answers'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('status discloses valid empty person context', (
+    WidgetTester tester,
+  ) async {
+    final SIV2EvidenceSnapshot empty = _snapshot(
+      now,
+      personContext: _personContext(now),
+    );
+    final _RecordingPort port = _RecordingPort(snapshot: empty, now: now);
+    final ProviderContainer container = _container(port, empty);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    expect(
+      find.textContaining(
+        'Person context: shared but empty; not used for answers',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('status discloses present context as provenance only', (
+    WidgetTester tester,
+  ) async {
+    final SIV2PersonContextSignalEvidence signal =
+        SIV2PersonContextSignalEvidence(
+          id: 'priority',
+          kind: PersonContextKind.currentPriority,
+          userReportedValue: 'Finish release evidence',
+          source: PersonContextSource.userAuthored,
+          purpose: PersonContextPurpose.decisionSupport,
+          recordedAt: now.subtract(const Duration(hours: 1)),
+          freshUntil: now.add(const Duration(hours: 6)),
+          expiresAt: now.add(const Duration(days: 1)),
+        );
+    final SIV2EvidenceSnapshot present = _snapshot(
+      now,
+      personContext: _personContext(
+        now,
+        signals: <SIV2PersonContextSignalEvidence>[signal],
+      ),
+    );
+    final _RecordingPort port = _RecordingPort(snapshot: present, now: now);
+    final ProviderContainer container = _container(port, present);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+
+    expect(find.textContaining('provenance only'), findsOneWidget);
+    expect(
+      find.textContaining('not used for answers or answer evidence'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'a crisis phrase prefixed with a slash shortcut opens the crisis dialog',
     (WidgetTester tester) async {
@@ -135,9 +251,51 @@ void main() {
       await tester.tap(find.byIcon(Icons.send_rounded));
       await tester.pump();
 
-      expect(find.text("You're not alone"), findsOneWidget);
+      expect(find.byKey(const Key('immediate-safety-dialog')), findsOneWidget);
       expect(port.calls, 0);
       expect(find.textContaining('SI QUERY SHORTCUTS'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'non-crisis distress pauses SI and only continues with a gentle local question',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(600, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+      final ProviderContainer container = _container(port, snapshot);
+      addTearDown(() => _dispose(tester, container));
+      await _pumpScreen(tester, container);
+
+      await tester.enterText(
+        find.byKey(const Key('si-query-input')),
+        'I am panicking and losing control',
+      );
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.byKey(const Key('supportive-distress-dialog')),
+        findsOneWidget,
+      );
+      expect(port.calls, 0);
+
+      await tester.tap(find.byKey(const Key('safety-continue-gently')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(port.calls, 0);
+      expect(
+        find.textContaining(
+          'Pausing productivity guidance',
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('External AI', skipOffstage: false), findsNothing);
     },
   );
 
@@ -203,6 +361,8 @@ void main() {
     addTearDown(() => _dispose(tester, container));
     await _pumpScreen(tester, container);
 
+    await tester.tap(find.byKey(const Key('si-v2-advanced')));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.enterText(find.byKey(const Key('si-query-input')), '/ta');
     await tester.pump();
     final Finder suggestion = find.byKey(
@@ -210,7 +370,9 @@ void main() {
     );
     expect(suggestion, findsOneWidget);
 
-    await tester.tap(suggestion);
+    await tester.ensureVisible(suggestion);
+    await tester.pump();
+    tester.widget<OutlinedButton>(suggestion).onPressed!.call();
     await tester.pump();
     final TextField field = tester.widget<TextField>(
       find.byKey(const Key('si-query-input')),
@@ -222,10 +384,12 @@ void main() {
 
 ProviderContainer _container(
   SIV2QueryPort port,
-  SIV2EvidenceSnapshot snapshot,
-) {
+  SIV2EvidenceSnapshot snapshot, {
+  bool available = true,
+}) {
   return ProviderContainer(
     overrides: [
+      siV2AvailabilityProvider.overrideWith((Ref ref) async => available),
       siV2QueryServiceProvider.overrideWithValue(port),
       siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
       voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
@@ -252,7 +416,10 @@ Future<void> _dispose(WidgetTester tester, ProviderContainer container) async {
   container.dispose();
 }
 
-SIV2EvidenceSnapshot _snapshot(DateTime now) {
+SIV2EvidenceSnapshot _snapshot(
+  DateTime now, {
+  SIV2PersonContextEvidence? personContext,
+}) {
   return SIV2EvidenceSnapshot(
     accountScopeId: 'account:test',
     observedAt: now,
@@ -268,8 +435,24 @@ SIV2EvidenceSnapshot _snapshot(DateTime now) {
     goals: const <SIV2GoalEvidence>[],
     milestones: const <SIV2MilestoneEvidence>[],
     timeline: const <SIV2TimelineEvidence>[],
+    personContext: personContext,
   );
 }
+
+SIV2PersonContextEvidence _personContext(
+  DateTime now, {
+  List<SIV2PersonContextSignalEvidence> signals =
+      const <SIV2PersonContextSignalEvidence>[],
+}) => SIV2PersonContextEvidence(
+  observedAt: now,
+  purposes: const <PersonContextPurpose>{
+    PersonContextPurpose.reflection,
+    PersonContextPurpose.decisionSupport,
+    PersonContextPurpose.outcomeLearning,
+  },
+  signals: signals,
+  unknownKinds: const <PersonContextKind>{},
+);
 
 final class _RecordingPort implements SIV2QueryPort {
   _RecordingPort({required this.snapshot, required this.now});

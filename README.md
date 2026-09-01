@@ -68,21 +68,22 @@ Repository architecture and engineering context is summarized in [CHRONOSPARK.md
 
 ### First-time setup
 
-Create the local `.env` asset before running Flutter commands:
+Create the git-ignored local `.env` configuration file:
 
 ```bash
 cp .env.example .env
 flutter pub get
 ```
 
-Every key may remain blank for local offline tests. See [.env.example](.env.example) for production integration values and build-time alternatives.
+The file is never bundled as a Flutter asset. Pass it to local debug runs with
+`--dart-define-from-file=.env`. Every key may remain blank for offline use.
 
 ### Common commands
 
 ```bash
 flutter analyze
 flutter test
-flutter run -d windows
+flutter run -d windows --dart-define-from-file=.env
 ```
 
 ## Project structure

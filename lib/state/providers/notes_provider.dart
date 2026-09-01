@@ -16,10 +16,30 @@ class NotesNotifier extends AsyncNotifier<List<NoteEntity>> {
       ? (state as AsyncData<List<NoteEntity>>).value
       : const <NoteEntity>[];
 
-  Future<void> createNote({required String title, String? body}) async {
+  Future<void> createNote({
+    required String title,
+    String? body,
+    NoteKind kind = NoteKind.note,
+    String? goalId,
+    String? taskId,
+    String? habitId,
+    String? occurrenceId,
+    String? outcomeId,
+    String? userId,
+  }) async {
     final NoteEntity? note = await ref
         .read(createNoteUseCaseProvider)
-        .call(title: title, body: body);
+        .call(
+          title: title,
+          body: body,
+          kind: kind,
+          goalId: goalId,
+          taskId: taskId,
+          habitId: habitId,
+          occurrenceId: occurrenceId,
+          outcomeId: outcomeId,
+          userId: userId,
+        );
     if (note == null) return;
     state = AsyncData(<NoteEntity>[note, ..._current]);
     await _project(note, NoteTimelineMutation.created);

@@ -10,7 +10,13 @@ const Color neonCyan = Color(0xFF00E5FF);
 /// `0xFF9B8AFB`, so the accent rendered differently depending on which colour
 /// file a widget imported.
 const Color neonViolet = AppColors.neonViolet;
-const Color neonMagenta = Color(0xFFFF2EC4);
+
+/// Legacy alias retained for source compatibility.
+///
+/// Temporal Glass uses cyan, violet, and amber. Keeping the old name mapped
+/// to amber prevents legacy widgets from reintroducing the retired magenta
+/// accent.
+const Color neonMagenta = AppColors.memoryAmber;
 const Color backgroundDark = Color(0xFF050510);
 const Color backgroundDeep = Color(0xFF0A0F1F);
 const Color hologramWhite = Color(0xDEFFFFFF);

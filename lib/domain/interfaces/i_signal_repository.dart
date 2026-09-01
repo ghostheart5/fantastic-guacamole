@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/signal_entity.dart';
 
-/// CHRONOSPARK-CLASS: SHIPPING | Output: Smart Planner/SI
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Smart Planner/SI signals
 ///
 /// Bound to SignalRepository.
 abstract class ISignalRepository {

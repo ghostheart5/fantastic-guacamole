@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/engine/si/si_v2_engine.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -73,6 +74,49 @@ void main() {
     expect(query.intent, SIV2Intent.counterfactual);
   });
 
+  test('SI keeps its answer but uses the shared receipt for next action', () {
+    final SIV2Response base = const SIV2Engine().analyze(
+      query: SIV2Query(
+        rawText: 'What should I do next?',
+        intent: SIV2Intent.answer,
+        sources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+    final OperatingDecisionReceipt receipt = OperatingDecisionReceipt(
+      subjectId: 't1',
+      recommendedAction: 'Use the shared next action',
+      rationale: 'The canonical plan selected t1.',
+      whyItMatters: 'All surfaces stay aligned.',
+      consequenceOfDelay: 'The shared plan remains unresolved.',
+      generatedAt: now,
+      expiresAt: now.add(const Duration(minutes: 20)),
+      confidence: OperatingConfidence.moderate,
+      evidence: const <OperatingEvidence>[],
+      actionIntent: const OperatingActionIntent(
+        id: 'open-t1',
+        type: OperatingActionType.openEntity,
+        label: 'Open task',
+        destination: '/timeline',
+        targetEntityId: 't1',
+      ),
+      sourceRevisions: const <String, String>{'tasks': 'revision-1'},
+      modelVersion: 'decision-v1',
+    );
+
+    final SIV2Response aligned = base.withOperatingDecision(receipt, now: now);
+
+    expect(aligned.directAnswer, base.directAnswer);
+    expect(aligned.recommendation, receipt.recommendedAction);
+    expect(
+      aligned.evidenceLinks.map((SIV2EvidenceLink item) => item.evidenceId),
+      contains('decision:${receipt.decisionId}'),
+    );
+    expect(aligned.scenarioAssumptions, contains(contains(receipt.planId)));
+  });
+
   test(
     'free text detects intent and shortcut source without losing arguments',
     () {
@@ -137,6 +181,150 @@ void main() {
       contains('No entity title matched "not present".'),
     );
     expect(response.scenarios, isEmpty);
+  });
+
+  test('missing-evidence question names selected empty sources', () {
+    final SIV2Response response = const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: 'What evidence is missing?',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: SIV2EvidenceSnapshot(
+        accountScopeId: 'account:test',
+        observedAt: now,
+        tasks: <SIV2TaskEvidence>[
+          SIV2TaskEvidence(
+            id: 'task',
+            title: 'Prepare release',
+            createdAt: now.subtract(const Duration(days: 2)),
+            priority: 5,
+          ),
+        ],
+        goals: const <SIV2GoalEvidence>[],
+        milestones: const <SIV2MilestoneEvidence>[],
+        timeline: const <SIV2TimelineEvidence>[],
+      ),
+      now: now,
+    );
+
+    expect(
+      response.missingInformation,
+      containsAll(<String>[
+        'No goal evidence matched the current lens.',
+        'No milestone evidence matched the current lens.',
+        'No Timeline evidence matched the current lens.',
+      ]),
+    );
+    expect(
+      response.missingInformation,
+      isNot(contains('No active task evidence matched the current lens.')),
+    );
+    expect(response.directAnswer, contains('No goal evidence matched'));
+    expect(response.directAnswer, contains('No milestone evidence matched'));
+    expect(response.directAnswer, contains('No Timeline evidence matched'));
+    expect(response.directAnswer, isNot(contains('1 evidence item matched')));
+    response.validate();
+  });
+
+  test('normal-language task wording changes the grounded answer', () {
+    final SIV2Response background = const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: 'What should I do about the background task?',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+    final SIV2Response launch = const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: 'What should I do about the launch task?',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+
+    expect(background.directAnswer, contains('Background task'));
+    expect(background.recommendation, contains('Background task'));
+    expect(launch.directAnswer, contains('Launch task'));
+    expect(background.directAnswer, isNot(launch.directAnswer));
+    expect(background.recommendation, isNot(launch.recommendation));
+  });
+
+  test('a named goal never borrows an unrelated task recommendation', () {
+    final SIV2Response response = const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: 'What should I do for the Prepare follow-up goal?',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+
+    expect(response.directAnswer, contains('Prepare follow-up'));
+    expect(response.directAnswer, isNot(contains('Launch task')));
+    expect(response.recommendation, contains('Prepare follow-up'));
+  });
+
+  test('different planning questions produce materially different answers', () {
+    SIV2Response ask(String text) => const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: text,
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: SIV2Source.values.toSet(),
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+
+    final SIV2Response workload = ask('How overloaded is my workload?');
+    final SIV2Response progress = ask(
+      'Am I making progress on the Ship release goal?',
+    );
+    final SIV2Response timeline = ask(
+      'What happened at the release checkpoint?',
+    );
+    final SIV2Response unsupported = ask('What is the weather outside?');
+
+    expect(workload.directAnswer, contains('2 active tasks'));
+    expect(progress.directAnswer, contains('50% average'));
+    expect(timeline.directAnswer, contains('Release checkpoint'));
+    expect(timeline.directAnswer, contains('status "active"'));
+    expect(unsupported.directAnswer, contains('cannot answer that question'));
+    expect(<String>{
+      workload.directAnswer,
+      progress.directAnswer,
+      timeline.directAnswer,
+      unsupported.directAnswer,
+    }, hasLength(4));
+  });
+
+  test('a short follow-up resolves against recent user wording', () {
+    final SIV2Query query = SIV2Query.fromUserInput(
+      rawText: 'Why?',
+      selectedIntent: SIV2Intent.answer,
+      selectedSources: SIV2Source.values.toSet(),
+      timeRange: SIV2TimeRange.all,
+      priorUserTurns: const <String>['Should I focus on the Background task?'],
+    );
+    final SIV2Response response = const SIV2Engine().analyze(
+      query: query,
+      snapshot: _snapshot(now),
+      now: now,
+    );
+
+    expect(response.directAnswer, contains('Background task'));
+    expect(query.conversationText, contains('Should I focus'));
+    expect(() => query.priorUserTurns.add('mutate'), throwsUnsupportedError);
   });
 
   test('snapshot revision covers fields that can change analysis', () {

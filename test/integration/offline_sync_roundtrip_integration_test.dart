@@ -58,7 +58,12 @@ void main() {
           ),
         ),
         syncServiceProvider.overrideWithValue(
-          SyncService(backup: backupService, gateway: gateway),
+          SyncService(
+            backup: backupService,
+            gateway: gateway,
+            syncEnabled: true,
+            restoreEnabled: true,
+          ),
         ),
       ],
     );
@@ -120,16 +125,34 @@ class _FlakyCloudBackupGateway implements CloudBackupGateway {
 
   bool uploadShouldFail;
   Map<String, dynamic> fullBackup = <String, dynamic>{};
+  int revision = 0;
 
   @override
-  Future<Map<String, dynamic>> downloadBackup() async {
-    return fullBackup;
+  Future<CloudBackupReadResult> downloadBackup() async {
+    return fullBackup.isEmpty
+        ? const CloudBackupReadResult.notFound()
+        : CloudBackupReadResult.found(fullBackup, revision: revision);
   }
 
   @override
-  Future<Map<String, dynamic>> downloadTasks() async {
-    return const <String, dynamic>{};
+  Future<CloudBackupWriteResult> compareAndSwapBackup(
+    Map<String, dynamic> backup, {
+    required int expectedRevision,
+  }) async {
+    if (revision != expectedRevision) {
+      return CloudBackupWriteResult.conflict(revision);
+    }
+    if (uploadShouldFail) {
+      return const CloudBackupWriteResult.unavailable();
+    }
+    revision = expectedRevision + 1;
+    fullBackup = backup;
+    return CloudBackupWriteResult.written(revision);
   }
+
+  @override
+  Future<CloudBackupReadResult> downloadTasks() async =>
+      const CloudBackupReadResult.notFound();
 
   @override
   Future<bool> uploadBackup(Map<String, dynamic> backup) async {

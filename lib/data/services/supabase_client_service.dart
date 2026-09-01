@@ -1,24 +1,37 @@
-import 'dart:async';
-
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class SupabaseClientService {
-  const SupabaseClientService();
+  const SupabaseClientService({
+    @visibleForTesting Future<String?> Function()? initializeClient,
+    @visibleForTesting bool? isConfigured,
+  }) : _initializeClientOverride = initializeClient,
+       _isConfiguredOverride = isConfigured;
+
+  final Future<String?> Function()? _initializeClientOverride;
+  final bool? _isConfiguredOverride;
 
   static Future<String?>? _initialization;
 
+  @visibleForTesting
+  static void resetForTesting() {
+    _initialization = null;
+  }
+
   Future<String?> initialize({required bool isMockMode}) async {
-    if (isMockMode || !Env.isSupabaseConfigured) {
+    if (isMockMode || !(_isConfiguredOverride ?? Env.isSupabaseConfigured)) {
       return null;
     }
-    final Future<String?>? inFlight = _initialization;
-    if (inFlight != null) return inFlight;
-    final Future<String?> initialization = _initializeOnce();
-    _initialization = initialization;
-    return initialization;
+    final Future<String?> initialization = _initialization ??=
+        _initializeClientOverride?.call() ?? _initializeOnce();
+    final String? issue = await initialization;
+    if (issue != null && identical(_initialization, initialization)) {
+      _initialization = null;
+    }
+    return issue;
   }
 
   Future<String?> _initializeOnce() async {
@@ -26,14 +39,8 @@ class SupabaseClientService {
       await sb.Supabase.initialize(
         url: Env.supabaseUrl,
         publishableKey: Env.supabaseAnonKey,
-      ).timeout(const Duration(seconds: 12));
-      return null;
-    } on TimeoutException {
-      Logger.errorCategory(
-        'Supabase Errors',
-        'Supabase initialization timed out',
       );
-      return 'Supabase initialization timed out. Auth will be unavailable.';
+      return null;
     } on Object catch (error) {
       Logger.errorCategory(
         'Supabase Errors',

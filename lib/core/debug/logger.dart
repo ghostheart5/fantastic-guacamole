@@ -24,7 +24,8 @@ class Logger {
     debugPrint('[${_now()}][WARN] ${redactSensitive(safeString(message))}');
   }
 
-  // Errors always print regardless of the enabled flag and report to Crashlytics.
+  // Errors always print locally. Remote diagnostics use a fixed code only so
+  // user-entered text and arbitrary exception bodies never leave the device.
   static void error(Object? message, [Object? exception]) {
     if (errorOutputEnabled) {
       debugPrint(
@@ -32,14 +33,10 @@ class Logger {
         '${exception != null ? ' | ${redactSensitive(safeString(exception))}' : ''}',
       );
     }
-    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      FirebaseCrashlytics.instance.recordError(
-        Exception(redactSensitive(safeString(exception ?? message))),
-        exception != null ? StackTrace.current : null,
-        reason: exception != null ? redactSensitive(safeString(message)) : null,
-        fatal: false,
-      );
-    }
+    recordDiagnosticCode(
+      code: 'logger.error',
+      stackTrace: exception != null ? StackTrace.current : null,
+    );
   }
 
   static void errorCategory(
@@ -54,23 +51,33 @@ class Logger {
         '${exception != null ? ' | ${redactSensitive(safeString(exception))}' : ''}',
       );
     }
-    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      FirebaseCrashlytics.instance.recordError(
-        Exception(redactSensitive(safeString(exception ?? message))),
-        stackTrace,
-        reason: '$category: ${redactSensitive(safeString(message))}',
-        fatal: false,
-      );
-    }
+    recordDiagnosticCode(
+      code: 'logger.${_safeCode(category)}',
+      stackTrace: stackTrace,
+    );
   }
 
-  // Low-noise breadcrumb for Crashlytics only — no console output, no
-  // recordError. Use for anomalous-but-not-erroneous events (e.g. an
-  // unrecognized deep-link parameter) that shouldn't be flagged as app errors.
+  // Keep free-form breadcrumbs on device only. A generic remote breadcrumb is
+  // not useful enough to justify sending user-visible or server-supplied text.
   static void breadcrumb(String message) {
-    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      FirebaseCrashlytics.instance.log(redactSensitive(safeString(message)));
+    log('Breadcrumb', message);
+  }
+
+  static void recordDiagnosticCode({
+    required String code,
+    StackTrace? stackTrace,
+    bool fatal = false,
+  }) {
+    if (!_supportsCrashlytics || Firebase.apps.isEmpty) {
+      return;
     }
+    final String safeCode = _safeCode(code);
+    FirebaseCrashlytics.instance.recordError(
+      StateError('ChronoSpark diagnostic: $safeCode'),
+      stackTrace,
+      reason: safeCode,
+      fatal: fatal,
+    );
   }
 
   static Future<T> withMutedErrors<T>(Future<T> Function() action) async {
@@ -84,6 +91,18 @@ class Logger {
   }
 
   static String _now() => DateTimeFormats.reportTimestamp(DateTime.now());
+
+  static String _safeCode(String value) {
+    final String normalized = value.toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9._-]'),
+      '_',
+    );
+    if (normalized.isEmpty) {
+      return 'unclassified';
+    }
+    final int end = normalized.length > 64 ? 64 : normalized.length;
+    return normalized.substring(0, end);
+  }
 
   static String redactSensitive(String value) {
     return value
@@ -136,6 +155,7 @@ class Logger {
   }
 
   static bool get _supportsCrashlytics =>
+      Env.enableCrashReporting &&
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS ||

@@ -25,6 +25,7 @@ import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -56,17 +57,20 @@ void main() {
     expect(find.text('Forgot Password?'), findsOneWidget);
   });
 
-  testWidgets('mock credentials enter the app without backend access', (
+  testWidgets('QA tester access enters the app without backend access', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('mock-user'),
+          ),
+        ],
         child: MaterialApp(
           home: AuthGate(
             authService: _IntegrationFakeAuthService(),
             enableMockLogin: true,
-            mockLoginEmail: 'mock@chronospark.app',
-            mockLoginPassword: 'ChronoSpark123!',
             child: const Scaffold(body: Text('APP_READY')),
           ),
         ),
@@ -75,26 +79,22 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.textContaining('Mock login:'), findsOneWidget);
-    expect(find.textContaining('TESTER ACCESS'), findsNothing);
-    final Finder emailField = find.descendant(
-      of: find.byKey(const ValueKey('login-email-field')),
-      matching: find.byType(TextField),
+    expect(find.textContaining('Mock login:'), findsNothing);
+    final Finder testerAccess = find.byKey(
+      const ValueKey<String>('qa-tester-access-button'),
     );
-    final Finder passwordField = find.descendant(
-      of: find.byKey(const ValueKey('login-password-field')),
-      matching: find.byType(TextField),
-    );
-    await tester.enterText(emailField, 'mock@chronospark.app');
-    await tester.enterText(passwordField, 'ChronoSpark123!');
-    await tester.tap(find.text('ENTER SYSTEM'));
+    expect(testerAccess, findsOneWidget);
+    await tester.ensureVisible(testerAccess);
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(testerAccess.hitTestable(), findsOneWidget);
+    await tester.tap(testerAccess);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('APP_READY'), findsOneWidget);
   });
 
-  testWidgets('two-page onboarding persists welcome and profile completion', (
+  testWidgets('onboarding persists and stages the first helpful choice', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -122,20 +122,27 @@ void main() {
 
     expect(find.text('CHRONOSPARK'), findsOneWidget);
     expect(find.text('SKIP'), findsNothing);
-    await tester.tap(find.text('Continue to login'));
+    await tester.tap(find.text('CONTINUE TO LOGIN'));
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.byType(TextField), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'Integration User');
-    await tester.pump();
-    final Finder completeButton = find.widgetWithText(
-      FilledButton,
-      'Continue to Creator',
+    final Finder firstValueQuestion = find.byKey(
+      const Key('first-value-question'),
     );
+    expect(firstValueQuestion, findsOneWidget);
+    await tester.enterText(
+      firstValueQuestion,
+      'I need one realistic next step.',
+    );
+    await tester.pump();
+    final Finder completeButton = find.byKey(
+      const Key('first-value-show-choice'),
+    );
+    expect(completeButton, findsOneWidget);
     expect(
       tester.widget<FilledButton>(completeButton).onPressed,
       isNotNull,
-      reason: 'The second onboarding page must become actionable after input.',
+      reason:
+          'The first-value page must remain actionable after optional input.',
     );
     await tester.tap(completeButton);
     await _waitForPreference(
@@ -148,7 +155,15 @@ void main() {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool(onboardingWelcomeCompleteStorageKey), isTrue);
     expect(prefs.getBool(onboardingCompleteStorageKey), isTrue);
-    expect(container.read(profileProvider).name, 'Integration User');
+    final SmartPlannerFirstValueRequest? request = container.read(
+      smartPlannerFirstValueProvider,
+    );
+    expect(request, isNotNull);
+    expect(request!.prompt, 'I need one realistic next step.');
+    expect(
+      request.accountScopeId,
+      container.read(accountStorageScopeProvider).v2Namespace,
+    );
   });
 
   test(
@@ -158,7 +173,7 @@ void main() {
       final AgentResult result = await orchestrator.execute(
         prompt: 'I keep losing attention after lunch. What should I do next?',
         preferredAgent: AgentKind.chat,
-        request: const AgentRequest(
+        request: AgentRequest(
           prompt: 'I keep losing attention after lunch. What should I do next?',
           context: <String, dynamic>{
             'surface': 'smart_planner',
@@ -174,8 +189,8 @@ void main() {
               'content': 'That advice is too generic for my afternoon slump.',
             },
           ],
-          si: SIState(energy: 0.45),
-          learning: LearningState(),
+          si: const SIState(energy: 0.45),
+          learning: const LearningState(),
         ),
       );
 
@@ -258,19 +273,30 @@ void main() {
           widget is TextField && widget.decoration?.hintText == 'Title *',
     );
     await tester.enterText(titleField, 'UI journey task');
-    await tester.tap(find.text('TASK'));
+    await tester.pump();
+    expect(find.byKey(const Key('creator-type-selector')), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Set priority level 4'));
-    final Finder scheduleControl = find.bySemanticsLabel('Schedule date');
+    final Finder scheduleControl = find.text('Schedule date and time...');
     await tester.ensureVisible(scheduleControl);
     await tester.tap(scheduleControl);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(DatePickerDialog), findsOneWidget);
-    await tester.tap(find.text('OK'));
+    final Finder datePickerOk = find.descendant(
+      of: find.byType(DatePickerDialog),
+      matching: find.widgetWithText(TextButton, 'OK'),
+    );
+    expect(datePickerOk.hitTestable(), findsOneWidget);
+    await tester.tap(datePickerOk);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(TimePickerDialog), findsOneWidget);
-    await tester.tap(find.text('OK'));
+    final Finder timePickerOk = find.descendant(
+      of: find.byType(TimePickerDialog),
+      matching: find.widgetWithText(TextButton, 'OK'),
+    );
+    expect(timePickerOk.hitTestable(), findsOneWidget);
+    await tester.tap(timePickerOk);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Schedule date and time...'), findsNothing);
@@ -293,15 +319,13 @@ void main() {
     await tester.ensureVisible(confirmButton);
     await tester.tap(confirmButton);
     await tester.pump();
-    await _waitForRepositoryTask(tester, repository, title: 'UI journey task');
-
-    final Finder openTimelineButton = find.text('Open Timeline');
-    await tester.ensureVisible(openTimelineButton);
-    await tester.tap(openTimelineButton);
-    await tester.pump();
     await _waitForRouterPath(tester, router, RoutePaths.timeline);
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(container.read(appFlowProvider), AppView.timeline);
+    expect(
+      (await repository.getAllTasks()).where(
+        (TaskEntity task) => task.title == 'UI journey task',
+      ),
+      isNotEmpty,
+    );
     final tasks = await container.read(tasksProvider.future);
     expect(tasks.where((task) => task.title == 'UI journey task'), isNotEmpty);
     final Map<String, dynamic> metrics = await _waitForMetric(
@@ -406,33 +430,6 @@ Future<void> _waitForRouterPath(
     reached,
     isTrue,
     reason: 'Timed out waiting for router path $expectedPath.',
-  );
-}
-
-Future<void> _waitForRepositoryTask(
-  WidgetTester tester,
-  _InMemoryTaskRepository repository, {
-  required String title,
-}) async {
-  final bool persisted =
-      await tester.runAsync<bool>(() async {
-        final DateTime deadline = DateTime.now().add(
-          const Duration(seconds: 15),
-        );
-        do {
-          final List<TaskEntity> tasks = await repository.getAllTasks();
-          if (tasks.any((TaskEntity task) => task.title == title)) {
-            return true;
-          }
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-        } while (DateTime.now().isBefore(deadline));
-        return false;
-      }) ??
-      false;
-  expect(
-    persisted,
-    isTrue,
-    reason: 'Timed out waiting for Creator to persist "$title".',
   );
 }
 
@@ -546,7 +543,9 @@ class _IntegrationFakeAuthService implements AuthServiceContract {
   Future<String?> getIdToken({bool forceRefresh = false}) async => null;
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) async {}
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  }) async => const AccountDeletionResult.completed();
 
   @override
   Future<User?> reloadCurrentUser() async => null;

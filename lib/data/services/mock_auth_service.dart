@@ -4,12 +4,12 @@ import 'package:fantastic_guacamole/data/services/contracts/auth_service_contrac
 class MockAuthService implements AuthServiceContract {
   MockAuthService({
     Future<void> Function()? onSignedOut,
-    Future<void> Function(String? accountId)? onAccountSignedOut,
+    Future<void> Function(String accountId)? onAccountDeleted,
   }) : _signedOutCallback = onSignedOut,
-       _accountSignedOutCallback = onAccountSignedOut;
+       _accountDeletedCallback = onAccountDeleted;
 
   final Future<void> Function()? _signedOutCallback;
-  final Future<void> Function(String? accountId)? _accountSignedOutCallback;
+  final Future<void> Function(String accountId)? _accountDeletedCallback;
 
   User? _currentUser;
 
@@ -90,17 +90,24 @@ class MockAuthService implements AuthServiceContract {
 
   @override
   Future<void> signOut() async {
-    final String? accountId = _currentUser?.id;
     _currentUser = null;
-    await _accountSignedOutCallback?.call(accountId);
     await _signedOutCallback?.call();
   }
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) async {
+  Future<AccountDeletionResult> deleteCurrentAccount({
+    required String password,
+  }) async {
     final String? accountId = _currentUser?.id;
+    if (accountId == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'No signed-in user found.',
+      );
+    }
     _currentUser = null;
-    await _accountSignedOutCallback?.call(accountId);
+    await _accountDeletedCallback?.call(accountId);
     await _signedOutCallback?.call();
+    return const AccountDeletionResult.completed();
   }
 }

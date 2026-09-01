@@ -1,16 +1,9 @@
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:flutter/foundation.dart';
 
-enum RouteAccessClass {
-  welcome,
-  authentication,
-  publicInformation,
-  accountSensitiveInformation,
-  protectedApplication,
-  commercial,
-  privilegedInternal,
-}
+export 'package:fantastic_guacamole/app/router/app_route_registry.dart'
+    show RouteAccessClass;
 
 @immutable
 class RouteAccessDecision {
@@ -34,41 +27,34 @@ class RouteAccessDecision {
 abstract final class RouteAccessPolicy {
   static const String returnToQueryParameter = 'returnTo';
 
-  static const Set<String> publicInformationRoutes = <String>{
-    RoutePaths.privacy,
-    RoutePaths.terms,
-    RoutePaths.support,
-    RoutePaths.about,
-  };
+  static final Set<String> publicInformationRoutes = Set<String>.unmodifiable(
+    AppRouteRegistry.canonical
+        .where(
+          (AppRouteDefinition route) =>
+              route.accessClass == RouteAccessClass.publicInformation,
+        )
+        .map((AppRouteDefinition route) => route.path),
+  );
 
-  static const Set<String> protectedApplicationRoutes = <String>{
-    RoutePaths.shell,
-    RoutePaths.home,
-    RoutePaths.nexus,
-    RoutePaths.plan,
-    RoutePaths.creator,
-    RoutePaths.settings,
-    RoutePaths.notifications,
-    RoutePaths.logs,
-    RoutePaths.tasks,
-    RoutePaths.profile,
-    RoutePaths.progression,
-    RoutePaths.si,
-    RoutePaths.timeline,
-    RoutePaths.smartPlanner,
-    RoutePaths.trajectoryEngine,
-    RoutePaths.legacyLogs,
-    RoutePaths.legacyNotifications,
-    RoutePaths.legacyProgression,
-    RoutePaths.legacySi,
-    RoutePaths.legacyTasks,
-    RoutePaths.legacyProfile,
-    RoutePaths.legacyInsights,
-  };
+  static final Set<String> protectedApplicationRoutes =
+      Set<String>.unmodifiable(<String>{
+        for (final AppRouteDefinition route in AppRouteRegistry.canonical)
+          if (route.accessClass == RouteAccessClass.protectedApplication)
+            route.path,
+        for (final AppRouteCompatibility alias
+            in AppRouteRegistry.compatibility)
+          if (alias.path != null &&
+              AppRouteRegistry.accessClassForPath(alias.path!) ==
+                  RouteAccessClass.protectedApplication)
+            alias.path!,
+      });
 
   static RouteAccessDecision classify(String location) {
-    if (location == RoutePaths.onboarding) {
-      return const RouteAccessDecision(
+    final RouteAccessClass accessClass =
+        AppRouteRegistry.accessClassForPath(location) ??
+        RouteAccessClass.protectedApplication;
+    return switch (accessClass) {
+      RouteAccessClass.welcome => const RouteAccessDecision(
         accessClass: RouteAccessClass.welcome,
         requiresAuthentication: false,
         requiresCompletedOnboarding: false,
@@ -76,11 +62,8 @@ abstract final class RouteAccessPolicy {
         isDeveloperOnly: false,
         reason:
             'Welcome and profile setup may gate app entry, but must not interrupt authentication callbacks.',
-      );
-    }
-
-    if (location == RoutePaths.login) {
-      return const RouteAccessDecision(
+      ),
+      RouteAccessClass.authentication => const RouteAccessDecision(
         accessClass: RouteAccessClass.authentication,
         requiresAuthentication: false,
         requiresCompletedOnboarding: false,
@@ -88,11 +71,8 @@ abstract final class RouteAccessPolicy {
         isDeveloperOnly: false,
         reason:
             'Login owns recovery, verification, and auth-callback modes and must remain reachable while signed out.',
-      );
-    }
-
-    if (publicInformationRoutes.contains(location)) {
-      return const RouteAccessDecision(
+      ),
+      RouteAccessClass.publicInformation => const RouteAccessDecision(
         accessClass: RouteAccessClass.publicInformation,
         requiresAuthentication: false,
         requiresCompletedOnboarding: false,
@@ -100,11 +80,8 @@ abstract final class RouteAccessPolicy {
         isDeveloperOnly: false,
         reason:
             'Public legal and support information must remain reachable before sign-in.',
-      );
-    }
-
-    if (location == RoutePaths.deleteAccount) {
-      return const RouteAccessDecision(
+      ),
+      RouteAccessClass.accountSensitiveInformation => const RouteAccessDecision(
         accessClass: RouteAccessClass.accountSensitiveInformation,
         requiresAuthentication: false,
         requiresCompletedOnboarding: false,
@@ -112,11 +89,8 @@ abstract final class RouteAccessPolicy {
         isDeveloperOnly: false,
         reason:
             'Deletion instructions are public information; destructive account deletion remains authenticated on the backend/support path.',
-      );
-    }
-
-    if (location == RoutePaths.paywall) {
-      return const RouteAccessDecision(
+      ),
+      RouteAccessClass.commercial => const RouteAccessDecision(
         accessClass: RouteAccessClass.commercial,
         requiresAuthentication: true,
         requiresCompletedOnboarding: false,
@@ -124,11 +98,8 @@ abstract final class RouteAccessPolicy {
         isDeveloperOnly: false,
         reason:
             'Purchases, restoration, and entitlement checks are account-bound.',
-      );
-    }
-
-    if (location == RoutePaths.advisor) {
-      return const RouteAccessDecision(
+      ),
+      RouteAccessClass.privilegedInternal => const RouteAccessDecision(
         accessClass: RouteAccessClass.privilegedInternal,
         requiresAuthentication: true,
         requiresCompletedOnboarding: true,
@@ -136,19 +107,18 @@ abstract final class RouteAccessPolicy {
         isDeveloperOnly: true,
         reason:
             'Advisor diagnostics are internal developer/admin tooling, not a premium user-facing capability.',
-      );
-    }
-
-    return RouteAccessDecision(
-      accessClass: RouteAccessClass.protectedApplication,
-      requiresAuthentication: true,
-      requiresCompletedOnboarding: true,
-      allowsSignedOutAccess: false,
-      isDeveloperOnly: false,
-      reason: protectedApplicationRoutes.contains(location)
-          ? 'Application surface or compatibility redirect.'
-          : 'Unknown routes fail closed behind application access gates.',
-    );
+      ),
+      RouteAccessClass.protectedApplication => RouteAccessDecision(
+        accessClass: RouteAccessClass.protectedApplication,
+        requiresAuthentication: true,
+        requiresCompletedOnboarding: true,
+        allowsSignedOutAccess: false,
+        isDeveloperOnly: false,
+        reason: AppRouteRegistry.accessClassForPath(location) == null
+            ? 'Unknown routes fail closed behind application access gates.'
+            : 'Application surface or compatibility redirect.',
+      ),
+    };
   }
 
   static bool isAuthenticationCallback(DeepLinkMode? mode) {
@@ -226,13 +196,10 @@ abstract final class RouteAccessPolicy {
   }
 
   static bool _isAllowedReturnPath(String path) {
-    if (path == RoutePaths.login ||
-        path == RoutePaths.onboarding ||
-        path == RoutePaths.advisor) {
-      return false;
-    }
-
-    return protectedApplicationRoutes.contains(path) ||
-        path == RoutePaths.paywall;
+    final RouteAccessClass? accessClass = AppRouteRegistry.accessClassForPath(
+      path,
+    );
+    return accessClass == RouteAccessClass.protectedApplication ||
+        accessClass == RouteAccessClass.commercial;
   }
 }

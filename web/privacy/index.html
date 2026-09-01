@@ -36,7 +36,7 @@
     <ul>
       <li>Account identifiers, such as your email address, phone number, or sign-in provider identifier.</li>
       <li>Planning content you create in Nexus, Smart Planner, Creator, SI Console, Timeline, Trajectory Engine, and Progression.</li>
-      <li>Prompts and related context you choose to send when using optional AI features.</li>
+      <li>Visible deterministic plan clauses and evidence summaries you explicitly confirm before using the optional external Planner explanation. This minimized text is not guaranteed to be sanitized, anonymized, or non-personal.</li>
       <li>Support and account-deletion communications you send to us.</li>
     </ul>
 
@@ -59,7 +59,7 @@
     <ul>
       <li>Authenticate users and protect accounts.</li>
       <li>Provide, synchronize, restore, and improve app functionality.</li>
-      <li>Generate optional AI responses requested by the user.</li>
+      <li>Generate a separately confirmed, read-only Planner explanation without changing or saving the deterministic plan.</li>
       <li>Verify purchases and manage feature entitlements.</li>
       <li>Send requested notifications and investigate reliability or security problems.</li>
     </ul>
@@ -68,15 +68,23 @@
     <p>
       ChronoSpark uses Supabase for authentication, database, storage, and Edge
       Functions; Firebase for messaging, analytics, and crash reporting; Google
-      Play for Android distribution and billing; and AI service providers to
-      process optional AI requests. These providers process data only for the
-      purposes needed to deliver their services. ChronoSpark does not sell your
-      personal information.
+      Play for Android distribution and billing; and Anthropic as the disclosed
+      provider for the optional external Planner explanation if its release
+      gates are satisfied. External AI is currently release-disabled. Before a
+      future request, ChronoSpark must show the provider, server-selected model
+      label, transmitted data categories, and expected AI-credit cost. Provider
+      account-level retention or zero-data-retention status has not been
+      verified, so this path must remain unavailable for release. ChronoSpark
+      does not sell your personal information.
     </p>
 
     <h2>Retention and deletion</h2>
     <p>
       Account-linked content is retained while needed to provide the service.
+      If the optional external Planner explanation is later enabled,
+      ChronoSpark may retain its response content for no more than a five-minute
+      idempotency window and then scrub it to billing metadata. This first-party
+      rule does not claim or prove Anthropic's account-level retention.
       When a verified deletion request is completed, account-linked data is
       deleted or de-identified except for limited records that must be retained
       for legal, tax, fraud-prevention, security, or dispute-resolution reasons.

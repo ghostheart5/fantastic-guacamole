@@ -13,9 +13,13 @@ class LogEntryEntity {
   final DateTime timestamp;
 
   // Domain behavior
-  Duration get age => DateTime.now().difference(timestamp);
+  Duration ageAt(DateTime reference) => reference.difference(timestamp);
 
-  bool get isRecent => age.inMinutes < 5;
+  Duration get age => ageAt(DateTime.now());
+
+  bool isRecentAt(DateTime reference) => ageAt(reference).inMinutes < 5;
+
+  bool get isRecent => isRecentAt(DateTime.now());
 
   bool get isSystem => source == 'system';
   bool get isUser => source == 'user';

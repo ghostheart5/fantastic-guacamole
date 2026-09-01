@@ -8,7 +8,7 @@ void main() {
     const Map<OperatingActionType, NexusActionDestination>
     expected = <OperatingActionType, NexusActionDestination>{
       OperatingActionType.openEntity: NexusActionDestination.siConsole,
-      OperatingActionType.openCreator: NexusActionDestination.creator,
+      OperatingActionType.openCreator: NexusActionDestination.creatorTask,
       OperatingActionType.openTimeline: NexusActionDestination.timeline,
       OperatingActionType.openSmartPlanner: NexusActionDestination.smartPlanner,
       OperatingActionType.openSiConsole: NexusActionDestination.siConsole,
@@ -52,6 +52,31 @@ void main() {
         ),
       ),
       NexusActionDestination.unsupported,
+    );
+  });
+
+  test('resolves Creator and Goals routes without conflating them', () {
+    expect(
+      NexusActionResolver.resolve(
+        const OperatingActionIntent(
+          id: 'task',
+          type: OperatingActionType.openEntity,
+          label: 'Task',
+          destination: RoutePaths.creator,
+        ),
+      ),
+      NexusActionDestination.creatorTask,
+    );
+    expect(
+      NexusActionResolver.resolve(
+        const OperatingActionIntent(
+          id: 'goal',
+          type: OperatingActionType.openEntity,
+          label: 'Goal',
+          destination: RoutePaths.creatorGoals,
+        ),
+      ),
+      NexusActionDestination.goals,
     );
   });
 

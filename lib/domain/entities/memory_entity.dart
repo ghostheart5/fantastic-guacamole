@@ -51,15 +51,15 @@ class MemoryLink {
 }
 
 class MemoryEntity {
-  const MemoryEntity({
+  MemoryEntity({
     required this.id,
     required this.text,
     required this.date,
     this.category = MemoryCategory.other,
-    this.tags = const <String>[],
-    this.links = const <MemoryLink>[],
+    List<String> tags = const <String>[],
+    List<MemoryLink> links = const <MemoryLink>[],
     this.importance = 0.5,
-    this.metadata = const <String, String>{},
+    Map<String, String> metadata = const <String, String>{},
     this.source = 'manual',
     this.archivedAt,
     this.starred = false,
@@ -72,7 +72,9 @@ class MemoryEntity {
     this.expiresAt,
     this.provenance = '',
     this.whyStored = '',
-  });
+  }) : tags = List<String>.unmodifiable(tags),
+       links = List<MemoryLink>.unmodifiable(links),
+       metadata = Map<String, String>.unmodifiable(metadata);
 
   final String id;
   final String text;
@@ -143,9 +145,13 @@ class MemoryEntity {
     );
   }
 
-  Duration get age => DateTime.now().difference(date);
+  Duration ageAt(DateTime reference) => reference.difference(date);
 
-  bool get isRecent => age.inDays < 3;
+  Duration get age => ageAt(DateTime.now());
+
+  bool isRecentAt(DateTime reference) => ageAt(reference).inDays < 3;
+
+  bool get isRecent => isRecentAt(DateTime.now());
 
   bool get isArchived => archivedAt != null;
 
@@ -176,7 +182,8 @@ class MemoryEntity {
 
   MemoryEntity unstar() => copyWith(starred: false);
 
-  MemoryEntity archive() => copyWith(archivedAt: DateTime.now());
+  MemoryEntity archive({DateTime? at}) =>
+      copyWith(archivedAt: at ?? DateTime.now());
 
   MemoryEntity unarchive() => copyWith(clearArchivedAt: true);
 

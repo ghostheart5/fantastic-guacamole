@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/errors/domain_validation_exception.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
@@ -65,7 +66,7 @@ void main() {
             scheduledAt: DateTime.now().add(const Duration(minutes: 5)),
           ),
         ),
-        throwsException,
+        throwsA(isA<DomainValidationException>()),
       );
 
       await expectLater(
@@ -77,7 +78,7 @@ void main() {
             scheduledAt: DateTime.now().subtract(const Duration(minutes: 1)),
           ),
         ),
-        throwsException,
+        throwsA(isA<DomainValidationException>()),
       );
     });
   });

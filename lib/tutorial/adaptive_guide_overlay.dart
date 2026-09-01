@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_draft_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -29,6 +32,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   );
   CreatorTutorialStep _creatorStep = CreatorTutorialStep.title;
   GuidanceLessonId? _suppressedLesson;
+  bool _completingCreator = false;
   bool _completingTimeline = false;
 
   bool _routeAllowsGuidance(String location) {
@@ -47,21 +51,13 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final bool interactionPaused = ref.watch(tutorialInteractionPausedProvider);
     final auth = ref.watch(authUserProvider).asData?.value;
     final AuthSessionBoundary boundary = ref.watch(authSessionBoundaryProvider);
-    final AdaptiveGuidanceState? guidance = ref
-        .watch(adaptiveGuidanceProvider)
-        .asData
-        ?.value;
-    final DailyDecisionIntelligence decision = ref.watch(
-      dailyDecisionIntelligenceProvider,
-    );
     final GoRouter? router = GoRouter.maybeOf(context);
     final String location =
         router?.routeInformationProvider.value.uri.path ?? '';
-    final GuidanceLesson? lesson = guidance?.nextIntervention(
-      currentRoute: location,
-      decision: decision,
-    );
 
+    // Account-scoped intelligence fails closed until authentication and its
+    // storage boundary agree. Do not subscribe to those providers from the
+    // signed-out/login frame or while an account transition is still settling.
     if (!onboardingComplete ||
         interactionPaused ||
         auth == null ||
@@ -69,10 +65,27 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         !boundary.isStorageReady ||
         boundary.blockingIssue != null ||
         boundary.userId != auth.id ||
-        guidance == null ||
-        lesson == null ||
-        !_routeAllowsGuidance(location) ||
-        _suppressedLesson == lesson.id) {
+        !_routeAllowsGuidance(location)) {
+      return const SizedBox.shrink();
+    }
+
+    final AdaptiveGuidanceState? guidance = ref
+        .watch(adaptiveGuidanceProvider)
+        .asData
+        ?.value;
+    if (guidance == null) {
+      return const SizedBox.shrink();
+    }
+
+    final DailyDecisionIntelligence decision = ref.watch(
+      dailyDecisionIntelligenceProvider,
+    );
+    final GuidanceLesson? lesson = guidance.nextIntervention(
+      currentRoute: location,
+      decision: decision,
+    );
+
+    if (lesson == null || _suppressedLesson == lesson.id) {
       return const SizedBox.shrink();
     }
 
@@ -81,14 +94,20 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       if (location != RoutePaths.creator) {
         return _routePrompt(context, lesson);
       }
-      return _creatorLesson(context);
+      final CreatorHandshakeState handshake = ref.watch(
+        creatorHandshakeProvider,
+      );
+      return _creatorLesson(context, handshake, lesson);
     }
 
     if (lesson.id == GuidanceLessonId.reviewTimeline) {
       if (location != RoutePaths.timeline) {
         return _routePrompt(context, lesson);
       }
-      return _timelineLesson(context);
+      final String? timelineEvidenceTaskId = ref.watch(
+        timelineTutorialEvidenceProvider,
+      );
+      return _timelineLesson(context, guidance, timelineEvidenceTaskId);
     }
 
     return _advancedLesson(context, lesson, location);
@@ -103,35 +122,51 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       body: l10n.guideBody(lesson.id.name, lesson.body),
       primaryLabel: l10n.guideAction(lesson.id.name, lesson.actionLabel),
       onPrimary: () => context.go(lesson.route),
+      secondaryLabel: _copy(l10n, 'Later', 'Más tarde'),
+      onSecondary: () => unawaited(
+        ref.read(adaptiveGuidanceProvider.notifier).later(lesson.id),
+      ),
       allowTargetInteraction: false,
     );
   }
 
-  Widget _creatorLesson(BuildContext context) {
+  Widget _creatorLesson(
+    BuildContext context,
+    CreatorHandshakeState handshake,
+    GuidanceLesson lesson,
+  ) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final CreatorTutorialDraftState draft = ref.watch(
       creatorTutorialDraftProvider,
     );
-    final _CreatorStepCopy copy = _creatorStepCopy(l10n, _creatorStep);
-    final bool enabled = switch (_creatorStep) {
+    final CreatorTutorialStep activeStep = handshake.isReviewing
+        ? CreatorTutorialStep.confirm
+        : _creatorStep;
+    final _CreatorStepCopy copy = _creatorStepCopy(l10n, activeStep);
+    final bool enabled = switch (activeStep) {
       CreatorTutorialStep.title => draft.hasTitle,
-      CreatorTutorialStep.type => draft.hasChosenType,
       CreatorTutorialStep.priority => draft.hasChosenPriority,
       CreatorTutorialStep.schedule => draft.hasSchedule,
       CreatorTutorialStep.save => true,
+      CreatorTutorialStep.confirm =>
+        handshake.canConfirm && !_completingCreator,
     };
 
     return InteractiveTutorialOverlay(
       targetKey: copy.targetKey,
       stepLabel:
-          '${_copy(l10n, 'Creator', 'Creador')} ${_creatorStep.index + 1} ${_copy(l10n, 'of', 'de')} ${CreatorTutorialStep.values.length}',
+          '${_copy(l10n, 'Creator', 'Creador')} ${activeStep.index + 1} ${_copy(l10n, 'of', 'de')} ${CreatorTutorialStep.values.length}',
       title: copy.title,
       body: copy.body,
       primaryLabel: copy.action,
       primaryEnabled: enabled,
       onPrimary: () {
-        if (_creatorStep == CreatorTutorialStep.save) {
+        if (activeStep == CreatorTutorialStep.save) {
           unawaited(ref.read(creatorTutorialFormControllerProvider).submit());
+          return;
+        }
+        if (activeStep == CreatorTutorialStep.confirm) {
+          unawaited(_confirmCreatorAndOpenTimeline(context));
           return;
         }
         FocusManager.instance.primaryFocus?.unfocus();
@@ -139,34 +174,113 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           _creatorStep = CreatorTutorialStep.values[_creatorStep.index + 1];
         });
       },
+      secondaryLabel: _copy(l10n, 'Finish later', 'Terminar más tarde'),
+      onSecondary: () => unawaited(
+        ref.read(adaptiveGuidanceProvider.notifier).later(lesson.id),
+      ),
     );
   }
 
-  Widget _timelineLesson(BuildContext context) {
+  Future<void> _confirmCreatorAndOpenTimeline(BuildContext context) async {
+    if (_completingCreator) return;
+    final CreatorHandshakeState pending = ref.read(creatorHandshakeProvider);
+    final bool hasSchedule =
+        pending.preview?.selectedOperations.any(
+          (CreatorMutationOperation operation) =>
+              operation.task.scheduledFor != null,
+        ) ??
+        false;
+    setState(() => _completingCreator = true);
+    try {
+      final CreatorHandshakeState result = await ref
+          .read(creatorHandshakeProvider.notifier)
+          .confirm();
+      if (result.receipt == null || !mounted) return;
+      await ref
+          .read(adaptiveGuidanceProvider.notifier)
+          .recordCreatorHandshakeReceipt(result.receipt!);
+      if (!mounted) return;
+      ref.read(creatorTutorialDraftProvider.notifier).reset();
+      ref.read(creatorDraftPreviewProvider.notifier).clear();
+      setState(() => _creatorStep = CreatorTutorialStep.title);
+      if (hasSchedule && context.mounted) {
+        context.go(RoutePaths.timeline);
+      }
+    } finally {
+      if (mounted) setState(() => _completingCreator = false);
+    }
+  }
+
+  Widget _timelineLesson(
+    BuildContext context,
+    AdaptiveGuidanceState guidance,
+    String? timelineEvidenceTaskId,
+  ) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final bool hasExpectedReceipt =
+        guidance.expectedFirstRunCreatorTaskIds.isNotEmpty;
+    final bool hasMatchingEvidence =
+        hasExpectedReceipt &&
+        timelineEvidenceTaskId != null &&
+        guidance.matchesExpectedFirstRunCreatorTask(timelineEvidenceTaskId) &&
+        FirstRunTutorialTargets.timelineEvidence.currentContext != null;
     return InteractiveTutorialOverlay(
       targetKey: FirstRunTutorialTargets.timelineEvidence,
-      stepLabel: _copy(l10n, 'First setup 4 of 4', 'Configuración 4 de 4'),
-      title: _copy(
+      stepLabel: _copy(
         l10n,
-        'Your saved task is now on Timeline',
-        'Tu tarea guardada ya está en Línea de Tiempo',
+        'Optional Creator/Timeline lesson',
+        'Lección opcional de Creador/Línea de Tiempo',
       ),
-      body: _copy(
-        l10n,
-        'Review where ChronoSpark placed it. Timeline is the history and schedule you will return to as work changes.',
-        'Revisa dónde la colocó ChronoSpark. Línea de Tiempo es el historial y horario al que volverás cuando cambie el trabajo.',
-      ),
+      title: hasMatchingEvidence
+          ? _copy(
+              l10n,
+              'Your saved task is now on Timeline',
+              'Tu tarea guardada ya está en Línea de Tiempo',
+            )
+          : _copy(
+              l10n,
+              'Waiting for saved-task evidence',
+              'Esperando evidencia de la tarea guardada',
+            ),
+      body: hasMatchingEvidence
+          ? _copy(
+              l10n,
+              'Review the highlighted task that matches your Creator receipt.',
+              'Revisa la tarea resaltada que coincide con tu recibo de Creador.',
+            )
+          : _copy(
+              l10n,
+              'ChronoSpark will not mark this lesson complete until the exact task from your Creator receipt appears here.',
+              'ChronoSpark no completará esta lección hasta que aparezca aquí la tarea exacta de tu recibo de Creador.',
+            ),
       primaryLabel: _completingTimeline
           ? _copy(l10n, 'Finishing', 'Finalizando')
           : _copy(l10n, 'I found my task', 'Encontré mi tarea'),
-      primaryEnabled: !_completingTimeline,
+      primaryEnabled: hasMatchingEvidence && !_completingTimeline,
       onPrimary: () => unawaited(_completeTimelineLesson()),
+      secondaryLabel: _copy(l10n, 'Finish later', 'Terminar más tarde'),
+      onSecondary: () => unawaited(
+        ref
+            .read(adaptiveGuidanceProvider.notifier)
+            .later(GuidanceLessonId.reviewTimeline),
+      ),
     );
   }
 
   Future<void> _completeTimelineLesson() async {
     if (_completingTimeline) return;
+    final AdaptiveGuidanceState? guidance = ref
+        .read(adaptiveGuidanceProvider)
+        .asData
+        ?.value;
+    final String? evidenceTaskId = ref.read(timelineTutorialEvidenceProvider);
+    if (guidance == null ||
+        guidance.expectedFirstRunCreatorTaskIds.isEmpty ||
+        evidenceTaskId == null ||
+        !guidance.matchesExpectedFirstRunCreatorTask(evidenceTaskId) ||
+        FirstRunTutorialTargets.timelineEvidence.currentContext == null) {
+      return;
+    }
     setState(() {
       _completingTimeline = true;
       _suppressedLesson = GuidanceLessonId.reviewTimeline;
@@ -225,16 +339,6 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         ),
         action: _copy(l10n, 'Title entered', 'Título escrito'),
       ),
-      CreatorTutorialStep.type => _CreatorStepCopy(
-        targetKey: FirstRunTutorialTargets.creatorType,
-        title: _copy(l10n, 'Choose what it is', 'Elige qué es'),
-        body: _copy(
-          l10n,
-          'Tap the type that matches this commitment. This changes how ChronoSpark treats the item.',
-          'Toca el tipo que corresponda a este compromiso. Esto cambia cómo ChronoSpark trata el elemento.',
-        ),
-        action: _copy(l10n, 'Type chosen', 'Tipo elegido'),
-      ),
       CreatorTutorialStep.priority => _CreatorStepCopy(
         targetKey: FirstRunTutorialTargets.creatorPriority,
         title: _copy(l10n, 'Set its priority', 'Define su prioridad'),
@@ -257,17 +361,33 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       ),
       CreatorTutorialStep.save => _CreatorStepCopy(
         targetKey: FirstRunTutorialTargets.creatorSave,
-        title: _copy(l10n, 'Save the task', 'Guarda la tarea'),
+        title: _copy(l10n, 'Review before saving', 'Revisa antes de guardar'),
         body: _copy(
           l10n,
-          'Press the highlighted save control. ChronoSpark will create the real task and take you directly to Timeline.',
-          'Pulsa el control resaltado. ChronoSpark creará la tarea real y te llevará directamente a Línea de Tiempo.',
+          'Open the confirmation preview and verify the exact task. Nothing is saved until the final confirmation.',
+          'Abre la vista de confirmación y verifica la tarea exacta. Nada se guarda hasta la confirmación final.',
         ),
-        action: _copy(
+        action: _copy(l10n, 'Review changes', 'Revisar cambios'),
+      ),
+      CreatorTutorialStep.confirm => _CreatorStepCopy(
+        targetKey: FirstRunTutorialTargets.creatorConfirm,
+        title: _copy(
           l10n,
-          'Save and open Timeline',
-          'Guardar y abrir Línea de Tiempo',
+          'Confirm the exact task',
+          'Confirma la tarea exacta',
         ),
+        body: _copy(
+          l10n,
+          'Confirm the reviewed task once. ChronoSpark will save it and open Timeline so you can verify where it landed.',
+          'Confirma la tarea revisada una vez. ChronoSpark la guardará y abrirá Línea de Tiempo para verificar dónde quedó.',
+        ),
+        action: _completingCreator
+            ? _copy(l10n, 'Saving', 'Guardando')
+            : _copy(
+                l10n,
+                'Confirm and open Timeline',
+                'Confirmar y abrir Línea de Tiempo',
+              ),
       ),
     };
   }

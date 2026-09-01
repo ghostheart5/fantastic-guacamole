@@ -13,6 +13,11 @@ abstract interface class EnumerableSharedPrefsStore {
   Future<Set<String>> keys();
 }
 
+abstract interface class CorruptionBackupStore {
+  bool get hasCorruptionBackups;
+  Future<void> clearCorruptionBackups();
+}
+
 class SharedPrefsStoreAdapter
     implements SharedPrefsStore, EnumerableSharedPrefsStore {
   const SharedPrefsStoreAdapter();

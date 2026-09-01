@@ -13,7 +13,7 @@ void main() {
     () async {
       final Map<String, dynamic> result = await agent.execute(<String, dynamic>{
         'prompt': 'What should I do next?',
-        'tasks': const <Task>[
+        'tasks': <Task>[
           Task(
             id: 'task-1',
             title: 'Finish release checklist',
@@ -58,4 +58,21 @@ void main() {
       expect((result['message'] as String).trim(), isNotEmpty);
     },
   );
+
+  test('launch containment ignores an external AI request', () async {
+    final Map<String, dynamic> result = await agent.execute(
+      const <String, dynamic>{
+        'prompt': 'Use the external model.',
+        'tasks': <Task>[],
+        'context': <String, dynamic>{
+          'externalAiAllowed': true,
+          'requestId': 'contained-request',
+        },
+      },
+    );
+
+    expect(result['source'], 'notAttempted');
+    expect(result['modelBacked'], isFalse);
+    expect(result['creditsCharged'], isNull);
+  });
 }

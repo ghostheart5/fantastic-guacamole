@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
+import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +10,7 @@ void main() {
       final ProviderContainer container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final SISnapshot first = SISnapshot(
+      final AssistantMemorySnapshot first = AssistantMemorySnapshot(
         timestamp: DateTime.utc(2026, 7, 5, 10),
         energy: 0.6,
         fatigue: 0.3,
@@ -20,7 +20,7 @@ void main() {
         responseHash: 'h1',
         actionKey: 'a1',
       );
-      final SISnapshot second = SISnapshot(
+      final AssistantMemorySnapshot second = AssistantMemorySnapshot(
         timestamp: DateTime.utc(2026, 7, 5, 11),
         energy: 0.7,
         fatigue: 0.2,
@@ -50,7 +50,7 @@ void main() {
     container
         .read(siMemoryProvider.notifier)
         .capture(
-          SISnapshot(
+          AssistantMemorySnapshot(
             timestamp: DateTime.utc(2026, 7, 5, 10),
             energy: 0.5,
             fatigue: 0.4,

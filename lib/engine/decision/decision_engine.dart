@@ -84,7 +84,10 @@ class DecisionEngine {
         inputs ??
         PlannerInputAdapter.fromTaskEntities(tasks ?? const <TaskEntity>[]);
     final List<PlannerInput> active = resolvedInputs
-        .where((PlannerInput task) => !task.isCompleted && !task.isCanceled)
+        .where(
+          (PlannerInput input) =>
+              input.toTaskEntity().isActionableAt(timestamp),
+        )
         .toList(growable: false);
     final bool usesAssumedWindow = workWindows.isEmpty;
     final List<WorkWindowEntity> resolvedWindows = usesAssumedWindow

@@ -14,16 +14,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Fills the widget-test gaps the Phase 5 survey identified for Paywall:
-/// the loading branch, the Restore Purchases enable/disable rule, the
-/// Show-all-plans toggle, and the comparison ExpansionTile.
+/// Covers the loading branch, restore availability, plan prioritization,
+/// truthful result messages, and the dormant offer-copy contract.
 void main() {
   Future<ProviderContainer> pumpPaywall(
     WidgetTester tester, {
     required PaywallEntity config,
     FutureOr<PaywallEntity> Function(Ref ref)? configOverride,
+    SubscriptionState subscription = const SubscriptionState(
+      isActive: false,
+      status: 'free',
+      source: 'test',
+      isTesting: false,
+    ),
   }) async {
-    // Restore Purchases / Show all plans / comparison tile all sit below the
+    // Restore Purchases and Show all plans sit below the
     // fold at the default 800x600 test viewport, and PaywallPage's ListView
     // only inflates elements that scroll into view — a tall surface renders
     // the whole scroll view at once (same landmine worked around in
@@ -49,12 +54,7 @@ void main() {
           configOverride ?? (Ref ref) async => config,
         ),
         paywallSubscriptionProvider.overrideWith(
-          (Ref ref) async => const SubscriptionState(
-            isActive: false,
-            status: 'free',
-            source: 'test',
-            isTesting: false,
-          ),
+          (Ref ref) async => subscription,
         ),
       ],
     );
@@ -85,7 +85,7 @@ void main() {
     expect(find.text('Restore Purchases'), findsNothing);
   });
 
-  testWidgets('Restore Purchases is enabled when a plan is available', (
+  testWidgets('Restore Purchases stays disabled during containment', (
     WidgetTester tester,
   ) async {
     await pumpPaywall(tester, config: _twoPlanConfig);
@@ -96,21 +96,44 @@ void main() {
         matching: find.byType(OutlinedButton),
       ),
     );
-    expect(button.onPressed, isNotNull);
+    expect(button.onPressed, isNull);
   });
 
-  testWidgets('Restore Purchases is disabled when no plan is available', (
+  testWidgets('active subscription disables every plan purchase action', (
     WidgetTester tester,
   ) async {
-    await pumpPaywall(tester, config: _noAvailablePlanConfig);
-
-    final OutlinedButton button = tester.widget<OutlinedButton>(
-      find.ancestor(
-        of: find.text('Restore Purchases'),
-        matching: find.byType(OutlinedButton),
+    await pumpPaywall(
+      tester,
+      config: _twoPlanConfig,
+      subscription: const SubscriptionState(
+        isActive: true,
+        status: 'active',
+        source: 'google_play_server',
+        planId: 'monthly',
       ),
     );
-    expect(button.onPressed, isNull);
+
+    expect(find.text('Current subscription active'), findsNWidgets(2));
+    for (final FilledButton button in tester.widgetList<FilledButton>(
+      find.byType(FilledButton),
+    )) {
+      expect(button.onPressed, isNull);
+    }
+  });
+
+  test('restore availability is independent of product catalog results', () {
+    expect(
+      _noAvailablePlanConfig.plans.any((PaywallPlan plan) => plan.isAvailable),
+      isFalse,
+    );
+    expect(
+      resolvePaywallRestoreAvailability(paidCreditPlansEnabled: true),
+      isTrue,
+    );
+    expect(
+      resolvePaywallRestoreAvailability(paidCreditPlansEnabled: false),
+      isFalse,
+    );
   });
 
   testWidgets(
@@ -137,28 +160,101 @@ void main() {
     },
   );
 
-  testWidgets('the comparison ExpansionTile expands and collapses', (
+  testWidgets('renders only the supported allowance offer claims', (
     WidgetTester tester,
   ) async {
     await pumpPaywall(tester, config: _twoPlanConfig);
 
-    expect(find.text('Compare Free vs Premium'), findsOneWidget);
-    expect(find.text('Keep the habit alive'), findsNothing);
+    expect(
+      find.text('Credits after a verified purchase or paid renewal: 300'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Credits after a verified purchase or paid renewal: 360'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('credits per month'), findsNothing);
+    expect(
+      find.textContaining(
+        'Google Play confirms billing frequency and renewal terms',
+      ),
+      findsWidgets,
+    );
+    expect(find.textContaining('BEST VALUE'), findsNothing);
+    expect(find.textContaining('Preview Premium'), findsNothing);
+    expect(find.textContaining('Deeper memory'), findsNothing);
+    expect(find.textContaining('advanced agents'), findsNothing);
+  });
 
-    // AnimatedSystemBackground drives a continuously-repeating animation, so
-    // pumpAndSettle() would never settle; pump past ExpansionTile's own
-    // (much shorter) expand/collapse transition instead.
-    await tester.tap(find.text('Compare Free vs Premium'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+  test('pending and canceled purchase copy preserves current access', () {
+    expect(
+      resolvePaywallPurchaseResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'purchase_pending',
+          source: 'google_play',
+          planId: 'monthly',
+        ),
+        testingMode: false,
+      ),
+      'Purchase pending. Your current access stays unchanged while Google Play completes it.',
+    );
+    expect(
+      resolvePaywallPurchaseResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'purchase_canceled',
+          source: 'google_play',
+          planId: 'monthly',
+        ),
+        testingMode: false,
+      ),
+      'Purchase canceled. Your current access was not changed.',
+    );
+  });
 
-    expect(find.text('Keep the habit alive'), findsOneWidget);
+  test('verification failure copy preserves current access', () {
+    expect(
+      resolvePaywallPurchaseResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'verification_failed',
+          source: 'google_play',
+          planId: 'monthly',
+        ),
+        testingMode: false,
+      ),
+      'Purchase verification could not be confirmed. Your current access stays unchanged; use Restore Purchases to retry.',
+    );
+  });
 
-    await tester.tap(find.text('Compare Free vs Premium'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+  test('acknowledgement failure never claims activation', () {
+    expect(
+      resolvePaywallPurchaseResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'acknowledgement_failed',
+          source: 'google_play',
+          planId: 'monthly',
+        ),
+        testingMode: false,
+      ),
+      'Purchase verification succeeded, but final acknowledgement is still pending. Your current access stays unchanged; use Restore Purchases to retry.',
+    );
+  });
 
-    expect(find.text('Keep the habit alive'), findsNothing);
+  test('inactive manual restore reports nothing to restore', () {
+    expect(
+      resolvePaywallRestoreResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'nothing_to_restore',
+          source: 'supabase_authority',
+        ),
+        testingMode: false,
+      ),
+      'No active purchases were found to restore.',
+    );
   });
 }
 
@@ -183,15 +279,16 @@ const IntelligenceState _baseIntelligence = IntelligenceState(
 
 const PaywallEntity _twoPlanConfig = PaywallEntity(
   featureId: 'premium',
-  title: 'AI Credits + Premium',
-  body: 'Unlock premium intelligence flows.',
+  title: 'External-assistant credit plans',
+  body:
+      'Google Play provides price, billing frequency, and renewal terms before purchase.',
   plans: <PaywallPlan>[
     PaywallPlan(
       id: 'monthly',
       title: 'Monthly',
       priceLabel: '45/mo',
       description: 'Test plan',
-      aiCreditsIncluded: 100,
+      aiCreditsIncluded: 300,
       isAvailable: true,
       isFeatured: true,
     ),
@@ -200,7 +297,10 @@ const PaywallEntity _twoPlanConfig = PaywallEntity(
       title: 'Annual',
       priceLabel: '399/yr',
       description: 'Test annual plan',
-      aiCreditsIncluded: 1200,
+      aiCreditsIncluded: 360,
+      benefits: <String>[
+        'Increases external-assistant credit allowance to 360 credits per month',
+      ],
       isAvailable: true,
       isFeatured: false,
     ),
@@ -210,8 +310,9 @@ const PaywallEntity _twoPlanConfig = PaywallEntity(
 
 const PaywallEntity _threePlanConfig = PaywallEntity(
   featureId: 'premium',
-  title: 'AI Credits + Premium',
-  body: 'Unlock premium intelligence flows.',
+  title: 'External-assistant credit plans',
+  body:
+      'Google Play provides price, billing frequency, and renewal terms before purchase.',
   plans: <PaywallPlan>[
     PaywallPlan(
       id: 'monthly',
@@ -246,8 +347,9 @@ const PaywallEntity _threePlanConfig = PaywallEntity(
 
 const PaywallEntity _noAvailablePlanConfig = PaywallEntity(
   featureId: 'premium',
-  title: 'AI Credits + Premium',
-  body: 'Unlock premium intelligence flows.',
+  title: 'External-assistant credit plans',
+  body:
+      'Google Play provides price, billing frequency, and renewal terms before purchase.',
   plans: <PaywallPlan>[
     PaywallPlan(
       id: 'monthly',

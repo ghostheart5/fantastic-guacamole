@@ -5,12 +5,22 @@ import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_decision_outcome_repository.dart';
 
-class DecisionOutcomeRepository implements IDecisionOutcomeRepository {
-  DecisionOutcomeRepository(this._store, this._scope, {this.maxRecords = 200});
+abstract interface class IExactDecisionOutcomeSnapshotRepository {
+  Future<void> replaceSnapshot(List<DecisionOutcomeEntity> outcomes);
+}
+
+class DecisionOutcomeRepository
+    implements
+        IDecisionOutcomeRepository,
+        IExactDecisionOutcomeSnapshotRepository {
+  DecisionOutcomeRepository(this._store, this._scope, {this.maxRecords});
 
   final SharedPrefsStore _store;
   final AccountStorageScope _scope;
-  final int maxRecords;
+
+  /// Optional explicit retention bound. Production keeps the complete local
+  /// ledger unless a caller supplies and discloses a retention policy.
+  final int? maxRecords;
   Future<void> _tail = Future<void>.value();
 
   String get _key {
@@ -58,7 +68,7 @@ class DecisionOutcomeRepository implements IDecisionOutcomeRepository {
             (DecisionOutcomeEntity first, DecisionOutcomeEntity second) =>
                 first.recordedAt.compareTo(second.recordedAt),
           );
-      final int trim = next.length - maxRecords;
+      final int trim = maxRecords == null ? 0 : next.length - maxRecords!;
       final List<DecisionOutcomeEntity> bounded = trim > 0
           ? next.sublist(trim)
           : next;
@@ -66,6 +76,32 @@ class DecisionOutcomeRepository implements IDecisionOutcomeRepository {
         _key,
         jsonEncode(
           bounded
+              .map((DecisionOutcomeEntity value) => value.toJson())
+              .toList(growable: false),
+        ),
+      );
+    });
+    _tail = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  @override
+  Future<void> replaceSnapshot(List<DecisionOutcomeEntity> outcomes) {
+    final Future<void> operation = _tail.then((_) async {
+      final int? limit = maxRecords;
+      if (limit != null && outcomes.length > limit) {
+        throw StateError('Decision outcome snapshot exceeds its local limit.');
+      }
+      await _store.init();
+      final List<DecisionOutcomeEntity> sorted = outcomes.toList()
+        ..sort(
+          (DecisionOutcomeEntity first, DecisionOutcomeEntity second) =>
+              first.recordedAt.compareTo(second.recordedAt),
+        );
+      await _store.save(
+        _key,
+        jsonEncode(
+          sorted
               .map((DecisionOutcomeEntity value) => value.toJson())
               .toList(growable: false),
         ),

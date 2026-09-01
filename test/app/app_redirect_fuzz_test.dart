@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
@@ -65,65 +66,38 @@ String? _pathOf(String? redirect) {
   return Uri.parse(redirect).path;
 }
 
-const List<String> _legacyPaths = <String>[
-  RoutePaths.legacyLogs,
-  RoutePaths.legacyNotifications,
-  RoutePaths.legacyProgression,
-  RoutePaths.legacySi,
-  RoutePaths.legacyTasks,
-  RoutePaths.legacyProfile,
-  RoutePaths.legacyInsights,
-];
+final List<String> _compatibilityPaths = AppRouteRegistry
+    .routerCompatibilityRedirects
+    .map((AppRouteCompatibility alias) => alias.path!)
+    .toList(growable: false);
 
-const List<String> _publicInformationPaths = <String>[
-  RoutePaths.privacy,
-  RoutePaths.terms,
-  RoutePaths.support,
-  RoutePaths.about,
-];
+final List<String> _publicInformationPaths = AppRouteRegistry.canonical
+    .where(
+      (AppRouteDefinition route) =>
+          route.accessClass == RouteAccessClass.publicInformation,
+    )
+    .map((AppRouteDefinition route) => route.path)
+    .toList(growable: false);
 
-const List<String> _protectedApplicationPaths = <String>[
-  RoutePaths.shell,
-  RoutePaths.home,
-  RoutePaths.nexus,
-  RoutePaths.plan,
-  RoutePaths.creator,
-  RoutePaths.settings,
-  RoutePaths.notifications,
-  RoutePaths.logs,
-  RoutePaths.tasks,
-  RoutePaths.profile,
-  RoutePaths.progression,
-  RoutePaths.si,
-  RoutePaths.timeline,
-  RoutePaths.smartPlanner,
-  RoutePaths.trajectoryEngine,
-  ..._legacyPaths,
-];
+final List<String> _protectedApplicationPaths = <String>{
+  for (final AppRouteDefinition route in AppRouteRegistry.canonical)
+    if (route.accessClass == RouteAccessClass.protectedApplication) route.path,
+  for (final AppRouteCompatibility alias in AppRouteRegistry.compatibility)
+    if (alias.path case final String path)
+      if (AppRouteRegistry.accessClassForPath(path) ==
+          RouteAccessClass.protectedApplication)
+        path,
+}.toList(growable: false);
 
-const List<String> _allLocations = <String>[
-  RoutePaths.shell,
-  RoutePaths.onboarding,
-  RoutePaths.login,
-  RoutePaths.home,
-  RoutePaths.nexus,
-  RoutePaths.plan,
-  RoutePaths.creator,
-  RoutePaths.settings,
-  RoutePaths.notifications,
-  RoutePaths.logs,
-  RoutePaths.tasks,
-  RoutePaths.profile,
-  RoutePaths.progression,
-  RoutePaths.si,
-  RoutePaths.advisor,
-  RoutePaths.paywall,
-  RoutePaths.privacy,
-  RoutePaths.deleteAccount,
-  RoutePaths.terms,
-  RoutePaths.support,
-  RoutePaths.about,
-  ..._legacyPaths,
+final List<String> _declaredLocations = <String>{
+  ...AppRouteRegistry.canonical.map((AppRouteDefinition route) => route.path),
+  ...AppRouteRegistry.compatibility
+      .map((AppRouteCompatibility alias) => alias.path)
+      .whereType<String>(),
+}.toList(growable: false);
+
+final List<String> _allLocations = <String>[
+  ..._declaredLocations,
   '/unknown-route',
   '/xyz123',
 ];
@@ -161,8 +135,8 @@ void main() {
     }
   });
 
-  group('legacy routes', () {
-    for (final String path in _legacyPaths) {
+  group('compatibility routes', () {
+    for (final String path in _compatibilityPaths) {
       test('$path: welcome incomplete redirects to welcome first', () {
         final String? redirect = computeAppRedirect(
           isAuthenticated: true,
@@ -213,34 +187,7 @@ void main() {
 
   group('route access classes', () {
     test('classifies every declared route path', () {
-      for (final String path in <String>[
-        RoutePaths.shell,
-        RoutePaths.onboarding,
-        RoutePaths.login,
-        RoutePaths.home,
-        RoutePaths.nexus,
-        RoutePaths.plan,
-        RoutePaths.creator,
-        RoutePaths.settings,
-        RoutePaths.notifications,
-        RoutePaths.logs,
-        RoutePaths.tasks,
-        RoutePaths.profile,
-        RoutePaths.progression,
-        RoutePaths.si,
-        RoutePaths.advisor,
-        RoutePaths.smartPlanner,
-        RoutePaths.siConsole,
-        RoutePaths.timeline,
-        RoutePaths.trajectoryEngine,
-        RoutePaths.paywall,
-        RoutePaths.privacy,
-        RoutePaths.deleteAccount,
-        RoutePaths.terms,
-        RoutePaths.support,
-        RoutePaths.about,
-        ..._legacyPaths,
-      ]) {
+      for (final String path in _declaredLocations) {
         expect(RouteAccessPolicy.classify(path).reason, isNotEmpty);
       }
     });
@@ -600,6 +547,18 @@ void main() {
           welcomeComplete: true,
           onboardingComplete: true,
           location: RoutePaths.shell,
+        ),
+        RoutePaths.nexus,
+      );
+    });
+
+    test('home compatibility path redirects to Nexus once authenticated', () {
+      expect(
+        computeAppRedirect(
+          isAuthenticated: true,
+          welcomeComplete: true,
+          onboardingComplete: true,
+          location: RoutePaths.home,
         ),
         RoutePaths.nexus,
       );

@@ -2,13 +2,13 @@
 ///
 /// Multi-workspace UI not built yet.
 class WorkspaceEntity {
-  const WorkspaceEntity({
+  WorkspaceEntity({
     required this.id,
     required this.name,
     required this.updatedAt,
     this.activeModule = 'creator',
-    this.metadata = const <String, String>{},
-  });
+    Map<String, String> metadata = const <String, String>{},
+  }) : metadata = Map<String, String>.unmodifiable(metadata);
 
   final String id;
   final String name;
@@ -38,22 +38,24 @@ class WorkspaceEntity {
   bool get isReview => activeModule == 'review';
 
   // Freshness logic
-  Duration get age => DateTime.now().difference(updatedAt);
-  bool get isStale => age.inMinutes > 10;
+  Duration ageAt(DateTime reference) => reference.difference(updatedAt);
+  Duration get age => ageAt(DateTime.now());
+  bool isStaleAt(DateTime reference) => ageAt(reference).inMinutes > 10;
+  bool get isStale => isStaleAt(DateTime.now());
 
   // Module transitions
-  WorkspaceEntity switchModule(String module) =>
-      copyWith(activeModule: module, updatedAt: DateTime.now());
+  WorkspaceEntity switchModule(String module, {DateTime? at}) =>
+      copyWith(activeModule: module, updatedAt: at ?? DateTime.now());
 
   // Metadata manipulation
-  WorkspaceEntity addMetadata(String key, String value) {
+  WorkspaceEntity addMetadata(String key, String value, {DateTime? at}) {
     final updated = Map<String, String>.from(metadata)..[key] = value;
-    return copyWith(metadata: updated, updatedAt: DateTime.now());
+    return copyWith(metadata: updated, updatedAt: at ?? DateTime.now());
   }
 
-  WorkspaceEntity removeMetadata(String key) {
+  WorkspaceEntity removeMetadata(String key, {DateTime? at}) {
     final updated = Map<String, String>.from(metadata)..remove(key);
-    return copyWith(metadata: updated, updatedAt: DateTime.now());
+    return copyWith(metadata: updated, updatedAt: at ?? DateTime.now());
   }
 
   // Invariants

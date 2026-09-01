@@ -9,7 +9,9 @@ void main() {
     WidgetTester tester, {
     required double width,
     double height = 900,
+    bool obscurePassword = true,
     VoidCallback? onPrimaryAction,
+    bool disableAnimations = false,
   }) async {
     tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1.0;
@@ -22,18 +24,27 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: LoginScreen(
-          emailController: emailController,
-          passwordController: passwordController,
-          obscurePassword: true,
-          isSubmitting: false,
-          isSignUpMode: false,
-          onPrimaryAction: onPrimaryAction ?? () {},
-          onForgotPassword: () {},
-          onGoogleSignIn: () {},
-          onGitHubSignIn: () {},
-          onToggleMode: () {},
-          onTogglePassword: () {},
+        home: Builder(
+          builder: (BuildContext context) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(disableAnimations: disableAnimations),
+            child: LoginScreen(
+              emailController: emailController,
+              passwordController: passwordController,
+              obscurePassword: obscurePassword,
+              isSubmitting: false,
+              isSignUpMode: false,
+              onPrimaryAction: onPrimaryAction ?? () {},
+              onForgotPassword: () {},
+              onGoogleSignIn: () {},
+              onGitHubSignIn: () {},
+              onPrivacyPolicy: () {},
+              onTermsOfService: () {},
+              onToggleMode: () {},
+              onTogglePassword: () {},
+            ),
+          ),
         ),
       ),
     );
@@ -138,5 +149,37 @@ void main() {
 
     expect(primaryActionCalls, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('names login fields and the password visibility action', (
+    WidgetTester tester,
+  ) async {
+    final SemanticsHandle semantics = tester.ensureSemantics();
+
+    await pumpLoginScreen(tester, width: 420);
+
+    expect(find.bySemanticsLabel(RegExp(r'^Email field\b')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Password field\b')), findsOneWidget);
+    expect(find.bySemanticsLabel('Show password'), findsOneWidget);
+    expect(find.bySemanticsLabel('Hide password'), findsNothing);
+
+    await pumpLoginScreen(tester, width: 420, obscurePassword: false);
+
+    expect(find.bySemanticsLabel('Hide password'), findsOneWidget);
+    expect(find.bySemanticsLabel('Show password'), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('does not keep login animations running under reduced motion', (
+    WidgetTester tester,
+  ) async {
+    await pumpLoginScreen(
+      tester,
+      width: 420,
+      height: 900,
+      disableAnimations: true,
+    );
+
+    expect(tester.hasRunningAnimations, isFalse);
   });
 }

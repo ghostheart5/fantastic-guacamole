@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yaml/yaml.dart';
 
 void main() {
   final Directory root = Directory.current;
@@ -32,6 +33,43 @@ void main() {
     );
   });
 
+  test(
+    'Phase 2 cloud data boundaries fail closed in the forward migration',
+    () {
+      final String migration = read(
+        'supabase/migrations/20260830050000_phase2_data_security_hardening.sql',
+      );
+      final String casTests = read(
+        'supabase/tests/cloud_backup_snapshots_rls.test.sql',
+      );
+      final String securityTests = read(
+        'supabase/tests/phase2_data_security.test.sql',
+      );
+
+      expect(
+        RegExp('account_deletion_in_progress').allMatches(migration).length,
+        greaterThanOrEqualTo(4),
+      );
+      expect(
+        migration,
+        contains(
+          'grant insert on table public.ai_content_reports to service_role',
+        ),
+      );
+      expect(migration, contains('grant usage on sequence'));
+      expect(migration, contains('file_size_limit = 5242880'));
+      expect(
+        migration,
+        contains("allowed_mime_types = array['application/json']"),
+      );
+      expect(migration, contains("'/backup/full_backup.json'"));
+      expect(migration, contains("'/backup/tasks_backup.json'"));
+      expect(migration, isNot(contains("split_part(name, '/', 1)")));
+      expect(casTests, contains('a deletion tombstone blocks CAS inserts'));
+      expect(securityTests, contains('every legacy sync policy is restricted'));
+    },
+  );
+
   test('startup does not request push permission; explicit flow does', () {
     final String source = read(
       'lib/system/firebase/firebase_messaging_bootstrap.dart',
@@ -53,10 +91,15 @@ void main() {
     final String policy = read('privacy.html');
     final String bundled = read('assets/legal/privacy_policy.txt');
     expect(policy, contains('GhostHeart5 Supabase project'));
-    expect(policy, contains('report a generated response'));
+    expect(policy, contains('External AI is release-disabled'));
+    expect(policy, contains('to Anthropic'));
+    expect(policy, contains('data minimization, not sanitization'));
+    expect(policy, contains('up to five minutes'));
+    expect(policy, contains('has not been verified'));
     expect(policy, contains('Settings &gt; Account'));
     expect(bundled, contains('support@chronospark.app'));
-    expect(bundled, contains('only that response and your selected reason'));
+    expect(bundled, contains('visible deterministic plan clauses'));
+    expect(bundled, contains('expected AI-credit cost'));
     expect(
       bundled.toLowerCase(),
       isNot(
@@ -70,7 +113,42 @@ void main() {
   });
 
   test('OAuth fallback uses the app callback scheme', () {
-    final String env = read('lib/config/env.dart');
-    expect(env, contains("defaultValue: 'chronospark://auth-callback'"));
+    final String endpoints = read('lib/config/src/service_endpoints.dart');
+    expect(endpoints, contains("defaultValue: 'chronospark://auth-callback'"));
+  });
+
+  test('local dotenv is compile-time input and never a Flutter asset', () {
+    final YamlMap pubspec = loadYaml(read('pubspec.yaml')) as YamlMap;
+    final YamlMap flutter = pubspec['flutter'] as YamlMap;
+    final YamlList assets = flutter['assets'] as YamlList;
+    final RegExp dotenvAsset = RegExp(r'(^|[\\/])\.env(?:\..+)?$');
+
+    final Iterable<String> assetPaths = assets.map((dynamic asset) {
+      if (asset is String) {
+        return asset;
+      }
+      if (asset is YamlMap) {
+        return asset['path']?.toString() ?? '';
+      }
+      return '';
+    });
+    expect(assetPaths.where(dotenvAsset.hasMatch), isEmpty);
+
+    expect(
+      read('lib/app/startup/app_bootstrap.dart'),
+      isNot(contains('flutter_dotenv')),
+    );
+    expect(
+      read('lib/app/startup/startup_error_hooks.dart'),
+      isNot(contains('dotenv.load')),
+    );
+    expect(
+      read('.vscode/launch.json'),
+      contains('--dart-define-from-file=.env'),
+    );
+    expect(
+      read('scripts/flutter_windows_run_local_nuget.ps1'),
+      contains('--dart-define-from-file=.env'),
+    );
   });
 }

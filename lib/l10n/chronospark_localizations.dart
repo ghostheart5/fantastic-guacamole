@@ -10,10 +10,7 @@ class ChronoSparkLocalizations {
   static const LocalizationsDelegate<ChronoSparkLocalizations> delegate =
       _ChronoSparkLocalizationsDelegate();
 
-  static const List<Locale> supportedLocales = <Locale>[
-    Locale('en'),
-    Locale('es'),
-  ];
+  static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
   static ChronoSparkLocalizations of(BuildContext context) =>
       Localizations.of<ChronoSparkLocalizations>(
@@ -33,6 +30,15 @@ class ChronoSparkLocalizations {
 
   String completeTaskLabel(String title) =>
       isSpanish ? 'Completar $title' : 'Complete $title';
+
+  String aboutPrivacyAndSupportBody({
+    required String privacyUrl,
+    required String termsUrl,
+    required String supportUrl,
+    required String supportEmail,
+  }) => isSpanish
+      ? 'Política de privacidad oficial: $privacyUrl. Términos: $termsUrl. Página de soporte: $supportUrl. Correo de soporte: $supportEmail.'
+      : 'Official privacy policy: $privacyUrl. Terms: $termsUrl. Support page: $supportUrl. Support email: $supportEmail.';
 
   String guideTitle(String id, String fallback) {
     if (!isSpanish) return fallback;
@@ -205,6 +211,23 @@ class ChronoSparkLocalizations {
     ChronoSparkString.unableToOpenWebsite:
         'Unable to open the website from this device.',
     ChronoSparkString.couldNotLoadContent: 'Could not load content.',
+    ChronoSparkString.aboutTitle: 'ABOUT CHRONOSPARK',
+    ChronoSparkString.aboutSubtitle:
+        'An adaptive planner built for clarity, momentum, and reflective execution.',
+    ChronoSparkString.aboutEyebrow: 'SYSTEM IDENTITY',
+    ChronoSparkString.aboutWhatItDoesTitle: 'What It Does',
+    ChronoSparkString.aboutWhatItDoesBody:
+        'ChronoSpark combines tasks, planning, logs, and AI-assisted strategy in one system so you can execute consistently without losing context.',
+    ChronoSparkString.aboutCoreSurfacesTitle: 'Core Surfaces',
+    ChronoSparkString.aboutCoreSurfacesBody:
+        'Nexus for decisions, Trajectory Engine for possible paths, Timeline for history, and Profile for identity and progression. Smart Planner, Creator, SI Console, and Progression add depth when needed.',
+    ChronoSparkString.aboutGuidingPrincipleTitle: 'Guiding Principle',
+    ChronoSparkString.aboutGuidingPrincipleBody:
+        'Reduce friction between intent and action. Keep planning lightweight, execution clear, and reflection actionable.',
+    ChronoSparkString.aboutPrivacyAndSupportTitle: 'Privacy and Support',
+    ChronoSparkString.aboutVoiceFeaturesTitle: 'Voice Features',
+    ChronoSparkString.aboutVoiceFeaturesBody:
+        'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
     ChronoSparkString.routerErrorTitle: "We couldn't open that link",
     ChronoSparkString.routerErrorBody:
         'The link does not match an available ChronoSpark screen. We recorded a safe diagnostic event without exposing technical details.',
@@ -311,6 +334,23 @@ class ChronoSparkLocalizations {
     ChronoSparkString.unableToOpenWebsite:
         'No se pudo abrir el sitio web desde este dispositivo.',
     ChronoSparkString.couldNotLoadContent: 'No se pudo cargar el contenido.',
+    ChronoSparkString.aboutTitle: 'ACERCA DE CHRONOSPARK',
+    ChronoSparkString.aboutSubtitle:
+        'Un planificador adaptativo creado para aportar claridad, impulso y una ejecución reflexiva.',
+    ChronoSparkString.aboutEyebrow: 'IDENTIDAD DEL SISTEMA',
+    ChronoSparkString.aboutWhatItDoesTitle: 'Qué hace',
+    ChronoSparkString.aboutWhatItDoesBody:
+        'ChronoSpark combina tareas, planificación, registros y estrategia asistida por IA en un solo sistema para que puedas actuar de forma constante sin perder el contexto.',
+    ChronoSparkString.aboutCoreSurfacesTitle: 'Áreas principales',
+    ChronoSparkString.aboutCoreSurfacesBody:
+        'Nexus ayuda con las decisiones, Motor de Trayectoria explora caminos posibles, Línea de Tiempo conserva el historial y Perfil reúne identidad y progreso. Planificador Inteligente, Creador, Consola SI y Progresión añaden profundidad cuando hace falta.',
+    ChronoSparkString.aboutGuidingPrincipleTitle: 'Principio rector',
+    ChronoSparkString.aboutGuidingPrincipleBody:
+        'Reduce la fricción entre la intención y la acción. Mantén la planificación ligera, la ejecución clara y la reflexión práctica.',
+    ChronoSparkString.aboutPrivacyAndSupportTitle: 'Privacidad y soporte',
+    ChronoSparkString.aboutVoiceFeaturesTitle: 'Funciones de voz',
+    ChronoSparkString.aboutVoiceFeaturesBody:
+        'El acceso al micrófono permite usar voz a texto de forma opcional en Planificador Inteligente y Consola SI. El audio se usa solo después de que inicias una acción de voz y permanece desactivado durante la planificación normal.',
     ChronoSparkString.routerErrorTitle: 'No pudimos abrir ese enlace',
     ChronoSparkString.routerErrorBody:
         'El enlace no coincide con una pantalla disponible de ChronoSpark. Registramos un diagnóstico seguro sin mostrar detalles técnicos.',
@@ -399,6 +439,18 @@ enum ChronoSparkString {
   openWebsite,
   unableToOpenWebsite,
   couldNotLoadContent,
+  aboutTitle,
+  aboutSubtitle,
+  aboutEyebrow,
+  aboutWhatItDoesTitle,
+  aboutWhatItDoesBody,
+  aboutCoreSurfacesTitle,
+  aboutCoreSurfacesBody,
+  aboutGuidingPrincipleTitle,
+  aboutGuidingPrincipleBody,
+  aboutPrivacyAndSupportTitle,
+  aboutVoiceFeaturesTitle,
+  aboutVoiceFeaturesBody,
   routerErrorTitle,
   routerErrorBody,
   routerErrorReturnNexus,

@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -10,6 +11,7 @@ import 'package:fantastic_guacamole/state/models/progression_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final futureConsequenceEngineProvider = Provider<FutureConsequenceEngine>(
   (Ref ref) => const FutureConsequenceEngine(),
 );
+
+final PersonContextAccessRequest trajectoryPersonContextRequest =
+    PersonContextAccessRequest(
+      surface: PersonContextSurface.trajectory,
+      purposes: operationalPersonContextPurposes,
+    );
 
 final trajectoryHorizonDaysProvider =
     NotifierProvider<TrajectoryHorizonController, int>(
@@ -104,6 +112,15 @@ final trajectoryConsequenceProvider =
       final ExecutionSignals execution = ref.watch(executionSignalsProvider);
       final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
       final DateTime now = DateTime.now().toUtc();
+      final List<PersonContextSignal>? personContext = _personContextSignals(
+        ref.watch(
+          personContextForSurfaceProvider(trajectoryPersonContextRequest),
+        ),
+        observedAt: now,
+      );
+      final List<String> personContextAssumptions = _personContextAssumptions(
+        personContext,
+      );
       final int horizonDays = ref.watch(trajectoryHorizonDaysProvider);
       final TrajectoryBaseline baseline = _baseline(
         aggregation: aggregation,
@@ -111,6 +128,7 @@ final trajectoryConsequenceProvider =
         execution: execution,
         scope: scope,
         observedAt: now,
+        personContext: personContext,
       );
       final List<TrajectoryIntervention> interventions =
           <TrajectoryIntervention>[
@@ -118,6 +136,7 @@ final trajectoryConsequenceProvider =
               aggregation.planningDecision,
               baseline,
               horizonDays: horizonDays,
+              personContextAssumptions: personContextAssumptions,
             ),
           ];
       final TrajectoryCustomScenarioDraft? customDraft = ref.watch(
@@ -129,6 +148,7 @@ final trajectoryConsequenceProvider =
               customDraft,
               baseline,
               horizonDays: horizonDays,
+              personContextAssumptions: personContextAssumptions,
             );
       if (custom != null) {
         interventions.add(custom);
@@ -148,6 +168,7 @@ TrajectoryIntervention? _customIntervention(
   TrajectoryCustomScenarioDraft draft,
   TrajectoryBaseline baseline, {
   required int horizonDays,
+  required List<String> personContextAssumptions,
 }) {
   final TrajectoryTaskNode? subject = _task(baseline, draft.subjectId);
   if (subject == null) return null;
@@ -165,9 +186,10 @@ TrajectoryIntervention? _customIntervention(
       description:
           'Model this commitment as completed, then compare capacity, risk, goal timing, and Progression consequences.',
       subjectId: subject.id,
-      assumptions: const <String>[
+      assumptions: <String>[
         'The commitment is completed without creating an unmodeled obligation.',
         'Projected Progression effects remain informational until an outcome is recorded on Timeline.',
+        ...personContextAssumptions,
       ],
     ),
     TrajectoryCustomAdjustment.delay => TrajectoryIntervention(
@@ -180,9 +202,10 @@ TrajectoryIntervention? _customIntervention(
           'Model the declared delay and expose its deadline, capacity, goal, and risk consequences.',
       subjectId: subject.id,
       delay: Duration(days: safeDelayDays),
-      assumptions: const <String>[
+      assumptions: <String>[
         'The delayed commitment remains active and consumes later capacity.',
         'No replacement work is assumed unless it already exists in the baseline.',
+        ...personContextAssumptions,
       ],
     ),
     TrajectoryCustomAdjustment.reduceScope => TrajectoryIntervention(
@@ -194,9 +217,10 @@ TrajectoryIntervention? _customIntervention(
           'Remove this commitment from the active capacity window and compare the resulting tradeoff.',
       subjectId: subject.id,
       displacedSubjectIds: <String>[subject.id],
-      assumptions: const <String>[
+      assumptions: <String>[
         'The commitment is optional or can be deferred with informed consent.',
         'The simulation does not delete or mutate the actual task.',
+        ...personContextAssumptions,
       ],
     ),
   };
@@ -208,6 +232,7 @@ TrajectoryBaseline _baseline({
   required ExecutionSignals execution,
   required AccountStorageScope scope,
   required DateTime observedAt,
+  required List<PersonContextSignal>? personContext,
 }) {
   final DecisionRecommendation decision = aggregation.planningDecision;
   final List<TrajectoryTaskNode> tasks = aggregation.tasks
@@ -275,6 +300,9 @@ TrajectoryBaseline _baseline({
         '${progression.progress.level}:${progression.progress.xp}:${progression.progress.streak}',
     'execution':
         '${execution.completed7d}:${execution.skipped7d}:${execution.delayed7d}',
+    'energy_origin': aggregation.siState.energyOrigin.name,
+    'availability_origin': decision.plan.capacity.windowOrigin.name,
+    'person_context_trajectory': _personContextRevision(personContext),
   };
   return TrajectoryBaseline(
     accountScope: scope.v2Namespace ?? 'signed-out',
@@ -302,6 +330,8 @@ TrajectoryBaseline _baseline({
     ),
     confidence: decision.confidenceProfile,
     sourceRevisions: Map<String, String>.unmodifiable(revisions),
+    energyOrigin: aggregation.siState.energyOrigin,
+    availabilityOrigin: decision.plan.capacity.windowOrigin,
   );
 }
 
@@ -309,6 +339,7 @@ List<TrajectoryIntervention> _interventions(
   DecisionRecommendation decision,
   TrajectoryBaseline baseline, {
   required int horizonDays,
+  required List<String> personContextAssumptions,
 }) {
   final Duration horizon = Duration(days: horizonDays);
   final TrajectoryTaskNode? selected = _task(
@@ -326,8 +357,9 @@ List<TrajectoryIntervention> _interventions(
       title: 'Maintain current course',
       horizon: horizon,
       description: 'Preserve the current plan without a declared intervention.',
-      assumptions: const <String>[
+      assumptions: <String>[
         'Current completion and deferral rates remain directionally similar.',
+        ...personContextAssumptions,
       ],
     ),
   ];
@@ -347,6 +379,7 @@ List<TrajectoryIntervention> _interventions(
           assumptions: <String>[
             'The proposed TimeBlocks are accepted and attempted.',
             'Displaced work is explicitly reconciled instead of silently carried.',
+            ...personContextAssumptions,
           ],
         ),
       )
@@ -359,8 +392,9 @@ List<TrajectoryIntervention> _interventions(
           description:
               'Model the selected Smart Planner task as completed in its feasible block.',
           subjectId: selected.id,
-          assumptions: const <String>[
+          assumptions: <String>[
             'The task is completed without creating an unmodeled commitment.',
+            ...personContextAssumptions,
           ],
         ),
       )
@@ -374,8 +408,9 @@ List<TrajectoryIntervention> _interventions(
               'Model one day of slippage and its Timeline and goal consequences.',
           subjectId: selected.id,
           delay: const Duration(days: 1),
-          assumptions: const <String>[
+          assumptions: <String>[
             'The delayed work remains active and consumes later capacity.',
+            ...personContextAssumptions,
           ],
         ),
       );
@@ -394,8 +429,9 @@ List<TrajectoryIntervention> _interventions(
             .expand((item) => item.displacedSubjectIds)
             .toSet()
             .toList(growable: false),
-        assumptions: const <String>[
+        assumptions: <String>[
           'The first verifiable recovery checkpoint is completed.',
+          ...personContextAssumptions,
         ],
       ),
     );
@@ -420,8 +456,9 @@ List<TrajectoryIntervention> _interventions(
         horizon: horizon,
         description: 'Remove ${task.title} from the active capacity window.',
         subjectId: task.id,
-        assumptions: const <String>[
+        assumptions: <String>[
           'The removed commitment is optional or safely deferred with consent.',
+          ...personContextAssumptions,
         ],
       ),
     );
@@ -444,6 +481,72 @@ String _stableHash(String value) {
     hash = (hash * 0x01000193) & 0x7fffffff;
   }
   return hash.toRadixString(16);
+}
+
+List<PersonContextSignal>? _personContextSignals(
+  PersonContextView? view, {
+  required DateTime observedAt,
+}) {
+  if (view == null ||
+      view.surface != PersonContextSurface.trajectory ||
+      !view.purposes.containsAll(operationalPersonContextPurposes)) {
+    return null;
+  }
+  final List<PersonContextSignal> signals =
+      view.signals
+          .where(
+            (PersonContextSignal signal) =>
+                operationalPersonContextPurposes.contains(signal.purpose) &&
+                signal.isAvailableTo(
+                  PersonContextSurface.trajectory,
+                  observedAt,
+                ),
+          )
+          .toList(growable: false)
+        ..sort((PersonContextSignal a, PersonContextSignal b) {
+          final int kind = a.kind.index.compareTo(b.kind.index);
+          return kind != 0 ? kind : a.id.compareTo(b.id);
+        });
+  return List<PersonContextSignal>.unmodifiable(signals);
+}
+
+String _personContextRevision(List<PersonContextSignal>? signals) {
+  if (signals == null) return 'unavailable';
+  if (signals.isEmpty) return 'available_empty';
+  return _stableHash(
+    signals
+        .map(
+          (PersonContextSignal signal) => <String>[
+            signal.id,
+            signal.kind.name,
+            signal.value,
+            signal.source.name,
+            signal.purpose.name,
+            signal.recordedAt.toUtc().toIso8601String(),
+            signal.freshUntil.toUtc().toIso8601String(),
+          ].join('|'),
+        )
+        .join('||'),
+  );
+}
+
+List<String> _personContextAssumptions(List<PersonContextSignal>? signals) {
+  if (signals == null) {
+    return const <String>[
+      'Person context was unavailable at scenario construction, so no personal context was inferred.',
+    ];
+  }
+  if (signals.isEmpty) {
+    return const <String>[
+      'Person context was available but contained no fresh consented Trajectory operational signals.',
+    ];
+  }
+  return signals
+      .map(
+        (PersonContextSignal signal) =>
+            'Consented ${signal.kind.name} context (${signal.source.name}, fresh through ${signal.freshUntil.toUtc().toIso8601String()}) for ${signal.purpose.name}: ${signal.value}. It is displayed as scenario evidence only, does not change projection calculations, and is not treated as identity or a guaranteed outcome.',
+      )
+      .toList(growable: false);
 }
 
 extension<T> on Iterable<T> {

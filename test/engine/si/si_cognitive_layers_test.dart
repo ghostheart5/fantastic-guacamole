@@ -135,7 +135,7 @@ void main() {
         predictedNext: 'execute',
         chain: <String>['plan', 'execute'],
       );
-      const SIDecision decision = SIDecision(
+      final SIDecision decision = SIDecision(
         action: 'schedule',
         task: Task(
           id: 'task-1',
@@ -146,7 +146,7 @@ void main() {
         ),
         score: 0.84,
         reasoning: 'Matches the stated goal.',
-        ethics: EthicsAssessment(
+        ethics: const EthicsAssessment(
           safe: true,
           flags: <String>[],
           adjustments: <String>[],
@@ -340,7 +340,7 @@ void main() {
       () async {
         final SyntheticIntelligenceEngine engine =
             SyntheticIntelligenceEngine();
-        const Task task = Task(
+        final Task task = Task(
           id: 'task-compat',
           title: 'Prepare launch notes',
           priority: 4,

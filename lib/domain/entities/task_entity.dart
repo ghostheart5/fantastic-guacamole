@@ -1,11 +1,35 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 
+sealed class TaskTemporalEdit {
+  const TaskTemporalEdit();
+}
+
+final class SetSchedule extends TaskTemporalEdit {
+  const SetSchedule(this.scheduledFor);
+
+  final DateTime scheduledFor;
+}
+
+final class ClearSchedule extends TaskTemporalEdit {
+  const ClearSchedule();
+}
+
+final class SetDeadline extends TaskTemporalEdit {
+  const SetDeadline(this.dueDate);
+
+  final DateTime dueDate;
+}
+
+final class ClearDeadline extends TaskTemporalEdit {
+  const ClearDeadline();
+}
+
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
 ///
 /// Canonical task type used by repositories and use cases.
 class TaskEntity {
   // Public `createdAt` remains a computed non-null compatibility getter.
-  const TaskEntity({
+  TaskEntity({
     required this.id,
     required this.title,
     this.description,
@@ -24,10 +48,11 @@ class TaskEntity {
     this.dueDate,
     this.goalId,
     this.isCanceled = false,
-    this.subtasks = const [],
+    List<String> subtasks = const <String>[],
     this.recurrenceRule = RecurrenceRule.none,
     // ignore: prefer_initializing_formals
-  }) : _createdAt = createdAt;
+  }) : _createdAt = createdAt,
+       subtasks = List<String>.unmodifiable(subtasks);
 
   final String id;
   final String title;
@@ -122,6 +147,7 @@ class TaskEntity {
     String? id,
     String? title,
     String? description,
+    bool clearDescription = false,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isCompleted,
@@ -129,37 +155,51 @@ class TaskEntity {
     int? difficulty,
     int? energyRequired,
     Duration? estimatedDuration,
+    bool clearEstimatedDuration = false,
     DateTime? completedAt,
     bool? isSkipped,
     DateTime? skippedAt,
     bool clearCompletedAt = false,
     bool clearSkippedAt = false,
     DateTime? scheduledFor,
+    bool clearScheduledFor = false,
     String? occurrenceKey,
     DateTime? dueDate,
+    bool clearDueDate = false,
     String? goalId,
+    bool clearGoalId = false,
     bool? isCanceled,
     List<String>? subtasks,
     RecurrenceRule? recurrenceRule,
   }) {
+    final bool resolvedIsCompleted = isCompleted ?? this.isCompleted;
+    final bool resolvedIsSkipped = isSkipped ?? this.isSkipped;
     return TaskEntity(
       id: id ?? this.id,
       title: title ?? this.title,
-      description: description ?? this.description,
+      description: clearDescription ? null : description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      isCompleted: isCompleted ?? this.isCompleted,
+      isCompleted: resolvedIsCompleted,
       priority: priority ?? this.priority,
       difficulty: difficulty ?? this.difficulty,
       energyRequired: energyRequired ?? this.energyRequired,
-      estimatedDuration: estimatedDuration ?? this.estimatedDuration,
-      completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
-      isSkipped: isSkipped ?? this.isSkipped,
-      skippedAt: clearSkippedAt ? null : skippedAt ?? this.skippedAt,
-      scheduledFor: scheduledFor ?? this.scheduledFor,
+      estimatedDuration: clearEstimatedDuration
+          ? null
+          : estimatedDuration ?? this.estimatedDuration,
+      completedAt: clearCompletedAt || !resolvedIsCompleted
+          ? null
+          : completedAt ?? this.completedAt,
+      isSkipped: resolvedIsSkipped,
+      skippedAt: clearSkippedAt || !resolvedIsSkipped
+          ? null
+          : skippedAt ?? this.skippedAt,
+      scheduledFor: clearScheduledFor
+          ? null
+          : scheduledFor ?? this.scheduledFor,
       occurrenceKey: occurrenceKey ?? this.occurrenceKey,
-      dueDate: dueDate ?? this.dueDate,
-      goalId: goalId ?? this.goalId,
+      dueDate: clearDueDate ? null : dueDate ?? this.dueDate,
+      goalId: clearGoalId ? null : goalId ?? this.goalId,
       isCanceled: isCanceled ?? this.isCanceled,
       subtasks: subtasks ?? this.subtasks,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
@@ -167,32 +207,74 @@ class TaskEntity {
   }
 
   // Domain behavior
-  TaskEntity complete() {
-    final DateTime now = DateTime.now();
-    return copyWith(isCompleted: true, completedAt: now, updatedAt: now);
+  TaskEntity complete({DateTime? at}) {
+    final DateTime timestamp = at ?? DateTime.now();
+    return copyWith(
+      isCompleted: true,
+      isSkipped: false,
+      isCanceled: false,
+      completedAt: timestamp,
+      clearSkippedAt: true,
+      updatedAt: timestamp,
+    );
   }
 
-  TaskEntity cancel() => copyWith(isCanceled: true, updatedAt: DateTime.now());
+  TaskEntity cancel({DateTime? at}) => copyWith(
+    isCompleted: false,
+    isSkipped: false,
+    isCanceled: true,
+    clearCompletedAt: true,
+    clearSkippedAt: true,
+    updatedAt: at ?? DateTime.now(),
+  );
 
   bool get isScheduled => scheduledFor != null;
 
   bool get hasDeadline => dueDate != null;
 
-  bool get isActive => !isCompleted && !isSkipped && !isCanceled;
+  bool isActionableAt(DateTime _) => !isCompleted && !isSkipped && !isCanceled;
 
-  bool get isOverdue {
-    if (dueDate == null) return false;
-    return !isCompleted && !isSkipped && DateTime.now().isAfter(dueDate!);
+  bool get isActive => isActionableAt(DateTime.now());
+
+  TaskEntity applyTemporalEdit(TaskTemporalEdit edit, {DateTime? at}) {
+    final DateTime timestamp = at ?? DateTime.now();
+    if (!isActionableAt(timestamp)) {
+      throw StateError('Non-actionable tasks cannot accept temporal edits.');
+    }
+    return switch (edit) {
+      SetSchedule(:final DateTime scheduledFor) => copyWith(
+        scheduledFor: scheduledFor,
+        updatedAt: timestamp,
+      ),
+      ClearSchedule() => copyWith(
+        clearScheduledFor: true,
+        updatedAt: timestamp,
+      ),
+      SetDeadline(:final DateTime dueDate) => copyWith(
+        dueDate: dueDate,
+        updatedAt: timestamp,
+      ),
+      ClearDeadline() => copyWith(clearDueDate: true, updatedAt: timestamp),
+    };
   }
+
+  bool isOverdueAt(DateTime reference) {
+    if (dueDate == null) return false;
+    return isActive && reference.isAfter(dueDate!);
+  }
+
+  bool get isOverdue => isOverdueAt(DateTime.now());
 
   bool get hasSubtasks => subtasks.isNotEmpty;
 
-  TaskEntity addSubtask(String id) =>
-      copyWith(subtasks: [...subtasks, id], updatedAt: DateTime.now());
+  TaskEntity addSubtask(String id, {DateTime? at}) => copyWith(
+    subtasks: <String>[...subtasks, id],
+    updatedAt: at ?? DateTime.now(),
+  );
 
-  TaskEntity removeSubtask(String id) => copyWith(
+  TaskEntity removeSubtask(String id, {DateTime? at}) => copyWith(
     subtasks: subtasks.where((t) => t != id).toList(),
-    updatedAt: DateTime.now(),
+    updatedAt: at ?? DateTime.now(),
   );
 
   bool get isHighPriority => priority >= 4;
@@ -217,6 +299,16 @@ class TaskEntity {
     }
     if (isSkipped && skippedAt == null) {
       throw StateError('Skipped tasks must have a skippedAt timestamp');
+    }
+    if (!isCompleted && completedAt != null) {
+      throw StateError('Incomplete tasks cannot retain completedAt');
+    }
+    if (!isSkipped && skippedAt != null) {
+      throw StateError('Unskipped tasks cannot retain skippedAt');
+    }
+    if ((isCompleted ? 1 : 0) + (isSkipped ? 1 : 0) + (isCanceled ? 1 : 0) >
+        1) {
+      throw StateError('A task can have only one terminal state');
     }
   }
 }

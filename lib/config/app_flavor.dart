@@ -1,6 +1,7 @@
 enum AppFlavor {
   development('dev'),
   testing('test'),
+  qualityAssurance('qa'),
   staging('staging'),
   production('prod');
 
@@ -24,9 +25,6 @@ enum AppFlavor {
     final String normalized = value.trim().toLowerCase();
     if (normalized.isEmpty) {
       return null;
-    }
-    if (normalized == 'qa') {
-      return AppFlavor.testing;
     }
     // Accept the natural long spelling of the production flavor.
     if (normalized == 'production') {

@@ -1,7 +1,10 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
@@ -129,11 +132,39 @@ class SettingsUiActions {
     }
     return false;
   }
+
+  Future<TelemetryConsent> saveTelemetryConsent({
+    required String accountId,
+    required TelemetryConsent consent,
+  }) {
+    return TelemetryConsentStore().save(accountId: accountId, consent: consent);
+  }
+
+  Future<String> exportBackupRecoveryKey() {
+    return _backupCipher().exportRecoveryKey();
+  }
+
+  Future<void> importBackupRecoveryKey(String recoveryKey) {
+    return _backupCipher().importRecoveryKey(recoveryKey);
+  }
+
+  BackupCipher _backupCipher() {
+    final scope = _ref.read(accountStorageScopeProvider);
+    return BackupCipher(
+      _ref.read(secureStoreProvider),
+      accountId: scope.isWritable ? scope.rawUserId : null,
+    );
+  }
 }
 
 final settingsUiActionsProvider = Provider<SettingsUiActions>((Ref ref) {
   return SettingsUiActions(ref);
 });
+
+final telemetryConsentProvider =
+    FutureProvider.family<TelemetryConsent, String>(
+      (Ref ref, String accountId) => TelemetryConsentStore().load(accountId),
+    );
 
 const String _cloudSyncPreferenceKey = 'cloud_sync_enabled_v1';
 

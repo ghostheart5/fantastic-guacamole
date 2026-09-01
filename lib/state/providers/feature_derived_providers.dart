@@ -6,8 +6,7 @@ import 'package:fantastic_guacamole/engine/si/offline/narrative_engine.dart';
 import 'package:fantastic_guacamole/engine/si/offline/user_growth_engine.dart';
 import 'package:fantastic_guacamole/engine/si/si_synthetic_soul_layer.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,7 +35,12 @@ final userGrowthTitleProvider = Provider<String>((ref) {
 
 final progressSignalsProvider = Provider<ProgressSignals>((ref) {
   final traj = ref.watch(trajectorySummaryProvider);
-  return GetProgressSignals()(traj);
+  return GetProgressSignals()(
+    momentum: traj.momentum,
+    streak: traj.streak,
+    pressureIndex: traj.pressureIndex,
+    behaviorDivergence: traj.behaviorDivergence,
+  );
 });
 
 final narrativeProvider = Provider<UserNarrative>((ref) {
@@ -56,12 +60,15 @@ final narrativeProvider = Provider<UserNarrative>((ref) {
 });
 
 final soulStateProvider = Provider<SoulState>((ref) {
-  final si = ref.watch(siStateProvider);
+  final ConsentedHumanContext humanContext = ref.watch(
+    consentedHumanContextProvider,
+  );
+  final si = humanContext.siState;
   final traj = ref.watch(trajectorySummaryProvider);
-  final emotion = ref.watch(emotionProvider);
+  final EmotionalState? emotion = humanContext.emotion;
   final signalsBundle = ref.watch(signalsBundleProvider);
   final logsState = ref.watch(logsProvider);
-  final List<MemoryEntity> memories = ref.watch(memoriesProvider);
+  const List<MemoryEntity> memories = <MemoryEntity>[];
   final List<TimelineEventEntity> timelineEvents = ref.watch(timelineProvider);
   final String mood =
       emotion == EmotionalState.anxious ||

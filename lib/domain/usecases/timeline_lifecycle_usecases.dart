@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Timeline lifecycle
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 
@@ -67,18 +68,7 @@ class RescheduleTimelineEvent {
   Future<TimelineEventEntity?> _replace(
     String id,
     TimelineEventEntity Function(TimelineEventEntity) transform,
-  ) async {
-    final List<TimelineEventEntity> current = _repository.getEvents();
-    final int index = current.indexWhere(
-      (TimelineEventEntity event) => event.id == id,
-    );
-    if (index < 0) return null;
-    final TimelineEventEntity updated = transform(current[index]);
-    final List<TimelineEventEntity> next = current.toList(growable: true);
-    next[index] = updated;
-    await _repository.saveEvents(next);
-    return updated;
-  }
+  ) => _replaceTimelineEvent(_repository, id, transform);
 }
 
 class CompleteTimelineEvent {
@@ -122,24 +112,17 @@ class RecoverTimelineEvent {
     required String id,
     required DateTime dueAt,
     DateTime? now,
-  }) async {
-    final List<TimelineEventEntity> current = _repository.getEvents();
-    final int index = current.indexWhere(
-      (TimelineEventEntity event) => event.id == id,
-    );
-    if (index < 0) return null;
-    final TimelineEventEntity recovered = current[index].copyWith(
+  }) => _replaceTimelineEvent(
+    _repository,
+    id,
+    (TimelineEventEntity event) => event.copyWith(
       dueAt: dueAt,
       timestamp: now ?? DateTime.now(),
       status: TimelineEventStatus.planned,
       phase: 'recovered',
       userOverride: true,
-    );
-    final List<TimelineEventEntity> next = current.toList(growable: true);
-    next[index] = recovered;
-    await _repository.saveEvents(next);
-    return recovered;
-  }
+    ),
+  );
 }
 
 Future<TimelineEventEntity?> _updateTimelineStatus({
@@ -148,18 +131,33 @@ Future<TimelineEventEntity?> _updateTimelineStatus({
   required TimelineEventStatus status,
   required String phase,
   DateTime? now,
-}) async {
+}) => _replaceTimelineEvent(
+  repository,
+  id,
+  (TimelineEventEntity event) => event.copyWith(
+    timestamp: now ?? DateTime.now(),
+    status: status,
+    phase: phase,
+    userOverride: true,
+  ),
+);
+
+Future<TimelineEventEntity?> _replaceTimelineEvent(
+  ITimelineRepository repository,
+  String id,
+  TimelineEventEntity Function(TimelineEventEntity current) transform,
+) async {
+  if (repository case final IAtomicTimelineRepository atomic) {
+    return atomic.updateEvent(id, transform);
+  }
+
   final List<TimelineEventEntity> current = repository.getEvents();
   final int index = current.indexWhere(
     (TimelineEventEntity event) => event.id == id,
   );
   if (index < 0) return null;
-  final TimelineEventEntity updated = current[index].copyWith(
-    timestamp: now ?? DateTime.now(),
-    status: status,
-    phase: phase,
-    userOverride: true,
-  );
+  final TimelineEventEntity updated = transform(current[index]);
+  updated.validate();
   final List<TimelineEventEntity> next = current.toList(growable: true);
   next[index] = updated;
   await repository.saveEvents(next);

@@ -10,120 +10,88 @@ class _NexusHeader extends ConsumerWidget {
     final int unread = ref.watch(unreadNotificationsProvider);
     final routes = ref.watch(routeSurfaceProvider);
     final double width = MediaQuery.sizeOf(context).width;
-    final bool ultraCompact = width < Breakpoints.ultraCompact;
-    final double statusFontSize = ultraCompact
+    final double statusFontSize = width < Breakpoints.ultraCompact
         ? AppSizes.fontMicro
         : width < Breakpoints.compact
         ? AppSizes.fontXs
         : AppSizes.fontSm;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        ultraCompact ? 12 : 16,
-        14,
-        ultraCompact ? 12 : 16,
-        0,
-      ),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          SmartPressable(
-            onTap: () => context.push(routes.notifications),
-            semanticLabel: 'Open notifications',
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Badge(
-                isLabelVisible: unread > 0,
-                label: Text('$unread'),
-                child: const Icon(
-                  Icons.notifications_outlined,
-                  color: AppColors.neonCyan,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                SvgPicture.asset(
-                  AppAssets.iconNexus,
-                  width: 20,
-                  height: 20,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.neonCyan,
-                    BlendMode.srcIn,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'NEXUS',
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 6,
-                      color: Colors.white,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'NEXUS',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Your day, resolved into one clear move.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: AppSizes.fontBodyLg,
+                        height: 1.35,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'ADAPTIVE LOGIC CORE',
+                      style: TextStyle(
+                        color: AppColors.neonCyan,
+                        fontSize: AppSizes.fontMicro,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                const Text(
-                  'ADAPTIVE LOGIC CORE',
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontSize: 9,
-                    letterSpacing: 2.2,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
+              ),
+              const SizedBox(width: 12),
+              _HeaderControl(
+                semanticLabel: 'Open notifications',
+                accent: AppColors.neonCyan,
+                onTap: () => context.push(routes.notifications),
+                child: Badge(
+                  isLabelVisible: unread > 0,
+                  label: Text('$unread'),
+                  child: const Icon(Icons.notifications_outlined),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  profile.name.isEmpty
-                      ? 'Today is ready when you are.'
-                      : 'Welcome back, ${profile.name}.',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'LVL ${profile.level}  |  STREAK ${profile.streak}d',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: statusFontSize,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: .4,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              _HeaderControl(
+                semanticLabel: 'Log out',
+                accent: AppColors.neonViolet,
+                onTap: () => unawaited(_signOut(context, ref)),
+                child: const Icon(Icons.logout_rounded, size: 19),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          SmartPressable(
-            onTap: () => unawaited(_signOut(context, ref)),
-            semanticLabel: 'Log out',
-            child: Container(
-              width: AppSizes.touchTarget,
-              height: AppSizes.touchTarget,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.neonViolet.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: AppColors.neonViolet.withValues(alpha: 0.30),
-                ),
-              ),
-              child: const Icon(
-                Icons.logout_rounded,
-                size: 18,
-                color: AppColors.neonViolet,
-              ),
+          const SizedBox(height: 12),
+          Text(
+            profile.name.isEmpty
+                ? 'TODAY IS READY  ·  LVL ${profile.level}  ·  ${profile.streak}D STREAK'
+                : '${profile.name.toUpperCase()}  ·  LVL ${profile.level}  ·  ${profile.streak}D STREAK',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: statusFontSize,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
             ),
           ),
         ],
@@ -145,26 +113,165 @@ class _NexusHeader extends ConsumerWidget {
   }
 }
 
+class _HeaderControl extends StatelessWidget {
+  const _HeaderControl({
+    required this.semanticLabel,
+    required this.accent,
+    required this.onTap,
+    required this.child,
+  });
+
+  final String semanticLabel;
+  final Color accent;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SmartPressable(
+      onTap: onTap,
+      semanticLabel: semanticLabel,
+      child: Container(
+        width: AppSizes.touchTarget,
+        height: AppSizes.touchTarget,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.bgSecondary.withValues(alpha: .82),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: accent.withValues(alpha: .42)),
+        ),
+        child: IconTheme(
+          data: IconThemeData(color: accent),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 class _NexusVitals extends StatelessWidget {
   const _NexusVitals({
     required this.energy,
     required this.fatigue,
+    required this.momentum,
+    required this.hasObservedEnergy,
+    required this.hasObservedClarity,
+    required this.hasMomentumEvidence,
     required this.pulse,
   });
 
   final double energy;
   final double fatigue;
+  final double momentum;
+  final bool hasObservedEnergy;
+  final bool hasObservedClarity;
+  final bool hasMomentumEvidence;
   final double pulse;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        _SystemRings(energy: energy, fatigue: fatigue, pulse: pulse),
-        const SizedBox(height: 4),
-        _RingLabels(energy: energy, fatigue: fatigue),
-      ],
+    final String momentumLabel = !hasMomentumEvidence
+        ? 'LEARNING'
+        : momentum >= .72
+        ? 'STRONG'
+        : momentum >= .45
+        ? 'STEADY'
+        : 'BUILDING';
+    return Semantics(
+      container: true,
+      label:
+          '${hasObservedEnergy ? 'Energy ${(energy * 100).round()} percent' : 'Energy unmeasured'}. '
+          '${hasObservedClarity ? 'Clarity ${((1 - fatigue) * 100).round()} percent' : 'Clarity not checked'}. '
+          'Momentum $momentumLabel.',
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _VitalMetric(
+              label: 'ENERGY',
+              value: hasObservedEnergy
+                  ? '${(energy * 100).round()}%'
+                  : 'UNMEASURED',
+              accent: AppColors.neonCyan,
+              pulse: pulse,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _VitalMetric(
+              label: 'CLARITY',
+              value: hasObservedClarity
+                  ? '${((1 - fatigue) * 100).round()}%'
+                  : 'NOT CHECKED',
+              accent: AppColors.neonViolet,
+              pulse: pulse,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _VitalMetric(
+              label: 'MOMENTUM',
+              value: momentumLabel,
+              accent: AppColors.memoryAmber,
+              pulse: pulse,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VitalMetric extends StatelessWidget {
+  const _VitalMetric({
+    required this.label,
+    required this.value,
+    required this.accent,
+    required this.pulse,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+  final double pulse;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.bgSecondary.withValues(alpha: .68),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accent.withValues(alpha: .28)),
+      ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: AppSizes.fontMicro,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.fade,
+            softWrap: false,
+            style: TextStyle(
+              color: accent.withValues(alpha: .84 + pulse * .16),
+              fontSize: AppSizes.fontBodyLg,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -204,8 +311,8 @@ class _SmartPlannerSuggestion extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         const _SectionHeading(
-          eyebrow: 'SMART PLANNER',
-          title: 'Current suggestion',
+          eyebrow: 'CURRENT DECISION',
+          title: 'Recommended next move',
           icon: Icons.auto_awesome_rounded,
           accent: AppColors.neonCyan,
         ),
@@ -269,7 +376,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            _StatusPill(
+            _StatusLabel(
               label: decisionModel.statusLabel,
               accent: _statusAccent(decisionModel.status),
             ),
@@ -281,6 +388,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
                   color: Colors.white54,
                   fontSize: AppSizes.fontCaption,
                   fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
                 ),
               ),
           ],
@@ -343,6 +451,9 @@ class _PlannerSuggestionContent extends StatelessWidget {
                   minimumSize: const Size(0, AppSizes.touchTarget),
                   backgroundColor: AppColors.neonCyan,
                   foregroundColor: const Color(0xFF001318),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   textStyle: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
@@ -361,6 +472,9 @@ class _PlannerSuggestionContent extends StatelessWidget {
                     foregroundColor: AppColors.neonViolet,
                     side: BorderSide(
                       color: AppColors.neonViolet.withValues(alpha: .6),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   child: completing
@@ -411,14 +525,18 @@ class _CurrentFocusSection extends StatelessWidget {
     required this.tasks,
     required this.notes,
     required this.nextBlock,
-    required this.onOpenCreator,
+    required this.onOpenGoal,
+    required this.onOpenTask,
+    required this.onOpenNote,
   });
 
   final List<GoalEntity> goals;
   final AsyncValue<List<TaskEntity>> tasks;
   final AsyncValue<List<NoteEntity>> notes;
   final TimeBlock? nextBlock;
-  final VoidCallback onOpenCreator;
+  final VoidCallback onOpenGoal;
+  final VoidCallback onOpenTask;
+  final VoidCallback onOpenNote;
 
   @override
   Widget build(BuildContext context) {
@@ -456,7 +574,7 @@ class _CurrentFocusSection extends StatelessWidget {
                     ? 'Create a goal to connect today’s work to an outcome.'
                     : _goalDetail(currentGoal),
                 accent: AppColors.neonViolet,
-                onTap: onOpenCreator,
+                onTap: onOpenGoal,
               ),
               const _PanelDivider(),
               _FocusRow(
@@ -470,7 +588,7 @@ class _CurrentFocusSection extends StatelessWidget {
                     ? _formatDateTime(nextBlock!.start)
                     : 'Create a task and schedule it when you are ready.',
                 accent: AppColors.neonCyan,
-                onTap: onOpenCreator,
+                onTap: onOpenTask,
               ),
               const _PanelDivider(),
               _FocusRow(
@@ -483,7 +601,7 @@ class _CurrentFocusSection extends StatelessWidget {
                     ? 'Capture useful context without turning it into another task.'
                     : _noteDetail(currentNote),
                 accent: AppColors.memoryAmber,
-                onTap: onOpenCreator,
+                onTap: onOpenNote,
               ),
             ],
           ),
@@ -514,7 +632,7 @@ class _FocusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return SmartPressable(
       onTap: onTap,
-      semanticLabel: 'Open $label in Creator',
+      semanticLabel: 'Open $label',
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
@@ -525,7 +643,7 @@ class _FocusRow extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: .11),
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: accent.withValues(alpha: .28)),
               ),
               child: Icon(icon, size: 20, color: accent),
@@ -541,7 +659,7 @@ class _FocusRow extends StatelessWidget {
                       color: accent,
                       fontSize: AppSizes.fontXs,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
+                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -706,7 +824,7 @@ class _MetricCell extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: accent.withValues(alpha: .18)),
       ),
       child: Column(
@@ -718,7 +836,7 @@ class _MetricCell extends StatelessWidget {
               color: Colors.white38,
               fontSize: AppSizes.fontMicro,
               fontWeight: FontWeight.w800,
-              letterSpacing: 1.1,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 3),
@@ -779,26 +897,31 @@ class _TimelineSnapshot extends StatelessWidget {
               SmartPressable(
                 onTap: onOpen,
                 semanticLabel: 'Open Timeline',
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          'Open full Timeline',
-                          style: TextStyle(
-                            color: AppColors.neonCyan,
-                            fontSize: AppSizes.fontBodyLg,
-                            fontWeight: FontWeight.w800,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: AppSizes.touchTarget,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            'Open full Timeline',
+                            style: TextStyle(
+                              color: AppColors.neonCyan,
+                              fontSize: AppSizes.fontBodyLg,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        color: AppColors.neonCyan,
-                        size: 20,
-                      ),
-                    ],
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          color: AppColors.neonCyan,
+                          size: 20,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -850,7 +973,7 @@ class _TimelineRow extends StatelessWidget {
                         color: item.accent,
                         fontSize: AppSizes.fontXs,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.3,
+                        letterSpacing: 0,
                       ),
                     ),
                     const Spacer(),
@@ -920,7 +1043,7 @@ class _SectionHeading extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: accent.withValues(alpha: .10),
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: accent.withValues(alpha: .24)),
           ),
           child: Icon(icon, size: 18, color: accent),
@@ -936,7 +1059,7 @@ class _SectionHeading extends StatelessWidget {
                   color: accent,
                   fontSize: AppSizes.fontXs,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 1.6,
+                  letterSpacing: 0,
                 ),
               ),
               const SizedBox(height: 2),
@@ -969,31 +1092,71 @@ class _GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return TemporalGlassSurface(
       width: double.infinity,
       padding: padding,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            accent.withValues(alpha: .105),
-            AppColors.neonViolet.withValues(alpha: .055),
-            const Color(0xE6060B16),
-          ],
-        ),
-        border: Border.all(color: accent.withValues(alpha: .30)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: accent.withValues(alpha: .10),
-            blurRadius: 24,
-            spreadRadius: -8,
+      accent: accent,
+      opacity: .9,
+      child: child,
+    );
+  }
+}
+
+class _LearningChangePanel extends StatelessWidget {
+  const _LearningChangePanel({
+    required this.change,
+    required this.onHelpful,
+    required this.onNotHelpful,
+  });
+
+  final LearningFeedbackChange change;
+  final VoidCallback? onHelpful;
+  final VoidCallback? onNotHelpful;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassPanel(
+      accent: AppColors.neonCyan,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'WHAT LEARNING CHANGED',
+            style: TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            change.summary,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+          ),
+          if (onHelpful != null && onNotHelpful != null) ...<Widget>[
+            const SizedBox(height: 12),
+            const Text(
+              'Correct this learning',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                OutlinedButton(
+                  onPressed: onHelpful,
+                  child: const Text('This helped'),
+                ),
+                OutlinedButton(
+                  onPressed: onNotHelpful,
+                  child: const Text('This did not help'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
-      child: child,
     );
   }
 }
@@ -1007,268 +1170,11 @@ class _PanelDivider extends StatelessWidget {
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.accent});
+class _StatusLabel extends StatelessWidget {
+  const _StatusLabel({required this.label, required this.accent});
 
   final String label;
   final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: .13),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: accent.withValues(alpha: .28)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: accent),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: accent,
-              fontSize: AppSizes.fontXs,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SystemRings extends StatelessWidget {
-  const _SystemRings({
-    required this.energy,
-    required this.fatigue,
-    required this.pulse,
-  });
-
-  final double energy;
-  final double fatigue;
-  final double pulse;
-
-  @override
-  Widget build(BuildContext context) {
-    final int energyPct = (energy * 100).round();
-    final int clarityPct = ((1 - fatigue) * 100).round();
-
-    return SizedBox(
-      width: double.infinity,
-      height: 172,
-      child: Center(
-        child: SizedBox(
-          width: 172,
-          height: 172,
-          child: Stack(
-            alignment: Alignment.center,
-            children: <Widget>[
-              Transform.rotate(
-                angle: pulse * (math.pi / 10),
-                child: Container(
-                  width: 166,
-                  height: 166,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.neonCyan.withValues(alpha: .20),
-                    ),
-                  ),
-                ),
-              ),
-              Transform.rotate(
-                angle: -pulse * (math.pi / 8),
-                child: Container(
-                  width: 146,
-                  height: 146,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.neonViolet.withValues(alpha: .17),
-                    ),
-                  ),
-                ),
-              ),
-              CustomPaint(
-                size: const Size(136, 136),
-                painter: _RingPainter(
-                  energy: energy,
-                  fatigue: fatigue,
-                  pulse: pulse,
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    '$energyPct',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w900,
-                      height: .92,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'ENERGY',
-                    style: TextStyle(
-                      color: AppColors.neonCyan,
-                      fontSize: AppSizes.fontMicro,
-                      letterSpacing: 1.8,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'CLARITY $clarityPct%',
-                    style: const TextStyle(
-                      color: Colors.white60,
-                      fontSize: AppSizes.fontCaption,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RingPainter extends CustomPainter {
-  const _RingPainter({
-    required this.energy,
-    required this.fatigue,
-    required this.pulse,
-  });
-
-  final double energy;
-  final double fatigue;
-  final double pulse;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Offset center = size.center(Offset.zero);
-    _drawArc(
-      canvas,
-      Rect.fromCircle(center: center, radius: 58),
-      energy.clamp(0, 1),
-      AppColors.neonCyan,
-      pulse,
-    );
-    _drawArc(
-      canvas,
-      Rect.fromCircle(center: center, radius: 43),
-      (1 - fatigue).clamp(0, 1),
-      AppColors.neonViolet,
-      pulse,
-      reversed: true,
-    );
-  }
-
-  void _drawArc(
-    Canvas canvas,
-    Rect rect,
-    double value,
-    Color color,
-    double pulse, {
-    bool reversed = false,
-  }) {
-    const double stroke = 8;
-    final double start = -math.pi / 2 + pulse * math.pi / 14;
-    final double sweep = math.pi * 2 * value;
-    canvas.drawArc(
-      rect,
-      0,
-      math.pi * 2,
-      false,
-      Paint()
-        ..color = Colors.white.withValues(alpha: .08)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawArc(
-      rect,
-      start,
-      reversed ? -sweep : sweep,
-      false,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..strokeCap = StrokeCap.round,
-    );
-    final double end = start + (reversed ? -sweep : sweep);
-    final Offset dot =
-        rect.center +
-        Offset(rect.width / 2 * math.cos(end), rect.width / 2 * math.sin(end));
-    canvas.drawCircle(
-      dot,
-      6,
-      Paint()
-        ..color = color.withValues(alpha: .30 + pulse * .24)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-    );
-    canvas.drawCircle(dot, 3, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(_RingPainter oldDelegate) =>
-      oldDelegate.energy != energy ||
-      oldDelegate.fatigue != fatigue ||
-      oldDelegate.pulse != pulse;
-}
-
-class _RingLabels extends StatelessWidget {
-  const _RingLabels({required this.energy, required this.fatigue});
-
-  final double energy;
-  final double fatigue;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        _RingLabel(
-          label: 'ENERGY',
-          value: '${(energy * 100).round()}%',
-          color: AppColors.neonCyan,
-        ),
-        const SizedBox(width: 32),
-        _RingLabel(
-          label: 'CLARITY',
-          value: '${((1 - fatigue) * 100).round()}%',
-          color: AppColors.neonViolet,
-        ),
-      ],
-    );
-  }
-}
-
-class _RingLabel extends StatelessWidget {
-  const _RingLabel({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -1276,37 +1182,25 @@ class _RingLabel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Container(
-          width: 8,
-          height: 8,
+          width: 7,
+          height: 7,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: color,
+            color: accent,
             boxShadow: <BoxShadow>[
-              BoxShadow(color: color.withValues(alpha: .55), blurRadius: 6),
+              BoxShadow(color: accent.withValues(alpha: .5), blurRadius: 8),
             ],
           ),
         ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: AppSizes.fontMicro,
-                letterSpacing: 1.7,
-                color: Colors.white38,
-              ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: AppSizes.fontLabel,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
-            ),
-          ],
+        const SizedBox(width: 7),
+        Text(
+          label,
+          style: TextStyle(
+            color: accent,
+            fontSize: AppSizes.fontXs,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+          ),
         ),
       ],
     );
@@ -1352,21 +1246,21 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
   final List<TaskEntity> dueToday =
       active
           .where((TaskEntity task) {
-            final DateTime? commitment = _taskCommitment(task);
-            return commitment != null &&
-                !commitment.isBefore(today) &&
-                commitment.isBefore(tomorrow);
+            final DateTime? deadline = _taskDeadline(task);
+            return deadline != null &&
+                !deadline.isBefore(today) &&
+                deadline.isBefore(tomorrow);
           })
           .toList(growable: false)
-        ..sort(_compareTaskCommitments);
+        ..sort(_compareTaskDeadlines);
   final List<TaskEntity> overdue =
       active
           .where((TaskEntity task) {
-            final DateTime? commitment = _taskCommitment(task);
-            return commitment != null && commitment.isBefore(today);
+            final DateTime? deadline = _taskDeadline(task);
+            return deadline != null && deadline.isBefore(today);
           })
           .toList(growable: false)
-        ..sort(_compareTaskCommitments);
+        ..sort(_compareTaskDeadlines);
   bool unresolvedEvent(TimelineEventEntity event) =>
       event.status != TimelineEventStatus.completed &&
       event.status != TimelineEventStatus.canceled &&
@@ -1376,6 +1270,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
           .where((event) {
             final DateTime? due = event.dueAt;
             return due != null &&
+                _eventHasDeadlineSemantics(event) &&
                 unresolvedEvent(event) &&
                 !activeTaskIds.contains(event.relatedId) &&
                 !due.isBefore(today) &&
@@ -1391,6 +1286,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
           .where((event) {
             final DateTime? due = event.dueAt;
             return due != null &&
+                _eventHasDeadlineSemantics(event) &&
                 unresolvedEvent(event) &&
                 !activeTaskIds.contains(event.relatedId) &&
                 due.isBefore(today);
@@ -1447,7 +1343,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
       detail: dueCount == 1
           ? 'One commitment is due today.'
           : '$dueCount commitments are due today.',
-      when: firstTask == null ? firstEvent!.dueAt : _taskCommitment(firstTask),
+      when: firstTask == null ? firstEvent!.dueAt : _taskDeadline(firstTask),
       accent: AppColors.neonCyan,
     );
   }
@@ -1469,7 +1365,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
               ? 'One commitment needs attention.'
               : '${overdue.length + overdueEvents.length} commitments need attention.',
           when: overdue.isNotEmpty
-              ? _taskCommitment(overdue.first)
+              ? _taskDeadline(overdue.first)
               : overdueEvents.first.dueAt,
           accent: AppColors.recallRed,
         );
@@ -1477,10 +1373,18 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
   return <_TimelineDisplayItem>[latestItem, todayItem, overdueItem];
 }
 
-DateTime? _taskCommitment(TaskEntity task) => task.scheduledFor ?? task.dueDate;
+DateTime? _taskDeadline(TaskEntity task) => task.dueDate;
 
-int _compareTaskCommitments(TaskEntity first, TaskEntity second) =>
-    _taskCommitment(first)!.compareTo(_taskCommitment(second)!);
+int _compareTaskDeadlines(TaskEntity first, TaskEntity second) =>
+    _taskDeadline(first)!.compareTo(_taskDeadline(second)!);
+
+bool _eventHasDeadlineSemantics(TimelineEventEntity event) =>
+    switch (event.type) {
+      TimelineEventType.deadline ||
+      TimelineEventType.goal ||
+      TimelineEventType.milestone => true,
+      _ => false,
+    };
 
 String _latestAdditionTitle(TimelineEventEntity event) {
   final String title = event.title.trim();

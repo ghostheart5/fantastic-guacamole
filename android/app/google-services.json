@@ -14,7 +14,7 @@
       },
       "oauth_client": [
         {
-          "client_id": "956622397052-0et1b7b7gkndmf1knbsn6dbnuo7e9bov.apps.googleusercontent.com",
+          "client_id": "956622397052-4grmf3t0t55dfmp7ncn9piqvo3fdfl1l.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -29,6 +29,13 @@
             {
               "client_id": "956622397052-0et1b7b7gkndmf1knbsn6dbnuo7e9bov.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "956622397052-fmjq4peqfps2g94ruh6jhgq8dgfocg49.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.chronospark"
+              }
             }
           ]
         }
@@ -43,7 +50,15 @@
       },
       "oauth_client": [
         {
-          "client_id": "956622397052-0et1b7b7gkndmf1knbsn6dbnuo7e9bov.apps.googleusercontent.com",
+          "client_id": "956622397052-7auir0shf539qike3lh84uubc46qfuu9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ghostheart5.chronospark",
+            "certificate_hash": "21331d8fda42ff612dbf33b17863d388e9db24fc"
+          }
+        },
+        {
+          "client_id": "956622397052-4grmf3t0t55dfmp7ncn9piqvo3fdfl1l.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -58,6 +73,13 @@
             {
               "client_id": "956622397052-0et1b7b7gkndmf1knbsn6dbnuo7e9bov.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "956622397052-fmjq4peqfps2g94ruh6jhgq8dgfocg49.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.chronospark"
+              }
             }
           ]
         }

@@ -32,7 +32,10 @@ void main() {
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
-  Future<ProviderContainer> pumpShell(WidgetTester tester) async {
+  Future<ProviderContainer> pumpShell(
+    WidgetTester tester, {
+    AppView initialView = AppView.nexus,
+  }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 2400)
       ..devicePixelRatio = 1.0;
@@ -55,7 +58,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: NavigationShell()),
+        child: MaterialApp(home: NavigationShell(initialView: initialView)),
       ),
     );
     await tester.pump();
@@ -128,6 +131,41 @@ void main() {
       expect(AppView.values, contains(container.read(appFlowProvider)));
     },
   );
+
+  for (final AppView view in const <AppView>[
+    AppView.timeline,
+    AppView.trajectoryEngine,
+    AppView.profile,
+  ]) {
+    testWidgets('back from ${view.name} returns to Nexus without exiting', (
+      WidgetTester tester,
+    ) async {
+      final ProviderContainer container = await pumpShell(
+        tester,
+        initialView: view,
+      );
+      expect(container.read(appFlowProvider), view);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(container.read(appFlowProvider), AppView.nexus);
+      expect(systemNavigatorPopCalls, 0);
+    });
+  }
+
+  testWidgets('back from Nexus exits the app once', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = await pumpShell(tester);
+    expect(container.read(appFlowProvider), AppView.nexus);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(container.read(appFlowProvider), AppView.nexus);
+    expect(systemNavigatorPopCalls, 1);
+  });
 }
 
 class _StaticGoals extends GoalsNotifier {

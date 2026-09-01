@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('AI controller request safeguards', () {
     test('runtime grounding context is merged into an existing request', () {
-      const AgentRequest original = AgentRequest(
+      final AgentRequest original = AgentRequest(
         prompt: 'What should I do next?',
         context: <String, dynamic>{'source': 'si_console'},
         history: <Map<String, String>>[
