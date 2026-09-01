@@ -974,35 +974,39 @@ PlannerV2Response _testResponse() {
   );
 }
 
-OperatingDecisionReceipt _screenOperatingReceipt() => OperatingDecisionReceipt(
-  decisionId: 'screen-receipt',
-  subjectId: null,
-  recommendedAction: 'Prepare release evidence',
-  rationale: 'The release evidence matches the current Planner request.',
-  whyItMatters: 'The release gate needs one verified decision.',
-  consequenceOfDelay: 'The release gate remains unresolved.',
-  generatedAt: DateTime.utc(2026, 8, 30, 10),
-  expiresAt: DateTime.utc(2026, 9, 1, 10),
-  confidence: OperatingConfidence.moderate,
-  evidence: <OperatingEvidence>[
-    OperatingEvidence(
-      code: 'release-evidence',
-      description: 'Release evidence is incomplete.',
-      kind: OperatingEvidenceKind.observed,
-      recordedAt: DateTime.utc(2026, 8, 30, 10),
-      source: 'local_release_gate',
+OperatingDecisionReceipt _screenOperatingReceipt() {
+  final DateTime now = DateTime.now().toUtc();
+  final DateTime generatedAt = now.subtract(const Duration(hours: 1));
+  return OperatingDecisionReceipt(
+    decisionId: 'screen-receipt',
+    subjectId: null,
+    recommendedAction: 'Prepare release evidence',
+    rationale: 'The release evidence matches the current Planner request.',
+    whyItMatters: 'The release gate needs one verified decision.',
+    consequenceOfDelay: 'The release gate remains unresolved.',
+    generatedAt: generatedAt,
+    expiresAt: now.add(const Duration(hours: 1)),
+    confidence: OperatingConfidence.moderate,
+    evidence: <OperatingEvidence>[
+      OperatingEvidence(
+        code: 'release-evidence',
+        description: 'Release evidence is incomplete.',
+        kind: OperatingEvidenceKind.observed,
+        recordedAt: generatedAt,
+        source: 'local_release_gate',
+      ),
+    ],
+    actionIntent: const OperatingActionIntent(
+      id: 'creator-review',
+      type: OperatingActionType.openCreator,
+      label: 'Review in Creator',
+      destination: 'creator',
+      requiresConfirmation: true,
     ),
-  ],
-  actionIntent: const OperatingActionIntent(
-    id: 'creator-review',
-    type: OperatingActionType.openCreator,
-    label: 'Review in Creator',
-    destination: 'creator',
-    requiresConfirmation: true,
-  ),
-  sourceRevisions: const <String, String>{'release': 'r1'},
-  modelVersion: 'screen-receipt-v1',
-);
+    sourceRevisions: const <String, String>{'release': 'r1'},
+    modelVersion: 'screen-receipt-v1',
+  );
+}
 
 class _RecordingDecisionOutcomeActions extends DecisionOutcomeActions {
   _RecordingDecisionOutcomeActions(super.ref, this.outcomes);

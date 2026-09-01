@@ -1,6 +1,6 @@
 # ChronoSpark Production-Candidate Status
 
-Updated: 2026-09-01T07:15:00-05:00
+Updated: 2026-09-01T07:34:00-05:00
 
 Overall status: **PREFLIGHT IN PROGRESS — NOT VERIFIED FOR PRODUCTION**
 
@@ -21,6 +21,8 @@ Overall status: **PREFLIGHT IN PROGRESS — NOT VERIFIED FOR PRODUCTION**
 - `scripts/secret_content_guard.ps1`: PASS.
 - `git diff --check`: PASS.
 - Candidate checkpoint `26172823fb16322b7a844118563ccf03fdfda5a5` is pushed in PR #83. All 10 applicable checks pass; Supabase Preview is intentionally skipped, with zero failures or pending checks.
+- Exact-head run `33506628774` at documentation checkpoint `fef193c712499299cc7ffeb51e8299fe3f72e074` failed one test after the fixed test receipt expired at `2026-09-01T10:00:00Z`; 1,968 tests passed, 1 failed, and 1 skipped. This was GitHub repair attempt 1 of 3.
+- Only the failing test was reproduced locally. Its receipt fixture now uses a validity window relative to the test clock; `flutter test test/features/home/smart_planner_screen_test.dart --plain-name "records canonical receipt outcomes and stages Creator preview"` and `git diff --check` pass. No app source changed and no unrelated suite ran locally.
 - Reconciliation verification attempt 2 of 3 was rejected before runner startup because the candidate branch is not allowed to use GitHub's `production` environment. No endpoint call or data operation occurred. The environment protection was preserved, and the final live attempt is reserved for an allowed ref.
 - One isolated, auto-confirmed production Supabase Auth test user was created with user authorization. Its generated credential is stored only in Windows Credential Manager under the dedicated production-candidate target.
 - A real production password-grant sign-in returned HTTP 200, and the verification session was immediately revoked. The production verification query found exactly one newly created matching user, confirmed, with no profile row before app onboarding.
