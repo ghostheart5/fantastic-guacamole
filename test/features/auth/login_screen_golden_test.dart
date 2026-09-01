@@ -165,12 +165,14 @@ void main() {
         .getSemantics(editableFields.at(0))
         .getSemanticsData();
     expect(emailField.label, contains('Email address'));
+    expect(emailField.identifier, 'login-email-field');
     expect(emailField.flagsCollection.isTextField, isTrue);
 
     final passwordField = tester
         .getSemantics(editableFields.at(1))
         .getSemanticsData();
     expect(passwordField.label, contains('Password'));
+    expect(passwordField.identifier, 'login-password-field');
     expect(passwordField.flagsCollection.isTextField, isTrue);
     expect(find.bySemanticsLabel('Show password'), findsOneWidget);
     expect(find.bySemanticsLabel('Hide password'), findsNothing);
