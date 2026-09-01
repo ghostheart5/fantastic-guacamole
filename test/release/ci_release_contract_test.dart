@@ -296,6 +296,29 @@ void main() {
     },
   );
 
+  test('production monitoring and upload identity match live contracts', () {
+    const String uploadSha1 =
+        '8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5';
+    final String androidRelease = read('.github/workflows/android-release.yml');
+    final String releaseGovernance = read('docs/GITHUB_RELEASE_GOVERNANCE.md');
+    final String reconciliation = read(
+      '.github/workflows/backend-reconciliation.yml',
+    );
+
+    expect(androidRelease, contains('EXPECTED_UPLOAD_SHA1: "$uploadSha1"'));
+    expect(releaseGovernance, contains('`$uploadSha1`'));
+    expect(
+      reconciliation,
+      contains('Number.isInteger(body.deferred)'),
+    );
+    expect(
+      reconciliation,
+      contains('Number.isInteger(body.advanced)'),
+    );
+    expect(reconciliation, contains('body.scanned - body.advanced'));
+    expect(reconciliation, contains('body.completed > body.advanced'));
+  });
+
   test('public Pages workflow parses as static-site-only deployment', () {
     final YamlMap pages = workflow('main.yml');
     final YamlMap triggers = pages['on'] as YamlMap;
