@@ -27,7 +27,7 @@ This report will cover the exact signed AAB built from the final candidate commi
 | Gate | Result | Evidence boundary |
 | --- | --- | --- |
 | Exact-main GitHub suite | PASS | Run `33481507007` at base commit only |
-| Candidate exact-head GitHub suite | PRIOR CHECKPOINT PASS; NEW HEAD PENDING | Run `33508432103` passed all 10 applicable checks at `8bec7af2`. The accessibility repair must now be committed and pass at its new exact head before rebuilding. |
+| Candidate exact-head GitHub suite | REPAIR ATTEMPT 1 OF 3 | Run `33508432103` passed all 10 applicable checks at `8bec7af2`. Run `33512733923` at the accessibility repair commit passed formatting and secret guards, then failed analysis only because the new test used a deprecated semantics helper under `--fatal-infos`; its replacement uses the current API. |
 | Isolated clean candidate | PASS at creation | Must be rechecked before build |
 | JDK / Flutter / Android SDK / ADB / bundletool / Maestro | PASS | Tool presence and versions inspected |
 | Release signing identity | PASS | Local keystore SHA-1 matches Play Console upload key |

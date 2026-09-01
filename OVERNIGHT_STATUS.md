@@ -32,6 +32,7 @@ Overall status: **RUNTIME REPAIR AWAITING EXACT-HEAD CI — NOT VERIFIED FOR PRO
 - The corrected onboarding Maestro flow passed. Login then exposed a real accessibility/automation defect: both editable fields had empty UI Automator labels/IDs, preventing credential entry before any authentication call was sent.
 - The narrow app repair merges each semantic field label with its editable text node. The focused test `names login fields and the password visibility action` now requires the field label and `isTextField` flag on the same semantics node and passes. The stale Maestro selectors were corrected.
 - Because app source changed, the earlier AAB, APKS, install, and runtime evidence are **SUPERSEDED** and cannot be the final candidate. Rebuild is blocked until the repair commit is pushed and GitHub is green at that exact head.
+- Exact-head CI run `33512733923` passed formatting and both secret guards, then stopped at analysis because the strengthened test used deprecated `SemanticsData.hasFlag` under `--fatal-infos`. This is repair attempt 1 of 3 for that CI failure; the assertion now uses the current `flagsCollection.isTextField` API.
 
 ## Blocking preflight items
 
