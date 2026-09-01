@@ -1,35 +1,37 @@
 # ChronoSpark Production-Candidate Plan
 
-Updated: 2026-09-01T08:18:51-05:00
+Updated: 2026-09-01T10:20:00-05:00
 
 ## Safety boundary
 
 - Candidate checkout: `C:\Users\keegan radetski\ChronoSpark-production-candidate-20260901`
 - Candidate branch: `codex/production-candidate-20260901`
-- Green base commit: `33a7e39dd3de49b219c0de750bb1fdd31e9d8573`
+- Tested app-source commit: `9b5d0aa925f64d979fa8873172a58d116cd8c048`
 - The stable branch and the dirty launch-readiness checkout are not build or edit targets.
 - No Google Play production upload, public publishing, billing change, credit purchase, key rotation, or customer-data mutation is authorized.
 - Live AI testing is capped at 25 requests. One external request may be retried at most twice. One unresolved repair/rebuild failure may receive at most three cycles.
-- The already-green full GitHub suite will not be duplicated locally. Only focused checks needed for candidate changes will run locally.
+- The green GitHub suite is not duplicated locally. Local validation remains focused on changed behavior and release-device evidence.
 
-## Ordered milestones
+## Completed milestones
 
-1. Repair the verified secret/configuration blockers and record focused evidence.
-2. Commit and push the isolated candidate; require its applicable GitHub checks to pass.
-3. Finish preflight: dedicated test account, release inputs, toolchain, API/device matrix, disk, network, and no pending approval.
-4. Build the signed release AAB after the final code change, validate it with bundletool, fingerprint it, and generate an APKS archive from that exact AAB.
-5. Install only AAB-derived APKs and run focused Maestro, integration, bounded monkey, lifecycle, offline, accessibility, and human-journey testing on available Android configurations.
-6. Inspect crash, ANR, Flutter, and serious Android logs; run a bounded soak; repair and rebuild only within the retry limit.
-7. Finish the report with exact artifact/commit/checksum/certificate evidence, limitations, reproduction commands, rollback instructions, and live API-call count.
+1. Repaired the verified secret/configuration and release-workflow blockers without exposing secret values.
+2. Created one isolated, auto-confirmed production Supabase Auth tester and stored its generated credential only in Windows Credential Manager.
+3. Pushed the isolated candidate. PR #83 is open, clean, mergeable, and all 10 applicable checks pass at `9b5d0aa9`; Supabase Preview is intentionally skipped.
+4. Completed toolchain, signing, environment, disk, network, API 24, and API 37.1 preflight.
+5. Built and bundletool-validated the final signed AAB from clean commit `9b5d0aa9`, then generated and installed APK splits from that exact AAB.
+6. Ran focused release-device checks: first launch, onboarding handoff, lifecycle, force-stop/reopen, airplane-mode/reconnection, native accessibility inspection, bounded soak, Logcat review, and five Monkey stages on both API 24 and API 37.
+7. Stopped authenticated and AI/SI journeys after the same minimum-API login accessibility failure survived the three permitted repair cycles.
 
-## Current milestone
+## Final decision
 
-- The first exact-AAB-derived API 24 pass exposed an Android accessibility bridge defect: the visible login fields did not publish their semantic labels to UI Automator, so release Maestro authentication could not enter credentials.
-- `MergeSemantics` now joins each field label with its editable text node, the focused widget test requires the label and `isTextField` flag on the same semantics node, and the focused test passes.
-- The earlier AAB from `8bec7af2780f2e2e07d5ea8d2ea724ea317fa5fa` is superseded by this code change. No rebuild may begin until this repair is committed, pushed, and GitHub is green at the new exact head.
+- The exact signed AAB and AAB-derived APK installation are verified artifacts.
+- The candidate is **NOT VERIFIED FOR PRODUCTION** because API 24 does not expose usable native labels/identifiers for the two login fields. Real release authentication, session/storage, authenticated navigation, persistence, and AI/SI journeys therefore remain unverified.
+- No fourth login repair or credential-entry retry is permitted under the task boundary.
+- Independent device tests completed safely; no additional app-source change or rebuild is planned.
 
-## Stop conditions
+## Stop conditions reached
 
-- Missing signing material, release configuration, dedicated test-account credentials, material product approval, or an unavailable required device/API is `BLOCKED`/`NOT VERIFIED`, never assumed.
-- A code change after AAB creation invalidates the artifact and all release-runtime evidence.
-- Three unsuccessful repair/rebuild cycles for the same issue end that path.
+- Three repair cycles were exhausted for the API 24 login accessibility failure.
+- A physical phone is not attached, so physical-device release behavior remains `NOT VERIFIED`.
+- Google Play Internal Testing was not uploaded or exercised.
+- Stable/main remains untouched; PR #83 remains open rather than merging into the protected stable branch.

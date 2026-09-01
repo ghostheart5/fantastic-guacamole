@@ -1,10 +1,25 @@
 # ChronoSpark Production-Candidate Status
 
-Updated: 2026-09-01T08:18:51-05:00
+Updated: 2026-09-01T10:20:00-05:00
 
-Overall status: **RUNTIME REPAIR AWAITING EXACT-HEAD CI — NOT VERIFIED FOR PRODUCTION**
+Overall status: **FINAL DEVICE VALIDATION STOPPED AT RETRY LIMIT — NOT VERIFIED FOR PRODUCTION**
 
-## Completed evidence
+## Final evidence
+
+- Tested app-source commit: `9b5d0aa925f64d979fa8873172a58d116cd8c048`; source tree was clean during the final build and all runtime checks.
+- PR #83 is open, clean, mergeable, and exact-head run `33519048862` passed. All 10 applicable checks are successful; Supabase Preview is intentionally skipped; no checks are failed or pending.
+- Final signed AAB: `build/app/outputs/bundle/release/app-release-prod-vc2026083003.aab`; 84,769,126 bytes; SHA-256 `161A85F12F910B6B1BBF3D64CD49342B425DEAA7411FE89AC8BAAC1A7B27A6F4`.
+- Exact-AAB APKS archive: `build/app/outputs/bundle/release/app-release-prod-vc2026083003.apks`; 104,876,953 bytes; SHA-256 `FC7AADD110E250B88C113BF425D3918F0FE07EC4011E92CE43EF8C2E2E03A5EB`.
+- `bundletool validate` passed. The selected splits installed successfully on API 24 and API 37 with version `4.1.0` / code `2026083003` and the expected upload certificate.
+- API 24: first 90 seconds, onboarding handoff, background/resume, force-stop/reopen, true airplane-mode startup/reconnection, and all five bounded Monkey stages passed. Strict app crash/ANR/`E/flutter` matches were zero.
+- API 37: first 90 seconds and a repeat 180-second soak, onboarding handoff, background/resume, force-stop/reopen, true airplane-mode startup/reconnection, and all five bounded Monkey stages passed. Strict app crash/ANR/`E/flutter` matches were zero.
+- Monkey total: 3,400 events across the minimum and newest API lanes. The API 24 repository harness could not read focus from that OS's `dumpsys window displays`, so the identical bounded matrix was executed directly with Activity Manager focus evidence. The API 37 lifecycle stage was rerun alone after a system Battery Saver dialog blocked startup before events began.
+- One API 37 fresh-boot process was killed about 129 seconds after first launch by Google Play Services while reloading `measurement.dynamite`. A subsequent 180-second cold-start soak held the same top-resumed PID with no repeat, crash, ANR, or Flutter error.
+- The final API 24 UI tree still exposes both login `EditText` nodes with empty text, content description, hint, and resource ID. The same blocker survived all three permitted repair cycles, so no fourth login attempt was made.
+- The API 37 UI tree exposes `hint="Email address"` and `hint="Password"`, but minimum-supported API 24 remains a release blocker.
+- Live AI calls used: `0`. Other live production API calls: `2` (test-account sign-in and immediate session revocation). No credential was entered into either release install.
+
+## Checkpoint history (superseded where noted)
 
 - GitHub main commit `33a7e39dd3de49b219c0de750bb1fdd31e9d8573` passed run `33481507007`; that full suite will not be repeated locally.
 - Work is isolated on `codex/production-candidate-20260901`; the original dirty checkout is preserved.
@@ -38,12 +53,10 @@ Overall status: **RUNTIME REPAIR AWAITING EXACT-HEAD CI — NOT VERIFIED FOR PRO
 - Real login still failed before credential entry because API 24 UI Automator showed both native `EditText` nodes with empty labels even after the outer-semantics merge. No authentication request was sent and no credential appeared in evidence. The final repair cycle now uses Flutter's native `InputDecoration.labelText` semantics on the actual editable nodes; no further code repair will be attempted if it fails.
 - Final-repair CI run `33517088967` passed 1,968 tests and failed one login typography assertion because it still inspected the retired `hintStyle` instead of the replacement `labelStyle`; one test was skipped. This is a test-only expectation correction and does not change app code.
 
-## Blocking preflight items
+## Final blockers and limitations
 
-- The repaired reconciliation workflow cannot receive a live production-environment verification from this protected candidate branch. Its local workflow/contract checks pass; live confirmation remains pending on an allowed ref.
-- Minimum-supported API 24 image is installed. `ChronoSpark_API_24` booted successfully as `emulator-5554` with `sys.boot_completed=1`, SDK 24, 1080x1920 at 420 dpi, and validated network connectivity.
-- Newest available API 37.1 16 KB-page-size Play system image is installed and the isolated `ChronoSpark_API_37_1` AVD is created. Its runtime boot check remains pending and will run sequentially after the API 24 lane.
-- No physical Android phone is currently attached. The required minimum/newest emulator matrix is available.
-- A superseded signed AAB exists from `8bec7af2`, but no final AAB has been built after the accessibility repair. Final AAB and installed-release results remain `NOT VERIFIED`.
-- Live AI calls used by this candidate run: `0`.
-- Other live API calls used by this candidate run: `2` production Auth calls (sign-in and immediate session revocation).
+- **Critical:** minimum-supported API 24 login fields are not usable through the Android accessibility/automation bridge. Real release authentication, session restoration, authenticated storage/provider behavior, authenticated navigation, persistence, permissions behind login, and real AI/SI journeys remain `NOT VERIFIED`.
+- The repaired reconciliation workflow cannot receive a live production-environment verification from this protected candidate branch. Local workflow/contract checks pass; live confirmation remains pending on an allowed ref.
+- No physical Android phone is currently attached; physical-device installation and human testing remain `NOT VERIFIED`.
+- Google Play Internal Testing was not uploaded or exercised.
+- Stable/main was not changed. PR #83 remains open because the task's safety boundary prohibited merging into the protected stable branch.
