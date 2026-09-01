@@ -243,7 +243,7 @@ void main() {
       priority: 3,
       difficulty: 2,
       energyRequired: 2,
-      scheduledFor: DateTime.now().subtract(const Duration(hours: 1)),
+      scheduledFor: _timelineNow.subtract(const Duration(hours: 1)),
     );
     final ProviderContainer container = _buildContainer(task: scheduledTask);
     addTearDown(container.dispose);
@@ -396,7 +396,7 @@ ProviderContainer _buildContainer({
 }) {
   final ProviderContainer container = ProviderContainer(
     overrides: [
-      if (clock != null) timelineClockProvider.overrideWithValue(clock),
+      timelineClockProvider.overrideWithValue(clock ?? () => _timelineNow),
       timelineProvider.overrideWith(() {
         final _TimelineNotifier notifier = _TimelineNotifier(baseEvents);
         onTimelineNotifierBuilt?.call(notifier);
@@ -476,7 +476,7 @@ final Task _managedTask = Task(
   priority: 3,
   difficulty: 2,
   energyRequired: 2,
-  dueDate: DateTime.now(),
+  dueDate: _timelineNow,
 );
 
 final TimelineEventEntity _baseEvent = TimelineEventEntity(
@@ -484,8 +484,10 @@ final TimelineEventEntity _baseEvent = TimelineEventEntity(
   type: TimelineEventType.reflection,
   title: 'Saved Timeline activity',
   detail: 'A valid local event remains visible.',
-  timestamp: DateTime.now().subtract(const Duration(hours: 1)),
+  timestamp: _timelineNow.subtract(const Duration(hours: 1)),
 );
+
+final DateTime _timelineNow = DateTime(2026, 8, 31, 12);
 
 class _RecordingTaskActions extends TaskActions {
   // The superclass positional parameter is private to its library.
