@@ -107,9 +107,14 @@ void main() {
       policy,
       contains('Firebase Analytics and Crashlytics are release-contained off'),
     );
-    expect(bundled, contains('support@chronospark.app'));
-    expect(bundled, contains('visible deterministic plan clauses'));
-    expect(bundled, contains('expected AI-credit cost'));
+    expect(
+      bundled,
+      contains(
+        'This policy describes the data ChronoSpark may process and the stricter feature containment',
+      ),
+    );
+    expect(bundled, contains('External AIDisabled.'));
+    expect(bundled, contains('ghostheart131517@gmail.com'));
     expect(
       bundled.toLowerCase(),
       isNot(
