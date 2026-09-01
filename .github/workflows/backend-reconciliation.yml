@@ -19,6 +19,7 @@ jobs:
     environment: production
     steps:
       - name: Resume pending account deletions
+        shell: bash
         env:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           RECONCILE_SECRET: ${{ secrets.ACCOUNT_DELETE_RECONCILE_SECRET }}
