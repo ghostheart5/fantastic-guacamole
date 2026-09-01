@@ -1,6 +1,6 @@
 # ChronoSpark Production-Candidate Release Test Report
 
-Updated: 2026-09-01T02:46:00-05:00
+Updated: 2026-09-01T02:49:30-05:00
 
 Verdict: **NOT VERIFIED**
 
@@ -30,7 +30,7 @@ This report will cover the exact signed AAB built from the final candidate commi
 | JDK / Flutter / Android SDK / ADB / bundletool / Maestro | PASS | Tool presence and versions inspected |
 | Release signing identity | PASS | Local keystore SHA-1 matches Play Console upload key |
 | Production endpoint shape | PASS after secret repair | Real reconciliation endpoint reached |
-| Backend reconciliation response contract | LOCAL FOCUSED PASS | Workflow parser, release contract, and both secret guards pass; candidate GitHub/live check pending |
+| Backend reconciliation response contract | LOCAL FOCUSED PASS; LIVE BLOCKED | Workflow parser, release contract, and both secret guards pass. Attempt 2 was rejected before execution by production-environment branch protection; no backend call occurred. |
 | Dedicated real test account | BLOCKED | Credentials not found in approved local inputs |
 | Minimum API 24 environment | BLOCKED | Image not installed |
 | Newest available API environment | AVAILABLE | API 37.1 image installed; runtime not yet tested |

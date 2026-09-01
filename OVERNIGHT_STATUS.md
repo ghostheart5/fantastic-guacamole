@@ -1,6 +1,6 @@
 # ChronoSpark Production-Candidate Status
 
-Updated: 2026-09-01T02:46:00-05:00
+Updated: 2026-09-01T02:49:30-05:00
 
 Overall status: **PREFLIGHT IN PROGRESS — NOT VERIFIED FOR PRODUCTION**
 
@@ -20,11 +20,13 @@ Overall status: **PREFLIGHT IN PROGRESS — NOT VERIFIED FOR PRODUCTION**
 - `scripts/security_secret_guard.ps1`: PASS.
 - `scripts/secret_content_guard.ps1`: PASS.
 - `git diff --check`: PASS.
-- Pending: push the isolated checkpoint and require candidate GitHub checks plus reconciliation verification attempt 2 of 3.
+- Candidate checkpoint `87f4efe0f016957643048b1d1d36e9587a364408` is pushed in PR #83; PR checks are running.
+- Reconciliation verification attempt 2 of 3 was rejected before runner startup because the candidate branch is not allowed to use GitHub's `production` environment. No endpoint call or data operation occurred. The environment protection was preserved, and the final live attempt is reserved for an allowed ref.
 
 ## Blocking preflight items
 
 - A dedicated real test account has not yet been located. Authenticated clean-install and session-restoration testing cannot start without it.
+- The repaired reconciliation workflow cannot receive a live production-environment verification from this protected candidate branch. Its local workflow/contract checks pass; live confirmation remains pending on an allowed ref.
 - No minimum-supported API 24 emulator image is currently installed.
 - No Android device is currently attached. Available local AVDs cover newer APIs.
 - No signed AAB has been built in this candidate checkout. All AAB and installed-release results remain `NOT VERIFIED`.
