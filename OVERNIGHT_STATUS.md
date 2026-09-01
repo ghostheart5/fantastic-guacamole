@@ -36,6 +36,7 @@ Overall status: **RUNTIME REPAIR AWAITING EXACT-HEAD CI — NOT VERIFIED FOR PRO
 - Exact-head commit `8b9f681ea8bce2ed00151d7852eaef062dce7fc7` passed all 10 applicable GitHub checks in run `33513135260`; Supabase Preview was intentionally skipped and PR #83 was clean/mergeable.
 - Its guarded release AAB validated and its exact APKS archive clean-installed on API 24. The first 90 seconds remained alive on the Welcome screen with zero fatal, Flutter-error, or package-ANR lines; broad AndroidRuntime matches were debug output from test commands only. Onboarding Maestro passed with zero strict critical log matches.
 - Real login still failed before credential entry because API 24 UI Automator showed both native `EditText` nodes with empty labels even after the outer-semantics merge. No authentication request was sent and no credential appeared in evidence. The final repair cycle now uses Flutter's native `InputDecoration.labelText` semantics on the actual editable nodes; no further code repair will be attempted if it fails.
+- Final-repair CI run `33517088967` passed 1,968 tests and failed one login typography assertion because it still inspected the retired `hintStyle` instead of the replacement `labelStyle`; one test was skipped. This is a test-only expectation correction and does not change app code.
 
 ## Blocking preflight items
 

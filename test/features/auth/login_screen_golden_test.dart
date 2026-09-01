@@ -86,7 +86,7 @@ void main() {
         ),
       );
       expect(emailField.style?.fontSize, AppSizes.fontLabel);
-      expect(emailField.decoration?.hintStyle?.fontSize, AppSizes.fontLabel);
+      expect(emailField.decoration?.labelStyle?.fontSize, AppSizes.fontLabel);
     });
 
     testWidgets('uses regular values at the compact breakpoint', (
