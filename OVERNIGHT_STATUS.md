@@ -1,6 +1,6 @@
 # ChronoSpark Production-Candidate Status
 
-Updated: 2026-09-01T02:49:30-05:00
+Updated: 2026-09-01T07:15:00-05:00
 
 Overall status: **PREFLIGHT IN PROGRESS — NOT VERIFIED FOR PRODUCTION**
 
@@ -20,14 +20,17 @@ Overall status: **PREFLIGHT IN PROGRESS — NOT VERIFIED FOR PRODUCTION**
 - `scripts/security_secret_guard.ps1`: PASS.
 - `scripts/secret_content_guard.ps1`: PASS.
 - `git diff --check`: PASS.
-- Candidate checkpoint `87f4efe0f016957643048b1d1d36e9587a364408` is pushed in PR #83; PR checks are running.
+- Candidate checkpoint `26172823fb16322b7a844118563ccf03fdfda5a5` is pushed in PR #83. All 10 applicable checks pass; Supabase Preview is intentionally skipped, with zero failures or pending checks.
 - Reconciliation verification attempt 2 of 3 was rejected before runner startup because the candidate branch is not allowed to use GitHub's `production` environment. No endpoint call or data operation occurred. The environment protection was preserved, and the final live attempt is reserved for an allowed ref.
+- One isolated, auto-confirmed production Supabase Auth test user was created with user authorization. Its generated credential is stored only in Windows Credential Manager under the dedicated production-candidate target.
+- A real production password-grant sign-in returned HTTP 200, and the verification session was immediately revoked. The production verification query found exactly one newly created matching user, confirmed, with no profile row before app onboarding.
 
 ## Blocking preflight items
 
-- A dedicated real test account has not yet been located. Authenticated clean-install and session-restoration testing cannot start without it.
 - The repaired reconciliation workflow cannot receive a live production-environment verification from this protected candidate branch. Its local workflow/contract checks pass; live confirmation remains pending on an allowed ref.
-- No minimum-supported API 24 emulator image is currently installed.
-- No Android device is currently attached. Available local AVDs cover newer APIs.
+- Minimum-supported API 24 image is installed. `ChronoSpark_API_24` booted successfully as `emulator-5554` with `sys.boot_completed=1`, SDK 24, 1080x1920 at 420 dpi, and validated network connectivity.
+- Newest available API 37.1 16 KB-page-size Play system image is installed and the isolated `ChronoSpark_API_37_1` AVD is created. Its runtime boot check remains pending and will run sequentially after the API 24 lane.
+- No physical Android phone is currently attached. The required minimum/newest emulator matrix is available.
 - No signed AAB has been built in this candidate checkout. All AAB and installed-release results remain `NOT VERIFIED`.
-- Live AI/API calls used by this candidate run: `0`.
+- Live AI calls used by this candidate run: `0`.
+- Other live API calls used by this candidate run: `2` production Auth calls (sign-in and immediate session revocation).
