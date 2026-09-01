@@ -21,6 +21,7 @@ void main() {
     final String terms = read('web/terms/index.html');
 
     expect(read('assets/legal/privacy_policy.txt'), plainText(privacy));
+    expect(read('web/privacy/index.html'), privacy);
     expect(read('terms/index.html'), terms);
     expect(read('assets/legal/terms_of_service.html'), terms);
     expect(read('assets/legal/terms_of_service.txt'), plainText(terms));

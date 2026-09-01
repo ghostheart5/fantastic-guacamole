@@ -1,45 +1,57 @@
-⚡ChronoSpark
+ChronoSpark Privacy Policy
 
-Features
+Skip to content
 
-About
+ChronoSparkPublic site
 
-Download
+Privacy PolicyLast updated: August 31, 2026
 
-Testers
+This policy describes the data ChronoSpark may process and the stricter feature containment applied to the current release candidate. A listed provider is not proof that every provider feature is enabled.
 
-Support
+Information you provide
 
-Privacy
+Account identifiers used for sign-in, such as an email address or sign-in provider identifier.Planning content you intentionally create, including tasks, planning context, goals, notes, schedules, preferences, and reflections.Support or account-deletion messages you choose to send.
 
-Privacy PolicyChronoSpark Privacy PolicyEffective date: August 17, 2026. ChronoSpark is a GhostHeart5 product. This policy explains how information is handled for planning, account access, app reliability, optional intelligence, and support.
+Information needed for app functions
 
-1. Information We CollectWhen you use ChronoSpark, we may process your account email and authentication identifier; tasks, goals, notes, reflections, recurring planning items, Timeline entries, preferences, and progression data that you choose to save. Firebase Analytics and Crashlytics collection are disabled in this release. If a later approved release enables either service, it requires a separate Settings choice for that account. ChronoSpark does not send account IDs, planning text, notes, reflections, emotions, relationship details, prompts, or arbitrary error text to those telemetry services. If you enable reminders, a push token may be stored for that account. We do not collect contacts or precise location for the planning features.
+Authentication and security events needed to protect an account.Notification device tokens only when messaging features are initialized for notifications.Purchase or entitlement data only when a supported Google Play billing flow is used.Local diagnostics needed to display and recover from an error on the device.
 
-2. Local and Cloud ProcessingPlanning data is stored locally by default, including tasks, goals, Timeline records, notes, reflections, reminders, preferences, progression history, and local intelligence context. Cloud backup is a separate Settings control and is off until you enable it. When enabled and signed in, the current backup includes tasks, profile state, and settings; it does not promise a copy of every local cache or intelligence record. Backups are encrypted when the device secure store is available, scoped to your GhostHeart5 Supabase account, and never intentionally shared between users.
+Current release containment
 
-3. Optional Intelligence and ReportsSmart Planner and SI Console use available authorized planning evidence and show when evidence is limited. Deterministic guidance is the default. External AI is release-disabled. If it is later enabled after independent safety and provider-retention gates, one optional, read-only Smart Planner explanation may send visible deterministic plan clauses and visible evidence summaries through ChronoSpark's first-party Supabase function to Anthropic. This is data minimization, not sanitization, anonymization, or a promise that the text cannot be personal. Before sending to Anthropic, the app must show the provider, server-selected model label, exact data categories, and expected AI-credit cost. The explanation cannot change, save, schedule, or create anything, and it cannot replace Planner V2's deterministic decision. ChronoSpark may retain response content for up to five minutes for idempotent replay, then scrub that content to billing metadata. Anthropic account-level retention or zero-data-retention status has not been verified, so the feature must remain unavailable for release. Never enter passwords, access tokens, payment credentials, or highly sensitive secrets into general planning fields.
+External AIDisabled. The current release candidate does not send Planner content to an external generative-AI provider.
 
-4. Services We UseThe GhostHeart5 Supabase project is the authorized production boundary for authentication, account data, account-scoped backup, and Edge Functions. Firebase Analytics and Crashlytics are disabled in this release. A later approved release may enable either service only after you choose its separate Settings control; collection can be withdrawn there at any time. When enabled, diagnostic reports use structured codes, not account IDs, planning content, or arbitrary error and event text. Firebase Cloud Messaging supports push reminders after permission; Google Play services support distribution and purchase entitlement processing. Anthropic is the disclosed provider for the optional external Planner explanation only if its release gates are later satisfied; that path is currently disabled. Support diagnostics are user-triggered, shown as a reviewable summary, and omit stable device identifiers by default. Each service receives only the data needed for its stated function.
+Cloud syncDisabled for the release candidate.
 
-5. How We Use InformationProvide sign-in, account recovery, planning, Timeline, Creator, Progression, and strategic-intelligence features.Schedule reminders only after you grant notification permission.Protect accounts, prevent abuse, investigate safety reports, and restore your data.Measure reliability and improve performance only when a future approved release enables the separate diagnostics controls you choose.
+Cloud restoreDisabled for the release candidate.
 
-6. Retention and DeletionYou can delete your account from Settings > Account, or use the account deletion page. Account deletion removes the account and account-scoped cloud data through the approved deletion flow; recovery backups and abuse-prevention records may remain for up to 30 days where needed, and legally required or aggregated diagnostics may remain for the period required by law. Local data can be removed at any time from Settings > Clear Local Data; signing out also clears account-scoped local state. Turning off Cloud Backup stops future backup uploads but does not erase an existing cloud account—use account deletion or support for that.
+Subscriptions and creditsDisabled for the release candidate.
 
-7. ContactFor privacy requests, deletion questions, or support, email support@chronospark.app or use the support page.
+AnalyticsDisabled by default and release-contained off.
 
-ChronoSpark
+Crash reportingDisabled by default and release-contained off. Raw account identifiers must not be attached to crash reports if this changes in a future release.
 
-Your second brain for planning, growth, and future-building.
+Local and backend storage
 
-Home
+ChronoSpark stores data on the device so core planning functions can work locally. Account and security services may use Supabase for authentication and approved account-scoped backend operations. Features described as release-disabled above must not be treated as active merely because supporting code or a provider SDK exists.
 
-Download
+Service providers
 
-Privacy
+ChronoSpark may use Supabase for authentication and approved backend operations, Firebase Cloud Messaging for notifications, and Google Play for Android distribution and billing. Firebase Analytics and Crashlytics are release-contained off. Anthropic is the disclosed provider for a possible future external Planner explanation, but that feature is currently disabled and is not a public capability.
 
-Terms
+Retention and deletion
 
-Support
+Account-linked information is retained only as needed to provide the active service, satisfy legal obligations, prevent fraud or abuse, resolve disputes, and protect security. Use the account-deletion page to review in-app and external request paths. Device-local data on an offline device may require clearing app storage or uninstalling the app.
 
-Developer Docs
+Your choices
+
+Control available notifications and privacy settings in the app.Request access, correction, or deletion of account-linked information.Do not send passwords, one-time codes, recovery tokens, payment details, or secret keys in a support request.
+
+Security and policy changes
+
+ChronoSpark uses technical and organizational safeguards appropriate to the service, but no system is completely secure. Material policy changes will be posted at this URL with an updated date.
+
+Contact
+
+For privacy questions, email ghostheart131517@gmail.com or visit support.
+
+PrivacyTermsSupportDelete account

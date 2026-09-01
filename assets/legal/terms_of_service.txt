@@ -1,69 +1,39 @@
 ChronoSpark Terms of Service
 
-Last updated: August 9, 2026
+Skip to content
 
-These terms govern use of ChronoSpark. By using the app, you agree to
+ChronoSparkPublic site
 
-these terms and the Privacy Policy.
+Terms of ServiceLast updated: August 31, 2026
+
+These terms govern use of ChronoSpark. By using the app, you agree to these terms and the Privacy Policy.
 
 Accounts and acceptable use
 
-Keep your account and sign-in methods secure.
+Keep your account and sign-in methods secure.Do not attempt unauthorized access, interfere with the service, bypass feature controls, or use the service unlawfully.You are responsible for the content you submit and for reviewing actions before confirming them.
 
-Do not attempt unauthorized access, interfere with the service, bypass paid-feature controls, or use the service unlawfully.
+Planning and decision support
 
-You are responsible for the content you submit and the actions taken through your account.
+ChronoSpark provides planning, organization, evidence review, and decision-support tools. Guidance can be incomplete or wrong. ChronoSpark is not medical, legal, financial, mental-health, or emergency advice. Use qualified professional or emergency services when appropriate.
 
-Subscriptions and purchases
+Automated and AI features
 
-Digital purchases are processed by Google Play. The price, billing period,
+Deterministic recommendations and evidence summaries remain guidance, not authority. External generative-AI explanations are not enabled for the current release candidate. If a future release enables them, the app must disclose the provider, the categories of data sent, the expected credit cost where applicable, and require confirmation before the request.
 
-trial terms, and renewal details displayed by Google Play at purchase are
+Purchases
 
-part of your transaction. Subscriptions renew until canceled through your
-
-Google Play account. Uninstalling ChronoSpark or deleting a ChronoSpark
-
-account does not automatically cancel a subscription. Refund eligibility
-
-is governed by applicable law and Google Play policy.
-
-AI and decision-support features
-
-AI-generated material can be incomplete or incorrect. ChronoSpark is a
-
-planning and productivity tool, not medical, legal, financial, or emergency
-
-advice. Review important decisions independently.
+Subscriptions, AI-credit purchases, and credit spending are not enabled for the current release candidate. If enabled in a future Google Play release, the price, billing period, renewal terms, and cancellation controls shown by Google Play will govern that purchase. Uninstalling the app or deleting a ChronoSpark account does not cancel store billing.
 
 Availability and changes
 
-Features may change as ChronoSpark improves. Service interruptions can
-
-occur for maintenance, security, provider outages, or circumstances beyond
-
-our control. Material changes to these terms will be posted at this URL.
+Features may change as ChronoSpark improves. Service interruptions can occur for maintenance, security, provider outages, or circumstances beyond the developer's control. A public page, source file, or local artifact does not guarantee that a feature or distribution path is available.
 
 Account deletion
 
-Account deletion is permanent and is described on the
-
-account-deletion page. Store billing must
-
-be canceled separately through Google Play.
+Account deletion is permanent. Review the in-app and external request paths on the account-deletion page.
 
 Contact
 
-Use the developer contact shown on the
+For terms or support questions, email ghostheart131517@gmail.com or visit support.
 
-ChronoSpark Google Play listing
-
-or visit the support page.
-
-Privacy
-
-Terms
-
-Support
-
-Delete account
+PrivacyTermsSupportDelete account
