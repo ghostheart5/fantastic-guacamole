@@ -307,14 +307,8 @@ void main() {
 
     expect(androidRelease, contains('EXPECTED_UPLOAD_SHA1: "$uploadSha1"'));
     expect(releaseGovernance, contains('`$uploadSha1`'));
-    expect(
-      reconciliation,
-      contains('Number.isInteger(body.deferred)'),
-    );
-    expect(
-      reconciliation,
-      contains('Number.isInteger(body.advanced)'),
-    );
+    expect(reconciliation, contains('Number.isInteger(body.deferred)'));
+    expect(reconciliation, contains('Number.isInteger(body.advanced)'));
     expect(reconciliation, contains('body.scanned - body.advanced'));
     expect(reconciliation, contains('body.completed > body.advanced'));
   });
