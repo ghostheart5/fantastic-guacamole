@@ -1,6 +1,6 @@
 # ChronoSpark Production-Candidate Plan
 
-Updated: 2026-09-01T02:42:22-05:00
+Updated: 2026-09-01T08:18:51-05:00
 
 ## Safety boundary
 
@@ -21,6 +21,12 @@ Updated: 2026-09-01T02:42:22-05:00
 5. Install only AAB-derived APKs and run focused Maestro, integration, bounded monkey, lifecycle, offline, accessibility, and human-journey testing on available Android configurations.
 6. Inspect crash, ANR, Flutter, and serious Android logs; run a bounded soak; repair and rebuild only within the retry limit.
 7. Finish the report with exact artifact/commit/checksum/certificate evidence, limitations, reproduction commands, rollback instructions, and live API-call count.
+
+## Current milestone
+
+- The first exact-AAB-derived API 24 pass exposed an Android accessibility bridge defect: the visible login fields did not publish their semantic labels to UI Automator, so release Maestro authentication could not enter credentials.
+- `MergeSemantics` now joins each field label with its editable text node, the focused widget test requires the label and `isTextField` flag on the same semantics node, and the focused test passes.
+- The earlier AAB from `8bec7af2780f2e2e07d5ea8d2ea724ea317fa5fa` is superseded by this code change. No rebuild may begin until this repair is committed, pushed, and GitHub is green at the new exact head.
 
 ## Stop conditions
 

@@ -9,11 +9,11 @@ tags:
     clearState: true
 
 - assertVisible: "CHRONOSPARK"
-- assertVisible: "FIRST SETUP 1 OF 4"
-- assertVisible: "Welcome to ChronoSpark"
-- assertVisible: "Continue to login"
+- assertVisible: "A living decision system"
+- assertVisible: "Plan with purpose. Act. Learn. ChronoSpark keeps the context behind your decisions."
+- assertVisible: "CONTINUE TO LOGIN"
 
-- tapOn: "Continue to login"
+- tapOn: "CONTINUE TO LOGIN"
 - extendedWaitUntil:
     visible: "ENTER SYSTEM"
     timeout: 10000

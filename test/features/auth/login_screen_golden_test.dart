@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsFlag;
+
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
@@ -160,6 +162,20 @@ void main() {
 
     expect(find.bySemanticsLabel(RegExp(r'^Email field\b')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Password field\b')), findsOneWidget);
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel(RegExp(r'^Email field\b')))
+          .getSemanticsData()
+          .hasFlag(SemanticsFlag.isTextField),
+      isTrue,
+    );
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel(RegExp(r'^Password field\b')))
+          .getSemanticsData()
+          .hasFlag(SemanticsFlag.isTextField),
+      isTrue,
+    );
     expect(find.bySemanticsLabel('Show password'), findsOneWidget);
     expect(find.bySemanticsLabel('Hide password'), findsNothing);
 

@@ -1,8 +1,8 @@
 # ChronoSpark Production-Candidate Status
 
-Updated: 2026-09-01T07:34:00-05:00
+Updated: 2026-09-01T08:18:51-05:00
 
-Overall status: **PREFLIGHT IN PROGRESS — NOT VERIFIED FOR PRODUCTION**
+Overall status: **RUNTIME REPAIR AWAITING EXACT-HEAD CI — NOT VERIFIED FOR PRODUCTION**
 
 ## Completed evidence
 
@@ -26,6 +26,12 @@ Overall status: **PREFLIGHT IN PROGRESS — NOT VERIFIED FOR PRODUCTION**
 - Reconciliation verification attempt 2 of 3 was rejected before runner startup because the candidate branch is not allowed to use GitHub's `production` environment. No endpoint call or data operation occurred. The environment protection was preserved, and the final live attempt is reserved for an allowed ref.
 - One isolated, auto-confirmed production Supabase Auth test user was created with user authorization. Its generated credential is stored only in Windows Credential Manager under the dedicated production-candidate target.
 - A real production password-grant sign-in returned HTTP 200, and the verification session was immediately revoked. The production verification query found exactly one newly created matching user, confirmed, with no profile row before app onboarding.
+- Candidate checkpoint `8bec7af2780f2e2e07d5ea8d2ea724ea317fa5fa` passed all 10 applicable GitHub checks in run `33508432103`; Supabase Preview was intentionally skipped. No full suite was duplicated locally.
+- A signed release AAB was built from clean exact commit `8bec7af2780f2e2e07d5ea8d2ea724ea317fa5fa` with the guarded production build script. `bundletool validate` passed, exact-AAB APKs were generated and installed on the clean API 24 emulator, and the installed base split carries the expected certificate.
+- The API 24 first launch rendered the welcome screen within approximately 44 seconds, remained stable through the first 90 seconds, and produced zero matches for `FATAL EXCEPTION`, `E/flutter`, or package ANR.
+- The corrected onboarding Maestro flow passed. Login then exposed a real accessibility/automation defect: both editable fields had empty UI Automator labels/IDs, preventing credential entry before any authentication call was sent.
+- The narrow app repair merges each semantic field label with its editable text node. The focused test `names login fields and the password visibility action` now requires the field label and `isTextField` flag on the same semantics node and passes. The stale Maestro selectors were corrected.
+- Because app source changed, the earlier AAB, APKS, install, and runtime evidence are **SUPERSEDED** and cannot be the final candidate. Rebuild is blocked until the repair commit is pushed and GitHub is green at that exact head.
 
 ## Blocking preflight items
 
@@ -33,6 +39,6 @@ Overall status: **PREFLIGHT IN PROGRESS — NOT VERIFIED FOR PRODUCTION**
 - Minimum-supported API 24 image is installed. `ChronoSpark_API_24` booted successfully as `emulator-5554` with `sys.boot_completed=1`, SDK 24, 1080x1920 at 420 dpi, and validated network connectivity.
 - Newest available API 37.1 16 KB-page-size Play system image is installed and the isolated `ChronoSpark_API_37_1` AVD is created. Its runtime boot check remains pending and will run sequentially after the API 24 lane.
 - No physical Android phone is currently attached. The required minimum/newest emulator matrix is available.
-- No signed AAB has been built in this candidate checkout. All AAB and installed-release results remain `NOT VERIFIED`.
+- A superseded signed AAB exists from `8bec7af2`, but no final AAB has been built after the accessibility repair. Final AAB and installed-release results remain `NOT VERIFIED`.
 - Live AI calls used by this candidate run: `0`.
 - Other live API calls used by this candidate run: `2` production Auth calls (sign-in and immediate session revocation).

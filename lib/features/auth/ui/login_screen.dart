@@ -1050,25 +1050,27 @@ class _NeonInput extends StatelessWidget {
           Icon(icon, color: accentColor.withValues(alpha: 0.9), size: 20),
           const SizedBox(width: 10),
           Expanded(
-            child: Semantics(
-              label: semanticLabel,
-              child: TextField(
-                controller: controller,
-                obscureText: obscure,
-                keyboardType: keyboardType,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: AppSizes.fontLabel,
-                  letterSpacing: 0,
-                ),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  hintText: hintText,
-                  hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.25),
+            child: MergeSemantics(
+              child: Semantics(
+                label: semanticLabel,
+                child: TextField(
+                  controller: controller,
+                  obscureText: obscure,
+                  keyboardType: keyboardType,
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontSize: AppSizes.fontLabel,
+                    letterSpacing: 0,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    hintText: hintText,
+                    hintStyle: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      fontSize: AppSizes.fontLabel,
+                    ),
                   ),
                 ),
               ),
