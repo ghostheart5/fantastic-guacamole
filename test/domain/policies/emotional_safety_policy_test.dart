@@ -88,6 +88,26 @@ void main() {
       expect(assessment.concerns, contains(EmotionalSafetyConcern.overdose));
     });
 
+    test('relationship distress uses the bounded supportive route', () {
+      final EmotionalSafetyAssessment assessment = EmotionalSafetyPolicy.assess(
+        'Our relationship is falling apart after the breakup.',
+      );
+
+      expect(assessment.route, EmotionalSafetyRoute.supportiveDistress);
+      expect(
+        assessment.concerns,
+        contains(EmotionalSafetyConcern.relationshipDistress),
+      );
+      expect(
+        assessment.findingCodes,
+        contains('relationship_distress_language'),
+      );
+      expect(
+        EmotionalSafetyPolicy.planningPauseReason(assessment),
+        'Understanding what kind of relationship support you want before proposing an action.',
+      );
+    });
+
     test('legacy crisis boundary maps only immediate-safety routes', () {
       expect(CrisisDetectionPolicy.detects('I want to die.'), isTrue);
       expect(

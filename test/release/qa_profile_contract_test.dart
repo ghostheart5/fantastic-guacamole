@@ -104,4 +104,20 @@ void main() {
     expect(maestroSignIn, contains(r'${MAESTRO_TEST_EMAIL}'));
     expect(maestroSignIn, contains(r'${MAESTRO_TEST_PASSWORD}'));
   });
+
+  test(
+    'Maestro evidence fails on Flutter and account-storage race markers',
+    () {
+      final String maestroRunner = File(
+        'scripts/run_maestro_android_evidence.ps1',
+      ).readAsStringSync();
+
+      expect(maestroRunner, contains("'FLUTTER_ERROR_MARKER\\s+>>>'"));
+      expect(
+        maestroRunner,
+        contains("'Tasks require authenticated account storage'"),
+      );
+      expect(maestroRunner, contains(r'$fatalHits.Count -gt 0'));
+    },
+  );
 }

@@ -49,27 +49,15 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   Widget build(BuildContext context) {
     final bool onboardingComplete = ref.watch(onboardingCompleteProvider);
     final bool interactionPaused = ref.watch(tutorialInteractionPausedProvider);
-    final CreatorHandshakeState handshake = ref.watch(creatorHandshakeProvider);
     final auth = ref.watch(authUserProvider).asData?.value;
     final AuthSessionBoundary boundary = ref.watch(authSessionBoundaryProvider);
-    final AdaptiveGuidanceState? guidance = ref
-        .watch(adaptiveGuidanceProvider)
-        .asData
-        ?.value;
-    final DailyDecisionIntelligence decision = ref.watch(
-      dailyDecisionIntelligenceProvider,
-    );
-    final String? timelineEvidenceTaskId = ref.watch(
-      timelineTutorialEvidenceProvider,
-    );
     final GoRouter? router = GoRouter.maybeOf(context);
     final String location =
         router?.routeInformationProvider.value.uri.path ?? '';
-    final GuidanceLesson? lesson = guidance?.nextIntervention(
-      currentRoute: location,
-      decision: decision,
-    );
 
+    // Account-scoped intelligence fails closed until authentication and its
+    // storage boundary agree. Do not subscribe to those providers from the
+    // signed-out/login frame or while an account transition is still settling.
     if (!onboardingComplete ||
         interactionPaused ||
         auth == null ||
@@ -77,10 +65,27 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         !boundary.isStorageReady ||
         boundary.blockingIssue != null ||
         boundary.userId != auth.id ||
-        guidance == null ||
-        lesson == null ||
-        !_routeAllowsGuidance(location) ||
-        _suppressedLesson == lesson.id) {
+        !_routeAllowsGuidance(location)) {
+      return const SizedBox.shrink();
+    }
+
+    final AdaptiveGuidanceState? guidance = ref
+        .watch(adaptiveGuidanceProvider)
+        .asData
+        ?.value;
+    if (guidance == null) {
+      return const SizedBox.shrink();
+    }
+
+    final DailyDecisionIntelligence decision = ref.watch(
+      dailyDecisionIntelligenceProvider,
+    );
+    final GuidanceLesson? lesson = guidance.nextIntervention(
+      currentRoute: location,
+      decision: decision,
+    );
+
+    if (lesson == null || _suppressedLesson == lesson.id) {
       return const SizedBox.shrink();
     }
 
@@ -89,6 +94,9 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       if (location != RoutePaths.creator) {
         return _routePrompt(context, lesson);
       }
+      final CreatorHandshakeState handshake = ref.watch(
+        creatorHandshakeProvider,
+      );
       return _creatorLesson(context, handshake, lesson);
     }
 
@@ -96,6 +104,9 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       if (location != RoutePaths.timeline) {
         return _routePrompt(context, lesson);
       }
+      final String? timelineEvidenceTaskId = ref.watch(
+        timelineTutorialEvidenceProvider,
+      );
       return _timelineLesson(context, guidance, timelineEvidenceTaskId);
     }
 

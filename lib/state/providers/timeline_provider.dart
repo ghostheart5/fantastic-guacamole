@@ -9,6 +9,11 @@ import 'package:fantastic_guacamole/state/providers/operating_system_provider.da
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// Injectable clock for deterministic Timeline windows and projections.
+final timelineClockProvider = Provider<DateTime Function()>(
+  (Ref ref) => DateTime.now,
+);
+
 final timelineActionsProvider = Provider<TimelineActions>((Ref ref) {
   return TimelineActions(ref);
 });

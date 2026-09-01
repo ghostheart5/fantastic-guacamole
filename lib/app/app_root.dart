@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -210,12 +211,12 @@ class _AppRootState extends ConsumerState<AppRoot> {
       authSessionBoundaryProvider,
     );
     final String startupMessage = widget.startupError?.trim() ?? '';
-    final bool showQaDiagnostics = ref
-        .watch(intelligenceStateProvider)
-        .flags
-        .testerFullAccess;
+    final intelligenceState = ref.watch(intelligenceStateProvider);
+    final accountScope = ref.watch(accountStorageScopeProvider);
+    final bool showQaDiagnostics = intelligenceState.flags.testerFullAccess;
     if (accountBoundary.isTransitioning ||
-        accountBoundary.blockingIssue != null) {
+        accountBoundary.blockingIssue != null ||
+        (intelligenceState.auth.isAuthenticated && !accountScope.isWritable)) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         title: AppConfig.fromEnv().appName,

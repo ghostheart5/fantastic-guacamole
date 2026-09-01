@@ -94,4 +94,71 @@ void main() {
 
     expect(find.text('Offline Mode — actions will sync later'), findsOneWidget);
   });
+
+  testWidgets('keeps the banner below the top inset and consumes it once', (
+    WidgetTester tester,
+  ) async {
+    double? descendantTopPadding;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [isOnlineProvider.overrideWithValue(false)],
+        child: MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(padding: EdgeInsets.only(top: 24)),
+            child: OfflineBanner(
+              child: Builder(
+                builder: (BuildContext context) {
+                  descendantTopPadding = MediaQuery.paddingOf(context).top;
+                  return const Scaffold(body: Text('content'));
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(
+      tester.getTopLeft(find.byKey(const Key('offline_banner_live_region'))).dy,
+      24,
+    );
+    expect(descendantTopPadding, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wraps the offline message on a narrow large-text surface', (
+    WidgetTester tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(320, 640)
+      ..devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio();
+    });
+
+    const String message =
+        'Offline Mode — local features available; cloud sync unavailable';
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [isOnlineProvider.overrideWithValue(false)],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: OfflineBanner(child: Scaffold(body: Text('content'))),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(tester.takeException(), isNull);
+    final Rect messageRect = tester.getRect(find.text(message));
+    expect(messageRect.left, greaterThanOrEqualTo(0));
+    expect(messageRect.right, lessThanOrEqualTo(320));
+    expect(messageRect.height, greaterThan(22));
+  });
 }

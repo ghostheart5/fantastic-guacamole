@@ -108,7 +108,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       _,
       AppView next,
     ) {
-      _initializedTabIndexes.add(_tabIndexForView(next));
+      if (_isPrimaryView(next)) {
+        _initializedTabIndexes.add(_tabIndexForView(next));
+      }
       _runBackgroundTask(
         'route recovery save',
         () => ref.read(appRecoveryProvider).saveState(lastRoute: next.name),
@@ -175,6 +177,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   @override
   void didUpdateWidget(covariant NavigationShell oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (_isPrimaryView(oldWidget.initialView) &&
+        !_isPrimaryView(widget.initialView)) {
+      // The primary IndexedStack is removed while a secondary screen is open.
+      // Its elements are no longer retained, so its initialization cache must
+      // not cause stale inactive tabs to be remounted on the return build.
+      _initializedTabIndexes.clear();
+    }
 
     final bool receivedSavedTabRestore =
         widget.allowSavedTabRestore && !oldWidget.allowSavedTabRestore;
@@ -253,7 +263,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   }
 
   void _syncAppFlowToRouteView(AppView view) {
-    _initializedTabIndexes.add(_tabIndexForView(view));
+    if (_isPrimaryView(view)) {
+      _initializedTabIndexes.add(_tabIndexForView(view));
+    }
     if (ref.read(appFlowProvider) != view) {
       ref.read(appFlowProvider.notifier).show(view);
     }
@@ -279,7 +291,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   Widget build(BuildContext context) {
     final AppView view = widget.initialView;
     final int tabIndex = _tabIndexForView(view);
-    _initializedTabIndexes.add(tabIndex);
+    if (_isPrimaryView(view)) {
+      _initializedTabIndexes.add(tabIndex);
+    }
 
     final Widget body = switch (view) {
       AppView.nexus ||

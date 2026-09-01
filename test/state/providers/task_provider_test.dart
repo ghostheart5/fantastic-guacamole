@@ -56,7 +56,27 @@ void main() {
     );
   });
 
-  test('account storage transition refreshes an earlier task read', () async {
+  test(
+    'signed-out and unsafe scopes do not read account task storage',
+    () async {
+      for (final AccountStorageScope scope in <AccountStorageScope>[
+        const AccountStorageScope.signedOut(),
+        const AccountStorageScope.unsafe(),
+      ]) {
+        final _MemoryTaskRepository repository = _MemoryTaskRepository();
+        final ProviderContainer container = _buildTaskContainer(
+          repository,
+          scope: scope,
+        );
+
+        expect(await container.read(tasksProvider.future), isEmpty);
+        expect(repository.readCount, 0);
+        container.dispose();
+      }
+    },
+  );
+
+  test('authentication refreshes a gated task read', () async {
     final _MemoryTaskRepository repository = _MemoryTaskRepository();
     final ProviderContainer container = _buildTaskContainer(
       repository,
@@ -65,12 +85,12 @@ void main() {
     addTearDown(container.dispose);
 
     await container.read(tasksProvider.future);
-    expect(repository.readCount, 1);
+    expect(repository.readCount, 0);
 
     container.read(_testAccountStorageScopeProvider.notifier).authenticate();
     await container.read(tasksProvider.future);
 
-    expect(repository.readCount, 2);
+    expect(repository.readCount, 1);
   });
 
   test('createQuickTask ignores blank titles', () async {
@@ -263,7 +283,10 @@ ProviderContainer _buildTaskContainer(
         accountStorageScopeProvider.overrideWith(
           (Ref ref) => ref.watch(_testAccountStorageScopeProvider),
         ),
-      if (scope != null) accountStorageScopeProvider.overrideWithValue(scope),
+      if (!mutableScope)
+        accountStorageScopeProvider.overrideWithValue(
+          scope ?? AccountStorageScope.authenticated('account-1'),
+        ),
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),

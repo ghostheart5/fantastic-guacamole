@@ -17,11 +17,6 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Injectable clock for deterministic Timeline windows and projections.
-final timelineClockProvider = Provider<DateTime Function()>(
-  (Ref ref) => DateTime.now,
-);
-
 enum _TimelineWindow { today, week, month, year, all }
 
 enum _TimelineFilter {
