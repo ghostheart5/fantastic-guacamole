@@ -7,7 +7,8 @@ void main() {
   String read(String path) => File(path).readAsStringSync();
 
   String plainText(String html) {
-    final String text = html_parser.parse(html).querySelector('main')?.text ?? '';
+    final String text =
+        html_parser.parse(html).querySelector('main')?.text ?? '';
     final List<String> lines = text
         .split(RegExp(r'[\r\n]+'))
         .map((String line) => line.replaceAll(RegExp(r'\s+'), ' ').trim())
