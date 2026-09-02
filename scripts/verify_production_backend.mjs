@@ -45,6 +45,29 @@ async function fetchJson(url, init = {}) {
   return body;
 }
 
+async function fetchDirectJson(url) {
+  const response = await fetchResponse(url, { redirect: 'manual' });
+  if (response.status >= 300 && response.status < 400) {
+    await response.body?.cancel();
+    throw new Error(`${url} must not redirect (returned ${response.status})`);
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`${url} returned ${response.status}`);
+  }
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  if (!contentType.includes('application/json')) {
+    await response.body?.cancel();
+    throw new Error(`${url} must be served with an application/json content type`);
+  }
+  const text = await response.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`${url} returned non-JSON content`);
+  }
+}
+
 async function assertFunctionContract(url, expectedContract) {
   const response = await fetchResponse(url, {
     method: 'GET',
@@ -152,7 +175,10 @@ await assertFunctionContract(
 );
 await assertFunctionContract(`${functionsUrl}/google-play-rtdn`, null);
 
-const assetLinks = await fetchJson('https://chronospark.app/.well-known/assetlinks.json');
+const appLinksHost = 'chronospark.app';
+const assetLinks = await fetchDirectJson(
+  `https://${appLinksHost}/.well-known/assetlinks.json`,
+);
 if (!Array.isArray(assetLinks)) {
   throw new Error('Published assetlinks.json must contain a JSON array');
 }
@@ -215,6 +241,7 @@ console.log(JSON.stringify({
   packageName,
   projectRef,
   playSubscriptions: subscriptionRows.length,
+  appLinksHost,
   appLinksFingerprint: expectedFingerprint,
   rtdnSubscription,
 }));

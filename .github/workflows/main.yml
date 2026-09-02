@@ -10,6 +10,7 @@ on:
       - 'web/support/**'
       - 'web/delete-account/**'
       - 'web/legal.css'
+      - 'web/.well-known/assetlinks.json'
       - '.github/workflows/main.yml'
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - 'web/support/**'
       - 'web/delete-account/**'
       - 'web/legal.css'
+      - 'web/.well-known/assetlinks.json'
       - '.github/workflows/main.yml'
   workflow_dispatch:
 
@@ -48,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for path in site/index.html site/app/index.html site/features/index.html site/download/index.html site/assets/site.css site/assets/site.js site/assets/chronospark-temporal-field.jpg site/assets/social-card.png web/privacy/index.html web/terms/index.html web/support/index.html web/delete-account/index.html web/legal.css; do
+          for path in site/index.html site/app/index.html site/features/index.html site/download/index.html site/assets/site.css site/assets/site.js site/assets/chronospark-temporal-field.jpg site/assets/social-card.png web/privacy/index.html web/terms/index.html web/support/index.html web/delete-account/index.html web/legal.css web/.well-known/assetlinks.json; do
             if [ ! -f "$path" ]; then
               echo "::error::Static Pages source is incomplete: $path"
               exit 1
@@ -67,11 +69,14 @@ jobs:
             cp "web/$route/index.html" "_site/$route/index.html"
           done
           cp web/legal.css _site/legal.css
+          mkdir -p _site/.well-known
+          cp web/.well-known/assetlinks.json _site/.well-known/assetlinks.json
           touch _site/.nojekyll
 
       - name: Verify public-route contract
         shell: python
         run: |
+          import json
           from pathlib import Path
 
           root = Path('_site')
@@ -118,6 +123,32 @@ jobs:
                       raise SystemExit(f'{relative} is missing required social metadata: {marker}')
           if not (root / 'assets/social-card.png').is_file():
               raise SystemExit('The public social-card image is missing.')
+          asset_links_path = root / '.well-known/assetlinks.json'
+          try:
+              asset_links = json.loads(asset_links_path.read_text(encoding='utf-8'))
+          except (OSError, json.JSONDecodeError) as error:
+              raise SystemExit(f'Invalid Android asset-links file: {error}') from error
+          if not isinstance(asset_links, list):
+              raise SystemExit('Android asset-links file must contain a JSON array.')
+          matching_links = []
+          for entry in asset_links:
+              if not isinstance(entry, dict):
+                  continue
+              target = entry.get('target')
+              if not isinstance(target, dict):
+                  continue
+              if (
+                  target.get('namespace') == 'android_app'
+                  and target.get('package_name') == 'com.ghostheart5.chronospark'
+                  and entry.get('relation') == ['delegate_permission/common.handle_all_urls']
+              ):
+                  matching_links.append(entry)
+          if len(matching_links) != 1:
+              raise SystemExit('Android asset-links file must contain exactly one ChronoSpark app link.')
+          expected_fingerprint = 'B8:3E:42:1A:CC:08:11:68:EA:6F:7A:16:72:53:26:59:DC:87:B0:0D:69:77:9E:86:E4:B8:02:06:4F:B7:D7:DB'
+          fingerprints = matching_links[0]['target'].get('sha256_cert_fingerprints')
+          if fingerprints != [expected_fingerprint]:
+              raise SystemExit('Android asset-links fingerprint does not match the Play app-signing certificate.')
           assembled = '\n'.join(
               path.read_text(encoding='utf-8')
               for path in root.rglob('*.html')
