@@ -9,6 +9,7 @@
 -- Both USING and WITH CHECK are set to prevent row hijacking on UPDATE.
 
 drop policy if exists "user_daily_metrics_select_authenticated" on public.user_daily_metrics;
+drop policy if exists "user_daily_metrics_select_own" on public.user_daily_metrics;
 create policy "user_daily_metrics_select_own"
 on public.user_daily_metrics
 for select
