@@ -19,9 +19,11 @@ Professor baseline verdict:
 ## App-only blockers
 
 - At evaluated source `6118ba6`, golden PNGs exist but both named test files
-  perform zero `matchesGoldenFile` comparisons. The Gate 1 working change now
-  passes five reviewed local comparisons, but exact-commit CI evidence is not
-  established.
+  perform zero `matchesGoldenFile` comparisons. Gate 1 now defines five logical
+  exact comparisons with separate reviewed Windows and Linux masters. Initial
+  exact-commit CI run `33677111731` exposed the renderer split by failing only
+  those five comparisons; a corrective commit is not promoted unless its own
+  attached CI check passes.
 - There is no single deterministic Person Context behavior policy governing
   ranking, constraints, surface output, override, and explanation.
 - Relevant Person Context does not yet produce the required bounded,

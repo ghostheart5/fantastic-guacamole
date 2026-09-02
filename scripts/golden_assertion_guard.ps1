@@ -7,22 +7,26 @@ $ErrorActionPreference = 'Stop'
 $contracts = @(
     [ordered]@{
         Test = 'test/features/auth/login_screen_golden_test.dart'
-        Baselines = @(
-            'test/features/auth/goldens/login_screen_compact_320.png'
-            'test/features/auth/goldens/login_screen_regular_500.png'
+        GoldenDirectory = 'test/features/auth/goldens'
+        Files = @(
+            'login_screen_compact_320.png'
+            'login_screen_regular_500.png'
         )
     }
     [ordered]@{
         Test = 'test/features/nexus/nexus_screen_golden_test.dart'
-        Baselines = @(
-            'test/features/nexus/goldens/nexus_screen_ultraCompact_320.png'
-            'test/features/nexus/goldens/nexus_screen_compact_375.png'
-            'test/features/nexus/goldens/nexus_screen_regular_500.png'
+        GoldenDirectory = 'test/features/nexus/goldens'
+        Files = @(
+            'nexus_screen_ultraCompact_320.png'
+            'nexus_screen_compact_375.png'
+            'nexus_screen_regular_500.png'
         )
     }
 )
 
-$baselineCount = 0
+$platforms = @('windows', 'linux')
+$logicalComparisonCount = 0
+$masterCount = 0
 $matcherDeclarationCount = 0
 
 foreach ($contract in $contracts) {
@@ -38,15 +42,10 @@ foreach ($contract in $contracts) {
     }
     $matcherDeclarationCount += $matchers
 
-    foreach ($baseline in $contract.Baselines) {
-        $baselinePath = [string]$baseline
-        if (-not (Test-Path -LiteralPath $baselinePath -PathType Leaf)) {
-            throw "Golden baseline is missing: $baselinePath"
-        }
-        $fileName = [System.IO.Path]::GetFileName($baselinePath)
-        $relativeGolden = "goldens/$fileName"
-        $singleQuotedCall = "matchesGoldenFile('$relativeGolden')"
-        $doubleQuotedCall = 'matchesGoldenFile("' + $relativeGolden + '")'
+    foreach ($file in $contract.Files) {
+        $fileName = [string]$file
+        $singleQuotedCall = "platformGoldenFile('$fileName')"
+        $doubleQuotedCall = 'platformGoldenFile("' + $fileName + '")'
         $mappingCount = [regex]::Matches(
             $source,
             [regex]::Escape($singleQuotedCall)
@@ -55,22 +54,37 @@ foreach ($contract in $contracts) {
             [regex]::Escape($doubleQuotedCall)
         ).Count
         if ($mappingCount -ne 1) {
-            throw "Golden baseline needs exactly one literal matcher declaration: $baselinePath"
+            throw "Golden file needs exactly one platform-routed declaration: $fileName"
         }
-        $baselineCount++
+        $logicalComparisonCount++
+
+        foreach ($platform in $platforms) {
+            $platformDirectory = Join-Path ([string]$contract.GoldenDirectory) $platform
+            $masterPath = Join-Path $platformDirectory $fileName
+            if (-not (Test-Path -LiteralPath $masterPath -PathType Leaf)) {
+                throw "Golden platform master is missing: $masterPath"
+            }
+            $masterCount++
+        }
     }
 }
 
-if ($baselineCount -lt 1 -or $matcherDeclarationCount -ne $baselineCount) {
+if (
+    $logicalComparisonCount -lt 1 -or
+    $matcherDeclarationCount -ne $logicalComparisonCount -or
+    $masterCount -ne ($logicalComparisonCount * $platforms.Count)
+) {
     throw (
-        'Golden comparison contract needs one literal matcher per baseline; ' +
-        "found $matcherDeclarationCount matchers for $baselineCount baselines."
+        'Golden comparison contract needs one matcher per logical comparison ' +
+        'and one master per supported platform; ' +
+        "found $matcherDeclarationCount matchers, $logicalComparisonCount " +
+        "logical comparisons, and $masterCount platform masters."
     )
 }
 
 Write-Output (
-    "Golden comparison contract: {0} baselines and {1} matcher declarations across {2} test files." -f
-        $baselineCount,
-        $matcherDeclarationCount,
+    "Golden comparison contract: {0} exact logical comparisons and {1} platform masters across {2} test files." -f
+        $logicalComparisonCount,
+        $masterCount,
         $contracts.Count
 )

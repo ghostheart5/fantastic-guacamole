@@ -38,6 +38,25 @@ Future<void> loadAppFontsForGolden() async {
   await iconLoader.load();
 }
 
+/// Returns the exact golden master for the host renderer running this test.
+///
+/// Windows and Linux rasterize the same bundled fonts differently. Keeping a
+/// reviewed master for each supported host preserves pixel-for-pixel
+/// comparison without hiding real drift behind a percentage tolerance.
+String platformGoldenFile(String fileName) {
+  final String platform;
+  if (Platform.isWindows) {
+    platform = 'windows';
+  } else if (Platform.isLinux) {
+    platform = 'linux';
+  } else {
+    throw UnsupportedError(
+      'Golden comparisons are not configured for ${Platform.operatingSystem}.',
+    );
+  }
+  return 'goldens/$platform/$fileName';
+}
+
 /// Pumps [widget] at a fixed physical [size] under the app's real theme, for
 /// deterministic golden-image capture. Animations are disabled through the
 /// same accessibility signal the production Nexus screen already honors.

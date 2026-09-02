@@ -142,7 +142,9 @@ void main() {
       await pumpNexusGolden(tester, width: 320);
       await expectLater(
         find.byType(NexusScreen),
-        matchesGoldenFile('goldens/nexus_screen_ultraCompact_320.png'),
+        matchesGoldenFile(
+          platformGoldenFile('nexus_screen_ultraCompact_320.png'),
+        ),
       );
     });
 
@@ -152,7 +154,7 @@ void main() {
       await pumpNexusGolden(tester, width: 375);
       await expectLater(
         find.byType(NexusScreen),
-        matchesGoldenFile('goldens/nexus_screen_compact_375.png'),
+        matchesGoldenFile(platformGoldenFile('nexus_screen_compact_375.png')),
       );
     });
 
@@ -162,7 +164,7 @@ void main() {
       await pumpNexusGolden(tester, width: 500);
       await expectLater(
         find.byType(NexusScreen),
-        matchesGoldenFile('goldens/nexus_screen_regular_500.png'),
+        matchesGoldenFile(platformGoldenFile('nexus_screen_regular_500.png')),
       );
     });
   });

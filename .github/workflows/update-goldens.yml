@@ -46,7 +46,7 @@ jobs:
             test/features/nexus/nexus_screen_golden_test.dart \
             --update-goldens
 
-      - name: Capture reviewed golden diff
+      - name: Capture candidate golden diff
         run: |
           git diff --binary -- test/features/auth/goldens/ test/features/nexus/goldens/ > golden-update.patch
           if [ ! -s golden-update.patch ]; then

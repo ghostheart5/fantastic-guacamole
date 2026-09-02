@@ -99,7 +99,7 @@ void main() {
       await pumpLoginGolden(tester, width: 320);
       await expectLater(
         find.byType(LoginScreen),
-        matchesGoldenFile('goldens/login_screen_compact_320.png'),
+        matchesGoldenFile(platformGoldenFile('login_screen_compact_320.png')),
       );
     });
 
@@ -109,7 +109,7 @@ void main() {
       await pumpLoginGolden(tester, width: 500);
       await expectLater(
         find.byType(LoginScreen),
-        matchesGoldenFile('goldens/login_screen_regular_500.png'),
+        matchesGoldenFile(platformGoldenFile('login_screen_regular_500.png')),
       );
     });
   });

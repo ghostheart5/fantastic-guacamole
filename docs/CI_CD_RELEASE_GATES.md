@@ -20,7 +20,9 @@ Every change to `main` and every release tag must run:
    `integration_test` suite.
 7. Architecture, Maestro YAML contract, and coverage-ratchet checks.
 8. A non-zero golden assertion guard followed by the normal Flutter test run,
-   so committed visual baselines are compared rather than merely stored.
+   so five logical comparisons select reviewed, exact platform masters rather
+   than merely storing images. Linux generation and comparison stay pinned to
+   the same `ubuntu-24.04` runner; Windows keeps separate exact masters.
 
 CI evidence is retained as a workflow artifact containing coverage and the
 dependency report. A failure is release-blocking; a warning must not silently

@@ -13,8 +13,10 @@ matched the repository.
 - Supabase Edge Function tests: `supabase/functions/**/*_test.ts`.
 - Maestro flows: `.maestro/flows/`, with static YAML/subflow validation in CI.
 - Golden comparisons: authentication at 320/500 px and Nexus at 320/375/500
-  px. Each committed PNG is referenced by a `matchesGoldenFile` assertion; a
-  PNG or update workflow without an executable assertion is not evidence.
+  px. Five logical comparisons select exact, reviewed Windows or Linux masters
+  for the active renderer. Each committed PNG name is routed through a
+  `matchesGoldenFile` assertion; a PNG or update workflow without an executable
+  assertion is not evidence.
 - Coverage enforcement: `scripts/coverage_guard.ps1 -Mode ratchet` blocks
   regression from the measured baseline; the default `-Mode target` audits the
   higher release-quality destination and remains intentionally strict.
@@ -49,6 +51,10 @@ pass without `--update-goldens`.
 The named app-only goldens use the default exact comparator. Their harness
 loads app/icon fonts and disables supported animations; a percentage tolerance
 must not replace deterministic setup or be reported as exact evidence.
+Windows and Linux retain separate exact masters because their font renderers
+produce different pixels. The updater and normal CI comparison are both pinned
+to `ubuntu-24.04`; an unsupported host fails explicitly instead of borrowing a
+different platform's master.
 
 ## Release-Critical Automated Flows
 

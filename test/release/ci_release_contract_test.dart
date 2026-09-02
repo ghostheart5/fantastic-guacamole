@@ -61,6 +61,7 @@ void main() {
 
     final YamlMap testJob = job(ci, 'test');
     final List<YamlMap> testSteps = steps(testJob);
+    expect(testJob['runs-on'], 'ubuntu-24.04');
     expect(
       testSteps.map((YamlMap step) => step['run']),
       contains('dart run tool/validate_github_workflows.dart'),
@@ -443,6 +444,7 @@ void main() {
       workflow('update-goldens.yml'),
       'update-goldens',
     );
+    expect(goldens['runs-on'], 'ubuntu-24.04');
     expect(
       maestro['runs-on'] as YamlList,
       containsAll(<String>['self-hosted', 'android', 'maestro']),
