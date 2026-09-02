@@ -1,6 +1,47 @@
 # ChronoSpark Known Limitations
 
-Current verdict: `NO-GO - NOT READY`.
+[`APP_ONLY_READINESS_MATRIX.md`](APP_ONLY_READINESS_MATRIX.md) separates the
+professor-report baseline at
+`6118ba6df289ca89472ba804307a85be00a0c0f2` from provisional Gate 1 working-tree
+evidence. After commit, the Gate 1 candidate is the commit carrying that matrix;
+its CI status must be read from checks attached to that exact SHA. This summary
+must not be used without those evidence boundaries.
+
+Professor baseline verdict:
+
+- Developer/internal use: `PASS` with the limitations below.
+- Supervised app-only pilot: `BLOCKED` until Priorities 1-3 and minimum
+  exact-build physical-device smoke proof pass.
+- Public advanced-planner claim: `BLOCKED` pending behavior, device,
+  accessibility, performance, and UAT evidence.
+- Public whole-person or equivalent understanding claim: `NO-GO`.
+
+## App-only blockers
+
+- At evaluated source `6118ba6`, golden PNGs exist but both named test files
+  perform zero `matchesGoldenFile` comparisons. The Gate 1 working change now
+  passes five reviewed local comparisons, but exact-commit CI evidence is not
+  established.
+- There is no single deterministic Person Context behavior policy governing
+  ranking, constraints, surface output, override, and explanation.
+- Relevant Person Context does not yet produce the required bounded,
+  reversible recommendation delta across Nexus, Smart Planner, SI Console,
+  Trajectory, and Creator.
+- Learning is reachable but remains task-affinity focused and only partly
+  visible and reversible across surfaces.
+- Learning access fails closed at the account-session boundary, but the current
+  learning-state storage key is shared rather than namespaced per account.
+- Exact-build physical-device, TalkBack, keyboard, rotation, offline,
+  performance, and human-UAT evidence remains incomplete.
+- Crisis and non-crisis distress handling still requires qualified review.
+- Spanish coverage is not complete enough for a launch claim.
+
+## Excluded external systems
+
+Supabase, Firebase, Google identity/Play, cloud sync, subscriptions, billing,
+Analytics, Crashlytics, external-AI transport, website hosting, DNS, App Links
+public readback, and every deployed-service configuration are not graded by the
+app-only contract. `NOT GRADED` does not mean passed or verified.
 
 Launch containment remains active: cloud sync/restore, subscriptions, paid credit plans, external AI, credit spending, Analytics, Crashlytics, and inferred identity are disabled. This reduces pilot risk but does not establish production readiness.
 

@@ -5,10 +5,12 @@ import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/learning_policy.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Learning/adaptation
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Learning/adaptation
 ///
-/// Registered as applyLearningFeedbackUseCaseProvider. Repository is real; not
-/// yet auto-invoked from completion/skip.
+/// Invoked after task completion and after recorded or corrected decision
+/// outcomes. The repository is real and supplies later decision-engine reads.
+/// Session guards fail closed, but its current storage key is not namespaced
+/// per account.
 class ApplyLearningFeedback {
   ApplyLearningFeedback(this.repository, {this.siRepo});
 

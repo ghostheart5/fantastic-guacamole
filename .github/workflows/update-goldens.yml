@@ -35,6 +35,10 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Verify golden comparison contract
+        shell: pwsh
+        run: ./scripts/golden_assertion_guard.ps1
+
       - name: Regenerate golden images
         run: |
           flutter test \

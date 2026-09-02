@@ -8,9 +8,9 @@ import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart
 import 'package:fantastic_guacamole/domain/usecases/update_learning_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Covers the learning loop. The repository is now implemented and DI-bound, so
-/// LearningPolicy is reachable — but nothing invokes it automatically yet.
-/// See the PLANNED note on [ILearningRepository].
+/// Covers the learning loop used by reachable task and decision-outcome flows.
+/// Source tracing establishes production reachability; these tests establish
+/// the bounded use-case behavior, persistence contract, and correction path.
 void main() {
   group('ApplyLearningFeedback moves the weights', () {
     late _FakeLearningRepository repository;

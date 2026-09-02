@@ -19,10 +19,16 @@ Every change to `main` and every release tag must run:
 6. Flutter unit/widget/release-contract tests and the app-root
    `integration_test` suite.
 7. Architecture, Maestro YAML contract, and coverage-ratchet checks.
+8. A non-zero golden assertion guard followed by the normal Flutter test run,
+   so committed visual baselines are compared rather than merely stored.
 
 CI evidence is retained as a workflow artifact containing coverage and the
 dependency report. A failure is release-blocking; a warning must not silently
 turn production readiness off.
+
+CI is host evidence. It does not establish physical-device rendering,
+TalkBack, keyboard behavior, performance, signed-artifact behavior, or human
+usefulness. Release reports must list those evidence classes separately.
 
 ## Production configuration
 

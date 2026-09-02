@@ -1,15 +1,13 @@
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Learning/adaptation
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Learning/adaptation
 ///
 /// Adaptive learning weights for the planner.
 ///
-/// PLANNED SURFACE: `LearningRepository` implements this and it is bound in DI,
-/// so `ApplyLearningFeedback` / `UpdateLearningState` / `SkipTask` are all
-/// constructible. What is NOT yet wired is automatic invocation: nothing calls
-/// `ApplyLearningFeedback` from the task completion/skip flows, so the weights
-/// only move when a caller runs the use cases explicitly. Turning that on
-/// changes planner ordering and is a deliberate product decision.
+/// `LearningRepository` implements this contract and is bound in DI. Task
+/// completion, task skip, and decision-outcome recording invoke the shipping
+/// learning path. `UpdateLearningState` remains a separately classified helper
+/// without a production caller.
 abstract class ILearningRepository {
   Future<LearningEntity?> getState();
   Future<void> saveState(LearningEntity state);

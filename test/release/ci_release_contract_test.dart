@@ -77,6 +77,10 @@ void main() {
       testSteps.map((YamlMap step) => step['run']),
       contains('./scripts/edge_function_gate.ps1 -RunTests'),
     );
+    expect(
+      namedStep(testJob, 'Verify golden comparison contract')['run'],
+      './scripts/golden_assertion_guard.ps1',
+    );
   });
 
   test(
@@ -454,6 +458,10 @@ void main() {
         goldens,
       ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n'),
       isNot(contains('git push')),
+    );
+    expect(
+      namedStep(goldens, 'Verify golden comparison contract')['run'],
+      './scripts/golden_assertion_guard.ps1',
     );
     expect(namedStep(goldens, 'Upload golden update for review'), isNotNull);
   });
