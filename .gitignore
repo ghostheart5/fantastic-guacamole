@@ -102,3 +102,6 @@ debug_log.txt
 lib_files.txt
 .claude/scheduled_tasks.lock
 *.code-workspace
+
+# Flutter golden comparison failure artifacts
+/test/**/failures/

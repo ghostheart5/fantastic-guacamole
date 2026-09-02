@@ -12,7 +12,11 @@ matched the repository.
 - Application-root integration journeys: `integration_test/`.
 - Supabase Edge Function tests: `supabase/functions/**/*_test.ts`.
 - Maestro flows: `.maestro/flows/`, with static YAML/subflow validation in CI.
-- Golden baselines: authentication and Nexus at compact and regular widths.
+- Golden comparisons: authentication at 320/500 px and Nexus at 320/375/500
+  px. Five logical comparisons select exact, reviewed Windows or Linux masters
+  for the active renderer. Each committed PNG name is routed through a
+  `matchesGoldenFile` assertion; a PNG or update workflow without an executable
+  assertion is not evidence.
 - Coverage enforcement: `scripts/coverage_guard.ps1 -Mode ratchet` blocks
   regression from the measured baseline; the default `-Mode target` audits the
   higher release-quality destination and remains intentionally strict.
@@ -35,11 +39,22 @@ build or launching a device:
 6. Deno type checks for every Edge Function.
 7. Deno unit tests for extracted Edge Function logic.
 8. Flutter `test/` execution with serialized isolation and coverage.
-9. Overall, layer, and release-critical coverage ratchet floors. The target
+9. A non-zero golden comparison contract. CI must fail before the test run if
+   the two named golden files contain zero `matchesGoldenFile` assertions.
+10. Overall, layer, and release-critical coverage ratchet floors. The target
    audit remains required before claiming the coverage destination is met.
 
 Validation CI is read-only. It must never update golden files, commit, or push.
 Golden regeneration remains a manually dispatched and reviewable workflow.
+Regeneration is not a passing comparison: the same baselines must subsequently
+pass without `--update-goldens`.
+The named app-only goldens use the default exact comparator. Their harness
+loads app/icon fonts and disables supported animations; a percentage tolerance
+must not replace deterministic setup or be reported as exact evidence.
+Windows and Linux retain separate exact masters because their font renderers
+produce different pixels. The updater and normal CI comparison are both pinned
+to `ubuntu-24.04`; an unsupported host fails explicitly instead of borrowing a
+different platform's master.
 
 ## Release-Critical Automated Flows
 
@@ -109,6 +124,10 @@ The following are not represented as passed by the non-build suite:
 Execute these using `docs/testing/CHRONOSPARK_UAT_MATRIX.md` and retain the
 required evidence. A deferred device scenario is never counted as an automated
 pass.
+
+Every release report must keep source/static, host test, physical-device,
+human-UAT, and excluded external evidence in separate sections. A host widget,
+integration, or golden PASS cannot be copied into the physical-device column.
 
 ## Definition of Done
 

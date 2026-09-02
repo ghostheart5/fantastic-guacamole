@@ -61,6 +61,7 @@ void main() {
 
     final YamlMap testJob = job(ci, 'test');
     final List<YamlMap> testSteps = steps(testJob);
+    expect(testJob['runs-on'], 'ubuntu-24.04');
     expect(
       testSteps.map((YamlMap step) => step['run']),
       contains('dart run tool/validate_github_workflows.dart'),
@@ -76,6 +77,10 @@ void main() {
     expect(
       testSteps.map((YamlMap step) => step['run']),
       contains('./scripts/edge_function_gate.ps1 -RunTests'),
+    );
+    expect(
+      namedStep(testJob, 'Verify golden comparison contract')['run'],
+      './scripts/golden_assertion_guard.ps1',
     );
   });
 
@@ -439,6 +444,7 @@ void main() {
       workflow('update-goldens.yml'),
       'update-goldens',
     );
+    expect(goldens['runs-on'], 'ubuntu-24.04');
     expect(
       maestro['runs-on'] as YamlList,
       containsAll(<String>['self-hosted', 'android', 'maestro']),
@@ -454,6 +460,10 @@ void main() {
         goldens,
       ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n'),
       isNot(contains('git push')),
+    );
+    expect(
+      namedStep(goldens, 'Verify golden comparison contract')['run'],
+      './scripts/golden_assertion_guard.ps1',
     );
     expect(namedStep(goldens, 'Upload golden update for review'), isNotNull);
   });

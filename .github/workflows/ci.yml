@@ -89,6 +89,10 @@ jobs:
       - name: Validate Maestro flow contracts
         run: dart run tool/validate_maestro_flows.dart
 
+      - name: Verify golden comparison contract
+        shell: pwsh
+        run: ./scripts/golden_assertion_guard.ps1
+
       - name: Validate version guard contracts
         shell: pwsh
         run: ./scripts/version_consistency_guard_contract.ps1

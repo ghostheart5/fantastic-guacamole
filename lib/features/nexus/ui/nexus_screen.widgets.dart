@@ -380,17 +380,22 @@ class _PlannerSuggestionContent extends StatelessWidget {
               label: decisionModel.statusLabel,
               accent: _statusAccent(decisionModel.status),
             ),
-            const Spacer(),
-            if (decision != null)
-              Text(
-                '$confidence% evidence confidence',
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: AppSizes.fontCaption,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
+            if (decision != null) ...<Widget>[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '$confidence% evidence confidence',
+                  maxLines: 2,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: AppSizes.fontCaption,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
+            ],
           ],
         ),
         const SizedBox(height: 13),
@@ -454,7 +459,10 @@ class _PlannerSuggestionContent extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ),

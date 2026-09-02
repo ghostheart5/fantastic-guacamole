@@ -673,8 +673,9 @@ final updateSiStateUseCaseProvider = Provider<UpdateSiState>((ref) {
 
 // --- Learning loop.
 //
-// PLANNED: the repository is real and bound, but nothing invokes
-// ApplyLearningFeedback automatically yet. See LearningRepository.
+// SHIPPING: task completion, task skip, and decision-outcome recording invoke
+// the bound learning path. UpdateLearningState remains registered for explicit
+// callers but is not currently reached by a production surface.
 
 final applyLearningFeedbackUseCaseProvider = Provider<ApplyLearningFeedback>((
   ref,

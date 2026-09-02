@@ -1,8 +1,8 @@
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Learning/adaptation
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Learning/adaptation
 ///
-/// Reachable via ApplyLearningFeedback/SkipTask; not auto-invoked yet.
+/// Invoked by the shipping task-completion and task-skip learning paths.
 class LearningPolicy {
   static LearningEntity applyFeedback({
     required LearningEntity current,

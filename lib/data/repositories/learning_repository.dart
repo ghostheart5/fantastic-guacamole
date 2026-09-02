@@ -10,11 +10,10 @@ import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart
 ///
 /// Uses the shared SecureStore + JSON repository pattern.
 ///
-/// PLANNED SURFACE: this repository is bound in DI and fully functional, but
-/// `ApplyLearningFeedback` is not yet invoked automatically from the task
-/// completion/skip flows — wiring that in changes planner behaviour and is a
-/// separate, deliberate decision. Until then the weights only change when a
-/// caller runs the learning use cases explicitly.
+/// SHIPPING SURFACE: task completion, task skip, and recorded decision
+/// outcomes invoke the bound learning use cases. Failures are isolated from
+/// the primary task mutation, while successfully persisted weights feed the
+/// decision engine on later reads.
 class LearningRepository implements ILearningRepository {
   LearningRepository(this._store);
 

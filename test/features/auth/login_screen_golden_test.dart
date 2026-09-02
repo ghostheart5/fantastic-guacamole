@@ -4,7 +4,11 @@ import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/golden_harness.dart';
+
 void main() {
+  setUpAll(loadAppFontsForGolden);
+
   Future<void> pumpLoginScreen(
     WidgetTester tester, {
     required double width,
@@ -54,8 +58,61 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
   }
 
+  Future<void> pumpLoginGolden(
+    WidgetTester tester, {
+    required double width,
+  }) async {
+    final TextEditingController emailController = TextEditingController();
+    final TextEditingController passwordController = TextEditingController();
+    addTearDown(emailController.dispose);
+    addTearDown(passwordController.dispose);
+
+    await pumpForGolden(
+      tester,
+      LoginScreen(
+        emailController: emailController,
+        passwordController: passwordController,
+        obscurePassword: true,
+        isSubmitting: false,
+        isSignUpMode: false,
+        onPrimaryAction: () {},
+        onForgotPassword: () {},
+        onGoogleSignIn: () {},
+        onGitHubSignIn: () {},
+        onPrivacyPolicy: () {},
+        onTermsOfService: () {},
+        onToggleMode: () {},
+        onTogglePassword: () {},
+      ),
+      size: Size(width, 900),
+    );
+    await tester.pump(const Duration(milliseconds: 800));
+  }
+
   Text textWidget(WidgetTester tester, String text) =>
       tester.widget<Text>(find.text(text).first);
+
+  group('LoginScreen golden regression', () {
+    testWidgets('matches the compact_320 baseline', (
+      WidgetTester tester,
+    ) async {
+      await pumpLoginGolden(tester, width: 320);
+      await expectLater(
+        find.byType(LoginScreen),
+        matchesGoldenFile(platformGoldenFile('login_screen_compact_320.png')),
+      );
+    });
+
+    testWidgets('matches the regular_500 baseline', (
+      WidgetTester tester,
+    ) async {
+      await pumpLoginGolden(tester, width: 500);
+      await expectLater(
+        find.byType(LoginScreen),
+        matchesGoldenFile(platformGoldenFile('login_screen_regular_500.png')),
+      );
+    });
+  });
 
   group('LoginScreen responsive typography', () {
     testWidgets('uses compact values below the compact breakpoint', (
