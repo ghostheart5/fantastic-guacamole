@@ -70,14 +70,20 @@ jobs:
           from pathlib import Path
 
           text = Path('build/release-evidence/production-migrations.txt').read_text(encoding='utf-8')
+          ansi = re.compile(r'\x1b\[[0-?]*[ -/]*[@-~]')
+
+          def migration_version(value: str) -> str:
+              cleaned = ansi.sub('', value).strip().strip('`').strip()
+              return cleaned if re.fullmatch(r'\d+', cleaned) else ''
+
           rows = 0
           mismatches = []
           for line in text.splitlines():
               parts = [part.strip() for part in line.replace('│', '|').split('|')]
               if len(parts) < 2:
                   continue
-              local = parts[0] if re.fullmatch(r'\d{14}', parts[0]) else ''
-              remote = parts[1] if re.fullmatch(r'\d{14}', parts[1]) else ''
+              local = migration_version(parts[0])
+              remote = migration_version(parts[1])
               if not local and not remote:
                   continue
               rows += 1
