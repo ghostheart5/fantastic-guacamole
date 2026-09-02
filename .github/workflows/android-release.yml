@@ -97,7 +97,7 @@ jobs:
           supabase functions list --project-ref "$SUPABASE_PROJECT_REF" \
             > build/release-evidence/production-functions.txt
           for function_name in \
-            ai-proxy ai-report verify-receipt google-play-rtdn \
+            ai-proxy ai-report planner-explanation verify-receipt google-play-rtdn \
             account-delete account-delete-reconcile
           do
             grep -Eq "(^|[[:space:]|])${function_name}([[:space:]|]|$)" \
