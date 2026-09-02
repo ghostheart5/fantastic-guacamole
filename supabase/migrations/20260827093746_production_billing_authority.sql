@@ -53,7 +53,7 @@ create table if not exists public.monetization_purchases (
   purchase_type text not null,
   platform text not null default 'google_play',
   purchase_state text not null default 'verified',
-  purchase_token_hash text not null unique,
+  purchase_token_hash text not null,
   order_id text,
   credits_granted integer not null default 0 check (credits_granted >= 0),
   subscription_plan_id text,
@@ -64,6 +64,13 @@ create table if not exists public.monetization_purchases (
 
 create index if not exists monetization_purchases_user_idx
   on public.monetization_purchases (user_id, created_at desc);
+
+-- The hosted baseline already has this table with only a composite
+-- (user_id, purchase_token_hash) uniqueness rule. Later reconciliation RPCs
+-- use ON CONFLICT (purchase_token_hash), so establish the single-column
+-- authority explicitly for both clean replay and late production rollout.
+create unique index if not exists monetization_purchases_purchase_token_hash_idx
+  on public.monetization_purchases (purchase_token_hash);
 
 create table if not exists public.monetization_entitlement_events (
   id uuid primary key default gen_random_uuid(),
@@ -81,6 +88,13 @@ create table if not exists public.monetization_entitlement_events (
 
 create index if not exists monetization_entitlement_events_user_idx
   on public.monetization_entitlement_events (user_id, created_at desc);
+
+-- The production baseline carries a partial unique index on non-null event
+-- keys. Later reconciliation RPCs use ON CONFLICT (event_key), which requires
+-- a non-partial unique index PostgreSQL can infer without a predicate.
+drop index if exists public.monetization_entitlement_events_event_key_idx;
+create unique index monetization_entitlement_events_event_key_idx
+  on public.monetization_entitlement_events (event_key);
 
 create table if not exists public.ai_usage_requests (
   id uuid primary key default gen_random_uuid(),
@@ -198,6 +212,11 @@ create policy "ai usage select own"
 on public.ai_usage_requests for select to authenticated
 using ((select auth.uid()) = user_id);
 
+-- The production baseline defines this signature with the historical
+-- argument name target_user_id. PostgreSQL does not allow CREATE OR REPLACE
+-- to rename an input parameter, so replace the service-only RPC explicitly.
+drop function if exists public.ensure_monetization_wallet(uuid);
+
 create or replace function public.ensure_monetization_wallet(p_user_id uuid)
 returns public.monetization_wallets
 language plpgsql
@@ -225,6 +244,10 @@ begin
   return v_wallet;
 end;
 $$;
+
+-- Reset uses the same historical target_user_id argument name in the hosted
+-- baseline, so replace it explicitly before adopting the p_user_id contract.
+drop function if exists public.reset_monetization_allowance(uuid);
 
 create or replace function public.reset_monetization_allowance(p_user_id uuid)
 returns public.monetization_wallets

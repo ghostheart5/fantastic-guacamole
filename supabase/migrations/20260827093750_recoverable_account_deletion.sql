@@ -31,6 +31,14 @@ revoke all on table public.account_deletion_requests
 grant select, insert, update on table public.account_deletion_requests
   to service_role;
 
+-- The hosted baseline allows defaults for p_user_id and p_lease_id. This
+-- migration intentionally requires both values from the deletion state
+-- machine, so replace the service-only RPC instead of attempting to remove
+-- argument defaults with CREATE OR REPLACE.
+drop function if exists public.claim_account_deletion_request(
+  text, text, uuid, uuid, boolean
+);
+
 create or replace function public.claim_account_deletion_request(
   p_request_id text,
   p_receipt_hash text,
