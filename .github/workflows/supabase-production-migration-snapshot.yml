@@ -1,0 +1,91 @@
+name: Supabase Production Migration Snapshot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chronospark-production-migration-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Verify exact source commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+
+      - name: Fetch hosted migration history without changing production
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
+            [ -n "${!name:-}" ] || { echo "::error::$name is required for the production snapshot."; exit 1; }
+          done
+
+          snapshot_dir="$RUNNER_TEMP/chronospark-production-migration-snapshot"
+          mkdir -p "$snapshot_dir/supabase/migrations"
+          cp supabase/config.toml "$snapshot_dir/supabase/config.toml"
+
+          supabase link \
+            --workdir "$snapshot_dir" \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+          supabase migration fetch \
+            --workdir "$snapshot_dir" \
+            --linked \
+            --yes \
+            --output-format json \
+            > "$snapshot_dir/fetch-result.json"
+          supabase migration list \
+            --workdir "$snapshot_dir" \
+            --linked \
+            > "$snapshot_dir/production-migrations.txt"
+
+          (
+            cd "$snapshot_dir"
+            find supabase/migrations -maxdepth 1 -type f -name '*.sql' -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              > SHA256SUMS
+          )
+          printf 'source_sha=%s\nworkflow_run_id=%s\nproject_ref=%s\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$SUPABASE_PROJECT_REF" \
+            > "$snapshot_dir/snapshot-manifest.txt"
+          echo "SNAPSHOT_DIR=$snapshot_dir" >> "$GITHUB_ENV"
+
+      - name: Upload read-only migration snapshot
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: supabase-production-migration-snapshot-${{ github.sha }}
+          path: |
+            ${{ env.SNAPSHOT_DIR }}/supabase/migrations
+            ${{ env.SNAPSHOT_DIR }}/fetch-result.json
+            ${{ env.SNAPSHOT_DIR }}/production-migrations.txt
+            ${{ env.SNAPSHOT_DIR }}/SHA256SUMS
+            ${{ env.SNAPSHOT_DIR }}/snapshot-manifest.txt
+          if-no-files-found: error
+          retention-days: 7
