@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/system/external_url_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -171,7 +173,7 @@ class _AssetTextPageState extends State<_AssetTextPage> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {

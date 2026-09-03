@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "policy": "An actively used compatibility API is not annotated deprecated until production callers have migrated. Every entry has an owner, replacement, and objective removal criterion.",
+  "sources": {
+    "lib/domain/entities/task.dart": {
+      "owner": "tasks",
+      "replacement": "TaskEntity",
+      "removalCriteria": "Remove after all engine, state, data, and presentation callers use TaskEntity without relying on the legacy non-null estimatedDuration contract."
+    },
+    "lib/domain/entities/time_block.dart": {
+      "owner": "planning",
+      "replacement": "CalendarEntryEntity",
+      "removalCriteria": "Remove after planning and Nexus callers use CalendarEntryEntity without relying on the completed or non-null taskId compatibility accessors."
+    },
+    "lib/engine/si/si_ai_service.dart": {
+      "owner": "si-engine",
+      "replacement": "SIEngineService",
+      "removalCriteria": "Remove after agent callers consume SIEngineService directly and the public SI surface no longer exports SIAIService."
+    },
+    "lib/engine/si/synthetic_intelligence_engine.dart": {
+      "owner": "si-engine",
+      "replacement": "SIEngineService",
+      "removalCriteria": "Remove after the cognitive input adapter and runtime-control tests are represented directly on SIEngineService."
+    }
+  }
+}

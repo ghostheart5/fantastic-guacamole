@@ -11,10 +11,27 @@ try {
     throw "Missing Supabase Edge Functions directory: $functionsRoot"
   }
 
-  $entrypoints = Get-ChildItem -Path $functionsRoot -Directory |
+  $sourceFiles = @(Get-ChildItem -Path $functionsRoot -Recurse -File -Filter '*.ts' | Sort-Object FullName)
+  if ($sourceFiles.Count -eq 0) {
+    throw 'No Supabase Edge Function TypeScript files were found.'
+  }
+
+  Write-Host "Checking formatting for $($sourceFiles.Count) Supabase Edge Function source files..."
+  & deno fmt --check $functionsRoot
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Deno formatting check failed for Supabase Edge Functions.'
+  }
+
+  Write-Host "Linting $($sourceFiles.Count) Supabase Edge Function source files..."
+  & deno lint $functionsRoot
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Deno lint failed for Supabase Edge Functions.'
+  }
+
+  $entrypoints = @(Get-ChildItem -Path $functionsRoot -Directory |
     ForEach-Object { Join-Path $_.FullName 'index.ts' } |
     Where-Object { Test-Path $_ } |
-    Sort-Object
+    Sort-Object)
 
   if ($entrypoints.Count -eq 0) {
     throw 'No Supabase Edge Function index.ts files were found.'
@@ -30,7 +47,7 @@ try {
   }
 
   if ($RunTests) {
-    $tests = Get-ChildItem -Path $functionsRoot -Recurse -File -Filter '*_test.ts' | Sort-Object FullName
+    $tests = @(Get-ChildItem -Path $functionsRoot -Recurse -File -Filter '*_test.ts' | Sort-Object FullName)
     if ($tests.Count -eq 0) {
       throw 'RunTests was requested, but no Supabase Edge Function tests were found.'
     }

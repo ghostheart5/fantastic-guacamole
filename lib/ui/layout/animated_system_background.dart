@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -43,7 +44,7 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
     }
     _isAnimating = shouldAnimate;
     if (_isAnimating) {
-      _controller.repeat(reverse: true);
+      unawaited(_controller.repeat(reverse: true));
     } else {
       _controller.stop();
       _controller.value = 0;
@@ -133,8 +134,7 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
         return Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            // ignore: use_null_aware_elements
-            if (child case final child?) child,
+            ?child,
             if (widget.showGradientOverlay)
               DecoratedBox(
                 decoration: BoxDecoration(

@@ -167,7 +167,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         ..stop()
         ..value = .5;
     } else if (!_typingAnim.isAnimating) {
-      _typingAnim.repeat();
+      unawaited(_typingAnim.repeat());
     }
   }
 
@@ -483,7 +483,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _scrollToBottom();
     _safeSetState(() => _typing = true);
 
-    _dispatchQuery(
+    await _dispatchQuery(
       text,
       priorUserTurns: priorUserTurns.length <= 4
           ? priorUserTurns

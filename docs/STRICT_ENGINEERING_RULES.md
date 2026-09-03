@@ -60,7 +60,7 @@ It scans tracked and non-ignored untracked files for secret material and validat
 
 ## 6) Testing and Stability Readiness
 
-- `flutter analyze` must pass with zero errors.
+- `flutter analyze --fatal-infos` must pass with zero diagnostics.
 - `flutter test` must pass with zero failures.
 - New critical paths (auth deletion, permissions, startup, SI routing) require focused tests.
 - Coverage floors are enforced by `scripts/coverage_guard.ps1`.

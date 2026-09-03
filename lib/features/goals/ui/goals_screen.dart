@@ -438,8 +438,20 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
     return Dismissible(
       key: Key(widget.goal.id),
       direction: DismissDirection.endToStart,
-      onDismissed: (_) {
-        ref.read(goalsProvider.notifier).complete(widget.goal.id);
+      confirmDismiss: (_) async {
+        try {
+          await ref.read(goalsProvider.notifier).complete(widget.goal.id);
+          return true;
+        } on Object {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Goal could not be completed. Please try again.'),
+              ),
+            );
+          }
+          return false;
+        }
       },
       background: Container(
         alignment: Alignment.centerRight,

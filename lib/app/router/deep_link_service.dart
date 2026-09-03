@@ -44,11 +44,21 @@ class DeepLinkState {
 }
 
 class DeepLinkService {
-  DeepLinkService._();
+  DeepLinkService._() : _initialLinkLoader = null, _uriLinkStream = null;
+
+  @visibleForTesting
+  factory DeepLinkService.forTesting({
+    required Future<Uri?> Function() initialLinkLoader,
+    required Stream<Uri> uriLinkStream,
+  }) => DeepLinkService._withSources(initialLinkLoader, uriLinkStream);
+
+  DeepLinkService._withSources(this._initialLinkLoader, this._uriLinkStream);
 
   static final DeepLinkService instance = DeepLinkService._();
 
   AppLinks? _appLinks;
+  final Future<Uri?> Function()? _initialLinkLoader;
+  final Stream<Uri>? _uriLinkStream;
   StreamSubscription<Uri>? _subscription;
   final StreamController<Uri> _controller = StreamController<Uri>.broadcast();
   Uri? _latestUri;
@@ -56,14 +66,23 @@ class DeepLinkService {
   Uri? get latestUri => _latestUri;
 
   Future<void> initializeEarly() async {
-    _appLinks ??= AppLinks();
-    final AppLinks? appLinks = _appLinks;
-    if (appLinks == null) {
-      return;
+    final Future<Uri?> Function() loadInitialLink;
+    final Stream<Uri> uriLinkStream;
+    final Future<Uri?> Function()? injectedInitialLinkLoader =
+        _initialLinkLoader;
+    final Stream<Uri>? injectedUriLinkStream = _uriLinkStream;
+    if (injectedInitialLinkLoader != null && injectedUriLinkStream != null) {
+      loadInitialLink = injectedInitialLinkLoader;
+      uriLinkStream = injectedUriLinkStream;
+    } else {
+      _appLinks ??= AppLinks();
+      final AppLinks appLinks = _appLinks!;
+      loadInitialLink = appLinks.getInitialLink;
+      uriLinkStream = appLinks.uriLinkStream;
     }
 
     // Capture cold-start deep link as early as possible.
-    final Uri? initialLink = await appLinks.getInitialLink();
+    final Uri? initialLink = await loadInitialLink();
     if (initialLink != null && _isTrusted(initialLink)) {
       _latestUri ??= initialLink;
     }
@@ -72,7 +91,7 @@ class DeepLinkService {
       _controller.add(initial);
     }
 
-    _subscription ??= appLinks.uriLinkStream.listen((Uri uri) {
+    _subscription ??= uriLinkStream.listen((Uri uri) {
       if (!_isTrusted(uri)) return;
       _latestUri = uri;
       _controller.add(uri);
@@ -91,15 +110,27 @@ class DeepLinkService {
         (uri.path == '/app' || uri.path.startsWith('/app/'));
   }
 
-  void dispose() {
-    _subscription?.cancel();
+  Future<void> dispose() async {
+    final StreamSubscription<Uri>? subscription = _subscription;
     _subscription = null;
+    await subscription?.cancel();
   }
 }
 
 final deepLinkServiceProvider = Provider<DeepLinkService>((ref) {
   final DeepLinkService service = DeepLinkService.instance;
-  ref.onDispose(service.dispose);
+  ref.onDispose(() {
+    unawaited(
+      service.dispose().catchError((Object error, StackTrace stackTrace) {
+        Logger.errorCategory(
+          'deep_link_dispose',
+          'Deep-link subscription disposal failed.',
+          error,
+          stackTrace,
+        );
+      }),
+    );
+  });
   return service;
 });
 

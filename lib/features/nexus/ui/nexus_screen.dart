@@ -67,7 +67,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         ..stop()
         ..value = .5;
     } else if (!_pulse.isAnimating) {
-      _pulse.repeat(reverse: true);
+      unawaited(_pulse.repeat(reverse: true));
     }
   }
 

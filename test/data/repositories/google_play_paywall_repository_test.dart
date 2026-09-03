@@ -364,7 +364,7 @@ void main() {
     expect(billing.restoreCalls, 0);
 
     repository.dispose();
-    client.dispose();
+    await client.dispose();
   });
 
   test('persisted pending owner resumes only for the same account', () async {
@@ -425,7 +425,7 @@ void main() {
     );
     expect(otherOwnerBilling.queryProductCalls, 0);
     otherOwnerRepository.dispose();
-    client.dispose();
+    await client.dispose();
   });
 
   test('billing start exception clears the pending operation', () async {
@@ -3150,7 +3150,7 @@ class _FakeBillingClient implements BillingClient {
   final Future<bool> Function(PurchaseParam param)? onBuyNonConsumable;
   final Future<void> Function()? onRestorePurchases;
   final List<PurchaseDetails> restoredPurchases;
-  final Object? completePurchaseError;
+  final Error? completePurchaseError;
   final bool queryShouldThrow;
   int queryProductCalls = 0;
   int buyCalls = 0;
@@ -3174,7 +3174,7 @@ class _FakeBillingClient implements BillingClient {
   @override
   Future<void> completePurchase(PurchaseDetails purchase) async {
     completePurchaseCalls += 1;
-    final Object? error = completePurchaseError;
+    final Error? error = completePurchaseError;
     if (error != null) {
       throw error;
     }

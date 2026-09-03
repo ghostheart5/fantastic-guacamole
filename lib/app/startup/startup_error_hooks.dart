@@ -30,16 +30,11 @@ class AppBootstrapper {
       final String exceptionText = Logger.redactSensitive(
         errorDetails.exceptionAsString(),
       );
-      final String stack = Logger.redactSensitive(
-        (errorDetails.stack ?? StackTrace.current).toString(),
-      );
-      if (kDebugMode || Env.enableVerboseLogs) {
-        debugPrint('FLUTTER_ERROR_MARKER >>> $exceptionText');
-        debugPrint(stack);
-        debugPrint('FLUTTER_ERROR_MARKER <<<');
-      }
+      final StackTrace stackTrace = errorDetails.stack ?? StackTrace.current;
+      final String stack = Logger.redactSensitive(stackTrace.toString());
       RuntimeDiagnostics.record(
         _formatGlobalErrorForDiagnostics(
+          releaseCode: 'startup.flutter_framework_error',
           prefix: 'Flutter framework error',
           error: exceptionText,
           stack: stack,
@@ -49,33 +44,35 @@ class AppBootstrapper {
         errorDetails.exception,
         errorDetails.stack,
       );
-      Logger.recordDiagnosticCode(
+      Logger.errorCode(
         code: 'startup.flutter_framework_error',
-        stackTrace: errorDetails.stack,
+        debugMessage: 'Flutter framework error.',
+        exception: errorDetails.exception,
+        stackTrace: stackTrace,
         fatal: true,
+        debugMarker: 'FLUTTER_ERROR_MARKER',
       );
     };
 
     PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
       final String errorText = Logger.redactSensitive(error.toString());
       final String stackText = Logger.redactSensitive(stack.toString());
-      if (kDebugMode || Env.enableVerboseLogs) {
-        debugPrint('PLATFORM_ERROR_MARKER >>> $errorText');
-        debugPrint(stackText);
-        debugPrint('PLATFORM_ERROR_MARKER <<<');
-      }
       RuntimeDiagnostics.record(
         _formatGlobalErrorForDiagnostics(
+          releaseCode: 'startup.platform_dispatcher_error',
           prefix: 'Platform dispatcher uncaught error',
           error: errorText,
           stack: stackText,
         ),
       );
       ErrorBoundary.reportGlobalError(error, stack);
-      Logger.recordDiagnosticCode(
+      Logger.errorCode(
         code: 'startup.platform_dispatcher_error',
+        debugMessage: 'Platform dispatcher uncaught error.',
+        exception: error,
         stackTrace: stack,
         fatal: true,
+        debugMarker: 'PLATFORM_ERROR_MARKER',
       );
       return true;
     };
@@ -89,19 +86,24 @@ class AppBootstrapper {
   }
 
   void _handleUncaughtZoneError(Object error, StackTrace stack) {
-    FlutterError.presentError(
-      FlutterErrorDetails(exception: error, stack: stack),
-    );
+    if (Logger.freeFormOutputEnabled) {
+      FlutterError.presentError(
+        FlutterErrorDetails(exception: error, stack: stack),
+      );
+    }
     RuntimeDiagnostics.record(
       _formatGlobalErrorForDiagnostics(
+        releaseCode: 'startup.uncaught_zone_error',
         prefix: 'Uncaught zone error',
         error: error,
         stack: stack.toString(),
       ),
     );
     ErrorBoundary.reportGlobalError(error, stack);
-    Logger.recordDiagnosticCode(
+    Logger.errorCode(
       code: 'startup.uncaught_zone_error',
+      debugMessage: 'Uncaught zone error.',
+      exception: error,
       stackTrace: stack,
       fatal: true,
     );
@@ -109,6 +111,7 @@ class AppBootstrapper {
 }
 
 String _formatGlobalErrorForDiagnostics({
+  required String releaseCode,
   required String prefix,
   required Object error,
   required String stack,
@@ -120,8 +123,8 @@ String _formatGlobalErrorForDiagnostics({
         orElse: () => '',
       )
       .trim();
-  if (kDebugMode || Env.enableVerboseLogs) {
+  if (Logger.freeFormOutputEnabled) {
     return '$prefix (${error.runtimeType})\n${appLine.isEmpty ? '' : 'app: $appLine\n'}$stack';
   }
-  return '$prefix (${error.runtimeType})';
+  return 'Diagnostic: $releaseCode';
 }

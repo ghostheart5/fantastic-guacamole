@@ -525,7 +525,7 @@ class BackupService {
         failures.add(error);
       }
     }
-    if (failures.isNotEmpty) throw failures.first;
+    if (failures.isNotEmpty) _throwRestoreFailure(failures.first);
   }
 
   Future<void> _restoreLegacyProfileSnapshot(
@@ -574,7 +574,7 @@ class BackupService {
       }
     }
     if (failures.isNotEmpty) {
-      throw failures.first;
+      _throwRestoreFailure(failures.first);
     }
   }
 
@@ -605,8 +605,18 @@ class BackupService {
       failures.add(error);
     }
     if (failures.isNotEmpty) {
-      throw failures.first;
+      _throwRestoreFailure(failures.first);
     }
+  }
+
+  Never _throwRestoreFailure(Object failure) {
+    if (failure is Exception) {
+      throw failure;
+    }
+    if (failure is Error) {
+      throw failure;
+    }
+    throw Exception(failure);
   }
 
   Future<void> _restoreSettingSnapshot(_RestoreSnapshot snapshot) async {

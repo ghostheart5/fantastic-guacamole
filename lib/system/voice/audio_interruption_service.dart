@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:audio_session/audio_session.dart';
-import 'package:flutter/foundation.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:flutter/services.dart';
 
 abstract class AudioInterruptionService {
@@ -37,8 +37,13 @@ class PluginAudioInterruptionService implements AudioInterruptionService {
       });
     } on MissingPluginException {
       // No audio session support in this environment (e.g. flutter test).
-    } on PlatformException catch (error) {
-      debugPrint('AudioInterruptionService unavailable: $error');
+    } on PlatformException catch (error, stackTrace) {
+      Logger.errorCode(
+        code: 'audio_interruption.initialization_unavailable',
+        debugMessage: 'Audio interruption handling is unavailable.',
+        exception: error,
+        stackTrace: stackTrace,
+      );
     } catch (_) {
       // Never let interruption-listener setup crash app startup.
     }

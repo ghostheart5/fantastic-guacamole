@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -71,7 +73,11 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
     );
     await _saveOptimizationConfig(store, adjusted, today);
     return adjusted;
-  } catch (_) {
+  } on Object catch (_, stackTrace) {
+    Logger.recordDiagnosticCode(
+      code: 'optimization.compute_failed',
+      stackTrace: stackTrace,
+    );
     return OptimizationConfig.neutral();
   }
 });
@@ -118,7 +124,12 @@ OptimizationConfig? _loadOptimizationConfig(SharedPrefsStore store) {
       nextActionAggressiveness:
           (json['nextActionAggressiveness'] as num?)?.toDouble() ?? 1,
     );
-  } catch (_) {
+  } on Object catch (error, stackTrace) {
+    handlePersistedPayloadDecodeFailure(
+      diagnosticCode: 'storage.optimization_config_decode_failed',
+      error: error,
+      stackTrace: stackTrace,
+    );
     return null;
   }
 }

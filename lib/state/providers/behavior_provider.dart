@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -37,7 +38,13 @@ class BehaviorNotifier extends Notifier<BehaviorState> {
           capacity: (j['capacity'] as num?)?.toDouble() ?? 0.2,
           stability: (j['stability'] as num?)?.toDouble() ?? 0.2,
         );
-      } catch (_) {}
+      } on Object catch (error, stackTrace) {
+        handlePersistedPayloadDecodeFailure(
+          diagnosticCode: 'storage.behavior_state_decode_failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
     }
     return const BehaviorState(consistency: 0.2, capacity: 0.2, stability: 0.2);
   }

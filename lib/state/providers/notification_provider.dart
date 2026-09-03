@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
@@ -71,31 +73,34 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
       disposed = true;
     });
 
-    Future<void>(() async {
-      final List<NotificationEntity> notifications =
-          await notificationRepository.getNotifications();
+    unawaited(
+      Future<void>(() async {
+        final List<NotificationEntity> notifications =
+            await notificationRepository.getNotifications();
 
-      if (disposed || !_isCurrent(generation, notificationRepository)) {
-        return;
-      }
+        if (disposed || !_isCurrent(generation, notificationRepository)) {
+          return;
+        }
 
-      final Map<String, NotificationEntity> mergedById =
-          <String, NotificationEntity>{
-            for (final NotificationEntity item in notifications) item.id: item,
-          };
+        final Map<String, NotificationEntity> mergedById =
+            <String, NotificationEntity>{
+              for (final NotificationEntity item in notifications)
+                item.id: item,
+            };
 
-      for (final NotificationEntity item in state) {
-        mergedById[item.id] = item;
-      }
+        for (final NotificationEntity item in state) {
+          mergedById[item.id] = item;
+        }
 
-      final List<NotificationEntity> merged =
-          mergedById.values.toList(growable: false)..sort(
-            (NotificationEntity a, NotificationEntity b) =>
-                b.scheduledAt.compareTo(a.scheduledAt),
-          );
+        final List<NotificationEntity> merged =
+            mergedById.values.toList(growable: false)..sort(
+              (NotificationEntity a, NotificationEntity b) =>
+                  b.scheduledAt.compareTo(a.scheduledAt),
+            );
 
-      state = merged;
-    });
+        state = merged;
+      }),
+    );
 
     return const <NotificationEntity>[];
   }
@@ -191,17 +196,19 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     String taskTitle, {
     bool refreshPlanner = true,
     bool refreshPlan = true,
-  }) {
+  }) async {
     final bool soundEnabled = ref.read(soundEnabledProvider);
-    AudioService.playAchievement(soundEnabled);
-    return pushInApp(
-      _inAppNotification(
-        title: 'Completion',
-        message: '$taskTitle completed. Recomputing next move.',
+    await Future.wait<void>(<Future<void>>[
+      AudioService.playAchievement(soundEnabled),
+      pushInApp(
+        _inAppNotification(
+          title: 'Completion',
+          message: '$taskTitle completed. Recomputing next move.',
+        ),
+        refreshPlanner: refreshPlanner,
+        refreshPlan: refreshPlan,
       ),
-      refreshPlanner: refreshPlanner,
-      refreshPlan: refreshPlan,
-    );
+    ]);
   }
 
   Future<void> pushTaskSkipped(
@@ -287,28 +294,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     return generation == _generation && identical(repository, _repository);
   }
 
-  /// Factory for a real, OS-scheduled notification.
-  ///
-  /// Retained deliberately: this is the correct shape for an actual reminder
-  /// (enabled, scheduled in the future) and is the counterpart to
-  /// [_inAppNotification]. It is currently unreferenced only because the three
-  /// interaction-feedback callers were moved to the in-app path; any future
-  /// reminder pushed through [push] should use this.
-  // ignore: unused_element
-  NotificationEntity _notification({
-    required String title,
-    required String message,
-  }) {
-    final DateTime now = DateTime.now();
-    return NotificationEntity(
-      id: 'notification-${now.microsecondsSinceEpoch}',
-      title: title,
-      message: message,
-      scheduledAt: now.add(const Duration(seconds: 1)),
-    );
-  }
-
-  /// In-app-only counterpart of [_notification].
+  /// Creates transient feedback that must never reach the OS scheduler.
   ///
   /// `isEnabled: false` marks it as never-to-be-posted by the OS, and
   /// `scheduledAt` is now rather than a second in the future because there is

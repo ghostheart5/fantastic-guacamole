@@ -219,6 +219,7 @@ class GooglePlayPaywallRepository
   Future<SubscriptionState>? _restoreInFlight;
   String? _restoreInFlightUserId;
   Future<void> _purchaseUpdateQueue = Future<void>.value();
+  Future<void>? _disposeFuture;
   bool _disposed = false;
 
   final Map<String, Future<SubscriptionState>> _purchaseStarts =
@@ -445,7 +446,7 @@ class GooglePlayPaywallRepository
       return await purchase;
     } finally {
       if (identical(_purchaseStarts[operationKey], purchase)) {
-        _purchaseStarts.remove(operationKey);
+        _purchaseStarts.remove(operationKey)?.ignore();
       }
     }
   }
@@ -746,11 +747,45 @@ class GooglePlayPaywallRepository
     }
   }
 
+  /// Starts disposal for lifecycle owners that cannot await an asynchronous
+  /// callback. Cancellation failures are reported instead of becoming
+  /// unhandled asynchronous errors.
   void dispose() {
+    unawaited(
+      disposeAsync().catchError((Object error, StackTrace stackTrace) {
+        Logger.errorCategory(
+          'google_play_paywall_dispose',
+          'Google Play paywall disposal failed.',
+          error,
+          stackTrace,
+        );
+      }),
+    );
+  }
+
+  /// Deterministically cancels purchase updates and waits for work already
+  /// accepted from the stream to settle.
+  Future<void> disposeAsync() => _disposeFuture ??= _disposeAsync();
+
+  Future<void> _disposeAsync() async {
     _disposed = true;
     _authorityGeneration += 1;
     _authorityRequestUserId = null;
-    _purchaseSub.cancel();
+    try {
+      await _purchaseSub.cancel();
+    } finally {
+      await _purchaseUpdateQueue.catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
+        Logger.errorCategory(
+          'google_play_purchase_update_dispose',
+          'A queued Google Play purchase update failed during disposal.',
+          error,
+          stackTrace,
+        );
+      });
+    }
   }
 
   Future<SubscriptionState> _refreshAuthority({

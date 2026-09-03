@@ -158,7 +158,9 @@ extension _GooglePlayPaywallPersistenceSupport on GooglePlayPaywallRepository {
         GooglePlayPaywallRepository._persistenceQueues[storageKey],
         queued,
       )) {
-        GooglePlayPaywallRepository._persistenceQueues.remove(storageKey);
+        GooglePlayPaywallRepository._persistenceQueues
+            .remove(storageKey)
+            ?.ignore();
         GooglePlayPaywallRepository._persistenceRevisions.remove(storageKey);
       }
     }

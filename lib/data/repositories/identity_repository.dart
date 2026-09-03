@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/identity_profile_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_identity_repository.dart';
@@ -29,7 +30,13 @@ class IdentityRepository implements IIdentityRepository {
       if (decoded is Map<String, dynamic>) {
         return IdentityProfileEntity.fromJson(decoded);
       }
-    } catch (_) {}
+    } on Object catch (error, stackTrace) {
+      handlePersistedPayloadDecodeFailure(
+        diagnosticCode: 'storage.identity_profile_decode_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
     return null;
   }
 

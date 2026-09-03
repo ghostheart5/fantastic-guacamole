@@ -1,4 +1,4 @@
-// CHRONOSPARK-CLASS: DEPRECATED | Feature: Task compatibility
+// CHRONOSPARK-CLASS: LEGACY | Feature: Task compatibility
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
@@ -7,7 +7,6 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 /// All state and behavior live in [TaskEntity]. This subclass only preserves
 /// the historical constructor and non-null duration contract while callers
 /// migrate to the canonical type.
-@Deprecated('Use TaskEntity. This compatibility type stores no extra state.')
 class Task extends TaskEntity {
   // Keep the legacy non-null duration contract while the canonical base is nullable.
   // ignore: use_super_parameters

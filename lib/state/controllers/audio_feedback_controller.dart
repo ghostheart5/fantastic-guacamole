@@ -9,11 +9,9 @@ final audioFeedbackControllerProvider = Provider<AudioFeedbackController>(
 class AudioFeedbackController {
   const AudioFeedbackController();
 
-  void playDecision() {
-    AudioService.play(AppAssets.audioActionTick, true);
-  }
+  Future<void> playDecision() =>
+      AudioService.play(AppAssets.audioActionTick, true);
 
-  void playTaskComplete() {
-    AudioService.play(AppAssets.audioMilestoneLift, true);
-  }
+  Future<void> playTaskComplete() =>
+      AudioService.play(AppAssets.audioMilestoneLift, true);
 }

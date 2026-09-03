@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:flutter/foundation.dart';
@@ -105,8 +106,13 @@ class VoicePermissionService {
       return status.isGranted;
     } on MissingPluginException {
       return false;
-    } on PlatformException catch (error) {
-      debugPrint('VoicePermissionService unavailable: $error');
+    } on PlatformException catch (error, stackTrace) {
+      Logger.errorCode(
+        code: 'voice_permission.request_unavailable',
+        debugMessage: 'Microphone permission request is unavailable.',
+        exception: error,
+        stackTrace: stackTrace,
+      );
       return false;
     } catch (_) {
       return false;

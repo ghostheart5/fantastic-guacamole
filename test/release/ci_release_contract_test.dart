@@ -6,6 +6,12 @@ import 'package:yaml/yaml.dart';
 
 void main() {
   final Directory root = Directory.current;
+  const String formatCommand =
+      'dart format --output=none --set-exit-if-changed '
+      'lib test integration_test tool scripts';
+  const String fatalAnalyzeCommand = 'flutter analyze --fatal-infos';
+  const String edgeFunctionGateCommand =
+      './scripts/edge_function_gate.ps1 -RunTests';
 
   String read(String path) =>
       File.fromUri(root.uri.resolve(path)).readAsStringSync();
@@ -33,6 +39,18 @@ void main() {
     }
     return null;
   }
+
+  Set<String> commands(YamlMap currentJob) =>
+      steps(currentJob).expand<String>((YamlMap step) {
+        final Object? run = step['run'];
+        if (run is! String) {
+          return const <String>[];
+        }
+        return run
+            .split(RegExp(r'\r?\n'))
+            .map((String line) => line.trim())
+            .where((String line) => line.isNotEmpty);
+      }).toSet();
 
   bool containsSecret(Object? value) {
     if (value is String) {
@@ -76,11 +94,31 @@ void main() {
     );
     expect(
       testSteps.map((YamlMap step) => step['run']),
-      contains('./scripts/edge_function_gate.ps1 -RunTests'),
+      contains(edgeFunctionGateCommand),
+    );
+    expect(
+      commands(testJob),
+      containsAll(<String>[
+        formatCommand,
+        fatalAnalyzeCommand,
+        edgeFunctionGateCommand,
+      ]),
     );
     expect(
       namedStep(testJob, 'Verify golden comparison contract')['run'],
       './scripts/golden_assertion_guard.ps1',
+    );
+  });
+
+  test('extended Dart validation retains exact static gates', () {
+    final YamlMap build = job(workflow('dart.yml'), 'build');
+    expect(
+      commands(build),
+      containsAll(<String>[
+        formatCommand,
+        fatalAnalyzeCommand,
+        edgeFunctionGateCommand,
+      ]),
     );
   });
 
@@ -224,6 +262,14 @@ void main() {
       expect(environmentName(publish), 'production');
 
       final List<YamlMap> buildSteps = steps(build);
+      expect(
+        commands(build),
+        containsAll(<String>[
+          formatCommand,
+          fatalAnalyzeCommand,
+          edgeFunctionGateCommand,
+        ]),
+      );
       final YamlMap checkout = buildSteps.singleWhere(
         (YamlMap step) =>
             step['uses']?.toString().startsWith('actions/checkout@') == true,

@@ -391,7 +391,7 @@ ProviderContainer _buildContainer({
   void Function(_TimelineNotifier value)? onTimelineNotifierBuilt,
   void Function(_RecordingTaskActions value)? onActionsBuilt,
   Completer<void>? updateCompleter,
-  Object? updateError,
+  Error? updateError,
   DateTime Function()? clock,
 }) {
   final ProviderContainer container = ProviderContainer(
@@ -496,7 +496,7 @@ class _RecordingTaskActions extends TaskActions {
     : super(ref);
 
   final Completer<void>? updateCompleter;
-  final Object? updateError;
+  final Error? updateError;
   int updateCalls = 0;
   int deleteCalls = 0;
   String? updatedId;

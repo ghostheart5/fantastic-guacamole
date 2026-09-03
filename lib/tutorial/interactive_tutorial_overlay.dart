@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -84,7 +85,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
         (media?.accessibleNavigation ?? false);
     if (_reduceMotion == reduceMotion) {
       if (!reduceMotion && !_pointerController.isAnimating) {
-        _pointerController.repeat(reverse: true);
+        unawaited(_pointerController.repeat(reverse: true));
       }
       return;
     }
@@ -94,7 +95,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
         ..stop()
         ..value = 0;
     } else {
-      _pointerController.repeat(reverse: true);
+      unawaited(_pointerController.repeat(reverse: true));
     }
   }
 

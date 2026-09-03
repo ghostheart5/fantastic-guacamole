@@ -3,6 +3,12 @@ import 'dart:io';
 import 'package:yaml/yaml.dart';
 
 const String _flutterVersion = '3.44.6';
+const String _formatCommand =
+    'dart format --output=none --set-exit-if-changed '
+    'lib test integration_test tool scripts';
+const String _fatalAnalyzeCommand = 'flutter analyze --fatal-infos';
+const String _edgeFunctionGateCommand =
+    './scripts/edge_function_gate.ps1 -RunTests';
 
 const Map<String, Map<String, Set<String>>> _allowedJobWrites =
     <String, Map<String, Set<String>>>{
@@ -44,6 +50,7 @@ void main() {
     _validateWorkflow(file, failures);
   }
   _validatePrimaryCi(failures);
+  _validateStaticQualityGates(failures);
   _validateAndroidRelease(failures);
 
   if (failures.isNotEmpty) {
@@ -336,6 +343,61 @@ void _validatePrimaryCi(List<String> failures) {
       );
   if (!invokesGuard) {
     failures.add('Primary CI must execute the GitHub workflow guard.');
+  }
+}
+
+void _validateStaticQualityGates(List<String> failures) {
+  const Map<String, String> gatedJobs = <String, String>{
+    'ci.yml': 'test',
+    'dart.yml': 'build',
+    'android-release.yml': 'build-aab',
+  };
+
+  for (final MapEntry<String, String> entry in gatedJobs.entries) {
+    final File file = File('.github/workflows/${entry.key}');
+    final YamlMap? document = _loadWorkflow(file, failures);
+    if (document == null) {
+      continue;
+    }
+    final Object? jobsValue = document['jobs'];
+    final Object? jobValue = jobsValue is YamlMap
+        ? jobsValue[entry.value]
+        : null;
+    final Object? stepsValue = jobValue is YamlMap ? jobValue['steps'] : null;
+    if (stepsValue is! YamlList) {
+      failures.add(
+        '${entry.key} job ${entry.value} must declare static gates.',
+      );
+      continue;
+    }
+    final List<YamlMap> steps = stepsValue.whereType<YamlMap>().toList();
+    final Set<String> commands = steps
+        .expand<String>((YamlMap step) => _commandLines(step['run']))
+        .toSet();
+
+    for (final String command in <String>[
+      _formatCommand,
+      _fatalAnalyzeCommand,
+      _edgeFunctionGateCommand,
+    ]) {
+      if (!commands.contains(command)) {
+        failures.add(
+          '${entry.key} job ${entry.value} must execute exactly: $command',
+        );
+      }
+    }
+  }
+}
+
+Iterable<String> _commandLines(Object? run) sync* {
+  if (run is! String) {
+    return;
+  }
+  for (final String line in run.split(RegExp(r'\r?\n'))) {
+    final String command = line.trim();
+    if (command.isNotEmpty) {
+      yield command;
+    }
   }
 }
 

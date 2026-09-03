@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
@@ -5,6 +7,7 @@ import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -37,6 +40,21 @@ class DeepLinkEventDeduplicator {
 }
 
 const String _authCallbackTypeQueryParameter = 'type';
+
+void _observeAppFuture<T>(
+  Future<T> future, {
+  required String category,
+  required String message,
+}) {
+  unawaited(
+    future.then<void>(
+      (T _) {},
+      onError: (Object error, StackTrace stackTrace) {
+        Logger.errorCategory(category, message, error, stackTrace);
+      },
+    ),
+  );
+}
 
 @visibleForTesting
 String resolveExternalDeepLinkLocation(Uri uri) {
@@ -420,7 +438,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
     // Deep links are handled automatically without direct user interaction.
     // Use replace to avoid creating a synthetic browser history entry.
     try {
-      router.replace<Object?>(location);
+      _observeAppFuture<Object?>(
+        router.replace<Object?>(location),
+        category: 'deep_link_navigation',
+        message: 'Deep-link navigation failed.',
+      );
     } on Exception {
       // A later deep-link event can retry a target rejected by the router.
     }
@@ -446,7 +468,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
       return;
     }
 
-    showModalBottomSheet<void>(
+    final Future<void> diagnosticsSheet = showModalBottomSheet<void>(
       context: navigatorState.context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF050D1A),
@@ -514,6 +536,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
           ),
         );
       },
+    );
+    _observeAppFuture<void>(
+      diagnosticsSheet,
+      category: 'diagnostics_sheet',
+      message: 'Diagnostics sheet presentation failed.',
     );
   }
 }

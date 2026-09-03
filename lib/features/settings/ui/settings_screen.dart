@@ -998,7 +998,7 @@ class SettingsScreen extends ConsumerWidget {
     if (opened || !context.mounted) {
       return;
     }
-    context.push(fallbackRoute);
+    unawaited(context.push<void>(fallbackRoute));
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(failureLabel)));

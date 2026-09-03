@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -106,7 +109,7 @@ class PersonalizationProfileController
       scope: ref.watch(accountStorageScopeProvider),
       legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
     );
-    _load();
+    unawaited(_load());
     return const PersonalizationProfile();
   }
 
@@ -118,8 +121,19 @@ class PersonalizationProfileController
       state = PersonalizationProfile.fromJson(
         jsonDecode(raw) as Map<String, dynamic>,
       );
-    } catch (_) {
-      // Preserve safe defaults and leave the corrupt payload recoverable.
+    } on Object catch (error, stackTrace) {
+      try {
+        handlePersistedPayloadDecodeFailure(
+          diagnosticCode: 'storage.personalization_profile_decode_failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      } on Object {
+        Logger.recordDiagnosticCode(
+          code: 'storage.personalization_profile_load_failed',
+          stackTrace: stackTrace,
+        );
+      }
     }
   }
 
@@ -165,7 +179,7 @@ class ObservedPlanningPatternsController
       scope: ref.watch(accountStorageScopeProvider),
       legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
     );
-    _load();
+    unawaited(_load());
     return const ObservedPlanningPatterns();
   }
 
@@ -177,8 +191,19 @@ class ObservedPlanningPatternsController
       state = ObservedPlanningPatterns.fromJson(
         jsonDecode(raw) as Map<String, dynamic>,
       );
-    } catch (_) {
-      // Preserve safe defaults.
+    } on Object catch (error, stackTrace) {
+      try {
+        handlePersistedPayloadDecodeFailure(
+          diagnosticCode: 'storage.planning_patterns_decode_failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      } on Object {
+        Logger.recordDiagnosticCode(
+          code: 'storage.planning_patterns_load_failed',
+          stackTrace: stackTrace,
+        );
+      }
     }
   }
 

@@ -456,10 +456,10 @@ class _SilentAudioFeedbackController extends AudioFeedbackController {
   const _SilentAudioFeedbackController();
 
   @override
-  void playDecision() {}
+  Future<void> playDecision() => Future<void>.value();
 
   @override
-  void playTaskComplete() {}
+  Future<void> playTaskComplete() => Future<void>.value();
 }
 
 class _InMemoryTaskRepository implements ITaskRepository {

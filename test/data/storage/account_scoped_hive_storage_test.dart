@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dart';
@@ -115,9 +117,11 @@ void main() {
 
       expect(storage.get('legacy'), 'preserved');
       expect(storage.getAll(), <dynamic, String>{'legacy': 'preserved'});
+      final Box<String> scoped = hive.box<String>(storage.boxKey);
 
       await storage.prepare();
       expect(storage.get('legacy'), 'preserved');
+      expect(scoped.get('legacy'), 'preserved');
       expect(legacy.get('legacy'), 'preserved');
     },
   );
@@ -130,15 +134,51 @@ void main() {
         LegacyScopeOwnership.provenNotOwned,
       );
       await hive.openBox<String>(storage.boxKey);
+      final int openCallsBeforeFailedReads = hive.openBoxCalls;
 
       expect(() => storage.get('missing'), throwsStateError);
       expect(storage.getAll, throwsStateError);
+      await Future<void>.delayed(Duration.zero);
+      expect(hive.openBoxCalls, openCallsBeforeFailedReads);
+      expect(
+        hive
+            .box<String>(storage.boxKey)
+            .containsKey(AccountScopedHiveStorage.migrationMarkerKey),
+        isFalse,
+      );
 
       await storage.prepare();
       expect(storage.get('missing'), isNull);
       expect(storage.getAll(), isEmpty);
     },
   );
+
+  test('legacy reads observe asynchronous preparation failures', () async {
+    final Box<String> legacy = await hive.openBox<String>('records');
+    await legacy.put('legacy', 'preserved');
+    final AccountScopedHiveStorage storage = _storage(
+      hive,
+      LegacyScopeOwnership.provenOwned,
+    );
+    hive.failOpenBoxKey = storage.boxKey;
+    final List<Object> unhandledErrors = <Object>[];
+
+    final Future<void>? guarded = runZonedGuarded<Future<void>>(
+      () async {
+        await Logger.withMutedErrors(() async {
+          expect(storage.get('legacy'), 'preserved');
+          await Future<void>.delayed(Duration.zero);
+        });
+      },
+      (Object error, StackTrace stackTrace) {
+        unhandledErrors.add(error);
+      },
+    );
+    await guarded;
+
+    expect(unhandledErrors, isEmpty);
+    expect(hive.isBoxOpen(storage.boxKey), isFalse);
+  });
 }
 
 AccountScopedHiveStorage _storage(
@@ -154,6 +194,9 @@ AccountScopedHiveStorage _storage(
 }
 
 class _DirectHiveStore implements HiveStore {
+  int openBoxCalls = 0;
+  String? failOpenBoxKey;
+
   @override
   Future<void> init() async {}
 
@@ -162,6 +205,10 @@ class _DirectHiveStore implements HiveStore {
 
   @override
   Future<Box<T>> openBox<T>(String key) async {
+    openBoxCalls += 1;
+    if (key == failOpenBoxKey) {
+      throw StateError('Configured open failure for $key.');
+    }
     if (Hive.isBoxOpen(key)) return Hive.box<T>(key);
     return Hive.openBox<T>(key);
   }

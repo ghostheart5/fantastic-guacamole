@@ -323,7 +323,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           return;
         }
 
-        SystemNavigator.pop();
+        unawaited(
+          runGuardedBackgroundTask(
+            label: 'application exit',
+            task: () => SystemNavigator.pop(),
+          ),
+        );
       },
       child: OfflineBanner(child: body),
     );

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/engine/signals/signal_engine.dart';
 import 'package:fantastic_guacamole/engine/signals/pattern_signal_engine.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
@@ -46,7 +47,12 @@ final patternSignalProvider = FutureProvider<String>((ref) async {
         .map((Map<String, dynamic> e) => NeuralEntry.fromJson(e))
         .toList();
     return engine.generate(history);
-  } catch (_) {
+  } on Object catch (error, stackTrace) {
+    handlePersistedPayloadDecodeFailure(
+      diagnosticCode: 'storage.pattern_signal_history_decode_failed',
+      error: error,
+      stackTrace: stackTrace,
+    );
     return 'No data yet.';
   }
 });

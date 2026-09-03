@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_theme_repository.dart';
@@ -31,7 +32,13 @@ class ThemeRepository implements IThemeRepository {
           isDark: (decoded['isDark'] as bool?) ?? true,
         );
       }
-    } catch (_) {}
+    } on Object catch (error, stackTrace) {
+      handlePersistedPayloadDecodeFailure(
+        diagnosticCode: 'storage.theme_decode_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
     return AppThemeEntity.defaultTheme();
   }
 

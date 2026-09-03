@@ -58,7 +58,7 @@ final aiDecisionProvider = FutureProvider<Decision?>((ref) async {
   final Decision? decision = core.decide(tasks);
 
   if (decision != null) {
-    ref
+    await ref
         .read(notificationActionsProvider)
         .pushMirroredDecision(decision.task.title);
   }

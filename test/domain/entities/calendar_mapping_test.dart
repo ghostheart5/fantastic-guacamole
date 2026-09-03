@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/domain/entities/calendar_entry.dart';
 import 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,8 +6,8 @@ void main() {
   final DateTime start = DateTime.utc(2026, 7, 6, 9);
   final DateTime end = DateTime.utc(2026, 7, 6, 10);
 
-  test('CalendarEntry is the canonical calendar entity', () {
-    final CalendarEntry entry = CalendarEntry(
+  test('CalendarEntryEntity round trips without a compatibility alias', () {
+    final CalendarEntryEntity entry = CalendarEntryEntity(
       id: 'entry-1',
       title: 'Deep work',
       description: 'the important block',
@@ -18,7 +17,6 @@ void main() {
       isCompleted: true,
     );
 
-    expect(entry, isA<CalendarEntryEntity>());
     expect(
       CalendarEntryEntity.fromJson(entry.toJson()).toJson(),
       entry.toJson(),

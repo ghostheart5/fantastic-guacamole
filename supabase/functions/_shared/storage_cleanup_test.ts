@@ -16,15 +16,15 @@ Deno.test("recursively lists nested folders and deletes every file", async () =>
   const result = await deleteUserStorageObjects("user-1", {
     supabaseUrl: "https://example.supabase.co",
     serviceRoleKey: "test-service-role",
-    fetcher: async (_input, init) => {
+    fetcher: (_input, init) => {
       const method = init?.method ?? "GET";
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
       requests.push({ method, body });
       if (method === "POST") {
         const prefix = String(body.prefix);
-        return Response.json(listings.get(prefix) ?? []);
+        return Promise.resolve(Response.json(listings.get(prefix) ?? []));
       }
-      return Response.json([]);
+      return Promise.resolve(Response.json([]));
     },
   });
 
@@ -48,7 +48,7 @@ Deno.test("paginates listings and deletes in bounded batches", async () => {
     supabaseUrl: "https://example.supabase.co",
     serviceRoleKey: "test-service-role",
     pageSize: 2,
-    fetcher: async (_input, init) => {
+    fetcher: (_input, init) => {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
       if (init?.method === "POST") {
         const offset = Number(body.offset);
@@ -60,10 +60,10 @@ Deno.test("paginates listings and deletes in bounded batches", async () => {
           : offset === 2
           ? [{ name: "three.json", id: "3", metadata: {} }]
           : [];
-        return Response.json(entries);
+        return Promise.resolve(Response.json(entries));
       }
       deletedBatches.push(body.prefixes as string[]);
-      return Response.json([]);
+      return Promise.resolve(Response.json([]));
     },
   });
 
@@ -80,17 +80,19 @@ Deno.test("fails closed on malformed listings or delete failure", async () => {
   const malformed = await deleteUserStorageObjects("user-3", {
     supabaseUrl: "https://example.supabase.co",
     serviceRoleKey: "test-service-role",
-    fetcher: async () => Response.json({ not: "a list" }),
+    fetcher: () => Promise.resolve(Response.json({ not: "a list" })),
   });
   if (malformed) throw new Error("malformed listing must fail closed");
 
   const deleteFailure = await deleteUserStorageObjects("user-3", {
     supabaseUrl: "https://example.supabase.co",
     serviceRoleKey: "test-service-role",
-    fetcher: async (_input, init) =>
-      init?.method === "POST"
-        ? Response.json([{ name: "backup.json", id: "1", metadata: {} }])
-        : new Response("failed", { status: 500 }),
+    fetcher: (_input, init) =>
+      Promise.resolve(
+        init?.method === "POST"
+          ? Response.json([{ name: "backup.json", id: "1", metadata: {} }])
+          : new Response("failed", { status: 500 }),
+      ),
   });
   if (deleteFailure) throw new Error("delete failure must fail closed");
 });

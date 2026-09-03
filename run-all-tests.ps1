@@ -130,7 +130,7 @@ try {
     }
 
     Invoke-Stage '1. Dependency resolution' $flutter @('pub','get') $projectRoot
-    Invoke-Stage '2. Format verification' $dart @('format','--output=none','--set-exit-if-changed','lib','test','integration_test') $projectRoot
+    Invoke-Stage '2. Format verification' $dart @('format','--output=none','--set-exit-if-changed','lib','test','integration_test','tool','scripts') $projectRoot
     Invoke-Stage '3. Security secret guard' $powerShell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $projectRoot 'scripts\security_secret_guard.ps1')) $projectRoot
     Invoke-Stage '4. Secret content guard' $powerShell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $projectRoot 'scripts\secret_content_guard.ps1')) $projectRoot
     Invoke-Stage '5. Flutter analysis' $flutter @('analyze','--fatal-infos') $projectRoot

@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
 const ALLOWED_ORIGINS = new Set(
   (Deno.env.get("ALLOWED_ORIGINS") ??
     "https://chronospark.app,https://www.chronospark.app")
@@ -98,8 +99,12 @@ serve(async (req) => {
 
     const body = await req.json();
     const reason = typeof body?.reason === "string" ? body.reason : "";
-    const content = typeof body?.content === "string" ? body.content.trim() : "";
-    if (!allowedReasons.has(reason) || content.length < 1 || content.length > 4000) {
+    const content = typeof body?.content === "string"
+      ? body.content.trim()
+      : "";
+    if (
+      !allowedReasons.has(reason) || content.length < 1 || content.length > 4000
+    ) {
       return new Response(JSON.stringify({ error: "invalid report" }), {
         status: 400,
         headers: { ...headers, "Content-Type": "application/json" },
@@ -123,10 +128,13 @@ serve(async (req) => {
     });
     if (!insert.ok) {
       await insert.body?.cancel();
-      return new Response(JSON.stringify({ error: "report could not be saved" }), {
-        status: 502,
-        headers: { ...headers, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "report could not be saved" }),
+        {
+          status: 502,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
+      );
     }
 
     return new Response(JSON.stringify({ accepted: true }), {

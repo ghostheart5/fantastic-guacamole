@@ -59,7 +59,7 @@ Write-Host "Source branch: $sourceBranch"
 Write-Host "Dirty checkout: $($dirtyEntries.Count -gt 0) ($($dirtyEntries.Count) entries)"
 
 Run-Step -Name 'Format verification' -Action {
-  dart format --output=none --set-exit-if-changed lib test integration_test
+  dart format --output=none --set-exit-if-changed lib test integration_test tool scripts
 }
 
 Run-Step -Name 'Security secret guard' -Action {

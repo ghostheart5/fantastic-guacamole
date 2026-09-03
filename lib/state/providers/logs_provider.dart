@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
@@ -107,7 +109,7 @@ class LogsActions {
 class LogsController extends Notifier<LogsState> {
   @override
   LogsState build() {
-    Future<void>.microtask(load);
+    unawaited(Future<void>.microtask(load));
     return LogsState.initial().copyWith(isLoading: true);
   }
 

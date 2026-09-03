@@ -489,7 +489,9 @@ class _TaskOccurrenceMutationLocks {
           }
         })
         .whenComplete(() {
-          if (identical(_tails[key], current)) _tails.remove(key);
+          if (identical(_tails[key], current)) {
+            unawaited(_tails.remove(key));
+          }
         });
     _tails[key] = current;
     return result.future;

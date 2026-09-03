@@ -81,7 +81,8 @@ The file is never bundled as a Flutter asset. Pass it to local debug runs with
 ### Common commands
 
 ```bash
-flutter analyze
+dart format --output=none --set-exit-if-changed lib test integration_test tool scripts
+flutter analyze --fatal-infos
 flutter test
 flutter run -d windows --dart-define-from-file=.env
 ```

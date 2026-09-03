@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -129,7 +130,7 @@ class TaskCard extends ConsumerWidget {
                       color: AppColors.neonCyan,
                     ),
                     onPressed: () {
-                      onComplete!(task);
+                      unawaited(onComplete!(task));
                     },
                   ),
               ],

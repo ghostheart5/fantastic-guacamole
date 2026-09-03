@@ -88,7 +88,7 @@ class _TypingTextState extends State<TypingText> {
         _visible += widget.text[_index];
         _index++;
       });
-      AudioService.playTyping();
+      unawaited(AudioService.playTyping());
     });
   }
 

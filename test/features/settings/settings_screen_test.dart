@@ -110,7 +110,17 @@ void main() {
             () => personContext.updatedAt,
           ),
         personContextSpineProvider.overrideWith((Ref ref) {
-          if (personContextError != null) throw personContextError;
+          if (personContextError case final Exception error) {
+            throw error;
+          }
+          if (personContextError case final Error error) {
+            throw error;
+          }
+          if (personContextError != null) {
+            throw StateError(
+              'Unsupported test failure type: ${personContextError.runtimeType}',
+            );
+          }
           return personContext;
         }),
       ],

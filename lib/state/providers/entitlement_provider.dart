@@ -353,7 +353,7 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
       // Storage failures fail closed and must not fail a completed purchase.
     } finally {
       if (identical(_ownerMutationQueues[key], queued)) {
-        _ownerMutationQueues.remove(key);
+        unawaited(_ownerMutationQueues.remove(key));
         _ownerMutationRevisions.remove(key);
       }
     }

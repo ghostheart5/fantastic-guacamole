@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
@@ -95,10 +96,10 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
     if (!_pulse.isAnimating) {
-      _pulse.repeat(reverse: true);
+      unawaited(_pulse.repeat(reverse: true));
     }
     if (_entry.value == 0 && !_entry.isAnimating) {
-      _entry.forward();
+      unawaited(_entry.forward());
     }
   }
 

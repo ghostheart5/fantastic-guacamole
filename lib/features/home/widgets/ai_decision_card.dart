@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/ui/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +35,8 @@ class _AIDecisionCardState extends State<AIDecisionCard>
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2800),
-    )..repeat(reverse: true);
+    );
+    unawaited(_pulse.repeat(reverse: true));
     _glow = Tween<double>(
       begin: 6,
       end: 22,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
@@ -76,10 +77,9 @@ final class AccountScopedHiveStorage extends HiveStorage<String> {
     }
     if (legacyOwnership == LegacyScopeOwnership.provenOwned &&
         _hive.isBoxOpen(_legacy.boxKey)) {
-      unawaited(prepare());
+      _prepareAfterLegacyRead();
       return _legacy.get(key);
     }
-    unawaited(prepare());
     throw StateError('Account-scoped Hive storage is not ready.');
   }
 
@@ -93,18 +93,16 @@ final class AccountScopedHiveStorage extends HiveStorage<String> {
         values = scoped.toMap().cast<dynamic, String>();
       } else if (legacyOwnership == LegacyScopeOwnership.provenOwned &&
           _hive.isBoxOpen(_legacy.boxKey)) {
-        unawaited(prepare());
+        _prepareAfterLegacyRead();
         values = _legacy.getAll();
       } else {
-        unawaited(prepare());
         throw StateError('Account-scoped Hive storage is not ready.');
       }
     } else if (legacyOwnership == LegacyScopeOwnership.provenOwned &&
         _hive.isBoxOpen(_legacy.boxKey)) {
-      unawaited(prepare());
+      _prepareAfterLegacyRead();
       values = _legacy.getAll();
     } else {
-      unawaited(prepare());
       throw StateError('Account-scoped Hive storage is not ready.');
     }
     return <dynamic, String>{
@@ -141,6 +139,19 @@ final class AccountScopedHiveStorage extends HiveStorage<String> {
     await prepare();
     await super.clear();
     await super.put(migrationMarkerKey, legacyOwnership.name);
+  }
+
+  void _prepareAfterLegacyRead() {
+    unawaited(
+      prepare().catchError((Object error, StackTrace stackTrace) {
+        Logger.errorCategory(
+          'account_hive_prepare',
+          'Account-scoped Hive preparation failed after a legacy read.',
+          error,
+          stackTrace,
+        );
+      }),
+    );
   }
 
   void _requireWritable() {
