@@ -35,20 +35,27 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Verify golden comparison contract
-        shell: pwsh
-        run: ./scripts/golden_assertion_guard.ps1
-
       - name: Regenerate golden images
         run: |
           flutter test \
             test/features/auth/login_screen_golden_test.dart \
+            test/features/home/first_use_context_offer_card_test.dart \
             test/features/nexus/nexus_screen_golden_test.dart \
+            test/features/settings/settings_screen_test.dart \
             --update-goldens
+
+      - name: Verify golden comparison contract
+        shell: pwsh
+        run: ./scripts/golden_assertion_guard.ps1
 
       - name: Capture candidate golden diff
         run: |
-          git diff --binary -- test/features/auth/goldens/ test/features/nexus/goldens/ > golden-update.patch
+          git diff --binary -- \
+            test/features/auth/goldens/ \
+            test/features/home/goldens/ \
+            test/features/nexus/goldens/ \
+            test/features/settings/goldens/ \
+            > golden-update.patch
           if [ ! -s golden-update.patch ]; then
             echo "No golden changes detected."
           fi
@@ -61,4 +68,6 @@ jobs:
           path: |
             golden-update.patch
             test/features/auth/goldens/**
+            test/features/home/goldens/**
             test/features/nexus/goldens/**
+            test/features/settings/goldens/**

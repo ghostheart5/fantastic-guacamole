@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
@@ -70,6 +71,9 @@ void main() {
           accountStorageScopeProvider.overrideWithValue(
             AccountStorageScope.authenticated('test-account'),
           ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
           siStateAggregationProvider.overrideWith(
             (Ref ref) async => aggregation,
           ),
@@ -109,6 +113,9 @@ void main() {
         overrides: [
           accountStorageScopeProvider.overrideWithValue(
             AccountStorageScope.authenticated('test-account'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
           ),
           siStateAggregationProvider.overrideWith(
             (Ref ref) async => aggregation,
@@ -188,6 +195,9 @@ void main() {
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('test-account'),
         ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         siStateAggregationProvider.overrideWith((Ref ref) async => aggregation),
         siDecisionOutputProvider.overrideWith(
           (Ref ref) async => _supportingOutput,
@@ -264,6 +274,9 @@ void main() {
         overrides: [
           accountStorageScopeProvider.overrideWithValue(
             AccountStorageScope.authenticated('test-account'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
           ),
           siStateAggregationProvider.overrideWith(
             (Ref ref) async => aggregation,
@@ -391,15 +404,13 @@ SIStateAggregation _aggregation(
   profile: ProfileState(),
   siState: const SIState(energy: .7, fatigue: .2),
   trajectory: _trajectory,
-  planningDecision: personContext == null
-      ? null
-      : const DecisionEngine().recommend(
-          tasks: tasks,
-          state: SiStateEntity(energy: .7, attention: .8, fatigue: .2),
-          learning: LearningEntity(),
-          personContext: personContext,
-          now: now,
-        ),
+  planningDecision: const DecisionEngine().recommend(
+    tasks: tasks,
+    state: SiStateEntity(energy: .7, attention: .8, fatigue: .2),
+    learning: LearningEntity(),
+    personContext: personContext,
+    now: now ?? DateTime.utc(2026, 8, 19, 12),
+  ),
 );
 
 const TrajectorySummaryView _trajectory = TrajectorySummaryView(

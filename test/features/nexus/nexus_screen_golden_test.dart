@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
@@ -54,6 +56,12 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('nexus-golden-test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         unreadNotificationsProvider.overrideWithValue(0),
         profileProvider.overrideWith(_PopulatedProfileController.new),
         siStateProvider.overrideWith(
@@ -116,6 +124,12 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('nexus-golden-test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         unreadNotificationsProvider.overrideWithValue(0),
         profileProvider.overrideWith(_PopulatedProfileController.new),
         siStateProvider.overrideWith(

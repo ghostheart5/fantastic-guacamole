@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
@@ -167,6 +168,12 @@ void main() {
 
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('account-1'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
           secureStoreProvider.overrideWithValue(
             SecureStore(backend: InMemorySecureStoreBackend()),
           ),
@@ -213,6 +220,12 @@ void main() {
 
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('account-1'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
           secureStoreProvider.overrideWithValue(
             SecureStore(backend: InMemorySecureStoreBackend()),
           ),
@@ -287,6 +300,9 @@ ProviderContainer _buildTaskContainer(
         accountStorageScopeProvider.overrideWithValue(
           scope ?? AccountStorageScope.authenticated('account-1'),
         ),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),

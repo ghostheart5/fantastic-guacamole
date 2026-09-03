@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/services/ai/planner_explanation_service.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
@@ -146,6 +147,7 @@ void main() {
         accountScope: scope,
         sharedPrefsStore: store,
         personContextRepository: repository,
+        firstUseContextOfferSeen: false,
       );
       addTearDown(container.dispose);
       await _pumpPlanner(tester, container);
@@ -225,6 +227,7 @@ void main() {
         accountScope: scope,
         sharedPrefsStore: store,
         personContextRepository: repository,
+        firstUseContextOfferSeen: false,
       );
       addTearDown(container.dispose);
       await _pumpPlanner(tester, container);
@@ -882,12 +885,24 @@ ProviderContainer _container({
   SmartPlannerQueryController Function(Ref)? plannerBuilder,
   PlannerExplanationPort? explanationPort,
   bool plannerAvailable = true,
+  bool firstUseContextOfferSeen = true,
   SharedPrefsStore? sharedPrefsStore,
   PersonContextRepository? personContextRepository,
 }) {
   final SharedPrefsStore resolvedStore = sharedPrefsStore ?? _MemoryPrefs();
+  final AccountStorageScope resolvedScope =
+      accountScope ?? AccountStorageScope.authenticated('planner-test-account');
+  if (firstUseContextOfferSeen && resolvedStore is _MemoryPrefs) {
+    resolvedStore
+            .values['chronospark.first_use_context_offer.v1.${resolvedScope.v2Namespace}'] =
+        'true';
+  }
   return ProviderContainer(
     overrides: [
+      accountStorageScopeProvider.overrideWithValue(resolvedScope),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
       sharedPrefsStoreProvider.overrideWithValue(resolvedStore),
       if (personContextRepository != null)
         personContextRepositoryProvider.overrideWithValue(
@@ -916,8 +931,6 @@ ProviderContainer _container({
           outcomes ?? <DecisionOutcomeKind>[],
         ),
       ),
-      if (accountScope != null)
-        accountStorageScopeProvider.overrideWithValue(accountScope),
       if (explanationPort != null)
         plannerExplanationAvailabilityProvider.overrideWith(
           (Ref ref) async => PlannerExplanationAvailability.available,

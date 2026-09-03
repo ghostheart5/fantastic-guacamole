@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
@@ -28,8 +29,11 @@ void main() {
   late ProviderContainer container;
 
   setUp(() async {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'test-user',
+    );
     SharedPreferences.setMockInitialValues(<String, Object>{
-      'cloud_sync_enabled_v1': true,
+      'cloud_sync_enabled_v1.${scope.v2Namespace}': true,
     });
     hiveDirectory = await Directory.systemTemp.createTemp(
       'chronospark_sync_provider_',
@@ -52,8 +56,9 @@ void main() {
     container = ProviderContainer(
       overrides: [
         hiveStoreProvider.overrideWithValue(hiveStore),
-        accountStorageScopeProvider.overrideWithValue(
-          AccountStorageScope.authenticated('test-user'),
+        accountStorageScopeProvider.overrideWithValue(scope),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
         ),
         cloudSyncCapabilityProvider.overrideWithValue(true),
         offlineSyncQueueProvider.overrideWithValue(
@@ -67,6 +72,8 @@ void main() {
           SyncService(
             backup: backupService,
             gateway: gateway,
+            expectedAccountId: 'test-user',
+            currentAccountId: () => 'test-user',
             syncEnabled: true,
             restoreEnabled: true,
           ),

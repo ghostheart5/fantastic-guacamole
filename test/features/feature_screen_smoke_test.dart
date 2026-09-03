@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
@@ -14,6 +16,7 @@ import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
@@ -29,6 +32,12 @@ void main() {
   ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('feature-smoke-test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         timelineProvider.overrideWith(_StaticTimelineNotifier.new),
         goalsProvider.overrideWith(_StaticGoalsNotifier.new),
       ],
@@ -53,6 +62,12 @@ void main() {
     final DateTime now = DateTime.now();
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('feature-smoke-test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         timelineProvider.overrideWith(_EmptyTimelineNotifier.new),
         goalsProvider.overrideWith(_StaticGoalsNotifier.new),
         tasksProvider.overrideWith((ref) async {
@@ -91,6 +106,12 @@ void main() {
   ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('feature-smoke-test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         nexusScreenModelProvider.overrideWith((Ref ref) async => _nexusModel),
         unreadNotificationsProvider.overrideWithValue(0),
         goalsProvider.overrideWith(_StaticGoalsNotifier.new),

@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/person_context_repository.dart';
@@ -62,6 +63,9 @@ void main() {
     List<DecisionOutcomeEntity>? decisionOutcomes,
     bool? learningPaused,
   }) {
+    final AccountStorageScope resolvedScope =
+        accountScope ??
+        AccountStorageScope.authenticated('settings-test-account');
     final ValueNotifier<bool?> permissionListenable = ValueNotifier<bool?>(
       true,
     );
@@ -70,6 +74,10 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(resolvedScope),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         aiCreditWalletProvider.overrideWith(
           (Ref ref) async => AiCreditWallet(
             balance: 20,
@@ -93,8 +101,6 @@ void main() {
           learningPausedProvider.overrideWith(
             (Ref ref) async => learningPaused,
           ),
-        if (accountScope != null)
-          accountStorageScopeProvider.overrideWithValue(accountScope),
         if (personContextRepository != null)
           personContextRepositoryProvider.overrideWithValue(
             personContextRepository,
@@ -485,7 +491,7 @@ void main() {
 
     await expectLater(
       find.byType(SettingsScreen),
-      matchesGoldenFile('goldens/settings_learning_ledger.png'),
+      matchesGoldenFile(platformGoldenFile('settings_learning_ledger.png')),
     );
   });
 

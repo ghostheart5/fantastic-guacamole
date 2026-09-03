@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -37,6 +39,12 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('progression-test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         trajectorySummaryProvider.overrideWithValue(trajectory),
         weeklySummaryProvider.overrideWith(
           weeklySummaryOverride ?? (Ref ref) async => _summaryText,
@@ -129,6 +137,12 @@ void main() {
         // settles into a stable AsyncError within a single pump.
         retry: (int retryCount, Object error) => null,
         overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('progression-test-account'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
           trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
           weeklySummaryProvider.overrideWith(
             (Ref ref) async => throw Exception('summary failed'),
