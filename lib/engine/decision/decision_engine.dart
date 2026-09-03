@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/work_window_entity.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/engine/planning/feasible_planner.dart';
@@ -44,6 +45,7 @@ class DecisionRecommendation {
     required this.rankedCandidates,
     required this.recoveryRecommendations,
     required this.confidenceProfile,
+    this.personContext,
     this.modelVersion = 'predictive-planning-v2',
   });
   final TaskEntity? selectedTask;
@@ -57,6 +59,7 @@ class DecisionRecommendation {
   final List<RankedTask> rankedCandidates;
   final List<RecoveryRecommendation> recoveryRecommendations;
   final PredictiveConfidenceProfile confidenceProfile;
+  final GovernedDecisionContext? personContext;
   final String modelVersion;
 }
 
@@ -77,6 +80,7 @@ class DecisionEngine {
         PredictiveEvidenceOrigin.observed,
     PredictiveEvidenceOrigin existingBlockOrigin =
         PredictiveEvidenceOrigin.observed,
+    GovernedDecisionContext? personContext,
     DateTime? now,
   }) {
     final DateTime timestamp = now ?? DateTime.now();
@@ -89,6 +93,18 @@ class DecisionEngine {
               input.toTaskEntity().isActionableAt(timestamp),
         )
         .toList(growable: false);
+    final Set<String> activeTaskIds = active
+        .map((PlannerInput input) => input.id)
+        .toSet();
+    _validatePersonContextInput(personContext, activeTaskIds);
+    final List<PlannerInput> governedActive = personContext == null
+        ? active
+        : active
+              .where(
+                (PlannerInput input) =>
+                    !personContext.excludedTaskIds.contains(input.id),
+              )
+              .toList(growable: false);
     final bool usesAssumedWindow = workWindows.isEmpty;
     final List<WorkWindowEntity> resolvedWindows = usesAssumedWindow
         ? <WorkWindowEntity>[_defaultWindow(timestamp)]
@@ -100,13 +116,13 @@ class DecisionEngine {
               )
               .toList(growable: false);
     final List<TimeBlock> resolvedBlocks = _preserveScheduledCommitments(
-      inputs: active,
+      inputs: governedActive,
       existingBlocks: existingBlocks,
       now: timestamp,
     );
     final FeasiblePlan plan = planner.plan(
       PlanningProblem(
-        inputs: active,
+        inputs: governedActive,
         workWindows: resolvedWindows,
         existingBlocks: resolvedBlocks,
         energy: state.energy,
@@ -126,7 +142,7 @@ class DecisionEngine {
       required double precision,
     }) => PredictiveConfidenceProfile(
       sourceCompleteness: _sourceCompleteness(
-        active,
+        governedActive,
         hasObservedWindow: !usesAssumedWindow,
       ),
       freshness: state.isStale ? .45 : 1,
@@ -135,7 +151,7 @@ class DecisionEngine {
       calibration: PredictiveCalibrationState.provisional,
     );
     final bool recovery = state.fatigue > .7 || state.energy < .3;
-    if (recovery || active.isEmpty) {
+    if (recovery || governedActive.isEmpty) {
       return DecisionRecommendation(
         selectedTask: null,
         orderedTasks: const [],
@@ -143,6 +159,9 @@ class DecisionEngine {
         executionMinutes: 10,
         rationale: recovery
             ? 'Recovery is recommended because energy is low or fatigue is high.'
+            : active.isNotEmpty &&
+                  (personContext?.excludedTaskIds.isNotEmpty ?? false)
+            ? 'No active task remains after applying the explicit Person Context boundary.'
             : 'No active tasks are available to schedule.',
         evidence: <DecisionEvidence>[
           DecisionEvidence(
@@ -152,7 +171,7 @@ class DecisionEngine {
           ),
         ],
         confidence: DecisionConfidence(
-          dataSufficiency: active.isEmpty ? .35 : .75,
+          dataSufficiency: governedActive.isEmpty ? .35 : .75,
           recommendation: recovery ? .85 : .9,
           safety: 1,
         ),
@@ -174,25 +193,36 @@ class DecisionEngine {
               ]
             : const <RecoveryRecommendation>[],
         confidenceProfile: confidenceFor(
-          data: active.isEmpty ? .15 : .35,
+          data: governedActive.isEmpty ? .15 : .35,
           precision: recovery ? .65 : .25,
         ),
+        personContext: personContext,
+        modelVersion: personContext?.hasAppliedBehavior ?? false
+            ? 'predictive-planning-v3-context'
+            : 'predictive-planning-v2',
       );
     }
-    final ranked = const TaskRanker().rank(
-      active
-          .map((PlannerInput input) => input.toTaskEntity())
-          .toList(growable: false),
-      learning: learning,
-      energy: state.energy,
-      fatigue: state.fatigue,
-      now: timestamp,
-      siState: state,
-      priorityScale: priorityScale,
+    final List<RankedTask> ranked = _applyPriorityTieBreak(
+      const TaskRanker().rank(
+        governedActive
+            .map((PlannerInput input) => input.toTaskEntity())
+            .toList(growable: false),
+        learning: learning,
+        energy: state.energy,
+        fatigue: state.fatigue,
+        now: timestamp,
+        siState: state,
+        priorityScale: priorityScale,
+      ),
+      priorityTaskIds: personContext?.priorityTaskIds ?? const <String>{},
     );
     final List<TaskEntity> feasible = ranked
         .map((RankedTask item) => item.task)
-        .where((TaskEntity task) => !plan.unscheduledTaskIds.contains(task.id))
+        .where(
+          (TaskEntity task) =>
+              !plan.unscheduledTaskIds.contains(task.id) &&
+              _fitsGovernedCapacity(task, personContext),
+        )
         .toList(growable: false);
     if (feasible.isEmpty) {
       final PlanIssue? issue = plan.issues.isEmpty ? null : plan.issues.first;
@@ -201,9 +231,10 @@ class DecisionEngine {
         orderedTasks: const <TaskEntity>[],
         shouldTakeBreak: false,
         executionMinutes: 10,
-        rationale:
-            issue?.message ??
-            'No task can be scheduled without violating the current constraints.',
+        rationale: personContext?.capacityCapMinutes != null
+            ? 'No task fits the fresh ${personContext!.capacityCapMinutes}-minute Person Context capacity limit without violating a higher authority.'
+            : issue?.message ??
+                  'No task can be scheduled without violating the current constraints.',
         evidence: <DecisionEvidence>[
           DecisionEvidence(
             source: 'plan',
@@ -239,6 +270,10 @@ class DecisionEngine {
           data: _dataSufficiency(learning, timestamp),
           precision: .8,
         ),
+        personContext: personContext,
+        modelVersion: personContext?.hasAppliedBehavior ?? false
+            ? 'predictive-planning-v3-context'
+            : 'predictive-planning-v2',
       );
     }
     final List<TaskEntity> nonAvoided = feasible
@@ -247,7 +282,22 @@ class DecisionEngine {
               _recentSkipCount(learning, task.id, timestamp) < 2,
         )
         .toList(growable: false);
-    final List<TaskEntity> ordered = nonAvoided.isEmpty ? feasible : nonAvoided;
+    final List<TaskEntity> candidateOrder = nonAvoided.isEmpty
+        ? feasible
+        : nonAvoided;
+    final Set<String> protectedIds =
+        personContext?.protectedCommitmentTaskIds ?? const <String>{};
+    final List<TaskEntity> protectedCommitments = candidateOrder
+        .where((TaskEntity task) => protectedIds.contains(task.id))
+        .toList(growable: false);
+    final List<TaskEntity> ordered = protectedCommitments.isEmpty
+        ? candidateOrder
+        : <TaskEntity>[
+            ...protectedCommitments,
+            ...candidateOrder.where(
+              (TaskEntity task) => !protectedIds.contains(task.id),
+            ),
+          ];
     final TaskEntity selected = ordered.first;
     final double data = _dataSufficiency(learning, timestamp);
     final RankedTask selectedRanked = ranked.firstWhere(
@@ -269,9 +319,9 @@ class DecisionEngine {
       selectedTask: selected,
       orderedTasks: ordered,
       shouldTakeBreak: false,
-      executionMinutes: selected.estimateOrDefault.inMinutes,
+      executionMinutes: _governedExecutionMinutes(selected, personContext),
       rationale:
-          'Selected ${selected.title} using urgency, energy fit, learned effort tolerance, and schedule feasibility.',
+          'Selected ${selected.title} using urgency, energy fit, learned effort tolerance, and schedule feasibility.${personContext?.hasAppliedBehavior ?? false ? ' ${personContext!.explanations.join(' ')}' : ''}',
       evidence: <DecisionEvidence>[
         DecisionEvidence(
           source: 'task',
@@ -291,11 +341,11 @@ class DecisionEngine {
               : 'fits available capacity; other tasks remain unscheduled',
           observedAt: timestamp,
         ),
-        if (learning.taskAffinity.containsKey(selected.id))
+        if (learning.effectiveTaskAffinity(selected.id, now: timestamp) != .5)
           DecisionEvidence(
             source: 'feedback',
             detail:
-                'observed recommendation acceptance=${(learning.taskAffinity[selected.id] ?? .5).toStringAsFixed(2)}',
+                'repeated recommendation acceptance=${learning.effectiveTaskAffinity(selected.id, now: timestamp).toStringAsFixed(2)}',
             observedAt: timestamp,
           ),
         if (nonAvoided.length != feasible.length)
@@ -305,6 +355,13 @@ class DecisionEngine {
                 'suppressed ${feasible.length - nonAvoided.length} repeatedly skipped task(s) while alternatives exist',
             observedAt: timestamp,
           ),
+        ...?personContext?.explanations.map(
+          (String explanation) => DecisionEvidence(
+            source: 'person_context_policy',
+            detail: explanation,
+            observedAt: timestamp,
+          ),
+        ),
       ],
       confidence: DecisionConfidence(
         dataSufficiency: data,
@@ -320,7 +377,96 @@ class DecisionEngine {
         data: data,
         precision: plan.isFeasible ? .8 : .55,
       ),
+      personContext: personContext,
+      modelVersion: personContext?.hasAppliedBehavior ?? false
+          ? 'predictive-planning-v3-context'
+          : 'predictive-planning-v2',
     );
+  }
+
+  void _validatePersonContextInput(
+    GovernedDecisionContext? context,
+    Set<String> activeTaskIds,
+  ) {
+    if (context == null) return;
+    final Set<String> referencedTaskIds = <String>{
+      ...context.priorityTaskIds,
+      ...context.excludedTaskIds,
+      ...context.protectedCommitmentTaskIds,
+    };
+    if (!activeTaskIds.containsAll(referencedTaskIds)) {
+      throw StateError(
+        'Governed Person Context referenced a task outside this decision.',
+      );
+    }
+    final int? cap = context.capacityCapMinutes;
+    if (cap != null && (cap < 5 || cap > 240)) {
+      throw StateError('Governed Person Context capacity is out of bounds.');
+    }
+  }
+
+  List<RankedTask> _applyPriorityTieBreak(
+    List<RankedTask> ranked, {
+    required Set<String> priorityTaskIds,
+  }) {
+    if (priorityTaskIds.isEmpty) return ranked;
+    const double maximumContextBoost = .25;
+    final List<RankedTask> adjusted =
+        ranked
+            .map((RankedTask item) {
+              if (!priorityTaskIds.contains(item.task.id)) return item;
+              final TaskScoreBreakdown prior = item.breakdown;
+              final double total = prior.total + maximumContextBoost;
+              return RankedTask(
+                task: item.task,
+                score: item.score + maximumContextBoost,
+                breakdown: TaskScoreBreakdown(
+                  taskId: prior.taskId,
+                  priority: prior.priority,
+                  deadlinePressure: prior.deadlinePressure,
+                  energyFit: prior.energyFit,
+                  fatigueAdjustment: prior.fatigueAdjustment,
+                  difficultyAdjustment: prior.difficultyAdjustment,
+                  learningAffinity: prior.learningAffinity,
+                  total: total,
+                  reasons: <String>[
+                    ...prior.reasons,
+                    'Governed current-priority context added a bounded $maximumContextBoost-point tie-break.',
+                  ],
+                ),
+              );
+            })
+            .toList(growable: true)
+          ..sort((RankedTask left, RankedTask right) {
+            final int scoreOrder = right.score.compareTo(left.score);
+            return scoreOrder != 0
+                ? scoreOrder
+                : left.task.id.compareTo(right.task.id);
+          });
+    return List<RankedTask>.unmodifiable(adjusted);
+  }
+
+  bool _fitsGovernedCapacity(
+    TaskEntity task,
+    GovernedDecisionContext? context,
+  ) {
+    final int? cap = context?.capacityCapMinutes;
+    if (cap == null || context!.protectedCommitmentTaskIds.contains(task.id)) {
+      return true;
+    }
+    return task.estimateOrDefault.inMinutes <= cap;
+  }
+
+  int _governedExecutionMinutes(
+    TaskEntity task,
+    GovernedDecisionContext? context,
+  ) {
+    final int estimate = task.estimateOrDefault.inMinutes;
+    final int? cap = context?.capacityCapMinutes;
+    if (cap == null || context!.protectedCommitmentTaskIds.contains(task.id)) {
+      return estimate;
+    }
+    return estimate.clamp(1, cap);
   }
 
   double _sourceCompleteness(
@@ -389,7 +535,7 @@ class DecisionEngine {
         ),
       );
     }
-    if (_recentSkipCount(learning, selected.id, now) >= 2) {
+    if (_recentSkipCount(learning, selected.id, now) >= 3) {
       output.add(
         RecoveryRecommendation(
           trigger: RecoveryTrigger.repeatedDeferral,

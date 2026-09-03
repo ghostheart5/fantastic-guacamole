@@ -45,5 +45,6 @@ final habitOccurrenceCoordinatorProvider =
         habitRepository: ref.read(domainHabitRepositoryProvider),
         occurrenceRepository: occurrences,
         outcomeRepository: outcomes,
+        learningPaused: outcomes.isLearningPaused,
       );
     });

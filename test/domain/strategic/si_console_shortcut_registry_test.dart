@@ -151,9 +151,10 @@ void main() {
     test(
       'production parser, chips, help, autocomplete, and AI use the registry',
       () {
-        final String screen = File(
+        final String screen = <String>[
           'lib/features/si_console/ui/si_console_screen.dart',
-        ).readAsStringSync();
+          'lib/features/si_console/ui/si_console_screen.widgets.dart',
+        ].map((String path) => File(path).readAsStringSync()).join('\n');
         final String controller = File(
           'lib/state/controllers/ai_controller.dart',
         ).readAsStringSync();

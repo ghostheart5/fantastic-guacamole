@@ -29,7 +29,7 @@ void main() {
       'lib/features/home/ui/smart_planner_screen.dart',
     ).readAsStringSync();
     final String settings = File(
-      'lib/features/settings/ui/settings_screen.sections.dart',
+      'lib/features/settings/ui/settings_screen.governance_sections.dart',
     ).readAsStringSync();
 
     expect(planner, contains("Key('planner-memory-consent')"));

@@ -25,13 +25,16 @@ class HabitOccurrenceCoordinator {
     required this.habitRepository,
     required this.occurrenceRepository,
     required this.outcomeRepository,
+    Future<bool> Function()? learningPaused,
     DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now;
+  }) : _learningPaused = learningPaused ?? _learningEnabled,
+       _clock = clock ?? DateTime.now;
 
   final AccountStorageScope scope;
   final IHabitRepository habitRepository;
   final IHabitOccurrenceRepository occurrenceRepository;
   final IDecisionOutcomeRepository outcomeRepository;
+  final Future<bool> Function() _learningPaused;
   final DateTime Function() _clock;
   Future<void> _tail = Future<void>.value();
 
@@ -106,20 +109,25 @@ class HabitOccurrenceCoordinator {
       }
 
       await occurrenceRepository.save(candidate);
-      await outcomeRepository.record(
-        DecisionOutcomeEntity(
-          decisionId: 'habit:$normalizedId:$occurrenceKey',
-          kind: outcome == HabitOccurrenceOutcome.completed
-              ? DecisionOutcomeKind.completed
-              : DecisionOutcomeKind.skipped,
-          surface: 'daily-rhythm',
-          recordedAt: now.toUtc(),
-          modelVersion: 'domain-occurrence-v1',
-          recommendationConfidence: 1,
-          subjectId: normalizedId,
-          detail: outcome.name,
-        ),
-      );
+      if (!await _learningPaused()) {
+        await outcomeRepository.record(
+          DecisionOutcomeEntity(
+            decisionId: 'habit:$normalizedId:$occurrenceKey',
+            kind: outcome == HabitOccurrenceOutcome.completed
+                ? DecisionOutcomeKind.completed
+                : DecisionOutcomeKind.skipped,
+            surface: 'daily-rhythm',
+            situation: 'daily rhythm occurrence',
+            recordedAt: now.toUtc(),
+            modelVersion: 'domain-occurrence-v1',
+            recommendationConfidence: 1,
+            subjectId: normalizedId,
+            detail: outcome.name,
+            completionResult: outcome.name,
+            recommendationHelped: outcome == HabitOccurrenceOutcome.completed,
+          ),
+        );
+      }
       return HabitOccurrenceResult(
         mutation: HabitOccurrenceMutation.applied,
         occurrence: candidate,
@@ -146,3 +154,5 @@ class HabitOccurrenceCoordinator {
     return '${slot.year}-$month-$day';
   }
 }
+
+Future<bool> _learningEnabled() async => false;

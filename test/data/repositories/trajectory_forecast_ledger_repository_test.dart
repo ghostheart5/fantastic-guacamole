@@ -181,6 +181,37 @@ void main() {
       );
     });
 
+    test(
+      'context revision change invalidates a tracked forecast assumption',
+      () async {
+        final _MemoryStore store = _MemoryStore();
+        final AccountStorageScope scope = AccountStorageScope.authenticated(
+          'user-a',
+        );
+        final TrajectoryForecastLedgerRepository repository =
+            TrajectoryForecastLedgerRepository(store: store, scope: scope);
+        final TrajectoryComparison comparison = _comparisonFor(
+          scope.v2Namespace!,
+        );
+        final Map<String, dynamic> json =
+            TrajectoryForecastReceipt.fromScenario(
+                baseline: comparison.baseline,
+                outcome: comparison.outcomes.first,
+                selectedAt: trajectoryFixtureNow,
+              ).toJson()
+              ..['personContextRevision'] = 'context-before'
+              ..['personContextSignalIds'] = <String>['shared-capacity'];
+        await repository.append(TrajectoryForecastReceipt.fromJson(json));
+
+        expect(await repository.reconcileDue(comparison.baseline), 1);
+        final TrajectoryForecastReceipt invalidated =
+            (await repository.load()).single;
+        expect(invalidated.hasAssumptionCorrection, isTrue);
+        expect(invalidated.personContextSignalIds, <String>['shared-capacity']);
+        expect(invalidated.observed, isNull);
+      },
+    );
+
     test('resolved receipts remain monitored without model adjustment', () {
       final TrajectoryComparison comparison = trajectoryTestComparison();
       final List<TrajectoryForecastReceipt> resolved = List.generate(10, (

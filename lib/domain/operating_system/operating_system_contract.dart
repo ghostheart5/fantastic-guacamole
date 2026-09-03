@@ -375,8 +375,20 @@ class OperatingDecisionReceipt {
     String? planId,
     this.assumptions = const <String>[],
     this.warnings = const <String>[],
+    List<String> personContextAppliedSignalIds = const <String>[],
+    List<String> personContextExplanations = const <String>[],
+    Map<String, Object?>? personContextTrace,
     String? decisionId,
   }) : snapshotId = snapshotId ?? stableId(sourceRevisions),
+       personContextAppliedSignalIds = List<String>.unmodifiable(
+         personContextAppliedSignalIds,
+       ),
+       personContextExplanations = List<String>.unmodifiable(
+         personContextExplanations,
+       ),
+       personContextTrace = personContextTrace == null
+           ? null
+           : Map<String, Object?>.unmodifiable(personContextTrace),
        planId =
            planId ??
            stableId(<String, dynamic>{
@@ -425,6 +437,9 @@ class OperatingDecisionReceipt {
   final String modelVersion;
   final List<String> assumptions;
   final List<String> warnings;
+  final List<String> personContextAppliedSignalIds;
+  final List<String> personContextExplanations;
+  final Map<String, Object?>? personContextTrace;
 
   bool isExpiredAt(DateTime reference) => !expiresAt.isAfter(reference);
 

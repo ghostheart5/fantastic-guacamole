@@ -1,4 +1,4 @@
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Calendar/timeline
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Calendar/timeline
 ///
 /// Persisted calendar type; the UI renders TimeBlock today.
 class CalendarEntryEntity {

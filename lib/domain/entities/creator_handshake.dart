@@ -301,7 +301,11 @@ final class CreatorPersonContextBinding {
     required this.revision,
     required this.hasBoundEvidence,
     required List<String> evidenceSummary,
-  }) : evidenceSummary = List<String>.unmodifiable(evidenceSummary) {
+    List<String> conflictWarnings = const <String>[],
+    Map<String, Object?> behaviorTrace = const <String, Object?>{},
+  }) : evidenceSummary = List<String>.unmodifiable(evidenceSummary),
+       conflictWarnings = List<String>.unmodifiable(conflictWarnings),
+       behaviorTrace = Map<String, Object?>.unmodifiable(behaviorTrace) {
     if (revision.trim().isEmpty) {
       throw ArgumentError('Creator person context revision cannot be blank.');
     }
@@ -316,10 +320,16 @@ final class CreatorPersonContextBinding {
   final String revision;
   final bool hasBoundEvidence;
   final List<String> evidenceSummary;
+  final List<String> conflictWarnings;
+  final Map<String, Object?> behaviorTrace;
+
+  bool get requiresConflictConfirmation => conflictWarnings.isNotEmpty;
 
   Map<String, Object?> toCanonicalJson() => <String, Object?>{
     'hasBoundEvidence': hasBoundEvidence,
     'evidenceSummary': evidenceSummary,
+    'conflictWarnings': conflictWarnings,
+    'behaviorTrace': behaviorTrace,
     'revision': revision,
   };
 }

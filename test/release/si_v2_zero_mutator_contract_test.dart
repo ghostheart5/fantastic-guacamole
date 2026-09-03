@@ -16,9 +16,10 @@ void main() {
     final String composition = File(
       'lib/state/providers/si_v2_provider.dart',
     ).readAsStringSync();
-    final String screen = File(
+    final String screen = <String>[
       'lib/features/si_console/ui/si_console_screen.dart',
-    ).readAsStringSync();
+      'lib/features/si_console/ui/si_console_screen.widgets.dart',
+    ].map((String path) => File(path).readAsStringSync()).join('\n');
 
     for (final String forbidden in <String>[
       'saveTask',
@@ -56,9 +57,10 @@ void main() {
   });
 
   test('SI V2 surface exposes the complete inspectable response contract', () {
-    final String screen = File(
+    final String screen = <String>[
       'lib/features/si_console/ui/si_console_screen.dart',
-    ).readAsStringSync();
+      'lib/features/si_console/ui/si_console_screen.widgets.dart',
+    ].map((String path) => File(path).readAsStringSync()).join('\n');
     final String contract = File(
       'lib/domain/entities/si_v2_contract.dart',
     ).readAsStringSync();

@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/consented_human_context_prov
 import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -46,7 +47,6 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
   final Set<String> _completingTaskIds = <String>{};
-  String? _shownDecisionId;
 
   @override
   void initState() {
@@ -86,7 +86,6 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     final LearningFeedbackChange? learningChange = ref.watch(
       latestDecisionLearningChangeProvider,
     );
-    _recordDecisionShown(decisionModel.intelligence?.decision);
     final AsyncValue<List<TimeBlock>> nexusBlocks = ref.watch(
       nexusTimeBlocksProvider,
     );
@@ -156,6 +155,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     onCompleteTask: _completeTimeBlockTask,
                     onRetry: () => ref.invalidate(tasksProvider),
                     onReviewPlan: _reviewNextDecision,
+                    onIgnoreContext: _ignoreDecisionContext,
                   ),
                 ),
               ),
@@ -210,22 +210,9 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     if (_completingTaskIds.contains(taskId)) {
       return;
     }
-    final OperatingDecisionReceipt? activeDecision = ref
-        .read(nexusDecisionProvider)
-        .intelligence
-        ?.decision;
     setState(() => _completingTaskIds.add(taskId));
     try {
       await ref.read(taskActionsProvider).completeTask(taskId, notify: false);
-      if (activeDecision?.subjectId == taskId) {
-        await ref
-            .read(decisionOutcomeActionsProvider)
-            .record(
-              receipt: activeDecision!,
-              kind: DecisionOutcomeKind.completed,
-              surface: 'nexus',
-            );
-      }
       if (!mounted) {
         return;
       }
@@ -281,6 +268,9 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
               kind: DecisionOutcomeKind.accepted,
               surface: 'nexus',
               detail: 'Opened Smart Planner from the selected time block.',
+              situation: 'selected time block',
+              optionChosen: 'review in Smart Planner',
+              recommendationHelped: true,
             ),
       );
     }
@@ -292,25 +282,17 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     goToAppView(context, ref, AppView.smartPlanner);
   }
 
-  void _recordDecisionShown(OperatingDecisionReceipt? decision) {
-    if (decision == null ||
-        decision.isExpired ||
-        _shownDecisionId == decision.decisionId) {
-      return;
-    }
-    _shownDecisionId = decision.decisionId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _shownDecisionId != decision.decisionId) return;
-      unawaited(
-        ref
-            .read(decisionOutcomeActionsProvider)
-            .record(
-              receipt: decision,
-              kind: DecisionOutcomeKind.shown,
-              surface: 'nexus',
-            ),
-      );
-    });
+  void _ignoreDecisionContext(OperatingDecisionReceipt decision) {
+    if (decision.personContextAppliedSignalIds.isEmpty) return;
+    ref
+        .read(personContextDecisionIgnoredSignalsProvider.notifier)
+        .ignoreForNow(decision.personContextAppliedSignalIds);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('This Person Context is ignored for the current use.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _correctLatestLearning(

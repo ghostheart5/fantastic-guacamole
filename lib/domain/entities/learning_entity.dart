@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fantastic_guacamole/domain/entities/decision_observation_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/learning_state.dart';
 
@@ -88,6 +90,53 @@ class LearningEntity extends LearningState {
       observations: corrected,
       taskAffinity: _rebuildTaskAffinity(corrected),
     );
+  }
+
+  LearningEntity removeObservations(Set<String> observationIds) {
+    final List<DecisionObservationEntity> remaining = observations
+        .where(
+          (DecisionObservationEntity item) => !observationIds.contains(item.id),
+        )
+        .toList(growable: false);
+    return copyWith(
+      observations: remaining,
+      taskAffinity: _rebuildTaskAffinity(remaining),
+    );
+  }
+
+  /// Returns a decayed preference only after three recent outcomes establish
+  /// enough evidence. Before that, ranking stays neutral at 0.5.
+  double effectiveTaskAffinity(String taskId, {DateTime? now}) {
+    final DateTime reference = (now ?? DateTime.now()).toUtc();
+    int count = 0;
+    double totalWeight = 0;
+    double positiveWeight = 0;
+    for (final DecisionObservationEntity observation in observations) {
+      // Structured decision outcomes are governed by their reviewable
+      // surface/situation ledger. Do not also turn them into a hidden,
+      // differently-grouped task preference.
+      if (observation.source.startsWith('decision_outcome:')) continue;
+      if (observation.taskId != taskId) continue;
+      final bool positive =
+          observation.type == DecisionObservationType.recommendationAccepted ||
+          observation.type == DecisionObservationType.taskCompleted;
+      final bool negative =
+          observation.type == DecisionObservationType.recommendationRejected ||
+          observation.type == DecisionObservationType.taskSkipped;
+      if (!positive && !negative) continue;
+      final int ageSeconds = math.max(
+        0,
+        reference.difference(observation.timestamp.toUtc()).inSeconds,
+      );
+      final double weight = math
+          .pow(.5, ageSeconds / const Duration(days: 30).inSeconds)
+          .toDouble();
+      count += 1;
+      totalWeight += weight;
+      if (positive) positiveWeight += weight;
+    }
+    if (count < 3 || totalWeight < 1.5) return .5;
+    return (positiveWeight / totalWeight).clamp(0.0, 1.0);
   }
 
   // Domain behavior

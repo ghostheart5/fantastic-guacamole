@@ -1185,6 +1185,29 @@ class _BaselineCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+          if (baseline.personContextWarnings.isNotEmpty) ...<Widget>[
+            Text(
+              'Governed Person Context: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. '
+              'No-context comparison: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.',
+              style: const TextStyle(
+                color: Color(0xFFFFC857),
+                fontSize: 11,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ...baseline.personContextWarnings.map(
+              (String warning) => Text(
+                '• $warning',
+                style: const TextStyle(
+                  color: Color(0xFFD8E2FF),
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
           Text(
             '${baseline.tasks.length} task(s), ${baseline.goals.length} active goal(s), '
             '${baseline.blocks.length} planned block(s), and ${baseline.timelineSignals.length} linked Timeline signal(s).',

@@ -239,6 +239,191 @@ void main() {
     expect(stored['signals'], isEmpty);
     expect(container.read(provider)?.signals, isEmpty);
   });
+
+  test(
+    'withdrawal and deletion immediately invalidate surface output',
+    () async {
+      final _MemoryStore store = _MemoryStore();
+      final PersonContextRepository repository = PersonContextRepository(
+        store,
+        accountA,
+        clock: () => now,
+      );
+      PersonContextSignal activeSignal() => PersonContextSignal(
+        id: 'priority',
+        kind: PersonContextKind.currentPriority,
+        value: 'Protect family time tonight',
+        source: PersonContextSource.userAuthored,
+        consent: PersonContextConsent.granted,
+        consentedAt: now,
+        purpose: PersonContextPurpose.decisionSupport,
+        surfaceScopes: const <PersonContextSurface>{
+          PersonContextSurface.smartPlanner,
+        },
+        recordedAt: now,
+        freshUntil: now.add(const Duration(days: 7)),
+        expiresAt: now.add(const Duration(days: 30)),
+        exportBehavior: PersonContextExportBehavior.include,
+        deletionBehavior: PersonContextDeletionBehavior.userRemovable,
+      );
+      await repository.upsert(activeSignal());
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(accountA),
+          personContextClockProvider.overrideWithValue(() => now),
+          personContextRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(personContextSpineProvider.future);
+      final provider = personContextForSurfaceProvider(
+        access(PersonContextSurface.smartPlanner),
+      );
+      final subscription = container.listen<PersonContextView?>(
+        provider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+
+      expect(container.read(provider)?.signals, hasLength(1));
+
+      await container
+          .read(personContextActionsProvider)
+          .withdrawConsent(
+            signalId: 'priority',
+            withdrawnAt: now.add(const Duration(minutes: 1)),
+          );
+      final PersonContextSpine? withdrawn = await container.read(
+        personContextSpineProvider.future,
+      );
+      await container.pump();
+
+      expect(withdrawn?.signals.single.consent, PersonContextConsent.withdrawn);
+      expect(container.read(provider)?.signals, isEmpty);
+
+      await container.read(personContextActionsProvider).upsert(activeSignal());
+      await container.read(personContextSpineProvider.future);
+      await container.pump();
+      expect(container.read(provider)?.signals, hasLength(1));
+
+      await container.read(personContextActionsProvider).remove('priority');
+      final PersonContextSpine? deleted = await container.read(
+        personContextSpineProvider.future,
+      );
+      await container.pump();
+
+      expect(deleted?.signals, isEmpty);
+      expect(container.read(provider)?.signals, isEmpty);
+    },
+  );
+
+  test(
+    'one correction and withdrawal propagates to all Priority 4 views',
+    () async {
+      final _MemoryStore store = _MemoryStore();
+      final PersonContextRepository repository = PersonContextRepository(
+        store,
+        accountA,
+        clock: () => now,
+      );
+      PersonContextSignal capacity(String value) => PersonContextSignal(
+        id: 'shared-capacity',
+        kind: PersonContextKind.presentCapacity,
+        value: value,
+        source: PersonContextSource.userAuthored,
+        consent: PersonContextConsent.granted,
+        consentedAt: now,
+        purpose: PersonContextPurpose.decisionSupport,
+        surfaceScopes: const <PersonContextSurface>{
+          PersonContextSurface.siConsole,
+          PersonContextSurface.trajectory,
+          PersonContextSurface.creator,
+        },
+        recordedAt: now,
+        freshUntil: now.add(const Duration(days: 1)),
+        expiresAt: now.add(const Duration(days: 2)),
+        exportBehavior: PersonContextExportBehavior.include,
+        deletionBehavior: PersonContextDeletionBehavior.expiresAutomatically,
+      );
+      await repository.upsert(capacity('30 minutes available today'));
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(accountA),
+          personContextClockProvider.overrideWithValue(() => now),
+          personContextRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(personContextSpineProvider.future);
+      final siProvider = personContextForSurfaceProvider(
+        access(PersonContextSurface.siConsole),
+      );
+      final trajectoryProvider = personContextForSurfaceProvider(
+        access(PersonContextSurface.trajectory),
+      );
+      final creatorProvider = personContextForSurfaceProvider(
+        access(PersonContextSurface.creator),
+      );
+      container.listen<PersonContextView?>(
+        siProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      container.listen<PersonContextView?>(
+        trajectoryProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      container.listen<PersonContextView?>(
+        creatorProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      expect(
+        container.read(siProvider)?.signals.single.value,
+        '30 minutes available today',
+      );
+      expect(
+        container.read(trajectoryProvider)?.signals.single.value,
+        '30 minutes available today',
+      );
+      expect(
+        container.read(creatorProvider)?.signals.single.value,
+        '30 minutes available today',
+      );
+
+      await container
+          .read(personContextActionsProvider)
+          .upsert(capacity('10 minutes available today'));
+      await container.read(personContextSpineProvider.future);
+      await container.pump();
+      expect(
+        container.read(siProvider)?.signals.single.value,
+        '10 minutes available today',
+      );
+      expect(
+        container.read(trajectoryProvider)?.signals.single.value,
+        '10 minutes available today',
+      );
+      expect(
+        container.read(creatorProvider)?.signals.single.value,
+        '10 minutes available today',
+      );
+
+      await container
+          .read(personContextActionsProvider)
+          .withdrawConsent(
+            signalId: 'shared-capacity',
+            withdrawnAt: now.add(const Duration(minutes: 1)),
+          );
+      await container.read(personContextSpineProvider.future);
+      await container.pump();
+      expect(container.read(siProvider)?.signals, isEmpty);
+      expect(container.read(trajectoryProvider)?.signals, isEmpty);
+      expect(container.read(creatorProvider)?.signals, isEmpty);
+    },
+  );
 }
 
 final class _MemoryStore implements SharedPrefsStore {

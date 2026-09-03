@@ -3,9 +3,10 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('English is the only advertised release locale', () {
+  test('English and Spanish are advertised release locales', () {
     expect(ChronoSparkLocalizations.supportedLocales, const <Locale>[
       Locale('en'),
+      Locale('es'),
     ]);
   });
 

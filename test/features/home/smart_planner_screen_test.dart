@@ -2,12 +2,18 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/services/ai/planner_explanation_service.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/repositories/person_context_repository.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_explanation_contract.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
@@ -19,8 +25,35 @@ import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  testWidgets(
+    'Spanish distress input pauses before Planner intelligence executes',
+    (WidgetTester tester) async {
+      late _PlannerV2TestController planner;
+      final ProviderContainer container = _container(
+        plannerBuilder: (Ref ref) => planner = _PlannerV2TestController(ref),
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container, locale: const Locale('es'));
+
+      await _scrollTo(tester, find.byKey(const Key('planner-context-field')));
+      await tester.enterText(
+        find.byKey(const Key('planner-context-field')),
+        'Tengo un ataque de panico.',
+      );
+      await _requestGuidance(tester);
+
+      expect(
+        find.byKey(const Key('supportive-distress-dialog')),
+        findsOneWidget,
+      );
+      expect(find.text('¿Qué apoyo te ayudaría ahora?'), findsOneWidget);
+      expect(planner.guidanceRequestCount, 0);
+    },
+  );
+
   testWidgets('TalkBack semantics and 200 percent text remain usable', (
     WidgetTester tester,
   ) async {
@@ -97,6 +130,124 @@ void main() {
     expect(find.text('Preview Plan'), findsNothing);
     expect(find.text('Send a follow-up question...'), findsNothing);
   });
+
+  testWidgets(
+    'first useful decision offers narrow context and saves only after consent',
+    (WidgetTester tester) async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'first-context-account',
+      );
+      final _MemoryPrefs store = _MemoryPrefs();
+      final PersonContextRepository repository = PersonContextRepository(
+        store,
+        scope,
+      );
+      final ProviderContainer container = _container(
+        accountScope: scope,
+        sharedPrefsStore: store,
+        personContextRepository: repository,
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _scrollTo(tester, find.byKey(const Key('planner-context-field')));
+      await tester.enterText(
+        find.byKey(const Key('planner-context-field')),
+        'Prepare the closed-test release safely.',
+      );
+      await _requestGuidance(tester);
+      await _scrollTo(tester, find.byKey(const Key('first-use-context-offer')));
+
+      expect(find.byKey(const Key('first-use-context-offer')), findsOneWidget);
+      expect(find.textContaining('decision support'), findsOneWidget);
+      expect(find.textContaining('Smart Planner only'), findsOneWidget);
+      expect(find.textContaining('expiry · 30 days'), findsOneWidget);
+      expect((await repository.load()).signals, isEmpty);
+
+      await tester.tap(find.byKey(const Key('first-use-context-add')));
+      await tester.pump();
+      expect(find.text('Save your current priority?'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('first-use-context-confirm')),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.enterText(
+        find.byKey(const Key('first-use-context-value')),
+        'Closed-test readiness comes first.',
+      );
+      await tester.tap(find.byKey(const Key('first-use-context-consent')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('first-use-context-confirm')));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final signal = (await repository.load()).signals.single;
+      expect(signal.value, 'Closed-test readiness comes first.');
+      expect(signal.surfaceScopes, {PersonContextSurface.smartPlanner});
+      expect(signal.purpose, PersonContextPurpose.decisionSupport);
+      expect(signal.expiresAt.difference(signal.recordedAt).inDays, 30);
+      expect(
+        signal.deletionBehavior,
+        PersonContextDeletionBehavior.expiresAutomatically,
+      );
+      final PersonContextBehaviorTrace eligibility =
+          PersonContextBehaviorPolicy.evaluate(
+            signals: <PersonContextSignal>[signal],
+            surface: PersonContextSurface.smartPlanner,
+            purposes: const <PersonContextPurpose>{
+              PersonContextPurpose.decisionSupport,
+            },
+            relevance: <String, PersonContextRelevanceBasis>{
+              signal.id: PersonContextRelevanceBasis.typedActivePlanningWindow,
+            },
+            now: signal.recordedAt.add(const Duration(minutes: 1)),
+            noContextBaseline: const <PersonContextBehaviorField, Object?>{},
+          );
+      expect(eligibility.used.single.signalId, signal.id);
+      expect(eligibility.rejected, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'declining optional context saves nothing and requests no retry',
+    (WidgetTester tester) async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'decline-context-account',
+      );
+      final _MemoryPrefs store = _MemoryPrefs();
+      final PersonContextRepository repository = PersonContextRepository(
+        store,
+        scope,
+      );
+      final ProviderContainer container = _container(
+        accountScope: scope,
+        sharedPrefsStore: store,
+        personContextRepository: repository,
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _scrollTo(tester, find.byKey(const Key('planner-context-field')));
+      await tester.enterText(
+        find.byKey(const Key('planner-context-field')),
+        'Prepare the closed-test release safely.',
+      );
+      await _requestGuidance(tester);
+
+      final Finder dismiss = find.byKey(const Key('first-use-context-dismiss'));
+      await _scrollTo(tester, dismiss);
+      await tester.tap(dismiss);
+      await tester.pump();
+
+      expect(find.byKey(const Key('first-use-context-offer')), findsNothing);
+      final _PlannerV2TestController planner =
+          container.read(smartPlannerQueryControllerProvider)
+              as _PlannerV2TestController;
+      expect(planner.guidanceRequestCount, 1);
+      expect((await repository.load()).signals, isEmpty);
+    },
+  );
 
   testWidgets('staged first value applies context and generates guidance', (
     WidgetTester tester,
@@ -468,6 +619,33 @@ void main() {
   });
 
   testWidgets(
+    'behavior-relevant Person Context change clears a displayed plan before use',
+    (WidgetTester tester) async {
+      final ProviderContainer container = _container();
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _requestGuidance(tester);
+
+      expect(find.text('Use this plan'), findsOneWidget);
+      expect(container.read(creatorDraftPreviewProvider), isNull);
+
+      container
+          .read(_plannerContextRevisionTestProvider.notifier)
+          .setRevision('revision-b');
+      await tester.pump();
+
+      expect(find.text('Use this plan'), findsNothing);
+      expect(
+        find.text(
+          'Your Person Context changed, so the previous guidance was cleared. Tap GET GUIDANCE to review a current plan.',
+        ),
+        findsOneWidget,
+      );
+      expect(container.read(creatorDraftPreviewProvider), isNull);
+    },
+  );
+
+  testWidgets(
     'guidance reveals the response start instead of the page bottom',
     (WidgetTester tester) async {
       await tester.binding.setSurfaceSize(const Size(360, 900));
@@ -704,11 +882,26 @@ ProviderContainer _container({
   SmartPlannerQueryController Function(Ref)? plannerBuilder,
   PlannerExplanationPort? explanationPort,
   bool plannerAvailable = true,
+  SharedPrefsStore? sharedPrefsStore,
+  PersonContextRepository? personContextRepository,
 }) {
+  final SharedPrefsStore resolvedStore = sharedPrefsStore ?? _MemoryPrefs();
   return ProviderContainer(
     overrides: [
+      sharedPrefsStoreProvider.overrideWithValue(resolvedStore),
+      if (personContextRepository != null)
+        personContextRepositoryProvider.overrideWithValue(
+          personContextRepository,
+        ),
       smartPlannerQueryControllerProvider.overrideWith(
         plannerBuilder ?? _PlannerV2TestController.new,
+      ),
+      smartPlannerPersonContextBehaviorRevisionProvider.overrideWith(
+        (Ref ref) => ref.watch(_plannerContextRevisionTestProvider),
+      ),
+      smartPlannerPersonContextBehaviorRevisionForDecisionProvider.overrideWith(
+        (Ref ref, String decisionText) =>
+            ref.watch(_plannerContextRevisionTestProvider),
       ),
       smartPlannerAvailabilityProvider.overrideWith(
         (Ref ref) async => plannerAvailable,
@@ -737,15 +930,55 @@ ProviderContainer _container({
   );
 }
 
+class _MemoryPrefs implements SharedPrefsStore {
+  final Map<String, String> values = <String, String>{};
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  String? load(String key) => values[key];
+
+  @override
+  Future<void> save(String key, String value) async => values[key] = value;
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+
+  @override
+  Future<void> clear() async => values.clear();
+}
+
+final _plannerContextRevisionTestProvider =
+    NotifierProvider<_PlannerContextRevisionTestNotifier, String>(
+      _PlannerContextRevisionTestNotifier.new,
+    );
+
+class _PlannerContextRevisionTestNotifier extends Notifier<String> {
+  @override
+  String build() => 'revision-a';
+
+  void setRevision(String revision) => state = revision;
+}
+
 Future<void> _pumpPlanner(
   WidgetTester tester,
   ProviderContainer container, {
   double textScale = 1,
+  Locale locale = const Locale('en'),
 }) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        locale: locale,
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         home: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
           child: const ErrorBoundary(child: SmartPlannerScreen()),
@@ -805,9 +1038,6 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
   int guidanceRequestCount = 0;
   double? lastEnergy;
   String? lastNotes;
-
-  @override
-  bool detectsCrisis(String text) => false;
 
   @override
   Future<SmartPlannerResult> requestPlanningGuidance({
@@ -1019,6 +1249,12 @@ class _RecordingDecisionOutcomeActions extends DecisionOutcomeActions {
     required DecisionOutcomeKind kind,
     required String surface,
     String? detail,
+    String? situation,
+    String? optionChosen,
+    int? optionSizeMinutes,
+    String? deferralReason,
+    String? completionResult,
+    bool? recommendationHelped,
   }) async {
     expect(receipt.decisionId, 'screen-receipt');
     expect(surface, 'smart_planner');

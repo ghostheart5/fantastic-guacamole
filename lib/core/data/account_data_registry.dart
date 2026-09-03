@@ -406,6 +406,7 @@ abstract final class AccountDataRegistry {
       notificationSecureKeyFor(accountId),
       'creator_latest_receipt_v1:$namespace',
       'creator_handshake_ledger_v1:$namespace',
+      'learning_state_v2.$namespace',
     };
   }
 
@@ -438,6 +439,8 @@ abstract final class AccountDataRegistry {
       'notes_v1.${namespace}_corrupt_backup',
       'notes_v1.${namespace}_migration_v1',
       'chronospark.decision_outcomes.v1.$namespace',
+      'chronospark.decision_outcomes.v1.$namespace.paused',
+      'chronospark.first_use_context_offer.v1.$namespace',
       'chronospark.habit_occurrences.v1.$namespace',
       'chronospark.trajectory.forecast_ledger.v1.$namespace',
       'chronospark.operating.history.v1.$namespace',

@@ -100,6 +100,20 @@ final personContextActionsProvider = Provider<PersonContextActions>(
   PersonContextActions.new,
 );
 
+final personContextSettingsEntryProvider =
+    NotifierProvider<PersonContextSettingsEntry, bool>(
+      PersonContextSettingsEntry.new,
+    );
+
+class PersonContextSettingsEntry extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void request() => state = true;
+
+  void clear() => state = false;
+}
+
 final class PersonContextActions {
   PersonContextActions(this._ref);
 

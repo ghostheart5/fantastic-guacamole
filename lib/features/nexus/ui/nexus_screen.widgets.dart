@@ -80,6 +80,25 @@ class _NexusHeader extends ConsumerWidget {
               ),
             ],
           ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const Key('nexus-context-settings'),
+              onPressed: () {
+                ref.read(personContextSettingsEntryProvider.notifier).request();
+                goToAppView(context, ref, AppView.settings);
+              },
+              icon: const Icon(Icons.manage_accounts_outlined, size: 18),
+              label: const Text('CONTEXT'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.memoryAmber,
+                minimumSize: const Size(
+                  AppSizes.touchTarget,
+                  AppSizes.touchTarget,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           Text(
             profile.name.isEmpty
@@ -285,6 +304,7 @@ class _SmartPlannerSuggestion extends StatelessWidget {
     required this.onCompleteTask,
     required this.onRetry,
     required this.onReviewPlan,
+    required this.onIgnoreContext,
   });
 
   final AsyncValue<List<TimeBlock>> blocks;
@@ -294,6 +314,7 @@ class _SmartPlannerSuggestion extends StatelessWidget {
   final Future<void> Function(String taskId) onCompleteTask;
   final VoidCallback onRetry;
   final VoidCallback onReviewPlan;
+  final ValueChanged<OperatingDecisionReceipt> onIgnoreContext;
 
   @override
   Widget build(BuildContext context) {
@@ -329,6 +350,9 @@ class _SmartPlannerSuggestion extends StatelessWidget {
                       block != null && completingTaskIds.contains(block.taskId),
                   onCompleteTask: onCompleteTask,
                   onReviewPlan: onReviewPlan,
+                  onIgnoreContext: decision == null
+                      ? null
+                      : () => onIgnoreContext(decision),
                 ),
         ),
       ],
@@ -344,6 +368,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
     required this.completing,
     required this.onCompleteTask,
     required this.onReviewPlan,
+    required this.onIgnoreContext,
   });
 
   final NexusDecisionModel decisionModel;
@@ -352,6 +377,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
   final bool completing;
   final Future<void> Function(String taskId) onCompleteTask;
   final VoidCallback onReviewPlan;
+  final VoidCallback? onIgnoreContext;
 
   @override
   Widget build(BuildContext context) {
@@ -368,8 +394,9 @@ class _PlannerSuggestionContent extends StatelessWidget {
           ? 'Add a task in Creator so Smart Planner can rank real work.'
           : 'This scheduled task is the nearest concrete commitment.',
     ]);
-    final int confidence = ((decision?.recommendationConfidence ?? 0) * 100)
-        .round();
+    final String? confidenceLabel = decision == null
+        ? null
+        : l10n.provisionalEvidenceConfidenceLabel(decision!.confidence);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,11 +407,11 @@ class _PlannerSuggestionContent extends StatelessWidget {
               label: decisionModel.statusLabel,
               accent: _statusAccent(decisionModel.status),
             ),
-            if (decision != null) ...<Widget>[
+            if (confidenceLabel != null) ...<Widget>[
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '$confidence% evidence confidence',
+                  confidenceLabel,
                   maxLines: 2,
                   textAlign: TextAlign.end,
                   style: const TextStyle(
@@ -421,6 +448,44 @@ class _PlannerSuggestionContent extends StatelessWidget {
             height: 1.42,
           ),
         ),
+        if (decision?.personContextExplanations.isNotEmpty ??
+            false) ...<Widget>[
+          const SizedBox(height: 12),
+          Container(
+            key: const Key('nexus-person-context-why'),
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.neonCyan.withValues(alpha: .08),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: .28),
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Why this changed: ${decision!.personContextExplanations.join(' ')}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: AppSizes.fontBody,
+                    height: 1.4,
+                  ),
+                ),
+                if (onIgnoreContext != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      key: const Key('nexus-ignore-person-context'),
+                      onPressed: onIgnoreContext,
+                      child: const Text('Ignore this context for now'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
         if (block != null) ...<Widget>[
           const SizedBox(height: 12),
           Row(

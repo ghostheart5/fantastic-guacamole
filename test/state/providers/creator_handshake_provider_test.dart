@@ -15,6 +15,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
@@ -118,7 +119,7 @@ void main() {
   );
 
   test(
-    'person context is bound as review evidence without changing proposal',
+    'person context conflicts require confirmation without changing proposal',
     () async {
       final _Harness harness = _Harness();
       addTearDown(harness.dispose);
@@ -130,25 +131,25 @@ void main() {
               now: harness.now,
               id: 'priority',
               kind: PersonContextKind.currentPriority,
-              value: 'Ship only after exact evidence',
+              value: 'Prepare release evidence first',
             ),
             _personContextSignal(
               now: harness.now,
               id: 'capacity',
               kind: PersonContextKind.presentCapacity,
-              value: 'Keep  this step\nsmall today',
+              value: '10 minutes available today',
             ),
             _personContextSignal(
               now: harness.now,
               id: 'boundary',
               kind: PersonContextKind.boundary,
-              value: 'Do not infer consent',
+              value: 'Do not schedule Prepare release evidence',
             ),
             _personContextSignal(
               now: harness.now,
               id: 'commitment',
               kind: PersonContextKind.commitment,
-              value: 'Review every bound item',
+              value: 'Prepare release evidence is scheduled',
             ),
             _personContextSignal(
               now: harness.now,
@@ -168,14 +169,24 @@ void main() {
 
       expect(preview.personContextBinding!.hasBoundEvidence, isTrue);
       expect(preview.personContextBinding!.evidenceSummary, const <String>[
-        'currentPriority: Ship only after exact evidence',
-        'presentCapacity: Keep  this step\nsmall today',
-        'boundary: Do not infer consent',
-        'commitment: Review every bound item',
+        'boundary: Do not schedule Prepare release evidence',
+        'presentCapacity: 10 minutes available today',
       ]);
+      expect(
+        preview.personContextBinding!.conflictWarnings,
+        containsAll(<String>[
+          'This proposal conflicts with an explicit boundary.',
+          'The 25-minute estimate exceeds the fresh user-reported 10-minute capacity.',
+        ]),
+      );
+      expect(preview.personContextBinding!.behaviorTrace['surface'], 'creator');
+      expect(
+        preview.personContextBinding!.requiresConflictConfirmation,
+        isTrue,
+      );
       expect(preview.operations.single.label, 'Create task');
-      expect(state.message, contains('review evidence only'));
-      expect(state.message, contains('did not alter the proposed task'));
+      expect(state.message, contains('governed Person Context warnings'));
+      expect(state.message, contains('was not silently rewritten'));
       expect(task.title, _taskData().title);
       expect(task.description, _taskData().description);
       expect(task.priority, _taskData().priority);
@@ -242,13 +253,165 @@ void main() {
           ],
         ),
       );
-      final CreatorHandshakeState stale = await harness.notifier.confirm();
+      await harness.container.pump();
+      final CreatorHandshakeState stale = harness.state;
 
       expect(stale.phase, CreatorHandshakePhase.stale);
       expect(stale.token, isNull);
       expect(stale.receipt, isNull);
       expect(stale.message, contains('Person context changed'));
       expect(harness.repository.saveCalls, 0);
+    },
+  );
+
+  test(
+    'matching commitment warns but explicit confirmation saves unchanged task',
+    () async {
+      final _Harness harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.setPersonContext(
+        _personContextView(
+          harness.now,
+          signals: <PersonContextSignal>[
+            _personContextSignal(
+              now: harness.now,
+              id: 'commitment',
+              kind: PersonContextKind.commitment,
+              value: 'Prepare release evidence is scheduled',
+            ),
+          ],
+        ),
+      );
+
+      final CreatorHandshakeState staged = await harness.notifier.stage(
+        data: _taskData(),
+      );
+      final CreatorTaskMutation mutation =
+          staged.preview!.operations.single.task;
+      expect(
+        staged.preview!.personContextBinding!.conflictWarnings,
+        contains(contains('matches a fresh user-reported commitment')),
+      );
+      expect(mutation.title, _taskData().title);
+      expect(mutation.scheduledFor, _taskData().scheduledFor);
+      expect(harness.repository.saveCalls, 0);
+
+      final CreatorHandshakeState confirmed = await harness.notifier.confirm();
+      expect(confirmed.phase, CreatorHandshakePhase.applied);
+      expect(harness.repository.saveCalls, 1);
+    },
+  );
+
+  test(
+    'irrelevant context change leaves a reviewed proposal current',
+    () async {
+      final _Harness harness = _Harness();
+      addTearDown(harness.dispose);
+      final PersonContextSignal priority = _personContextSignal(
+        now: harness.now,
+        id: 'priority',
+        kind: PersonContextKind.currentPriority,
+        value: 'Release evidence',
+      );
+      harness.setPersonContext(
+        _personContextView(
+          harness.now,
+          signals: <PersonContextSignal>[priority],
+        ),
+      );
+      await harness.notifier.stage(data: _taskData());
+      final String tokenId = harness.state.token!.tokenId;
+
+      harness.setPersonContext(
+        _personContextView(
+          harness.now,
+          signals: <PersonContextSignal>[
+            priority,
+            _personContextSignal(
+              now: harness.now,
+              id: 'role',
+              kind: PersonContextKind.role,
+              value: 'Irrelevant supporting evidence',
+            ),
+          ],
+        ),
+      );
+      await harness.container.pump();
+
+      expect(harness.state.phase, CreatorHandshakePhase.preview);
+      expect(harness.state.token?.tokenId, tokenId);
+      expect(harness.state.receipt, isNull);
+      expect(harness.repository.saveCalls, 0);
+    },
+  );
+
+  test(
+    'withdrawal deletion and expiry invalidate bound context before mutation',
+    () async {
+      for (final String cause in <String>['withdrawal', 'deletion', 'expiry']) {
+        final _Harness harness = _Harness();
+        try {
+          final DateTime? expiryBoundary = cause == 'expiry'
+              ? harness.now.add(const Duration(minutes: 1))
+              : null;
+          final PersonContextSignal initialSignal = _personContextSignal(
+            now: harness.now,
+            id: 'priority',
+            kind: PersonContextKind.currentPriority,
+            value: 'Release evidence',
+            freshUntil: expiryBoundary,
+            expiresAt: expiryBoundary,
+          );
+          harness.setPersonContext(
+            _personContextView(
+              harness.now,
+              signals: <PersonContextSignal>[initialSignal],
+            ),
+          );
+          await harness.notifier.stage(data: _taskData());
+
+          switch (cause) {
+            case 'withdrawal':
+              harness.setPersonContext(
+                _personContextView(
+                  harness.now,
+                  signals: <PersonContextSignal>[
+                    _personContextSignal(
+                      now: harness.now,
+                      id: 'priority',
+                      kind: PersonContextKind.currentPriority,
+                      value: 'Release evidence',
+                      consent: PersonContextConsent.withdrawn,
+                    ),
+                  ],
+                ),
+              );
+              break;
+            case 'deletion':
+              harness.setPersonContext(_personContextView(harness.now));
+              break;
+            case 'expiry':
+              harness.now = harness.now.add(const Duration(minutes: 2));
+              harness.setPersonContext(
+                _personContextView(
+                  harness.now,
+                  signals: <PersonContextSignal>[initialSignal],
+                ),
+              );
+              break;
+          }
+          await harness.container.pump();
+
+          final CreatorHandshakeState stale = harness.state;
+
+          expect(stale.phase, CreatorHandshakePhase.stale, reason: cause);
+          expect(stale.token, isNull, reason: cause);
+          expect(stale.receipt, isNull, reason: cause);
+          expect(harness.repository.saveCalls, 0, reason: cause);
+        } finally {
+          harness.dispose();
+        }
+      }
     },
   );
 
@@ -729,18 +892,23 @@ PersonContextSignal _personContextSignal({
   required String id,
   required PersonContextKind kind,
   required String value,
+  PersonContextConsent consent = PersonContextConsent.granted,
+  PersonContextPurpose? purpose,
+  DateTime? freshUntil,
+  DateTime? expiresAt,
 }) => PersonContextSignal(
   id: id,
   kind: kind,
   value: value,
   source: PersonContextSource.userAuthored,
-  consent: PersonContextConsent.granted,
+  consent: consent,
   consentedAt: now.subtract(const Duration(hours: 1)),
-  purpose: PersonContextPurpose.planningGuidance,
+  withdrawnAt: consent == PersonContextConsent.withdrawn ? now : null,
+  purpose: purpose ?? PersonContextBehaviorPolicy.ruleFor(kind).purpose,
   surfaceScopes: const <PersonContextSurface>{PersonContextSurface.creator},
   recordedAt: now.subtract(const Duration(hours: 1)),
-  freshUntil: now.add(const Duration(hours: 12)),
-  expiresAt: now.add(const Duration(days: 1)),
+  freshUntil: freshUntil ?? now.add(const Duration(hours: 12)),
+  expiresAt: expiresAt ?? now.add(const Duration(days: 1)),
   exportBehavior: PersonContextExportBehavior.include,
   deletionBehavior: PersonContextDeletionBehavior.userRemovable,
 );

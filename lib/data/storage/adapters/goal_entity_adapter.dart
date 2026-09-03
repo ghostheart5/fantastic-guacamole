@@ -12,16 +12,24 @@ class GoalEntityAdapter extends TypeAdapter<GoalEntity> {
 
   @override
   GoalEntity read(BinaryReader reader) {
+    final String id = reader.readString();
+    final String title = reader.readString();
+    final DateTime createdAt = DateTime.fromMillisecondsSinceEpoch(
+      reader.readInt(),
+    );
+    final String? description = reader.read() as String?;
+    final DateTime? targetDate = reader.read() as DateTime?;
+    final int colorHex = reader.readInt();
     final DateTime? completedAt = reader.availableBytes > 0
         ? reader.read() as DateTime?
         : null;
     return GoalEntity(
-      id: reader.readString(),
-      title: reader.readString(),
-      createdAt: DateTime.fromMillisecondsSinceEpoch(reader.readInt()),
-      description: reader.read() as String?,
-      targetDate: reader.read() as DateTime?,
-      colorHex: reader.readInt(),
+      id: id,
+      title: title,
+      createdAt: createdAt,
+      description: description,
+      targetDate: targetDate,
+      colorHex: colorHex,
       completedAt: completedAt,
     );
   }

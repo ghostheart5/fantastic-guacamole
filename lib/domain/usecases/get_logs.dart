@@ -2,7 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
 import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Logs
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Logs
 ///
 /// Registered as getLogsUseCaseProvider; logs UI reads logsActionsProvider.
 class GetLogs {

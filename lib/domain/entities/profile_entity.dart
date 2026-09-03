@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Progression
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Progression
 ///
 /// Domain profile model; ProfileController is the shipping profile state.
 class ProfileEntity {

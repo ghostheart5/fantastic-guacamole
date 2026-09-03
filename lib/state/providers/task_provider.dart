@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -23,6 +24,7 @@ import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
@@ -292,9 +294,11 @@ class TaskActions {
       await _ref
           .read(profileProvider.notifier)
           .awardXP(score.xp, source: 'task_completion');
-      await _ref
-          .read(observedPlanningPatternsProvider.notifier)
-          .recordCompletion(difficulty: selectedTask.difficulty);
+      if (!await _isLearningPaused()) {
+        await _ref
+            .read(observedPlanningPatternsProvider.notifier)
+            .recordCompletion(difficulty: selectedTask.difficulty);
+      }
       _ref.read(siStateProvider.notifier).recordCompletion();
       unawaited(
         _recordCompletionSideEffects(
@@ -383,23 +387,38 @@ class TaskActions {
       _ref.invalidate(tasksProvider);
       return;
     }
-    await _ref
-        .read(learningProvider.notifier)
-        .update(success: false, difficulty: selectedTask.difficulty);
-    await _bestEffort(
-      () => _ref
-          .read(skipTaskUseCaseProvider)
-          .call(taskId: selectedTask!.id, difficulty: selectedTask.difficulty),
-    );
-    await _ref.read(observedPlanningPatternsProvider.notifier).recordSkip();
-    await _bestEffort(
-      () => _recordTaskOutcomeLearning(
-        task: selectedTask!,
-        durationSeconds: 0,
-        completed: false,
-        timestamp: now,
-      ),
-    );
+    final bool learningPaused = await _isLearningPaused();
+    if (!learningPaused) {
+      await _ref
+          .read(learningProvider.notifier)
+          .update(success: false, difficulty: selectedTask.difficulty);
+      await _ref.read(observedPlanningPatternsProvider.notifier).recordSkip();
+      await _bestEffort(
+        () => _ref
+            .read(decisionOutcomeActionsProvider)
+            .recordDirect(
+              decisionId:
+                  'task:${selectedTask!.id}:${now.microsecondsSinceEpoch}',
+              kind: DecisionOutcomeKind.skipped,
+              surface: 'task_lifecycle',
+              modelVersion: 'task-outcome-v1',
+              recommendationConfidence: 1,
+              subjectId: selectedTask.id,
+              situation: 'task execution',
+              completionResult: 'Skipped the task.',
+              recommendationHelped: false,
+              recordedAt: now,
+            ),
+      );
+      await _bestEffort(
+        () => _recordTaskOutcomeLearning(
+          task: selectedTask!,
+          durationSeconds: 0,
+          completed: false,
+          timestamp: now,
+        ),
+      );
+    }
     unawaited(_recordGuidance(GuidanceMilestone.firstTaskDeferral));
     _ref.read(siStateProvider.notifier).taskSkipped();
     await _ref
@@ -557,33 +576,43 @@ class TaskActions {
     required DateTime timestamp,
     required bool notify,
   }) async {
-    await _bestEffort(
-      () => _ref
-          .read(learningProvider.notifier)
-          .update(success: true, difficulty: task.difficulty),
-    );
-    await _bestEffort(
-      () => _ref
-          .read(applyLearningFeedbackUseCaseProvider)
-          .call(
-            success: true,
-            difficulty: task.difficulty,
-            taskId: task.id,
-            source: 'task_completion',
-          )
-          .then((_) {}),
-    );
+    final bool learningPaused = await _isLearningPaused();
+    if (!learningPaused) {
+      await _bestEffort(
+        () => _ref
+            .read(learningProvider.notifier)
+            .update(success: true, difficulty: task.difficulty),
+      );
+      await _bestEffort(
+        () => _ref
+            .read(decisionOutcomeActionsProvider)
+            .recordDirect(
+              decisionId: 'task:${task.id}:${timestamp.microsecondsSinceEpoch}',
+              kind: DecisionOutcomeKind.completed,
+              surface: 'task_lifecycle',
+              modelVersion: 'task-outcome-v1',
+              recommendationConfidence: 1,
+              subjectId: task.id,
+              situation: 'task execution',
+              completionResult: 'Completed the task.',
+              recommendationHelped: true,
+              recordedAt: timestamp,
+            ),
+      );
+    }
     await _bestEffort(
       () => _ref.read(localMetricsAccumulatorProvider).recordTaskCompleted(),
     );
-    await _bestEffort(
-      () => _recordTaskOutcomeLearning(
-        task: task,
-        durationSeconds: durationSeconds,
-        completed: true,
-        timestamp: timestamp,
-      ),
-    );
+    if (!learningPaused) {
+      await _bestEffort(
+        () => _recordTaskOutcomeLearning(
+          task: task,
+          durationSeconds: durationSeconds,
+          completed: true,
+          timestamp: timestamp,
+        ),
+      );
+    }
     await _bestEffort(
       () => _ref
           .read(logsActionsProvider)
@@ -612,6 +641,12 @@ class TaskActions {
       );
     }
     await _refreshPlannerDecision(notify: notify);
+  }
+
+  Future<bool> _isLearningPaused() async {
+    final repository = _ref.read(decisionOutcomeRepositoryProvider);
+    if (repository == null) return true;
+    return repository.isLearningPaused();
   }
 
   Future<void> _bestEffort(Future<void> Function() operation) async {

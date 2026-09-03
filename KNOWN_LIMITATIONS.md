@@ -24,15 +24,34 @@ Professor baseline verdict:
   exact-commit CI run `33677111731` exposed the renderer split by failing only
   those five comparisons; a corrective commit is not promoted unless its own
   attached CI check passes.
-- There is no single deterministic Person Context behavior policy governing
-  ranking, constraints, surface output, override, and explanation.
-- Relevant Person Context does not yet produce the required bounded,
-  reversible recommendation delta across Nexus, Smart Planner, SI Console,
-  Trajectory, and Creator.
-- Learning is reachable but remains task-affinity focused and only partly
-  visible and reversible across surfaces.
-- Learning access fails closed at the account-session boundary, but the current
-  learning-state storage key is shared rather than namespaced per account.
+- A single deterministic Person Context behavior policy and the bounded
+  Nexus/Planner recommendation path now have focused Windows host proof, but
+  the changes remain uncommitted and lack exact-commit CI, device, and human
+  evidence.
+- SI Console, Trajectory, and Creator now consume the shared policy for
+  query-relevant evidence, bounded constraints, warnings, traceability, and
+  correction/withdrawal invalidation. Priority 4 has focused Windows host proof
+  only; the changes remain uncommitted and lack exact-commit CI, physical-device,
+  deployed-service, and human-usefulness evidence.
+- Priority 5 bounded preference learning now has focused Windows-host evidence
+  for account scoping, decay, low-confidence gating, exact Smart Planner use,
+  correction/undo, pause, export, retention, and delete-all. It remains an
+  uncommitted host result without exact-commit CI, physical-device restart,
+  localization, privacy-review, or human-usefulness evidence.
+- Priority 6 first-use context now has focused Windows-host proof for a
+  post-value, account-scoped optional offer, consent-before-save, lawful
+  current-priority tie-break behavior, decline-without-write, visible Nexus
+  discovery, Settings governance, semantics, and 200% small-viewport
+  reachability. The binder exit remains open until representative participants
+  complete the full timed path in under two minutes with zero facilitator
+  rescue, and until Linux/exact-commit, device, and translation evidence exist.
+- Priority 7's four binder-named files, planned-source reachability, static
+  checks, full host suite, and target-mode 85/80/70 coverage gates now pass on
+  the final Windows candidate. Exact-commit CI and device/runtime evidence are
+  still separate unverified gates.
+- Learned support preferences are purpose-limited surface/situation signals,
+  not verified facts, identity attributes, synthetic emotional intelligence,
+  or whole-person understanding.
 - Exact-build physical-device, TalkBack, keyboard, rotation, offline,
   performance, and human-UAT evidence remains incomplete.
 - Crisis and non-crisis distress handling still requires qualified review.

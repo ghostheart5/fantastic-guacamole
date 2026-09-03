@@ -140,6 +140,20 @@ class TrajectoryForecastLedgerRepository
     int resolved = 0;
     final List<TrajectoryForecastReceipt> next = receipts
         .map((receipt) {
+          final String currentContextRevision =
+              current.sourceRevisions['person_context_trajectory'] ??
+              'unavailable';
+          final bool contextChanged =
+              receipt.personContextRevision != null &&
+              receipt.personContextRevision != currentContextRevision;
+          if (contextChanged && !receipt.hasAssumptionCorrection) {
+            resolved++;
+            final DateTime correctedAt =
+                current.observedAt.isBefore(receipt.selectedAt)
+                ? receipt.selectedAt
+                : current.observedAt;
+            return receipt.markAssumptionsCorrected(correctedAt);
+          }
           if (receipt.isResolved || !receipt.isDueAt(current.observedAt)) {
             return receipt;
           }

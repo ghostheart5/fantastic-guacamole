@@ -4,10 +4,13 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_explanation_contract.dart';
+import 'package:fantastic_guacamole/domain/learning/learning_ledger.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/features/home/ui/first_use_context_offer_card.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
@@ -29,6 +32,8 @@ const String _plannerUnavailableMessage =
     'Smart Planner is not enabled for this account yet. Your check-in was not saved or changed.';
 const String _plannerRetryMessage =
     'Guidance could not be generated. Your check-in is still here. Tap GET GUIDANCE to retry.';
+const String _plannerPersonContextChangedMessage =
+    'Your Person Context changed, so the previous guidance was cleared. Tap GET GUIDANCE to review a current plan.';
 
 class SmartPlannerScreen extends ConsumerStatefulWidget {
   const SmartPlannerScreen({super.key});
@@ -49,6 +54,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   String? _planningGuidanceMessage;
   String? _planningGuidancePrompt;
   PlannerV2Response? _plannerResponse;
+  String? _plannerPersonContextBehaviorRevision;
+  String? _plannerPersonContextDecisionText;
   OperatingDecisionReceipt? _operatingReceipt;
   String? _shownOperatingReceiptId;
   String? _followUpError;
@@ -65,6 +72,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   bool _showWhy = false;
   bool _showEvidence = false;
   bool _requestingPlannerExplanation = false;
+  bool _showFirstUseContextOffer = false;
 
   List<_Exchange> get _visibleFollowUps {
     const int maxVisibleFollowUps = 20;
@@ -183,22 +191,46 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         history: _conversationHistory(),
         reason: 'request_timeout',
       );
+      final PlannerV2Response effectiveResponse = _applyReviewableLearning(
+        fallback.plannerResponse,
+      );
+      final bool showContextOffer =
+          !effectiveResponse.isClarification &&
+          await _claimFirstUseContextOffer();
+      if (!mounted) return;
       setState(() {
         _gettingPlanningGuidance = false;
         _planningGuidancePrompt = fallback.prompt;
         _planningGuidanceMessage = fallback.message;
-        _plannerResponse = fallback.plannerResponse;
+        _plannerResponse = effectiveResponse;
+        _plannerPersonContextDecisionText = fallback.prompt;
+        _plannerPersonContextBehaviorRevision = ref.read(
+          smartPlannerPersonContextBehaviorRevisionForDecisionProvider(
+            fallback.prompt,
+          ),
+        );
         _operatingReceipt = fallback.operatingReceipt;
+        _showFirstUseContextOffer = showContextOffer;
         _clearPlannerExplanationState();
       });
       return;
     }
+    final PlannerV2Response effectiveResponse = _applyReviewableLearning(
+      result.plannerResponse,
+    );
+    final bool showContextOffer =
+        !effectiveResponse.isClarification &&
+        await _claimFirstUseContextOffer();
     if (!mounted) return;
 
     setState(() {
       _planningGuidancePrompt = result.prompt;
       _planningGuidanceMessage = result.message;
-      _plannerResponse = result.plannerResponse;
+      _plannerResponse = effectiveResponse;
+      _plannerPersonContextDecisionText = result.prompt;
+      _plannerPersonContextBehaviorRevision = _personContextBehaviorRevisionFor(
+        result,
+      );
       _operatingReceipt = result.operatingReceipt;
       _guidanceError = null;
       _saved = true;
@@ -206,6 +238,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       _plannerActionStatus = null;
       _showWhy = false;
       _showEvidence = false;
+      _showFirstUseContextOffer = showContextOffer;
       _clearPlannerExplanationState();
     });
     _recordOperatingReceiptShown(result.operatingReceipt);
@@ -223,6 +256,127 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         ),
       );
     });
+  }
+
+  PlannerV2Response _applyReviewableLearning(PlannerV2Response response) {
+    if (ref.read(learningPausedProvider).asData?.value != false) {
+      return response;
+    }
+    return applyPlannerLearnedPreference(
+      response,
+      ref.read(learningLedgerSummaryProvider),
+    );
+  }
+
+  Future<bool> _claimFirstUseContextOffer() async {
+    try {
+      return await ref.read(firstUseContextOfferActionsProvider).claim();
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<void> _addFirstUseGoalContext() async {
+    final TextEditingController controller = TextEditingController();
+    bool consent = false;
+    final String? exactText = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
+          title: const Text('Save your current priority?'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Optional. Enter one exact current priority in your own words. Do not add a personality profile, life history, or emotional label.',
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('first-use-context-value'),
+                  controller: controller,
+                  maxLength: 280,
+                  minLines: 2,
+                  maxLines: 4,
+                  onChanged: (_) => setDialogState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Exact current priority',
+                    hintText: 'Example: Closed-test readiness comes first.',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Purpose: decision support\nSurface scope: Smart Planner only\nExpiry: automatically deleted after 30 days\nEffect: may break a close ranking tie while this priority is active; it does not become an identity fact.',
+                  style: TextStyle(height: 1.45),
+                ),
+                CheckboxListTile(
+                  key: const Key('first-use-context-consent'),
+                  contentPadding: EdgeInsets.zero,
+                  value: consent,
+                  title: const Text(
+                    'I consent to saving only this exact text for the purpose, scope, and expiry above.',
+                  ),
+                  onChanged: (bool? value) =>
+                      setDialogState(() => consent = value ?? false),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Use only this time'),
+            ),
+            FilledButton(
+              key: const Key('first-use-context-confirm'),
+              onPressed: consent && controller.text.trim().isNotEmpty
+                  ? () =>
+                        Navigator.of(dialogContext).pop(controller.text.trim())
+                  : null,
+              child: const Text('Save with consent'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (exactText == null || !mounted) return;
+    final DateTime now = ref.read(personContextClockProvider)().toUtc();
+    try {
+      await ref
+          .read(personContextActionsProvider)
+          .upsert(
+            PersonContextSignal(
+              id: 'first-goal-context-${now.microsecondsSinceEpoch}',
+              kind: PersonContextKind.currentPriority,
+              value: exactText,
+              source: PersonContextSource.userAuthored,
+              consent: PersonContextConsent.granted,
+              consentedAt: now,
+              purpose: PersonContextPurpose.decisionSupport,
+              surfaceScopes: const <PersonContextSurface>{
+                PersonContextSurface.smartPlanner,
+              },
+              recordedAt: now,
+              freshUntil: now.add(const Duration(days: 30)),
+              expiresAt: now.add(const Duration(days: 30)),
+              exportBehavior: PersonContextExportBehavior.include,
+              deletionBehavior:
+                  PersonContextDeletionBehavior.expiresAutomatically,
+            ),
+          );
+      if (!mounted) return;
+      setState(() {
+        _showFirstUseContextOffer = false;
+        _plannerActionStatus =
+            'Optional context saved with consent · Smart Planner only · expires in 30 days · review or delete in Context settings.';
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _plannerActionStatus = error.toString());
+    }
   }
 
   Future<void> _sendFollowUp() async {
@@ -255,6 +409,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       setState(() {
         _followUps.add(_Exchange(question: text, answer: result.message));
         _plannerResponse = result.plannerResponse;
+        _plannerPersonContextDecisionText = result.prompt;
+        _plannerPersonContextBehaviorRevision =
+            _personContextBehaviorRevisionFor(result);
         _operatingReceipt = result.operatingReceipt;
         _showWhy = false;
         _showEvidence = false;
@@ -324,9 +481,53 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     _recordOperatingOutcome(
       DecisionOutcomeKind.accepted,
       detail: 'Accepted through Smart Planner Use this plan.',
+      optionChosen: response.recommendedKind.name,
+      optionSizeMinutes:
+          response.optionByKind[response.recommendedKind]?.estimatedMinutes,
+      recommendationHelped: true,
     );
     ref.read(creatorDraftPreviewProvider.notifier).stage(draft);
     goToAppView(context, ref, AppView.creator);
+  }
+
+  String _personContextBehaviorRevisionFor(SmartPlannerResult result) {
+    final Object? boundRevision =
+        result.request.context['personContextBehaviorRevision'];
+    return boundRevision is String && boundRevision.trim().isNotEmpty
+        ? boundRevision
+        : ref.read(
+            smartPlannerPersonContextBehaviorRevisionForDecisionProvider(
+              result.prompt,
+            ),
+          );
+  }
+
+  void _invalidatePlannerOutputForPersonContext(String currentRevision) {
+    final String? boundRevision = _plannerPersonContextBehaviorRevision;
+    if (!mounted ||
+        _plannerResponse == null ||
+        boundRevision == null ||
+        boundRevision == currentRevision) {
+      return;
+    }
+    setState(() {
+      _planningGuidanceMessage = null;
+      _planningGuidancePrompt = null;
+      _plannerResponse = null;
+      _plannerPersonContextDecisionText = null;
+      _plannerPersonContextBehaviorRevision = currentRevision;
+      _operatingReceipt = null;
+      _shownOperatingReceiptId = null;
+      _followUps.clear();
+      _followUpError = null;
+      _plannerActionStatus = null;
+      _guidanceError = _plannerPersonContextChangedMessage;
+      _saved = false;
+      _showFirstUseContextOffer = false;
+      _showWhy = false;
+      _showEvidence = false;
+      _clearPlannerExplanationState();
+    });
   }
 
   void _makeSmaller() {
@@ -374,6 +575,10 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     _recordOperatingOutcome(
       DecisionOutcomeKind.deferred,
       detail: 'Deferred the current receipt action by choosing Make smaller.',
+      optionChosen: smaller.recommendedKind.name,
+      optionSizeMinutes:
+          smaller.optionByKind[smaller.recommendedKind]?.estimatedMinutes,
+      deferralReason: 'Asked for a smaller next step.',
     );
   }
 
@@ -397,6 +602,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       DecisionOutcomeKind.rejected,
       detail:
           'Rejected the current receipt approach by choosing Different approach.',
+      optionChosen: next.name,
+      optionSizeMinutes: response.optionByKind[next]?.estimatedMinutes,
+      recommendationHelped: false,
     );
   }
 
@@ -406,6 +614,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _shownOperatingReceiptId == receipt.decisionId) {
       return;
     }
+    final PlannerV2Response? shownResponse = _plannerResponse;
     _shownOperatingReceiptId = receipt.decisionId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _shownOperatingReceiptId != receipt.decisionId) return;
@@ -417,6 +626,13 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
               kind: DecisionOutcomeKind.shown,
               surface: 'smart_planner',
               detail: 'Matched operating receipt shown in Planner V2.',
+              situation: 'bounded planning choice',
+              optionChosen: shownResponse?.recommendedKind.name,
+              optionSizeMinutes: shownResponse == null
+                  ? null
+                  : shownResponse
+                        .optionByKind[shownResponse.recommendedKind]
+                        ?.estimatedMinutes,
             ),
       );
     });
@@ -425,6 +641,10 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   void _recordOperatingOutcome(
     DecisionOutcomeKind kind, {
     required String detail,
+    String? optionChosen,
+    int? optionSizeMinutes,
+    String? deferralReason,
+    bool? recommendationHelped,
   }) {
     final OperatingDecisionReceipt? receipt = _operatingReceipt;
     if (receipt == null || receipt.isExpired) return;
@@ -436,6 +656,11 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             kind: kind,
             surface: 'smart_planner',
             detail: detail,
+            situation: 'bounded planning choice',
+            optionChosen: optionChosen,
+            optionSizeMinutes: optionSizeMinutes,
+            deferralReason: deferralReason,
+            recommendationHelped: recommendationHelped,
           ),
     );
   }
@@ -829,6 +1054,16 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(decisionOutcomesProvider);
+    ref.watch(learningPausedProvider);
+    ref.listen<String>(
+      smartPlannerPersonContextBehaviorRevisionForDecisionProvider(
+        _plannerPersonContextDecisionText ?? '',
+      ),
+      (String? previous, String next) {
+        _invalidatePlannerOutputForPersonContext(next);
+      },
+    );
     final ConsentedHumanContext humanContext = ref.watch(
       consentedHumanContextProvider,
     );
@@ -1048,6 +1283,18 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                               unawaited(_rememberPreference()),
                         ),
                       ),
+                      if (_showFirstUseContextOffer &&
+                          !plannerResponse.isClarification) ...<Widget>[
+                        const SizedBox(height: 12),
+                        FirstUseContextOfferCard(
+                          immediateGoal:
+                              _planningGuidancePrompt ??
+                              _notesController.text.trim(),
+                          onAdd: () => unawaited(_addFirstUseGoalContext()),
+                          onDismiss: () =>
+                              setState(() => _showFirstUseContextOffer = false),
+                        ),
+                      ],
                       if (plannerExplanationAvailable &&
                           !plannerResponse.isClarification) ...[
                         const SizedBox(height: 12),

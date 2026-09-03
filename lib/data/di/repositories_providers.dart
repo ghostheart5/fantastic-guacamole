@@ -10,7 +10,6 @@ import 'package:fantastic_guacamole/data/repositories/google_play_paywall_reposi
 import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/identity_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/signal_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/learning_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/log_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/memory_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/milestone_repository.dart';
@@ -215,10 +214,6 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((Ref ref) {
 
 final themeRepositoryProvider = Provider<ThemeRepository>((Ref ref) {
   return ThemeRepository(ref.read(sharedPrefsStoreProvider));
-});
-
-final learningRepositoryProvider = Provider<LearningRepository>((Ref ref) {
-  return LearningRepository(ref.read(secureStoreProvider));
 });
 
 final workspaceRepositoryProvider = Provider<WorkspaceRepository>((Ref ref) {

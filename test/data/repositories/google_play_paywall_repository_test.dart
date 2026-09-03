@@ -197,6 +197,7 @@ void main() {
             billingClient: billing,
             paywallTestingModeOverride: false,
             sharedPreferencesLoader: SharedPreferences.getInstance,
+            receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
           );
 
       final plans = await Logger.withMutedErrors(
@@ -300,6 +301,7 @@ void main() {
             billingClient: billing,
             paywallTestingModeOverride: false,
             sharedPreferencesLoader: SharedPreferences.getInstance,
+            receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
           );
 
       await expectLater(
@@ -310,6 +312,182 @@ void main() {
       repository.dispose();
     },
   );
+
+  test('signed-out Supabase session blocks purchase and restore', () async {
+    final sb.SupabaseClient client = sb.SupabaseClient(
+      'https://chronospark.example.com',
+      'anon-key',
+      httpClient: MockClient((http.Request request) async {
+        fail('Signed-out billing guards must not make network requests.');
+      }),
+      authOptions: const sb.AuthClientOptions(
+        authFlowType: sb.AuthFlowType.implicit,
+      ),
+    );
+    final _FakeBillingClient billing = _emptyBillingClient();
+    final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
+      billingClient: billing,
+      paywallTestingModeOverride: false,
+      sharedPreferencesLoader: SharedPreferences.getInstance,
+      receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+      supabaseClient: client,
+    );
+
+    await expectLater(
+      () => repository.startSubscription('monthly'),
+      throwsA(
+        isA<StateError>().having(
+          (StateError error) => error.message,
+          'message',
+          'Sign in before starting a subscription.',
+        ),
+      ),
+    );
+    await expectLater(
+      repository.restorePurchases,
+      throwsA(
+        isA<StateError>().having(
+          (StateError error) => error.message,
+          'message',
+          'Sign in before restoring purchases.',
+        ),
+      ),
+    );
+    expect(billing.queryProductCalls, 0);
+    expect(billing.restoreCalls, 0);
+
+    repository.dispose();
+    client.dispose();
+  });
+
+  test('persisted pending owner resumes only for the same account', () async {
+    final sb.SupabaseClient client = await _authorityClient((request) async {
+      fail('A pending-owner guard must not query subscription authority.');
+    });
+    final SecureStore sameOwnerStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    await sameOwnerStore.writeString(
+      'paywall_pending_purchase_owner_v1.chronospark_premium_monthly',
+      sha256.convert(utf8.encode('user-1')).toString(),
+    );
+    final _FakeBillingClient sameOwnerBilling = _emptyBillingClient();
+    final GooglePlayPaywallRepository sameOwnerRepository =
+        GooglePlayPaywallRepository(
+          billingClient: sameOwnerBilling,
+          paywallTestingModeOverride: false,
+          sharedPreferencesLoader: SharedPreferences.getInstance,
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+          secureStore: sameOwnerStore,
+          supabaseClient: client,
+        );
+
+    final SubscriptionState pending = await sameOwnerRepository
+        .startSubscription('monthly');
+    expect(pending.status, 'purchase_pending');
+    expect(sameOwnerBilling.queryProductCalls, 0);
+    sameOwnerRepository.dispose();
+
+    final SecureStore otherOwnerStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    await otherOwnerStore.writeString(
+      'paywall_pending_purchase_owner_v1.chronospark_premium_monthly',
+      sha256.convert(utf8.encode('user-2')).toString(),
+    );
+    final _FakeBillingClient otherOwnerBilling = _emptyBillingClient();
+    final GooglePlayPaywallRepository otherOwnerRepository =
+        GooglePlayPaywallRepository(
+          billingClient: otherOwnerBilling,
+          paywallTestingModeOverride: false,
+          sharedPreferencesLoader: SharedPreferences.getInstance,
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+          secureStore: otherOwnerStore,
+          supabaseClient: client,
+        );
+
+    await expectLater(
+      () => otherOwnerRepository.startSubscription('monthly'),
+      throwsA(
+        isA<StateError>().having(
+          (StateError error) => error.message,
+          'message',
+          contains('belongs to another signed-in account'),
+        ),
+      ),
+    );
+    expect(otherOwnerBilling.queryProductCalls, 0);
+    otherOwnerRepository.dispose();
+    client.dispose();
+  });
+
+  test('billing start exception clears the pending operation', () async {
+    final _FakeBillingClient billing = _FakeBillingClient(
+      productResponse: ProductDetailsResponse(
+        productDetails: <ProductDetails>[
+          ProductDetails(
+            id: 'chronospark_premium_monthly',
+            title: 'Monthly',
+            description: 'Monthly premium',
+            price: 'USD 4.99',
+            rawPrice: 4.99,
+            currencyCode: 'USD',
+          ),
+        ],
+        notFoundIDs: const <String>[],
+      ),
+      onBuyNonConsumable: (PurchaseParam param) async {
+        throw Exception('billing unavailable');
+      },
+    );
+    final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
+      billingClient: billing,
+      paywallTestingModeOverride: false,
+      sharedPreferencesLoader: SharedPreferences.getInstance,
+      receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+    );
+
+    await expectLater(
+      () => repository.startSubscription('monthly'),
+      throwsA(isA<Exception>()),
+    );
+    await expectLater(
+      () => repository.startSubscription('monthly'),
+      throwsA(isA<Exception>()),
+    );
+    expect(billing.queryProductCalls, 2);
+    expect(billing.buyCalls, 2);
+
+    repository.dispose();
+  });
+
+  test('local refresh modes stay fail closed without authority', () async {
+    final GooglePlayPaywallRepository testingRepository =
+        GooglePlayPaywallRepository(
+          billingClient: _emptyBillingClient(),
+          paywallTestingModeOverride: true,
+          sharedPreferencesLoader: SharedPreferences.getInstance,
+        );
+    final SubscriptionState testingState = await testingRepository
+        .refreshSubscriptionState();
+    expect(testingState.isActive, isFalse);
+    expect(testingState.status, 'locked');
+    testingRepository.dispose();
+
+    final GooglePlayPaywallRepository lockedRepository =
+        GooglePlayPaywallRepository(
+          billingClient: _emptyBillingClient(),
+          paywallTestingModeOverride: false,
+          sharedPreferencesLoader: SharedPreferences.getInstance,
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+        );
+    final SubscriptionState lockedState = await lockedRepository
+        .refreshSubscriptionState();
+    expect(lockedState.isActive, isFalse);
+    expect(lockedState.status, 'locked');
+    expect(lockedRepository.legacyRestoreNextRetryAt, isNull);
+    lockedRepository.dispose();
+  });
 
   test(
     'startSubscription resolves active state after verified purchase update',

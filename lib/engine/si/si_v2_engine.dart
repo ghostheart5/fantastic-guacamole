@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 
 final class SIV2Engine {
@@ -106,6 +107,16 @@ final class SIV2Engine {
               '${timeline.length} Timeline event${timeline.length == 1 ? '' : 's'} matched the current lens.',
           evidenceIds: <String>[sourceId(SIV2Source.timeline)],
         ),
+    ];
+    final List<SIV2Statement> userReportedEvidence = <SIV2Statement>[
+      ...?snapshot.personContext?.signals.map(
+        (SIV2PersonContextSignalEvidence signal) => SIV2Statement(
+          kind: SIV2StatementKind.userReportedEvidence,
+          text:
+              'User reported ${signal.kind.name}: ${signal.userReportedValue}. This is relevant context, not independently verified fact.',
+          evidenceIds: <String>['person-context:${signal.id}'],
+        ),
+      ),
     ];
 
     final int overdueTasks = tasks
@@ -239,6 +250,10 @@ final class SIV2Engine {
         'At least one matched task has no due date or schedule.',
       if (question.focus == _SIV2QuestionFocus.unsupported)
         'The question does not identify a planning decision that this read-only evidence lens can answer.',
+      ...?snapshot.personContext?.unknownKinds.map(
+        (PersonContextKind kind) =>
+            'Person Context has no user-provided ${kind.name}; SI did not infer it.',
+      ),
       ...conflicts.map((SIV2Conflict item) => item.summary),
     ];
     final List<SIV2Statement> inferences = <SIV2Statement>[
@@ -271,7 +286,7 @@ final class SIV2Engine {
         ),
     ];
 
-    final String directAnswer = _directAnswer(
+    final String groundedAnswer = _directAnswer(
       question: question,
       focusTask: focusTask,
       focusGoal: focusGoal,
@@ -288,6 +303,9 @@ final class SIV2Engine {
       totalMatched:
           tasks.length + goals.length + milestones.length + timeline.length,
     );
+    final String directAnswer = userReportedEvidence.isEmpty
+        ? groundedAnswer
+        : '$groundedAnswer ${userReportedEvidence.length} relevant user-reported context ${userReportedEvidence.length == 1 ? 'item is' : 'items are'} cited separately and not independently verified.';
     final String recommendation = _recommendation(
       question: question,
       focusTask: focusTask,
@@ -325,6 +343,7 @@ final class SIV2Engine {
       snapshotRevision: snapshot.revision,
       directAnswer: directAnswer,
       observedFacts: facts,
+      userReportedEvidence: userReportedEvidence,
       calculations: calculations,
       inferences: inferences,
       missingInformation: missing,
@@ -418,6 +437,20 @@ final class SIV2Engine {
           uri: 'chronospark://timeline/${item.id}',
         ),
       ),
+    );
+    links.addAll(
+      snapshot.personContext?.signals.map(
+            (SIV2PersonContextSignalEvidence item) => SIV2EvidenceLink(
+              evidenceId: 'person-context:${item.id}',
+              source: null,
+              label: 'User-reported ${item.kind.name}',
+              entityId: item.id,
+              observedAt: item.recordedAt,
+              uri: 'chronospark://person-context/${item.id}',
+              userReported: true,
+            ),
+          ) ??
+          const <SIV2EvidenceLink>[],
     );
     return links;
   }

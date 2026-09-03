@@ -57,8 +57,7 @@ Future<void> showCrisisDialog(
   Locale? locale,
   SafetySupportLauncher? launcher,
 }) {
-  final Locale resolvedLocale =
-      locale ?? WidgetsBinding.instance.platformDispatcher.locale;
+  final Locale resolvedLocale = locale ?? Localizations.localeOf(context);
   final _SafetySupportCopy copy = _SafetySupportCopy(resolvedLocale);
   final SafetySupportResources resources = SafetySupportResources.resolve(
     resolvedLocale,
@@ -81,8 +80,7 @@ Future<SupportiveDistressChoice> showSupportiveDistressDialog(
   Locale? locale,
   SafetySupportLauncher? launcher,
 }) async {
-  final Locale resolvedLocale =
-      locale ?? WidgetsBinding.instance.platformDispatcher.locale;
+  final Locale resolvedLocale = locale ?? Localizations.localeOf(context);
   final _SafetySupportCopy copy = _SafetySupportCopy(resolvedLocale);
   final SafetySupportResources resources = SafetySupportResources.resolve(
     resolvedLocale,

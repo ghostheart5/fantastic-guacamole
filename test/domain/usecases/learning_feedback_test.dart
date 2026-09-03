@@ -170,8 +170,56 @@ void main() {
         expect(first.afterAffinity, closeTo(.6, 1e-9));
         expect(duplicate.afterAffinity, closeTo(.6, 1e-9));
         expect(repository.state!.observations, hasLength(1));
+        expect(
+          repository.state!.effectiveTaskAffinity(
+            'task-1',
+            now: DateTime.utc(2026, 8, 30, 12),
+          ),
+          .5,
+          reason: 'one outcome remains low confidence and cannot affect rank',
+        );
       },
     );
+
+    test('surface outcomes do not become hidden task affinity', () async {
+      final _FakeLearningRepository repository = _FakeLearningRepository();
+      final ApplyLearningFeedback feedback = ApplyLearningFeedback(repository);
+      for (int index = 0; index < 3; index += 1) {
+        await feedback.recordDecisionOutcome(
+          DecisionOutcomeEntity(
+            decisionId: 'decision-$index',
+            kind: DecisionOutcomeKind.accepted,
+            surface: 'nexus',
+            recordedAt: DateTime.utc(
+              2026,
+              9,
+              2,
+            ).subtract(Duration(days: index)),
+            modelVersion: 'decision-v1',
+            recommendationConfidence: .6,
+            subjectId: 'task-3',
+          ),
+        );
+      }
+
+      expect(
+        repository.state!.effectiveTaskAffinity(
+          'task-3',
+          now: DateTime.utc(2026, 9, 2),
+        ),
+        .5,
+        reason:
+            'surface and situation outcomes are governed by the reviewable ledger',
+      );
+      expect(
+        repository.state!.effectiveTaskAffinity(
+          'task-3',
+          now: DateTime.utc(2027, 3, 2),
+        ),
+        .5,
+        reason: 'decayed evidence falls back to neutral',
+      );
+    });
 
     test(
       'a person can correct the learning attached to a receipt outcome',
@@ -206,6 +254,34 @@ void main() {
         );
       },
     );
+
+    test('deleting a ledger outcome reverses only its learning', () async {
+      final _FakeLearningRepository repository = _FakeLearningRepository();
+      final ApplyLearningFeedback feedback = ApplyLearningFeedback(repository);
+      await feedback.call(
+        success: true,
+        difficulty: 2,
+        taskId: 'task-kept',
+        source: 'task_completion',
+        now: DateTime.utc(2026, 9, 1),
+      );
+      final DecisionOutcomeEntity outcome = DecisionOutcomeEntity(
+        decisionId: 'decision-delete',
+        kind: DecisionOutcomeKind.accepted,
+        surface: 'smart_planner',
+        recordedAt: DateTime.utc(2026, 9, 2),
+        modelVersion: 'decision-v1',
+        recommendationConfidence: .6,
+        subjectId: 'task-delete',
+      );
+      await feedback.recordDecisionOutcome(outcome);
+
+      await feedback.removeDecisionOutcomes(<DecisionOutcomeEntity>[outcome]);
+
+      expect(repository.state!.taskAffinity['task-delete'], isNull);
+      expect(repository.state!.taskAffinity['task-kept'], closeTo(.6, 1e-9));
+      expect(repository.state!.observations, hasLength(1));
+    });
   });
 
   group('UpdateLearningState', () {

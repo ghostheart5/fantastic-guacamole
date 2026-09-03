@@ -9,8 +9,7 @@ import 'package:fantastic_guacamole/domain/policies/learning_policy.dart';
 ///
 /// Invoked after task completion and after recorded or corrected decision
 /// outcomes. The repository is real and supplies later decision-engine reads.
-/// Session guards fail closed, but its current storage key is not namespaced
-/// per account.
+/// Session guards fail closed and production storage is namespaced per account.
 class ApplyLearningFeedback {
   ApplyLearningFeedback(this.repository, {this.siRepo});
 
@@ -122,6 +121,36 @@ class ApplyLearningFeedback {
       summary:
           'Learning was corrected from ${original.kind.name} to ${replacement.name}.',
     );
+  }
+
+  Future<void> removeDecisionOutcomes(
+    Iterable<DecisionOutcomeEntity> outcomes,
+  ) async {
+    final LearningEntity current =
+        await repository.getState() ?? LearningEntity();
+    final Set<String> observationIds = outcomes.map(_observationId).toSet();
+    if (observationIds.isEmpty) return;
+    await repository.saveState(current.removeObservations(observationIds));
+  }
+
+  Future<void> retainDecisionOutcomes(
+    Iterable<DecisionOutcomeEntity> retainedOutcomes,
+  ) async {
+    final LearningEntity current =
+        await repository.getState() ?? LearningEntity();
+    final Set<String> retainedIds = retainedOutcomes
+        .map(_observationId)
+        .toSet();
+    final Set<String> removedIds = current.observations
+        .where(
+          (DecisionObservationEntity observation) =>
+              observation.source.startsWith('decision_outcome:') &&
+              !retainedIds.contains(observation.id),
+        )
+        .map((DecisionObservationEntity observation) => observation.id)
+        .toSet();
+    if (removedIds.isEmpty) return;
+    await repository.saveState(current.removeObservations(removedIds));
   }
 }
 

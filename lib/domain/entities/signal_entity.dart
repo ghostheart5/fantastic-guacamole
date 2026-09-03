@@ -1,4 +1,4 @@
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Smart Planner/SI signals
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Smart Planner/SI signals
 ///
 /// Wired through data + domain; does not reach the UI yet.
 class SignalEntity {

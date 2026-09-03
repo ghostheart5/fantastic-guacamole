@@ -1,10 +1,10 @@
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/input_guard.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Goals/tasks
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
 ///
-/// Registered as deleteTaskUseCaseProvider; no task-delete UI flow yet.
-/// Blank-id guarded.
+/// Used by the Timeline task-delete flow through taskProvider. Blank-id
+/// guarded.
 class DeleteTask {
   DeleteTask(this.repository);
 

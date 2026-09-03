@@ -8,8 +8,10 @@ import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart'
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
+import 'package:fantastic_guacamole/domain/learning/learning_ledger.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
@@ -39,6 +41,11 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'settings_screen.sections.dart';
+part 'settings_screen.planning_sections.dart';
+part 'settings_screen.person_context.dart';
+part 'settings_screen.governance_sections.dart';
+part 'settings_screen.data_sections.dart';
+part 'settings_screen.widgets.dart';
 
 String accountDeletionOutcomeMessage(AccountDeletionResult result) {
   if (!result.localCleanupCompleted) {
@@ -106,6 +113,14 @@ class SettingsScreen extends ConsumerWidget {
     final bool? voicePermissionGranted = ref.watch(
       voicePermissionStatusProvider,
     );
+    final bool openContextFromNexus = ref.watch(
+      personContextSettingsEntryProvider,
+    );
+    if (openContextFromNexus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(personContextSettingsEntryProvider.notifier).clear();
+      });
+    }
     final String? telemetryAccountId = ref
         .watch(authUserProvider)
         .asData
@@ -274,21 +289,24 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
 
-              const _SettingsCategory(
+              _SettingsCategory(
                 title: 'Planning & guidance',
                 subtitle:
-                    'Reminders, planning preferences, memory, and tutorials',
+                    'Context, reminders, planning preferences, memory, and tutorials',
                 icon: Icons.auto_awesome_rounded,
                 accent: AppColors.neonViolet,
-                child: Column(
+                initiallyExpanded: openContextFromNexus,
+                child: const Column(
                   children: <Widget>[
+                    _PersonContextSection(),
+                    SizedBox(height: 10),
                     _ReflectionReminderSection(),
                     SizedBox(height: 10),
                     _ReminderAutomationSection(),
                     SizedBox(height: 10),
                     _PersonalizationSection(),
                     SizedBox(height: 10),
-                    _PersonContextSection(),
+                    _LearningLedgerSection(),
                     SizedBox(height: 10),
                     _MemoryGovernanceSection(),
                     SizedBox(height: 10),

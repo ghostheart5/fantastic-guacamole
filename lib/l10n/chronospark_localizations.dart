@@ -10,7 +10,10 @@ class ChronoSparkLocalizations {
   static const LocalizationsDelegate<ChronoSparkLocalizations> delegate =
       _ChronoSparkLocalizationsDelegate();
 
-  static const List<Locale> supportedLocales = <Locale>[Locale('en')];
+  static const List<Locale> supportedLocales = <Locale>[
+    Locale('en'),
+    Locale('es'),
+  ];
 
   static ChronoSparkLocalizations of(BuildContext context) =>
       Localizations.of<ChronoSparkLocalizations>(
@@ -113,6 +116,26 @@ class ChronoSparkLocalizations {
             OperatingConfidence.insufficientEvidence => 'insufficient evidence',
           };
     return isSpanish ? 'Confianza: $label.' : 'Confidence: $label.';
+  }
+
+  String provisionalEvidenceConfidenceLabel(OperatingConfidence confidence) {
+    final String label = isSpanish
+        ? switch (confidence) {
+            OperatingConfidence.high => 'alta',
+            OperatingConfidence.moderate => 'moderada',
+            OperatingConfidence.low => 'baja',
+            OperatingConfidence.insufficientEvidence =>
+              'evidencia insuficiente',
+          }
+        : switch (confidence) {
+            OperatingConfidence.high => 'high',
+            OperatingConfidence.moderate => 'moderate',
+            OperatingConfidence.low => 'low',
+            OperatingConfidence.insufficientEvidence => 'insufficient evidence',
+          };
+    return isSpanish
+        ? 'Confianza provisional de la evidencia: $label'
+        : 'Provisional evidence confidence: $label';
   }
 
   static const Map<ChronoSparkString, String> _en = <ChronoSparkString, String>{

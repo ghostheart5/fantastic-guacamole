@@ -2,7 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/input_guard.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Calendar/timeline
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Calendar/timeline
 ///
 /// Registered as saveTimelineEventsUseCaseProvider; bulk replace for
 /// import/restore. Empty-batch guarded.

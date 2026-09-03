@@ -26,6 +26,7 @@ export 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
 export 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 export 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 export 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+export 'package:fantastic_guacamole/state/providers/first_use_context_offer_provider.dart';
 export 'package:fantastic_guacamole/state/providers/subtasks_provider.dart';
 export 'package:fantastic_guacamole/state/providers/supabase_backend_provider.dart';
 export 'package:fantastic_guacamole/state/providers/sync_provider.dart';

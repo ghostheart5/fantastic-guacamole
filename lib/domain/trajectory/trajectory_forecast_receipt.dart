@@ -60,10 +60,15 @@ class TrajectoryForecastReceipt {
     required this.confidenceBand,
     required this.modelVersion,
     List<String> assumptions = const <String>[],
+    this.personContextRevision,
+    List<String> personContextSignalIds = const <String>[],
     this.assumptionsCorrectedAt,
     this.observed,
     this.schemaVersion = 2,
-  }) : assumptions = List<String>.unmodifiable(assumptions);
+  }) : assumptions = List<String>.unmodifiable(assumptions),
+       personContextSignalIds = List<String>.unmodifiable(
+         personContextSignalIds,
+       );
 
   factory TrajectoryForecastReceipt.fromScenario({
     required TrajectoryBaseline baseline,
@@ -85,6 +90,10 @@ class TrajectoryForecastReceipt {
     confidenceBand: outcome.confidence.band,
     modelVersion: outcome.modelVersion,
     assumptions: outcome.assumptions,
+    personContextRevision: baseline.personContextWarnings.isEmpty
+        ? null
+        : baseline.sourceRevisions['person_context_trajectory'],
+    personContextSignalIds: _traceSignalIds(baseline.personContextTrace),
   );
 
   final String id;
@@ -102,6 +111,8 @@ class TrajectoryForecastReceipt {
   final PredictiveConfidenceBand confidenceBand;
   final String modelVersion;
   final List<String> assumptions;
+  final String? personContextRevision;
+  final List<String> personContextSignalIds;
   final DateTime? assumptionsCorrectedAt;
   final TrajectoryObservedOutcome? observed;
   final int schemaVersion;
@@ -128,6 +139,8 @@ class TrajectoryForecastReceipt {
         confidenceBand: confidenceBand,
         modelVersion: modelVersion,
         assumptions: assumptions,
+        personContextRevision: personContextRevision,
+        personContextSignalIds: personContextSignalIds,
         assumptionsCorrectedAt: assumptionsCorrectedAt,
         observed: value,
         schemaVersion: schemaVersion,
@@ -150,6 +163,8 @@ class TrajectoryForecastReceipt {
         confidenceBand: confidenceBand,
         modelVersion: modelVersion,
         assumptions: assumptions,
+        personContextRevision: personContextRevision,
+        personContextSignalIds: personContextSignalIds,
         assumptionsCorrectedAt: correctedAt.toUtc(),
         observed: observed,
         schemaVersion: schemaVersion < 2 ? 2 : schemaVersion,
@@ -200,6 +215,8 @@ class TrajectoryForecastReceipt {
     'confidenceBand': confidenceBand.name,
     'modelVersion': modelVersion,
     'assumptions': assumptions,
+    'personContextRevision': personContextRevision,
+    'personContextSignalIds': personContextSignalIds,
     'assumptionsCorrectedAt': assumptionsCorrectedAt?.toUtc().toIso8601String(),
     'observed': observed?.toJson(),
   };
@@ -244,6 +261,13 @@ class TrajectoryForecastReceipt {
       modelVersion: _requiredString(json['modelVersion'], 'modelVersion'),
       assumptions: json['assumptions'] is List
           ? (json['assumptions'] as List)
+                .map((Object? item) => item?.toString().trim() ?? '')
+                .where((String item) => item.isNotEmpty)
+                .toList(growable: false)
+          : const <String>[],
+      personContextRevision: json['personContextRevision']?.toString(),
+      personContextSignalIds: json['personContextSignalIds'] is List
+          ? (json['personContextSignalIds'] as List)
                 .map((Object? item) => item?.toString().trim() ?? '')
                 .where((String item) => item.isNotEmpty)
                 .toList(growable: false)
@@ -351,4 +375,18 @@ T _enumByName<T extends Enum>(List<T> values, Object? raw, String field) {
     if (value.name == name) return value;
   }
   throw FormatException('$field is unsupported.');
+}
+
+List<String> _traceSignalIds(Map<String, Object?> trace) {
+  final Object? used = trace['used'];
+  if (used is! List) return const <String>[];
+  final Set<String> ids = used
+      .whereType<Map<Object?, Object?>>()
+      .map(
+        (Map<Object?, Object?> item) =>
+            item['signalId']?.toString().trim() ?? '',
+      )
+      .where((String id) => id.isNotEmpty)
+      .toSet();
+  return ids.toList(growable: false)..sort();
 }

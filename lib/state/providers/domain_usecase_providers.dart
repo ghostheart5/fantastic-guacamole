@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/repositories/learning_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -109,6 +111,7 @@ import 'package:fantastic_guacamole/domain/usecases/switch_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/switch_workspace.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_learning_state.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_level.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_plan.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_project.dart';
@@ -158,7 +161,7 @@ final domainMemoryRepositoryProvider = Provider<IMemoryRepository>((ref) {
 });
 
 final domainNoteRepositoryProvider = Provider<INoteRepository>((ref) {
-  return ref.read(noteRepositoryProvider);
+  return ref.watch(noteRepositoryProvider);
 });
 
 final domainMilestoneRepositoryProvider = Provider<IMilestoneRepository>((ref) {
@@ -223,7 +226,10 @@ final domainWorkspaceRepositoryProvider = Provider<IWorkspaceRepository>((ref) {
 });
 
 final domainLearningRepositoryProvider = Provider<ILearningRepository>((ref) {
-  return ref.read(learningRepositoryProvider);
+  return LearningRepository(
+    ref.read(secureStoreProvider),
+    scope: ref.watch(accountStorageScopeProvider),
+  );
 });
 
 final extendedDomainRepositoryProvider = Provider<IExtendedDomainRepository>((
@@ -571,31 +577,31 @@ final assembleSiDecisionOutputUseCaseProvider =
 // other CRUD surface. These give it the same domain path.
 
 final domainHabitRepositoryProvider = Provider<IHabitRepository>((ref) {
-  return ref.read(habitRepositoryProvider);
+  return ref.watch(habitRepositoryProvider);
 });
 
 final getHabitsUseCaseProvider = Provider<GetHabits>((ref) {
-  return GetHabits(ref.read(domainHabitRepositoryProvider));
+  return GetHabits(ref.watch(domainHabitRepositoryProvider));
 });
 
 final createHabitUseCaseProvider = Provider<CreateHabit>((ref) {
-  return CreateHabit(ref.read(domainHabitRepositoryProvider));
+  return CreateHabit(ref.watch(domainHabitRepositoryProvider));
 });
 
 final toggleHabitUseCaseProvider = Provider<ToggleHabit>((ref) {
-  return ToggleHabit(ref.read(domainHabitRepositoryProvider));
+  return ToggleHabit(ref.watch(domainHabitRepositoryProvider));
 });
 
 final updateHabitUseCaseProvider = Provider<UpdateHabit>((ref) {
-  return UpdateHabit(ref.read(domainHabitRepositoryProvider));
+  return UpdateHabit(ref.watch(domainHabitRepositoryProvider));
 });
 
 final deleteHabitUseCaseProvider = Provider<DeleteHabit>((ref) {
-  return DeleteHabit(ref.read(domainHabitRepositoryProvider));
+  return DeleteHabit(ref.watch(domainHabitRepositoryProvider));
 });
 
 final saveHabitsUseCaseProvider = Provider<SaveHabits>((ref) {
-  return SaveHabits(ref.read(domainHabitRepositoryProvider));
+  return SaveHabits(ref.watch(domainHabitRepositoryProvider));
 });
 
 final getProfileUseCaseProvider = Provider<GetProfile>((ref) {
@@ -812,23 +818,23 @@ final cancelNotificationUseCaseProvider = Provider<CancelNotification>((ref) {
 });
 
 final getNotesUseCaseProvider = Provider<GetNotes>((ref) {
-  return GetNotes(ref.read(domainNoteRepositoryProvider));
+  return GetNotes(ref.watch(domainNoteRepositoryProvider));
 });
 
 final createNoteUseCaseProvider = Provider<CreateNote>((ref) {
-  return CreateNote(ref.read(domainNoteRepositoryProvider));
+  return CreateNote(ref.watch(domainNoteRepositoryProvider));
 });
 
 final updateNoteUseCaseProvider = Provider<UpdateNote>((ref) {
-  return UpdateNote(ref.read(domainNoteRepositoryProvider));
+  return UpdateNote(ref.watch(domainNoteRepositoryProvider));
 });
 
 final archiveNoteUseCaseProvider = Provider<ArchiveNote>((ref) {
-  return ArchiveNote(ref.read(domainNoteRepositoryProvider));
+  return ArchiveNote(ref.watch(domainNoteRepositoryProvider));
 });
 
 final deleteNoteUseCaseProvider = Provider<DeleteNote>((ref) {
-  return DeleteNote(ref.read(domainNoteRepositoryProvider));
+  return DeleteNote(ref.watch(domainNoteRepositoryProvider));
 });
 
 final getMilestonesUseCaseProvider = Provider<GetMilestones>((ref) {

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/engine/si/si_v2_engine.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
@@ -392,6 +393,60 @@ void main() {
     expect(() => milestone.dependencies.add('m3'), throwsUnsupportedError);
   });
 
+  test('user-reported context is cited separately and never typed as fact', () {
+    final SIV2PersonContextSignalEvidence contextSignal =
+        SIV2PersonContextSignalEvidence(
+          id: 'priority',
+          kind: PersonContextKind.currentPriority,
+          userReportedValue: 'Launch task first',
+          source: PersonContextSource.userAuthored,
+          purpose: PersonContextPurpose.decisionSupport,
+          recordedAt: now,
+          freshUntil: now.add(const Duration(hours: 1)),
+          expiresAt: now.add(const Duration(days: 1)),
+        );
+    final SIV2Response response = const SIV2Engine().analyze(
+      query: SIV2Query(
+        rawText: 'What should I do next for the launch task?',
+        intent: SIV2Intent.answer,
+        sources: const <SIV2Source>{SIV2Source.tasks},
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: _snapshot(
+        now,
+        personContext: SIV2PersonContextEvidence(
+          observedAt: now,
+          purposes: operationalPersonContextPurposes,
+          signals: <SIV2PersonContextSignalEvidence>[contextSignal],
+          unknownKinds: const <PersonContextKind>{PersonContextKind.commitment},
+          behaviorTrace: const <String, Object?>{'surface': 'siConsole'},
+        ),
+      ),
+      now: now,
+    );
+
+    expect(response.userReportedEvidence, hasLength(1));
+    expect(
+      response.userReportedEvidence.single.kind,
+      SIV2StatementKind.userReportedEvidence,
+    );
+    expect(
+      response.observedFacts.map((fact) => fact.text),
+      isNot(contains(contains('Launch task first'))),
+    );
+    expect(
+      response.evidenceLinks
+          .singleWhere((link) => link.evidenceId == 'person-context:priority')
+          .source,
+      isNull,
+    );
+    expect(response.directAnswer, contains('not independently verified'));
+    expect(
+      response.missingInformation,
+      contains(contains('SI did not infer it')),
+    );
+  });
+
   test('evidence snapshot rejects duplicate entity identities', () {
     expect(
       () => SIV2EvidenceSnapshot(
@@ -424,9 +479,11 @@ SIV2EvidenceSnapshot _snapshot(
   DateTime now, {
   String taskGoalId = 'g1',
   List<String> milestoneDependencies = const <String>['missing'],
+  SIV2PersonContextEvidence? personContext,
 }) => SIV2EvidenceSnapshot(
   accountScopeId: 'account:test',
   observedAt: now,
+  personContext: personContext,
   tasks: <SIV2TaskEvidence>[
     SIV2TaskEvidence(
       id: 't1',

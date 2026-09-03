@@ -2,8 +2,10 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
@@ -20,10 +22,21 @@ final futureConsequenceEngineProvider = Provider<FutureConsequenceEngine>(
   (Ref ref) => const FutureConsequenceEngine(),
 );
 
+final trajectoryClockProvider = Provider<DateTime Function()>(
+  (Ref ref) =>
+      () => DateTime.now().toUtc(),
+);
+
+const Set<PersonContextPurpose> trajectoryPersonContextPurposes =
+    <PersonContextPurpose>{
+      ...operationalPersonContextPurposes,
+      PersonContextPurpose.outcomeLearning,
+    };
+
 final PersonContextAccessRequest trajectoryPersonContextRequest =
     PersonContextAccessRequest(
       surface: PersonContextSurface.trajectory,
-      purposes: operationalPersonContextPurposes,
+      purposes: trajectoryPersonContextPurposes,
     );
 
 final trajectoryHorizonDaysProvider =
@@ -111,13 +124,18 @@ final trajectoryConsequenceProvider =
       final ProgressionState progression = ref.watch(progressionProvider);
       final ExecutionSignals execution = ref.watch(executionSignalsProvider);
       final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
-      final DateTime now = DateTime.now().toUtc();
-      final List<PersonContextSignal>? personContext = _personContextSignals(
-        ref.watch(
-          personContextForSurfaceProvider(trajectoryPersonContextRequest),
-        ),
-        observedAt: now,
-      );
+      final DateTime now = ref.watch(trajectoryClockProvider)().toUtc();
+      final String accountScopeId = scope.v2Namespace ?? 'signed-out';
+      final GovernedDecisionContext personContext =
+          GovernedDecisionContext.resolve(
+            view: ref.watch(
+              personContextForSurfaceProvider(trajectoryPersonContextRequest),
+            ),
+            accountScopeId: accountScopeId,
+            tasks: aggregation.tasks.cast<TaskEntity>(),
+            now: now,
+            surface: PersonContextSurface.trajectory,
+          );
       final List<String> personContextAssumptions = _personContextAssumptions(
         personContext,
       );
@@ -133,7 +151,7 @@ final trajectoryConsequenceProvider =
       final List<TrajectoryIntervention> interventions =
           <TrajectoryIntervention>[
             ..._interventions(
-              aggregation.planningDecision,
+              aggregation.noContextPlanningDecision,
               baseline,
               horizonDays: horizonDays,
               personContextAssumptions: personContextAssumptions,
@@ -172,6 +190,11 @@ TrajectoryIntervention? _customIntervention(
 }) {
   final TrajectoryTaskNode? subject = _task(baseline, draft.subjectId);
   if (subject == null) return null;
+  if (baseline.boundaryTaskIds.contains(subject.id)) return null;
+  if (baseline.protectedCommitmentTaskIds.contains(subject.id) &&
+      draft.adjustment != TrajectoryCustomAdjustment.complete) {
+    return null;
+  }
   final int safeDelayDays = draft.delayDays.clamp(1, 30);
   final String scenarioId = trajectoryCustomScenarioId(
     draft,
@@ -232,9 +255,9 @@ TrajectoryBaseline _baseline({
   required ExecutionSignals execution,
   required AccountStorageScope scope,
   required DateTime observedAt,
-  required List<PersonContextSignal>? personContext,
+  required GovernedDecisionContext personContext,
 }) {
-  final DecisionRecommendation decision = aggregation.planningDecision;
+  final DecisionRecommendation decision = aggregation.noContextPlanningDecision;
   final List<TrajectoryTaskNode> tasks = aggregation.tasks
       .map(
         (Task task) => TrajectoryTaskNode(
@@ -302,8 +325,26 @@ TrajectoryBaseline _baseline({
         '${execution.completed7d}:${execution.skipped7d}:${execution.delayed7d}',
     'energy_origin': aggregation.siState.energyOrigin.name,
     'availability_origin': decision.plan.capacity.windowOrigin.name,
-    'person_context_trajectory': _personContextRevision(personContext),
+    'person_context_trajectory': switch (personContext.status) {
+      GovernedDecisionContextStatus.unavailable => 'unavailable',
+      GovernedDecisionContextStatus.knownEmpty => 'available_empty',
+      GovernedDecisionContextStatus.applied => personContext.revision,
+    },
   };
+  final int noContextAvailable = decision.plan.capacity.availableMinutes;
+  final int noContextUnscheduled = decision.plan.capacity.unscheduledMinutes;
+  final int noContextFree =
+      (noContextAvailable - decision.plan.capacity.occupiedMinutes).clamp(
+        0,
+        noContextAvailable,
+      );
+  final int governedFree = personContext.capacityCapMinutes == null
+      ? noContextFree
+      : noContextFree.clamp(0, personContext.capacityCapMinutes!);
+  final int governedAvailable =
+      decision.plan.capacity.occupiedMinutes + governedFree;
+  final int governedUnscheduled =
+      noContextUnscheduled + (noContextFree - governedFree);
   return TrajectoryBaseline(
     accountScope: scope.v2Namespace ?? 'signed-out',
     revision:
@@ -316,9 +357,11 @@ TrajectoryBaseline _baseline({
     completedInWindow: execution.completed7d,
     deferredInWindow: execution.skipped7d + execution.delayed7d,
     observationCount: execution.actioned7d,
-    availableMinutes: decision.plan.capacity.availableMinutes,
+    availableMinutes: governedAvailable,
     occupiedMinutes: decision.plan.capacity.occupiedMinutes,
-    unscheduledMinutes: decision.plan.capacity.unscheduledMinutes,
+    unscheduledMinutes: governedUnscheduled,
+    noContextAvailableMinutes: noContextAvailable,
+    noContextUnscheduledMinutes: noContextUnscheduled,
     tasks: List<TrajectoryTaskNode>.unmodifiable(tasks),
     goals: List<TrajectoryGoalNode>.unmodifiable(goals),
     blocks: List<TrajectoryBlockNode>.unmodifiable(blocks),
@@ -330,6 +373,11 @@ TrajectoryBaseline _baseline({
     ),
     confidence: decision.confidenceProfile,
     sourceRevisions: Map<String, String>.unmodifiable(revisions),
+    boundaryTaskIds: personContext.excludedTaskIds,
+    protectedCommitmentTaskIds: personContext.protectedCommitmentTaskIds,
+    personContextWarnings: personContext.explanations,
+    personContextTrace:
+        personContext.trace?.toJson() ?? const <String, Object?>{},
     energyOrigin: aggregation.siState.energyOrigin,
     availabilityOrigin: decision.plan.capacity.windowOrigin,
   );
@@ -363,7 +411,7 @@ List<TrajectoryIntervention> _interventions(
       ],
     ),
   ];
-  if (selected != null) {
+  if (selected != null && !baseline.boundaryTaskIds.contains(selected.id)) {
     output
       ..add(
         TrajectoryIntervention(
@@ -415,7 +463,8 @@ List<TrajectoryIntervention> _interventions(
         ),
       );
   }
-  if (recoverySubject != null) {
+  if (recoverySubject != null &&
+      !baseline.boundaryTaskIds.contains(recoverySubject.id)) {
     output.add(
       TrajectoryIntervention(
         id: 'recover-${recoverySubject.id}',
@@ -439,6 +488,11 @@ List<TrajectoryIntervention> _interventions(
   final List<TrajectoryTaskNode> removable =
       baseline.tasks
           .where((TrajectoryTaskNode task) => task.id != selected?.id)
+          .where(
+            (TrajectoryTaskNode task) =>
+                !baseline.boundaryTaskIds.contains(task.id) &&
+                !baseline.protectedCommitmentTaskIds.contains(task.id),
+          )
           .toList(growable: false)
         ..sort((TrajectoryTaskNode a, TrajectoryTaskNode b) {
           final int priority = a.priority.compareTo(b.priority);
@@ -483,70 +537,24 @@ String _stableHash(String value) {
   return hash.toRadixString(16);
 }
 
-List<PersonContextSignal>? _personContextSignals(
-  PersonContextView? view, {
-  required DateTime observedAt,
-}) {
-  if (view == null ||
-      view.surface != PersonContextSurface.trajectory ||
-      !view.purposes.containsAll(operationalPersonContextPurposes)) {
-    return null;
-  }
-  final List<PersonContextSignal> signals =
-      view.signals
-          .where(
-            (PersonContextSignal signal) =>
-                operationalPersonContextPurposes.contains(signal.purpose) &&
-                signal.isAvailableTo(
-                  PersonContextSurface.trajectory,
-                  observedAt,
-                ),
-          )
-          .toList(growable: false)
-        ..sort((PersonContextSignal a, PersonContextSignal b) {
-          final int kind = a.kind.index.compareTo(b.kind.index);
-          return kind != 0 ? kind : a.id.compareTo(b.id);
-        });
-  return List<PersonContextSignal>.unmodifiable(signals);
-}
-
-String _personContextRevision(List<PersonContextSignal>? signals) {
-  if (signals == null) return 'unavailable';
-  if (signals.isEmpty) return 'available_empty';
-  return _stableHash(
-    signals
-        .map(
-          (PersonContextSignal signal) => <String>[
-            signal.id,
-            signal.kind.name,
-            signal.value,
-            signal.source.name,
-            signal.purpose.name,
-            signal.recordedAt.toUtc().toIso8601String(),
-            signal.freshUntil.toUtc().toIso8601String(),
-          ].join('|'),
-        )
-        .join('||'),
-  );
-}
-
-List<String> _personContextAssumptions(List<PersonContextSignal>? signals) {
-  if (signals == null) {
+List<String> _personContextAssumptions(GovernedDecisionContext context) {
+  if (context.status == GovernedDecisionContextStatus.unavailable) {
     return const <String>[
       'Person context was unavailable at scenario construction, so no personal context was inferred.',
     ];
   }
-  if (signals.isEmpty) {
+  if (!context.hasAppliedBehavior) {
     return const <String>[
       'Person context was available but contained no fresh consented Trajectory operational signals.',
     ];
   }
-  return signals
-      .map(
-        (PersonContextSignal signal) =>
-            'Consented ${signal.kind.name} context (${signal.source.name}, fresh through ${signal.freshUntil.toUtc().toIso8601String()}) for ${signal.purpose.name}: ${signal.value}. It is displayed as scenario evidence only, does not change projection calculations, and is not treated as identity or a guaranteed outcome.',
-      )
-      .toList(growable: false);
+  return <String>[
+    ...context.explanations.map(
+      (String explanation) =>
+          'User-reported Person Context: $explanation It constrains this scenario but is not treated as identity or a guaranteed outcome.',
+    ),
+    'The no-context capacity and unscheduled values remain available for comparison.',
+  ];
 }
 
 extension<T> on Iterable<T> {

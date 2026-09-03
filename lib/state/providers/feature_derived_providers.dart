@@ -46,9 +46,9 @@ final progressSignalsProvider = Provider<ProgressSignals>((ref) {
 final narrativeProvider = Provider<UserNarrative>((ref) {
   final profile = ref.watch(profileProvider);
   final signals = ref.watch(progressSignalsProvider);
-  final double consistency = signals.consistency.startsWith('High')
+  final double consistency = signals.momentum.startsWith('High')
       ? 0.9
-      : signals.consistency.startsWith('Med')
+      : signals.momentum.startsWith('Med')
       ? 0.6
       : 0.3;
 

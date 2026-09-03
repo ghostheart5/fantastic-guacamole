@@ -161,6 +161,107 @@ void main() {
     expect(await store.keys(), isEmpty);
     expect(store.hasCorruptionBackups, isTrue);
   });
+
+  test(
+    'successful legacy migration preserves secure values and removes legacy copies',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'goals_v1': 'legacy-goals',
+        'memories_v1': 'legacy-memories',
+      });
+      final _MemorySensitiveBackend backend = _MemorySensitiveBackend()
+        ..values[storageKey] = jsonEncode(<String, String>{
+          'goals_v1': 'secure-goals',
+        });
+      final SensitivePrefsStore store = await build(backend);
+
+      await store.init();
+      await store.init();
+
+      expect(store.load('goals_v1'), 'secure-goals');
+      expect(store.load('memories_v1'), 'legacy-memories');
+      expect(
+        jsonDecode(backend.values[storageKey]!) as Map<String, dynamic>,
+        <String, dynamic>{
+          'goals_v1': 'secure-goals',
+          'memories_v1': 'legacy-memories',
+        },
+      );
+      final SharedPreferences legacy = await SharedPreferences.getInstance();
+      expect(legacy.getString('goals_v1'), isNull);
+      expect(legacy.getString('memories_v1'), isNull);
+    },
+  );
+
+  test('delete persists the remaining secure values', () async {
+    final _MemorySensitiveBackend backend = _MemorySensitiveBackend();
+    final SensitivePrefsStore store = await build(backend);
+    await store.save('first', 'one');
+    await store.save('second', 'two');
+
+    await store.delete('first');
+
+    expect(store.load('first'), isNull);
+    expect(store.load('second'), 'two');
+    expect(
+      jsonDecode(backend.values[storageKey]!) as Map<String, dynamic>,
+      <String, dynamic>{'second': 'two'},
+    );
+  });
+
+  test(
+    'corruption backups can be cleared without deleting active values',
+    () async {
+      final _MemorySensitiveBackend backend = _MemorySensitiveBackend()
+        ..values[storageKey] = jsonEncode(<String, String>{'stable': 'value'})
+        ..values[corruptBackupKey] = jsonEncode(<String>['old-corruption']);
+      final SensitivePrefsStore store = await build(backend);
+      await store.init();
+
+      await store.clearCorruptionBackups();
+
+      expect(backend.values[corruptBackupKey], isNull);
+      expect(store.hasCorruptionBackups, isFalse);
+      expect(store.load('stable'), 'value');
+    },
+  );
+
+  test('duplicate corrupt payload is not stored twice', () async {
+    const String raw = 'not-json';
+    final _MemorySensitiveBackend backend = _MemorySensitiveBackend()
+      ..values[storageKey] = raw
+      ..values[corruptBackupKey] = jsonEncode(<String>[raw]);
+    final SensitivePrefsStore store = await build(backend);
+
+    await store.init();
+
+    expect(
+      jsonDecode(backend.values[corruptBackupKey]!) as List<dynamic>,
+      <String>[raw],
+    );
+    expect(store.recoveredCorruption, isTrue);
+  });
+
+  test('a full corruption-backup ledger fails closed', () async {
+    final _MemorySensitiveBackend backend = _MemorySensitiveBackend()
+      ..values[storageKey] = 'new-corruption'
+      ..values[corruptBackupKey] = jsonEncode(<String>[
+        'corruption-1',
+        'corruption-2',
+        'corruption-3',
+        'corruption-4',
+        'corruption-5',
+      ]);
+    final SensitivePrefsStore store = await build(backend);
+
+    await expectLater(store.init(), throwsStateError);
+
+    expect(backend.values[storageKey], 'new-corruption');
+    expect(
+      (jsonDecode(backend.values[corruptBackupKey]!) as List<dynamic>).length,
+      5,
+    );
+  });
 }
 
 class _MemorySensitiveBackend implements SensitiveStorageBackend {

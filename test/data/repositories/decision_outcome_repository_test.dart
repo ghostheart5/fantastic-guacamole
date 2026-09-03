@@ -62,14 +62,14 @@ void main() {
   });
 
   test(
-    'production default does not silently truncate outcome history',
+    'production default retains the newest 256 outcome observations',
     () async {
       final DecisionOutcomeRepository repository = DecisionOutcomeRepository(
         _MemoryPrefs(),
         AccountStorageScope.authenticated('account-a'),
       );
 
-      for (int index = 0; index < 205; index += 1) {
+      for (int index = 0; index < 300; index += 1) {
         await repository.record(
           _outcome(
             decisionId: 'decision-$index',
@@ -79,9 +79,45 @@ void main() {
         );
       }
 
-      expect(await repository.load(), hasLength(205));
+      final List<DecisionOutcomeEntity> outcomes = await repository.load();
+      expect(outcomes, hasLength(256));
+      expect(outcomes.first.decisionId, 'decision-44');
     },
   );
+
+  test('pause and removal persist across repository sessions', () async {
+    final _MemoryPrefs store = _MemoryPrefs();
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'account-a',
+    );
+    final DecisionOutcomeRepository first = DecisionOutcomeRepository(
+      store,
+      scope,
+    );
+    final DecisionOutcomeEntity outcome = _outcome(
+      decisionId: 'decision-1',
+      kind: DecisionOutcomeKind.accepted,
+      at: DateTime.utc(2026, 8, 18),
+    );
+    await first.record(outcome);
+    await first.setLearningPaused(true);
+
+    final DecisionOutcomeRepository second = DecisionOutcomeRepository(
+      store,
+      scope,
+    );
+    expect(await second.isLearningPaused(), isTrue);
+    expect((await second.load()).single.id, outcome.id);
+
+    await second.remove(outcome.id);
+    final DecisionOutcomeRepository third = DecisionOutcomeRepository(
+      store,
+      scope,
+    );
+    expect(await third.load(), isEmpty);
+    await third.setLearningPaused(false);
+    expect(await third.isLearningPaused(), isFalse);
+  });
 }
 
 DecisionOutcomeEntity _outcome({

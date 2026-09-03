@@ -1,4 +1,4 @@
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Workspace
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Workspace
 ///
 /// Domain settings model; settings UI uses its own state today.
 class SettingsEntity {

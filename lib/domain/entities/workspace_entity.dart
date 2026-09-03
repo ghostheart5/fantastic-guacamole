@@ -1,4 +1,4 @@
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Workspace
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Workspace
 ///
 /// Multi-workspace UI not built yet.
 class WorkspaceEntity {

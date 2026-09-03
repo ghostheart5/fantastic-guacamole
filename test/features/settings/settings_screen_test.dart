@@ -4,17 +4,28 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/person_context_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../support/golden_harness.dart';
 
 void main() {
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await loadAppFontsForGolden();
+  });
   test('account deletion messages distinguish server and local outcomes', () {
     expect(
       accountDeletionOutcomeMessage(const AccountDeletionResult.completed()),
@@ -48,6 +59,8 @@ void main() {
     AccountStorageScope? accountScope,
     Object? personContextError,
     PersonContextRepository? personContextRepository,
+    List<DecisionOutcomeEntity>? decisionOutcomes,
+    bool? learningPaused,
   }) {
     final ValueNotifier<bool?> permissionListenable = ValueNotifier<bool?>(
       true,
@@ -72,6 +85,14 @@ void main() {
         notificationPermissionListenableProvider.overrideWithValue(
           permissionListenable,
         ),
+        if (decisionOutcomes != null)
+          decisionOutcomesProvider.overrideWith(
+            (Ref ref) async => decisionOutcomes,
+          ),
+        if (learningPaused != null)
+          learningPausedProvider.overrideWith(
+            (Ref ref) async => learningPaused,
+          ),
         if (accountScope != null)
           accountStorageScopeProvider.overrideWithValue(accountScope),
         if (personContextRepository != null)
@@ -183,6 +204,37 @@ void main() {
     );
   });
 
+  testWidgets('Context entry opens its governance controls directly', (
+    WidgetTester tester,
+  ) async {
+    useTallSurface(tester);
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'context-entry-account',
+    );
+    final ProviderContainer container = createContainer(
+      accountScope: scope,
+      personContext: PersonContextSpine(
+        accountScopeId: scope.v2Namespace!,
+        updatedAt: DateTime.utc(2026, 9, 2),
+        signals: const <PersonContextSignal>[],
+      ),
+    );
+    container.read(personContextSettingsEntryProvider.notifier).request();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('PERSON CONTEXT'), findsOneWidget);
+    expect(find.text('Add person context'), findsOneWidget);
+    expect(container.read(personContextSettingsEntryProvider), isFalse);
+  });
+
   testWidgets('separates user-authored identity context from current state', (
     WidgetTester tester,
   ) async {
@@ -226,6 +278,11 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 200));
+    await tester.scrollUntilVisible(
+      find.text('Planning & guidance'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Planning & guidance'));
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -291,8 +348,12 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(find.text('Planning & guidance'));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.scrollUntilVisible(
+        find.text('Planning & guidance'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await invokeNavTile(tester, 'Planning & guidance');
 
       expect(find.text('Person context unavailable'), findsOneWidget);
       expect(find.text('Clear corrupt Person Context data'), findsOneWidget);
@@ -360,6 +421,141 @@ void main() {
     expect(find.text('Clear corrupt Person Context data'), findsNothing);
     expect(find.textContaining('Permanently clear'), findsNothing);
   });
+
+  testWidgets('shows a reviewable user-controlled learning ledger', (
+    WidgetTester tester,
+  ) async {
+    useTallSurface(tester);
+    final DateTime now = DateTime.utc(2026, 9, 2, 12);
+    final ProviderContainer container = createContainer(
+      decisionOutcomes: <DecisionOutcomeEntity>[
+        for (int index = 0; index < 3; index += 1)
+          DecisionOutcomeEntity(
+            decisionId: 'decision-$index',
+            kind: DecisionOutcomeKind.accepted,
+            surface: 'smart_planner',
+            situation: 'bounded planning choice',
+            recordedAt: now.subtract(Duration(days: index)),
+            modelVersion: 'predictive-planning-v2',
+            recommendationConfidence: .64,
+            optionChosen: 'minimum',
+            optionSizeMinutes: 10,
+            recommendationHelped: true,
+          ),
+      ],
+      learningPaused: false,
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(theme: appTheme, home: const SettingsScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage(AppAssets.bgSettingsControlPlane),
+        tester.element(find.byType(SettingsScreen)),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Planning & guidance'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.scrollUntilVisible(
+      find.text('WHAT CHANGED FROM YOUR FEEDBACK'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('WHAT CHANGED FROM YOUR FEEDBACK'), findsOneWidget);
+    expect(find.text('Use feedback for learning'), findsOneWidget);
+    final Finder learningSwitch = find.descendant(
+      of: find.byKey(const Key('learning-feedback-toggle')),
+      matching: find.byType(Switch),
+    );
+    expect(tester.widget<Switch>(learningSwitch).value, isTrue);
+    expect(find.text('Reviewable observations'), findsOneWidget);
+    expect(find.textContaining('maximum 256'), findsOneWidget);
+    expect(find.text('RECENT RAW OBSERVATIONS'), findsOneWidget);
+    expect(find.text('Export'), findsOneWidget);
+    expect(find.text('Delete all'), findsOneWidget);
+    expect(find.textContaining('not facts about you'), findsOneWidget);
+
+    await expectLater(
+      find.byType(SettingsScreen),
+      matchesGoldenFile('goldens/settings_learning_ledger.png'),
+    );
+  });
+
+  testWidgets(
+    'learning controls remain reachable at 320px and 200 percent text',
+    (WidgetTester tester) async {
+      tester.platformDispatcher.views.first
+        ..physicalSize = const Size(320, 568)
+        ..devicePixelRatio = 1;
+      addTearDown(() {
+        tester.platformDispatcher.views.first
+          ..resetPhysicalSize()
+          ..resetDevicePixelRatio();
+      });
+      final ProviderContainer container = createContainer(
+        decisionOutcomes: <DecisionOutcomeEntity>[
+          DecisionOutcomeEntity(
+            decisionId: 'small-screen',
+            kind: DecisionOutcomeKind.accepted,
+            surface: 'smart_planner',
+            situation: 'bounded planning choice',
+            recordedAt: DateTime.utc(2026, 9, 2),
+            modelVersion: 'decision-v1',
+            recommendationConfidence: .6,
+            optionChosen: 'minimum',
+            optionSizeMinutes: 10,
+            recommendationHelped: true,
+          ),
+        ],
+        learningPaused: false,
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MediaQuery(
+            data: MediaQueryData(
+              size: Size(320, 568),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: MaterialApp(home: SettingsScreen()),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.scrollUntilVisible(
+        find.text('Planning & guidance'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await invokeNavTile(tester, 'Planning & guidance');
+      await tester.scrollUntilVisible(
+        find.text('Use feedback for learning'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      expect(find.text('Use feedback for learning'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.scrollUntilVisible(
+        find.text('Export'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      expect(find.text('Export'), findsOneWidget);
+      expect(find.text('Delete all'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 class _FakeSettingsUiActions extends SettingsUiActions {

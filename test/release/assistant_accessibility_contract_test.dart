@@ -22,9 +22,10 @@ void main() {
   });
 
   test('SI V2 exposes live status, named input, and large-text reflow', () {
-    final String source = File(
+    final String source = <String>[
       'lib/features/si_console/ui/si_console_screen.dart',
-    ).readAsStringSync();
+      'lib/features/si_console/ui/si_console_screen.widgets.dart',
+    ].map((String path) => File(path).readAsStringSync()).join('\n');
 
     expect(source, contains("labelText: 'SI query'"));
     expect(

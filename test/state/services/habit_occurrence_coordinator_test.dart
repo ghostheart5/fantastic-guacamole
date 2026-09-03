@@ -64,6 +64,37 @@ void main() {
       throwsA(isA<StateError>()),
     );
   });
+
+  test(
+    'learning pause keeps the occurrence but omits learning outcome',
+    () async {
+      final _OutcomeRepository outcomes = _OutcomeRepository();
+      final HabitOccurrenceCoordinator coordinator = HabitOccurrenceCoordinator(
+        scope: AccountStorageScope.authenticated('account-a'),
+        habitRepository: _HabitRepository(<HabitEntity>[
+          HabitEntity(
+            id: 'habit-1',
+            title: 'Evening reset',
+            createdAt: DateTime.utc(2026, 8, 1),
+            cadence: HabitCadence.daily,
+          ),
+        ]),
+        occurrenceRepository: HabitOccurrenceRepository(
+          _MemoryPrefs(),
+          AccountStorageScope.authenticated('account-a'),
+        ),
+        outcomeRepository: outcomes,
+        learningPaused: () async => true,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+
+      final HabitOccurrenceResult result = await coordinator.complete(
+        'habit-1',
+      );
+      expect(result.mutation, HabitOccurrenceMutation.applied);
+      expect(outcomes.values, isEmpty);
+    },
+  );
 }
 
 class _HabitRepository implements IHabitRepository {
