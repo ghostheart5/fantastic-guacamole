@@ -4,6 +4,14 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  const Set<String> providerRegistrationFiles = <String>{
+    'lib/state/providers/domain_usecase_providers.dart',
+    'lib/state/providers/domain_usecase_providers.repositories.dart',
+    'lib/state/providers/domain_usecase_providers.core.dart',
+    'lib/state/providers/domain_usecase_providers.lifecycle.dart',
+    'lib/state/providers/domain_usecase_providers.timeline.dart',
+    'lib/state/providers/domain_usecase_providers.notes_and_si.dart',
+  };
   final RegExp classification = RegExp(
     r'^//[/]? CHRONOSPARK-CLASS: '
     r'(SHIPPING|PLANNED|EXPERIMENTAL|LEGACY|DEPRECATED) '
@@ -145,10 +153,19 @@ void main() {
               (declared[path] as Map<String, dynamic>)['providerSymbol']
                   as String;
           expect(providerSymbol.trim(), isNotEmpty, reason: path);
+          final List<String> references = _productionReferences(
+            providerSymbol,
+            excluding: path,
+          );
           expect(
-            _productionReferences(providerSymbol, excluding: path),
-            <String>['lib/state/providers/domain_usecase_providers.dart'],
+            references,
+            hasLength(1),
             reason: '$path is no longer provider-registration-only',
+          );
+          expect(
+            providerRegistrationFiles,
+            contains(references.single),
+            reason: '$path is registered outside its composition library',
           );
           break;
         default:

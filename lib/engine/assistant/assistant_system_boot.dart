@@ -1,10 +1,11 @@
+import 'package:fantastic_guacamole/engine/assistant/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
     show SIState;
-import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 
-class SystemBoot {
-  const SystemBoot();
+/// Creates the initial assistant-memory observation from engine state.
+class AssistantSystemBoot {
+  const AssistantSystemBoot();
 
   AssistantMemorySnapshot initialSnapshot({
     required SIState si,

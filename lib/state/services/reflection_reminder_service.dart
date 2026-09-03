@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
-import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +17,7 @@ class ReflectionReminderService {
   ReflectionReminderService({
     required this._preferences,
     required this._scheduler,
+    required this.permissionListenable,
     this._accountScope,
   });
 
@@ -25,12 +26,9 @@ class ReflectionReminderService {
   static const String notificationId = 'reflection_reminder';
 
   final SharedPrefsStore _preferences;
-  final NotificationScheduler _scheduler;
+  final NotificationSchedulerPort _scheduler;
+  final ValueListenable<bool?> permissionListenable;
   final String? _accountScope;
-
-  ValueListenable<bool?> get permissionListenable {
-    return NotificationScheduler.permissionGrantedListenable;
-  }
 
   ReflectionReminderPrefs loadPrefs() {
     final String? enabledStr = _preferences.load(enabledKey);

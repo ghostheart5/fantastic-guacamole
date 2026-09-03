@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/data/repositories/feature_flag_repository.dart';
 import 'package:fantastic_guacamole/data/services/remote_config_service.dart';
-import 'package:fantastic_guacamole/state/models/kill_switch_registry.dart';
+import 'package:fantastic_guacamole/domain/entities/kill_switch_registry.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final remoteConfigServiceProvider = Provider<RemoteConfigService>((_) {

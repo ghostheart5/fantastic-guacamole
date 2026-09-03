@@ -16,6 +16,31 @@ void main() {
     'lib/features/si_console/ui/si_console_screen.dart': <String>[
       'si_console_screen.widgets.dart',
     ],
+    'lib/features/home/ui/smart_planner_screen.dart': <String>[
+      'smart_planner_screen.widgets.dart',
+    ],
+    'lib/features/trajectory_engine/ui/trajectory_engine_screen.dart': <String>[
+      'trajectory_engine_screen.overview.dart',
+      'trajectory_engine_screen.widgets.dart',
+    ],
+    'lib/features/nexus/ui/nexus_screen.dart': <String>[
+      'nexus_screen.widgets.dart',
+      'nexus_screen.timeline_widgets.dart',
+    ],
+    'lib/data/services/backup_service.dart': <String>[
+      'backup_service.models.dart',
+    ],
+    'lib/data/repositories/google_play_paywall_repository.dart': <String>[
+      'google_play_paywall_repository.transactions.dart',
+      'google_play_paywall_repository.persistence.dart',
+    ],
+    'lib/state/providers/domain_usecase_providers.dart': <String>[
+      'domain_usecase_providers.repositories.dart',
+      'domain_usecase_providers.core.dart',
+      'domain_usecase_providers.lifecycle.dart',
+      'domain_usecase_providers.timeline.dart',
+      'domain_usecase_providers.notes_and_si.dart',
+    ],
     'lib/state/controllers/smart_planner_query_controller.dart': <String>[
       'smart_planner_query_controller.support.dart',
     ],

@@ -4,13 +4,12 @@ import 'dart:async';
 // Package imports.
 import 'package:app_links/app_links.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/models/deep_link_mode.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The set of recognized `?mode=` values a deep link may carry into
-/// [AuthGate]. Anything that doesn't match one of these is untrusted input
-/// and is rejected by [parseDeepLinkMode] rather than passed through.
-enum DeepLinkMode { recovery, verifyEmail, authCallback }
+export 'package:fantastic_guacamole/domain/models/deep_link_mode.dart'
+    show DeepLinkMode;
 
 /// Validates the raw `mode` query parameter from a deep link against the
 /// known allowlist. Returns `null` for anything unrecognized (including

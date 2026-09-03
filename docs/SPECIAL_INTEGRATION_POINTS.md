@@ -7,7 +7,7 @@ This file maps runtime integrations to canonical homes in this repository.
 - Riverpod: `lib/main.dart`, `lib/core/observers/riverpod_observer.dart`, `lib/state/providers/*`, `lib/data/di/*_providers.dart`
 - GoRouter: `lib/app/router/app_router.dart`, `lib/app/router/route_paths.dart`, `lib/app/router/route_guards.dart`, `lib/app/navigation_shell.dart`
 - Firebase: `lib/system/firebase/firebase_bootstrap.dart`, `lib/firebase_options.dart`, called from `lib/main.dart`
-- Supabase: `lib/data/services/supabase_client_service.dart`, used from `lib/main.dart` and client read from `lib/data/di/storage_providers.dart`
+- Supabase: `lib/data/services/supabase_client_service.dart`, used from `lib/main.dart` and client read from `lib/state/providers/storage_providers.dart`
 - Social auth (Google/GitHub via Supabase OAuth): `lib/data/services/auth_service.dart`, `lib/features/auth/screens/auth_gate.dart`, `lib/features/auth/ui/login_screen.dart`
 - Hive: `lib/data/storage/hive_service.dart`, `lib/data/storage/hive_adapters.dart`, `lib/data/storage/hive_boxes.dart`, `lib/data/local/hive_storage.dart`
 - SharedPreferences: `lib/data/storage/shared_prefs_service.dart`, `lib/data/local/shared_prefs_storage.dart`

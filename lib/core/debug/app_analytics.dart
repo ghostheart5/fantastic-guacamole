@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
-import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -22,11 +22,7 @@ class AppAnalytics {
     String event, {
     Map<String, Object?> params = const <String, Object?>{},
   }) {
-    final bool analyticsEnabled = const IntelligenceService()
-        .environmentOnly()
-        .flags
-        .analyticsEnabled;
-    if (!analyticsEnabled) return;
+    if (!Env.enableAnalytics) return;
 
     Logger.log('Analytics', event);
     RuntimeDiagnostics.record('Analytics: $event');

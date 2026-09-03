@@ -160,7 +160,7 @@ void main() {
     ).readAsStringSync();
     final String env = File('lib/config/env.dart').readAsStringSync();
     final String repositories = File(
-      'lib/data/di/repositories_providers.dart',
+      'lib/state/providers/repository_providers.dart',
     ).readAsStringSync();
     final String provider = File(
       'lib/state/providers/paywall_provider.dart',

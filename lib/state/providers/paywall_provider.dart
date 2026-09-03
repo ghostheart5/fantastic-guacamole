@@ -1,8 +1,8 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart'
     show appPaywallRepositoryProvider;
-import 'package:fantastic_guacamole/data/di/storage_providers.dart'
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart'
     show sharedPrefsStoreProvider, supabaseClientProvider;
 import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart'

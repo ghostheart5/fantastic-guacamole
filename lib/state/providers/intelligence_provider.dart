@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';

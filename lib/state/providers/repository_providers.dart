@@ -1,6 +1,6 @@
 // Package imports.
 import 'package:fantastic_guacamole/config/env.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';

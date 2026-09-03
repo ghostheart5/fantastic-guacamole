@@ -4,10 +4,11 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
+import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -30,6 +31,10 @@ import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+
+final agentOrchestratorProvider = Provider<AgentOrchestrator>(
+  (Ref ref) => const AgentOrchestrator(),
+);
 
 final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
   if (Env.isMockMode || Env.isMockLoginEnabled) {
@@ -102,9 +107,11 @@ final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((
   Ref ref,
 ) {
   final scope = ref.watch(accountStorageScopeProvider);
+  final scheduler = ref.read(notificationSchedulerProvider);
   return ReflectionReminderService(
     preferences: ref.read(sharedPrefsStoreProvider),
-    scheduler: ref.read(notificationSchedulerProvider),
+    scheduler: scheduler,
+    permissionListenable: scheduler.permissionStatusListenable,
     accountScope: scope.isWritable && scope.rawUserId != null
         ? AccountDataRegistry.accountDigest(scope.rawUserId!)
         : null,

@@ -322,9 +322,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.login,
         builder: (BuildContext context, GoRouterState state) {
           final intelligence = ref.read(intelligenceStateProvider);
+          final String? returnTo = RouteAccessPolicy.validatedReturnTo(
+            state.uri.queryParameters[RouteAccessPolicy.returnToQueryParameter],
+          );
           return AuthGate(
             enableMockLogin: intelligence.flags.mockLoginEnabled,
             deepLinkMode: parseDeepLinkMode(state.uri.queryParameters['mode']),
+            onboardingLocation: RouteAccessPolicy.withReturnTo(
+              RoutePaths.onboarding,
+              returnTo,
+            ),
             child: _navigationShellForRoute(state),
           );
         },

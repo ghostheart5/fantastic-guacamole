@@ -7,7 +7,7 @@ import 'package:fantastic_guacamole/data/models/notification_record.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
-import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 
 class NotificationsRepository implements INotificationRepository {
   NotificationsRepository(
@@ -23,7 +23,7 @@ class NotificationsRepository implements INotificationRepository {
            : accountId?.trim(),
        _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
 
-  final NotificationScheduler _scheduler;
+  final NotificationSchedulerPort _scheduler;
   final SecureStore _store;
   final String? _accountId;
   final KeyedMutationCoordinator _mutations;
@@ -198,7 +198,7 @@ class NotificationsRepository implements INotificationRepository {
       if (includeLegacyOwnedData) {
         await _store.delete(AccountDataRegistry.legacyNotificationSecureKey);
       }
-      NotificationScheduler.tappedPayloadListenable.value = null;
+      _scheduler.clearTappedPayload();
     });
   }
 

@@ -78,7 +78,7 @@ final smartPlannerAiResponseProvider =
     );
 
 class AIResponseController extends AsyncNotifier<AIRecommendation?>
-    implements SIConsoleInterface {
+    implements SIConsoleInterface<AIRecommendation> {
   AIResponseController([
     this.conversation = AssistantConversationScope.primarySiConsole,
   ]);

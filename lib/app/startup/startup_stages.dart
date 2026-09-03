@@ -69,7 +69,6 @@ Future<StartupBootstrapResult> _initializeStartup(
     return preflightBlock;
   }
 
-  const SystemBoot();
   tzdata.initializeTimeZones();
   await _configureLocalTimezone(cancellationToken);
   if (cancellationToken.isCancelled) {

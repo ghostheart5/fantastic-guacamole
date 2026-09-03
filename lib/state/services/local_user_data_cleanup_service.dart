@@ -7,7 +7,7 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
-import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 
 /// Removes account-owned state before another account can use this device.
 /// App-wide onboarding/theme preferences intentionally remain intact.
@@ -25,7 +25,7 @@ class LocalUserDataCleanupService {
   final SecureStore _secureStore;
   final SharedPrefsStore _preferences;
   final SharedPrefsStore _sensitivePreferences;
-  final NotificationScheduler _notifications;
+  final NotificationSchedulerPort _notifications;
   final KeyedMutationCoordinator _mutations;
 
   Future<void> clearForAccountSwitch([String? accountId]) async {
@@ -54,7 +54,7 @@ class LocalUserDataCleanupService {
       ).clearAccountData(includeLegacyOwnedData: includeLegacyOwnedData);
     } else {
       await _notifications.cancelAll();
-      NotificationScheduler.tappedPayloadListenable.value = null;
+      _notifications.clearTappedPayload();
     }
 
     await _hive.init();

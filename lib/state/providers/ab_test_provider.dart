@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/state/models/experiment_assignment.dart';
+import 'package:fantastic_guacamole/domain/entities/experiment_assignment.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

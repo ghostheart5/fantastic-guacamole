@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

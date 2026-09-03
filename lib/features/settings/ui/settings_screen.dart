@@ -24,6 +24,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
     as extended_domain;
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
@@ -38,7 +39,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 part 'settings_screen.sections.dart';
 part 'settings_screen.planning_sections.dart';
@@ -64,10 +64,7 @@ String accountDeletionOutcomeMessage(AccountDeletionResult result) {
 
 Future<void> restartFirstSetup(BuildContext context, WidgetRef ref) async {
   final String onboardingRoute = ref.read(routeSurfaceProvider).onboarding;
-  final SharedPreferences prefs = await SharedPreferences.getInstance();
-  await prefs.setBool(onboardingCompleteStorageKey, false);
-  await prefs.setBool(onboardingWelcomeCompleteStorageKey, false);
-  await prefs.setInt(onboardingContentVersionStorageKey, 0);
+  await ref.read(onboardingPreferencesRepositoryProvider).resetFirstSetup();
   await ref.read(accountOnboardingCompleteProvider.notifier).reset();
   ref.read(onboardingCompleteProvider.notifier).set(false);
   ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);

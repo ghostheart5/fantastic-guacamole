@@ -1,18 +1,15 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
-import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
-import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
-import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
+import 'package:fantastic_guacamole/domain/models/deep_link_mode.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -24,7 +21,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 bool _isNewUserDatabaseSaveFailure(String message) {
   final String normalized = message.toLowerCase();
@@ -89,6 +85,7 @@ class AuthGate extends ConsumerStatefulWidget {
     this.authService,
     this.startupError,
     this.deepLinkMode,
+    this.onboardingLocation,
     this.enableMockLogin = false,
     this.initializeBackend,
   });
@@ -97,6 +94,7 @@ class AuthGate extends ConsumerStatefulWidget {
   final AuthServiceContract? authService;
   final String? startupError;
   final DeepLinkMode? deepLinkMode;
+  final String? onboardingLocation;
   final bool enableMockLogin;
   final Future<String?> Function()? initializeBackend;
 
@@ -106,6 +104,7 @@ class AuthGate extends ConsumerStatefulWidget {
 
 class _AuthGateState extends ConsumerState<AuthGate> {
   late Future<void> _authReadyFuture;
+  late final AuthRuntimeCoordinator _authRuntime;
   Future<void>? _authInitializationSource;
   AuthServiceContract? _authService;
   String? _authInitError;
@@ -115,6 +114,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   @override
   void initState() {
     super.initState();
+    _authRuntime = ref.read(authRuntimeCoordinatorProvider);
     _startAuthInitialization();
   }
 
@@ -127,7 +127,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       onTimeout: () {
         _authReadyTimedOut = true;
         _authInitError = 'Authentication initialization timed out.';
-        _authService ??= const _UnavailableAuthService();
+        _authService ??= _authRuntime.unavailableService;
       },
     );
     unawaited(
@@ -146,8 +146,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   Widget build(BuildContext context) {
     final bool allowMockAccess = widget.enableMockLogin;
     final String? startupMessage = _effectiveStartupError;
+    final String onboardingLocation =
+        widget.onboardingLocation ?? ref.read(routeSurfaceProvider).onboarding;
     final AuthServiceContract fallbackAuthService =
-        _authService ?? const _UnavailableAuthService();
+        _authService ?? _authRuntime.unavailableService;
     final AccountStorageScope accountScope = ref.watch(
       accountStorageScopeProvider,
     );
@@ -169,6 +171,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               authService: fallbackAuthService,
               startupError: startupMessage,
               deepLinkMode: widget.deepLinkMode,
+              onboardingLocation: onboardingLocation,
               enableMockLogin: true,
               onMockSignIn: _activatePrimaryMockSignIn,
               onSecondaryMockSignIn: _activateSecondaryMockSignIn,
@@ -193,6 +196,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               authService: fallbackAuthService,
               startupError: startupMessage,
               deepLinkMode: widget.deepLinkMode,
+              onboardingLocation: onboardingLocation,
               enableMockLogin: true,
               onMockSignIn: _activatePrimaryMockSignIn,
               onSecondaryMockSignIn: _activateSecondaryMockSignIn,
@@ -226,6 +230,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                   authService: authService,
                   startupError: startupMessage,
                   deepLinkMode: widget.deepLinkMode,
+                  onboardingLocation: onboardingLocation,
                   enableMockLogin: true,
                   onMockSignIn: _activatePrimaryMockSignIn,
                   onSecondaryMockSignIn: _activateSecondaryMockSignIn,
@@ -249,6 +254,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 authService: authService,
                 startupError: startupMessage,
                 deepLinkMode: widget.deepLinkMode,
+                onboardingLocation: onboardingLocation,
                 enableMockLogin: allowMockAccess,
                 onMockSignIn: _activatePrimaryMockSignIn,
                 onSecondaryMockSignIn: _activateSecondaryMockSignIn,
@@ -259,6 +265,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 authService: authService,
                 startupError: startupMessage,
                 deepLinkMode: widget.deepLinkMode,
+                onboardingLocation: onboardingLocation,
                 enableMockLogin: allowMockAccess,
                 onMockSignIn: _activatePrimaryMockSignIn,
                 onSecondaryMockSignIn: _activateSecondaryMockSignIn,
@@ -286,15 +293,11 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     }
 
     if (widget.enableMockLogin) {
-      _authService = const _UnavailableAuthService();
+      _authService = _authRuntime.unavailableService;
       return;
     }
 
     try {
-      final ProviderContainer container = ProviderScope.containerOf(
-        context,
-        listen: false,
-      );
       final bool supabaseConfigured = ref
           .read(intelligenceStateProvider)
           .environment
@@ -304,7 +307,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       for (int attempt = 0; attempt < maxInitAttempts; attempt++) {
         final String? backendIssue =
             await (widget.initializeBackend?.call() ??
-                const SupabaseClientService().initialize(
+                _authRuntime.initializeBackend(
                   isMockMode: ref
                       .read(intelligenceStateProvider)
                       .flags
@@ -317,25 +320,19 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             continue;
           }
           _authInitError = backendIssue;
-          _authService = const _UnavailableAuthService();
+          _authService = _authRuntime.unavailableService;
           return;
         }
         if (attempt > 0) {
-          // Force the providers to rebuild. authServiceProvider is a plain
-          // (non-autoDispose) Provider that reads supabaseClientProvider with
-          // `read`, not `watch`, so it caches its result on first read. Without
-          // invalidating, every retry returned the identical cached instance
-          // and the loop could never recover from a first-attempt failure — it
-          // just slept 700ms and reported the same error.
-          container.invalidate(supabaseClientProvider);
-          container.invalidate(authServiceProvider);
+          // Force the provider-owned runtime dependencies to rebuild. Without
+          // invalidating them, a retry would return the same cached service
+          // created before backend initialization completed.
+          _authRuntime.refreshService();
         }
-        final AuthServiceContract authService = container.read(
-          authServiceProvider,
-        );
+        final AuthServiceContract authService = _authRuntime.readService();
         _authService = authService;
 
-        final bool backendUnavailable = authService is UnavailableAuthService;
+        final bool backendUnavailable = _authRuntime.isUnavailable(authService);
         final bool shouldRetry =
             supabaseConfigured &&
             backendUnavailable &&
@@ -352,7 +349,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       }
     } catch (e) {
       _authInitError = 'Authentication backend unavailable for this runtime.';
-      _authService = const _UnavailableAuthService();
+      _authService = _authRuntime.unavailableService;
     }
   }
 
@@ -421,6 +418,7 @@ class _AuthScreen extends ConsumerStatefulWidget {
     required this.authService,
     required this.startupError,
     required this.deepLinkMode,
+    required this.onboardingLocation,
     required this.enableMockLogin,
     required this.onMockSignIn,
     required this.onSecondaryMockSignIn,
@@ -429,6 +427,7 @@ class _AuthScreen extends ConsumerStatefulWidget {
   final AuthServiceContract authService;
   final String? startupError;
   final DeepLinkMode? deepLinkMode;
+  final String onboardingLocation;
   final bool enableMockLogin;
   final VoidCallback onMockSignIn;
   final VoidCallback onSecondaryMockSignIn;
@@ -534,25 +533,14 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
     }
     _returningToWelcome = true;
     final GoRouter? router = GoRouter.maybeOf(context);
-    final String? returnTo = router
-        ?.routeInformationProvider
-        .value
-        .uri
-        .queryParameters[RouteAccessPolicy.returnToQueryParameter];
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(onboardingWelcomeCompleteStorageKey, false);
+      await ref.read(onboardingPreferencesRepositoryProvider).resetWelcome();
       if (!mounted) {
         return;
       }
       ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
       if (router != null) {
-        context.go(
-          RouteAccessPolicy.withReturnTo(
-            ref.read(routeSurfaceProvider).onboarding,
-            returnTo,
-          ),
-        );
+        context.go(widget.onboardingLocation);
       }
     } finally {
       _returningToWelcome = false;
@@ -890,84 +878,6 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-}
-
-class _UnavailableAuthService implements AuthServiceContract {
-  const _UnavailableAuthService();
-
-  FirebaseAuthException _error() {
-    return FirebaseAuthException(
-      code: 'auth-unavailable',
-      message: 'Authentication backend is unavailable.',
-    );
-  }
-
-  @override
-  Stream<User?> authStateChanges() => Stream<User?>.value(null);
-
-  @override
-  User? get currentUser => null;
-
-  @override
-  Future<AccountDeletionResult> deleteCurrentAccount({
-    required String password,
-  }) async {
-    throw _error();
-  }
-
-  @override
-  Future<String?> getIdToken({bool forceRefresh = false}) async {
-    throw _error();
-  }
-
-  @override
-  Future<User?> reloadCurrentUser() async {
-    return null;
-  }
-
-  @override
-  Future<void> sendEmailVerification() async {
-    throw _error();
-  }
-
-  @override
-  Future<void> sendPasswordReset(String email) async {
-    throw _error();
-  }
-
-  @override
-  Future<void> updatePassword({required String newPassword}) async {
-    throw _error();
-  }
-
-  @override
-  Future<UserCredential> signInWithGoogle() async {
-    throw _error();
-  }
-
-  @override
-  Future<UserCredential> signInWithGitHub() async {
-    throw _error();
-  }
-
-  @override
-  Future<UserCredential> signIn({
-    required String email,
-    required String password,
-  }) async {
-    throw _error();
-  }
-
-  @override
-  Future<void> signOut() async {}
-
-  @override
-  Future<UserCredential> signUp({
-    required String email,
-    required String password,
-  }) async {
-    throw _error();
   }
 }
 

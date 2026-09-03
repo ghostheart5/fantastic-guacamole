@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
-import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 
 class ReminderOrchestratorPrefs {
   const ReminderOrchestratorPrefs({
@@ -43,7 +43,7 @@ class ReminderOrchestratorService {
 
   final SharedPrefsStore _preferences;
   final NotificationsService _notifications;
-  final NotificationScheduler _scheduler;
+  final NotificationSchedulerPort _scheduler;
   final String? _accountScope;
 
   ReminderOrchestratorPrefs loadPrefs() {

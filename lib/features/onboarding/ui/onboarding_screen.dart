@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_conten
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
+import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -16,7 +17,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({
@@ -54,8 +54,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     if (_submitting) return;
     setState(() => _submitting = true);
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(onboardingWelcomeCompleteStorageKey, true);
+      await ref
+          .read(onboardingPreferencesRepositoryProvider)
+          .markWelcomeComplete();
       if (!mounted) return;
       ref.read(onboardingWelcomeCompleteProvider.notifier).set(true);
       AppAnalytics.track('onboarding_welcome_completed');
@@ -132,12 +133,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         );
       }
 
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(onboardingCompleteStorageKey, true);
-      await prefs.setInt(
-        onboardingContentVersionStorageKey,
-        OnboardingContentContract.currentVersion,
-      );
+      await ref
+          .read(onboardingPreferencesRepositoryProvider)
+          .markOnboardingComplete(
+            contentVersion: OnboardingContentContract.currentVersion,
+          );
       await ref.read(accountOnboardingCompleteProvider.notifier).complete();
       AppAnalytics.track(
         'onboarding_completed',

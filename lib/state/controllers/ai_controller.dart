@@ -5,7 +5,6 @@ import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/rate_limiter.dart';
 import 'package:fantastic_guacamole/core/utils/throttle.dart';
-import 'package:fantastic_guacamole/data/di/services_providers.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';

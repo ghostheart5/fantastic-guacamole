@@ -35,6 +35,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 part 'nexus_screen.widgets.dart';
+part 'nexus_screen.timeline_widgets.dart';
 
 class NexusScreen extends ConsumerStatefulWidget {
   const NexusScreen({super.key});

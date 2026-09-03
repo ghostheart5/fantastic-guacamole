@@ -4,9 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Smart Planner exposes Phase 10 semantic and recovery contracts', () {
-    final String source = File(
+    final String source = <String>[
       'lib/features/home/ui/smart_planner_screen.dart',
-    ).readAsStringSync();
+      'lib/features/home/ui/smart_planner_screen.widgets.dart',
+    ].map((String path) => File(path).readAsStringSync()).join('\n');
 
     expect(source, contains("label: 'Planning context'"));
     expect(source, contains("label: 'Current energy'"));

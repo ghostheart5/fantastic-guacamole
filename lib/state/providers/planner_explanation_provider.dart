@@ -1,7 +1,7 @@
 // CHRONOSPARK-CLASS: SHIPPING | Feature: Optional Planner explanation
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/ai/planner_explanation_service.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_explanation_contract.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
