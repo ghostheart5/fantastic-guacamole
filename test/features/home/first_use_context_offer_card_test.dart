@@ -36,23 +36,31 @@ void main() {
     semantics.dispose();
   });
 
-  for (final ({String name, Size size}) fixture in <({String name, Size size})>[
-    (name: 'compact_320', size: const Size(320, 568)),
-    (name: 'regular_375', size: const Size(375, 667)),
-  ]) {
-    testWidgets('${fixture.name} remains readable at 200 percent text', (
-      WidgetTester tester,
-    ) async {
-      await _pumpOffer(tester, fixture.size);
-      expect(tester.takeException(), isNull);
-      await expectLater(
-        find.byKey(const Key('offer-capture')),
-        matchesGoldenFile(
-          platformGoldenFile('first_use_context_${fixture.name}_200.png'),
-        ),
-      );
-    });
-  }
+  testWidgets('compact_320 remains readable at 200 percent text', (
+    WidgetTester tester,
+  ) async {
+    await _pumpOffer(tester, const Size(320, 568));
+    expect(tester.takeException(), isNull);
+    await expectLater(
+      find.byKey(const Key('offer-capture')),
+      matchesGoldenFile(
+        platformGoldenFile('first_use_context_compact_320_200.png'),
+      ),
+    );
+  });
+
+  testWidgets('regular_375 remains readable at 200 percent text', (
+    WidgetTester tester,
+  ) async {
+    await _pumpOffer(tester, const Size(375, 667));
+    expect(tester.takeException(), isNull);
+    await expectLater(
+      find.byKey(const Key('offer-capture')),
+      matchesGoldenFile(
+        platformGoldenFile('first_use_context_regular_375_200.png'),
+      ),
+    );
+  });
 }
 
 Future<void> _pumpOffer(WidgetTester tester, Size size) async {
