@@ -109,7 +109,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   Future<void>? _authInitializationSource;
   AuthServiceContract? _authService;
   String? _authInitError;
-  bool _mockSignInActive = false;
   bool _authReadyTimedOut = false;
   bool _authRetryReady = true;
 
@@ -152,9 +151,11 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     final AccountStorageScope accountScope = ref.watch(
       accountStorageScopeProvider,
     );
+    final bool mockSignInActive = ref.watch(mockSignInProvider);
+    final String qaAccountId = ref.watch(qaMockAccountIdProvider);
 
-    if (_mockSignInActive) {
-      return _scopeIsReadyFor(accountScope, 'mock-user')
+    if (mockSignInActive) {
+      return _scopeIsReadyFor(accountScope, qaAccountId)
           ? widget.child
           : const _AuthLoadingShell();
     }
@@ -169,7 +170,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               startupError: startupMessage,
               deepLinkMode: widget.deepLinkMode,
               enableMockLogin: true,
-              onMockSignIn: _activateMockSignIn,
+              onMockSignIn: _activatePrimaryMockSignIn,
+              onSecondaryMockSignIn: _activateSecondaryMockSignIn,
             );
           }
           return const _AuthLoadingShell();
@@ -192,7 +194,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               startupError: startupMessage,
               deepLinkMode: widget.deepLinkMode,
               enableMockLogin: true,
-              onMockSignIn: _activateMockSignIn,
+              onMockSignIn: _activatePrimaryMockSignIn,
+              onSecondaryMockSignIn: _activateSecondaryMockSignIn,
             );
           }
           return _AuthStatusMessage(
@@ -224,7 +227,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                   startupError: startupMessage,
                   deepLinkMode: widget.deepLinkMode,
                   enableMockLogin: true,
-                  onMockSignIn: _activateMockSignIn,
+                  onMockSignIn: _activatePrimaryMockSignIn,
+                  onSecondaryMockSignIn: _activateSecondaryMockSignIn,
                 );
               }
               return const _AuthLoadingShell();
@@ -246,7 +250,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 startupError: startupMessage,
                 deepLinkMode: widget.deepLinkMode,
                 enableMockLogin: allowMockAccess,
-                onMockSignIn: _activateMockSignIn,
+                onMockSignIn: _activatePrimaryMockSignIn,
+                onSecondaryMockSignIn: _activateSecondaryMockSignIn,
               );
             }
             if (user == null) {
@@ -255,7 +260,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 startupError: startupMessage,
                 deepLinkMode: widget.deepLinkMode,
                 enableMockLogin: allowMockAccess,
-                onMockSignIn: _activateMockSignIn,
+                onMockSignIn: _activatePrimaryMockSignIn,
+                onSecondaryMockSignIn: _activateSecondaryMockSignIn,
               );
             }
             if (!user.emailVerified) {
@@ -389,12 +395,20 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     });
   }
 
-  void _activateMockSignIn() {
-    if (_mockSignInActive || !mounted) {
+  void _activatePrimaryMockSignIn() {
+    _activateMockSignIn(primaryQaAccountId);
+  }
+
+  void _activateSecondaryMockSignIn() {
+    _activateMockSignIn(secondaryQaAccountId);
+  }
+
+  void _activateMockSignIn(String accountId) {
+    if (ref.read(mockSignInProvider) || !mounted) {
       return;
     }
+    ref.read(qaMockAccountIdProvider.notifier).select(accountId);
     ref.read(mockSignInProvider.notifier).set(true);
-    setState(() => _mockSignInActive = true);
   }
 }
 
@@ -409,6 +423,7 @@ class _AuthScreen extends ConsumerStatefulWidget {
     required this.deepLinkMode,
     required this.enableMockLogin,
     required this.onMockSignIn,
+    required this.onSecondaryMockSignIn,
   });
 
   final AuthServiceContract authService;
@@ -416,6 +431,7 @@ class _AuthScreen extends ConsumerStatefulWidget {
   final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
   final VoidCallback onMockSignIn;
+  final VoidCallback onSecondaryMockSignIn;
 
   @override
   ConsumerState<_AuthScreen> createState() => _AuthScreenState();
@@ -504,6 +520,9 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
             context.push(ref.read(routeSurfaceProvider).terms),
         onMockLogin: widget.enableMockLogin
             ? () => _runAuthAction(_handleMockSignIn)
+            : null,
+        onSecondaryMockLogin: widget.enableMockLogin
+            ? () => _runAuthAction(_handleSecondaryMockSignIn)
             : null,
       ),
     );
@@ -627,6 +646,20 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
     );
     widget.onMockSignIn();
+  }
+
+  Future<void> _handleSecondaryMockSignIn() async {
+    if (!widget.enableMockLogin) {
+      return;
+    }
+    AppAnalytics.track(
+      'login_event',
+      params: <String, Object?>{
+        'provider': 'mock',
+        'mode': 'tester_access_secondary',
+      },
+    );
+    widget.onSecondaryMockSignIn();
   }
 
   Future<void> _handleGoogleSignIn() async {

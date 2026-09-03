@@ -1,8 +1,11 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const String personalizationProfileStorageKey = 'personalization_profile_v1';
@@ -94,17 +97,22 @@ AdaptivePlanPolicy adaptivePlanPolicyFor(PersonalizationProfile profile) {
 
 class PersonalizationProfileController
     extends Notifier<PersonalizationProfile> {
+  late SharedPrefsStore _store;
+
   @override
   PersonalizationProfile build() {
+    _store = AccountScopedSharedPrefsStore(
+      delegate: ref.read(sharedPrefsStoreProvider),
+      scope: ref.watch(accountStorageScopeProvider),
+      legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+    );
     _load();
     return const PersonalizationProfile();
   }
 
   Future<void> _load() async {
-    await SharedPrefsService.init();
-    final String? raw = SharedPrefsService.load(
-      personalizationProfileStorageKey,
-    );
+    await _store.init();
+    final String? raw = _store.load(personalizationProfileStorageKey);
     if (!ref.mounted || raw == null || raw.trim().isEmpty) return;
     try {
       state = PersonalizationProfile.fromJson(
@@ -131,7 +139,7 @@ class PersonalizationProfileController
       lastReviewedAt: now,
     );
     state = reviewed;
-    await SharedPrefsService.save(
+    await _store.save(
       personalizationProfileStorageKey,
       jsonEncode(reviewed.toJson()),
     );
@@ -142,23 +150,28 @@ class PersonalizationProfileController
 
   Future<void> reset() async {
     state = const PersonalizationProfile();
-    await SharedPrefsService.delete(personalizationProfileStorageKey);
+    await _store.delete(personalizationProfileStorageKey);
   }
 }
 
 class ObservedPlanningPatternsController
     extends Notifier<ObservedPlanningPatterns> {
+  late SharedPrefsStore _store;
+
   @override
   ObservedPlanningPatterns build() {
+    _store = AccountScopedSharedPrefsStore(
+      delegate: ref.read(sharedPrefsStoreProvider),
+      scope: ref.watch(accountStorageScopeProvider),
+      legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+    );
     _load();
     return const ObservedPlanningPatterns();
   }
 
   Future<void> _load() async {
-    await SharedPrefsService.init();
-    final String? raw = SharedPrefsService.load(
-      observedPlanningPatternsStorageKey,
-    );
+    await _store.init();
+    final String? raw = _store.load(observedPlanningPatternsStorageKey);
     if (!ref.mounted || raw == null || raw.trim().isEmpty) return;
     try {
       state = ObservedPlanningPatterns.fromJson(
@@ -171,7 +184,7 @@ class ObservedPlanningPatternsController
 
   Future<void> _persist(ObservedPlanningPatterns next) async {
     state = next;
-    await SharedPrefsService.save(
+    await _store.save(
       observedPlanningPatternsStorageKey,
       jsonEncode(next.toJson()),
     );
@@ -194,7 +207,7 @@ class ObservedPlanningPatternsController
 
   Future<void> reset() async {
     state = const ObservedPlanningPatterns();
-    await SharedPrefsService.delete(observedPlanningPatternsStorageKey);
+    await _store.delete(observedPlanningPatternsStorageKey);
   }
 }
 

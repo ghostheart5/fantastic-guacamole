@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/app_recovery_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,7 +13,7 @@ void main() {
   });
 
   test('detects recoverable app state from storage', () async {
-    final ProviderContainer container = ProviderContainer();
+    final ProviderContainer container = _container();
     addTearDown(container.dispose);
 
     final service = container.read(appRecoveryProvider);
@@ -26,7 +27,7 @@ void main() {
   });
 
   test('restores interrupted app state with draft metadata', () async {
-    final ProviderContainer container = ProviderContainer();
+    final ProviderContainer container = _container();
     addTearDown(container.dispose);
     final service = container.read(appRecoveryProvider);
 
@@ -45,7 +46,7 @@ void main() {
   });
 
   test('clears completed app recovery state', () async {
-    final ProviderContainer container = ProviderContainer();
+    final ProviderContainer container = _container();
     addTearDown(container.dispose);
     final service = container.read(appRecoveryProvider);
 
@@ -69,7 +70,7 @@ void main() {
     await prefs.setInt('rec_last_route', 42);
     await prefs.setBool('rec_draft_title', true);
 
-    final ProviderContainer container = ProviderContainer();
+    final ProviderContainer container = _container();
     addTearDown(container.dispose);
     final service = container.read(appRecoveryProvider);
 
@@ -77,3 +78,11 @@ void main() {
     expect(state, isNull);
   });
 }
+
+ProviderContainer _container() => ProviderContainer(
+  overrides: [
+    accountSharedPrefsStoreProvider.overrideWithValue(
+      const SharedPrefsStoreAdapter(),
+    ),
+  ],
+);

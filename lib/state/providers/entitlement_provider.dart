@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -298,22 +298,13 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
     return scope.isWritable && scope.rawUserId == userId;
   }
 
-  String _ownerKey(String userId) => '$kEntitlementOwnerKey.account.$userId';
-
   Future<String?> _readOwner(String userId) async {
     try {
-      final store = ref.read(secureStoreProvider);
-      String? owner = await store.readString(_ownerKey(userId));
-      if ((owner?.trim().isEmpty ?? true)) {
-        final String? legacyOwner = await store.readString(
-          kEntitlementOwnerKey,
-        );
-        if (legacyOwner?.trim() == userId) {
-          await _queueOwnerMutation(userId, owner: userId);
-          await store.delete(kEntitlementOwnerKey);
-          owner = userId;
-        }
-      }
+      // The scoped store may expose the preserved legacy marker only when the
+      // auth boundary has independently proven this account owns it. Reading
+      // compatibility state never copies or removes that marker.
+      final store = ref.read(accountSecureStoreProvider);
+      final String? owner = await store.readString(kEntitlementOwnerKey);
       final String trimmed = owner?.trim() ?? '';
       return trimmed.isEmpty ? null : trimmed;
     } on Object {
@@ -331,7 +322,11 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
   }
 
   Future<void> _queueOwnerMutation(String userId, {String? owner}) async {
-    final String key = _ownerKey(userId);
+    final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
+    if (!scope.isWritable || scope.rawUserId != userId) {
+      return;
+    }
+    final String key = '${scope.v2Namespace}.$kEntitlementOwnerKey';
     final int revision = (_ownerMutationRevisions[key] ?? 0) + 1;
     _ownerMutationRevisions[key] = revision;
     final Future<void> previous =
@@ -341,11 +336,14 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
       if (_ownerMutationRevisions[key] != revision) {
         return;
       }
-      final store = ref.read(secureStoreProvider);
+      if (!_scopeStillMatches(userId)) {
+        return;
+      }
+      final store = ref.read(accountSecureStoreProvider);
       if (owner == null) {
-        await store.delete(key);
+        await store.delete(kEntitlementOwnerKey);
       } else {
-        await store.writeString(key, owner);
+        await store.writeString(kEntitlementOwnerKey, owner);
       }
     });
     _ownerMutationQueues[key] = queued;

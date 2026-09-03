@@ -1,10 +1,14 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('settings actions export and import the backup recovery key', () async {
@@ -37,5 +41,47 @@ void main() {
     await destinationActions.importBackupRecoveryKey(recoveryKey);
 
     expect(await destinationActions.exportBackupRecoveryKey(), recoveryKey);
+  });
+
+  test('cloud sync legacy fallback is proven-owner read-only', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'cloud_sync_enabled_v1': true,
+    });
+    final ProviderContainer owner = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('account-a'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenOwned,
+        ),
+      ],
+    );
+    final ProviderContainer other = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('account-b'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.ambiguous,
+        ),
+      ],
+    );
+    addTearDown(owner.dispose);
+    addTearDown(other.dispose);
+
+    expect(await owner.read(cloudSyncPreferenceProvider.future), isTrue);
+    expect(await other.read(cloudSyncPreferenceProvider.future), isFalse);
+    await other.read(cloudSyncPreferenceProvider.notifier).setEnabled(true);
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('cloud_sync_enabled_v1'), isTrue);
+    expect(
+      prefs.getBool(
+        'cloud_sync_enabled_v1.'
+        '${AccountStorageScope.authenticated('account-b').v2Namespace}',
+      ),
+      isTrue,
+    );
   });
 }

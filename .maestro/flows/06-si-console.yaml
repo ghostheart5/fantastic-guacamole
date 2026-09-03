@@ -16,4 +16,42 @@ tags:
 
 # The screen must expose its current source-aware contract, not only a title.
 - assertVisible: "Systems intelligence · source-aware guidance"
-- assertVisible: "No planning evidence yet. SI will identify what it cannot determine. Person context: shared but empty; not used for answers."
+- assertVisible: "No planning evidence yet. SI will identify what it cannot determine. Person context: shared but no item was relevant to this lens."
+
+# A normal evidence question must return a structured, on-device SI response.
+- tapOn: "What evidence is missing?"
+- extendedWaitUntil:
+    visible: "DIRECT ANSWER"
+    timeout: 30000
+- assertVisible: "RECOMMENDATION"
+- assertVisible: "(?s).*Processing mode: On device.*"
+- assertNotVisible: "External AI"
+
+# A typed local status request must disclose the current evidence boundary.
+- tapOn: "(?s)^SI query.*"
+- inputText: "/status"
+- tapOn: "Send SI query"
+- extendedWaitUntil:
+    visible: "(?s).*SI STATUS.*Read-only Evidence Lens:.*"
+    timeout: 10000
+- assertVisible: "(?s).*Processing mode: On device.*"
+- assertNotVisible: "External AI"
+
+# Unsupported input must fail explicitly without discarding or sending text.
+- tapOn: "(?s)^SI query.*"
+- inputText: "/not-real preserve this"
+- tapOn: "Send SI query"
+- extendedWaitUntil:
+    visible: "(?s).*Unknown shortcut.*No part of the request was sent or discarded.*"
+    timeout: 10000
+- assertVisible: "(?s).*Processing mode: On-device fallback.*"
+- assertNotVisible: "External AI"
+
+# Crisis language must preempt ordinary SI output and stay local.
+- tapOn: "(?s)^SI query.*"
+- inputText: "I want to kill myself"
+- tapOn: "Send SI query"
+- extendedWaitUntil:
+    visible: "Let's pause and focus on your safety"
+    timeout: 10000
+- assertNotVisible: "External AI"

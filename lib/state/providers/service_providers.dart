@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_r
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/expired_session_cleanup.dart';
@@ -90,7 +91,7 @@ final siEngineServiceProvider = Provider<StateSiEngineService>((Ref ref) {
 final workspaceStoreServiceProvider = Provider<WorkspaceStoreService>((
   Ref ref,
 ) {
-  return WorkspaceStoreService(store: ref.read(secureStoreProvider));
+  return WorkspaceStoreService(store: ref.watch(accountSecureStoreProvider));
 });
 
 final externalUrlServiceProvider = Provider<ExternalUrlService>((_) {

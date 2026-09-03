@@ -756,7 +756,7 @@ class BackupService {
   Map<String, dynamic> _readAccountSettings() {
     final Map<String, dynamic> settings = <String, dynamic>{};
     for (final String key in _sortedAccountSettingKeys) {
-      final Object? value = prefs.prefs.get(key);
+      final Object? value = prefs.get(key);
       if (value != null) {
         settings[key] = value;
       }
@@ -768,7 +768,7 @@ class BackupService {
   Map<String, Object> _captureAccountSettings() {
     final Map<String, Object> snapshot = <String, Object>{};
     for (final String key in _sortedAccountSettingKeys) {
-      final Object? value = prefs.prefs.get(key);
+      final Object? value = prefs.get(key);
       if (value != null) {
         snapshot[key] = value;
       }

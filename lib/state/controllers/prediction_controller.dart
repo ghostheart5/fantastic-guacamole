@@ -1,15 +1,15 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final predictionProvider = FutureProvider.family<Prediction, String>((
   ref,
   String taskTitle,
 ) async {
-  final secureStore = ref.read(secureStoreProvider);
+  final secureStore = ref.watch(accountSecureStoreProvider);
   final String? raw = await secureStore.readString('neural_dump');
 
   List<NeuralEntry> history;

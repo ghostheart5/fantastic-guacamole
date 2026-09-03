@@ -16,9 +16,13 @@ class AppRecoveryState {
 }
 
 class AppRecoveryService {
+  AppRecoveryService({SharedPrefsStore? store})
+    : _store = store ?? const SharedPrefsStoreAdapter();
+
   static const _kLastRoute = 'rec_last_route';
   static const _kTaskId = 'rec_active_task';
   static const _kDraftTitle = 'rec_draft_title';
+  final SharedPrefsStore _store;
 
   Future<void> saveState({
     String? lastRoute,
@@ -28,15 +32,15 @@ class AppRecoveryService {
   }) async {
     try {
       if (lastRoute != null) {
-        await SharedPrefsService.save(_kLastRoute, lastRoute);
+        await _store.save(_kLastRoute, lastRoute);
       }
       if (clearActiveTask) {
-        await SharedPrefsService.delete(_kTaskId);
+        await _store.delete(_kTaskId);
       } else if (activeTaskId != null) {
-        await SharedPrefsService.save(_kTaskId, activeTaskId);
+        await _store.save(_kTaskId, activeTaskId);
       }
       if (draftTaskTitle != null) {
-        await SharedPrefsService.save(_kDraftTitle, draftTaskTitle);
+        await _store.save(_kDraftTitle, draftTaskTitle);
       }
     } on Object catch (error) {
       Logger.warn('App recovery state save failed: $error');
@@ -46,9 +50,9 @@ class AppRecoveryService {
 
   Future<AppRecoveryState?> loadState() async {
     try {
-      final lastRoute = SharedPrefsService.load(_kLastRoute);
-      final activeTaskId = SharedPrefsService.load(_kTaskId);
-      final draftTitle = SharedPrefsService.load(_kDraftTitle);
+      final lastRoute = _store.load(_kLastRoute);
+      final activeTaskId = _store.load(_kTaskId);
+      final draftTitle = _store.load(_kDraftTitle);
 
       if (lastRoute == null && draftTitle == null) return null;
 
@@ -65,7 +69,7 @@ class AppRecoveryService {
 
   Future<void> clearDraft() async {
     try {
-      await SharedPrefsService.delete(_kDraftTitle);
+      await _store.delete(_kDraftTitle);
     } on Object catch (error) {
       Logger.warn('App recovery draft clear failed: $error');
     }
@@ -73,9 +77,9 @@ class AppRecoveryService {
 
   Future<void> clearAll() async {
     try {
-      await SharedPrefsService.delete(_kLastRoute);
-      await SharedPrefsService.delete(_kTaskId);
-      await SharedPrefsService.delete(_kDraftTitle);
+      await _store.delete(_kLastRoute);
+      await _store.delete(_kTaskId);
+      await _store.delete(_kDraftTitle);
     } on Object catch (error) {
       Logger.warn('App recovery clear failed: $error');
     }

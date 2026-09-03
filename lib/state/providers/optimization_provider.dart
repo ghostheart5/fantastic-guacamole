@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/engine/advisor/product_advisor_engine.dart';
 import 'package:fantastic_guacamole/engine/optimizer/global_optimizer.dart';
@@ -12,6 +13,7 @@ import 'package:fantastic_guacamole/state/controllers/momentum_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show identityServiceProvider;
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/analytics/global_aggregation_service.dart';
 import 'package:fantastic_guacamole/system/analytics/local_metrics_accumulator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +35,11 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
   ref,
 ) async {
   try {
+    final SharedPrefsStore store = AccountScopedSharedPrefsStore(
+      delegate: ref.read(sharedPrefsStoreProvider),
+      scope: ref.watch(accountStorageScopeProvider),
+      legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+    );
     final streak = ref.watch(profileProvider).streak;
     final localConfig = const LocalOptimizer().compute(streak: streak);
 
@@ -45,10 +52,10 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
     final merged = const OptimizationMerger().merge(localConfig, globalConfig);
 
     // Apply signal-driven self-optimization (once per day, bounded 0.5–1.5)
-    await SharedPrefsService.init();
+    await store.init();
     final String today = DateTime.now().toIso8601String().substring(0, 10);
-    if (SharedPrefsService.load(_lastOptimizationDateKey) == today) {
-      return _loadOptimizationConfig() ?? merged;
+    if (store.load(_lastOptimizationDateKey) == today) {
+      return _loadOptimizationConfig(store) ?? merged;
     }
 
     final accumulator = ref.read(localMetricsAccumulatorProvider);
@@ -62,7 +69,7 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
       merged,
       signals,
     );
-    await _saveOptimizationConfig(adjusted, today);
+    await _saveOptimizationConfig(store, adjusted, today);
     return adjusted;
   } catch (_) {
     return OptimizationConfig.neutral();
@@ -93,8 +100,8 @@ final optimizationDebugViewModelProvider =
 const String _optimizationConfigKey = 'self_opt_config_v1';
 const String _lastOptimizationDateKey = 'self_opt_last_adjust';
 
-OptimizationConfig? _loadOptimizationConfig() {
-  final String? raw = SharedPrefsService.load(_optimizationConfigKey);
+OptimizationConfig? _loadOptimizationConfig(SharedPrefsStore store) {
+  final String? raw = store.load(_optimizationConfigKey);
   if (raw == null) return null;
   try {
     final Map<String, dynamic> json = jsonDecode(raw) as Map<String, dynamic>;
@@ -117,11 +124,12 @@ OptimizationConfig? _loadOptimizationConfig() {
 }
 
 Future<void> _saveOptimizationConfig(
+  SharedPrefsStore store,
   OptimizationConfig config,
   String date,
 ) async {
-  await SharedPrefsService.save(_lastOptimizationDateKey, date);
-  await SharedPrefsService.save(
+  await store.save(_lastOptimizationDateKey, date);
+  await store.save(
     _optimizationConfigKey,
     jsonEncode(<String, double>{
       'executionDurationMultiplier': config.executionDurationMultiplier,

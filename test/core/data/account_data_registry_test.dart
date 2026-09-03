@@ -88,6 +88,13 @@ void main() {
     expect(cleanupPlan.hiveBoxes, contains('tasks_box.$namespace'));
     expect(cleanupPlan.hiveBoxes, contains('goals_box.$namespace'));
     expect(cleanupPlan.hiveBoxes, contains('habits_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('daily_plans_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('projects_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('routines_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('subtasks_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('progression_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('offline_queue_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('profile_box.$namespace'));
     expect(
       cleanupPlan.sensitivePreferenceKeys,
       contains('governed_memories_v2.$namespace'),
@@ -109,9 +116,38 @@ void main() {
       contains('adaptive_guidance_v3.$namespace.'),
     );
     expect(cleanupPlan.preferenceExactKeys, contains('notes_v1.$namespace'));
+    expect(cleanupPlan.hiveBoxes, isNot(contains('tasks_box')));
+    expect(cleanupPlan.secureExactKeys, isNot(contains('identity_id')));
+    expect(cleanupPlan.preferenceExactKeys, isNot(contains('notes_v1')));
     expect(
       cleanupPlan.preferenceExactKeys,
       contains('chronospark.decision_outcomes.v1.$namespace'),
+    );
+  });
+
+  test('proven legacy owner inventory includes legacy and scoped storage', () {
+    final String namespace = AccountDataRegistry.accountNamespace('owner-a');
+    final AccountDataCleanupPlan cleanupPlan =
+        AccountDataRegistry.cleanupPlanFor(
+          'owner-a',
+          includeLegacyOwnedData: true,
+        );
+
+    expect(
+      cleanupPlan.hiveBoxes,
+      containsAll(<String>{'tasks_box', 'tasks_box.$namespace'}),
+    );
+    expect(
+      cleanupPlan.secureExactKeys,
+      containsAll(<String>{'identity_id', 'learning_state_v2.$namespace'}),
+    );
+    expect(
+      cleanupPlan.preferenceExactKeys,
+      containsAll(<String>{'notes_v1', 'notes_v1.$namespace'}),
+    );
+    expect(
+      cleanupPlan.secureKeyPrefixes,
+      contains(AccountDataRegistry.pendingPurchaseOwnerSecureKeyPrefix),
     );
   });
 

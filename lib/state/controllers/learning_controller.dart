@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/engine/learning/adaptive_learning.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final learningProvider = NotifierProvider<LearningController, LearningState>(
@@ -11,13 +11,15 @@ final learningProvider = NotifierProvider<LearningController, LearningState>(
 );
 
 class LearningController extends Notifier<LearningState> {
+  late SecureStore _store;
+
   @override
   LearningState build() {
+    _store = ref.watch(accountSecureStoreProvider);
     _load();
     return const LearningState();
   }
 
-  SecureStore get _store => ref.read(secureStoreProvider);
   static const String _storageKey = 'ai_learning';
 
   Future<void> _load() async {

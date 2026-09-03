@@ -24,6 +24,7 @@ import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/app_recovery_provider.dart';
@@ -63,7 +64,8 @@ class NavigationShell extends ConsumerStatefulWidget {
 
 class _NavigationShellState extends ConsumerState<NavigationShell>
     with WidgetsBindingObserver {
-  final PreferenceService _preferenceService = PreferenceService();
+  PreferenceService get _preferenceService =>
+      ref.read(preferenceServiceProvider);
   late final SystemScheduler _systemScheduler;
   DataHygieneScheduler? _dataHygieneScheduler;
   AudioInterruptionService? _audioInterruptionService;

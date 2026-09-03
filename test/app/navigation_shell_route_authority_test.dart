@@ -3,6 +3,10 @@ import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
@@ -148,7 +152,7 @@ void main() {
   testWidgets('saved-tab restoration affects only the default Nexus launch', (
     WidgetTester tester,
   ) async {
-    await PreferenceService().setLastOpenedTab(2);
+    await _testPreferenceService().setLastOpenedTab(2);
 
     final _RouteShellHarness defaultLaunch = await _pumpRouteShell(
       tester,
@@ -183,7 +187,7 @@ void main() {
   testWidgets('mounted shell honors a new saved-tab restore request', (
     WidgetTester tester,
   ) async {
-    await PreferenceService().setLastOpenedTab(2);
+    await _testPreferenceService().setLastOpenedTab(2);
 
     final _RouteShellHarness harness = await _pumpRouteShell(
       tester,
@@ -218,7 +222,7 @@ void main() {
   testWidgets('mounted shell restores Nexus without stale app flow', (
     WidgetTester tester,
   ) async {
-    await PreferenceService().setLastOpenedTab(0);
+    await _testPreferenceService().setLastOpenedTab(0);
 
     final _RouteShellHarness harness = await _pumpRouteShell(
       tester,
@@ -325,6 +329,12 @@ Future<_RouteShellHarness> _pumpRouteShell(
 
   final ProviderContainer container = ProviderContainer(
     overrides: [
+      accountStorageScopeProvider.overrideWithValue(
+        AccountStorageScope.authenticated('navigation-test-account'),
+      ),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
       if (forceOnline) isOnlineProvider.overrideWithValue(true),
       unreadNotificationsProvider.overrideWithValue(0),
       goalsProvider.overrideWith(_StaticGoals.new),
@@ -356,6 +366,15 @@ class _RouteShellHarness {
 
   final ProviderContainer container;
   final GoRouter router;
+}
+
+PreferenceService _testPreferenceService() {
+  return PreferenceService(
+    accountStore: AccountScopedSharedPrefsStore(
+      delegate: const SharedPrefsStoreAdapter(),
+      scope: AccountStorageScope.authenticated('navigation-test-account'),
+    ),
+  );
 }
 
 class _ShellExpectation {

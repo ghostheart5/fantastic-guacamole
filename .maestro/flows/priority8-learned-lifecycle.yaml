@@ -1,0 +1,216 @@
+# Priority 8 — one canonical, restart-safe learned-lifecycle journey.
+#
+# This intentionally stays in one app-data lifecycle. It proves that a real
+# Planner recommendation crosses the Creator confirmation boundary, becomes a
+# scheduled Timeline task, records a reviewable learning change on completion,
+# and retains the underlying account-scoped outcome across a process restart.
+appId: com.ghostheart5.chronospark
+tags:
+  - priority8
+  - journey
+---
+- launchApp:
+    clearState: true
+
+# Public onboarding -> authentication.
+- extendedWaitUntil:
+    visible: "CHRONOSPARK"
+    timeout: 60000
+- assertVisible: "A living decision system"
+- tapOn: "CONTINUE TO LOGIN"
+- extendedWaitUntil:
+    visible: "ENTER SYSTEM"
+    timeout: 10000
+- runFlow: ../subflows/sign-in.yaml
+
+# First-run Creator -> Timeline. Completing this seed leaves the later
+# Planner-created task as the only open scheduled task in the journey.
+- runFlow:
+    when:
+      visible: "Start here"
+    commands:
+      - tapOn: "Turn an intention into a path"
+- runFlow:
+    when:
+      notVisible: "CREATOR"
+    commands:
+      - runFlow:
+          file: ../subflows/open-from-nexus.yaml
+          env:
+            TARGET: "Creator"
+- assertVisible: "CREATOR"
+- tapOn: "Title *"
+- inputText: "Priority 8 journey seed"
+- tapOn:
+    text: "(?:Done|Enter)"
+    optional: true
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      text: "Schedule date and time"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Schedule date and time"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- scrollUntilVisible:
+    element:
+      text: "REVIEW CHANGES"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "REVIEW CHANGES"
+    retryTapIfNoChange: true
+- scrollUntilVisible:
+    element:
+      text: "CONFIRM CREATOR CHANGES"
+    direction: UP
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "CONFIRM CREATOR CHANGES"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "CONFIRM SELECTED"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "CONFIRM SELECTED"
+- extendedWaitUntil:
+    visible: "(?s).*Priority 8 journey seed.*Task is scheduled for a planned work time.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Complete"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Complete"
+- extendedWaitUntil:
+    visible: "(?s).*Task Completed.*Priority 8 journey seed marked complete.*"
+    timeout: 20000
+- tapOn: "Back to Nexus"
+- extendedWaitUntil:
+    visible: "NEXUS"
+    timeout: 10000
+
+# Nexus -> Smart Planner input/output -> explicit Use this plan acceptance.
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Smart Planner"
+- assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
+- tapOn: "Not set"
+- inputText: "Finish the Priority 8 release evidence today"
+- scrollUntilVisible:
+    element:
+      text: "GET GUIDANCE"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "GET GUIDANCE"
+- extendedWaitUntil:
+    visible: "(?s)Planning guidance ready.*"
+    timeout: 30000
+- assertVisible: "Use this plan"
+- tapOn: "Use this plan"
+
+# The Planner draft is still read-only until Creator review and confirmation.
+# Add a schedule so the confirmed task exposes the real Timeline completion
+# control rather than only an informational creation event.
+- extendedWaitUntil:
+    visible: "PLANNER DRAFT PREVIEW"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Schedule date and time"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Schedule date and time"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- scrollUntilVisible:
+    element:
+      text: "REVIEW CHANGES"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "REVIEW CHANGES"
+    retryTapIfNoChange: true
+- scrollUntilVisible:
+    element:
+      text: "CONFIRM CREATOR CHANGES"
+    direction: UP
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "CONFIRM CREATOR CHANGES"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "CONFIRM SELECTED"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "CONFIRM SELECTED"
+- scrollUntilVisible:
+    element:
+      text: "CONFIRMED CREATOR RECEIPT"
+    direction: UP
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "CONFIRMED CREATOR RECEIPT"
+    timeout: 15000
+- tapOn: "Open Timeline"
+- extendedWaitUntil:
+    visible: "TIMELINE"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Complete"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Complete"
+- extendedWaitUntil:
+    visible: "(?s).*Task Completed.*marked complete.*"
+    timeout: 20000
+- tapOn: "Back to Nexus"
+
+# The latest completion must publish an explainable, correctable change.
+- extendedWaitUntil:
+    visible: "WHAT LEARNING CHANGED"
+    timeout: 20000
+- assertVisible: ".*completed outcome.*"
+
+# Process restart: preserve app data, then prove the account-scoped ledger
+# retained the same completed task-lifecycle outcome.
+- stopApp
+- launchApp
+- runFlow: ../subflows/sign-in.yaml
+- extendedWaitUntil:
+    visible: "NEXUS"
+    timeout: 30000
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Planning & guidance\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Planning & guidance\\n.*"
+- scrollUntilVisible:
+    element:
+      text: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"
+    direction: DOWN
+    visibilityPercentage: 20
+    timeout: 15000
+- assertVisible: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"

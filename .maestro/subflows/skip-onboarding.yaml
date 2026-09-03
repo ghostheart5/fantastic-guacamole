@@ -4,13 +4,21 @@
 # is visible, SKIP FOR NOW completes setup without creating anything.
 appId: com.ghostheart5.chronospark
 ---
+- extendedWaitUntil:
+    visible: "(?:CONTINUE TO LOGIN|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)"
+    timeout: 30000
+
 - runFlow:
     when:
-      visible: "Continue to login"
+      visible: "CONTINUE TO LOGIN"
     commands:
-      - tapOn: "Continue to login"
+      - tapOn: "CONTINUE TO LOGIN"
       - waitForAnimationToEnd:
           timeout: 5000
+
+- extendedWaitUntil:
+    visible: "(?:SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)"
+    timeout: 20000
 
 - runFlow:
     when:

@@ -2,13 +2,17 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
-import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dart';
+import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/state/models/streak.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/streak_service.dart';
@@ -154,33 +158,61 @@ class ProfileController extends Notifier<ProfileState> {
 
   @override
   ProfileState build() {
-    _initialization ??= Future<void>.microtask(_init);
+    final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+    final LegacyScopeOwnership legacyOwnership = ref.watch(
+      accountLegacyOwnershipProvider,
+    );
+    final SecureStore secureStore = ref
+        .read(secureStoreProvider)
+        .forAccount(scope, legacyOwnership: legacyOwnership);
+    final HiveStore hive = ref.read(hiveStoreProvider);
+    _initialization = Future<void>.microtask(
+      () => _init(
+        scope: scope,
+        legacyOwnership: legacyOwnership,
+        secureStore: secureStore,
+        hive: hive,
+      ),
+    );
     return ProfileState();
   }
 
-  static const _boxKey = 'profile_box';
   static const _stateKey = 'profile_state';
   static const _secureStateKey = 'profile_state_v2';
-  final HiveStorage<String> _storage = HiveStorage<String>(
-    _boxKey,
-    hive: const HiveStoreAdapter(),
-  );
   static const _streakLogic = StreakService();
   static const String _streakBreakNotificationIdPrefix =
       'streak_break_recovery_';
 
-  SecureStore get _secureStore => ref.read(secureStoreProvider);
+  SecureStore get _secureStore {
+    return ref
+        .read(secureStoreProvider)
+        .forAccount(
+          ref.read(accountStorageScopeProvider),
+          legacyOwnership: ref.read(accountLegacyOwnershipProvider),
+        );
+  }
 
-  Future<void> _init() async {
+  Future<void> _init({
+    required AccountStorageScope scope,
+    required LegacyScopeOwnership legacyOwnership,
+    required SecureStore secureStore,
+    required HiveStore hive,
+  }) async {
     try {
-      String? raw = await _secureStore.readString(_secureStateKey);
-      if (raw == null) {
-        await _storage.open();
-        raw = _storage.get(_stateKey);
+      String? raw = await secureStore.readString(_secureStateKey);
+      if (raw == null && scope.isWritable) {
+        final AccountScopedHiveStorage storage = AccountScopedHiveStorage(
+          baseBox: HiveBoxes.profile,
+          scope: scope,
+          hive: hive,
+          legacyOwnership: legacyOwnership,
+        );
+        await storage.open();
+        raw = storage.get(_stateKey);
         if (raw != null) {
           await runAccountStorageMutation(() async {
-            await _secureStore.writeString(_secureStateKey, raw!);
-            await _storage.delete(_stateKey);
+            await secureStore.writeString(_secureStateKey, raw!);
+            await storage.delete(_stateKey);
           });
         }
       }
@@ -197,7 +229,8 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   Future<void> _ensureInitialized() async {
-    await (_initialization ??= Future<void>.microtask(_init));
+    final Future<void>? initialization = _initialization;
+    if (initialization != null) await initialization;
   }
 
   Future<void> _save() {

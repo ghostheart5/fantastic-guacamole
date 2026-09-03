@@ -1,0 +1,52 @@
+# Priority 8 — local QA Account A -> B -> A preservation and isolation.
+appId: com.ghostheart5.chronospark
+tags:
+  - priority8
+  - auth
+  - isolation
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/create-scheduled-task.yaml
+    env:
+      TASK_TITLE: "P8 Account A Sentinel"
+- assertVisible: "(?s).*P8 Account A Sentinel.*"
+
+- runFlow: ../subflows/exit-tester-account.yaml
+- tapOn: "TESTER B.*ISOLATION LOGIN"
+- extendedWaitUntil:
+    visible: "NEXUS"
+    timeout: 30000
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Timeline"
+- assertNotVisible: "(?s).*P8 Account A Sentinel.*"
+
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Creator"
+- runFlow:
+    file: ../subflows/create-scheduled-task.yaml
+    env:
+      TASK_TITLE: "P8 Account B Sentinel"
+- assertVisible: "(?s).*P8 Account B Sentinel.*"
+- assertNotVisible: "(?s).*P8 Account A Sentinel.*"
+
+- runFlow: ../subflows/exit-tester-account.yaml
+- tapOn: "TESTER ACCESS.*TEST LOGIN"
+- extendedWaitUntil:
+    visible: "NEXUS"
+    timeout: 30000
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Timeline"
+- extendedWaitUntil:
+    visible: "(?s).*P8 Account A Sentinel.*"
+    timeout: 20000
+- assertNotVisible: "(?s).*P8 Account B Sentinel.*"

@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -23,6 +22,7 @@ import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
@@ -518,7 +518,7 @@ class TaskActions {
     required DateTime timestamp,
   }) async {
     const String storageKey = 'neural_dump';
-    final store = _ref.read(secureStoreProvider);
+    final store = _ref.read(accountSecureStoreProvider);
     final String? raw = await store.readString(storageKey);
     final Map<String, dynamic> entry = NeuralEntry(
       task: task.title,

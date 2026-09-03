@@ -386,23 +386,36 @@ abstract final class AccountDataRegistry {
     return 'notification-account:${accountDigest(accountId)}';
   }
 
-  static Set<String> hiveBoxesForAccount(String accountId) {
+  static Set<String> hiveBoxesForAccount(
+    String accountId, {
+    bool includeLegacyOwnedData = false,
+  }) {
     final AccountStorageScope scope = AccountStorageScope.authenticated(
       accountId.trim(),
     );
     return <String>{
-      ...legacyAccountHiveBoxes,
+      if (includeLegacyOwnedData) ...legacyAccountHiveBoxes,
       HiveBoxes.accountScoped(HiveBoxes.tasks, scope),
       HiveBoxes.accountScoped(HiveBoxes.goals, scope),
       HiveBoxes.accountScoped(HiveBoxes.habits, scope),
       HiveBoxes.accountScoped(HiveBoxes.taskOccurrences, scope),
+      HiveBoxes.accountScoped(HiveBoxes.dailyPlans, scope),
+      HiveBoxes.accountScoped(HiveBoxes.projects, scope),
+      HiveBoxes.accountScoped(HiveBoxes.routines, scope),
+      HiveBoxes.accountScoped(HiveBoxes.subtasks, scope),
+      HiveBoxes.accountScoped(HiveBoxes.progression, scope),
+      HiveBoxes.accountScoped(HiveBoxes.offlineQueue, scope),
+      HiveBoxes.accountScoped(HiveBoxes.profile, scope),
     };
   }
 
-  static Set<String> secureExactKeysForAccount(String accountId) {
+  static Set<String> secureExactKeysForAccount(
+    String accountId, {
+    bool includeLegacyOwnedData = false,
+  }) {
     final String namespace = accountNamespace(accountId);
     return <String>{
-      ...accountSecureExactKeys,
+      if (includeLegacyOwnedData) ...accountSecureExactKeys,
       notificationSecureKeyFor(accountId),
       'creator_latest_receipt_v1:$namespace',
       'creator_handshake_ledger_v1:$namespace',
@@ -410,31 +423,40 @@ abstract final class AccountDataRegistry {
     };
   }
 
-  static Set<String> secureKeyPrefixesForAccount(String accountId) {
+  static Set<String> secureKeyPrefixesForAccount(
+    String accountId, {
+    bool includeLegacyOwnedData = false,
+  }) {
     final String namespace = accountNamespace(accountId);
     return <String>{
       'si_engine_state_v2.$namespace.',
-      pendingPurchaseOwnerSecureKeyPrefix,
+      if (includeLegacyOwnedData) pendingPurchaseOwnerSecureKeyPrefix,
     };
   }
 
-  static Set<String> sensitivePreferenceKeysForAccount(String accountId) {
+  static Set<String> sensitivePreferenceKeysForAccount(
+    String accountId, {
+    bool includeLegacyOwnedData = false,
+  }) {
     final String namespace = accountNamespace(accountId);
     return <String>{
-      ...legacySensitivePreferenceKeys,
+      if (includeLegacyOwnedData) ...legacySensitivePreferenceKeys,
       'governed_memories_v2.$namespace',
       'person_context_spine_v1.$namespace',
       'person_context_spine_v1_corrupt.$namespace',
     };
   }
 
-  static Set<String> preferenceExactKeysForAccount(String accountId) {
+  static Set<String> preferenceExactKeysForAccount(
+    String accountId, {
+    bool includeLegacyOwnedData = false,
+  }) {
     final String namespace = accountNamespace(accountId);
     final String namespaceDigest = sha256
         .convert(utf8.encode(namespace))
         .toString();
     return <String>{
-      ...accountPreferenceExactKeys,
+      if (includeLegacyOwnedData) ...accountPreferenceExactKeys,
       'notes_v1.$namespace',
       'notes_v1.${namespace}_corrupt_backup',
       'notes_v1.${namespace}_migration_v1',
@@ -459,7 +481,10 @@ abstract final class AccountDataRegistry {
     };
   }
 
-  static AccountDataCleanupPlan cleanupPlanFor(String? accountId) {
+  static AccountDataCleanupPlan cleanupPlanFor(
+    String? accountId, {
+    bool includeLegacyOwnedData = false,
+  }) {
     final String normalizedAccountId = accountId?.trim() ?? '';
     if (normalizedAccountId.isEmpty) {
       return const AccountDataCleanupPlan(
@@ -473,13 +498,26 @@ abstract final class AccountDataRegistry {
     }
 
     return AccountDataCleanupPlan(
-      hiveBoxes: hiveBoxesForAccount(normalizedAccountId),
-      secureExactKeys: secureExactKeysForAccount(normalizedAccountId),
-      secureKeyPrefixes: secureKeyPrefixesForAccount(normalizedAccountId),
+      hiveBoxes: hiveBoxesForAccount(
+        normalizedAccountId,
+        includeLegacyOwnedData: includeLegacyOwnedData,
+      ),
+      secureExactKeys: secureExactKeysForAccount(
+        normalizedAccountId,
+        includeLegacyOwnedData: includeLegacyOwnedData,
+      ),
+      secureKeyPrefixes: secureKeyPrefixesForAccount(
+        normalizedAccountId,
+        includeLegacyOwnedData: includeLegacyOwnedData,
+      ),
       sensitivePreferenceKeys: sensitivePreferenceKeysForAccount(
         normalizedAccountId,
+        includeLegacyOwnedData: includeLegacyOwnedData,
       ),
-      preferenceExactKeys: preferenceExactKeysForAccount(normalizedAccountId),
+      preferenceExactKeys: preferenceExactKeysForAccount(
+        normalizedAccountId,
+        includeLegacyOwnedData: includeLegacyOwnedData,
+      ),
       preferenceKeyPrefixes: preferenceKeyPrefixesForAccount(
         normalizedAccountId,
       ),

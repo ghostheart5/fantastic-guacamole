@@ -611,6 +611,148 @@ void main() {
     );
   });
 
+  test('plain-language low capacity becomes a bounded 25-minute limit', () {
+    final PersonContextSignal capacity = _signalFor(
+      PersonContextKind.presentCapacity,
+      id: 'capacity-low',
+      value: 'Low energy today',
+      now: now,
+      surface: PersonContextSurface.smartPlanner,
+    );
+    final GovernedDecisionContext context = GovernedDecisionContext.resolve(
+      view: PersonContextView(
+        accountScopeId: 'account:test',
+        surface: PersonContextSurface.smartPlanner,
+        purposes: operationalPersonContextPurposes,
+        observedAt: now,
+        signals: <PersonContextSignal>[capacity],
+        unknownKinds: const <PersonContextKind>{},
+      ),
+      accountScopeId: 'account:test',
+      tasks: const <TaskEntity>[],
+      now: now,
+      surface: PersonContextSurface.smartPlanner,
+    );
+
+    expect(context.hasAppliedBehavior, isTrue);
+    expect(context.capacityCapMinutes, 25);
+  });
+
+  test(
+    'evaluated trace exposes approved fields before effects are applied',
+    () {
+      final PersonContextSignal priority = _signalFor(
+        PersonContextKind.currentPriority,
+        id: 'priority',
+        now: now,
+      );
+      final PersonContextBehaviorTrace trace =
+          PersonContextBehaviorPolicy.evaluate(
+            signals: <PersonContextSignal>[priority],
+            surface: PersonContextSurface.smartPlanner,
+            purposes: const <PersonContextPurpose>{
+              PersonContextPurpose.decisionSupport,
+            },
+            relevance: const <String, PersonContextRelevanceBasis>{
+              'priority': PersonContextRelevanceBasis.typedActivePlanningWindow,
+            },
+            now: now,
+            noContextBaseline: const <PersonContextBehaviorField, Object?>{},
+          );
+
+      expect(trace.changedFields, const <PersonContextBehaviorField>{
+        PersonContextBehaviorField.rankingPriority,
+      });
+    },
+  );
+
+  test('invalid evaluation boundaries fail before context is consumed', () {
+    PersonContextBehaviorTrace evaluate({
+      Set<PersonContextPurpose> purposes = const <PersonContextPurpose>{
+        PersonContextPurpose.decisionSupport,
+      },
+      int? maxUsedSignals,
+    }) => PersonContextBehaviorPolicy.evaluate(
+      signals: const <PersonContextSignal>[],
+      surface: PersonContextSurface.smartPlanner,
+      purposes: purposes,
+      relevance: const <String, PersonContextRelevanceBasis>{},
+      now: now,
+      noContextBaseline: const <PersonContextBehaviorField, Object?>{},
+      maxUsedSignals: maxUsedSignals,
+    );
+
+    expect(
+      () => evaluate(purposes: const <PersonContextPurpose>{}),
+      throwsArgumentError,
+    );
+    expect(() => evaluate(maxUsedSignals: -1), throwsArgumentError);
+  });
+
+  test('unknown and duplicate behavior effects fail closed', () {
+    final PersonContextBehaviorTrace emptyTrace =
+        PersonContextBehaviorPolicy.evaluate(
+          signals: const <PersonContextSignal>[],
+          surface: PersonContextSurface.smartPlanner,
+          purposes: const <PersonContextPurpose>{
+            PersonContextPurpose.decisionSupport,
+          },
+          relevance: const <String, PersonContextRelevanceBasis>{},
+          now: now,
+          noContextBaseline: const <PersonContextBehaviorField, Object?>{},
+        );
+    expect(
+      () => PersonContextBehaviorPolicy.apply(
+        trace: emptyTrace,
+        effects: const <PersonContextBehaviorEffect>[
+          PersonContextBehaviorEffect(
+            signalId: 'unknown',
+            field: PersonContextBehaviorField.rankingPriority,
+            value: 'overreach',
+          ),
+        ],
+      ),
+      throwsStateError,
+    );
+
+    final PersonContextSignal priority = _signalFor(
+      PersonContextKind.currentPriority,
+      id: 'priority',
+      now: now,
+    );
+    final PersonContextBehaviorTrace usedTrace =
+        PersonContextBehaviorPolicy.evaluate(
+          signals: <PersonContextSignal>[priority],
+          surface: PersonContextSurface.smartPlanner,
+          purposes: const <PersonContextPurpose>{
+            PersonContextPurpose.decisionSupport,
+          },
+          relevance: const <String, PersonContextRelevanceBasis>{
+            'priority': PersonContextRelevanceBasis.typedActivePlanningWindow,
+          },
+          now: now,
+          noContextBaseline: const <PersonContextBehaviorField, Object?>{},
+        );
+    expect(
+      () => PersonContextBehaviorPolicy.apply(
+        trace: usedTrace,
+        effects: const <PersonContextBehaviorEffect>[
+          PersonContextBehaviorEffect(
+            signalId: 'priority',
+            field: PersonContextBehaviorField.rankingPriority,
+            value: 'first',
+          ),
+          PersonContextBehaviorEffect(
+            signalId: 'priority',
+            field: PersonContextBehaviorField.rankingPriority,
+            value: 'second',
+          ),
+        ],
+      ),
+      throwsStateError,
+    );
+  });
+
   test(
     'correction and withdrawal propagate through every Priority 4 surface',
     () {

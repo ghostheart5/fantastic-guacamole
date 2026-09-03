@@ -1,6 +1,5 @@
 // Package imports.
 import 'package:fantastic_guacamole/config/env.dart';
-import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
@@ -31,7 +30,11 @@ import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/workspace_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
@@ -44,7 +47,7 @@ TaskRepository taskRepository(Ref ref) {
       baseBox: HiveBoxes.tasks,
       scope: scope,
       hive: ref.read(hiveStoreProvider),
-      legacyOwnership: LegacyScopeOwnership.ambiguous,
+      legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
     ),
     scope: scope,
   );
@@ -75,7 +78,7 @@ final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
       baseBox: HiveBoxes.goals,
       scope: scope,
       hive: ref.read(hiveStoreProvider),
-      legacyOwnership: LegacyScopeOwnership.ambiguous,
+      legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
     ),
     scope: scope,
   );
@@ -88,18 +91,20 @@ final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
       baseBox: HiveBoxes.habits,
       scope: scope,
       hive: ref.read(hiveStoreProvider),
-      legacyOwnership: LegacyScopeOwnership.ambiguous,
+      legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
     ),
     scope: scope,
   );
 });
 
 final signalRepositoryProvider = Provider<SignalRepository>((Ref ref) {
-  return SignalRepository(ref.read(sharedPrefsStoreProvider));
+  return SignalRepository(
+    _accountScopedPreferences(ref, ref.read(sharedPrefsStoreProvider)),
+  );
 });
 
 final identityRepositoryProvider = Provider<IdentityRepository>((Ref ref) {
-  return IdentityRepository(ref.read(secureStoreProvider));
+  return IdentityRepository(ref.watch(accountSecureStoreProvider));
 });
 
 final memoryRepositoryProvider = Provider<MemoryRepository>((Ref ref) {
@@ -110,42 +115,38 @@ final memoryRepositoryProvider = Provider<MemoryRepository>((Ref ref) {
 });
 
 final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {
-  return PlanRepository(
-    HiveStorage<String>(
-      HiveBoxes.dailyPlans,
-      hive: ref.read(hiveStoreProvider),
-    ),
-  );
+  return PlanRepository(_accountScopedHiveStorage(ref, HiveBoxes.dailyPlans));
 });
 
 final projectRepositoryProvider = Provider<ProjectRepository>((Ref ref) {
-  return ProjectRepository(
-    HiveStorage<String>(HiveBoxes.projects, hive: ref.read(hiveStoreProvider)),
-  );
+  return ProjectRepository(_accountScopedHiveStorage(ref, HiveBoxes.projects));
 });
 
 final routineRepositoryProvider = Provider<RoutineRepository>((Ref ref) {
-  return RoutineRepository(
-    HiveStorage<String>(HiveBoxes.routines, hive: ref.read(hiveStoreProvider)),
-  );
+  return RoutineRepository(_accountScopedHiveStorage(ref, HiveBoxes.routines));
 });
 
 final subtaskRepositoryProvider = Provider<SubtaskRepository>((Ref ref) {
-  return SubtaskRepository(
-    HiveStorage<String>(HiveBoxes.subtasks, hive: ref.read(hiveStoreProvider)),
-  );
+  return SubtaskRepository(_accountScopedHiveStorage(ref, HiveBoxes.subtasks));
 });
 
 final progressionRepositoryProvider = Provider<ProgressionRepository>((
   Ref ref,
 ) {
   return ProgressionRepository(
-    HiveStorage<String>(
-      HiveBoxes.progression,
-      hive: ref.read(hiveStoreProvider),
-    ),
+    _accountScopedHiveStorage(ref, HiveBoxes.progression),
   );
 });
+
+AccountScopedHiveStorage _accountScopedHiveStorage(Ref ref, String baseBox) {
+  final scope = ref.watch(accountStorageScopeProvider);
+  return AccountScopedHiveStorage(
+    baseBox: baseBox,
+    scope: scope,
+    hive: ref.read(hiveStoreProvider),
+    legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+  );
+}
 
 final notificationSchedulerProvider = Provider<NotificationScheduler>(
   (Ref ref) => NotificationScheduler(),
@@ -176,7 +177,7 @@ final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
       defaultTargetPlatform == TargetPlatform.android &&
       !forceLocalTestingPaywall) {
     final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
-      secureStore: ref.read(secureStoreProvider),
+      secureStore: ref.watch(accountSecureStoreProvider),
       supabaseClient: ref.watch(supabaseClientProvider),
     );
     ref.onDispose(repository.dispose);
@@ -193,19 +194,21 @@ final siEngineRepositoryProvider = Provider<SiEngineRepository>((Ref ref) {
 });
 
 final logRepositoryProvider = Provider<LogRepository>((Ref ref) {
-  return LogRepository(ref.read(secureStoreProvider));
+  return LogRepository(_accountScopedSecureStore(ref));
 });
 
 final calendarRepositoryProvider = Provider<CalendarRepository>((Ref ref) {
-  return CalendarRepository(ref.read(secureStoreProvider));
+  return CalendarRepository(_accountScopedSecureStore(ref));
 });
 
 final timelineRepositoryProvider = Provider<TimelineRepository>((Ref ref) {
-  return TimelineRepository(ref.read(sensitivePrefsStoreProvider));
+  return TimelineRepository(
+    _accountScopedPreferences(ref, ref.read(sensitivePrefsStoreProvider)),
+  );
 });
 
 final profileRepositoryProvider = Provider<ProfileRepository>((Ref ref) {
-  return ProfileRepository(ref.read(secureStoreProvider));
+  return ProfileRepository(_accountScopedSecureStore(ref));
 });
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((Ref ref) {
@@ -217,23 +220,41 @@ final themeRepositoryProvider = Provider<ThemeRepository>((Ref ref) {
 });
 
 final workspaceRepositoryProvider = Provider<WorkspaceRepository>((Ref ref) {
-  return WorkspaceRepository(ref.read(secureStoreProvider));
+  return WorkspaceRepository(_accountScopedSecureStore(ref));
 });
 
 final firebaseSupabaseBridgeRepositoryProvider =
     Provider<FirebaseSupabaseBridgeRepository>((Ref ref) {
       return FirebaseSupabaseBridgeRepository(
-        store: ref.read(secureStoreProvider),
+        store: ref.watch(accountSecureStoreProvider),
       );
     });
 final noteRepositoryProvider = Provider<NoteRepository>(
   (Ref ref) => NoteRepository(
     ref.read(sharedPrefsStoreProvider),
     scope: ref.watch(accountStorageScopeProvider),
-    legacyOwnership: LegacyScopeOwnership.ambiguous,
+    legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
   ),
 );
 
 final milestoneRepositoryProvider = Provider<MilestoneRepository>(
-  (Ref ref) => MilestoneRepository(ref.read(secureStoreProvider)),
+  (Ref ref) => MilestoneRepository(_accountScopedSecureStore(ref)),
 );
+
+SecureStore _accountScopedSecureStore(Ref ref) {
+  final scope = ref.watch(accountStorageScopeProvider);
+  return ref
+      .read(secureStoreProvider)
+      .forAccount(
+        scope,
+        legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+      );
+}
+
+SharedPrefsStore _accountScopedPreferences(Ref ref, SharedPrefsStore delegate) {
+  return AccountScopedSharedPrefsStore(
+    delegate: delegate,
+    scope: ref.watch(accountStorageScopeProvider),
+    legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+  );
+}

@@ -13,6 +13,30 @@ void main() {
     addTearDown(container.dispose);
 
     expect(container.read(mockSignInProvider), isFalse);
+    expect(container.read(qaMockAccountIdProvider), primaryQaAccountId);
+  });
+
+  test('QA secondary identity is explicit and isolated from primary', () async {
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+    final ProviderSubscription<AsyncValue<User?>> subscription = container
+        .listen(authUserProvider, (_, _) {});
+    addTearDown(subscription.close);
+
+    container
+        .read(qaMockAccountIdProvider.notifier)
+        .select(secondaryQaAccountId);
+    container.read(mockSignInProvider.notifier).set(true);
+
+    final User? mockUser = await container.read(authUserProvider.future);
+    expect(mockUser?.id, secondaryQaAccountId);
+    expect(mockUser?.email, 'tester-secondary@chronospark.local');
+    expect(
+      () => container
+          .read(qaMockAccountIdProvider.notifier)
+          .select('unapproved-account'),
+      throwsArgumentError,
+    );
   });
 
   test('empty tasks produce fallback recommendation', () {

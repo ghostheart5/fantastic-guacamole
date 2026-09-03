@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -19,6 +22,12 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('profile-test-user'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenOwned,
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -52,6 +61,12 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('profile-test-user'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenOwned,
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -92,6 +107,12 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('profile-test-user'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenOwned,
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -118,20 +139,30 @@ void main() {
 class _ControlledSecureStoreBackend implements SecureStoreBackend {
   _ControlledSecureStoreBackend.blockedRead(this._readValue)
     : _readGate = Completer<void>(),
-      _blockWrites = false;
+      _blockWrites = false {
+    _seedLegacyValue();
+  }
 
   _ControlledSecureStoreBackend.immediateRead(
     this._readValue, {
     this._blockWrites = false,
-  }) : _readGate = null;
+  }) : _readGate = null {
+    _seedLegacyValue();
+  }
 
   final String? _readValue;
   final Completer<void>? _readGate;
   final bool _blockWrites;
+  final Map<String, String> _values = <String, String>{};
   final List<Completer<void>> _writeGates = <Completer<void>>[];
   final List<Completer<void>> _writeCountWaiters = <Completer<void>>[];
   String? storedValue;
   int writeCount = 0;
+
+  void _seedLegacyValue() {
+    final String? value = _readValue;
+    if (value != null) _values['profile_state_v2'] = value;
+  }
 
   void releaseRead() => _readGate?.complete();
 
@@ -153,15 +184,12 @@ class _ControlledSecureStoreBackend implements SecureStoreBackend {
   @override
   Future<String?> read({required String key}) async {
     await _readGate?.future;
-    return _readValue;
+    return _values[key];
   }
 
   @override
   Future<Map<String, String>> readAll() async {
-    final String? value = storedValue ?? _readValue;
-    return value == null
-        ? const <String, String>{}
-        : <String, String>{'profile': value};
+    return Map<String, String>.unmodifiable(_values);
   }
 
   @override
@@ -176,16 +204,18 @@ class _ControlledSecureStoreBackend implements SecureStoreBackend {
       _writeGates.add(gate);
       await gate.future;
     }
+    _values[key] = value;
     storedValue = value;
   }
 
   @override
   Future<void> delete({required String key}) async {
-    storedValue = null;
+    _values.remove(key);
   }
 
   @override
   Future<void> deleteAll() async {
+    _values.clear();
     storedValue = null;
   }
 }

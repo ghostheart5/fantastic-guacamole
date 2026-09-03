@@ -6,7 +6,6 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/rate_limiter.dart';
 import 'package:fantastic_guacamole/core/utils/throttle.dart';
 import 'package:fantastic_guacamole/data/di/services_providers.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
@@ -43,6 +42,7 @@ import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
@@ -1259,7 +1259,7 @@ class AIController {
     required double quality,
     DateTime? timestamp,
   }) async {
-    final store = _ref.read(secureStoreProvider);
+    final store = _ref.read(accountSecureStoreProvider);
     final String? raw = await store.readString(_neuralDumpKey);
 
     final List<Map<String, dynamic>> existing =

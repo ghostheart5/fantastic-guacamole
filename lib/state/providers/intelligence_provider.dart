@@ -12,6 +12,26 @@ final mockSignInProvider = NotifierProvider<MockSignInNotifier, bool>(
   MockSignInNotifier.new,
 );
 
+const String primaryQaAccountId = 'mock-user';
+const String secondaryQaAccountId = 'mock-user-secondary';
+
+final qaMockAccountIdProvider =
+    NotifierProvider<QaMockAccountIdNotifier, String>(
+      QaMockAccountIdNotifier.new,
+    );
+
+class QaMockAccountIdNotifier extends Notifier<String> {
+  @override
+  String build() => primaryQaAccountId;
+
+  void select(String accountId) {
+    if (accountId != primaryQaAccountId && accountId != secondaryQaAccountId) {
+      throw ArgumentError.value(accountId, 'accountId', 'Unknown QA account');
+    }
+    state = accountId;
+  }
+}
+
 class MockSignInNotifier extends Notifier<bool> {
   @override
   bool build() => false;
@@ -23,11 +43,15 @@ final authUserProvider = StreamProvider<User?>((ref) {
   final bool hasMockSignIn = ref.watch(mockSignInProvider);
   if (hasMockSignIn) {
     final MockLoginConfigState config = ref.read(mockLoginConfigProvider);
+    final String accountId = ref.watch(qaMockAccountIdProvider);
+    final bool isSecondary = accountId == secondaryQaAccountId;
     return Stream<User?>.value(
       User(
-        id: 'mock-user',
-        email: config.email,
-        displayName: 'Tester',
+        id: accountId,
+        email: isSecondary
+            ? 'tester-secondary@chronospark.local'
+            : config.email,
+        displayName: isSecondary ? 'Tester B' : 'Tester A',
         emailVerified: true,
       ),
     );

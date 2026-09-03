@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,6 +48,12 @@ void main() {
         archiveNoteUseCaseProvider,
       );
       final Object firstDeleteNote = container.read(deleteNoteUseCaseProvider);
+      final Object firstIdentityRepository = container.read(
+        identityRepositoryProvider,
+      );
+      final Object firstFirebaseBridgeRepository = container.read(
+        firebaseSupabaseBridgeRepositoryProvider,
+      );
 
       container
           .read(_scopeProvider.notifier)
@@ -103,6 +110,14 @@ void main() {
       expect(
         container.read(deleteNoteUseCaseProvider),
         isNot(same(firstDeleteNote)),
+      );
+      expect(
+        container.read(identityRepositoryProvider),
+        isNot(same(firstIdentityRepository)),
+      );
+      expect(
+        container.read(firebaseSupabaseBridgeRepositoryProvider),
+        isNot(same(firstFirebaseBridgeRepository)),
       );
     },
   );

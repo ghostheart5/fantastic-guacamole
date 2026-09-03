@@ -1,9 +1,11 @@
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 
@@ -35,21 +37,21 @@ class LocalUserDataCleanupService {
 
   Future<void> _clearForAccountSwitch(String? accountId) async {
     final String? requestedAccountId = _normalizedAccountId(accountId);
-    final String? storedAccountId = requestedAccountId == null
-        ? _normalizedAccountId(
-            await _secureStore.readString(
-              AccountDataRegistry.accountBoundaryOwnerKey,
-            ),
-          )
-        : null;
+    final String? storedAccountId = _normalizedAccountId(
+      await _secureStore.readString(
+        AccountDataRegistry.accountBoundaryOwnerKey,
+      ),
+    );
     final String? departingAccountId = requestedAccountId ?? storedAccountId;
+    final bool includeLegacyOwnedData =
+        departingAccountId != null && departingAccountId == storedAccountId;
     if (departingAccountId != null) {
       await NotificationsRepository(
         _notifications,
         _secureStore,
         accountId: departingAccountId,
         mutationCoordinator: _mutations,
-      ).clearAccountData();
+      ).clearAccountData(includeLegacyOwnedData: includeLegacyOwnedData);
     } else {
       await _notifications.cancelAll();
       NotificationScheduler.tappedPayloadListenable.value = null;
@@ -57,7 +59,10 @@ class LocalUserDataCleanupService {
 
     await _hive.init();
     final AccountDataCleanupPlan cleanupPlan =
-        AccountDataRegistry.cleanupPlanFor(departingAccountId);
+        AccountDataRegistry.cleanupPlanFor(
+          departingAccountId,
+          includeLegacyOwnedData: includeLegacyOwnedData,
+        );
     for (final String box in cleanupPlan.hiveBoxes) {
       await _hive.clearBox(box);
     }
@@ -68,13 +73,26 @@ class LocalUserDataCleanupService {
     if (cleanupPlan.secureKeyPrefixes.isNotEmpty) {
       await _deleteMatchingSecureKeys(cleanupPlan.secureKeyPrefixes);
     }
+    if (departingAccountId != null) {
+      await _secureStore
+          .forAccount(AccountStorageScope.authenticated(departingAccountId))
+          .deleteAll();
+    }
 
     await _sensitivePreferences.init();
     for (final String key in cleanupPlan.sensitivePreferenceKeys) {
       await _sensitivePreferences.delete(key);
     }
-    if (_sensitivePreferences case final CorruptionBackupStore recoverable) {
-      await recoverable.clearCorruptionBackups();
+    if (includeLegacyOwnedData) {
+      if (_sensitivePreferences case final CorruptionBackupStore recoverable) {
+        await recoverable.clearCorruptionBackups();
+      }
+    }
+    if (departingAccountId != null) {
+      await AccountScopedSharedPrefsStore(
+        delegate: _sensitivePreferences,
+        scope: AccountStorageScope.authenticated(departingAccountId),
+      ).clear();
     }
 
     for (final String key in cleanupPlan.preferenceExactKeys) {
@@ -82,6 +100,12 @@ class LocalUserDataCleanupService {
     }
     if (cleanupPlan.preferenceKeyPrefixes.isNotEmpty) {
       await _deleteMatchingPreferenceKeys(cleanupPlan.preferenceKeyPrefixes);
+    }
+    if (departingAccountId != null) {
+      await AccountScopedSharedPrefsStore(
+        delegate: _preferences,
+        scope: AccountStorageScope.authenticated(departingAccountId),
+      ).clear();
     }
   }
 

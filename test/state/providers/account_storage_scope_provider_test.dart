@@ -101,7 +101,7 @@ void main() {
         storedUserId: null,
         hasUnownedData: true,
       ),
-      isFalse,
+      isTrue,
     );
     expect(
       shouldBlockForUnownedData(

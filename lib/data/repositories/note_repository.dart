@@ -28,6 +28,7 @@ class NoteRepository implements INoteRepository, IExactNoteSnapshotRepository {
   final KeyedMutationCoordinator _mutationCoordinator;
 
   static const String _key = 'notes_v1';
+  static const String _scopedDataMarker = 'scopedV2';
   static const int _maxCorruptBackups = 3;
   bool _lastReadCorrupted = false;
 
@@ -57,14 +58,27 @@ class NoteRepository implements INoteRepository, IExactNoteSnapshotRepository {
   Future<void> _prepareScopedStorage() async {
     await _store.init();
     if (scope == null) return;
-    if (_store.load(_migrationStorageKey) != null) return;
-    final String scopedKey = _storageKey;
-    if (_store.load(scopedKey) == null &&
-        legacyOwnership == LegacyScopeOwnership.provenOwned) {
-      final String? legacy = _store.load(_key);
-      if (legacy != null) await _store.save(scopedKey, legacy);
+    final String? migrationMarker = _store.load(_migrationStorageKey);
+    if (migrationMarker == LegacyScopeOwnership.provenOwned.name ||
+        migrationMarker == _scopedDataMarker) {
+      return;
     }
-    await _store.save(_migrationStorageKey, legacyOwnership.name);
+    final String scopedKey = _storageKey;
+    if (_store.load(scopedKey) != null) {
+      await _store.save(_migrationStorageKey, _scopedDataMarker);
+      return;
+    }
+    if (legacyOwnership != LegacyScopeOwnership.provenOwned) return;
+
+    final String? legacy = _store.load(_key);
+    if (legacy != null) await _store.save(scopedKey, legacy);
+    // The terminal marker is written only after the proven-owner copy (if
+    // present) has completed. It preserves legacy bytes while preventing a
+    // later scoped delete from making that fallback silently reappear.
+    await _store.save(
+      _migrationStorageKey,
+      LegacyScopeOwnership.provenOwned.name,
+    );
   }
 
   _DecodedNotes _readNotes() {

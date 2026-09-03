@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
@@ -65,7 +66,7 @@ void main() {
   });
 
   test(
-    'different account is blocked while the original owner is preserved',
+    'different account opens only its V2 scope while legacy owner is preserved',
     () async {
       final _BoundaryHarness harness = _BoundaryHarness();
       addTearDown(harness.dispose);
@@ -75,11 +76,59 @@ void main() {
       await initialized;
 
       expect(harness.boundary.userId, 'account-b');
-      expect(harness.boundary.isStorageReady, isFalse);
-      expect(harness.boundary.blockingIssue, contains('different account'));
-      expect(harness.boundary.canRecoverBySigningOut, isTrue);
-      expect(harness.boundary.canClearPreservedData, isTrue);
+      expect(harness.boundary.isStorageReady, isTrue);
+      expect(harness.boundary.blockingIssue, isNull);
+      expect(
+        harness.boundary.legacyOwnership,
+        LegacyScopeOwnership.provenNotOwned,
+      );
       expect(await harness.secureStore.readString(_markerKey), 'account-a');
+    },
+  );
+
+  test(
+    'A to B to A keeps the stable legacy owner and rotates access',
+    () async {
+      final _BoundaryHarness harness = _BoundaryHarness();
+      addTearDown(harness.dispose);
+      await harness.secureStore.writeString(_markerKey, 'account-a');
+      final Future<void> initialized = harness.coordinator.initialize();
+
+      harness.auth.add(_user('account-a'));
+      await initialized;
+      expect(harness.boundary.isStorageReady, isTrue);
+      expect(
+        harness.boundary.legacyOwnership,
+        LegacyScopeOwnership.provenOwned,
+      );
+
+      harness.auth.add(null);
+      await harness.settle();
+      expect(harness.boundary.isStorageReady, isFalse);
+      expect(await harness.secureStore.readString(_markerKey), 'account-a');
+
+      harness.auth.add(_user('account-b'));
+      await harness.settle();
+      expect(harness.boundary.userId, 'account-b');
+      expect(harness.boundary.isStorageReady, isTrue);
+      expect(
+        harness.boundary.legacyOwnership,
+        LegacyScopeOwnership.provenNotOwned,
+      );
+      expect(await harness.secureStore.readString(_markerKey), 'account-a');
+
+      harness.auth.add(null);
+      await harness.settle();
+      harness.auth.add(_user('account-a'));
+      await harness.settle();
+      expect(harness.boundary.userId, 'account-a');
+      expect(harness.boundary.isStorageReady, isTrue);
+      expect(
+        harness.boundary.legacyOwnership,
+        LegacyScopeOwnership.provenOwned,
+      );
+      expect(await harness.secureStore.readString(_markerKey), 'account-a');
+      expect(harness.cleanup.clearCalls, 0);
     },
   );
 

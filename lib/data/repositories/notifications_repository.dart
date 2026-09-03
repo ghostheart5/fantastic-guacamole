@@ -180,7 +180,7 @@ class NotificationsRepository implements INotificationRepository {
     });
   }
 
-  Future<void> clearAccountData() async {
+  Future<void> clearAccountData({bool includeLegacyOwnedData = false}) async {
     await _runMutation(() async {
       final List<NotificationEntity> entries = await _readNotifications();
       for (final NotificationEntity entry in entries) {
@@ -195,7 +195,9 @@ class NotificationsRepository implements INotificationRepository {
       }
       final String? storageKey = _storageKey;
       if (storageKey != null) await _store.delete(storageKey);
-      await _store.delete(AccountDataRegistry.legacyNotificationSecureKey);
+      if (includeLegacyOwnedData) {
+        await _store.delete(AccountDataRegistry.legacyNotificationSecureKey);
+      }
       NotificationScheduler.tappedPayloadListenable.value = null;
     });
   }

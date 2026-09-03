@@ -26,6 +26,7 @@ class LoginScreen extends StatefulWidget {
     required this.onPrivacyPolicy,
     required this.onTermsOfService,
     this.onMockLogin,
+    this.onSecondaryMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
     this.startupError,
@@ -48,6 +49,7 @@ class LoginScreen extends StatefulWidget {
   final VoidCallback onPrivacyPolicy;
   final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
+  final VoidCallback? onSecondaryMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
   final String? startupError;
@@ -111,6 +113,7 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final VoidCallback? onMockLogin = widget.onMockLogin;
+    final VoidCallback? onSecondaryMockLogin = widget.onSecondaryMockLogin;
     final String? startupError = widget.startupError;
     final String? startupMessage =
         startupError != null && startupError.trim().isNotEmpty
@@ -156,6 +159,7 @@ class _LoginScreenState extends State<LoginScreen>
                 onPrivacyPolicy: widget.onPrivacyPolicy,
                 onTermsOfService: widget.onTermsOfService,
                 onMockLogin: onMockLogin,
+                onSecondaryMockLogin: onSecondaryMockLogin,
                 onToggleMode: widget.onToggleMode,
                 onTogglePassword: widget.onTogglePassword,
                 showMockHint: widget.showMockHint,
@@ -181,6 +185,7 @@ class _LoginScreenState extends State<LoginScreen>
                 onPrivacyPolicy: widget.onPrivacyPolicy,
                 onTermsOfService: widget.onTermsOfService,
                 onMockLogin: onMockLogin,
+                onSecondaryMockLogin: onSecondaryMockLogin,
                 onToggleMode: widget.onToggleMode,
                 onTogglePassword: widget.onTogglePassword,
                 showMockHint: widget.showMockHint,
@@ -250,6 +255,7 @@ class _PortraitLoginContent extends StatelessWidget {
     required this.onPrivacyPolicy,
     required this.onTermsOfService,
     required this.onMockLogin,
+    required this.onSecondaryMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
     required this.showMockHint,
@@ -274,6 +280,7 @@ class _PortraitLoginContent extends StatelessWidget {
   final VoidCallback onPrivacyPolicy;
   final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
+  final VoidCallback? onSecondaryMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
   final bool showMockHint;
@@ -332,6 +339,7 @@ class _PortraitLoginContent extends StatelessWidget {
                       onPrivacyPolicy: onPrivacyPolicy,
                       onTermsOfService: onTermsOfService,
                       onMockLogin: onMockLogin,
+                      onSecondaryMockLogin: onSecondaryMockLogin,
                       onToggleMode: onToggleMode,
                       onTogglePassword: onTogglePassword,
                       showMockHint: showMockHint,
@@ -367,6 +375,7 @@ class _LandscapeLoginContent extends StatelessWidget {
     required this.onPrivacyPolicy,
     required this.onTermsOfService,
     required this.onMockLogin,
+    required this.onSecondaryMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
     required this.showMockHint,
@@ -391,6 +400,7 @@ class _LandscapeLoginContent extends StatelessWidget {
   final VoidCallback onPrivacyPolicy;
   final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
+  final VoidCallback? onSecondaryMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
   final bool showMockHint;
@@ -457,6 +467,7 @@ class _LandscapeLoginContent extends StatelessWidget {
                                   onPrivacyPolicy: onPrivacyPolicy,
                                   onTermsOfService: onTermsOfService,
                                   onMockLogin: onMockLogin,
+                                  onSecondaryMockLogin: onSecondaryMockLogin,
                                   onToggleMode: onToggleMode,
                                   onTogglePassword: onTogglePassword,
                                   showMockHint: showMockHint,
@@ -606,6 +617,7 @@ class _LoginFormCard extends StatelessWidget {
     required this.onPrivacyPolicy,
     required this.onTermsOfService,
     required this.onMockLogin,
+    required this.onSecondaryMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
     required this.showMockHint,
@@ -628,6 +640,7 @@ class _LoginFormCard extends StatelessWidget {
   final VoidCallback onPrivacyPolicy;
   final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
+  final VoidCallback? onSecondaryMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
   final bool showMockHint;
@@ -642,6 +655,7 @@ class _LoginFormCard extends StatelessWidget {
     final double sectionGap = compact ? 10 : 14;
     final String startupText = startupMessage ?? '';
     final VoidCallback mockLoginTap = onMockLogin ?? () {};
+    final VoidCallback secondaryMockLoginTap = onSecondaryMockLogin ?? () {};
     return TemporalGlassSurface(
       accent: isSignUpMode ? AppColors.neonViolet : AppColors.neonCyan,
       opacity: 0.92,
@@ -725,12 +739,15 @@ class _LoginFormCard extends StatelessWidget {
               semanticLabel: obscurePassword
                   ? 'Show password'
                   : 'Hide password',
-              child: Icon(
-                obscurePassword
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
-                color: AppColors.neonViolet.withValues(alpha: 0.7),
-                size: 18,
+              child: SizedBox.square(
+                dimension: AppSizes.touchTarget,
+                child: Icon(
+                  obscurePassword
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                  color: AppColors.neonViolet.withValues(alpha: 0.7),
+                  size: 18,
+                ),
               ),
             ),
           ),
@@ -890,6 +907,51 @@ class _LoginFormCard extends StatelessWidget {
                 ),
               ),
             ),
+            if (onSecondaryMockLogin != null) ...[
+              const SizedBox(height: 8),
+              SmartPressable(
+                key: const ValueKey<String>(
+                  'qa-secondary-tester-access-button',
+                ),
+                onTap: secondaryMockLoginTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x1A6C8CFF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0x996C8CFF)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.switch_account_rounded,
+                        size: 16,
+                        color: Color(0xFF9FB2FF),
+                      ),
+                      SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'TESTER B  ·  ISOLATION LOGIN',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFFC9D2FF),
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppSizes.fontCaption,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
           if (showMockHint && (mockHint?.trim().isNotEmpty ?? false)) ...[
             const SizedBox(height: 6),

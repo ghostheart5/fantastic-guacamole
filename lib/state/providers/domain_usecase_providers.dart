@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/learning_repository.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -149,11 +150,11 @@ final domainGoalRepositoryProvider = Provider<IGoalRepository>((ref) {
 });
 
 final domainSignalRepositoryProvider = Provider<ISignalRepository>((ref) {
-  return ref.read(signalRepositoryProvider);
+  return ref.watch(signalRepositoryProvider);
 });
 
 final domainLogRepositoryProvider = Provider<ILogRepository>((ref) {
-  return ref.read(logRepositoryProvider);
+  return ref.watch(logRepositoryProvider);
 });
 
 final domainMemoryRepositoryProvider = Provider<IMemoryRepository>((ref) {
@@ -165,37 +166,37 @@ final domainNoteRepositoryProvider = Provider<INoteRepository>((ref) {
 });
 
 final domainMilestoneRepositoryProvider = Provider<IMilestoneRepository>((ref) {
-  return ref.read(milestoneRepositoryProvider);
+  return ref.watch(milestoneRepositoryProvider);
 });
 
 final domainPlanRepositoryProvider = Provider<IPlanRepository>((ref) {
-  return ref.read(planRepositoryProvider);
+  return ref.watch(planRepositoryProvider);
 });
 
 final domainProjectRepositoryProvider = Provider<IProjectRepository>((ref) {
-  return ref.read(projectRepositoryProvider);
+  return ref.watch(projectRepositoryProvider);
 });
 
 final domainProfileRepositoryProvider = Provider<IProfileRepository>((ref) {
-  return ref.read(profileRepositoryProvider);
+  return ref.watch(profileRepositoryProvider);
 });
 
 final domainProgressionRepositoryProvider = Provider<IProgressionRepository>((
   ref,
 ) {
-  return ref.read(progressionRepositoryProvider);
+  return ref.watch(progressionRepositoryProvider);
 });
 
 final domainRoutineRepositoryProvider = Provider<IRoutineRepository>((ref) {
-  return ref.read(routineRepositoryProvider);
+  return ref.watch(routineRepositoryProvider);
 });
 
 final domainSubtaskRepositoryProvider = Provider<ISubtaskRepository>((ref) {
-  return ref.read(subtaskRepositoryProvider);
+  return ref.watch(subtaskRepositoryProvider);
 });
 
 final domainTimelineRepositoryProvider = Provider<ITimelineRepository>((ref) {
-  return ref.read(timelineRepositoryProvider);
+  return ref.watch(timelineRepositoryProvider);
 });
 
 final domainThemeRepositoryProvider = Provider<IThemeRepository>((ref) {
@@ -214,7 +215,7 @@ final domainSiRepositoryProvider = Provider<ISiRepository>((ref) {
 // Without these the use cases below could not be constructed at all.
 
 final domainCalendarRepositoryProvider = Provider<ICalendarRepository>((ref) {
-  return ref.read(calendarRepositoryProvider);
+  return ref.watch(calendarRepositoryProvider);
 });
 
 final domainSettingsRepositoryProvider = Provider<ISettingsRepository>((ref) {
@@ -222,7 +223,7 @@ final domainSettingsRepositoryProvider = Provider<ISettingsRepository>((ref) {
 });
 
 final domainWorkspaceRepositoryProvider = Provider<IWorkspaceRepository>((ref) {
-  return ref.read(workspaceRepositoryProvider);
+  return ref.watch(workspaceRepositoryProvider);
 });
 
 final domainLearningRepositoryProvider = Provider<ILearningRepository>((ref) {
@@ -235,7 +236,13 @@ final domainLearningRepositoryProvider = Provider<ILearningRepository>((ref) {
 final extendedDomainRepositoryProvider = Provider<IExtendedDomainRepository>((
   ref,
 ) {
-  return ExtendedDomainService();
+  return ExtendedDomainService(
+    AccountScopedSharedPrefsStore(
+      delegate: ref.read(sharedPrefsStoreProvider),
+      scope: ref.watch(accountStorageScopeProvider),
+      legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+    ),
+  );
 });
 
 final getPlannerMessagesUseCaseProvider = Provider<GetPlannerMessages>((ref) {
@@ -382,24 +389,24 @@ final getGoalsUseCaseProvider = Provider<GetGoals>((ref) {
 });
 
 final getSignalsUseCaseProvider = Provider<GetSignals>((ref) {
-  return GetSignals(ref.read(domainSignalRepositoryProvider));
+  return GetSignals(ref.watch(domainSignalRepositoryProvider));
 });
 
 final addSignalUseCaseProvider = Provider<AddSignal>((ref) {
-  return AddSignal(ref.read(domainSignalRepositoryProvider));
+  return AddSignal(ref.watch(domainSignalRepositoryProvider));
 });
 
 final generateSignalFromEventUseCaseProvider =
     Provider<GenerateSignalFromEvent>((ref) {
-      return GenerateSignalFromEvent(ref.read(domainSignalRepositoryProvider));
+      return GenerateSignalFromEvent(ref.watch(domainSignalRepositoryProvider));
     });
 
 final getLogsUseCaseProvider = Provider<GetLogs>((ref) {
-  return GetLogs(ref.read(domainLogRepositoryProvider));
+  return GetLogs(ref.watch(domainLogRepositoryProvider));
 });
 
 final addLogEntryUseCaseProvider = Provider<AddLogEntry>((ref) {
-  return AddLogEntry(ref.read(domainLogRepositoryProvider));
+  return AddLogEntry(ref.watch(domainLogRepositoryProvider));
 });
 
 final getCurrentThemeUseCaseProvider = Provider<GetCurrentTheme>((ref) {
@@ -447,63 +454,63 @@ final saveGoalsUseCaseProvider = Provider<SaveGoals>((ref) {
 });
 
 final getProjectsUseCaseProvider = Provider<GetProjects>((ref) {
-  return GetProjects(ref.read(domainProjectRepositoryProvider));
+  return GetProjects(ref.watch(domainProjectRepositoryProvider));
 });
 
 final createProjectUseCaseProvider = Provider<CreateProject>((ref) {
-  return CreateProject(ref.read(domainProjectRepositoryProvider));
+  return CreateProject(ref.watch(domainProjectRepositoryProvider));
 });
 
 final updateProjectUseCaseProvider = Provider<UpdateProject>((ref) {
-  return UpdateProject(ref.read(domainProjectRepositoryProvider));
+  return UpdateProject(ref.watch(domainProjectRepositoryProvider));
 });
 
 final deleteProjectUseCaseProvider = Provider<DeleteProject>((ref) {
-  return DeleteProject(ref.read(domainProjectRepositoryProvider));
+  return DeleteProject(ref.watch(domainProjectRepositoryProvider));
 });
 
 final saveProjectsUseCaseProvider = Provider<SaveProjects>((ref) {
-  return SaveProjects(ref.read(domainProjectRepositoryProvider));
+  return SaveProjects(ref.watch(domainProjectRepositoryProvider));
 });
 
 final getRoutinesUseCaseProvider = Provider<GetRoutines>((ref) {
-  return GetRoutines(ref.read(domainRoutineRepositoryProvider));
+  return GetRoutines(ref.watch(domainRoutineRepositoryProvider));
 });
 
 final createRoutineUseCaseProvider = Provider<CreateRoutine>((ref) {
-  return CreateRoutine(ref.read(domainRoutineRepositoryProvider));
+  return CreateRoutine(ref.watch(domainRoutineRepositoryProvider));
 });
 
 final updateRoutineUseCaseProvider = Provider<UpdateRoutine>((ref) {
-  return UpdateRoutine(ref.read(domainRoutineRepositoryProvider));
+  return UpdateRoutine(ref.watch(domainRoutineRepositoryProvider));
 });
 
 final deleteRoutineUseCaseProvider = Provider<DeleteRoutine>((ref) {
-  return DeleteRoutine(ref.read(domainRoutineRepositoryProvider));
+  return DeleteRoutine(ref.watch(domainRoutineRepositoryProvider));
 });
 
 final saveRoutinesUseCaseProvider = Provider<SaveRoutines>((ref) {
-  return SaveRoutines(ref.read(domainRoutineRepositoryProvider));
+  return SaveRoutines(ref.watch(domainRoutineRepositoryProvider));
 });
 
 final getSubtasksUseCaseProvider = Provider<GetSubtasks>((ref) {
-  return GetSubtasks(ref.read(domainSubtaskRepositoryProvider));
+  return GetSubtasks(ref.watch(domainSubtaskRepositoryProvider));
 });
 
 final createSubtaskUseCaseProvider = Provider<CreateSubtask>((ref) {
-  return CreateSubtask(ref.read(domainSubtaskRepositoryProvider));
+  return CreateSubtask(ref.watch(domainSubtaskRepositoryProvider));
 });
 
 final updateSubtaskUseCaseProvider = Provider<UpdateSubtask>((ref) {
-  return UpdateSubtask(ref.read(domainSubtaskRepositoryProvider));
+  return UpdateSubtask(ref.watch(domainSubtaskRepositoryProvider));
 });
 
 final deleteSubtaskUseCaseProvider = Provider<DeleteSubtask>((ref) {
-  return DeleteSubtask(ref.read(domainSubtaskRepositoryProvider));
+  return DeleteSubtask(ref.watch(domainSubtaskRepositoryProvider));
 });
 
 final saveSubtasksUseCaseProvider = Provider<SaveSubtasks>((ref) {
-  return SaveSubtasks(ref.read(domainSubtaskRepositoryProvider));
+  return SaveSubtasks(ref.watch(domainSubtaskRepositoryProvider));
 });
 
 final getMemoriesUseCaseProvider = Provider<GetMemories>((ref) {
@@ -523,15 +530,15 @@ final saveMemoriesUseCaseProvider = Provider<SaveMemories>((ref) {
 });
 
 final getPlanUseCaseProvider = Provider<GetPlan>((ref) {
-  return GetPlan(ref.read(domainPlanRepositoryProvider));
+  return GetPlan(ref.watch(domainPlanRepositoryProvider));
 });
 
 final createPlanUseCaseProvider = Provider<CreatePlan>((ref) {
-  return CreatePlan(ref.read(domainPlanRepositoryProvider));
+  return CreatePlan(ref.watch(domainPlanRepositoryProvider));
 });
 
 final updatePlanUseCaseProvider = Provider<UpdatePlan>((ref) {
-  return UpdatePlan(ref.read(domainPlanRepositoryProvider));
+  return UpdatePlan(ref.watch(domainPlanRepositoryProvider));
 });
 
 // --- Smart Planner: shipping path ----------------------------------------
@@ -605,29 +612,29 @@ final saveHabitsUseCaseProvider = Provider<SaveHabits>((ref) {
 });
 
 final getProfileUseCaseProvider = Provider<GetProfile>((ref) {
-  return GetProfile(ref.read(domainProfileRepositoryProvider));
+  return GetProfile(ref.watch(domainProfileRepositoryProvider));
 });
 
 final getProgressionUseCaseProvider = Provider<GetProgression>((ref) {
-  return GetProgression(ref.read(domainProgressionRepositoryProvider));
+  return GetProgression(ref.watch(domainProgressionRepositoryProvider));
 });
 
 final updateStreakUseCaseProvider = Provider<UpdateStreak>((ref) {
-  return UpdateStreak(ref.read(domainProgressionRepositoryProvider));
+  return UpdateStreak(ref.watch(domainProgressionRepositoryProvider));
 });
 
 final updateXpUseCaseProvider = Provider<UpdateXp>((ref) {
-  return UpdateXp(ref.read(domainProgressionRepositoryProvider));
+  return UpdateXp(ref.watch(domainProgressionRepositoryProvider));
 });
 
 final updateLevelUseCaseProvider = Provider<UpdateLevel>((ref) {
-  return UpdateLevel(ref.read(domainProgressionRepositoryProvider));
+  return UpdateLevel(ref.watch(domainProgressionRepositoryProvider));
 });
 
 /// The single persisted XP-award path. Prefer this over [updateXpUseCaseProvider],
 /// which sets XP absolutely and exists for restore/import only.
 final awardXpUseCaseProvider = Provider<AwardXp>((ref) {
-  return AwardXp(ref.read(domainProgressionRepositoryProvider));
+  return AwardXp(ref.watch(domainProgressionRepositoryProvider));
 });
 
 /// Level/progress read model derived from [ProgressionPolicy].
@@ -646,25 +653,25 @@ final updateSettingsUseCaseProvider = Provider<UpdateSettings>((ref) {
 });
 
 final getWorkspaceUseCaseProvider = Provider<GetWorkspace>((ref) {
-  return GetWorkspace(ref.read(domainWorkspaceRepositoryProvider));
+  return GetWorkspace(ref.watch(domainWorkspaceRepositoryProvider));
 });
 
 final switchWorkspaceUseCaseProvider = Provider<SwitchWorkspace>((ref) {
-  return SwitchWorkspace(ref.read(domainWorkspaceRepositoryProvider));
+  return SwitchWorkspace(ref.watch(domainWorkspaceRepositoryProvider));
 });
 
 // --- Calendar (domain path).
 
 final getCalendarEntriesUseCaseProvider = Provider<GetCalendarEntries>((ref) {
-  return GetCalendarEntries(ref.read(domainCalendarRepositoryProvider));
+  return GetCalendarEntries(ref.watch(domainCalendarRepositoryProvider));
 });
 
 final addCalendarEntryUseCaseProvider = Provider<AddCalendarEntry>((ref) {
-  return AddCalendarEntry(ref.read(domainCalendarRepositoryProvider));
+  return AddCalendarEntry(ref.watch(domainCalendarRepositoryProvider));
 });
 
 final removeCalendarEntryUseCaseProvider = Provider<RemoveCalendarEntry>((ref) {
-  return RemoveCalendarEntry(ref.read(domainCalendarRepositoryProvider));
+  return RemoveCalendarEntry(ref.watch(domainCalendarRepositoryProvider));
 });
 
 // --- SI state.
@@ -705,67 +712,67 @@ final skipTaskUseCaseProvider = Provider<SkipTask>((ref) {
 });
 
 final getTimelineEventsUseCaseProvider = Provider<GetTimelineEvents>((ref) {
-  return GetTimelineEvents(ref.read(domainTimelineRepositoryProvider));
+  return GetTimelineEvents(ref.watch(domainTimelineRepositoryProvider));
 });
 
 final addTimelineEventUseCaseProvider = Provider<AddTimelineEvent>((ref) {
-  return AddTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+  return AddTimelineEvent(ref.watch(domainTimelineRepositoryProvider));
 });
 
 final removeTimelineEventUseCaseProvider = Provider<RemoveTimelineEvent>((ref) {
-  return RemoveTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+  return RemoveTimelineEvent(ref.watch(domainTimelineRepositoryProvider));
 });
 
 final saveTimelineEventsUseCaseProvider = Provider<SaveTimelineEvents>((ref) {
-  return SaveTimelineEvents(ref.read(domainTimelineRepositoryProvider));
+  return SaveTimelineEvents(ref.watch(domainTimelineRepositoryProvider));
 });
 
 final queryTimelineRangeUseCaseProvider = Provider<QueryTimelineRange>((ref) {
-  return QueryTimelineRange(ref.read(domainTimelineRepositoryProvider));
+  return QueryTimelineRange(ref.watch(domainTimelineRepositoryProvider));
 });
 
 final scheduleTimelineEventUseCaseProvider = Provider<ScheduleTimelineEvent>((
   ref,
 ) {
-  return ScheduleTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+  return ScheduleTimelineEvent(ref.watch(domainTimelineRepositoryProvider));
 });
 
 final rescheduleTimelineEventUseCaseProvider =
     Provider<RescheduleTimelineEvent>((ref) {
       return RescheduleTimelineEvent(
-        ref.read(domainTimelineRepositoryProvider),
+        ref.watch(domainTimelineRepositoryProvider),
       );
     });
 
 final completeTimelineEventUseCaseProvider = Provider<CompleteTimelineEvent>((
   ref,
 ) {
-  return CompleteTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+  return CompleteTimelineEvent(ref.watch(domainTimelineRepositoryProvider));
 });
 
 final skipTimelineEventUseCaseProvider = Provider<SkipTimelineEvent>((ref) {
-  return SkipTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+  return SkipTimelineEvent(ref.watch(domainTimelineRepositoryProvider));
 });
 
 final recoverTimelineEventUseCaseProvider = Provider<RecoverTimelineEvent>((
   ref,
 ) {
-  return RecoverTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+  return RecoverTimelineEvent(ref.watch(domainTimelineRepositoryProvider));
 });
 
 final previewAdaptivePlanUseCaseProvider = Provider<PreviewAdaptivePlan>((ref) {
   return PreviewAdaptivePlan(
     ref.read(generateAdaptivePlanUseCaseProvider),
-    ref.read(domainPlanRepositoryProvider),
+    ref.watch(domainPlanRepositoryProvider),
   );
 });
 
 final applyPlanProposalUseCaseProvider = Provider<ApplyPlanProposal>((ref) {
-  return ApplyPlanProposal(ref.read(domainPlanRepositoryProvider));
+  return ApplyPlanProposal(ref.watch(domainPlanRepositoryProvider));
 });
 
 final rejectPlanProposalUseCaseProvider = Provider<RejectPlanProposal>((ref) {
-  return RejectPlanProposal(ref.read(domainPlanRepositoryProvider));
+  return RejectPlanProposal(ref.watch(domainPlanRepositoryProvider));
 });
 
 final createTaskUseCaseProvider = Provider<CreateTask>((ref) {
@@ -778,7 +785,7 @@ final createTaskUseCaseProvider = Provider<CreateTask>((ref) {
 final completeTaskUseCaseProvider = Provider<CompleteTask>((ref) {
   return CompleteTask(
     ref.read(domainTaskRepositoryProvider),
-    progressionRepo: ref.read(domainProgressionRepositoryProvider),
+    progressionRepo: ref.watch(domainProgressionRepositoryProvider),
     siRepo: ref.read(domainSiRepositoryProvider),
     durableMutation: (String taskId) async {
       final TaskOccurrenceResult result = await ref
@@ -838,34 +845,34 @@ final deleteNoteUseCaseProvider = Provider<DeleteNote>((ref) {
 });
 
 final getMilestonesUseCaseProvider = Provider<GetMilestones>((ref) {
-  return GetMilestones(ref.read(domainMilestoneRepositoryProvider));
+  return GetMilestones(ref.watch(domainMilestoneRepositoryProvider));
 });
 
 final createMilestoneUseCaseProvider = Provider<CreateMilestone>((ref) {
-  return CreateMilestone(ref.read(domainMilestoneRepositoryProvider));
+  return CreateMilestone(ref.watch(domainMilestoneRepositoryProvider));
 });
 
 final updateMilestoneUseCaseProvider = Provider<UpdateMilestone>((ref) {
-  return UpdateMilestone(ref.read(domainMilestoneRepositoryProvider));
+  return UpdateMilestone(ref.watch(domainMilestoneRepositoryProvider));
 });
 
 final updateMilestoneProgressUseCaseProvider =
     Provider<UpdateMilestoneProgress>((ref) {
       return UpdateMilestoneProgress(
-        ref.read(domainMilestoneRepositoryProvider),
+        ref.watch(domainMilestoneRepositoryProvider),
       );
     });
 
 final completeMilestoneUseCaseProvider = Provider<CompleteMilestone>((ref) {
-  return CompleteMilestone(ref.read(domainMilestoneRepositoryProvider));
+  return CompleteMilestone(ref.watch(domainMilestoneRepositoryProvider));
 });
 
 final archiveMilestoneUseCaseProvider = Provider<ArchiveMilestone>((ref) {
-  return ArchiveMilestone(ref.read(domainMilestoneRepositoryProvider));
+  return ArchiveMilestone(ref.watch(domainMilestoneRepositoryProvider));
 });
 
 final deleteMilestoneUseCaseProvider = Provider<DeleteMilestone>((ref) {
-  return DeleteMilestone(ref.read(domainMilestoneRepositoryProvider));
+  return DeleteMilestone(ref.watch(domainMilestoneRepositoryProvider));
 });
 
 final generateSiDecisionUseCaseProvider = Provider<GenerateSiDecision>((ref) {

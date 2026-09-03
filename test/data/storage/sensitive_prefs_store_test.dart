@@ -69,7 +69,7 @@ void main() {
   });
 
   test(
-    'legacy migration persists securely before removing legacy data',
+    'legacy fallback remains readable without a secure write or deletion',
     () async {
       SharedPreferences.setMockInitialValues(<String, Object>{
         'timeline_events_v1': '[{"id":"legacy"}]',
@@ -79,10 +79,12 @@ void main() {
       );
       final SensitivePrefsStore store = await build(backend);
 
-      await expectLater(store.init(), throwsStateError);
+      await store.init();
 
       final SharedPreferences legacy = await SharedPreferences.getInstance();
+      expect(store.load('timeline_events_v1'), '[{"id":"legacy"}]');
       expect(legacy.getString('timeline_events_v1'), '[{"id":"legacy"}]');
+      expect(backend.values[storageKey], isNull);
     },
   );
 
@@ -162,36 +164,30 @@ void main() {
     expect(store.hasCorruptionBackups, isTrue);
   });
 
-  test(
-    'successful legacy migration preserves secure values and removes legacy copies',
-    () async {
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        'goals_v1': 'legacy-goals',
-        'memories_v1': 'legacy-memories',
+  test('secure values override preserved read-only legacy fallbacks', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'goals_v1': 'legacy-goals',
+      'memories_v1': 'legacy-memories',
+    });
+    final _MemorySensitiveBackend backend = _MemorySensitiveBackend()
+      ..values[storageKey] = jsonEncode(<String, String>{
+        'goals_v1': 'secure-goals',
       });
-      final _MemorySensitiveBackend backend = _MemorySensitiveBackend()
-        ..values[storageKey] = jsonEncode(<String, String>{
-          'goals_v1': 'secure-goals',
-        });
-      final SensitivePrefsStore store = await build(backend);
+    final SensitivePrefsStore store = await build(backend);
 
-      await store.init();
-      await store.init();
+    await store.init();
+    await store.init();
 
-      expect(store.load('goals_v1'), 'secure-goals');
-      expect(store.load('memories_v1'), 'legacy-memories');
-      expect(
-        jsonDecode(backend.values[storageKey]!) as Map<String, dynamic>,
-        <String, dynamic>{
-          'goals_v1': 'secure-goals',
-          'memories_v1': 'legacy-memories',
-        },
-      );
-      final SharedPreferences legacy = await SharedPreferences.getInstance();
-      expect(legacy.getString('goals_v1'), isNull);
-      expect(legacy.getString('memories_v1'), isNull);
-    },
-  );
+    expect(store.load('goals_v1'), 'secure-goals');
+    expect(store.load('memories_v1'), 'legacy-memories');
+    expect(
+      jsonDecode(backend.values[storageKey]!) as Map<String, dynamic>,
+      <String, dynamic>{'goals_v1': 'secure-goals'},
+    );
+    final SharedPreferences legacy = await SharedPreferences.getInstance();
+    expect(legacy.getString('goals_v1'), 'legacy-goals');
+    expect(legacy.getString('memories_v1'), 'legacy-memories');
+  });
 
   test('delete persists the remaining secure values', () async {
     final _MemorySensitiveBackend backend = _MemorySensitiveBackend();

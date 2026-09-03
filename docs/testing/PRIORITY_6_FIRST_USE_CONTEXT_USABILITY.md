@@ -93,3 +93,20 @@ device evidence, translation review, or human comprehension.
   the exact command and result in `APP_ONLY_READINESS_MATRIX.md`.
 - Moderated sessions: not complete until participant count, device/build SHA,
   anonymized outcomes, and defects are attached here or in a linked artifact.
+
+## Human-robot proxy evidence — 2026-09-03
+
+A bounded human-robot proxy was run on `emulator-5558` against profile APK
+version `4.1.0` (`2026083003`), SHA-256
+`9770E55645D698A0E09DF1A6E44FEF3C3824C0FFD2B2CCBC401CF666D43A09CC`.
+It reached fresh-state Nexus, useful Smart Planner guidance before the optional
+context offer, and the visible offer containing all five governance facts.
+
+The exact child-text selector then failed against Flutter's coalesced semantics
+node, and the bounded resume attempt returned to login instead of the offer.
+Testing stopped after that repeated automation boundary. Result: **1/5 proxy
+personas attempted, 0/5 fully completed; INSUFFICIENT / BLOCKED**. No app defect
+was proven. This scripted proxy is not a human participant and does not close
+the five-participant moderated exit gate.
+
+Evidence: `../../artifacts/priority6/human-robot-proxy/20260903-111837-ae6823bd-dirty/results.md`.

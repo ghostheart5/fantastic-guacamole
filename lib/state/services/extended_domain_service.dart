@@ -2,9 +2,11 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_extended_domain_repository.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 
 class ExtendedDomainService implements IExtendedDomainRepository {
+  ExtendedDomainService(this._preferences);
+
   static const String _keyPlannerMessages = 'extended_domain.planner_messages';
   static const String _keySiQueries = 'extended_domain.si_queries';
   static const String _keyReflectionEntries =
@@ -13,7 +15,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       'extended_domain.analytics_metrics';
   static const String _keySettings = 'extended_domain.settings';
 
-  SharedPreferences? _preferences;
+  final SharedPrefsStore _preferences;
   Future<void>? _initialization;
 
   final List<PlannerMessage> _plannerMessages = <PlannerMessage>[];
@@ -26,13 +28,12 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   Future<void> initialize() => _initialization ??= _initialize();
 
   Future<void> _initialize() async {
-    _preferences = await SharedPreferences.getInstance();
-    final SharedPreferences preferences = _preferences!;
+    await _preferences.init();
 
     _replaceAll(
       _plannerMessages,
       _decodeEntities<PlannerMessage>(
-        preferences.getString(_keyPlannerMessages),
+        _preferences.load(_keyPlannerMessages),
         (Map<String, dynamic> json) => PlannerMessage(
           id: json['id'] as String,
           label: json['label'] as String?,
@@ -42,7 +43,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     _replaceAll(
       _siQueries,
       _decodeEntities<SiQuery>(
-        preferences.getString(_keySiQueries),
+        _preferences.load(_keySiQueries),
         (Map<String, dynamic> json) =>
             SiQuery(id: json['id'] as String, label: json['label'] as String?),
       ),
@@ -50,7 +51,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     _replaceAll(
       _reflectionEntries,
       _decodeEntities<ReflectionEntry>(
-        preferences.getString(_keyReflectionEntries),
+        _preferences.load(_keyReflectionEntries),
         (Map<String, dynamic> json) => ReflectionEntry(
           id: json['id'] as String,
           label: json['label'] as String?,
@@ -60,7 +61,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     _replaceAll(
       _analyticsMetrics,
       _decodeEntities<AnalyticsMetric>(
-        preferences.getString(_keyAnalyticsMetrics),
+        _preferences.load(_keyAnalyticsMetrics),
         (Map<String, dynamic> json) => AnalyticsMetric(
           id: json['id'] as String,
           label: json['label'] as String?,
@@ -70,7 +71,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     _replaceAll(
       _settings,
       _decodeEntities<AppSetting>(
-        preferences.getString(_keySettings),
+        _preferences.load(_keySettings),
         (Map<String, dynamic> json) => AppSetting(
           id: json['id'] as String,
           label: json['label'] as String?,
@@ -117,11 +118,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     String key,
     Iterable<LightweightEntity> entities,
   ) async {
-    final SharedPreferences? preferences = _preferences;
-    if (preferences == null) {
-      return;
-    }
-    await preferences.setString(
+    await _preferences.save(
       key,
       jsonEncode(
         entities

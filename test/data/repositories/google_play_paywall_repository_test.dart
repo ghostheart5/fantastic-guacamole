@@ -245,16 +245,19 @@ void main() {
     'active subscription blocks a second plan purchase before billing lookup',
     () async {
       SharedPreferences.setMockInitialValues(<String, Object>{
-        'paywall_subscription_state_v1': jsonEncode(<String, dynamic>{
-          'isActive': true,
-          'status': 'active',
-          'planId': 'monthly',
-          'renewalDate': DateTime.now()
-              .toUtc()
-              .add(const Duration(days: 20))
-              .toIso8601String(),
-          'expirySource': 'google_play_server',
-        }),
+        'paywall_subscription_state_v1.account.user-1':
+            jsonEncode(<String, dynamic>{
+              'isActive': true,
+              'status': 'active',
+              'planId': 'monthly',
+              'renewalDate': DateTime.now()
+                  .toUtc()
+                  .add(const Duration(days: 20))
+                  .toIso8601String(),
+              'expirySource': 'google_play_server',
+              'authorityUserId': 'user-1',
+              'authorityVerifiedAt': DateTime.now().toUtc().toIso8601String(),
+            }),
       });
       final _FakeBillingClient billing = _FakeBillingClient(
         productResponse: ProductDetailsResponse(
@@ -262,12 +265,16 @@ void main() {
           notFoundIDs: const <String>[],
         ),
       );
+      final sb.SupabaseClient client = await _authorityClient((request) async {
+        fail('Active local state should block before an authority request.');
+      });
       final GooglePlayPaywallRepository repository =
           GooglePlayPaywallRepository(
             billingClient: billing,
             paywallTestingModeOverride: false,
             sharedPreferencesLoader: SharedPreferences.getInstance,
             receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+            supabaseClient: client,
           );
 
       await expectLater(
@@ -498,6 +505,9 @@ void main() {
       final SecureStore secureStore = SecureStore(
         backend: InMemorySecureStoreBackend(),
       );
+      final sb.SupabaseClient client = await _authorityClient((request) async {
+        fail('Purchase persistence should not refresh account authority.');
+      });
       final StreamController<List<PurchaseDetails>> controller =
           StreamController<List<PurchaseDetails>>.broadcast();
       final _FakeBillingClient billing = _FakeBillingClient(
@@ -539,6 +549,7 @@ void main() {
             sharedPreferencesLoader: SharedPreferences.getInstance,
             receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
             secureStore: secureStore,
+            supabaseClient: client,
             httpClient: MockClient((http.Request request) async {
               expect(
                 request.url.toString(),
@@ -577,7 +588,7 @@ void main() {
       final Map<String, dynamic> persisted =
           jsonDecode(
                 (await secureStore.readString(
-                  'paywall_subscription_state_v1',
+                  'paywall_subscription_state_v1.account.user-1',
                 ))!,
               )
               as Map<String, dynamic>;
@@ -596,13 +607,15 @@ void main() {
             sharedPreferencesLoader: SharedPreferences.getInstance,
             receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
             secureStore: secureStore,
+            supabaseClient: client,
           );
       final SubscriptionState restored = await restoredRepository
           .getUserSubscriptionState();
       expect(restored.isActive, isTrue);
+      expect(restored.renewalDate!.isBefore(verifiedExpiry), isTrue);
       expect(
-        restored.renewalDate?.millisecondsSinceEpoch,
-        verifiedExpiry.millisecondsSinceEpoch,
+        restored.renewalDate!.difference(DateTime.now().toUtc()),
+        greaterThan(const Duration(hours: 23, minutes: 59)),
       );
 
       repository.dispose();
@@ -2117,7 +2130,7 @@ void main() {
         backend: InMemorySecureStoreBackend(),
       );
       await secureStore.writeString(
-        'paywall_subscription_state_v1',
+        'paywall_subscription_state_v1.account.user-1',
         jsonEncode(<String, dynamic>{
           'isActive': true,
           'status': 'active',
@@ -2726,47 +2739,43 @@ void main() {
     reconstructed.dispose();
   });
 
-  test(
-    'cancelSubscription preserves trusted access without authority',
-    () async {
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        'paywall_subscription_state_v1': jsonEncode(<String, dynamic>{
-          'isActive': true,
-          'status': 'active',
-          'planId': 'monthly',
-          'renewalDate': DateTime.now()
-              .add(const Duration(days: 3))
-              .toIso8601String(),
-          'expirySource': 'google_play_server',
-        }),
-      });
-      final _FakeBillingClient billing = _FakeBillingClient(
-        productResponse: ProductDetailsResponse(
-          productDetails: const <ProductDetails>[],
-          notFoundIDs: const <String>[],
-        ),
-      );
-      final GooglePlayPaywallRepository repository =
-          GooglePlayPaywallRepository(
-            billingClient: billing,
-            paywallTestingModeOverride: false,
-            sharedPreferencesLoader: SharedPreferences.getInstance,
-          );
+  test('cancelSubscription fails closed without account authority', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'paywall_subscription_state_v1': jsonEncode(<String, dynamic>{
+        'isActive': true,
+        'status': 'active',
+        'planId': 'monthly',
+        'renewalDate': DateTime.now()
+            .add(const Duration(days: 3))
+            .toIso8601String(),
+        'expirySource': 'google_play_server',
+      }),
+    });
+    final _FakeBillingClient billing = _FakeBillingClient(
+      productResponse: ProductDetailsResponse(
+        productDetails: const <ProductDetails>[],
+        notFoundIDs: const <String>[],
+      ),
+    );
+    final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
+      billingClient: billing,
+      paywallTestingModeOverride: false,
+      sharedPreferencesLoader: SharedPreferences.getInstance,
+    );
 
-      final SubscriptionState state = await repository.cancelSubscription();
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final Map<String, dynamic> persisted =
-          jsonDecode(prefs.getString('paywall_subscription_state_v1')!)
-              as Map<String, dynamic>;
+    final SubscriptionState state = await repository.cancelSubscription();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final Map<String, dynamic> persisted =
+        jsonDecode(prefs.getString('paywall_subscription_state_v1')!)
+            as Map<String, dynamic>;
 
-      expect(state.status, 'active');
-      expect(state.isActive, isTrue);
-      expect(persisted['status'], 'active');
-      expect(persisted['planId'], 'monthly');
+    expect(state.status, 'locked');
+    expect(state.isActive, isFalse);
+    expect(persisted['status'], 'active');
+    expect(persisted['planId'], 'monthly');
 
-      repository.dispose();
-    },
-  );
+    repository.dispose();
+  });
 
   test(
     'cancelSubscription force-refreshes canceled access through expiry',
@@ -2813,15 +2822,18 @@ void main() {
   );
 
   test('loads persisted active state and exposes entitlement', () async {
-    final DateTime renewal = DateTime.now().add(const Duration(days: 2));
+    final DateTime renewal = DateTime.now().add(const Duration(hours: 12));
     SharedPreferences.setMockInitialValues(<String, Object>{
-      'paywall_subscription_state_v1': jsonEncode(<String, dynamic>{
-        'isActive': true,
-        'status': 'active',
-        'planId': 'annual',
-        'renewalDate': renewal.toIso8601String(),
-        'expirySource': 'google_play_server',
-      }),
+      'paywall_subscription_state_v1.account.user-1':
+          jsonEncode(<String, dynamic>{
+            'isActive': true,
+            'status': 'active',
+            'planId': 'annual',
+            'renewalDate': renewal.toIso8601String(),
+            'expirySource': 'google_play_server',
+            'authorityUserId': 'user-1',
+            'authorityVerifiedAt': DateTime.now().toUtc().toIso8601String(),
+          }),
     });
     final _FakeBillingClient billing = _FakeBillingClient(
       productResponse: ProductDetailsResponse(
@@ -2829,10 +2841,14 @@ void main() {
         notFoundIDs: const <String>[],
       ),
     );
+    final sb.SupabaseClient client = await _authorityClient((request) async {
+      fail('Persisted-state reads should not refresh account authority.');
+    });
     final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
       billingClient: billing,
       paywallTestingModeOverride: false,
       sharedPreferencesLoader: SharedPreferences.getInstance,
+      supabaseClient: client,
     );
 
     final SubscriptionState state = await repository.getUserSubscriptionState();
@@ -2874,7 +2890,7 @@ void main() {
   });
 
   test(
-    'migrates unverified legacy state without granting entitlement',
+    'reads proven-owner legacy state without copying or deleting it',
     () async {
       final DateTime renewal = DateTime.now().add(const Duration(days: 14));
       final String legacyState = jsonEncode(<String, dynamic>{
@@ -2889,59 +2905,13 @@ void main() {
       final SecureStore secureStore = SecureStore(
         backend: InMemorySecureStoreBackend(),
       );
-      final GooglePlayPaywallRepository repository =
-          GooglePlayPaywallRepository(
-            billingClient: _FakeBillingClient(
-              productResponse: ProductDetailsResponse(
-                productDetails: const <ProductDetails>[],
-                notFoundIDs: const <String>[],
-              ),
-            ),
-            paywallTestingModeOverride: false,
-            sharedPreferencesLoader: SharedPreferences.getInstance,
-            secureStore: secureStore,
-          );
-
-      final SubscriptionState restored = await repository
-          .getUserSubscriptionState();
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-      expect(restored.isActive, isFalse);
-      expect(restored.planId, 'annual');
-      expect(
-        await secureStore.readString('paywall_subscription_state_v1'),
-        legacyState,
-      );
-      expect(prefs.containsKey('paywall_subscription_state_v1'), isFalse);
-
-      final SubscriptionState cancelled = await repository.cancelSubscription();
-      final Map<String, dynamic> securedCancellation =
-          jsonDecode(
-                (await secureStore.readString(
-                  'paywall_subscription_state_v1',
-                ))!,
-              )
-              as Map<String, dynamic>;
-      expect(cancelled.status, 'active');
-      expect(cancelled.isActive, isFalse);
-      expect(securedCancellation['status'], 'active');
-
-      repository.dispose();
-    },
-  );
-
-  test(
-    'expired persisted state loads as locked while preserving renewal metadata',
-    () async {
-      final DateTime renewal = DateTime.now().subtract(const Duration(days: 1));
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        'paywall_subscription_state_v1': jsonEncode(<String, dynamic>{
-          'isActive': true,
-          'status': 'active',
-          'planId': 'monthly',
-          'renewalDate': renewal.toIso8601String(),
-          'expirySource': 'google_play_server',
-        }),
+      await secureStore.writeString('entitlement_owner_user_id_v1', 'user-1');
+      final sb.SupabaseClient client = await _authorityClient((request) async {
+        return http.Response(
+          '[]',
+          200,
+          headers: <String, String>{'content-type': 'application/json'},
+        );
       });
       final GooglePlayPaywallRepository repository =
           GooglePlayPaywallRepository(
@@ -2953,6 +2923,56 @@ void main() {
             ),
             paywallTestingModeOverride: false,
             sharedPreferencesLoader: SharedPreferences.getInstance,
+            secureStore: secureStore,
+            supabaseClient: client,
+          );
+
+      final SubscriptionState restored = await repository
+          .getUserSubscriptionState();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      expect(restored.isActive, isFalse);
+      expect(restored.planId, 'annual');
+      expect(
+        await secureStore.readString('paywall_subscription_state_v1'),
+        isNull,
+      );
+      expect(prefs.getString('paywall_subscription_state_v1'), legacyState);
+
+      repository.dispose();
+    },
+  );
+
+  test(
+    'expired persisted state loads as locked while preserving renewal metadata',
+    () async {
+      final DateTime renewal = DateTime.now().subtract(const Duration(days: 1));
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'paywall_subscription_state_v1.account.user-1':
+            jsonEncode(<String, dynamic>{
+              'isActive': true,
+              'status': 'active',
+              'planId': 'monthly',
+              'renewalDate': renewal.toIso8601String(),
+              'expirySource': 'google_play_server',
+              'authorityUserId': 'user-1',
+              'authorityVerifiedAt': DateTime.now().toUtc().toIso8601String(),
+            }),
+      });
+      final sb.SupabaseClient client = await _authorityClient((request) async {
+        fail('Persisted-state reads should not refresh account authority.');
+      });
+      final GooglePlayPaywallRepository repository =
+          GooglePlayPaywallRepository(
+            billingClient: _FakeBillingClient(
+              productResponse: ProductDetailsResponse(
+                productDetails: const <ProductDetails>[],
+                notFoundIDs: const <String>[],
+              ),
+            ),
+            paywallTestingModeOverride: false,
+            sharedPreferencesLoader: SharedPreferences.getInstance,
+            supabaseClient: client,
           );
 
       final SubscriptionState state = await repository

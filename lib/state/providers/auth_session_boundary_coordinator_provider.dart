@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
@@ -126,23 +127,26 @@ class AuthSessionBoundaryCoordinator {
 
       // QA mock mode uses an in-memory secure store, while its Hive fixtures
       // intentionally survive app restarts. Requiring a persisted secure owner
-      // marker in that one configuration would lock the deterministic mock
-      // account out of its own fixtures on every cold start. This exception is
-      // restricted to the explicitly enabled tester account and cannot apply
-      // to production authentication.
+      // marker in that one configuration would lock the deterministic primary
+      // mock account out of its own fixtures on every cold start. It may claim
+      // only a missing marker; it can never overwrite another proven owner.
       final bool isAuthorizedMockAccount =
           Env.isMockMode && Env.hasTesterFullAccess && currentId == 'mock-user';
-      if (isAuthorizedMockAccount) {
+      if (isAuthorizedMockAccount && storedId == null) {
         await _ref
             .read(secureStoreProvider)
             .writeString(_accountMarkerKey, currentId);
         if (!_isLatest(sequence)) return;
         invalidateAccountOwnedProviders(_ref);
-        _openStorageGate(boundary, generation);
+        _openStorageGate(
+          boundary,
+          generation,
+          legacyOwnership: LegacyScopeOwnership.provenOwned,
+        );
         return;
       }
 
-      if (previousId == null && storedId == null) {
+      if (storedId == null) {
         final bool hasUnownedData = await _ref
             .read(localUserDataCleanupServiceProvider)
             .hasUnownedAccountData();
@@ -162,32 +166,27 @@ class AuthSessionBoundaryCoordinator {
           );
           return;
         }
-      }
-
-      final bool changedAccount =
-          (previousId != null && previousId != currentId) ||
-          (storedId != null && storedId != currentId);
-      if (changedAccount) {
-        // Global stores cannot safely be shown to a different account, but
-        // deleting them here would lose unsynced/local-only data. Block the
-        // new account until an explicit, separately confirmed data action is
-        // available; the original account can sign back in and recover it.
-        boundary.block(
+        await _ref
+            .read(secureStoreProvider)
+            .writeString(_accountMarkerKey, currentId);
+        if (!_isLatest(sequence)) return;
+        invalidateAccountOwnedProviders(_ref);
+        _openStorageGate(
+          boundary,
           generation,
-          issue:
-              'Protected local data belongs to a different account. Sign in with the original account before switching devices or clearing local data.',
-          canRecoverBySigningOut: true,
-          canClearPreservedData: true,
+          legacyOwnership: LegacyScopeOwnership.provenOwned,
         );
         return;
       }
 
-      await _ref
-          .read(secureStoreProvider)
-          .writeString(_accountMarkerKey, currentId);
-      if (!_isLatest(sequence)) return;
+      // All active account-owned stores are V2 namespaced. A different account
+      // can therefore open its own namespace without clearing or relabelling
+      // the original owner's preserved legacy data.
+      final LegacyScopeOwnership legacyOwnership = storedId == currentId
+          ? LegacyScopeOwnership.provenOwned
+          : LegacyScopeOwnership.provenNotOwned;
       invalidateAccountOwnedProviders(_ref);
-      _openStorageGate(boundary, generation);
+      _openStorageGate(boundary, generation, legacyOwnership: legacyOwnership);
     } on Object catch (error, stackTrace) {
       if (!_isLatest(sequence)) return;
       Logger.errorCategory(
@@ -226,7 +225,11 @@ class AuthSessionBoundaryCoordinator {
     final AuthSessionBoundaryNotifier boundary = _ref.read(
       authSessionBoundaryProvider.notifier,
     );
-    _openStorageGate(boundary, current.generation);
+    _openStorageGate(
+      boundary,
+      current.generation,
+      legacyOwnership: LegacyScopeOwnership.provenOwned,
+    );
   }
 
   /// Clears preserved account-owned local data only after an explicit user
@@ -258,11 +261,19 @@ class AuthSessionBoundaryCoordinator {
     final AuthSessionBoundaryNotifier boundary = _ref.read(
       authSessionBoundaryProvider.notifier,
     );
-    _openStorageGate(boundary, current.generation);
+    _openStorageGate(
+      boundary,
+      current.generation,
+      legacyOwnership: LegacyScopeOwnership.provenOwned,
+    );
   }
 
-  void _openStorageGate(AuthSessionBoundaryNotifier boundary, int generation) {
-    boundary.markStorageReady(generation);
+  void _openStorageGate(
+    AuthSessionBoundaryNotifier boundary,
+    int generation, {
+    required LegacyScopeOwnership legacyOwnership,
+  }) {
+    boundary.markStorageReady(generation, legacyOwnership: legacyOwnership);
     boundary.complete(generation);
     _ref.read(getTasksUseCaseProvider);
   }
@@ -331,4 +342,8 @@ bool shouldBlockForUnownedData({
   required String? previousUserId,
   required String? storedUserId,
   required bool hasUnownedData,
-}) => previousUserId == null && storedUserId == null && hasUnownedData;
+}) {
+  // A transient in-memory auth value cannot prove ownership of durable legacy
+  // data. Only the stable secure marker (or the explicit claim flow) can.
+  return storedUserId == null && hasUnownedData;
+}

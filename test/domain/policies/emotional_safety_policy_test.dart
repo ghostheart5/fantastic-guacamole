@@ -108,6 +108,33 @@ void main() {
       );
     });
 
+    test('planning pause reasons stay explicit for every fallback concern', () {
+      final Map<EmotionalSafetyAssessment, String>
+      cases = <EmotionalSafetyAssessment, String>{
+        EmotionalSafetyAssessment(
+          route: EmotionalSafetyRoute.supportiveDistress,
+          concerns: const <EmotionalSafetyConcern>{
+            EmotionalSafetyConcern.hallucination,
+          },
+          findingCodes: const <String>['unusual_perception_language'],
+        ): 'Pausing ordinary planning because immediate support may be more useful than a task recommendation.',
+        EmotionalSafetyAssessment(
+          route: EmotionalSafetyRoute.supportiveDistress,
+          concerns: const <EmotionalSafetyConcern>{
+            EmotionalSafetyConcern.severeDistress,
+          },
+          findingCodes: const <String>['severe_distress_language'],
+        ): 'Pausing productivity guidance because your words indicate that support may matter more than a task plan right now.',
+        const EmotionalSafetyAssessment.routine():
+            'Pausing ordinary planning until you choose what kind of help you want.',
+      };
+
+      for (final MapEntry<EmotionalSafetyAssessment, String> item
+          in cases.entries) {
+        expect(EmotionalSafetyPolicy.planningPauseReason(item.key), item.value);
+      }
+    });
+
     test('legacy crisis boundary maps only immediate-safety routes', () {
       expect(CrisisDetectionPolicy.detects('I want to die.'), isTrue);
       expect(

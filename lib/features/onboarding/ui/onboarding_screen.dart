@@ -233,7 +233,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               onPageChanged: (i) => setState(() => _current = i),
               itemCount: _totalPages,
               itemBuilder: (context, i) {
-                if (i < slides.length) return _SlideView(slide: slides[i]);
+                if (i < slides.length) {
+                  return _SlideView(
+                    slide: slides[i],
+                    footer: landscape
+                        ? SizedBox(
+                            width: 180,
+                            child: _GradientButton(
+                              label: continueToLogin,
+                              onTap: _next,
+                            ),
+                          )
+                        : null,
+                  );
+                }
                 return _FirstValueSlide(
                   helpController: _helpCtrl,
                   selectedCapacity: _capacity,
@@ -251,7 +264,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             ),
 
             // Bottom controls
-            if (_current == 0)
+            if (_current == 0 && !landscape)
               Positioned(
                 left: 0,
                 right: 0,
@@ -317,9 +330,10 @@ class _Slide {
 }
 
 class _SlideView extends StatelessWidget {
-  const _SlideView({required this.slide});
+  const _SlideView({required this.slide, this.footer});
 
   final _Slide slide;
+  final Widget? footer;
 
   Widget _buildPulseAura(
     BuildContext context, {
@@ -478,6 +492,13 @@ class _SlideView extends StatelessWidget {
                             fontWeight: FontWeight.w400,
                           ),
                         ),
+                        if (footer != null) ...[
+                          const SizedBox(height: 24),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: footer,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -586,6 +607,10 @@ class _SlideView extends StatelessWidget {
                   fontWeight: FontWeight.w400,
                 ),
               ),
+              if (footer != null) ...[
+                const SizedBox(height: 24),
+                Align(alignment: Alignment.centerRight, child: footer),
+              ],
             ],
           );
         }
@@ -932,21 +957,26 @@ class _GradientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
       width: double.infinity,
-      child: FilledButton(
-        onPressed: onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF00E5FF),
-          foregroundColor: Colors.black,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 52),
+        child: FilledButton(
+          onPressed: onTap,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF00E5FF),
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0,
+            ),
           ),
+          child: Text(label, textAlign: TextAlign.center),
         ),
-        child: Text(label),
       ),
     );
   }

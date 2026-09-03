@@ -1582,15 +1582,22 @@ class GooglePlayPaywallRepository
   Future<void> _loadPersistedState() async {
     try {
       final SharedPreferences prefs = await _sharedPreferencesLoader();
+      final String currentUserId =
+          _supabaseClient?.auth.currentUser?.id.trim() ?? '';
+      if (currentUserId.isEmpty) {
+        // Persisted entitlement is account-owned. Without a current identity,
+        // loading any legacy/global value could grant another user's state.
+        return;
+      }
       final String? trustedLegacyOwnerId = await _secureStore?.readString(
         _kLegacyEntitlementOwnerKey,
       );
-      final String accountKey = _stateStorageKey(
-        _supabaseClient?.auth.currentUser?.id,
-      );
-      final List<String> candidateKeys = accountKey == _kPrefsKey
-          ? const <String>[_kPrefsKey]
-          : <String>[accountKey, _kPrefsKey];
+      final String accountKey = _stateStorageKey(currentUserId);
+      final bool mayReadLegacy = trustedLegacyOwnerId?.trim() == currentUserId;
+      final List<String> candidateKeys = <String>[
+        accountKey,
+        if (mayReadLegacy) _kPrefsKey,
+      ];
       if (_secureStore == null) {
         if (Env.isProduction) {
           Logger.error(
@@ -1622,8 +1629,6 @@ class GooglePlayPaywallRepository
         }
         raw = prefs.getString(key);
         if (raw != null) {
-          await _secureStore.writeString(key, raw);
-          await prefs.remove(key);
           break;
         }
       }

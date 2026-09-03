@@ -1,10 +1,13 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
@@ -171,19 +174,35 @@ const String _cloudSyncPreferenceKey = 'cloud_sync_enabled_v1';
 class CloudSyncPreferenceNotifier extends AsyncNotifier<bool> {
   @override
   Future<bool> build() async {
+    final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+    final LegacyScopeOwnership legacyOwnership = ref.watch(
+      accountLegacyOwnershipProvider,
+    );
+    final String? namespace = scope.v2Namespace;
+    if (!scope.isWritable || namespace == null) return false;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     // Cloud transfer is opt-in. A build flag only makes the capability
     // available; it must not silently allow data transfer.
-    return prefs.getBool(_cloudSyncPreferenceKey) ?? false;
+    final bool? scoped = prefs.getBool('$_cloudSyncPreferenceKey.$namespace');
+    if (scoped != null) return scoped;
+    return legacyOwnership == LegacyScopeOwnership.provenOwned
+        ? prefs.getBool(_cloudSyncPreferenceKey) ?? false
+        : false;
   }
 
   Future<void> setEnabled(bool enabled) async {
-    state = AsyncData<bool>(enabled);
+    final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
+    final String? namespace = scope.v2Namespace;
+    if (!scope.isWritable || namespace == null) {
+      throw StateError('Cloud sync preference requires an account scope.');
+    }
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_cloudSyncPreferenceKey, enabled);
+    await prefs.setBool('$_cloudSyncPreferenceKey.$namespace', enabled);
+    state = AsyncData<bool>(enabled);
     if (!enabled) {
-      await SharedPrefsService.delete('global_metrics_cache');
-      await SharedPrefsService.delete('global_metrics_cache_ts');
+      final SharedPrefsStore store = ref.read(accountSharedPrefsStoreProvider);
+      await store.delete('global_metrics_cache');
+      await store.delete('global_metrics_cache_ts');
     }
   }
 }
