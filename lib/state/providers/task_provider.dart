@@ -271,6 +271,7 @@ class TaskActions {
     selectedTask ??= await selectedTaskFuture;
 
     if (selectedTask != null && completionDecision.shouldRunReward) {
+      final Task completedTask = selectedTask;
       final DateTime now = DateTime.now();
       final int estimatedSeconds = (selectedTask.difficulty * 300).clamp(
         60,
@@ -300,9 +301,9 @@ class TaskActions {
             .recordCompletion(difficulty: selectedTask.difficulty);
       }
       _ref.read(siStateProvider.notifier).recordCompletion();
-      unawaited(
-        _recordCompletionSideEffects(
-          task: selectedTask,
+      await _bestEffort(
+        () => _recordCompletionSideEffects(
+          task: completedTask,
           durationSeconds: estimatedSeconds,
           timestamp: now,
           notify: notify,
