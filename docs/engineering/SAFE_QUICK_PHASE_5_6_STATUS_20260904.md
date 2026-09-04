@@ -53,6 +53,18 @@ No background monitoring was scheduled.
 
 ## Phase 6 - STARTED; production build BLOCKED at preflight
 
+Follow-up: exact-source CI run `33924430045` passed for checkpoint commit
+`9e1ba13376d0747fa6393f428d66f71f353985a5`. An isolated clean checkout was
+prepared. Existing signing and configuration secret names were found across
+GitHub repository and production-environment scopes; values and actual signing
+usability remain unverified. The proposed
+[build-only workflow](PHASE_6_BUILD_ONLY_WORKFLOW.md) was prepared and approved
+for commit/push, narrow registration, exact branch access and one execution.
+Registration is blocked by main's enforced PR/check requirements under the
+no-full-suite-rerun constraint. Branch access and execution have not occurred.
+The historical preflight findings below remain dated evidence, not current
+claims that the new commit lacks CI or that GitHub lacks configuration.
+
 Scope: produce one signed production AAB tied to one green source commit,
 using the existing authorized signing identity. No replacement key, Play
 upload, submission, rollout, provider enablement, or full-suite rerun authorized
