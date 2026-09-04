@@ -42,11 +42,13 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
     case 'wrong-password':
       return 'Credentials are incorrect.';
     case 'email-already-in-use':
-      return 'An account with this email already exists.';
+      return 'Unable to create an account with these details.';
     case 'weak-password':
       return 'Password is too weak.';
     case 'too-many-requests':
       return 'Rate limit engaged. Wait, then retry.';
+    case 'push-token-isolation-failed':
+      return 'Sign-out was paused to protect notification privacy. Reconnect and retry.';
     case 'network-request-failed':
       return 'Network link offline. Reconnect and retry.';
     case 'user-disabled':

@@ -2,7 +2,9 @@ name: Supabase Database Gate
 
 on:
   push:
+    branches: ["main"]
   pull_request:
+    branches: ["main"]
   workflow_call:
   workflow_dispatch:
 
@@ -16,46 +18,82 @@ concurrency:
 jobs:
   database:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - name: Checkout exact source
+        timeout-minutes: 5
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
 
       - name: Verify exact source commit
+        timeout-minutes: 2
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test -z "$(git status --porcelain --untracked-files=no)"
+          mkdir -p artifacts/database-evidence
+          printf '{"schemaVersion":1,"commit":"%s","runId":"%s","runAttempt":"%s"}\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" \
+            > artifacts/database-evidence/exact-commit.json
 
       - name: Set up pinned Supabase CLI
+        timeout-minutes: 10
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.116.0
 
       - name: Set up Deno
+        timeout-minutes: 10
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.1.4
 
+      - name: Validate Edge Function gate failure contracts
+        timeout-minutes: 5
+        shell: pwsh
+        run: ./scripts/edge_function_gate_contract.ps1
+
       - name: Type-check and test Edge Functions
+        timeout-minutes: 15
         shell: pwsh
         run: ./scripts/edge_function_gate.ps1 -RunTests
 
+      - name: Verify database and Edge evidence
+        timeout-minutes: 3
+        shell: pwsh
+        run: ./scripts/verify_database_evidence.ps1
+
       - name: Validate migration replay policy
+        timeout-minutes: 5
         shell: pwsh
         run: ./scripts/supabase_migration_policy_contract.ps1
 
       - name: Start disposable Supabase backend
+        timeout-minutes: 15
         run: supabase start
 
       - name: Run database contracts
+        timeout-minutes: 20
         run: supabase test db
 
       - name: Lint public database schema
+        timeout-minutes: 10
         run: supabase db lint --local --schema public --fail-on error
 
       - name: Stop disposable Supabase backend
         if: always()
+        timeout-minutes: 10
         run: supabase stop --no-backup
+
+      - name: Upload database and Edge evidence
+        if: always()
+        timeout-minutes: 5
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: chronospark-database-${{ github.sha }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            artifacts/database-evidence/**
+            coverage/edge-function-tests.junit.xml

@@ -456,11 +456,19 @@ void main() {
             headers: <String, String>{'content-type': 'application/json'},
           );
         }
+        if (request.url.path.endsWith('/rest/v1/user_push_tokens')) {
+          return http.Response(
+            '[]',
+            200,
+            headers: <String, String>{'content-type': 'application/json'},
+          );
+        }
         return http.Response('{}', 200);
       });
       final AuthService service = AuthService(
         supabaseClient: _supabaseClient(client),
         store: SecureStore(backend: InMemorySecureStoreBackend()),
+        onDevicePushTokenRevoked: () async {},
         onAccountDeleted: (String accountId) async {
           cleanupCalls += 1;
         },
@@ -474,6 +482,81 @@ void main() {
 
       expect(service.currentUser, isNull);
       expect(cleanupCalls, 0);
+    });
+
+    test(
+      'signOut revokes the device token when server cleanup fails',
+      () async {
+        int revokeCalls = 0;
+        final MockClient client = MockClient((http.Request request) async {
+          if (request.url.path.endsWith('/auth/v1/token')) {
+            return http.Response(
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path.endsWith('/rest/v1/user_push_tokens')) {
+            throw StateError('offline');
+          }
+          return http.Response('{}', 200);
+        });
+        final AuthService service = AuthService(
+          supabaseClient: _supabaseClient(client),
+          store: SecureStore(backend: InMemorySecureStoreBackend()),
+          onDevicePushTokenRevoked: () async {
+            revokeCalls += 1;
+          },
+        );
+        await service.signIn(
+          email: 'planner@chronospark.app',
+          password: 'correct-pass',
+        );
+
+        await service.signOut();
+
+        expect(revokeCalls, 1);
+        expect(service.currentUser, isNull);
+      },
+    );
+
+    test('signOut fails closed when neither token cleanup succeeds', () async {
+      final MockClient client = MockClient((http.Request request) async {
+        if (request.url.path.endsWith('/auth/v1/token')) {
+          return http.Response(
+            jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+            200,
+            headers: <String, String>{'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/rest/v1/user_push_tokens')) {
+          throw StateError('offline');
+        }
+        return http.Response('{}', 200);
+      });
+      final AuthService service = AuthService(
+        supabaseClient: _supabaseClient(client),
+        store: SecureStore(backend: InMemorySecureStoreBackend()),
+        onDevicePushTokenRevoked: () async {
+          throw StateError('revocation unavailable');
+        },
+      );
+      await service.signIn(
+        email: 'planner@chronospark.app',
+        password: 'correct-pass',
+      );
+
+      await expectLater(
+        service.signOut,
+        throwsA(
+          isA<FirebaseAuthException>().having(
+            (FirebaseAuthException error) => error.code,
+            'code',
+            'push-token-isolation-failed',
+          ),
+        ),
+      );
+      expect(service.currentUser, isNotNull);
     });
 
     test(
@@ -930,7 +1013,7 @@ void main() {
     );
 
     test(
-      'deleteCurrentAccount preserves a pending status capability securely',
+      'deleteCurrentAccount reports pending status tracking unavailable',
       () async {
         final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
         final SecureStore store = SecureStore(backend: backend);
@@ -975,19 +1058,16 @@ void main() {
 
         expect(result.isPending, isTrue);
         expect(result.serverState, 'sessions_revoked');
+        expect(result.statusTrackingAvailable, isFalse);
         expect(cleanupCalls, 1);
         expect(await store.readString('session-cache'), isNull);
         expect(service.currentUser, isNull);
-        final Map<String, String> secureValues = await store.readAll();
-        final String capability = secureValues.values.singleWhere(
-          (String value) => value.contains(_deletionRequestId),
+        expect(
+          (await store.readAll()).values.any(
+            (String value) => value.contains(_deletionRequestId),
+          ),
+          isFalse,
         );
-        final Map<String, dynamic> decoded =
-            jsonDecode(capability) as Map<String, dynamic>;
-        expect(decoded['requestId'], _deletionRequestId);
-        expect(decoded['receipt'], _deletionReceipt);
-        expect(decoded['state'], 'sessions_revoked');
-        expect(decoded['savedAt'], isA<String>());
       },
     );
 

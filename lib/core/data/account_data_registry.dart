@@ -386,6 +386,10 @@ abstract final class AccountDataRegistry {
     return 'notification-account:${accountDigest(accountId)}';
   }
 
+  static String telemetryConsentStorageKeyFor(String accountId) {
+    return 'telemetry_consent_v1.${accountDigest(accountId)}';
+  }
+
   static Set<String> hiveBoxesForAccount(
     String accountId, {
     bool includeLegacyOwnedData = false,
@@ -455,6 +459,7 @@ abstract final class AccountDataRegistry {
     final String namespaceDigest = sha256
         .convert(utf8.encode(namespace))
         .toString();
+    final String telemetryConsentKey = telemetryConsentStorageKeyFor(accountId);
     return <String>{
       if (includeLegacyOwnedData) ...accountPreferenceExactKeys,
       'notes_v1.$namespace',
@@ -469,6 +474,8 @@ abstract final class AccountDataRegistry {
       'chronospark.operating.ack.v1.$namespace',
       'onboarding_profile_complete_v1.$namespace',
       'assistant_beta_opt_in_v1.$namespaceDigest',
+      '$telemetryConsentKey.analytics',
+      '$telemetryConsentKey.crash_reporting',
     };
   }
 

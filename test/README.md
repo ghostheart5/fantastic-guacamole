@@ -15,13 +15,16 @@ planning, progression, and recovery paths must also satisfy the coverage guard.
 - `test/features` and `test/ui`: widget behavior, accessibility semantics,
   keyboard behavior, error states, and reviewed golden baselines.
 - `test/integration`: fast cross-layer flows that run in the Flutter test VM.
-- `integration_test`: application-root journeys reserved for later
-  build/device-capable validation.
+- `integration_test`: application-root journeys executed in isolated Linux
+  desktop processes by CI; supported-device execution remains separate
+  runtime evidence.
 - `test/security` and `test/architecture`: fail-closed configuration, schema,
   dependency-boundary, and product-canon contracts.
 - `supabase/functions/**/*_test.ts`: Deno tests for Edge Function pure logic.
 - `.maestro`: device-level end-to-end flows. YAML and referenced subflows are
-  validated in CI; device execution remains a release/UAT gate.
+  validated in source CI, and QA smoke runs against an exact-build hosted
+  emulator on `main` and release tags. Real-account, billing, destructive, and
+  physical-device execution remain separate release/UAT evidence.
 
 ## Determinism Rules
 
@@ -41,21 +44,19 @@ planning, progression, and recovery paths must also satisfy the coverage guard.
 Copy-Item .env.example .env -Force
 dart format --output=none --set-exit-if-changed lib test integration_test
 flutter analyze --fatal-infos
+dart run tool/validate_github_workflows.dart
 dart run tool/validate_maestro_flows.dart
-deno check supabase/functions/ai-proxy/index.ts
-deno check supabase/functions/account-delete/index.ts
-deno check supabase/functions/verify-receipt/index.ts
-deno test supabase/functions/_shared/storage_cleanup_test.ts
+./scripts/edge_function_gate.ps1 -RunTests
 ./scripts/list_flutter_tests.ps1
-flutter test test --coverage --concurrency=1
-./scripts/coverage_guard.ps1
+dart run tool/run_flutter_tests.dart --report test-results/host.jsonl --manifest test-results/host-manifest.json --timeout-seconds 3600 -- test --coverage --concurrency=1
+./scripts/coverage_guard.ps1 -Mode ratchet
 ```
 
 These commands do not build a distributable application or launch a device.
 `scripts/list_flutter_tests.ps1` is a static inventory step for Flutter SDKs
-that do not expose a `flutter test --list-tests` option. `integration_test`,
-Maestro execution, golden regeneration, and release builds are deliberately
-separate gates.
+that do not expose a `flutter test --list-tests` option. Supported-device
+integration, real-account Maestro execution, golden regeneration, and release
+builds are deliberately separate gates.
 
 ## Shared Test Support
 

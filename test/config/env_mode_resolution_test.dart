@@ -296,7 +296,7 @@ void main() {
     });
 
     test(
-      'explicit QA defines take precedence over a local dotenv fixture',
+      'compile-time profile takes precedence over a local dotenv fixture',
       () {
         dotenv.loadFromString(
           envString: '''
@@ -308,28 +308,41 @@ CHRONOSPARK_PAYWALL_DISABLED=false
 ''',
         );
 
-        expect(Env.appFlavor, 'qa');
-        expect(Env.flavor, AppFlavor.qualityAssurance);
-        expect(Env.enableMockLogin, isTrue);
-        expect(Env.enableMockMode, isTrue);
-        expect(Env.enableTesterFullAccess, isTrue);
-        expect(Env.enablePaywallDisabled, isTrue);
-        expect(Env.isMockMode, isTrue);
-        expect(Env.hasTesterFullAccess, isTrue);
-        expect(Env.isMockLoginEnabled, isTrue);
+        if (_qaDefinesProvided) {
+          expect(Env.appFlavor, 'qa');
+          expect(Env.flavor, AppFlavor.qualityAssurance);
+          expect(Env.enableMockLogin, isTrue);
+          expect(Env.enableMockMode, isTrue);
+          expect(Env.enableTesterFullAccess, isTrue);
+          expect(Env.enablePaywallDisabled, isTrue);
+          expect(Env.isMockMode, isTrue);
+          expect(Env.hasTesterFullAccess, isTrue);
+          expect(Env.isMockLoginEnabled, isTrue);
+        } else {
+          expect(Env.appFlavor, 'prod');
+          expect(Env.flavor, AppFlavor.production);
+          expect(Env.enableMockLogin, isFalse);
+          expect(Env.enableMockMode, isFalse);
+          expect(Env.enableTesterFullAccess, isFalse);
+          expect(Env.enablePaywallDisabled, isFalse);
+        }
       },
-      skip: _qaDefinesProvided
-          ? false
-          : 'Run with --dart-define-from-file=tool/qa_defines.json.',
     );
 
     test('receipt verification endpoint derives from configuration safely', () {
       expect(
         Env.resolveReceiptVerifyEndpoint(
-          'https://billing.chronospark.app/verify-receipt',
-          supabaseUrl: 'https://ignored.example.supabase.co',
+          'https://project.supabase.co/functions/v1/verify-receipt',
+          supabaseUrl: 'https://project.supabase.co',
         ),
-        'https://billing.chronospark.app/verify-receipt',
+        'https://project.supabase.co/functions/v1/verify-receipt',
+      );
+      expect(
+        Env.resolveReceiptVerifyEndpoint(
+          'https://attacker.example/verify-receipt',
+          supabaseUrl: 'https://project.supabase.co',
+        ),
+        isEmpty,
       );
       expect(
         Env.resolveReceiptVerifyEndpoint(

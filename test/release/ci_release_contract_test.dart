@@ -12,6 +12,13 @@ void main() {
   const String fatalAnalyzeCommand = 'flutter analyze --fatal-infos';
   const String edgeFunctionGateCommand =
       './scripts/edge_function_gate.ps1 -RunTests';
+  const String edgeFunctionGateContractCommand =
+      './scripts/edge_function_gate_contract.ps1';
+  const String boundedCoverageCommand =
+      'dart run tool/run_flutter_tests.dart --report '
+      'artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest '
+      'artifacts/flutter-test-evidence/flutter-tests-manifest.json '
+      '--timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1';
 
   String read(String path) =>
       File.fromUri(root.uri.resolve(path)).readAsStringSync();
@@ -68,7 +75,7 @@ void main() {
     return false;
   }
 
-  test('primary CI parses workflow-only changes and runs the policy guard', () {
+  test('primary CI separates rerunnable categories behind one aggregate', () {
     final YamlMap ci = workflow('ci.yml');
     final YamlMap triggers = ci['on'] as YamlMap;
     final YamlMap push = triggers['push'] as YamlMap;
@@ -77,49 +84,193 @@ void main() {
     expect(pullRequest.containsKey('paths-ignore'), isFalse);
     expect(triggers.containsKey('workflow_call'), isTrue);
 
-    final YamlMap testJob = job(ci, 'test');
-    final List<YamlMap> testSteps = steps(testJob);
-    expect(testJob['runs-on'], 'ubuntu-24.04');
+    final YamlMap staticJob = job(ci, 'static-policy');
+    final YamlMap flutterJob = job(ci, 'flutter-tests');
+    final YamlMap integrationJob = job(ci, 'linux-integration');
+    final YamlMap windowsJob = job(ci, 'windows-goldens');
+    final YamlMap aggregate = job(ci, 'test');
+
     expect(
-      testSteps.map((YamlMap step) => step['run']),
-      contains('dart run tool/validate_github_workflows.dart'),
-    );
-    expect(
-      testSteps.map((YamlMap step) => step['run']),
-      contains('bash ./scripts/run_linux_integration_tests.sh'),
-    );
-    expect(
-      testSteps.map((YamlMap step) => step['run']),
-      contains('./scripts/version_consistency_guard_contract.ps1'),
-    );
-    expect(
-      testSteps.map((YamlMap step) => step['run']),
-      contains(edgeFunctionGateCommand),
-    );
-    expect(
-      commands(testJob),
+      commands(staticJob),
       containsAll(<String>[
         formatCommand,
         fatalAnalyzeCommand,
-        edgeFunctionGateCommand,
+        'dart run tool/validate_github_workflows.dart',
+        './scripts/powershell_parse_gate.ps1',
+        './scripts/version_consistency_guard_contract.ps1',
       ]),
     );
+    expect(commands(flutterJob), contains(boundedCoverageCommand));
+    expect(flutterJob['timeout-minutes'], 90);
     expect(
-      namedStep(testJob, 'Verify golden comparison contract')['run'],
+      commands(integrationJob),
+      contains('bash ./scripts/run_linux_integration_tests.sh'),
+    );
+    expect(integrationJob['timeout-minutes'], 60);
+    expect(windowsJob['runs-on'], 'windows-2022');
+    expect(windowsJob['timeout-minutes'], 45);
+    expect(
+      ((namedStep(flutterJob, 'Upload Flutter test evidence')['with']
+              as YamlMap)['path'])
+          .toString(),
+      contains('test/**/failures/**'),
+    );
+    expect(
+      ((namedStep(windowsJob, 'Upload Windows golden evidence')['with']
+              as YamlMap)['path'])
+          .toString(),
+      contains('test/**/failures/**'),
+    );
+    expect(aggregate['name'], 'Analyze & Test');
+    expect(aggregate['if'], 'always()');
+    expect((aggregate['needs'] as YamlList).toSet(), <Object?>{
+      'static-policy',
+      'flutter-tests',
+      'linux-integration',
+      'windows-goldens',
+    });
+    expect(
+      namedStep(staticJob, 'Verify golden comparison contract')['run'],
       './scripts/golden_assertion_guard.ps1',
+    );
+    expect(
+      namedStep(staticJob, 'Lint GitHub Actions workflows')['run'],
+      r'$ACTIONLINT -no-color',
+    );
+    expect(
+      commands(staticJob),
+      isNot(contains(edgeFunctionGateCommand)),
+      reason: 'Backend tests have one dedicated workflow authority.',
+    );
+    expect(
+      commands(staticJob),
+      isNot(contains(edgeFunctionGateContractCommand)),
+      reason: 'The Deno-backed failure contract runs with the database job.',
     );
   });
 
-  test('extended Dart validation retains exact static gates', () {
-    final YamlMap build = job(workflow('dart.yml'), 'build');
-    expect(
-      commands(build),
-      containsAll(<String>[
-        formatCommand,
-        fatalAnalyzeCommand,
-        edgeFunctionGateCommand,
-      ]),
+  test('database CI retains structured exact-source and Edge evidence', () {
+    final YamlMap databaseJob = job(
+      workflow('supabase-database.yml'),
+      'database',
     );
+    expect(databaseJob['timeout-minutes'], 75);
+    expect(commands(databaseJob), contains(edgeFunctionGateContractCommand));
+    expect(
+      commands(databaseJob),
+      contains('./scripts/verify_database_evidence.ps1'),
+    );
+    for (final String stepName in <String>[
+      'Type-check and test Edge Functions',
+      'Start disposable Supabase backend',
+      'Run database contracts',
+      'Lint public database schema',
+      'Stop disposable Supabase backend',
+      'Upload database and Edge evidence',
+    ]) {
+      expect(namedStep(databaseJob, stepName)['timeout-minutes'], isNotNull);
+    }
+    final YamlMap upload = namedStep(
+      databaseJob,
+      'Upload database and Edge evidence',
+    );
+    expect(upload['if'], 'always()');
+    final YamlMap uploadWith = upload['with'] as YamlMap;
+    expect(uploadWith['if-no-files-found'], 'error');
+    expect(
+      uploadWith['path'].toString(),
+      allOf(
+        contains('artifacts/database-evidence/**'),
+        contains('coverage/edge-function-tests.junit.xml'),
+      ),
+    );
+  });
+
+  test(
+    'Linux integration has per-file and total budgets below the job cap',
+    () {
+      final String runner = read('scripts/run_linux_integration_tests.sh');
+      expect(runner, contains('shopt -s nullglob globstar'));
+      expect(runner, contains('integration_test/**/*_test.dart'));
+      expect(runner, contains(r'CHRONOSPARK_INTEGRATION_TIMEOUT_SECONDS:-600'));
+      expect(
+        runner,
+        contains(r'CHRONOSPARK_INTEGRATION_TOTAL_TIMEOUT_SECONDS:-1800'),
+      );
+      expect(runner, contains(r'remaining_seconds=$((total_timeout_seconds'));
+      expect(
+        runner,
+        contains(r'--timeout-seconds "$effective_timeout_seconds"'),
+      );
+    },
+  );
+
+  test('coverage policy recursively counts app and host integration tests', () {
+    final String guard = read('scripts/coverage_guard.ps1');
+    expect(
+      RegExp(
+        r"Get-ChildItem -Path \$appIntegrationTestsPath .* -Recurse",
+      ).hasMatch(guard),
+      isTrue,
+    );
+    expect(
+      RegExp(
+        r"Get-ChildItem -Path \$hostIntegrationTestsPath .* -Recurse",
+      ).hasMatch(guard),
+      isTrue,
+    );
+  });
+
+  test('golden updates run independently on Linux and Windows', () {
+    final YamlMap updateJob = job(
+      workflow('update-goldens.yml'),
+      'update-goldens',
+    );
+    final YamlMap strategy = updateJob['strategy'] as YamlMap;
+    final YamlList include =
+        (strategy['matrix'] as YamlMap)['include'] as YamlList;
+    expect(
+      include
+          .whereType<YamlMap>()
+          .map((YamlMap entry) => entry['runner'])
+          .toSet(),
+      <Object?>{'ubuntu-24.04', 'windows-2022'},
+    );
+    expect(updateJob['runs-on'], r'${{ matrix.runner }}');
+    final YamlMap updateCheckout = namedStep(updateJob, 'Checkout');
+    expect((updateCheckout['with'] as YamlMap)['ref'], r'${{ github.sha }}');
+    final YamlMap provenance = namedStep(
+      updateJob,
+      'Record exact checked-out source',
+    );
+    expect(provenance['run'], contains(r'git rev-parse HEAD'));
+    expect(
+      provenance['run'],
+      contains(r'$actualCommit -cne $env:RUN_CONTEXT_SHA'),
+    );
+    expect(provenance['run'], contains('actualCommit = \$actualCommit'));
+    expect(
+      namedStep(updateJob, 'Verify dependency lock is unchanged')['run'],
+      'git diff --exit-code -- pubspec.lock',
+    );
+    final YamlMap upload = namedStep(
+      updateJob,
+      'Upload golden update for review',
+    );
+    expect(
+      (upload['with'] as YamlMap)['name'],
+      contains(r'${{ matrix.platform }}'),
+    );
+    expect(
+      (upload['with'] as YamlMap)['path'].toString(),
+      contains('exact-commit.json'),
+    );
+  });
+
+  test('extended Dart validation delegates to canonical CI', () {
+    final YamlMap canonical = job(workflow('dart.yml'), 'canonical-ci');
+    expect(canonical['uses'], './.github/workflows/ci.yml');
+    expect(canonical.containsKey('steps'), isFalse);
   });
 
   test(
@@ -235,12 +386,12 @@ void main() {
       containsAll(<String>{
         'android-release.yml:build-aab',
         'android-release.yml:publish-release',
-        'dart.yml:build',
         'linux-release.yml:build-and-release',
-        'maestro-runtime.yml:runtime',
         'main.yml:deploy',
       }),
     );
+    expect(protectedJobs, isNot(contains('dart.yml:canonical-ci')));
+    expect(protectedJobs, isNot(contains('maestro-runtime.yml:runtime')));
   });
 
   test(
@@ -249,26 +400,31 @@ void main() {
       final YamlMap android = workflow('android-release.yml');
       final YamlMap quality = job(android, 'quality-gate');
       final YamlMap database = job(android, 'database-gate');
+      final YamlMap runtime = job(android, 'runtime-gate');
       final YamlMap build = job(android, 'build-aab');
       final YamlMap publish = job(android, 'publish-release');
       expect(quality['uses'], './.github/workflows/ci.yml');
       expect(database['uses'], './.github/workflows/supabase-database.yml');
+      expect(runtime['uses'], './.github/workflows/maestro-runtime.yml');
       expect((build['needs'] as YamlList).toSet(), <Object?>{
         'quality-gate',
         'database-gate',
+        'runtime-gate',
       });
       expect(publish['needs'], 'build-aab');
       expect(environmentName(build), 'production');
       expect(environmentName(publish), 'production');
 
       final List<YamlMap> buildSteps = steps(build);
+      expect(commands(build), isNot(contains(formatCommand)));
+      expect(commands(build), isNot(contains(fatalAnalyzeCommand)));
+      expect(commands(build), isNot(contains(edgeFunctionGateCommand)));
       expect(
-        commands(build),
-        containsAll(<String>[
-          formatCommand,
-          fatalAnalyzeCommand,
-          edgeFunctionGateCommand,
-        ]),
+        commands(
+          build,
+        ).where((String value) => value.startsWith('flutter test')),
+        isEmpty,
+        reason: 'The exact-SHA quality gate owns generic test execution.',
       );
       final YamlMap checkout = buildSteps.singleWhere(
         (YamlMap step) =>
@@ -368,9 +524,12 @@ void main() {
     final YamlMap pages = workflow('main.yml');
     final YamlMap triggers = pages['on'] as YamlMap;
     final YamlMap push = triggers['push'] as YamlMap;
+    final YamlMap pullRequest = triggers['pull_request'] as YamlMap;
     expect((push['branches'] as YamlList), contains('main'));
     expect((push['paths'] as YamlList), contains('site/**'));
     expect((push['paths'] as YamlList), contains('web/delete-account/**'));
+    expect((pullRequest['branches'] as YamlList), contains('main'));
+    expect(pullRequest.containsKey('paths'), isFalse);
 
     final YamlMap build = job(pages, 'build');
     final YamlMap deploy = job(pages, 'deploy');
@@ -390,13 +549,24 @@ void main() {
     expect(buildCommands, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
   });
 
-  test('actionlint knows the legitimate self-hosted labels', () {
-    final YamlMap config = loadYaml(read('.github/actionlint.yaml')) as YamlMap;
-    final YamlMap runner = config['self-hosted-runner'] as YamlMap;
-    expect(
-      runner['labels'] as YamlList,
-      containsAll(<String>['android', 'maestro']),
+  test('actionlint is checksum pinned and runs automatically', () {
+    final YamlMap staticJob = job(workflow('ci.yml'), 'static-policy');
+    final YamlMap install = namedStep(
+      staticJob,
+      'Install checksum-verified actionlint',
     );
+    final YamlMap installEnvironment = install['env'] as YamlMap;
+    expect(installEnvironment['ACTIONLINT_VERSION'], '1.7.12');
+    expect(
+      installEnvironment['ACTIONLINT_ARCHIVE_SHA256'],
+      matches(RegExp(r'^[0-9a-f]{64}$')),
+    );
+    expect(install['run'], contains('sha256sum --check --strict'));
+    expect(
+      namedStep(staticJob, 'Lint GitHub Actions workflows')['run'],
+      r'$ACTIONLINT -no-color',
+    );
+    expect(File('.github/workflows/jekyll-docker.yml').existsSync(), isFalse);
   });
 
   test('local secret guards cover the whole repository and fail closed', () {
@@ -484,23 +654,54 @@ void main() {
     );
   });
 
-  test('runtime and golden workflows remain evidence-only', () {
+  test('runtime workflow builds exact source and goldens retain failures', () {
     final YamlMap maestro = job(workflow('maestro-runtime.yml'), 'runtime');
     final YamlMap goldens = job(
       workflow('update-goldens.yml'),
       'update-goldens',
     );
-    expect(goldens['runs-on'], 'ubuntu-24.04');
+    expect(goldens['runs-on'], r'${{ matrix.runner }}');
+    expect(maestro['runs-on'], 'ubuntu-24.04');
+    final YamlMap runtimeWorkflow = workflow('maestro-runtime.yml');
+    final YamlMap runtimeTriggers = runtimeWorkflow['on'] as YamlMap;
+    expect(runtimeTriggers.containsKey('workflow_call'), isTrue);
     expect(
-      maestro['runs-on'] as YamlList,
-      containsAll(<String>['self-hosted', 'android', 'maestro']),
+      (runtimeTriggers['push'] as YamlMap)['branches'] as YamlList,
+      <Object?>['main'],
+    );
+    final YamlMap emulatorStep = steps(maestro).singleWhere(
+      (YamlMap step) =>
+          step['uses']?.toString().toLowerCase().startsWith(
+            'reactivecircus/android-emulator-runner@',
+          ) ==
+          true,
+    );
+    final String runtimeScript = (emulatorStep['with'] as YamlMap)['script']
+        .toString();
+    expect(runtimeScript, contains('run_maestro_android_evidence.ps1'));
+    expect(runtimeScript, contains('-DeviceSerial emulator-5554'));
+    expect(runtimeScript, contains(r'-ExpectedCommit "${{ github.sha }}"'));
+    final YamlMap runtimeEvidence = namedStep(
+      maestro,
+      'Verify source-bound Maestro evidence',
+    );
+    expect(runtimeEvidence['if'], 'always()');
+    expect(
+      runtimeEvidence['run'],
+      contains("manifest.get('apk', {}).get('builtFromCheckout') is not True"),
     );
     expect(
-      steps(
-        maestro,
-      ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n'),
-      isNot(contains('flutter build')),
+      runtimeEvidence['run'],
+      contains("junit['testCases'] != len(flows)"),
     );
+    final YamlMap runtimeUpload = namedStep(
+      maestro,
+      'Upload complete Maestro evidence',
+    );
+    expect(runtimeUpload['if'], 'always()');
+    expect((runtimeUpload['with'] as YamlMap)['if-no-files-found'], 'error');
+    expect(maestro['timeout-minutes'], 85);
+    expect(runtimeUpload['timeout-minutes'], 5);
     expect(
       steps(
         goldens,
@@ -511,6 +712,35 @@ void main() {
       namedStep(goldens, 'Verify golden comparison contract')['run'],
       './scripts/golden_assertion_guard.ps1',
     );
-    expect(namedStep(goldens, 'Upload golden update for review'), isNotNull);
+    expect(
+      namedStep(goldens, 'Capture candidate golden diff')['if'],
+      'always()',
+    );
+    final YamlMap goldenUpload = namedStep(
+      goldens,
+      'Upload golden update for review',
+    );
+    expect(goldenUpload['if'], 'always()');
+    expect((goldenUpload['with'] as YamlMap)['if-no-files-found'], 'error');
+    expect(
+      (goldenUpload['with'] as YamlMap)['path'].toString(),
+      contains('test/**/failures/**'),
+    );
+  });
+
+  test('PR policy authorizes the immutable PR author identity', () {
+    final YamlMap policy = job(
+      workflow('pr-policy.yml'),
+      'enforce-maintainer-only',
+    );
+    final YamlMap step = namedStep(policy, 'Enforce maintainer-only PR policy');
+    final YamlMap environment = step['env'] as YamlMap;
+    expect(environment['ALLOWED_PR_AUTHOR_ID'].toString(), '294620552');
+    expect(
+      environment['PR_AUTHOR_ID'],
+      r'${{ github.event.pull_request.user.id }}',
+    );
+    expect(step['run'], contains(r'$PR_AUTHOR_ID'));
+    expect(step['run'], isNot(contains('github.triggering_actor')));
   });
 }

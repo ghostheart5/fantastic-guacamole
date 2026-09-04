@@ -1,74 +1,144 @@
 name: Maestro Runtime Gate
 
 on:
+  workflow_call:
+  push:
+    branches: ["main"]
   workflow_dispatch:
-    inputs:
-      flow_glob:
-        description: 'Flow or directory to execute (for example .maestro/flows)'
-        required: false
-        default: '.maestro/flows'
-      allow_destructive:
-        description: 'Allow flows tagged destructive (requires the exact confirmation below)'
-        required: false
-        type: boolean
-        default: false
-      destructive_confirmation:
-        description: 'For destructive execution only, type: DELETE DISPOSABLE ACCOUNT'
-        required: false
-        default: ''
 
 permissions:
   contents: read
 
+concurrency:
+  group: maestro-runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   runtime:
-    # This gate is intentionally separate from source CI. It requires a
-    # maintainer-provided self-hosted runner with a prepared app/device and
-    # never builds or publishes an APK/AAB.
-    runs-on: [self-hosted, android, maestro]
-    timeout-minutes: 45
-    environment: production
+    name: Exact-build QA smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
     steps:
-      - name: Checkout flow definitions
+      - name: Checkout exact source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify runtime prerequisites
-        shell: bash
+      - name: Verify exact source commit
         run: |
-          command -v maestro
-          command -v adb
-          adb get-state | grep -q '^device$'
-          maestro --version
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
 
-      - name: Execute approved Maestro flows
-        shell: bash
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+
+      - name: Create safe local configuration asset
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        timeout-minutes: 10
+        run: flutter pub get
+
+      - name: Ensure dependency lockfile is reproducible
+        run: git diff --exit-code -- pubspec.lock
+
+      - name: Install checksum-verified Maestro CLI
+        timeout-minutes: 5
         env:
-          FLOW_GLOB: ${{ inputs.flow_glob }}
-          ALLOW_DESTRUCTIVE: ${{ inputs.allow_destructive }}
-          DESTRUCTIVE_CONFIRMATION: ${{ inputs.destructive_confirmation }}
-          MAESTRO_TEST_EMAIL: ${{ secrets.MAESTRO_TEST_EMAIL }}
-          MAESTRO_TEST_PASSWORD: ${{ secrets.MAESTRO_TEST_PASSWORD }}
-          MAESTRO_SIGNUP_EMAIL: ${{ secrets.MAESTRO_SIGNUP_EMAIL }}
-          MAESTRO_SIGNUP_PASSWORD: ${{ secrets.MAESTRO_SIGNUP_PASSWORD }}
+          MAESTRO_VERSION: '2.10.0'
+          MAESTRO_ARCHIVE_SHA256: '29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991'
         run: |
-          mkdir -p artifacts/maestro
-          args=(test "$FLOW_GLOB" --format junit --output artifacts/maestro/results.xml)
-          if [[ "$ALLOW_DESTRUCTIVE" == "true" ]]; then
-            if [[ "$DESTRUCTIVE_CONFIRMATION" != "DELETE DISPOSABLE ACCOUNT" ]]; then
-              echo "::error::Destructive execution requires the exact disposable-account confirmation."
-              exit 1
-            fi
-          else
-            args+=(--exclude-tags destructive)
-          fi
-          maestro "${args[@]}"
+          set -euo pipefail
+          archive="$RUNNER_TEMP/maestro.zip"
+          install_root="$RUNNER_TEMP/maestro-cli"
+          curl --fail --location --silent --show-error \
+            "https://github.com/mobile-dev-inc/Maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip" \
+            --output "$archive"
+          echo "${MAESTRO_ARCHIVE_SHA256}  ${archive}" | sha256sum --check --strict
+          unzip -q "$archive" -d "$install_root"
+          chmod +x "$install_root/maestro/bin/maestro"
+          echo "$install_root/maestro/bin" >> "$GITHUB_PATH"
+          "$install_root/maestro/bin/maestro" --version
 
-      - name: Upload Maestro evidence
+      - name: Build, install, and execute exact-source QA smoke
+        timeout-minutes: 50
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          heap-size: 512M
+          emulator-port: 5554
+          disable-animations: true
+          disable-spellchecker: true
+          script: >-
+            pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1
+            -Suite qa-smoke
+            -BuildProfile qa
+            -DeviceSerial emulator-5554
+            -ExpectedCommit "${{ github.sha }}"
+            -ArtifactsRoot artifacts/maestro-ci
+
+      - name: Verify source-bound Maestro evidence
         if: always()
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifests = list(Path('artifacts/maestro-ci').glob('*/manifest.json'))
+          if len(manifests) != 1:
+              raise SystemExit(f'::error::Expected one Maestro manifest, found {len(manifests)}.')
+          manifest = json.loads(manifests[0].read_text(encoding='utf-8-sig'))
+          if manifest.get('git', {}).get('commit') != os.environ['EXPECTED_COMMIT']:
+              raise SystemExit('::error::Maestro manifest does not match the workflow commit.')
+          if manifest.get('git', {}).get('dirty'):
+              raise SystemExit('::error::Maestro evidence was produced from a dirty checkout.')
+          if manifest.get('status') != 'passed':
+              raise SystemExit('::error::Maestro evidence manifest did not pass.')
+          if manifest.get('apk', {}).get('builtFromCheckout') is not True:
+              raise SystemExit('::error::Hosted Maestro evidence must use an APK built from the checkout.')
+          flows = manifest.get('flows')
+          if not isinstance(flows, list) or not flows:
+              raise SystemExit('::error::Maestro evidence contains no selected flows.')
+          junit = manifest.get('junit', {})
+          if not isinstance(junit.get('testCases'), int) or junit['testCases'] <= 0:
+              raise SystemExit('::error::Maestro JUnit evidence contains zero tests.')
+          if junit['testCases'] != len(flows) or junit.get('testCaseCountMatchesFlows') is not True:
+              raise SystemExit('::error::Maestro JUnit testcase count does not match selected flows.')
+          logcat = manifest.get('logcatCapture', {})
+          if (logcat.get('status') != 'passed' or logcat.get('aliveThroughRun') is not True or
+                  not isinstance(logcat.get('outputBytes'), int) or logcat['outputBytes'] <= 0 or
+                  logcat.get('stderrBytes') != 0):
+              raise SystemExit('::error::Maestro Logcat capture evidence is incomplete.')
+          if (junit.get('failures') != 0 or junit.get('errors') != 0 or
+                  junit.get('skipped') != 0 or junit.get('status') != 'passed'):
+              raise SystemExit('::error::Maestro JUnit evidence is not a complete passing run.')
+          PY
+
+      - name: Upload complete Maestro evidence
+        if: always()
+        timeout-minutes: 5
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-maestro-${{ github.run_id }}
-          if-no-files-found: warn
-          path: artifacts/maestro/results.xml
+          name: chronospark-maestro-${{ github.sha }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 30
+          path: artifacts/maestro-ci/**

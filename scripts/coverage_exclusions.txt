@@ -1,0 +1,75 @@
+# Reviewed LCOV exclusions.
+#
+# Every entry must name one existing lib/*.dart file whose source has no
+# executable lines. Do not add implementation files merely because tests do
+# not currently load them: coverage_guard.ps1 fails closed on those omissions.
+
+# Library/barrel and empty part declarations.
+lib/app/startup/app_bootstrap.dart
+lib/domain/domain.dart
+lib/engine/assistant/assistant_models.dart
+lib/engine/learning/learning_state.dart
+lib/engine/si/api.dart
+lib/features/settings/ui/settings_screen.sections.dart
+lib/state/app_state.dart
+lib/state/controllers/controllers.dart
+lib/state/providers/providers.dart
+lib/state/services/services.dart
+lib/state/state/emotional_state.dart
+lib/theme/theme.dart
+lib/ui/widgets/widgets.dart
+
+# Abstract interface declarations.
+lib/domain/interfaces/i_calendar_repository.dart
+lib/domain/interfaces/i_decision_outcome_repository.dart
+lib/domain/interfaces/i_entitlement_repository.dart
+lib/domain/interfaces/i_extended_domain_repository.dart
+lib/domain/interfaces/i_goal_repository.dart
+lib/domain/interfaces/i_habit_occurrence_repository.dart
+lib/domain/interfaces/i_habit_repository.dart
+lib/domain/interfaces/i_identity_repository.dart
+lib/domain/interfaces/i_learning_repository.dart
+lib/domain/interfaces/i_log_repository.dart
+lib/domain/interfaces/i_milestone_repository.dart
+lib/domain/interfaces/i_note_repository.dart
+lib/domain/interfaces/i_notification_repository.dart
+lib/domain/interfaces/i_onboarding_preferences_repository.dart
+lib/domain/interfaces/i_paywall_repository.dart
+lib/domain/interfaces/i_plan_repository.dart
+lib/domain/interfaces/i_profile_repository.dart
+lib/domain/interfaces/i_progression_repository.dart
+lib/domain/interfaces/i_project_repository.dart
+lib/domain/interfaces/i_routine_repository.dart
+lib/domain/interfaces/i_settings_repository.dart
+lib/domain/interfaces/i_si_repository.dart
+lib/domain/interfaces/i_signal_repository.dart
+lib/domain/interfaces/i_subscription_repository.dart
+lib/domain/interfaces/i_subtask_repository.dart
+lib/domain/interfaces/i_task_repository.dart
+lib/domain/interfaces/i_theme_repository.dart
+lib/domain/interfaces/i_timeline_repository.dart
+lib/domain/interfaces/i_trajectory_forecast_ledger_repository.dart
+lib/domain/interfaces/i_workspace_repository.dart
+lib/domain/operating_system/i_operating_continuity_repository.dart
+lib/domain/ports/i_adaptive_plan_generator.dart
+lib/domain/ports/i_assistant_context_builder.dart
+lib/domain/ports/i_task_ranker.dart
+lib/domain/ports/notification_scheduler_port.dart
+lib/engine/assistant/assistant_interfaces.dart
+
+# Enum and compile-time constant declarations.
+lib/app/app_view.dart
+lib/app/router/route_paths.dart
+lib/data/storage/storage_keys.dart
+lib/domain/entities/emotional_state.dart
+lib/domain/entities/recurrence_rule.dart
+lib/domain/models/chronospark_feature_id.dart
+lib/domain/models/deep_link_mode.dart
+lib/features/onboarding/domain/onboarding_content_contract.dart
+lib/theme/colors.dart
+lib/theme/radii.dart
+lib/theme/shadows.dart
+lib/ui/constants/app_assets.dart
+lib/ui/constants/app_colors.dart
+lib/ui/constants/app_sizes.dart
+lib/ui/constants/app_urls.dart

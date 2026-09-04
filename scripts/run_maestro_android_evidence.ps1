@@ -17,6 +17,9 @@ param(
     [string]$ExpectedCommit,
     [string]$ExpectedApkSha256,
     [string]$PackageName = 'com.ghostheart5.chronospark',
+    [ValidateRange(1, 3600)]
+    [int]$ExecutionTimeoutSeconds = 900,
+    [string]$ValidateJUnitOnlyPath,
     [string]$ArtifactsRoot = 'artifacts/maestro'
 )
 
@@ -53,22 +56,23 @@ function Invoke-NativeLogged {
         [string[]]$Arguments,
         [Parameter(Mandatory)]
         [string]$LogPath,
-        [string]$FailureMessage = 'Native command failed.'
+        [string]$FailureMessage = 'Native command failed.',
+        [ValidateRange(1, 3600)]
+        [int]$TimeoutSeconds = 120
     )
 
-    $previousPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        & $Executable @Arguments *>&1 | Tee-Object -FilePath $LogPath
-        $exitCode = $LASTEXITCODE
+    $result = Invoke-NativeTimedLogged `
+        -Executable $Executable `
+        -Arguments $Arguments `
+        -LogPath $LogPath `
+        -TimeoutSeconds $TimeoutSeconds
+    if ($result.TimedOut) {
+        throw "$FailureMessage Timed out after $TimeoutSeconds seconds. Log: $LogPath"
     }
-    finally {
-        $ErrorActionPreference = $previousPreference
+    if ($result.ExitCode -ne 0) {
+        throw "$FailureMessage Exit code: $($result.ExitCode). Log: $LogPath"
     }
-
-    if ($exitCode -ne 0) {
-        throw "$FailureMessage Exit code: $exitCode. Log: $LogPath"
-    }
+    return $result
 }
 
 function Get-SelectedFlows {
@@ -137,6 +141,269 @@ function ConvertTo-SanitizedLog {
     }
 }
 
+function Stop-NativeProcessTree {
+    param([Parameter(Mandatory)][System.Diagnostics.Process]$Process)
+
+    $isWindowsHost = $env:OS -eq 'Windows_NT'
+    $isWindowsVariable = Get-Variable -Name IsWindows -ErrorAction SilentlyContinue
+    if ($isWindowsVariable) {
+        $isWindowsHost = [bool]$isWindowsVariable.Value
+    }
+    if ($isWindowsHost) {
+        $killer = [System.Diagnostics.Process]::new()
+        try {
+            $killer.StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+            $killer.StartInfo.FileName = 'taskkill.exe'
+            $killer.StartInfo.Arguments = "/PID $($Process.Id) /T /F"
+            $killer.StartInfo.UseShellExecute = $false
+            $killer.StartInfo.CreateNoWindow = $true
+            if ($killer.Start() -and -not $killer.WaitForExit(5000)) {
+                $killer.Kill()
+                [void]$killer.WaitForExit(2000)
+            }
+        }
+        catch {
+            # The direct process kill below remains the bounded fallback.
+        }
+        finally {
+            $killer.Dispose()
+        }
+    }
+    else {
+        try { $Process.Kill($true) } catch { $Process.Kill() }
+    }
+    if (-not $Process.HasExited) {
+        Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-NativeTimedLogged {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Executable,
+        [Parameter(Mandatory)]
+        [string[]]$Arguments,
+        [Parameter(Mandatory)]
+        [string]$LogPath,
+        [ValidateRange(1, 3600)]
+        [int]$TimeoutSeconds
+    )
+
+    $process = $null
+    try {
+        $powerShellPath = (Get-Process -Id $PID).Path
+        $payloadJson = [ordered]@{
+            executable = $Executable
+            arguments = @($Arguments)
+        } | ConvertTo-Json -Compress
+        $payloadBase64 = [Convert]::ToBase64String(
+            [System.Text.Encoding]::UTF8.GetBytes($payloadJson)
+        )
+        $invokeCommand = @"
+`$payloadJson = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$payloadBase64'))
+`$payload = `$payloadJson | ConvertFrom-Json
+`$target = [string]`$payload.executable
+`$targetArguments = @(`$payload.arguments | ForEach-Object { [string]`$_ })
+& `$target @targetArguments
+exit `$LASTEXITCODE
+"@
+        $encodedCommand = [Convert]::ToBase64String(
+            [System.Text.Encoding]::Unicode.GetBytes($invokeCommand)
+        )
+        $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+        $startInfo.FileName = $powerShellPath
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        $startInfo.Arguments = "-NoProfile -NonInteractive -EncodedCommand $encodedCommand"
+
+        $process = [System.Diagnostics.Process]::new()
+        $process.StartInfo = $startInfo
+        if (-not $process.Start()) {
+            throw "Unable to start native command: $Executable"
+        }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $completed = $process.WaitForExit($TimeoutSeconds * 1000)
+        if (-not $completed) {
+            Stop-NativeProcessTree -Process $process
+            if (-not $process.WaitForExit(5000)) {
+                throw "Timed-out native command could not be terminated: $Executable"
+            }
+        }
+        else {
+            $process.WaitForExit()
+        }
+        if (-not $stdoutTask.Wait(5000) -or -not $stderrTask.Wait(5000)) {
+            throw "Native command output pipes did not close after termination: $Executable"
+        }
+        $stdout = $stdoutTask.Result
+        $stderr = $stderrTask.Result
+        $combined = @($stdout, $stderr) | Where-Object { -not [string]::IsNullOrEmpty($_) }
+        [System.IO.File]::WriteAllText(
+            $LogPath,
+            ($combined -join [Environment]::NewLine),
+            [System.Text.UTF8Encoding]::new($false)
+        )
+
+        return [pscustomobject]@{
+            ExitCode = if ($completed) { $process.ExitCode } else { -1 }
+            TimedOut = -not $completed
+            Output = @(
+                $combined |
+                    ForEach-Object { $_ -split '\r?\n' } |
+                    Where-Object { $_ -ne '' }
+            )
+        }
+    }
+    finally {
+        if ($process) {
+            $process.Dispose()
+        }
+    }
+}
+
+function Get-MaestroJUnitSummary {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $failed = {
+        param([string]$Reason)
+        return [pscustomobject]@{
+            TerminalParsed = $false
+            Status = 'failed'
+            TestCases = 0
+            Failures = 0
+            Errors = 0
+            Skipped = 0
+            FailureReason = $Reason
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return & $failed 'missing-junit'
+    }
+    $raw = Get-Content -LiteralPath $Path -Raw
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+        return & $failed 'empty-junit'
+    }
+
+    try {
+        [xml]$document = $raw
+    }
+    catch {
+        return & $failed 'invalid-junit-xml'
+    }
+
+    if ($document.DocumentElement.LocalName -notin @('testsuite', 'testsuites')) {
+        return & $failed 'invalid-junit-root'
+    }
+
+    $testCases = @($document.SelectNodes("//*[local-name()='testcase']"))
+    $actualFailures = @($document.SelectNodes("//*[local-name()='testcase']/*[local-name()='failure']")).Count
+    $actualErrors = @($document.SelectNodes("//*[local-name()='testcase']/*[local-name()='error']")).Count
+    $actualSkipped = @($document.SelectNodes("//*[local-name()='testcase']/*[local-name()='skipped']")).Count
+    $suiteNodes = @($document.SelectNodes("//*[local-name()='testsuite' or local-name()='testsuites']"))
+
+    $invalidMetric = $false
+    foreach ($suiteNode in $suiteNodes) {
+        foreach ($metric in @('tests', 'failures', 'errors', 'skipped')) {
+            $attribute = $suiteNode.Attributes[$metric]
+            $value = 0
+            if ($attribute -and
+                (-not [int]::TryParse($attribute.Value, [ref]$value) -or $value -lt 0)) {
+                $invalidMetric = $true
+            }
+        }
+    }
+
+    if ($invalidMetric) {
+        return [pscustomobject]@{
+            TerminalParsed = $true
+            Status = 'failed'
+            TestCases = $testCases.Count
+            Failures = $actualFailures
+            Errors = $actualErrors
+            Skipped = $actualSkipped
+            FailureReason = 'invalid-junit-count'
+        }
+    }
+
+    $leafSuiteNodes = @($document.SelectNodes(
+        "//*[local-name()='testsuite' and not(.//*[local-name()='testsuite'])]"
+    ))
+    $getDeclaredTotals = {
+        param([string]$Metric)
+
+        $totals = [System.Collections.Generic.List[int]]::new()
+        $rootAttribute = $document.DocumentElement.Attributes[$Metric]
+        if ($rootAttribute) {
+            $totals.Add([int]$rootAttribute.Value)
+        }
+        $leafAttributes = @($leafSuiteNodes | ForEach-Object {
+            if ($_.Attributes[$Metric]) {
+                $_.Attributes[$Metric]
+            }
+        })
+        if ($leafAttributes.Count -gt 0) {
+            $leafTotal = ($leafAttributes |
+                ForEach-Object { [int]$_.Value } |
+                Measure-Object -Sum).Sum
+            $totals.Add([int]$leafTotal)
+        }
+        return @($totals)
+    }
+
+    $declaredTestTotals = @(& $getDeclaredTotals 'tests')
+    $testCountMismatch = @($declaredTestTotals | Where-Object {
+        $_ -ne $testCases.Count
+    }).Count -gt 0
+    $declaredFailureTotals = @(& $getDeclaredTotals 'failures')
+    $declaredErrorTotals = @(& $getDeclaredTotals 'errors')
+    $declaredSkippedTotals = @(& $getDeclaredTotals 'skipped')
+    $failures = @($actualFailures) + $declaredFailureTotals |
+        Measure-Object -Maximum |
+        Select-Object -ExpandProperty Maximum
+    $errors = @($actualErrors) + $declaredErrorTotals |
+        Measure-Object -Maximum |
+        Select-Object -ExpandProperty Maximum
+    $skipped = @($actualSkipped) + $declaredSkippedTotals |
+        Measure-Object -Maximum |
+        Select-Object -ExpandProperty Maximum
+
+    $failureReason = if ($testCountMismatch) {
+        'junit-test-count-mismatch'
+    }
+    elseif ($testCases.Count -eq 0) {
+        'zero-testcases'
+    }
+    elseif ($failures -gt 0 -or $errors -gt 0 -or $skipped -gt 0) {
+        'non-passing-testcases'
+    }
+    else {
+        $null
+    }
+
+    return [pscustomobject]@{
+        TerminalParsed = $true
+        Status = if ($failureReason) { 'failed' } else { 'passed' }
+        TestCases = $testCases.Count
+        Failures = $failures
+        Errors = $errors
+        Skipped = $skipped
+        FailureReason = $failureReason
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ValidateJUnitOnlyPath)) {
+    $junitValidation = Get-MaestroJUnitSummary -Path $ValidateJUnitOnlyPath
+    $junitValidation | ConvertTo-Json -Depth 3
+    if ($junitValidation.Status -ne 'passed') {
+        exit 1
+    }
+    exit 0
+}
+
 $adbCandidates = @(
     $(if ($env:ANDROID_SDK_ROOT) { Join-Path $env:ANDROID_SDK_ROOT 'platform-tools/adb.exe' }),
     $(if ($env:ANDROID_HOME) { Join-Path $env:ANDROID_HOME 'platform-tools/adb.exe' }),
@@ -192,8 +459,34 @@ if ($missingEnvironment.Count -gt 0) {
     throw "Missing required environment variable(s): $($missingEnvironment -join ', '). Values were not read or printed."
 }
 
-& $adb start-server | Out-Null
-$deviceRows = @(& $adb devices -l | Select-Object -Skip 1 | Where-Object { $_ -match '^\S+\s+device(?:\s|$)' })
+$commit = (& git rev-parse HEAD).Trim()
+$shortCommit = (& git rev-parse --short HEAD).Trim()
+$branch = (& git branch --show-current).Trim()
+$dirtyEntries = @(& git status --porcelain=v1)
+if (-not $AllowDirtyTree -and $dirtyEntries.Count -gt 0) {
+    throw "Maestro evidence requires a clean source snapshot. Found $($dirtyEntries.Count) dirty path(s)."
+}
+if (-not [string]::IsNullOrWhiteSpace($ExpectedCommit) -and $commit -ne $ExpectedCommit.Trim()) {
+    throw "Source commit $commit does not match expected commit $ExpectedCommit."
+}
+$timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$runRoot = Join-Path $ArtifactsRoot "$timestamp-$shortCommit-$Suite"
+$runRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $runRoot))
+New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
+
+[void](Invoke-NativeLogged `
+    -Executable $adb `
+    -Arguments @('start-server') `
+    -LogPath (Join-Path $runRoot 'adb-start-server.log') `
+    -TimeoutSeconds 60 `
+    -FailureMessage 'ADB server startup failed.')
+$devicesResult = Invoke-NativeLogged `
+    -Executable $adb `
+    -Arguments @('devices', '-l') `
+    -LogPath (Join-Path $runRoot 'adb-devices.log') `
+    -TimeoutSeconds 60 `
+    -FailureMessage 'ADB device inventory failed.'
+$deviceRows = @($devicesResult.Output | Select-Object -Skip 1 | Where-Object { $_ -match '^\S+\s+device(?:\s|$)' })
 if ($DeviceSerial) {
     if (-not ($deviceRows | Where-Object { ($_ -split '\s+')[0] -eq $DeviceSerial })) {
         throw "Requested Android device is not connected and authorized: $DeviceSerial"
@@ -211,20 +504,24 @@ else {
     $serial = ($deviceRows[0] -split '\s+')[0]
 }
 
-$commit = (& git rev-parse HEAD).Trim()
-$shortCommit = (& git rev-parse --short HEAD).Trim()
-$branch = (& git branch --show-current).Trim()
-$dirtyEntries = @(& git status --porcelain=v1)
-if (-not $AllowDirtyTree -and $dirtyEntries.Count -gt 0) {
-    throw "Maestro evidence requires a clean source snapshot. Found $($dirtyEntries.Count) dirty path(s)."
-}
-if (-not [string]::IsNullOrWhiteSpace($ExpectedCommit) -and $commit -ne $ExpectedCommit.Trim()) {
-    throw "Source commit $commit does not match expected commit $ExpectedCommit."
-}
-$timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$runRoot = Join-Path $ArtifactsRoot "$timestamp-$shortCommit-$Suite"
-$runRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $runRoot))
-New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
+$deviceModelResult = Invoke-NativeLogged `
+    -Executable $adb `
+    -Arguments @('-s', $serial, 'shell', 'getprop', 'ro.product.model') `
+    -LogPath (Join-Path $runRoot 'adb-device-model.log') `
+    -TimeoutSeconds 30 `
+    -FailureMessage 'ADB device model lookup failed.'
+$androidVersionResult = Invoke-NativeLogged `
+    -Executable $adb `
+    -Arguments @('-s', $serial, 'shell', 'getprop', 'ro.build.version.release') `
+    -LogPath (Join-Path $runRoot 'adb-android-version.log') `
+    -TimeoutSeconds 30 `
+    -FailureMessage 'ADB Android version lookup failed.'
+$androidApiResult = Invoke-NativeLogged `
+    -Executable $adb `
+    -Arguments @('-s', $serial, 'shell', 'getprop', 'ro.build.version.sdk') `
+    -LogPath (Join-Path $runRoot 'adb-android-api.log') `
+    -TimeoutSeconds 30 `
+    -FailureMessage 'ADB Android API lookup failed.'
 
 $preflight = [ordered]@{
     schemaVersion = 1
@@ -235,9 +532,9 @@ $preflight = [ordered]@{
     gitDirty = ($dirtyEntries.Count -gt 0)
     gitDirtyEntryCount = $dirtyEntries.Count
     deviceSerial = $serial
-    deviceModel = (& $adb -s $serial shell getprop ro.product.model).Trim()
-    androidVersion = (& $adb -s $serial shell getprop ro.build.version.release).Trim()
-    androidApi = (& $adb -s $serial shell getprop ro.build.version.sdk).Trim()
+    deviceModel = ($deviceModelResult.Output -join '').Trim()
+    androidVersion = ($androidVersionResult.Output -join '').Trim()
+    androidApi = ($androidApiResult.Output -join '').Trim()
     flows = $flowNames
     destructive = $containsDeletion
     credentialsRequired = @($requiredEnvironment | Sort-Object -Unique)
@@ -255,7 +552,7 @@ Write-Host "Flows: $($flowNames -join ', ')"
 Write-Host "Evidence directory: $runRoot"
 
 $validatorLog = Join-Path $runRoot 'maestro-contract-validation.log'
-Invoke-NativeLogged -Executable $dart -Arguments @('run', 'tool/validate_maestro_flows.dart') -LogPath $validatorLog -FailureMessage 'Maestro contract validation failed.'
+[void](Invoke-NativeLogged -Executable $dart -Arguments @('run', 'tool/validate_maestro_flows.dart') -LogPath $validatorLog -TimeoutSeconds 120 -FailureMessage 'Maestro contract validation failed.')
 
 if ($PreflightOnly) {
     Write-Host 'Preflight and Maestro contract validation completed. No build, install, app launch, or Maestro execution was performed.' -ForegroundColor Green
@@ -286,11 +583,15 @@ if (-not $SkipBuild) {
             $resolvedApk = Join-Path $projectRoot 'build/app/outputs/flutter-apk/app-release.apk'
         }
     }
-    Invoke-NativeLogged -Executable $flutter -Arguments $buildArguments -LogPath $buildLog -FailureMessage 'Flutter APK build failed.'
+    [void](Invoke-NativeLogged -Executable $flutter -Arguments $buildArguments -LogPath $buildLog -TimeoutSeconds 1200 -FailureMessage 'Flutter APK build failed.')
 }
 else {
     if ([string]::IsNullOrWhiteSpace($ApkPath)) {
         throw '-ApkPath is required with -SkipBuild.'
+    }
+    if ([string]::IsNullOrWhiteSpace($ExpectedApkSha256) -or
+        $ExpectedApkSha256.Trim() -notmatch '^[A-Fa-f0-9]{64}$') {
+        throw '-ExpectedApkSha256 is required with -SkipBuild and must be an exact SHA-256.'
     }
     $resolvedApk = if ([System.IO.Path]::IsPathRooted($ApkPath)) {
         [System.IO.Path]::GetFullPath($ApkPath)
@@ -311,21 +612,60 @@ if (-not [string]::IsNullOrWhiteSpace($ExpectedApkSha256) -and
     throw "APK SHA-256 $apkHash does not match expected SHA-256 $ExpectedApkSha256."
 }
 $installLog = Join-Path $runRoot 'adb-install.log'
-Invoke-NativeLogged -Executable $adb -Arguments @('-s', $serial, 'install', '--no-streaming', '-r', '-t', $resolvedApk) -LogPath $installLog -FailureMessage 'ADB APK install failed.'
+[void](Invoke-NativeLogged -Executable $adb -Arguments @('-s', $serial, 'install', '--no-streaming', '-r', '-t', $resolvedApk) -LogPath $installLog -TimeoutSeconds 180 -FailureMessage 'ADB APK install failed.')
 
-$packagePath = @(& $adb -s $serial shell pm path $PackageName)
+$packagePathResult = Invoke-NativeLogged `
+    -Executable $adb `
+    -Arguments @('-s', $serial, 'shell', 'pm', 'path', $PackageName) `
+    -LogPath (Join-Path $runRoot 'adb-package-path.log') `
+    -TimeoutSeconds 30 `
+    -FailureMessage 'ADB installed package path lookup failed.'
+$packagePath = @($packagePathResult.Output)
 if (-not $packagePath -or -not ($packagePath -match '^package:')) {
     throw "Installed package could not be verified: $PackageName"
 }
-$packageDump = @(& $adb -s $serial shell dumpsys package $PackageName)
+$packageDumpResult = Invoke-NativeLogged `
+    -Executable $adb `
+    -Arguments @('-s', $serial, 'shell', 'dumpsys', 'package', $PackageName) `
+    -LogPath (Join-Path $runRoot 'adb-package-dump.log') `
+    -TimeoutSeconds 60 `
+    -FailureMessage 'ADB installed package metadata lookup failed.'
+$packageDump = @($packageDumpResult.Output)
 $versionName = (($packageDump | Select-String 'versionName=' | Select-Object -First 1).Line -replace '^\s*versionName=', '').Trim()
 $versionCodeLine = (($packageDump | Select-String 'versionCode=' | Select-Object -First 1).Line).Trim()
 
+$logcatClearLog = Join-Path $runRoot 'adb-logcat-clear.log'
+[void](Invoke-NativeLogged `
+    -Executable $adb `
+    -Arguments @('-s', $serial, 'logcat', '-c') `
+    -LogPath $logcatClearLog `
+    -TimeoutSeconds 30 `
+    -FailureMessage 'ADB logcat clear failed.')
 $rawLogcat = Join-Path $runRoot 'adb-logcat-raw.log'
 $logcatError = Join-Path $runRoot 'adb-logcat-stderr.log'
-$logcatProcess = Start-Process -FilePath $adb -ArgumentList @('-s', $serial, 'logcat', '-T', '1', '-v', 'threadtime') -RedirectStandardOutput $rawLogcat -RedirectStandardError $logcatError -WindowStyle Hidden -PassThru
+$logcatStartArguments = @{
+    FilePath = $adb
+    ArgumentList = @('-s', $serial, 'logcat', '-v', 'threadtime')
+    RedirectStandardOutput = $rawLogcat
+    RedirectStandardError = $logcatError
+    PassThru = $true
+}
+$isWindowsHost = $env:OS -eq 'Windows_NT'
+$isWindowsVariable = Get-Variable -Name IsWindows -ErrorAction SilentlyContinue
+if ($isWindowsVariable) {
+    $isWindowsHost = [bool]$isWindowsVariable.Value
+}
+if ($isWindowsHost) {
+    $logcatStartArguments.WindowStyle = 'Hidden'
+}
+$logcatProcess = Start-Process @logcatStartArguments
+Start-Sleep -Milliseconds 500
+if ($logcatProcess.HasExited) {
+    throw "ADB logcat capture exited before Maestro started with code $($logcatProcess.ExitCode)."
+}
 
 $maestroLog = Join-Path $runRoot 'maestro-console.log'
+$rawMaestroLog = Join-Path $runRoot 'maestro-console-raw.log'
 $junitPath = Join-Path $runRoot 'maestro-results.xml'
 $maestroDebug = Join-Path $runRoot 'maestro-debug'
 $maestroArtifacts = Join-Path $runRoot 'maestro-artifacts'
@@ -348,28 +688,53 @@ $maestroArguments += $resolvedFlows
 
 $startedAt = (Get-Date).ToUniversalTime()
 $maestroExitCode = 1
-try {
-    $previousPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    & $maestro @maestroArguments *>&1 | Tee-Object -FilePath $maestroLog
-    $maestroExitCode = $LASTEXITCODE
-    $ErrorActionPreference = $previousPreference
-}
-finally {
-    if ($logcatProcess -and -not $logcatProcess.HasExited) {
-        Stop-Process -Id $logcatProcess.Id -Force
-        $logcatProcess.WaitForExit()
-    }
-}
-$finishedAt = (Get-Date).ToUniversalTime()
-
-$sanitizedLogcat = Join-Path $runRoot 'adb-logcat-sanitized.log'
+$maestroTimedOut = $false
+$logcatAliveThroughRun = $false
+$logcatExitCode = $null
 $secretValues = @(
     [Environment]::GetEnvironmentVariable('MAESTRO_TEST_EMAIL'),
     [Environment]::GetEnvironmentVariable('MAESTRO_TEST_PASSWORD'),
     [Environment]::GetEnvironmentVariable('MAESTRO_SIGNUP_EMAIL'),
     [Environment]::GetEnvironmentVariable('MAESTRO_SIGNUP_PASSWORD')
 ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+try {
+    $maestroResult = Invoke-NativeTimedLogged `
+        -Executable $maestro `
+        -Arguments $maestroArguments `
+        -LogPath $rawMaestroLog `
+        -TimeoutSeconds $ExecutionTimeoutSeconds
+    $maestroExitCode = $maestroResult.ExitCode
+    $maestroTimedOut = $maestroResult.TimedOut
+}
+finally {
+    if ($logcatProcess) {
+        $logcatAliveThroughRun = -not $logcatProcess.HasExited
+        if ($logcatAliveThroughRun) {
+            Stop-NativeProcessTree -Process $logcatProcess
+            if (-not $logcatProcess.WaitForExit(5000)) {
+                throw 'ADB logcat capture could not be terminated within 5 seconds.'
+            }
+        }
+        $logcatExitCode = $logcatProcess.ExitCode
+    }
+}
+$finishedAt = (Get-Date).ToUniversalTime()
+
+$rawLogcatBytes = if (Test-Path -LiteralPath $rawLogcat -PathType Leaf) {
+    (Get-Item -LiteralPath $rawLogcat).Length
+} else { 0 }
+$logcatErrorBytes = if (Test-Path -LiteralPath $logcatError -PathType Leaf) {
+    (Get-Item -LiteralPath $logcatError).Length
+} else { 0 }
+$logcatCapturePassed = $logcatAliveThroughRun -and
+    $rawLogcatBytes -gt 0 -and
+    $logcatErrorBytes -eq 0
+
+$junitSummary = Get-MaestroJUnitSummary -Path $junitPath
+ConvertTo-SanitizedLog -Source $rawMaestroLog -Destination $maestroLog -SecretValues $secretValues
+Remove-Item -LiteralPath $rawMaestroLog -Force
+
+$sanitizedLogcat = Join-Path $runRoot 'adb-logcat-sanitized.log'
 ConvertTo-SanitizedLog -Source $rawLogcat -Destination $sanitizedLogcat -SecretValues $secretValues
 
 $fatalPatterns = @(
@@ -396,8 +761,17 @@ if (-not $KeepRawLogcat) {
     Remove-Item -LiteralPath $rawLogcat -Force
 }
 
+$maestroPassed = -not $maestroTimedOut -and
+    $maestroExitCode -eq 0 -and
+    $junitSummary.TerminalParsed -and
+    $junitSummary.Status -eq 'passed' -and
+    $junitSummary.TestCases -eq $resolvedFlows.Count -and
+    $logcatCapturePassed
+$runPassed = $maestroPassed -and $fatalHits.Count -eq 0
+
 $manifest = [ordered]@{
     schemaVersion = 1
+    status = if ($runPassed) { 'passed' } else { 'failed' }
     suite = $Suite
     buildProfile = $BuildProfile
     git = [ordered]@{
@@ -409,6 +783,8 @@ $manifest = [ordered]@{
     apk = [ordered]@{
         path = $resolvedApk
         sha256 = $apkHash
+        builtFromCheckout = (-not [bool]$SkipBuild)
+        externalHashVerified = [bool]$SkipBuild
     }
     installedPackage = [ordered]@{
         name = $PackageName
@@ -428,6 +804,31 @@ $manifest = [ordered]@{
     finishedAt = $finishedAt.ToString('o')
     durationSeconds = [math]::Round(($finishedAt - $startedAt).TotalSeconds, 3)
     maestroExitCode = $maestroExitCode
+    maestro = [ordered]@{
+        status = if ($maestroPassed) { 'passed' } else { 'failed' }
+        exitCode = $maestroExitCode
+        timedOut = $maestroTimedOut
+        executionTimeoutSeconds = $ExecutionTimeoutSeconds
+    }
+    junit = [ordered]@{
+        terminalParsed = $junitSummary.TerminalParsed
+        status = $junitSummary.Status
+        testCases = $junitSummary.TestCases
+        failures = $junitSummary.Failures
+        errors = $junitSummary.Errors
+        skipped = $junitSummary.Skipped
+        expectedTestCases = $resolvedFlows.Count
+        testCaseCountMatchesFlows = ($junitSummary.TestCases -eq $resolvedFlows.Count)
+        failureReason = $junitSummary.FailureReason
+    }
+    logcatCapture = [ordered]@{
+        status = if ($logcatCapturePassed) { 'passed' } else { 'failed' }
+        aliveThroughRun = $logcatAliveThroughRun
+        exitCodeAfterTermination = $logcatExitCode
+        outputBytes = $rawLogcatBytes
+        stderrBytes = $logcatErrorBytes
+        clearLog = $logcatClearLog
+    }
     fatalMarkerCount = $fatalHits.Count
     rawLogcatRetained = [bool]$KeepRawLogcat
     credentialsRecorded = $false
@@ -447,6 +848,8 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -En
 
 Write-Host ''
 Write-Host "Maestro exit code: $maestroExitCode"
+Write-Host "Maestro timed out: $maestroTimedOut (limit: $ExecutionTimeoutSeconds seconds)"
+Write-Host "JUnit: status=$($junitSummary.Status); tests=$($junitSummary.TestCases); failures=$($junitSummary.Failures); errors=$($junitSummary.Errors); skipped=$($junitSummary.Skipped)"
 Write-Host "Fatal marker count: $($fatalHits.Count)"
 Write-Host "APK SHA-256: $apkHash"
 Write-Host "Manifest: $manifestPath"
@@ -455,7 +858,7 @@ if (-not $KeepRawLogcat) {
     Write-Host 'Raw Logcat was removed after sanitization.'
 }
 
-if ($maestroExitCode -ne 0 -or $fatalHits.Count -gt 0) {
+if (-not $runPassed) {
     exit 1
 }
 

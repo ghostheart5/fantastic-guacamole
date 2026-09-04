@@ -27,9 +27,15 @@ final localMetricsAccumulatorProvider = Provider<LocalMetricsAccumulator>(
 final globalAggregationServiceProvider = Provider<GlobalAggregationService>((
   ref,
 ) {
+  final SharedPrefsStore preferences = AccountScopedSharedPrefsStore(
+    delegate: ref.read(sharedPrefsStoreProvider),
+    scope: ref.watch(accountStorageScopeProvider),
+    legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+  );
   return GlobalAggregationService(
     client: ref.read(supabaseClientProvider),
     ensureIdentity: ref.read(identityServiceProvider).ensureIdentity,
+    preferences: preferences,
   );
 });
 

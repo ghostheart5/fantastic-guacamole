@@ -111,19 +111,44 @@ void main() {
     expect(assistantVerifier, isNot(contains('--no-fatal-infos')));
   });
 
-  test('Edge Function gate formats and lints before checks and tests', () {
+  test('Edge Function gate bounds stages and requires JUnit test evidence', () {
     final String gate = File(
       'scripts/edge_function_gate.ps1',
     ).readAsStringSync();
-    final int formatIndex = gate.indexOf('& deno fmt --check');
-    final int lintIndex = gate.indexOf('& deno lint');
-    final int checkIndex = gate.indexOf('& deno check');
-    final int testIndex = gate.indexOf('& deno test');
+    final int formatIndex = gate.indexOf("-Name 'Deno format check'");
+    final int lintIndex = gate.indexOf("-Name 'Deno lint'");
+    final int checkIndex = gate.indexOf(
+      '-Name "Deno type check for \$entrypoint"',
+    );
+    final int testIndex = gate.indexOf("-Name 'Deno test'");
 
     expect(formatIndex, greaterThanOrEqualTo(0));
     expect(lintIndex, greaterThan(formatIndex));
     expect(checkIndex, greaterThan(lintIndex));
     expect(testIndex, greaterThan(checkIndex));
+    expect(gate, contains(r'$process.WaitForExit($TimeoutSeconds * 1000)'));
+    expect(gate, contains(r'timed out after $TimeoutSeconds seconds.'));
+    expect(gate, contains("'--fail-fast=1'"));
+    expect(gate, contains(r'"--junit-path=$resolvedTestReportPath"'));
+    expect(gate, contains(r'[xml]$report = Get-Content'));
+    expect(
+      gate,
+      contains('Deno test completed without the required JUnit report:'),
+    );
+    expect(gate, contains('Deno test JUnit report is incomplete or invalid:'));
+    expect(
+      gate,
+      contains("throw 'Deno test JUnit report contains no test cases.'"),
+    );
+    expect(
+      gate,
+      contains("throw 'Deno test JUnit report contains no completed tests.'"),
+    );
+    expect(
+      gate,
+      contains('Deno test JUnit report records \$(\$failures.Count) failures'),
+    );
+    expect(gate, contains('Deno test completion evidence:'));
     expect(
       gate,
       contains(

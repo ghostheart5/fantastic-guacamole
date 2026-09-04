@@ -36,9 +36,15 @@ node_modules/
 .pub/
 /build/
 /coverage/
+/test-results/
 /artifacts/dependency-audit/
+/artifacts/flutter-test-evidence/
+/artifacts/integration-evidence/
 /artifacts/maestro/
+/artifacts/maestro-ci/
 /artifacts/monkey/
+/artifacts/static-evidence/
+/artifacts/windows-golden-evidence/
 
 # Symbolication related
 app.*.symbols

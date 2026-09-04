@@ -6,6 +6,10 @@ param(
     [string]$ExpectedApkSha256,
     [switch]$AllowConnectedDevice,
     [switch]$AllowDirtyTree,
+    [ValidateRange(1, 300)]
+    [int]$AdbCommandTimeoutSeconds = 30,
+    [ValidateRange(1, 3600)]
+    [int]$VariantTimeoutSeconds = 300,
     [string]$ArtifactsRoot = 'artifacts/monkey'
 )
 
@@ -27,18 +31,110 @@ function Resolve-AdbPath {
     throw 'Android adb.exe was not found.'
 }
 
+function Convert-ToProcessArgument {
+    param([string]$Argument)
+
+    if ([string]::IsNullOrEmpty($Argument)) { return '""' }
+    if ($Argument -notmatch '[\s"]') { return $Argument }
+    return '"' + $Argument.Replace('"', '\"') + '"'
+}
+
+function Stop-NativeProcessTree {
+    param([Parameter(Mandatory)][System.Diagnostics.Process]$Process)
+
+    $isWindowsHost = $env:OS -eq 'Windows_NT'
+    $isWindowsVariable = Get-Variable -Name IsWindows -ErrorAction SilentlyContinue
+    if ($isWindowsVariable) {
+        $isWindowsHost = [bool]$isWindowsVariable.Value
+    }
+    if ($isWindowsHost) {
+        $killer = New-Object System.Diagnostics.Process
+        try {
+            $killer.StartInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $killer.StartInfo.FileName = 'taskkill.exe'
+            $killer.StartInfo.Arguments = "/PID $($Process.Id) /T /F"
+            $killer.StartInfo.UseShellExecute = $false
+            $killer.StartInfo.CreateNoWindow = $true
+            if ($killer.Start()) {
+                if (-not $killer.WaitForExit(5000)) {
+                    $killer.Kill()
+                    [void]$killer.WaitForExit(2000)
+                }
+            }
+        }
+        catch {
+            # The direct process kill below remains the bounded fallback.
+        }
+        finally {
+            $killer.Dispose()
+        }
+    }
+    else {
+        try { $Process.Kill($true) } catch { $Process.Kill() }
+    }
+    if (-not $Process.HasExited) {
+        Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Invoke-Adb {
-    param([Parameter(Mandatory)][string[]]$Arguments)
-    $previousPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
+    param(
+        [Parameter(Mandatory)][string[]]$Arguments,
+        [ValidateRange(1, 3600)][int]$TimeoutSeconds = $AdbCommandTimeoutSeconds
+    )
+
+    $process = New-Object System.Diagnostics.Process
     try {
-        $output = & $script:Adb @Arguments 2>&1
-        $exitCode = $LASTEXITCODE
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = $script:Adb
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        if ($startInfo.PSObject.Properties.Name -contains 'ArgumentList') {
+            foreach ($argument in $Arguments) {
+                $startInfo.ArgumentList.Add($argument)
+            }
+        }
+        else {
+            $startInfo.Arguments = ($Arguments | ForEach-Object {
+                Convert-ToProcessArgument $_
+            }) -join ' '
+        }
+        $process.StartInfo = $startInfo
+        if (-not $process.Start()) {
+            throw 'Unable to start adb.'
+        }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $completed = $process.WaitForExit($TimeoutSeconds * 1000)
+        if (-not $completed) {
+            Stop-NativeProcessTree -Process $process
+            if (-not $process.WaitForExit(5000)) {
+                throw 'Timed-out adb command could not be terminated.'
+            }
+        }
+        else {
+            $process.WaitForExit()
+        }
+        if (-not $stdoutTask.Wait(5000) -or -not $stderrTask.Wait(5000)) {
+            throw 'adb output pipes did not close after command termination.'
+        }
+        $stdout = $stdoutTask.Result
+        $stderr = $stderrTask.Result
+        $output = @($stdout, $stderr) |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { $_ -split '\r?\n' } |
+            Where-Object { $_ -ne '' }
+        return [pscustomobject]@{
+            Output = @($output)
+            ExitCode = if ($completed) { $process.ExitCode } else { -1 }
+            TimedOut = -not $completed
+        }
     }
     finally {
-        $ErrorActionPreference = $previousPreference
+        $process.Dispose()
     }
-    return [pscustomobject]@{ Output = @($output); ExitCode = $exitCode }
 }
 
 function Wait-ForPackageFocus {
@@ -150,7 +246,11 @@ if ([string]::IsNullOrWhiteSpace($serial) -or $serial -eq 'auto') {
     throw 'An explicit emulator serial is required.'
 }
 
-$deviceRows = @(& $script:Adb devices | Select-Object -Skip 1 | Where-Object { $_ -match '\S' })
+$devicesResult = Invoke-Adb -Arguments @('devices')
+if ($devicesResult.ExitCode -ne 0) {
+    throw 'Unable to list connected Android targets.'
+}
+$deviceRows = @($devicesResult.Output | Select-Object -Skip 1 | Where-Object { $_ -match '\S' })
 $selectedRow = @($deviceRows | Where-Object { $_ -match ('^' + [regex]::Escape($serial) + '\s+device(?:\s|$)') })
 if ($selectedRow.Count -ne 1) {
     throw "Selected Android target is not connected and authorized: $serial"
@@ -173,27 +273,25 @@ if ($expectedApi -and $api -ne $expectedApi) {
     throw "Expected Android API $expectedApi but selected target reports API $api."
 }
 
-$packageResult = Invoke-Adb -Arguments @('-s', $serial, 'shell', 'pm', 'path', $packageName)
-if ($packageResult.ExitCode -ne 0 -or -not (($packageResult.Output -join "`n") -match '^package:')) {
-    throw "Package is not installed on ${serial}: $packageName"
+if ([string]::IsNullOrWhiteSpace($ApkPath)) {
+    throw '-ApkPath is required so Monkey evidence is bound to an exact APK.'
 }
-
-$resolvedApk = $null
-$apkHash = $null
-if (-not [string]::IsNullOrWhiteSpace($ApkPath)) {
-    $candidateApk = if ([System.IO.Path]::IsPathRooted($ApkPath)) {
-        $ApkPath
-    } else {
-        Join-Path $projectRoot $ApkPath
-    }
-    if (-not (Test-Path -LiteralPath $candidateApk -PathType Leaf)) {
-        throw "APK evidence file not found: $candidateApk"
-    }
-    $resolvedApk = (Resolve-Path -LiteralPath $candidateApk).Path
-    $apkHash = (Get-FileHash -LiteralPath $resolvedApk -Algorithm SHA256).Hash
-    if ($ExpectedApkSha256 -and $apkHash -ne $ExpectedApkSha256.Trim()) {
-        throw 'APK hash does not match -ExpectedApkSha256.'
-    }
+if ([string]::IsNullOrWhiteSpace($ExpectedApkSha256) -or
+    $ExpectedApkSha256.Trim() -notmatch '^[A-Fa-f0-9]{64}$') {
+    throw '-ExpectedApkSha256 must be the exact 64-character SHA-256 of -ApkPath.'
+}
+$candidateApk = if ([System.IO.Path]::IsPathRooted($ApkPath)) {
+    $ApkPath
+} else {
+    Join-Path $projectRoot $ApkPath
+}
+if (-not (Test-Path -LiteralPath $candidateApk -PathType Leaf)) {
+    throw "APK evidence file not found: $candidateApk"
+}
+$resolvedApk = (Resolve-Path -LiteralPath $candidateApk).Path
+$apkHash = (Get-FileHash -LiteralPath $resolvedApk -Algorithm SHA256).Hash
+if ($apkHash -ne $ExpectedApkSha256.Trim()) {
+    throw 'APK hash does not match -ExpectedApkSha256.'
 }
 
 $commit = (git rev-parse HEAD).Trim()
@@ -202,6 +300,19 @@ $startedAt = (Get-Date).ToUniversalTime()
 $runId = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $commit.Substring(0, 8)
 $runRoot = Join-Path $projectRoot (Join-Path $ArtifactsRoot $runId)
 New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
+
+$installResult = Invoke-Adb `
+    -Arguments @('-s', $serial, 'install', '--no-streaming', '-r', '-t', $resolvedApk) `
+    -TimeoutSeconds 180
+$installLog = Join-Path $runRoot 'adb-install.log'
+@($installResult.Output) | Set-Content -LiteralPath $installLog -Encoding utf8
+if ($installResult.ExitCode -ne 0 -or $installResult.TimedOut) {
+    throw "Exact APK install failed or timed out. Evidence: $installLog"
+}
+$packageResult = Invoke-Adb -Arguments @('-s', $serial, 'shell', 'pm', 'path', $packageName)
+if ($packageResult.ExitCode -ne 0 -or -not (($packageResult.Output -join "`n") -match '^package:')) {
+    throw "Installed package could not be verified on ${serial}: $packageName"
+}
 
 $allowedPercentages = @('touch', 'motion', 'trackball', 'nav', 'majornav', 'syskeys', 'appswitch', 'anyevent')
 $results = [System.Collections.Generic.List[object]]::new()
@@ -245,10 +356,13 @@ foreach ($variant in $variants) {
     }
 
     $variantStart = Get-Date
-    $logcatStart = $variantStart.ToString('MM-dd HH:mm:ss.fff')
     $variantLog = Join-Path $runRoot "$name-monkey.log"
     $runtimeEvidence = Join-Path $runRoot "$name-runtime-evidence.log"
 
+    $logcatClearResult = Invoke-Adb -Arguments @('-s', $serial, 'logcat', '-c')
+    if ($logcatClearResult.ExitCode -ne 0 -or $logcatClearResult.TimedOut) {
+        throw "Unable to clear Logcat before variant '$name'."
+    }
     $stopResult = Invoke-Adb -Arguments @('-s', $serial, 'shell', 'am', 'force-stop', $packageName)
     if ($stopResult.ExitCode -ne 0) {
         throw "Unable to stop the app before variant '$name'."
@@ -275,16 +389,22 @@ foreach ($variant in $variants) {
 
     $stressMonkeyStarted = $startupReadiness.Ready
     $monkeyExitCode = $null
+    $monkeyTimedOut = $false
     if ($stressMonkeyStarted) {
         Write-Host "Running ${name}: seed=$seed events=$events throttle=${throttleMs}ms"
-        $previousPreference = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        try {
-            & $script:Adb @monkeyArgs 2>&1 | Tee-Object -FilePath $variantLog | Out-Null
-            $monkeyExitCode = $LASTEXITCODE
-        }
-        finally {
-            $ErrorActionPreference = $previousPreference
+        $monkeyResult = Invoke-Adb `
+            -Arguments @($monkeyArgs) `
+            -TimeoutSeconds $VariantTimeoutSeconds
+        $monkeyExitCode = $monkeyResult.ExitCode
+        $monkeyTimedOut = $monkeyResult.TimedOut
+        @($monkeyResult.Output) | Set-Content -LiteralPath $variantLog -Encoding utf8
+        if ($monkeyTimedOut) {
+            [void](Invoke-Adb `
+                -Arguments @('-s', $serial, 'shell', 'pkill', '-f', 'com.android.commands.monkey') `
+                -TimeoutSeconds 15)
+            [void](Invoke-Adb `
+                -Arguments @('-s', $serial, 'shell', 'am', 'force-stop', $packageName) `
+                -TimeoutSeconds 15)
         }
     } else {
         @(
@@ -295,7 +415,10 @@ foreach ($variant in $variants) {
         ) | Set-Content -LiteralPath $variantLog -Encoding utf8
     }
 
-    $logcatResult = Invoke-Adb -Arguments @('-s', $serial, 'logcat', '-d', '-v', 'threadtime', '-T', $logcatStart)
+    $logcatResult = Invoke-Adb -Arguments @('-s', $serial, 'logcat', '-d', '-v', 'threadtime')
+    $logcatCollected = $logcatResult.ExitCode -eq 0 -and
+        -not $logcatResult.TimedOut -and
+        @($logcatResult.Output).Count -gt 0
     $logcatText = $logcatResult.Output -join "`n"
     $escapedPackage = [regex]::Escape($packageName)
     $fatalPatterns = @(
@@ -312,28 +435,81 @@ foreach ($variant in $variants) {
         }
     }
     $monkeyText = Get-Content -LiteralPath $variantLog -Raw
+    $injectedEventMatches = [regex]::Matches(
+        $monkeyText,
+        '(?m)^\s*Events injected:\s*(\d+)\s*$'
+    )
+    $injectedEvents = $null
+    $parsedInjectedEvents = 0
+    if ($injectedEventMatches.Count -eq 1 -and
+        [int]::TryParse(
+            $injectedEventMatches[0].Groups[1].Value,
+            [ref]$parsedInjectedEvents
+        )) {
+        $injectedEvents = $parsedInjectedEvents
+    }
+    $eventCountVerified = $injectedEventMatches.Count -eq 1 -and
+        $null -ne $injectedEvents -and
+        $injectedEvents -eq $events
     foreach ($match in [regex]::Matches($monkeyText, "(?im)^.*(?:// CRASH:|// ANR:|System appears to have crashed|Monkey aborted).*$")) {
         $fatalEvidence.Add($match.Value.Trim())
     }
-    if ($fatalEvidence.Count -eq 0) {
+    if (-not $logcatCollected) {
+        "Logcat collection failed with exit code $($logcatResult.ExitCode)." |
+            Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
+    } elseif ($fatalEvidence.Count -eq 0) {
         'No ChronoSpark crash or ANR markers found.' | Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
     } else {
         $fatalEvidence | Select-Object -Unique | Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
     }
 
-    $relaunchResult = Invoke-Adb -Arguments @(
-        '-s', $serial, 'shell', 'monkey', '-p', $packageName,
-        '-c', 'android.intent.category.LAUNCHER', '1'
+    $relaunchStopResult = Invoke-Adb -Arguments @(
+        '-s', $serial, 'shell', 'am', 'force-stop', $packageName
     )
-    $pidResult = Invoke-Adb -Arguments @('-s', $serial, 'shell', 'pidof', $packageName)
-    $relaunchSucceeded = $relaunchResult.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace(($pidResult.Output -join '').Trim())
-    $passed = $startupReadiness.Ready -and $monkeyExitCode -eq 0 -and $fatalEvidence.Count -eq 0 -and $relaunchSucceeded
+    $postStopPidResult = Invoke-Adb -Arguments @(
+        '-s', $serial, 'shell', 'pidof', $packageName
+    )
+    $postStopPid = ($postStopPidResult.Output -join '').Trim()
+    $relaunchProcessAbsent = $relaunchStopResult.ExitCode -eq 0 -and
+        $postStopPidResult.ExitCode -in @(0, 1) -and
+        [string]::IsNullOrWhiteSpace($postStopPid)
+    $relaunchResult = [pscustomobject]@{ Output = @(); ExitCode = $null }
+    $relaunchReadiness = [pscustomobject]@{
+        Ready = $false
+        ElapsedSeconds = 0
+        LastPid = $postStopPid
+        LastFocus = ''
+    }
+    if ($relaunchProcessAbsent) {
+        $relaunchResult = Invoke-Adb -Arguments @(
+            '-s', $serial, 'shell', 'monkey', '-p', $packageName,
+            '-c', 'android.intent.category.LAUNCHER', '1'
+        )
+        if ($relaunchResult.ExitCode -eq 0) {
+            $relaunchReadiness = Wait-ForPackageFocus `
+                -Serial $serial `
+                -PackageName $packageName
+        }
+    }
+    $relaunchSucceeded = $relaunchProcessAbsent -and
+        $relaunchResult.ExitCode -eq 0 -and
+        $relaunchReadiness.Ready
+    $passed = $startupReadiness.Ready -and
+        -not $monkeyTimedOut -and
+        $monkeyExitCode -eq 0 -and
+        $eventCountVerified -and
+        $logcatCollected -and
+        $fatalEvidence.Count -eq 0 -and
+        $relaunchSucceeded
 
     $result = [pscustomobject]@{
         name = $name
         status = if ($passed) { 'passed' } else { 'failed' }
         seed = $seed
         events = $events
+        requestedEvents = $events
+        injectedEvents = $injectedEvents
+        eventCountVerified = $eventCountVerified
         throttleMs = $throttleMs
         percentages = $variant.percentages
         startupReady = $startupReadiness.Ready
@@ -342,7 +518,21 @@ foreach ($variant in $variants) {
         startupLastFocus = $startupReadiness.LastFocus
         stressMonkeyStarted = $stressMonkeyStarted
         monkeyExitCode = $monkeyExitCode
+        monkeyTimedOut = $monkeyTimedOut
+        variantTimeoutSeconds = $VariantTimeoutSeconds
+        logcatClearExitCode = $logcatClearResult.ExitCode
+        logcatClearTimedOut = $logcatClearResult.TimedOut
+        logcatExitCode = $logcatResult.ExitCode
+        logcatTimedOut = $logcatResult.TimedOut
+        logcatCollected = $logcatCollected
         fatalMarkerCount = $fatalEvidence.Count
+        relaunchStopExitCode = $relaunchStopResult.ExitCode
+        relaunchProcessAbsent = $relaunchProcessAbsent
+        relaunchLaunchExitCode = $relaunchResult.ExitCode
+        relaunchReady = $relaunchReadiness.Ready
+        relaunchWaitSeconds = $relaunchReadiness.ElapsedSeconds
+        relaunchLastPid = $relaunchReadiness.LastPid
+        relaunchLastFocus = $relaunchReadiness.LastFocus
         relaunchSucceeded = $relaunchSucceeded
         durationSeconds = [math]::Round(((Get-Date) - $variantStart).TotalSeconds, 3)
         monkeyLog = $variantLog
@@ -351,7 +541,7 @@ foreach ($variant in $variants) {
     $results.Add($result)
     $result | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $runRoot "$name-result.json") -Encoding utf8
 
-    Write-Host "$name result: $($result.status); fatal markers=$($result.fatalMarkerCount); relaunch=$relaunchSucceeded"
+    Write-Host "$name result: $($result.status); events=$injectedEvents/$events; logcat=$logcatCollected; fatal markers=$($result.fatalMarkerCount); relaunch=$relaunchSucceeded"
     if (-not $passed) {
         $matrixFailed = $true
         Write-Host 'Stopping the matrix at the first failed variant to preserve time and evidence.' -ForegroundColor Yellow
@@ -377,7 +567,12 @@ $manifest = [ordered]@{
     apk = [ordered]@{
         path = $resolvedApk
         sha256 = $apkHash
+        installExitCode = $installResult.ExitCode
+        installTimedOut = $installResult.TimedOut
+        installLog = $installLog
     }
+    adbCommandTimeoutSeconds = $AdbCommandTimeoutSeconds
+    variantTimeoutSeconds = $VariantTimeoutSeconds
     startedAt = $startedAt.ToString('o')
     finishedAt = (Get-Date).ToUniversalTime().ToString('o')
     status = if ($matrixFailed -or $results.Count -ne $variants.Count) { 'failed' } else { 'passed' }

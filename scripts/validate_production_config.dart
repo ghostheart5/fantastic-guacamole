@@ -69,19 +69,27 @@ List<String> validateProductionConfiguration(
   }
 
   final Uri? supabaseUri = urls['CHRONOSPARK_SUPABASE_URL'];
-  final Uri? aiReportUri = urls['CHRONOSPARK_AI_REPORT_ENDPOINT'];
-  if (supabaseUri != null && aiReportUri != null) {
+  const Map<String, String> expectedFunctionPaths = <String, String>{
+    'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT': '/functions/v1/verify-receipt',
+    'CHRONOSPARK_AI_PROXY_ENDPOINT': '/functions/v1/ai-proxy',
+    'CHRONOSPARK_AI_REPORT_ENDPOINT': '/functions/v1/ai-report',
+    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT': '/functions/v1/account-delete',
+  };
+  for (final MapEntry<String, String> expected
+      in expectedFunctionPaths.entries) {
+    final Uri? endpoint = urls[expected.key];
+    if (supabaseUri == null || endpoint == null) continue;
     final bool sameOrigin =
-        aiReportUri.scheme == supabaseUri.scheme &&
-        aiReportUri.host == supabaseUri.host &&
-        aiReportUri.port == supabaseUri.port;
+        endpoint.scheme == supabaseUri.scheme &&
+        endpoint.host == supabaseUri.host &&
+        endpoint.port == supabaseUri.port;
     if (!sameOrigin ||
-        aiReportUri.path != '/functions/v1/ai-report' ||
-        aiReportUri.hasQuery ||
-        aiReportUri.hasFragment) {
+        endpoint.path != expected.value ||
+        endpoint.hasQuery ||
+        endpoint.hasFragment) {
       failures.add(
-        'CHRONOSPARK_AI_REPORT_ENDPOINT must be the exact ai-report function '
-        'on CHRONOSPARK_SUPABASE_URL.',
+        '${expected.key} must be the exact ${expected.value.split('/').last} '
+        'function on CHRONOSPARK_SUPABASE_URL.',
       );
     }
   }

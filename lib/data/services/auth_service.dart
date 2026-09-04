@@ -22,6 +22,7 @@ class AuthService implements AuthServiceContract {
     String? oauthGitHubRedirectUrl,
     Future<void> Function()? onSignedOut,
     Future<void> Function(String accountId)? onAccountDeleted,
+    Future<void> Function()? onDevicePushTokenRevoked,
   }) : _auth = supabaseClient,
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
@@ -30,7 +31,8 @@ class AuthService implements AuthServiceContract {
        _oauthGitHubRedirectUrl =
            oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
        _signedOutCallback = onSignedOut,
-       _accountDeletedCallback = onAccountDeleted;
+       _accountDeletedCallback = onAccountDeleted,
+       _devicePushTokenRevokedCallback = onDevicePushTokenRevoked;
 
   static final http.Client _sharedHttpClient = http.Client();
   static const String _pendingDeletionCapabilityKey =
@@ -45,6 +47,7 @@ class AuthService implements AuthServiceContract {
   final String _oauthGitHubRedirectUrl;
   final Future<void> Function()? _signedOutCallback;
   final Future<void> Function(String accountId)? _accountDeletedCallback;
+  final Future<void> Function()? _devicePushTokenRevokedCallback;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
@@ -269,11 +272,33 @@ class AuthService implements AuthServiceContract {
   @override
   Future<void> signOut() async {
     final sb.User? user = _auth.auth.currentUser;
+    Object? serverTokenCleanupFailure;
     if (user != null) {
       try {
         await _auth.from('user_push_tokens').delete().eq('user_id', user.id);
       } on Object catch (error) {
+        serverTokenCleanupFailure = error;
         Logger.warn('Push-token cleanup during sign-out failed: $error');
+      }
+      try {
+        await _devicePushTokenRevokedCallback?.call();
+      } on Object {
+        Logger.warn('Device push-token revocation during sign-out failed.');
+        if (serverTokenCleanupFailure != null) {
+          throw FirebaseAuthException(
+            code: 'push-token-isolation-failed',
+            message:
+                'Sign-out was paused because notification isolation could not be confirmed. Please reconnect and retry.',
+          );
+        }
+      }
+      if (serverTokenCleanupFailure != null &&
+          _devicePushTokenRevokedCallback == null) {
+        throw FirebaseAuthException(
+          code: 'push-token-isolation-failed',
+          message:
+              'Sign-out was paused because notification isolation could not be confirmed. Please reconnect and retry.',
+        );
       }
     }
     await _auth.auth.signOut();
@@ -323,7 +348,6 @@ class AuthService implements AuthServiceContract {
     }
 
     AccountDeletionResult? acceptedResult;
-    Map<String, String>? pendingCapability;
 
     try {
       await _auth.auth.signInWithPassword(email: email, password: password);
@@ -385,12 +409,6 @@ class AuthService implements AuthServiceContract {
           retry &&
           state != 'completed') {
         acceptedResult = AccountDeletionResult.pending(serverState: state);
-        pendingCapability = <String, String>{
-          'requestId': requestId,
-          'receipt': receipt,
-          'state': state,
-          'savedAt': DateTime.now().toUtc().toIso8601String(),
-        };
       } else {
         throw _invalidDeletionResponse();
       }
@@ -406,32 +424,24 @@ class AuthService implements AuthServiceContract {
     return _finalizeAcceptedDeletion(
       accountId: user.id,
       result: acceptedResult,
-      pendingCapability: pendingCapability,
     );
   }
 
   Future<AccountDeletionResult> _finalizeAcceptedDeletion({
     required String accountId,
     required AccountDeletionResult result,
-    required Map<String, String>? pendingCapability,
   }) async {
     bool localCleanupCompleted = true;
-    bool statusTrackingAvailable = true;
 
     try {
-      if (pendingCapability == null) {
-        await store.delete(_pendingDeletionCapabilityKey);
-      } else {
-        await store.writeString(
-          _pendingDeletionCapabilityKey,
-          jsonEncode(pendingCapability),
-        );
-      }
+      // Older builds persisted an opaque status capability but never had a
+      // post-sign-out consumer that could use it. Remove that residue and be
+      // explicit below that in-app tracking is unavailable for pending jobs.
+      await store.delete(_pendingDeletionCapabilityKey);
     } on Object {
       localCleanupCompleted = false;
-      statusTrackingAvailable = pendingCapability == null;
       Logger.warn(
-        'Account deletion capability bookkeeping failed after server acceptance.',
+        'Legacy account deletion capability cleanup failed after server acceptance.',
       );
     }
 
@@ -467,7 +477,7 @@ class AuthService implements AuthServiceContract {
         : AccountDeletionResult.pending(
             serverState: result.serverState,
             localCleanupCompleted: localCleanupCompleted,
-            statusTrackingAvailable: statusTrackingAvailable,
+            statusTrackingAvailable: false,
           );
   }
 
@@ -547,43 +557,43 @@ class AuthService implements AuthServiceContract {
     if (message.contains('invalid login credentials')) {
       return FirebaseAuthException(
         code: 'wrong-password',
-        message: error.message,
+        message: 'Credentials are incorrect.',
       );
     }
     if (message.contains('email not confirmed')) {
       return FirebaseAuthException(
         code: 'user-not-verified',
-        message: error.message,
+        message: 'Verify your email before signing in.',
       );
     }
     if (message.contains('already registered') ||
         message.contains('already been registered')) {
       return FirebaseAuthException(
         code: 'email-already-in-use',
-        message: error.message,
+        message: 'Unable to create account with these details.',
       );
     }
     if (rawCode == '429') {
       return FirebaseAuthException(
         code: 'too-many-requests',
-        message: error.message,
+        message: 'Too many requests. Please wait and try again.',
       );
     }
     if (rawCode == '400' && message.contains('email')) {
       return FirebaseAuthException(
         code: 'invalid-email',
-        message: error.message,
+        message: 'Invalid email format.',
       );
     }
     if (rawCode == '422' && message.contains('password')) {
       return FirebaseAuthException(
         code: 'weak-password',
-        message: error.message,
+        message: 'Password does not meet the security requirements.',
       );
     }
     return FirebaseAuthException(
       code: 'auth-unavailable',
-      message: error.message,
+      message: 'Authentication backend is unavailable.',
     );
   }
 }

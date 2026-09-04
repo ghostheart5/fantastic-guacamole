@@ -57,7 +57,7 @@ String accountDeletionOutcomeMessage(AccountDeletionResult result) {
     return 'Account deletion completed.';
   }
   if (!result.statusTrackingAvailable) {
-    return 'Account deletion started. Server cleanup is still in progress, but status tracking could not be saved on this device.';
+    return 'Account deletion started. Server cleanup is still in progress. In-app status tracking is unavailable in this build.';
   }
   return 'Account deletion started. Server cleanup is still in progress. You have been signed out.';
 }

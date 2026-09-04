@@ -64,10 +64,14 @@ abstract final class _ServiceEndpoints {
     defineProvided: _hasReceiptVerifyEndpointOverrideDefine,
   );
 
-  static String get aiProxyEndpoint => Env._readString(
-    'CHRONOSPARK_AI_PROXY_ENDPOINT',
-    _aiProxyEndpointDefine,
-    defineProvided: _hasAiProxyEndpointDefine,
+  static String get aiProxyEndpoint => _resolveFirstPartyFunctionEndpoint(
+    Env._readString(
+      'CHRONOSPARK_AI_PROXY_ENDPOINT',
+      _aiProxyEndpointDefine,
+      defineProvided: _hasAiProxyEndpointDefine,
+    ),
+    supabaseUrl: supabaseUrl,
+    functionName: 'ai-proxy',
   );
 
   static String get aiReportEndpoint => resolveAiReportEndpoint(
@@ -82,10 +86,14 @@ abstract final class _ServiceEndpoints {
   static String get plannerExplanationEndpoint =>
       resolvePlannerExplanationEndpoint(supabaseUrl: supabaseUrl);
 
-  static String get accountDeleteEndpoint => Env._readString(
-    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
-    _accountDeleteEndpointDefine,
-    defineProvided: _hasAccountDeleteEndpointDefine,
+  static String get accountDeleteEndpoint => _resolveFirstPartyFunctionEndpoint(
+    Env._readString(
+      'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
+      _accountDeleteEndpointDefine,
+      defineProvided: _hasAccountDeleteEndpointDefine,
+    ),
+    supabaseUrl: supabaseUrl,
+    functionName: 'account-delete',
   );
 
   static String get oauthRedirectUrl => Env._readString(
@@ -186,31 +194,38 @@ abstract final class _ServiceEndpoints {
     String configuredValue, {
     required String supabaseUrl,
   }) {
-    final String configured = configuredValue.trim();
-    if (configured.isNotEmpty) {
-      return configured;
-    }
-
-    if (resolveIsValidSupabaseUrl(supabaseUrl)) {
-      final Uri supabaseUri = Uri.parse(supabaseUrl.trim());
-      return supabaseUri.resolve('/functions/v1/verify-receipt').toString();
-    }
-
-    return '';
+    return _resolveFirstPartyFunctionEndpoint(
+      configuredValue,
+      supabaseUrl: supabaseUrl,
+      functionName: 'verify-receipt',
+      deriveWhenEmpty: true,
+    );
   }
 
   static String resolveAiReportEndpoint(
     String configuredValue, {
     required String supabaseUrl,
   }) {
-    if (!resolveIsValidSupabaseUrl(supabaseUrl)) {
-      return '';
-    }
-    final Uri supabaseUri = Uri.parse(supabaseUrl.trim());
-    final Uri canonical = supabaseUri.resolve('/functions/v1/ai-report');
-    final String configured = configuredValue.trim();
-    if (configured.isEmpty) return canonical.toString();
+    return _resolveFirstPartyFunctionEndpoint(
+      configuredValue,
+      supabaseUrl: supabaseUrl,
+      functionName: 'ai-report',
+      deriveWhenEmpty: true,
+    );
+  }
 
+  static String _resolveFirstPartyFunctionEndpoint(
+    String configuredValue, {
+    required String supabaseUrl,
+    required String functionName,
+    bool deriveWhenEmpty = false,
+  }) {
+    if (!resolveIsValidSupabaseUrl(supabaseUrl)) return '';
+    final Uri canonical = Uri.parse(
+      supabaseUrl.trim(),
+    ).resolve('/functions/v1/$functionName');
+    final String configured = configuredValue.trim();
+    if (configured.isEmpty) return deriveWhenEmpty ? canonical.toString() : '';
     if (!resolveIsValidHttpsEndpoint(configured)) return '';
     final Uri candidate = Uri.parse(configured);
     final bool sameOrigin =

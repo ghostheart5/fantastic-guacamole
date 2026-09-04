@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart'
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/state/services/local_user_data_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
+import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -56,5 +57,7 @@ AuthServiceContract createAuthService({
     supabaseClient: supabaseClient,
     store: store,
     onAccountDeleted: localDataCleanup?.clearForAccountSwitch,
+    onDevicePushTokenRevoked:
+        const FirebaseMessagingBootstrap().revokeDeviceToken,
   );
 }

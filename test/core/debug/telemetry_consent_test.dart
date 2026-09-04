@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -47,4 +49,46 @@ void main() {
       expect(TelemetryConsentStore.crashCollectionEnabled(optedIn), isFalse);
     },
   );
+
+  test('rapid account changes apply runtime consent in order', () async {
+    final String accountAKey = TelemetryConsentStore.storageKeyForAccount(
+      'account-a',
+    );
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      '$accountAKey.analytics': true,
+      '$accountAKey.crash_reporting': true,
+    });
+    final Completer<void> firstStarted = Completer<void>();
+    final Completer<void> releaseFirst = Completer<void>();
+    final List<TelemetryConsent> applied = <TelemetryConsent>[];
+    final TelemetryConsentAccountTransitionCoordinator coordinator =
+        TelemetryConsentAccountTransitionCoordinator(
+          TelemetryConsentStore(
+            configureRuntime: (TelemetryConsent consent) async {
+              applied.add(consent);
+              if (applied.length == 1) {
+                firstStarted.complete();
+                await releaseFirst.future;
+              }
+            },
+          ),
+        );
+
+    final Future<void> accountA = coordinator.applyForAccount('account-a');
+    await firstStarted.future;
+    final Future<void> accountB = coordinator.applyForAccount('account-b');
+    final Future<void> signedOut = coordinator.applyForAccount(null);
+
+    expect(applied, <TelemetryConsent>[
+      const TelemetryConsent(analytics: true, crashReporting: true),
+    ]);
+    releaseFirst.complete();
+    await Future.wait(<Future<void>>[accountA, accountB, signedOut]);
+
+    expect(applied, <TelemetryConsent>[
+      const TelemetryConsent(analytics: true, crashReporting: true),
+      const TelemetryConsent(),
+      const TelemetryConsent(),
+    ]);
+  });
 }

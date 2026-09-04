@@ -117,7 +117,88 @@ void main() {
         maestroRunner,
         contains("'Tasks require authenticated account storage'"),
       );
-      expect(maestroRunner, contains(r'$fatalHits.Count -gt 0'));
+      expect(
+        maestroRunner,
+        contains(r'$runPassed = $maestroPassed -and $fatalHits.Count -eq 0'),
+      );
     },
   );
+
+  test('Maestro execution is bounded and its JUnit gate fails closed', () {
+    final String maestroRunner = File(
+      'scripts/run_maestro_android_evidence.ps1',
+    ).readAsStringSync();
+
+    expect(maestroRunner, contains(r'[int]$ExecutionTimeoutSeconds = 900'));
+    expect(maestroRunner, contains('function Invoke-NativeTimedLogged'));
+    expect(maestroRunner, contains(r'-EncodedCommand $encodedCommand'));
+    expect(
+      maestroRunner,
+      contains(r'$process.WaitForExit($TimeoutSeconds * 1000)'),
+    );
+    expect(maestroRunner, contains('function Stop-NativeProcessTree'));
+    expect(maestroRunner, contains(r'$killer.WaitForExit(5000)'));
+    expect(maestroRunner, contains(r'$Process.Kill($true)'));
+    expect(maestroRunner, contains(r'$stdoutTask.Wait(5000)'));
+    expect(maestroRunner, contains(r'$stderrTask.Wait(5000)'));
+    expect(maestroRunner, contains('-TimeoutSeconds 1200'));
+    expect(maestroRunner, contains('-TimeoutSeconds 180'));
+    expect(maestroRunner, contains("-Arguments @('devices', '-l')"));
+    expect(maestroRunner, isNot(contains(r'& $adb start-server')));
+    expect(maestroRunner, isNot(contains(r'@(& $adb devices')));
+    expect(maestroRunner, contains(r'$logcatStartArguments.WindowStyle'));
+    expect(maestroRunner, contains('function Get-MaestroJUnitSummary'));
+    expect(maestroRunner, contains("'missing-junit'"));
+    expect(maestroRunner, contains("'invalid-junit-xml'"));
+    expect(maestroRunner, contains("'invalid-junit-count'"));
+    expect(maestroRunner, contains("'junit-test-count-mismatch'"));
+    expect(maestroRunner, contains("'zero-testcases'"));
+    expect(maestroRunner, contains("'non-passing-testcases'"));
+    expect(maestroRunner, contains(r"$junitSummary.Status -eq 'passed'"));
+    expect(maestroRunner, contains(r'$junitSummary.TerminalParsed'));
+    expect(maestroRunner, contains(r'testCases = $junitSummary.TestCases'));
+    expect(
+      maestroRunner,
+      contains(r'$junitSummary.TestCases -eq $resolvedFlows.Count'),
+    );
+    expect(
+      maestroRunner,
+      contains(r'expectedTestCases = $resolvedFlows.Count'),
+    );
+    expect(maestroRunner, contains(r'testCaseCountMatchesFlows ='));
+    expect(
+      maestroRunner,
+      contains("'-ExpectedApkSha256 is required with -SkipBuild"),
+    );
+    expect(maestroRunner, contains(r'builtFromCheckout ='));
+    expect(maestroRunner, contains("@('-s', \$serial, 'logcat', '-c')"));
+    expect(maestroRunner, contains(r'$logcatAliveThroughRun'));
+    expect(maestroRunner, contains(r'$rawLogcatBytes -gt 0'));
+    expect(maestroRunner, contains(r'$logcatErrorBytes -eq 0'));
+    expect(maestroRunner, contains(r'logcatCapture ='));
+    expect(maestroRunner, contains(r'failures = $junitSummary.Failures'));
+    expect(maestroRunner, contains(r'errors = $junitSummary.Errors'));
+    expect(maestroRunner, contains(r'skipped = $junitSummary.Skipped'));
+    expect(maestroRunner, contains(r'if (-not $runPassed)'));
+  });
+
+  test('Maestro console evidence is sanitized before it is retained', () {
+    final String maestroRunner = File(
+      'scripts/run_maestro_android_evidence.ps1',
+    ).readAsStringSync();
+
+    final int execution = maestroRunner.indexOf(
+      r'$maestroResult = Invoke-NativeTimedLogged',
+    );
+    final int sanitization = maestroRunner.indexOf(
+      r'ConvertTo-SanitizedLog -Source $rawMaestroLog',
+    );
+    final int rawRemoval = maestroRunner.indexOf(
+      r'Remove-Item -LiteralPath $rawMaestroLog -Force',
+    );
+
+    expect(execution, greaterThanOrEqualTo(0));
+    expect(sanitization, greaterThan(execution));
+    expect(rawRemoval, greaterThan(sanitization));
+  });
 }

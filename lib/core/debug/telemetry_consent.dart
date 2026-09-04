@@ -36,6 +36,26 @@ class TelemetryConsent {
 typedef TelemetryRuntimeConfigurer =
     Future<void> Function(TelemetryConsent consent);
 
+/// Serializes runtime collection changes across rapid account transitions.
+///
+/// Firebase exposes process-wide collection switches, so concurrent consent
+/// applications could otherwise finish out of order and leave a departing
+/// account's choice active for the next person on the device.
+class TelemetryConsentAccountTransitionCoordinator {
+  TelemetryConsentAccountTransitionCoordinator(this._store);
+
+  final TelemetryConsentStore _store;
+  Future<void> _tail = Future<void>.value();
+
+  Future<void> applyForAccount(String? accountId) {
+    final Future<void> scheduled = _tail.then(
+      (_) => _store.applyForAccount(accountId),
+    );
+    _tail = scheduled.then<void>((_) {}, onError: (_, _) {});
+    return scheduled;
+  }
+}
+
 /// Stores a person's telemetry choices locally under a one-way account scope.
 /// Collection still needs both this consent and the reviewed build capability.
 class TelemetryConsentStore {

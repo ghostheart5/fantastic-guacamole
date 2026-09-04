@@ -174,6 +174,8 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
   final FirebaseSupabaseBridgeRepository bridgeRepository = ref.read(
     firebaseSupabaseBridgeRepositoryProvider,
   );
+  final TelemetryConsentAccountTransitionCoordinator telemetryTransitions =
+      TelemetryConsentAccountTransitionCoordinator(TelemetryConsentStore());
   Future<void> authTransitionTail = Future<void>.value();
 
   Future<void> syncIfPossible({required String source}) async {
@@ -221,6 +223,10 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
           if (user != null) {
             await syncIfPossible(source: 'auth-state-change');
           }
+          // Keep runtime telemetry changes on the same ordered account
+          // transition chain. A slow read/configuration for a departing user
+          // must finish before the next user's consent is applied.
+          await telemetryTransitions.applyForAccount(user?.id);
         })
         .catchError((Object error, StackTrace stackTrace) {
           Logger.errorCategory(
@@ -230,15 +236,6 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
             stackTrace,
           );
         });
-  });
-
-  // Runtime collection is both user-consented and build-gated. It is reset at
-  // account boundaries so a prior person's preference cannot carry over.
-  ref.listen<AsyncValue<User?>>(authUserProvider, (_, next) {
-    if (next is! AsyncData<User?>) {
-      return;
-    }
-    unawaited(TelemetryConsentStore().applyForAccount(next.value?.id));
   });
 });
 

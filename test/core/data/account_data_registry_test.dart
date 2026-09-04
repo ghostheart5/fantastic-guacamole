@@ -123,6 +123,15 @@ void main() {
       cleanupPlan.preferenceExactKeys,
       contains('chronospark.decision_outcomes.v1.$namespace'),
     );
+    final String telemetryConsentKey =
+        AccountDataRegistry.telemetryConsentStorageKeyFor('owner-a');
+    expect(
+      cleanupPlan.preferenceExactKeys,
+      containsAll(<String>{
+        '$telemetryConsentKey.analytics',
+        '$telemetryConsentKey.crash_reporting',
+      }),
+    );
   });
 
   test('proven legacy owner inventory includes legacy and scoped storage', () {
