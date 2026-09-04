@@ -254,3 +254,4 @@ if ($failures.Count -gt 0) {
 }
 
 Write-Host 'Coverage guard contract passed.' -ForegroundColor Green
+exit 0
