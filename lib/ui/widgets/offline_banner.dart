@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -52,15 +53,34 @@ class _OfflineBannerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool es = ChronoSparkLocalizations.of(context).isSpanish;
+    final String semanticLabel = cloudSyncAvailable
+        ? pendingSyncCount > 0
+              ? (es
+                    ? 'Modo sin conexión. $pendingSyncCount acciones en cola. Las acciones se sincronizarán después.'
+                    : 'Offline mode. $pendingSyncCount actions queued. Actions will sync later.')
+              : (es
+                    ? 'Modo sin conexión. Las acciones se sincronizarán después.'
+                    : 'Offline mode. Actions will sync later.')
+        : (es
+              ? 'Modo sin conexión. Las funciones locales siguen disponibles. La sincronización en la nube no está disponible en esta versión.'
+              : 'Offline mode. Local features remain available. Cloud sync is unavailable in this build.');
+    final String visibleLabel = cloudSyncAvailable
+        ? pendingSyncCount > 0
+              ? (es
+                    ? 'Modo sin conexión — $pendingSyncCount en cola; se sincronizarán después'
+                    : 'Offline Mode — $pendingSyncCount queued, syncing later')
+              : (es
+                    ? 'Modo sin conexión — se sincronizará después'
+                    : 'Offline Mode — actions will sync later')
+        : (es
+              ? 'Modo sin conexión — funciones locales disponibles; sincronización en la nube no disponible'
+              : 'Offline Mode — local features available; cloud sync unavailable');
     return Semantics(
       key: const Key('offline_banner_live_region'),
       liveRegion: true,
       container: true,
-      label: cloudSyncAvailable
-          ? pendingSyncCount > 0
-                ? 'Offline mode. $pendingSyncCount actions queued. Actions will sync later.'
-                : 'Offline mode. Actions will sync later.'
-          : 'Offline mode. Local features remain available. Cloud sync is unavailable in this build.',
+      label: semanticLabel,
       child: ExcludeSemantics(
         child: Container(
           width: double.infinity,
@@ -77,11 +97,7 @@ class _OfflineBannerBar extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  cloudSyncAvailable
-                      ? pendingSyncCount > 0
-                            ? 'Offline Mode — $pendingSyncCount queued, syncing later'
-                            : 'Offline Mode — actions will sync later'
-                      : 'Offline Mode — local features available; cloud sync unavailable',
+                  visibleLabel,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.memoryAmber,

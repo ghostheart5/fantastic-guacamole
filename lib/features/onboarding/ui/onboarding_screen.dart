@@ -89,8 +89,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       if (mounted) {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to continue. Please try again.'),
+          SnackBar(
+            content: Text(
+              ChronoSparkLocalizations.of(context).isSpanish
+                  ? 'No se pudo continuar. Inténtalo de nuevo.'
+                  : 'Unable to continue. Please try again.',
+            ),
           ),
         );
       }

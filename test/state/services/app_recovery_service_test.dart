@@ -26,4 +26,15 @@ void main() {
     expect(restored?.activeTaskId, 'task-99');
     expect(restored?.draftTaskTitle, 'resume planning');
   });
+
+  test('restores an active task when it is the only recovery value', () async {
+    final AppRecoveryService service = AppRecoveryService();
+
+    await service.saveState(activeTaskId: 'task-only');
+
+    final AppRecoveryState? restored = await service.loadState();
+    expect(restored?.activeTaskId, 'task-only');
+    expect(restored?.lastRoute, isNull);
+    expect(restored?.draftTaskTitle, isNull);
+  });
 }

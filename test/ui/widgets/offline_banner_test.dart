@@ -1,7 +1,9 @@
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -71,6 +73,45 @@ void main() {
         node.label,
         'Offline mode. Local features remain available. Cloud sync is unavailable in this build.',
       );
+    } finally {
+      handle.dispose();
+    }
+  });
+
+  testWidgets('localizes visible and screen-reader offline status in Spanish', (
+    WidgetTester tester,
+  ) async {
+    final SemanticsHandle handle = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [isOnlineProvider.overrideWithValue(false)],
+          child: const MaterialApp(
+            locale: Locale('es'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: OfflineBanner(child: Scaffold(body: Text('contenido'))),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(
+        find.text(
+          'Modo sin conexión — funciones locales disponibles; sincronización en la nube no disponible',
+        ),
+        findsOneWidget,
+      );
+      final SemanticsNode node = tester.getSemantics(
+        find.byKey(const Key('offline_banner_live_region')),
+      );
+      expect(node.label, contains('Las funciones locales siguen disponibles'));
+      expect(node.label, isNot(contains('Offline mode')));
     } finally {
       handle.dispose();
     }

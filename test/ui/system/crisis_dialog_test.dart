@@ -31,6 +31,62 @@ void main() {
     expect(unknown.directoryUri.host, 'findahelpline.com');
   });
 
+  test('device region is retained when supported locale strips country', () {
+    expect(
+      SafetySupportResources.resolveDeviceRegion(
+        appLocale: const Locale('en'),
+        deviceLocales: const <Locale>[Locale('en', 'US')],
+      ),
+      const Locale('en', 'US'),
+    );
+    expect(
+      SafetySupportResources.resolveDeviceRegion(
+        appLocale: const Locale('es'),
+        deviceLocales: const <Locale>[Locale('es', 'ES')],
+      ),
+      const Locale('es', 'ES'),
+    );
+    expect(
+      SafetySupportResources.resolveDeviceRegion(
+        appLocale: const Locale('es'),
+        deviceLocales: const <Locale>[Locale('en', 'US')],
+      ),
+      const Locale('es'),
+    );
+  });
+
+  testWidgets('live dialog recovers US region after app locale resolution', (
+    WidgetTester tester,
+  ) async {
+    tester.binding.platformDispatcher.localesTestValue = const <Locale>[
+      Locale('en', 'US'),
+    ];
+    addTearDown(tester.binding.platformDispatcher.clearLocalesTestValue);
+    await tester.pumpWidget(
+      MaterialApp(
+        supportedLocales: const <Locale>[Locale('en'), Locale('es')],
+        home: Builder(
+          builder: (BuildContext context) => FilledButton(
+            onPressed: () =>
+                showCrisisDialog(context, launcher: (Uri uri) async => true),
+            child: const Text('OPEN'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('OPEN'));
+    await tester.pumpAndSettle();
+
+    expect(
+      Localizations.localeOf(tester.element(find.text('Call 911'))),
+      const Locale('en'),
+    );
+    expect(find.text('Call 911'), findsOneWidget);
+    expect(find.text('Call 988'), findsOneWidget);
+    expect(find.text('Text 988'), findsOneWidget);
+  });
+
   testWidgets(
     'immediate safety route is localized and has no productivity action',
     (WidgetTester tester) async {

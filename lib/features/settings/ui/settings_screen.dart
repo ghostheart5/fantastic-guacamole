@@ -1024,7 +1024,7 @@ class SettingsScreen extends ConsumerWidget {
     await Clipboard.setData(
       const ClipboardData(
         text:
-            'To: support@chronospark.app\nSubject: Account deletion request\n\nPlease delete my ChronoSpark account associated with this email.',
+            'To: ${Env.supportEmail}\nSubject: Account deletion request\n\nPlease delete my ChronoSpark account associated with this email.',
       ),
     );
     if (!context.mounted) {

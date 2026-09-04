@@ -116,6 +116,14 @@ void main() {
     expect(bundled, contains('External AIDisabled.'));
     expect(bundled, contains('ghostheart131517@gmail.com'));
     expect(
+      read('lib/config/env.dart'),
+      contains("supportEmail = 'ghostheart131517@gmail.com'"),
+    );
+    expect(
+      read('lib/features/settings/ui/settings_screen.dart'),
+      isNot(contains('support@chronospark.app')),
+    );
+    expect(
       bundled.toLowerCase(),
       isNot(
         contains(

@@ -650,6 +650,7 @@ class _LoginFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool es = ChronoSparkLocalizations.of(context).isSpanish;
     final double width = MediaQuery.sizeOf(context).width;
     final bool compact = width < Breakpoints.compact;
     final double edgePadding = compact ? 14 : 18;
@@ -666,7 +667,9 @@ class _LoginFormCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            isSignUpMode ? 'CREATE ACCOUNT' : 'ACCESS SYSTEM',
+            isSignUpMode
+                ? (es ? 'CREAR CUENTA' : 'CREATE ACCOUNT')
+                : (es ? 'ACCEDER AL SISTEMA' : 'ACCESS SYSTEM'),
             style: TextStyle(
               color: isSignUpMode ? AppColors.neonViolet : AppColors.neonCyan,
               fontSize: compact ? AppSizes.fontXs : AppSizes.fontSm,
@@ -676,7 +679,9 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 4 : 6),
           Text(
-            isSignUpMode ? 'Create your workspace' : 'Welcome back',
+            isSignUpMode
+                ? (es ? 'Crea tu espacio de trabajo' : 'Create your workspace')
+                : (es ? 'Te damos la bienvenida' : 'Welcome back'),
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
@@ -685,7 +690,9 @@ class _LoginFormCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Secure access to your connected planning workspace.',
+            es
+                ? 'Acceso seguro a tu espacio de planificación conectado.'
+                : 'Secure access to your connected planning workspace.',
             style: TextStyle(
               color: Colors.white60,
               fontSize: compact ? AppSizes.fontCaption : AppSizes.fontBody,
@@ -721,7 +728,7 @@ class _LoginFormCard extends StatelessWidget {
             icon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
             semanticIdentifier: 'login-email-field',
-            label: 'Email address',
+            label: es ? 'Correo electrónico' : 'Email address',
             obscure: false,
             accentColor: AppColors.neonCyan,
           ),
@@ -732,14 +739,14 @@ class _LoginFormCard extends StatelessWidget {
             icon: Icons.key_rounded,
             keyboardType: TextInputType.visiblePassword,
             semanticIdentifier: 'login-password-field',
-            label: 'Password',
+            label: es ? 'Contraseña' : 'Password',
             obscure: obscurePassword,
             accentColor: AppColors.neonViolet,
             trailing: SmartPressable(
               onTap: onTogglePassword,
               semanticLabel: obscurePassword
-                  ? 'Show password'
-                  : 'Hide password',
+                  ? (es ? 'Mostrar contraseña' : 'Show password')
+                  : (es ? 'Ocultar contraseña' : 'Hide password'),
               child: SizedBox.square(
                 dimension: AppSizes.touchTarget,
                 child: Icon(
@@ -765,7 +772,7 @@ class _LoginFormCard extends StatelessWidget {
                     vertical: 12,
                   ),
                   child: Text(
-                    'Forgot Password?',
+                    es ? '¿Olvidaste la contraseña?' : 'Forgot Password?',
                     style: TextStyle(
                       color: AppColors.neonCyan.withValues(alpha: 0.9),
                       fontSize: AppSizes.fontBody,
@@ -784,7 +791,9 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 10 : 14),
           _PrimaryButton(
-            label: isSignUpMode ? 'INITIALIZE PROFILE' : 'ENTER SYSTEM',
+            label: isSignUpMode
+                ? (es ? 'INICIAR PERFIL' : 'INITIALIZE PROFILE')
+                : (es ? 'ENTRAR AL SISTEMA' : 'ENTER SYSTEM'),
             isLoading: isSubmitting,
             onTap: onPrimaryAction,
           ),
@@ -795,11 +804,11 @@ class _LoginFormCard extends StatelessWidget {
                 Expanded(
                   child: Divider(color: Colors.white.withValues(alpha: 0.18)),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
-                    'OR CONTINUE WITH',
-                    style: TextStyle(
+                    es ? 'O CONTINÚA CON' : 'OR CONTINUE WITH',
+                    style: const TextStyle(
                       color: Colors.white54,
                       fontSize: AppSizes.fontXs,
                       fontWeight: FontWeight.w700,
@@ -814,7 +823,7 @@ class _LoginFormCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _SecondaryButton(
-              label: 'Continue with Google',
+              label: es ? 'Continuar con Google' : 'Continue with Google',
               icon: Icons.g_mobiledata_rounded,
               color: Colors.white,
               leading: const _GoogleGlyph(size: 18),
@@ -822,7 +831,7 @@ class _LoginFormCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _SecondaryButton(
-              label: 'Continue with GitHub',
+              label: es ? 'Continuar con GitHub' : 'Continue with GitHub',
               icon: Icons.code_rounded,
               color: Colors.white,
               leading: const _GitHubGlyph(size: 16),
@@ -838,8 +847,8 @@ class _LoginFormCard extends StatelessWidget {
                   Expanded(
                     child: _SecondaryButton(
                       label: isSignUpMode
-                          ? 'Switch to Login'
-                          : 'Create Account',
+                          ? (es ? 'Volver al acceso' : 'Switch to Login')
+                          : (es ? 'Crear cuenta' : 'Create Account'),
                       icon: isSignUpMode
                           ? Icons.arrow_back_rounded
                           : Icons.person_add_rounded,
@@ -856,7 +865,9 @@ class _LoginFormCard extends StatelessWidget {
                 if (allowSignUp) ...[
                   const SizedBox(height: 2),
                   _SecondaryButton(
-                    label: isSignUpMode ? 'Switch to Login' : 'Create Account',
+                    label: isSignUpMode
+                        ? (es ? 'Volver al acceso' : 'Switch to Login')
+                        : (es ? 'Crear cuenta' : 'Create Account'),
                     icon: isSignUpMode
                         ? Icons.arrow_back_rounded
                         : Icons.person_add_rounded,
@@ -1132,7 +1143,7 @@ class _NeonInput extends StatelessWidget {
                     labelText: label,
                     floatingLabelBehavior: FloatingLabelBehavior.never,
                     labelStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.25),
+                      color: Colors.white.withValues(alpha: 0.72),
                       fontSize: AppSizes.fontLabel,
                     ),
                   ),

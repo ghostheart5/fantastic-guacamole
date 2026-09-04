@@ -54,7 +54,9 @@ class AppRecoveryService {
       final activeTaskId = _store.load(_kTaskId);
       final draftTitle = _store.load(_kDraftTitle);
 
-      if (lastRoute == null && draftTitle == null) return null;
+      if (lastRoute == null && activeTaskId == null && draftTitle == null) {
+        return null;
+      }
 
       return AppRecoveryState(
         lastRoute: lastRoute,

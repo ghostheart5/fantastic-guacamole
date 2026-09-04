@@ -116,8 +116,45 @@ void main() {
       find.bySemanticsLabel('Abrir términos del servicio'),
       findsOneWidget,
     );
+    expect(find.text('ACCEDER AL SISTEMA'), findsOneWidget);
+    expect(find.text('Te damos la bienvenida'), findsOneWidget);
+    expect(find.text('Correo electrónico'), findsOneWidget);
+    expect(find.text('Contraseña'), findsOneWidget);
+    expect(find.text('¿Olvidaste la contraseña?'), findsOneWidget);
+    expect(find.text('ENTRAR AL SISTEMA'), findsOneWidget);
+    expect(find.text('Continuar con Google'), findsOneWidget);
+    expect(find.text('Continuar con GitHub'), findsOneWidget);
+    expect(find.text('Welcome back'), findsNothing);
+    expect(find.text('Email address'), findsNothing);
     semantics.dispose();
   });
+
+  testWidgets('login field labels meet normal-text contrast minimum', (
+    WidgetTester tester,
+  ) async {
+    final _LoginHarness harness = await _pumpLoginRouter(
+      tester,
+      initialLocation: RoutePaths.login,
+    );
+    addTearDown(harness.dispose);
+
+    final TextField email = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const ValueKey('login-email-field')),
+        matching: find.byType(TextField),
+      ),
+    );
+    final Color foreground = email.decoration!.labelStyle!.color!;
+    const Color background = Color(0xFF081426);
+    expect(_contrastRatio(foreground, background), greaterThanOrEqualTo(4.5));
+  });
+}
+
+double _contrastRatio(Color foreground, Color background) {
+  final Color composited = Color.alphaBlend(foreground, background);
+  final double lighter = composited.computeLuminance() + 0.05;
+  final double darker = background.computeLuminance() + 0.05;
+  return lighter / darker;
 }
 
 Future<_LoginHarness> _pumpLoginRouter(
