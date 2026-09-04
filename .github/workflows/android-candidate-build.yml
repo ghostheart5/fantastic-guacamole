@@ -1,0 +1,109 @@
+name: Android Candidate Build Only
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: android-candidate-build-only
+  cancel-in-progress: false
+
+# Deliberately frozen app source. Workflow tooling has separate provenance.
+# Changing this pair requires a reviewed source candidate with its own green CI.
+env:
+  CANDIDATE_SHA: 9e1ba13376d0747fa6393f428d66f71f353985a5
+  CANDIDATE_CI_RUN: '33924430045'
+
+jobs:
+  source-gate:
+    if: github.repository == 'ghostheart5/fantastic-guacamole' && github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify existing exact-source CI without rerunning tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_CI_RUN" > "$RUNNER_TEMP/candidate-ci.json"
+          jq -e --arg sha "$CANDIDATE_SHA" --arg repo "$GITHUB_REPOSITORY" '
+            .head_sha == $sha and .repository.full_name == $repo and
+            .path == ".github/workflows/ci.yml" and
+            .event == "workflow_dispatch" and .status == "completed" and
+            .conclusion == "success"' "$RUNNER_TEMP/candidate-ci.json"
+
+  build-only:
+    needs: source-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: production
+    steps:
+      - name: Checkout reviewed workflow tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+
+      - name: Checkout frozen green app source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: candidate
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up pinned Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+
+      - name: Fetch checksum-pinned bundletool
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error \
+            https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar \
+            --output "$RUNNER_TEMP/bundletool.jar"
+          echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $RUNNER_TEMP/bundletool.jar" | sha256sum --check --strict
+
+      - name: Build and verify contained candidate using existing signing identity
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          CHRONOSPARK_SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
+          CHRONOSPARK_AI_PROXY_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
+          CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
+          CHRONOSPARK_ANDROID_SHA256_CERT: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
+        run: python3 tooling/scripts/android_candidate_build.py candidate "$RUNNER_TEMP/bundletool.jar"
+
+      - name: Clean runner-only signing material on every outcome
+        if: always()
+        run: |
+          rm -f candidate/android/key.properties candidate/android/app/upload-keystore.jks
+          rm -f "$RUNNER_TEMP/chronospark-candidate-defines.json"
+
+      - name: Save verified candidate and evidence only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: chronospark-candidate-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate/build/candidate-evidence/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: State evidence boundary
+        run: |
+          echo 'Candidate artifact only. No GitHub Release, Play upload, live backend validation, device approval, or Phase 5 completion.' >> "$GITHUB_STEP_SUMMARY"
