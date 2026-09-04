@@ -70,9 +70,11 @@ jobs:
           # Generate rolling SHA256SUMS
           cp "dist/SHA256SUMS-${TIMESTAMP}.txt" dist/SHA256SUMS.txt
 
-          echo "TAG=${TAG}" >> "$GITHUB_ENV"
-          echo "ARCHIVE_BASE=${ARCHIVE_BASE}" >> "$GITHUB_ENV"
-          echo "TIMESTAMP=${TIMESTAMP}" >> "$GITHUB_ENV"
+          {
+            echo "TAG=${TAG}"
+            echo "ARCHIVE_BASE=${ARCHIVE_BASE}"
+            echo "TIMESTAMP=${TIMESTAMP}"
+          } >> "$GITHUB_ENV"
 
       - name: Create GitHub release
         env:

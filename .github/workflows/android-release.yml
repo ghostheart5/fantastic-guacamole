@@ -294,7 +294,10 @@ jobs:
           VERIFY_OUTPUT="$(jarsigner -verify "$AAB" 2>&1)"
           printf '%s\n' "$VERIFY_OUTPUT"
           grep -Fq 'jar verified.' <<< "$VERIFY_OUTPUT"
-          ! grep -Fiq 'jar is unsigned' <<< "$VERIFY_OUTPUT"
+          if grep -Fiq 'jar is unsigned' <<< "$VERIFY_OUTPUT"; then
+            echo "::error::Release artifact is unsigned."
+            exit 1
+          fi
           (
             cd "$AAB_DIR"
             sha256sum app-release.aab > app-release.aab.sha256

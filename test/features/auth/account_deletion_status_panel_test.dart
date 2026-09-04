@@ -23,7 +23,7 @@ void main() {
 
     expect(find.text('Account deletion status'), findsOneWidget);
     expect(
-      find.text('Status: Sessions revoked; cleanup in progress'),
+      find.text('Status: Signed-in access revoked; cleanup in progress'),
       findsOneWidget,
     );
     expect(find.text('Check status'), findsOneWidget);
