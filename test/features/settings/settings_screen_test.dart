@@ -55,6 +55,34 @@ void main() {
     );
   });
 
+  test('destructive settings copy covers Spanish outcomes and recovery', () {
+    const SettingsSafetyCopy copy = SettingsSafetyCopy(isSpanish: true);
+
+    expect(copy.clearDeviceTitle, '¿Borrar los datos de este dispositivo?');
+    expect(copy.localRemovalDisclosure, contains('no se puede deshacer'));
+    expect(copy.deletedCloudCannotRestore, contains('no se pueden restaurar'));
+    expect(copy.subscriptionNotCanceled, contains('Google Play'));
+    expect(copy.deletionCouldNotComplete, contains('solicitud de soporte'));
+    expect(
+      copy.friendlyDeleteError('wrong-password'),
+      'La contraseña es incorrecta.',
+    );
+    expect(
+      copy.friendlyDeleteError('network-request-failed'),
+      copy.deletionCouldNotComplete,
+    );
+    expect(
+      accountDeletionOutcomeMessage(
+        const AccountDeletionResult.pending(
+          serverState: 'requested',
+          statusTrackingAvailable: false,
+        ),
+        isSpanish: true,
+      ),
+      allOf(contains('sigue en curso'), contains('no se pudo guardar')),
+    );
+  });
+
   ProviderContainer createContainer({
     PersonContextSpine? personContext,
     AccountStorageScope? accountScope,

@@ -34,6 +34,36 @@ class ChronoSparkLocalizations {
   String completeTaskLabel(String title) =>
       isSpanish ? 'Completar $title' : 'Complete $title';
 
+  String offlineSemanticLabel({
+    required bool cloudSyncAvailable,
+    required int pendingSyncCount,
+  }) {
+    if (!cloudSyncAvailable) {
+      return text(ChronoSparkString.offlineLocalSemantic);
+    }
+    if (pendingSyncCount > 0) {
+      return isSpanish
+          ? 'Modo sin conexión. $pendingSyncCount acciones en cola. Las acciones se sincronizarán después.'
+          : 'Offline mode. $pendingSyncCount actions queued. Actions will sync later.';
+    }
+    return text(ChronoSparkString.offlineSyncSemantic);
+  }
+
+  String offlineVisibleLabel({
+    required bool cloudSyncAvailable,
+    required int pendingSyncCount,
+  }) {
+    if (!cloudSyncAvailable) {
+      return text(ChronoSparkString.offlineLocalVisible);
+    }
+    if (pendingSyncCount > 0) {
+      return isSpanish
+          ? 'Modo sin conexión — $pendingSyncCount en cola; se sincronizarán después'
+          : 'Offline Mode — $pendingSyncCount queued, syncing later';
+    }
+    return text(ChronoSparkString.offlineSyncVisible);
+  }
+
   String aboutPrivacyAndSupportBody({
     required String privacyUrl,
     required String termsUrl,
@@ -203,6 +233,34 @@ class ChronoSparkLocalizations {
         'Choose what ChronoSpark should call you, then build your first real task.',
     ChronoSparkString.onboardingFinishError:
         'Unable to finish onboarding. Please try again.',
+    ChronoSparkString.onboardingContinueError:
+        'Unable to continue. Please try again.',
+    ChronoSparkString.loginCreateAccountEyebrow: 'CREATE ACCOUNT',
+    ChronoSparkString.loginAccessSystemEyebrow: 'ACCESS SYSTEM',
+    ChronoSparkString.loginCreateWorkspace: 'Create your workspace',
+    ChronoSparkString.loginWelcomeBack: 'Welcome back',
+    ChronoSparkString.loginSecureAccessBody:
+        'Secure access to your connected planning workspace.',
+    ChronoSparkString.loginEmailAddress: 'Email address',
+    ChronoSparkString.loginPassword: 'Password',
+    ChronoSparkString.loginShowPassword: 'Show password',
+    ChronoSparkString.loginHidePassword: 'Hide password',
+    ChronoSparkString.loginForgotPassword: 'Forgot Password?',
+    ChronoSparkString.loginInitializeProfile: 'INITIALIZE PROFILE',
+    ChronoSparkString.loginEnterSystem: 'ENTER SYSTEM',
+    ChronoSparkString.loginContinueDivider: 'OR CONTINUE WITH',
+    ChronoSparkString.loginContinueGoogle: 'Continue with Google',
+    ChronoSparkString.loginContinueGithub: 'Continue with GitHub',
+    ChronoSparkString.loginSwitchToLogin: 'Switch to Login',
+    ChronoSparkString.loginCreateAccount: 'Create Account',
+    ChronoSparkString.offlineLocalSemantic:
+        'Offline mode. Local features remain available. Cloud sync is unavailable in this build.',
+    ChronoSparkString.offlineSyncSemantic:
+        'Offline mode. Actions will sync later.',
+    ChronoSparkString.offlineLocalVisible:
+        'Offline Mode — local features available; cloud sync unavailable',
+    ChronoSparkString.offlineSyncVisible:
+        'Offline Mode — actions will sync later',
     ChronoSparkString.preservedDataIssue:
         'Preserved device data was found, but its account owner cannot be verified.',
     ChronoSparkString.preservedDataBody:
@@ -325,6 +383,34 @@ class ChronoSparkLocalizations {
         'Elige cómo debe llamarte ChronoSpark y luego crea tu primera tarea real.',
     ChronoSparkString.onboardingFinishError:
         'No se pudo terminar la introducción. Inténtalo de nuevo.',
+    ChronoSparkString.onboardingContinueError:
+        'No se pudo continuar. Inténtalo de nuevo.',
+    ChronoSparkString.loginCreateAccountEyebrow: 'CREAR CUENTA',
+    ChronoSparkString.loginAccessSystemEyebrow: 'ACCEDER AL SISTEMA',
+    ChronoSparkString.loginCreateWorkspace: 'Crea tu espacio de trabajo',
+    ChronoSparkString.loginWelcomeBack: 'Te damos la bienvenida',
+    ChronoSparkString.loginSecureAccessBody:
+        'Acceso seguro a tu espacio de planificación conectado.',
+    ChronoSparkString.loginEmailAddress: 'Correo electrónico',
+    ChronoSparkString.loginPassword: 'Contraseña',
+    ChronoSparkString.loginShowPassword: 'Mostrar contraseña',
+    ChronoSparkString.loginHidePassword: 'Ocultar contraseña',
+    ChronoSparkString.loginForgotPassword: '¿Olvidaste la contraseña?',
+    ChronoSparkString.loginInitializeProfile: 'INICIAR PERFIL',
+    ChronoSparkString.loginEnterSystem: 'ENTRAR AL SISTEMA',
+    ChronoSparkString.loginContinueDivider: 'O CONTINÚA CON',
+    ChronoSparkString.loginContinueGoogle: 'Continuar con Google',
+    ChronoSparkString.loginContinueGithub: 'Continuar con GitHub',
+    ChronoSparkString.loginSwitchToLogin: 'Volver al acceso',
+    ChronoSparkString.loginCreateAccount: 'Crear cuenta',
+    ChronoSparkString.offlineLocalSemantic:
+        'Modo sin conexión. Las funciones locales siguen disponibles. La sincronización en la nube no está disponible en esta versión.',
+    ChronoSparkString.offlineSyncSemantic:
+        'Modo sin conexión. Las acciones se sincronizarán después.',
+    ChronoSparkString.offlineLocalVisible:
+        'Modo sin conexión — funciones locales disponibles; sincronización en la nube no disponible',
+    ChronoSparkString.offlineSyncVisible:
+        'Modo sin conexión — se sincronizará después',
     ChronoSparkString.preservedDataIssue:
         'Se encontraron datos conservados en el dispositivo, pero no se puede verificar su cuenta propietaria.',
     ChronoSparkString.preservedDataBody:
@@ -441,6 +527,28 @@ enum ChronoSparkString {
   onboardingWideBody,
   onboardingCompactBody,
   onboardingFinishError,
+  onboardingContinueError,
+  loginCreateAccountEyebrow,
+  loginAccessSystemEyebrow,
+  loginCreateWorkspace,
+  loginWelcomeBack,
+  loginSecureAccessBody,
+  loginEmailAddress,
+  loginPassword,
+  loginShowPassword,
+  loginHidePassword,
+  loginForgotPassword,
+  loginInitializeProfile,
+  loginEnterSystem,
+  loginContinueDivider,
+  loginContinueGoogle,
+  loginContinueGithub,
+  loginSwitchToLogin,
+  loginCreateAccount,
+  offlineLocalSemantic,
+  offlineSyncSemantic,
+  offlineLocalVisible,
+  offlineSyncVisible,
   preservedDataIssue,
   preservedDataBody,
   claimPreservedData,

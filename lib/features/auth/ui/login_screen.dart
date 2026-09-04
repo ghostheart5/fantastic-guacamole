@@ -525,6 +525,8 @@ class _LoginBrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
     final bool compact = width < Breakpoints.compact;
+    final double textScale = MediaQuery.textScalerOf(context).scale(1);
+    final bool stackBrand = compact && textScale >= 1.5;
     final double titleSize = compact ? 34 : 42;
     final double subtitleSize = compact ? AppSizes.fontXs : AppSizes.fontSm;
     return Column(
@@ -539,7 +541,9 @@ class _LoginBrandHeader extends StatelessWidget {
                 colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
               ).createShader(bounds),
               child: Text(
-                'CHRONOSPARK',
+                stackBrand ? 'CHRONO\nSPARK' : 'CHRONOSPARK',
+                semanticsLabel: 'ChronoSpark',
+                maxLines: stackBrand ? 2 : 1,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: titleSize,
@@ -650,7 +654,7 @@ class _LoginFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool es = ChronoSparkLocalizations.of(context).isSpanish;
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final double width = MediaQuery.sizeOf(context).width;
     final bool compact = width < Breakpoints.compact;
     final double edgePadding = compact ? 14 : 18;
@@ -668,8 +672,8 @@ class _LoginFormCard extends StatelessWidget {
         children: [
           Text(
             isSignUpMode
-                ? (es ? 'CREAR CUENTA' : 'CREATE ACCOUNT')
-                : (es ? 'ACCEDER AL SISTEMA' : 'ACCESS SYSTEM'),
+                ? l10n.text(ChronoSparkString.loginCreateAccountEyebrow)
+                : l10n.text(ChronoSparkString.loginAccessSystemEyebrow),
             style: TextStyle(
               color: isSignUpMode ? AppColors.neonViolet : AppColors.neonCyan,
               fontSize: compact ? AppSizes.fontXs : AppSizes.fontSm,
@@ -680,8 +684,8 @@ class _LoginFormCard extends StatelessWidget {
           SizedBox(height: compact ? 4 : 6),
           Text(
             isSignUpMode
-                ? (es ? 'Crea tu espacio de trabajo' : 'Create your workspace')
-                : (es ? 'Te damos la bienvenida' : 'Welcome back'),
+                ? l10n.text(ChronoSparkString.loginCreateWorkspace)
+                : l10n.text(ChronoSparkString.loginWelcomeBack),
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
@@ -690,9 +694,7 @@ class _LoginFormCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            es
-                ? 'Acceso seguro a tu espacio de planificación conectado.'
-                : 'Secure access to your connected planning workspace.',
+            l10n.text(ChronoSparkString.loginSecureAccessBody),
             style: TextStyle(
               color: Colors.white60,
               fontSize: compact ? AppSizes.fontCaption : AppSizes.fontBody,
@@ -728,7 +730,7 @@ class _LoginFormCard extends StatelessWidget {
             icon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
             semanticIdentifier: 'login-email-field',
-            label: es ? 'Correo electrónico' : 'Email address',
+            label: l10n.text(ChronoSparkString.loginEmailAddress),
             obscure: false,
             accentColor: AppColors.neonCyan,
           ),
@@ -739,14 +741,14 @@ class _LoginFormCard extends StatelessWidget {
             icon: Icons.key_rounded,
             keyboardType: TextInputType.visiblePassword,
             semanticIdentifier: 'login-password-field',
-            label: es ? 'Contraseña' : 'Password',
+            label: l10n.text(ChronoSparkString.loginPassword),
             obscure: obscurePassword,
             accentColor: AppColors.neonViolet,
             trailing: SmartPressable(
               onTap: onTogglePassword,
               semanticLabel: obscurePassword
-                  ? (es ? 'Mostrar contraseña' : 'Show password')
-                  : (es ? 'Ocultar contraseña' : 'Hide password'),
+                  ? l10n.text(ChronoSparkString.loginShowPassword)
+                  : l10n.text(ChronoSparkString.loginHidePassword),
               child: SizedBox.square(
                 dimension: AppSizes.touchTarget,
                 child: Icon(
@@ -760,8 +762,8 @@ class _LoginFormCard extends StatelessWidget {
             ),
           ),
           SizedBox(height: compact ? 6 : 8),
-          SizedBox(
-            height: AppSizes.touchTarget,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
             child: Align(
               alignment: Alignment.centerRight,
               child: SmartPressable(
@@ -772,7 +774,8 @@ class _LoginFormCard extends StatelessWidget {
                     vertical: 12,
                   ),
                   child: Text(
-                    es ? '¿Olvidaste la contraseña?' : 'Forgot Password?',
+                    l10n.text(ChronoSparkString.loginForgotPassword),
+                    textAlign: TextAlign.end,
                     style: TextStyle(
                       color: AppColors.neonCyan.withValues(alpha: 0.9),
                       fontSize: AppSizes.fontBody,
@@ -792,8 +795,8 @@ class _LoginFormCard extends StatelessWidget {
           SizedBox(height: compact ? 10 : 14),
           _PrimaryButton(
             label: isSignUpMode
-                ? (es ? 'INICIAR PERFIL' : 'INITIALIZE PROFILE')
-                : (es ? 'ENTRAR AL SISTEMA' : 'ENTER SYSTEM'),
+                ? l10n.text(ChronoSparkString.loginInitializeProfile)
+                : l10n.text(ChronoSparkString.loginEnterSystem),
             isLoading: isSubmitting,
             onTap: onPrimaryAction,
           ),
@@ -804,15 +807,19 @@ class _LoginFormCard extends StatelessWidget {
                 Expanded(
                   child: Divider(color: Colors.white.withValues(alpha: 0.18)),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    es ? 'O CONTINÚA CON' : 'OR CONTINUE WITH',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: AppSizes.fontXs,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
+                Flexible(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      l10n.text(ChronoSparkString.loginContinueDivider),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: AppSizes.fontXs,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
                     ),
                   ),
                 ),
@@ -823,7 +830,7 @@ class _LoginFormCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _SecondaryButton(
-              label: es ? 'Continuar con Google' : 'Continue with Google',
+              label: l10n.text(ChronoSparkString.loginContinueGoogle),
               icon: Icons.g_mobiledata_rounded,
               color: Colors.white,
               leading: const _GoogleGlyph(size: 18),
@@ -831,7 +838,7 @@ class _LoginFormCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _SecondaryButton(
-              label: es ? 'Continuar con GitHub' : 'Continue with GitHub',
+              label: l10n.text(ChronoSparkString.loginContinueGithub),
               icon: Icons.code_rounded,
               color: Colors.white,
               leading: const _GitHubGlyph(size: 16),
@@ -847,8 +854,8 @@ class _LoginFormCard extends StatelessWidget {
                   Expanded(
                     child: _SecondaryButton(
                       label: isSignUpMode
-                          ? (es ? 'Volver al acceso' : 'Switch to Login')
-                          : (es ? 'Crear cuenta' : 'Create Account'),
+                          ? l10n.text(ChronoSparkString.loginSwitchToLogin)
+                          : l10n.text(ChronoSparkString.loginCreateAccount),
                       icon: isSignUpMode
                           ? Icons.arrow_back_rounded
                           : Icons.person_add_rounded,
@@ -866,8 +873,8 @@ class _LoginFormCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   _SecondaryButton(
                     label: isSignUpMode
-                        ? (es ? 'Volver al acceso' : 'Switch to Login')
-                        : (es ? 'Crear cuenta' : 'Create Account'),
+                        ? l10n.text(ChronoSparkString.loginSwitchToLogin)
+                        : l10n.text(ChronoSparkString.loginCreateAccount),
                     icon: isSignUpMode
                         ? Icons.arrow_back_rounded
                         : Icons.person_add_rounded,
@@ -995,33 +1002,38 @@ class _LoginLegalActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final bool stacked = MediaQuery.textScalerOf(context).scale(1) >= 1.5;
+    final Widget privacy = _LoginLegalAction(
+      key: const ValueKey<String>('login-privacy-action'),
+      label: l10n.isSpanish ? 'Privacidad' : 'Privacy',
+      semanticLabel: l10n.isSpanish
+          ? 'Abrir política de privacidad'
+          : 'Open Privacy Policy',
+      icon: Icons.privacy_tip_outlined,
+      onTap: onPrivacyPolicy,
+    );
+    final Widget terms = _LoginLegalAction(
+      key: const ValueKey<String>('login-terms-action'),
+      label: l10n.isSpanish ? 'Términos' : 'Terms',
+      semanticLabel: l10n.isSpanish
+          ? 'Abrir términos del servicio'
+          : 'Open Terms of Service',
+      icon: Icons.description_outlined,
+      onTap: onTermsOfService,
+    );
+    if (stacked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[privacy, const SizedBox(height: 8), terms],
+      );
+    }
     return SizedBox(
       height: AppSizes.touchTarget,
       child: Row(
         children: <Widget>[
-          Expanded(
-            child: _LoginLegalAction(
-              key: const ValueKey<String>('login-privacy-action'),
-              label: l10n.isSpanish ? 'Privacidad' : 'Privacy',
-              semanticLabel: l10n.isSpanish
-                  ? 'Abrir política de privacidad'
-                  : 'Open Privacy Policy',
-              icon: Icons.privacy_tip_outlined,
-              onTap: onPrivacyPolicy,
-            ),
-          ),
+          Expanded(child: privacy),
           const SizedBox(width: 8),
-          Expanded(
-            child: _LoginLegalAction(
-              key: const ValueKey<String>('login-terms-action'),
-              label: l10n.isSpanish ? 'Términos' : 'Terms',
-              semanticLabel: l10n.isSpanish
-                  ? 'Abrir términos del servicio'
-                  : 'Open Terms of Service',
-              icon: Icons.description_outlined,
-              onTap: onTermsOfService,
-            ),
-          ),
+          Expanded(child: terms),
         ],
       ),
     );
@@ -1063,8 +1075,8 @@ class _LoginLegalAction extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: AppSizes.fontCaption,
@@ -1104,6 +1116,47 @@ class _NeonInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool stackedLabel = MediaQuery.textScalerOf(context).scale(1) >= 1.5;
+    final Widget inputRow = Row(
+      children: [
+        Icon(icon, color: accentColor.withValues(alpha: 0.9), size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: MergeSemantics(
+            child: Semantics(
+              identifier: semanticIdentifier,
+              label: label,
+              child: TextField(
+                controller: controller,
+                obscureText: obscure,
+                keyboardType: keyboardType,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: AppSizes.fontLabel,
+                  letterSpacing: 0,
+                ),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  labelText: stackedLabel ? null : label,
+                  floatingLabelBehavior: FloatingLabelBehavior.never,
+                  labelStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontSize: AppSizes.fontLabel,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (trailing case final Widget value)
+          SizedBox.square(
+            dimension: AppSizes.touchTarget,
+            child: Center(child: value),
+          ),
+      ],
+    );
     return Container(
       constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
       decoration: BoxDecoration(
@@ -1119,45 +1172,26 @@ class _NeonInput extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      child: Row(
-        children: [
-          Icon(icon, color: accentColor.withValues(alpha: 0.9), size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: MergeSemantics(
-              child: Semantics(
-                identifier: semanticIdentifier,
-                child: TextField(
-                  controller: controller,
-                  obscureText: obscure,
-                  keyboardType: keyboardType,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: AppSizes.fontLabel,
-                    letterSpacing: 0,
-                  ),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    labelText: label,
-                    floatingLabelBehavior: FloatingLabelBehavior.never,
-                    labelStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      fontSize: AppSizes.fontLabel,
+      child: stackedLabel
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(left: 30, top: 8),
+                  child: ExcludeSemantics(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontSize: AppSizes.fontLabel,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          if (trailing case final Widget value)
-            SizedBox.square(
-              dimension: AppSizes.touchTarget,
-              child: Center(child: value),
-            ),
-        ],
-      ),
+                inputRow,
+              ],
+            )
+          : inputRow,
     );
   }
 }
@@ -1179,6 +1213,7 @@ class _PrimaryButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           gradient: const LinearGradient(
@@ -1204,6 +1239,8 @@ class _PrimaryButton extends StatelessWidget {
               )
             : Text(
                 label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: AppSizes.fontBodyLg,
@@ -1274,8 +1311,8 @@ class _SecondaryButton extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.88),
                   fontSize: AppSizes.fontBody,

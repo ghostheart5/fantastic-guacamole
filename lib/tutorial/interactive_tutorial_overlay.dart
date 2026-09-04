@@ -378,6 +378,27 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
         alignment = Alignment.bottomCenter;
       }
     }
+    final double textScale = MediaQuery.textScalerOf(context).scale(1);
+    final double fullRegionHeight = usableBottom - usableTop;
+    final double minimumReadableHeight = math.min(320, fullRegionHeight);
+    final double minimumPinnedActionHeight = math.max(400, 160 * textScale);
+    bool pinActionsForLargeText = false;
+    if (textScale >= 1.5 &&
+        widget.primaryEnabled &&
+        fullRegionHeight >= minimumPinnedActionHeight &&
+        regionBottom - regionTop < minimumReadableHeight) {
+      // At large text sizes a large spotlight can leave only a thin strip for
+      // the guide. Give the actionable callout the safe viewport instead of
+      // hiding its explanation and primary action behind an undiscoverable
+      // internal scroll. Guides that require target interaction keep the
+      // target-relative layout by disabling their primary action. Extremely
+      // short viewports keep the whole callout scrollable because even the
+      // pinned action area may not fit at very large text scales.
+      regionTop = usableTop;
+      regionBottom = usableBottom;
+      alignment = Alignment.center;
+      pinActionsForLargeText = true;
+    }
     final double regionHeight = regionBottom - regionTop;
     if (calloutWidth <= 0 || regionHeight <= 0) {
       return const SizedBox.shrink();
@@ -394,6 +415,41 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
             const SingleActivator(LogicalKeyboardKey.escape):
                 widget.onSecondary!,
           };
+    Widget calloutContent({required bool includeActions}) => Column(
+      key: const Key('tutorial_callout_content'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (widget.stepLabel case final String label)
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        if (widget.stepLabel != null) const SizedBox(height: 6),
+        Text(
+          widget.title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          widget.body,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        if (includeActions) ...<Widget>[const SizedBox(height: 14), _actions()],
+      ],
+    );
 
     return Positioned(
       left: left,
@@ -423,6 +479,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
                 borderRadius: BorderRadius.circular(8),
                 clipBehavior: Clip.antiAlias,
                 child: Container(
+                  height: pinActionsForLargeText ? regionHeight : null,
                   constraints: BoxConstraints(maxHeight: regionHeight),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
@@ -430,46 +487,35 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
                       color: AppColors.neonCyan.withValues(alpha: .72),
                     ),
                   ),
-                  child: SingleChildScrollView(
-                    key: const Key('tutorial_callout_scroll_view'),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      key: const Key('tutorial_callout_content'),
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        if (widget.stepLabel case final String label)
-                          Text(
-                            label.toUpperCase(),
-                            style: const TextStyle(
-                              color: AppColors.neonCyan,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
+                  child: pinActionsForLargeText
+                      ? Column(
+                          children: <Widget>[
+                            Expanded(
+                              child: SingleChildScrollView(
+                                key: const Key('tutorial_callout_scroll_view'),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  16,
+                                  16,
+                                  8,
+                                ),
+                                child: calloutContent(includeActions: false),
+                              ),
                             ),
-                          ),
-                        if (widget.stepLabel != null) const SizedBox(height: 6),
-                        Text(
-                          widget.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                          ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: _actions(),
+                              ),
+                            ),
+                          ],
+                        )
+                      : SingleChildScrollView(
+                          key: const Key('tutorial_callout_scroll_view'),
+                          padding: const EdgeInsets.all(16),
+                          child: calloutContent(includeActions: true),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          widget.body,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        _actions(),
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ),

@@ -53,29 +53,15 @@ class _OfflineBannerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool es = ChronoSparkLocalizations.of(context).isSpanish;
-    final String semanticLabel = cloudSyncAvailable
-        ? pendingSyncCount > 0
-              ? (es
-                    ? 'Modo sin conexión. $pendingSyncCount acciones en cola. Las acciones se sincronizarán después.'
-                    : 'Offline mode. $pendingSyncCount actions queued. Actions will sync later.')
-              : (es
-                    ? 'Modo sin conexión. Las acciones se sincronizarán después.'
-                    : 'Offline mode. Actions will sync later.')
-        : (es
-              ? 'Modo sin conexión. Las funciones locales siguen disponibles. La sincronización en la nube no está disponible en esta versión.'
-              : 'Offline mode. Local features remain available. Cloud sync is unavailable in this build.');
-    final String visibleLabel = cloudSyncAvailable
-        ? pendingSyncCount > 0
-              ? (es
-                    ? 'Modo sin conexión — $pendingSyncCount en cola; se sincronizarán después'
-                    : 'Offline Mode — $pendingSyncCount queued, syncing later')
-              : (es
-                    ? 'Modo sin conexión — se sincronizará después'
-                    : 'Offline Mode — actions will sync later')
-        : (es
-              ? 'Modo sin conexión — funciones locales disponibles; sincronización en la nube no disponible'
-              : 'Offline Mode — local features available; cloud sync unavailable');
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final String semanticLabel = l10n.offlineSemanticLabel(
+      cloudSyncAvailable: cloudSyncAvailable,
+      pendingSyncCount: pendingSyncCount,
+    );
+    final String visibleLabel = l10n.offlineVisibleLabel(
+      cloudSyncAvailable: cloudSyncAvailable,
+      pendingSyncCount: pendingSyncCount,
+    );
     return Semantics(
       key: const Key('offline_banner_live_region'),
       liveRegion: true,

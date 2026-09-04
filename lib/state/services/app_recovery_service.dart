@@ -26,33 +26,48 @@ class AppRecoveryService {
 
   Future<void> saveState({
     String? lastRoute,
+    bool clearLastRoute = false,
     String? activeTaskId,
     bool clearActiveTask = false,
     String? draftTaskTitle,
+    bool clearDraftTitle = false,
   }) async {
     try {
-      if (lastRoute != null) {
-        await _store.save(_kLastRoute, lastRoute);
+      if (clearLastRoute) {
+        await _store.delete(_kLastRoute);
+      } else if (lastRoute != null) {
+        await _saveNormalized(_kLastRoute, lastRoute);
       }
       if (clearActiveTask) {
         await _store.delete(_kTaskId);
       } else if (activeTaskId != null) {
-        await _store.save(_kTaskId, activeTaskId);
+        await _saveNormalized(_kTaskId, activeTaskId);
       }
-      if (draftTaskTitle != null) {
-        await _store.save(_kDraftTitle, draftTaskTitle);
+      if (clearDraftTitle) {
+        await _store.delete(_kDraftTitle);
+      } else if (draftTaskTitle != null) {
+        await _saveNormalized(_kDraftTitle, draftTaskTitle);
       }
     } on Object catch (error) {
-      Logger.warn('App recovery state save failed: $error');
+      Logger.warn('RECOVERY_SAVE_FAILED: $error');
       // Non-fatal — recovery state is best-effort
     }
   }
 
+  Future<void> _saveNormalized(String key, String value) async {
+    final String normalized = value.trim();
+    if (normalized.isEmpty) {
+      await _store.delete(key);
+      return;
+    }
+    await _store.save(key, normalized);
+  }
+
   Future<AppRecoveryState?> loadState() async {
     try {
-      final lastRoute = _store.load(_kLastRoute);
-      final activeTaskId = _store.load(_kTaskId);
-      final draftTitle = _store.load(_kDraftTitle);
+      final String? lastRoute = _normalizedOrNull(_store.load(_kLastRoute));
+      final String? activeTaskId = _normalizedOrNull(_store.load(_kTaskId));
+      final String? draftTitle = _normalizedOrNull(_store.load(_kDraftTitle));
 
       if (lastRoute == null && activeTaskId == null && draftTitle == null) {
         return null;
@@ -64,17 +79,18 @@ class AppRecoveryService {
         draftTaskTitle: draftTitle,
       );
     } on Object catch (error) {
-      Logger.warn('App recovery state load failed: $error');
+      Logger.warn('RECOVERY_LOAD_FAILED: $error');
       return null;
     }
   }
 
+  String? _normalizedOrNull(String? value) {
+    final String normalized = value?.trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
+  }
+
   Future<void> clearDraft() async {
-    try {
-      await _store.delete(_kDraftTitle);
-    } on Object catch (error) {
-      Logger.warn('App recovery draft clear failed: $error');
-    }
+    await saveState(clearDraftTitle: true);
   }
 
   Future<void> clearAll() async {
@@ -83,7 +99,7 @@ class AppRecoveryService {
       await _store.delete(_kTaskId);
       await _store.delete(_kDraftTitle);
     } on Object catch (error) {
-      Logger.warn('App recovery clear failed: $error');
+      Logger.warn('RECOVERY_CLEAR_FAILED: $error');
     }
   }
 }

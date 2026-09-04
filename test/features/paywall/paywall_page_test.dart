@@ -6,11 +6,13 @@ import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,6 +29,8 @@ void main() {
       source: 'test',
       isTesting: false,
     ),
+    Locale locale = const Locale('en'),
+    PaywallPrompt? prompt,
   }) async {
     // Restore Purchases and Show all plans sit below the
     // fold at the default 800x600 test viewport, and PaywallPage's ListView
@@ -59,11 +63,24 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    if (prompt != null) {
+      container.read(paywallPromptProvider.notifier).set(prompt);
+    }
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: PaywallPage()),
+        child: MaterialApp(
+          locale: locale,
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const PaywallPage(),
+        ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 400));
@@ -186,6 +203,59 @@ void main() {
     expect(find.textContaining('advanced agents'), findsNothing);
   });
 
+  testWidgets(
+    'Spanish paywall localizes plans, billing, credits, restore, and prompts',
+    (WidgetTester tester) async {
+      await pumpPaywall(
+        tester,
+        config: _twoPlanConfig,
+        locale: const Locale('es'),
+        prompt: const PaywallPrompt(
+          title: 'AI credits running low',
+          message: 'You have 3 external assistant credits remaining.',
+          trigger: 'ai_credit_low',
+          remainingCredits: 3,
+        ),
+      );
+
+      expect(find.text('PLANES Y CRÉDITOS'), findsOneWidget);
+      expect(
+        find.text('Planes de créditos del asistente externo'),
+        findsOneWidget,
+      );
+      expect(find.text('Mensual'), findsOneWidget);
+      expect(find.text('Anual'), findsOneWidget);
+      expect(
+        find.text(
+          'Créditos tras una compra verificada o una renovación pagada: 300',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Google Play confirma la frecuencia de facturación y los términos de renovación antes de la compra.',
+        ),
+        findsNWidgets(2),
+      );
+      expect(find.text('Elegir plan'), findsNWidgets(2));
+      expect(find.text('Restaurar compras'), findsOneWidget);
+      expect(find.text('SALDO DE CRÉDITOS'), findsOneWidget);
+      expect(find.text('CRÉDITOS DISPONIBLES'), findsOneWidget);
+      expect(find.text('NIVEL'), findsOneWidget);
+      expect(find.text('SE RENUEVA'), findsOneWidget);
+      expect(find.text('NO DISPONIBLE'), findsOneWidget);
+      expect(find.text('Quedan pocos créditos de IA'), findsOneWidget);
+      expect(
+        find.text('Te quedan 3 créditos del asistente externo.'),
+        findsOneWidget,
+      );
+      expect(find.text('Créditos restantes: 3'), findsOneWidget);
+      expect(find.text('Choose plan'), findsNothing);
+      expect(find.text('Restore Purchases'), findsNothing);
+      expect(find.text('Remaining credits: 3'), findsNothing);
+    },
+  );
+
   test('pending and canceled purchase copy preserves current access', () {
     expect(
       resolvePaywallPurchaseResultMessage(
@@ -254,6 +324,140 @@ void main() {
         testingMode: false,
       ),
       'No active purchases were found to restore.',
+    );
+  });
+
+  test('Spanish purchase results preserve access and verification truth', () {
+    const ChronoSparkLocalizations spanish = ChronoSparkLocalizations(
+      Locale('es'),
+    );
+
+    expect(
+      resolvePaywallPurchaseResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'purchase_pending',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'Compra pendiente. Tu acceso actual no cambia mientras Google Play la completa.',
+    );
+    expect(
+      resolvePaywallPurchaseResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'verification_failed',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'No se pudo confirmar la verificación de la compra. Tu acceso actual no cambia; usa Restaurar compras para volver a intentarlo.',
+    );
+    expect(
+      resolvePaywallPurchaseResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'acknowledgement_failed',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'La verificación de la compra se completó, pero la confirmación final aún está pendiente. Tu acceso actual no cambia; usa Restaurar compras para volver a intentarlo.',
+    );
+    expect(
+      resolvePaywallPurchaseResultMessage(
+        const SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'Suscripción activada.',
+    );
+  });
+
+  test('Spanish restore results cover pending, errors, and active access', () {
+    const ChronoSparkLocalizations spanish = ChronoSparkLocalizations(
+      Locale('es'),
+    );
+
+    expect(
+      resolvePaywallRestoreResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'purchase_pending',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'Restauración pendiente. Tu acceso actual no cambia mientras Google Play la completa.',
+    );
+    expect(
+      resolvePaywallRestoreResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'verification_failed',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'No se pudo confirmar la verificación de la restauración. Tu acceso actual no cambia; vuelve a intentar Restaurar compras.',
+    );
+    expect(
+      resolvePaywallRestoreResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'acknowledgement_failed',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'La restauración encontró la compra, pero la confirmación final aún está pendiente. Tu acceso actual no cambia; vuelve a intentar Restaurar compras.',
+    );
+    expect(
+      resolvePaywallRestoreResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'restore_error',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'No se pudo restaurar la compra. Vuelve a intentarlo.',
+    );
+    expect(
+      resolvePaywallRestoreResultMessage(
+        const SubscriptionState(
+          isActive: false,
+          status: 'nothing_to_restore',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'No se encontraron compras activas para restaurar.',
+    );
+    expect(
+      resolvePaywallRestoreResultMessage(
+        const SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'google_play',
+        ),
+        testingMode: false,
+        localizations: spanish,
+      ),
+      'Suscripción restaurada y activa.',
     );
   });
 }

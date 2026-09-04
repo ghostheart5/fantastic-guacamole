@@ -148,6 +148,55 @@ void main() {
     const Color background = Color(0xFF081426);
     expect(_contrastRatio(foreground, background), greaterThanOrEqualTo(4.5));
   });
+
+  testWidgets(
+    'Spanish login reflows without horizontal text loss at 320 and 200 percent',
+    (WidgetTester tester) async {
+      final _LoginHarness harness = await _pumpLoginRouter(
+        tester,
+        initialLocation: RoutePaths.login,
+        locale: const Locale('es'),
+        width: 320,
+        height: 640,
+        textScale: 2,
+      );
+      addTearDown(harness.dispose);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('CHRONO\nSPARK'), findsOneWidget);
+      for (final String label in <String>[
+        'Correo electrónico',
+        'Contraseña',
+        '¿Olvidaste la contraseña?',
+        'Privacidad',
+        'Términos',
+        'ENTRAR AL SISTEMA',
+      ]) {
+        final Finder finder = find.text(label);
+        expect(finder, findsOneWidget, reason: label);
+        final Rect rect = tester.getRect(finder);
+        expect(rect.left, greaterThanOrEqualTo(0), reason: label);
+        expect(rect.right, lessThanOrEqualTo(320), reason: label);
+      }
+
+      for (final ValueKey<String> key in <ValueKey<String>>[
+        privacyKey,
+        termsKey,
+      ]) {
+        expect(
+          tester.getSize(find.byKey(key)).height,
+          greaterThanOrEqualTo(48),
+        );
+      }
+      final TextField email = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const ValueKey('login-email-field')),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(email.decoration?.labelText, isNull);
+    },
+  );
 }
 
 double _contrastRatio(Color foreground, Color background) {
@@ -162,8 +211,11 @@ Future<_LoginHarness> _pumpLoginRouter(
   required String initialLocation,
   bool isSignUpMode = false,
   Locale locale = const Locale('en'),
+  double width = 390,
+  double height = 844,
+  double textScale = 1,
 }) async {
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
@@ -207,6 +259,12 @@ Future<_LoginHarness> _pumpLoginRouter(
     MaterialApp.router(
       routerConfig: router,
       locale: locale,
+      builder: (BuildContext context, Widget? child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child ?? const SizedBox.shrink(),
+      ),
       supportedLocales: ChronoSparkLocalizations.supportedLocales,
       localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
         ChronoSparkLocalizations.delegate,

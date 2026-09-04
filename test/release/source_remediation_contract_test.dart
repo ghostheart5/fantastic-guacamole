@@ -135,6 +135,36 @@ void main() {
     expect(bundled.toLowerCase(), isNot(contains('session data')));
   });
 
+  test('all checked-in support and deletion surfaces use one mailbox', () {
+    const String canonical = 'ghostheart131517@gmail.com';
+    const String retired = 'support@chronospark.app';
+    expect(read('lib/config/env.dart'), contains(canonical));
+    expect(
+      read('lib/features/settings/ui/settings_screen.dart'),
+      contains('Env.supportEmail'),
+    );
+    for (final String path in <String>[
+      'privacy.html',
+      'web/privacy/index.html',
+      'web/terms/index.html',
+      'terms/index.html',
+      'web/support/index.html',
+      'web/delete-account/index.html',
+      'assets/legal/privacy_policy.txt',
+      'assets/legal/terms_of_service.txt',
+      'assets/legal/terms_of_service.html',
+      'assets/legal/delete_account.html',
+      'docs/delete-account.html',
+      'contact.html',
+      'support.html',
+      'testers.html',
+    ]) {
+      final String source = read(path);
+      expect(source, contains(canonical), reason: path);
+      expect(source, isNot(contains(retired)), reason: path);
+    }
+  });
+
   test('OAuth fallback uses the app callback scheme', () {
     final String endpoints = read('lib/config/src/service_endpoints.dart');
     expect(endpoints, contains("defaultValue: 'chronospark://auth-callback'"));

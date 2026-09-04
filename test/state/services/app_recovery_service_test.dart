@@ -37,4 +37,47 @@ void main() {
     expect(restored?.lastRoute, isNull);
     expect(restored?.draftTaskTitle, isNull);
   });
+
+  test(
+    'normalizes values and explicitly clears stale recovery fields',
+    () async {
+      final AppRecoveryService service = AppRecoveryService();
+      await service.saveState(
+        lastRoute: '  /timeline  ',
+        activeTaskId: '  task-7  ',
+        draftTaskTitle: '  resume this  ',
+      );
+
+      final AppRecoveryState? normalized = await service.loadState();
+      expect(normalized?.lastRoute, '/timeline');
+      expect(normalized?.activeTaskId, 'task-7');
+      expect(normalized?.draftTaskTitle, 'resume this');
+
+      await service.saveState(
+        clearLastRoute: true,
+        clearActiveTask: true,
+        clearDraftTitle: true,
+      );
+      expect(await service.loadState(), isNull);
+    },
+  );
+
+  test(
+    'empty recovery values remove stale state instead of restoring blanks',
+    () async {
+      final AppRecoveryService service = AppRecoveryService();
+      await service.saveState(
+        lastRoute: '/timeline',
+        activeTaskId: 'task-7',
+        draftTaskTitle: 'resume this',
+      );
+      await service.saveState(
+        lastRoute: '   ',
+        activeTaskId: '',
+        draftTaskTitle: '\n',
+      );
+
+      expect(await service.loadState(), isNull);
+    },
+  );
 }

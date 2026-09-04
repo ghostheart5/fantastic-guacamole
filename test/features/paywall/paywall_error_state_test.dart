@@ -6,11 +6,13 @@ import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,6 +26,7 @@ void main() {
     WidgetTester tester, {
     required FutureOr<PaywallEntity> Function(Ref ref) config,
     int Function()? onConfigRebuild,
+    Locale locale = const Locale('en'),
   }) async {
     final _MemorySharedPrefsStore prefs = _MemorySharedPrefsStore();
     final CreditService credit = CreditService(prefs: prefs);
@@ -56,7 +59,17 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: PaywallPage()),
+        child: MaterialApp(
+          locale: locale,
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const PaywallPage(),
+        ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 400));
@@ -117,6 +130,29 @@ void main() {
       find.textContaining('EXTERNAL-ASSISTANT CREDIT PLANS'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Spanish fetch failure localizes the error and retry action', (
+    WidgetTester tester,
+  ) async {
+    await pumpPaywall(
+      tester,
+      locale: const Locale('es'),
+      config: (Ref ref) async => throw Exception('config failed'),
+    );
+
+    expect(
+      find.text(
+        'No se pudieron cargar los datos más recientes de los planes. Mostramos la información disponible.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Reintentar'), findsOneWidget);
+    expect(
+      find.text("Couldn't load the latest plan details. Showing what we have."),
+      findsNothing,
+    );
+    expect(find.text('Retry'), findsNothing);
   });
 }
 

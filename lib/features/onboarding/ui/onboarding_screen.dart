@@ -91,9 +91,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              ChronoSparkLocalizations.of(context).isSpanish
-                  ? 'No se pudo continuar. Inténtalo de nuevo.'
-                  : 'Unable to continue. Please try again.',
+              ChronoSparkLocalizations.of(
+                context,
+              ).text(ChronoSparkString.onboardingContinueError),
             ),
           ),
         );
