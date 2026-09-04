@@ -16,6 +16,13 @@ is changed by preparing this workflow.
 - Uses existing signing secrets and requires the upload SHA-1 pin already in
   `android-release.yml`. The AAB's SHA-256 signer fingerprint is recorded
   separately; Play's app-signing identity must not be confused with the upload key.
+- Keeps signing passwords and the alias out of `key.properties`. That temporary
+  file contains fixed, non-secret bootstrap values only. A runner-scoped Gradle
+  initialization hook uses Android's `finalizeDsl` callback to supply the real
+  values from environment variables in memory, before variant creation.
+  A disposable Gradle user home disables the daemon and configuration cache
+  and is removed after the build; no secret is interpolated into the hook.
+  Without the hook, the bootstrap cannot unlock the pinned existing keystore.
 - Verifies production configuration format with the existing source validator.
   Firebase secret configuration must match the frozen tracked configuration;
   drift fails instead of silently changing the candidate.
@@ -102,3 +109,20 @@ The committed Phase 5 hold remains INCOMPLETE / DEFERRED.
 
 References: [bundletool release](https://github.com/google/bundletool/releases/tag/1.18.3),
 [Android page-size verification](https://developer.android.com/guide/practices/page-sizes).
+
+Signing repair references: [Gradle initialization scripts](https://docs.gradle.org/current/userguide/init_scripts.html),
+[Android DSL finalization](https://developer.android.com/reference/tools/gradle-api/7.4/com/android/build/api/variant/DslLifecycle).
+The earlier nine-test result predates this repair. Repair validation:
+
+- PASS: 10 focused verifier tests, including cleanup after a build error.
+- PASS: actual Gradle 8.14.3 / AGP 8.11.1 configuration, offline, with synthetic
+  punctuation/Unicode probes; all release signing fields received the values.
+- PASS: the same actual AGP configuration fails closed when the key-password
+  environment variable is missing, before the verification task executes.
+- PASS: actionlint, repository workflow guard (13 workflows), diff whitespace.
+
+Reproduce the AGP check with `python scripts/test_candidate_signing_gradle.py
+<installed-gradle-executable>` and Java 17 / Android SDK configured. It requires
+cached AGP 8.11.1 and does not compile an app, generate a key, or read real signing
+credentials. These host checks do not establish CodeQL success or prove that a
+signed AAB was built. GitHub checks must pass at the repaired PR head before merge.
