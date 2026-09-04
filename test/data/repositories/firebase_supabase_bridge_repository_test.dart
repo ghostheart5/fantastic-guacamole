@@ -9,11 +9,11 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 void main() {
   test(
-    'push-token throttling is serialized and bound to each auth owner',
+    'push-token claims are device-serialized and bound to bearer auth',
     () async {
-      final List<Map<String, dynamic>> upserts = <Map<String, dynamic>>[];
-      final sb.SupabaseClient ownerA = _clientFor('owner-a', upserts);
-      final sb.SupabaseClient ownerB = _clientFor('owner-b', upserts);
+      final List<_RegistrationRequest> registrations = <_RegistrationRequest>[];
+      final sb.SupabaseClient ownerA = _clientFor('owner-a', registrations);
+      final sb.SupabaseClient ownerB = _clientFor('owner-b', registrations);
       await ownerA.auth.signInWithPassword(
         email: 'owner-a@example.com',
         password: 'password',
@@ -28,15 +28,32 @@ void main() {
           );
 
       await Future.wait(<Future<void>>[
-        repository.syncFirebaseMessagingToken(ownerA, 'device-token'),
-        repository.syncFirebaseMessagingToken(ownerA, 'device-token'),
+        repository.syncFirebaseMessagingToken(ownerA, 'device-token-123456'),
+        repository.syncFirebaseMessagingToken(ownerA, 'device-token-123456'),
       ]);
-      await repository.syncFirebaseMessagingToken(ownerB, 'device-token');
+      await repository.syncFirebaseMessagingToken(
+        ownerB,
+        'device-token-123456',
+      );
 
-      expect(upserts, hasLength(2));
+      expect(registrations, hasLength(2));
       expect(
-        upserts.map((Map<String, dynamic> value) => value['user_id']).toSet(),
-        <String>{'owner-a', 'owner-b'},
+        registrations
+            .map((_RegistrationRequest value) => value.authorization)
+            .toSet(),
+        <String>{'Bearer access-token-owner-a', 'Bearer access-token-owner-b'},
+      );
+      expect(
+        registrations
+            .map(
+              (_RegistrationRequest value) => value.body['p_installation_id'],
+            )
+            .toSet(),
+        hasLength(1),
+      );
+      expect(
+        registrations.first.body,
+        containsPair('p_token', 'device-token-123456'),
       );
     },
   );
@@ -44,7 +61,7 @@ void main() {
 
 sb.SupabaseClient _clientFor(
   String userId,
-  List<Map<String, dynamic>> upserts,
+  List<_RegistrationRequest> registrations,
 ) {
   return sb.SupabaseClient(
     'https://chronospark.example.com',
@@ -71,15 +88,16 @@ sb.SupabaseClient _clientFor(
           headers: <String, String>{'content-type': 'application/json'},
         );
       }
-      if (request.url.path == '/rest/v1/user_push_tokens') {
-        upserts.add(
-          (jsonDecode(request.body) as Map<dynamic, dynamic>).map(
+      if (request.url.path == '/rest/v1/rpc/register_firebase_device') {
+        registrations.add((
+          authorization: request.headers['authorization'] ?? '',
+          body: (jsonDecode(request.body) as Map<dynamic, dynamic>).map(
             (dynamic key, dynamic value) => MapEntry(key.toString(), value),
           ),
-        );
+        ));
         return http.Response(
-          '[]',
-          201,
+          '1',
+          200,
           headers: <String, String>{'content-type': 'application/json'},
           request: request,
         );
@@ -91,3 +109,8 @@ sb.SupabaseClient _clientFor(
     ),
   );
 }
+
+typedef _RegistrationRequest = ({
+  String authorization,
+  Map<String, dynamic> body,
+});

@@ -275,7 +275,7 @@ class AuthService implements AuthServiceContract {
     Object? serverTokenCleanupFailure;
     if (user != null) {
       try {
-        await _auth.from('user_push_tokens').delete().eq('user_id', user.id);
+        await _auth.rpc<dynamic>('unregister_firebase_device');
       } on Object catch (error) {
         serverTokenCleanupFailure = error;
         Logger.warn('Push-token cleanup during sign-out failed: $error');

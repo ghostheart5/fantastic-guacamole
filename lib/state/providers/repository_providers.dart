@@ -226,7 +226,10 @@ final workspaceRepositoryProvider = Provider<WorkspaceRepository>((Ref ref) {
 final firebaseSupabaseBridgeRepositoryProvider =
     Provider<FirebaseSupabaseBridgeRepository>((Ref ref) {
       return FirebaseSupabaseBridgeRepository(
-        store: ref.watch(accountSecureStoreProvider),
+        // The installation identity belongs to the physical app install, not
+        // to whichever account is currently signed in. Server-side ownership
+        // is claimed atomically by register_firebase_device().
+        store: ref.watch(secureStoreProvider),
       );
     });
 final noteRepositoryProvider = Provider<NoteRepository>(

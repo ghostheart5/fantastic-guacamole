@@ -456,11 +456,14 @@ void main() {
             headers: <String, String>{'content-type': 'application/json'},
           );
         }
-        if (request.url.path.endsWith('/rest/v1/user_push_tokens')) {
+        if (request.url.path.endsWith(
+          '/rest/v1/rpc/unregister_firebase_device',
+        )) {
           return http.Response(
-            '[]',
+            '0',
             200,
             headers: <String, String>{'content-type': 'application/json'},
+            request: request,
           );
         }
         return http.Response('{}', 200);
@@ -496,7 +499,9 @@ void main() {
               headers: <String, String>{'content-type': 'application/json'},
             );
           }
-          if (request.url.path.endsWith('/rest/v1/user_push_tokens')) {
+          if (request.url.path.endsWith(
+            '/rest/v1/rpc/unregister_firebase_device',
+          )) {
             throw StateError('offline');
           }
           return http.Response('{}', 200);
@@ -529,7 +534,9 @@ void main() {
             headers: <String, String>{'content-type': 'application/json'},
           );
         }
-        if (request.url.path.endsWith('/rest/v1/user_push_tokens')) {
+        if (request.url.path.endsWith(
+          '/rest/v1/rpc/unregister_firebase_device',
+        )) {
           throw StateError('offline');
         }
         return http.Response('{}', 200);
