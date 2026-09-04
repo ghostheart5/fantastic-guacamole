@@ -168,6 +168,34 @@ void main() {
     }
   });
 
+  test('published legal copies lock the adult-only target audience', () {
+    for (final String path in <String>[
+      'privacy.html',
+      'web/privacy/index.html',
+      'assets/legal/privacy_policy.html',
+      'assets/legal/privacy_policy.txt',
+    ]) {
+      expect(
+        read(path),
+        contains('intended for adults ages 18 and over'),
+        reason: path,
+      );
+    }
+
+    for (final String path in <String>[
+      'terms/index.html',
+      'web/terms/index.html',
+      'assets/legal/terms_of_service.html',
+      'assets/legal/terms_of_service.txt',
+    ]) {
+      expect(
+        read(path),
+        contains('must be at least 18 years old'),
+        reason: path,
+      );
+    }
+  });
+
   test('OAuth fallback uses the app callback scheme', () {
     final String endpoints = read('lib/config/src/service_endpoints.dart');
     expect(endpoints, contains("defaultValue: 'chronospark://auth-callback'"));

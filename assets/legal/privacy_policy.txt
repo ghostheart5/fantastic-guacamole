@@ -1,8 +1,12 @@
 Privacy Policy
 
-Last updated: August 31, 2026
+Last updated: September 4, 2026
 
 This policy describes the data ChronoSpark may process and the stricter feature containment applied to the current release candidate. A listed provider is not proof that every provider feature is enabled.
+
+Age and intended audience
+
+ChronoSpark is intended for adults ages 18 and over. It is not designed for or directed to children. Do not create an account or use ChronoSpark if you are under 18.
 
 Information you provide
 
