@@ -122,6 +122,18 @@ void main() {
       expect(SiPolicy.isSupportedAndSafe(unsafe), isFalse);
     });
 
+    test('matches whole claims without blocking safe partial words', () {
+      expect(
+        SiPolicy.containsUnsupportedClaim('Your account is secure.'),
+        isFalse,
+      );
+      expect(
+        SiPolicy.containsUnsupportedClaim('The outcome is guaranteed.'),
+        isTrue,
+      );
+      expect(SiPolicy.containsUnsupportedClaim('This is a diagnosis.'), isTrue);
+    });
+
     test('rejects output with missing context', () {
       expect(
         SiPolicy.hasRequiredContext(

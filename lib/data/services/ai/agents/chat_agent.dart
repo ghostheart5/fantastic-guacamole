@@ -72,12 +72,14 @@ AiProxyAttempt? aiProxyFailureFromPayload({
 Map<String, dynamic> buildAiProxyRequestBody({
   required String prompt,
   required List<Map<String, String>> history,
-  required String system,
+  required AIPersonality personality,
+  required Map<String, dynamic> context,
   required String requestId,
 }) => <String, dynamic>{
   'prompt': prompt.trim(),
   'history': history,
-  'system': system,
+  'personality': personality.name,
+  'context': context,
   'allowExternalAi': true,
   'requestId': requestId,
 };
@@ -237,7 +239,8 @@ class ChatAgent extends AiAgent {
               buildAiProxyRequestBody(
                 prompt: prompt,
                 history: minimizedHistory,
-                system: _systemPrompt(personality, minimizedContext),
+                personality: personality,
+                context: minimizedContext,
                 requestId: requestId,
               ),
             ),
@@ -315,18 +318,6 @@ class ChatAgent extends AiAgent {
               item['content']?.trim().isNotEmpty ?? false,
         )
         .toList(growable: false);
-  }
-
-  String _systemPrompt(
-    AIPersonality personality,
-    Map<String, dynamic> context,
-  ) {
-    return 'You are ChronoSpark Smart Planner. Be concise, practical, and '
-        'specific to the user context. Answer the newest message directly. '
-        'Use recent conversation history, but do not repeat earlier wording '
-        'or generic motivational slogans. Give one useful signal and one '
-        'clear next action. Never claim to be a therapist or diagnose. '
-        'Personality: ${personality.name}. Context: ${jsonEncode(context)}';
   }
 
   Map<String, dynamic> _minimizeProxyContext(Map<String, dynamic> context) {
