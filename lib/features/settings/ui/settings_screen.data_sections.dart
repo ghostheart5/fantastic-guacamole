@@ -118,7 +118,14 @@ class _GlobalMetricsDebugSectionState
             ),
             error: (e, _) => _NeonStatusTile(
               title: 'Optimizer Error',
-              subtitle: e.toString(),
+              subtitle: settingsPublicFailureMessage(
+                context,
+                e,
+                englishFallback:
+                    'Optimizer configuration could not be read. Retry.',
+                spanishFallback:
+                    'No se pudo leer la configuración del optimizador. Inténtalo de nuevo.',
+              ),
             ),
           ),
           _metricsRealtimeAsync.when(
@@ -145,7 +152,14 @@ class _GlobalMetricsDebugSectionState
             ),
             error: (error, _) => _NeonStatusTile(
               title: 'Realtime Error',
-              subtitle: error.toString(),
+              subtitle: settingsPublicFailureMessage(
+                context,
+                error,
+                englishFallback:
+                    'Aggregate metrics could not be read. Retry when connected.',
+                spanishFallback:
+                    'No se pudieron leer las métricas agregadas. Inténtalo de nuevo cuando tengas conexión.',
+              ),
             ),
           ),
           _NeonNavTile(
@@ -213,7 +227,14 @@ class _SupabaseBackendHealthSection extends ConsumerWidget {
         ),
         error: (error, _) => _NeonStatusTile(
           title: 'Backend Health Error',
-          subtitle: error.toString(),
+          subtitle: settingsPublicFailureMessage(
+            context,
+            error,
+            englishFallback:
+                'Backend health could not be checked. Retry when connected.',
+            spanishFallback:
+                'No se pudo comprobar el estado del servidor. Inténtalo de nuevo cuando tengas conexión.',
+          ),
         ),
       ),
     );
@@ -491,8 +512,17 @@ class _AdaptiveGuidanceDebugSection extends ConsumerWidget {
           title: 'State',
           subtitle: 'Loading account-scoped milestones...',
         ),
-        error: (Object error, StackTrace _) =>
-            _NeonStatusTile(title: 'State Error', subtitle: error.toString()),
+        error: (Object error, StackTrace _) => _NeonStatusTile(
+          title: 'State Error',
+          subtitle: settingsPublicFailureMessage(
+            context,
+            error,
+            englishFallback:
+                'Account-scoped guide state could not be read. Retry.',
+            spanishFallback:
+                'No se pudo leer el estado de la guía de esta cuenta. Inténtalo de nuevo.',
+          ),
+        ),
         data: (AdaptiveGuidanceState state) => _NeonStatusTile(
           title: 'Observed progress',
           subtitle:

@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
@@ -16,6 +17,7 @@ import 'package:fantastic_guacamole/state/services/reflection_reminder_service.d
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -360,6 +362,61 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     container.dispose();
+  });
+
+  testWidgets('Spanish Person Context consent and device scope are localized', (
+    WidgetTester tester,
+  ) async {
+    useTallSurface(tester);
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'spanish-context-settings-account',
+    );
+    final ProviderContainer container = createContainer(
+      accountScope: scope,
+      personContext: PersonContextSpine(
+        accountScopeId: scope.v2Namespace!,
+        updatedAt: DateTime.utc(2026, 9, 4),
+        signals: const <PersonContextSignal>[],
+      ),
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: SettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.scrollUntilVisible(
+      find.text('Planning & guidance'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await invokeNavTile(tester, 'Planning & guidance');
+
+    expect(find.text('CONTEXTO PERSONAL'), findsOneWidget);
+    expect(find.text('Añadir contexto personal'), findsOneWidget);
+    expect(
+      find.textContaining('Se guarda solo en este dispositivo'),
+      findsOneWidget,
+    );
+
+    await invokeNavTile(tester, 'Añadir contexto personal');
+
+    expect(find.textContaining('No se infiere nada'), findsOneWidget);
+    expect(find.textContaining('Antes de aceptar'), findsOneWidget);
+    expect(find.text('Guardar con consentimiento'), findsOneWidget);
+    expect(find.text('Add person context'), findsNothing);
   });
 
   testWidgets(

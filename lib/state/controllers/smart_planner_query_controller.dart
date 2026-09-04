@@ -222,6 +222,8 @@ class SmartPlannerQueryController
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) async {
     final String prompt = notes.trim().isEmpty
         ? 'Give me a practical planning check-in for my current energy and emotional state.'
@@ -249,6 +251,8 @@ class SmartPlannerQueryController
         contextWasProvided: notes.trim().isNotEmpty,
         conversation: conversation,
         assessment: emotionalSafety,
+        supportivePauseReason: supportivePauseReason,
+        supportiveQuestion: supportiveQuestion,
       );
     }
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
@@ -288,6 +292,8 @@ class SmartPlannerQueryController
     required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) async {
     return (await requestFollowUpResult(
       input: input,
@@ -295,6 +301,8 @@ class SmartPlannerQueryController
       emotion: emotion,
       reflection: reflection,
       history: history,
+      supportivePauseReason: supportivePauseReason,
+      supportiveQuestion: supportiveQuestion,
     )).message;
   }
 
@@ -304,6 +312,8 @@ class SmartPlannerQueryController
     required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) async {
     final String prompt = input.trim();
     _requireNonCrisisRoute(prompt);
@@ -331,6 +341,8 @@ class SmartPlannerQueryController
         contextWasProvided: true,
         conversation: conversation,
         assessment: emotionalSafety,
+        supportivePauseReason: supportivePauseReason,
+        supportiveQuestion: supportiveQuestion,
       );
     }
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
@@ -371,6 +383,8 @@ class SmartPlannerQueryController
     required List<Map<String, String>> history,
     required String reason,
     AssistantRequestKind kind = AssistantRequestKind.planningGuidance,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) {
     _requireNonCrisisRoute(input);
     final ({double? energy, EmotionalState? emotion}) authorized =
@@ -390,6 +404,8 @@ class SmartPlannerQueryController
       contextWasProvided: input.trim().isNotEmpty,
       history: history,
       isFollowUp: kind == AssistantRequestKind.followUp,
+      supportivePauseReason: supportivePauseReason,
+      supportiveQuestion: supportiveQuestion,
     );
     final PlannerV2Response response = base.isClarification
         ? base.copyWith(
@@ -424,6 +440,8 @@ class SmartPlannerQueryController
     List<Map<String, String>> history = const <Map<String, String>>[],
     String? reflection,
     bool isFollowUp = false,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) {
     final ({double? energy, EmotionalState? emotion}) authorized =
         _authorizedCheckIn(energy: energy, emotion: emotion);
@@ -439,6 +457,8 @@ class SmartPlannerQueryController
         isFollowUp: isFollowUp,
       ),
       evidence: const _PlannerEvidence.empty(),
+      supportivePauseReason: supportivePauseReason,
+      supportiveQuestion: supportiveQuestion,
     );
   }
 
@@ -449,6 +469,8 @@ class SmartPlannerQueryController
     required bool contextWasProvided,
     required _PlannerConversationContext conversation,
     required _PlannerEvidence evidence,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) {
     final double? boundedEnergy = energy?.clamp(0.0, 1.0).toDouble();
     final double planningEnergy = boundedEnergy ?? 0.5;
@@ -485,7 +507,10 @@ class SmartPlannerQueryController
           contextWasProvided: contextWasProvided,
         ),
         mattersMost: supportivePause
-            ? EmotionalSafetyPolicy.planningPauseReason(emotionalSafety)
+            ? _requiredSupportiveCopy(
+                supportivePauseReason,
+                'supportivePauseReason',
+              )
             : 'Connecting your request to the right evidence before proposing a plan.',
         verifiedEvidence: <String>[
           if (boundedEnergy != null)
@@ -502,7 +527,7 @@ class SmartPlannerQueryController
           'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
         ],
         question: supportivePause
-            ? EmotionalSafetyPolicy.supportiveQuestion(emotionalSafety)
+            ? _requiredSupportiveCopy(supportiveQuestion, 'supportiveQuestion')
             : 'Which saved task or goal, if any, should this plan support?',
         adaptationReceipt: PlannerAdaptationReceipt(
           userSetEnergy: boundedEnergy,
@@ -966,6 +991,8 @@ class SmartPlannerQueryController
     required bool contextWasProvided,
     required _PlannerConversationContext conversation,
     required EmotionalSafetyAssessment assessment,
+    required String? supportivePauseReason,
+    required String? supportiveQuestion,
   }) {
     final AssistantRequestEnvelope request = _requestContract(
       kind: kind,
@@ -986,6 +1013,8 @@ class SmartPlannerQueryController
       contextWasProvided: contextWasProvided,
       conversation: conversation,
       evidence: const _PlannerEvidence.empty(),
+      supportivePauseReason: supportivePauseReason,
+      supportiveQuestion: supportiveQuestion,
     );
     return _resultFromResponse(
       request: request,
@@ -1001,6 +1030,18 @@ class SmartPlannerQueryController
         'Smart Planner must show the dedicated crisis support route.',
       );
     }
+  }
+
+  static String _requiredSupportiveCopy(String? value, String field) {
+    final String normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(
+        value,
+        field,
+        'Localized supportive safety copy is required for this route.',
+      );
+    }
+    return normalized;
   }
 
   Future<void> _requireReleaseCapabilities() async {

@@ -4,12 +4,14 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -188,6 +190,29 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('timeline-task-notice-retry')), findsOneWidget);
+  });
+
+  testWidgets('Spanish persistence-repair consent is localized', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = _buildContainer(
+      persistenceCorrupted: true,
+      tasksLoader: (Ref ref) async => const <Task>[],
+    );
+    addTearDown(container.dispose);
+
+    await _pumpTimelineShell(tester, container, locale: const Locale('es'));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('timeline-persistence-retry')));
+    await tester.pump();
+
+    expect(
+      find.text('¿Reparar la actividad guardada de la Línea de Tiempo?'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('conservará primero'), findsOneWidget);
+    expect(find.text('Conservar y reparar'), findsOneWidget);
+    expect(find.text('Repair saved Timeline activity?'), findsNothing);
   });
 
   testWidgets('resolved empty sources show a truthful saved-data empty state', (
@@ -429,8 +454,9 @@ ProviderContainer _buildContainer({
 
 Future<void> _pumpTimelineShell(
   WidgetTester tester,
-  ProviderContainer container,
-) async {
+  ProviderContainer container, {
+  Locale locale = const Locale('en'),
+}) async {
   tester.view.physicalSize = const Size(1200, 1400);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -439,6 +465,14 @@ Future<void> _pumpTimelineShell(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        locale: locale,
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         theme: ThemeData(splashFactory: NoSplash.splashFactory),
         home: const TimelineScreen(),
       ),

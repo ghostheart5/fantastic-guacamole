@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -40,6 +41,34 @@ class DeepLinkEventDeduplicator {
 }
 
 const String _authCallbackTypeQueryParameter = 'type';
+
+@visibleForTesting
+final accountDataLockActionsProvider = Provider<AccountDataLockActions>((
+  Ref ref,
+) {
+  return AccountDataLockActions(
+    claimPreservedData: () => ref
+        .read(authSessionBoundaryCoordinatorProvider)
+        .claimPreservedDataForCurrentAccount(),
+    clearPreservedData: () => ref
+        .read(authSessionBoundaryCoordinatorProvider)
+        .clearPreservedDataForCurrentAccount(),
+    signOut: () => ref.read(authServiceProvider).signOut(),
+  );
+});
+
+@visibleForTesting
+final class AccountDataLockActions {
+  const AccountDataLockActions({
+    required this.claimPreservedData,
+    required this.clearPreservedData,
+    required this.signOut,
+  });
+
+  final Future<void> Function() claimPreservedData;
+  final Future<void> Function() clearPreservedData;
+  final Future<void> Function() signOut;
+}
 
 void _observeAppFuture<T>(
   Future<T> future, {
@@ -598,17 +627,28 @@ class _ProductionReadinessLock extends StatelessWidget {
   }
 }
 
-class _AccountDataLock extends ConsumerWidget {
+class _AccountDataLock extends ConsumerStatefulWidget {
   const _AccountDataLock({required this.boundary});
 
   final AuthSessionBoundary boundary;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AccountDataLock> createState() => _AccountDataLockState();
+}
+
+class _AccountDataLockState extends ConsumerState<_AccountDataLock> {
+  bool _busy = false;
+  bool _operationFailed = false;
+
+  @override
+  Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final AuthSessionBoundary boundary = widget.boundary;
     final String? issue = boundary.canClaimPreservedData
         ? l10n.text(ChronoSparkString.preservedDataIssue)
-        : boundary.blockingIssue;
+        : boundary.blockingIssue == null
+        ? null
+        : l10n.text(ChronoSparkString.accountDataLockIssue);
     return Scaffold(
       backgroundColor: const Color(0xFF050D1A),
       body: SafeArea(
@@ -648,9 +688,14 @@ class _AccountDataLock extends ConsumerWidget {
                       SizedBox(
                         height: 48,
                         child: FilledButton(
-                          onPressed: () => ref
-                              .read(authSessionBoundaryCoordinatorProvider)
-                              .claimPreservedDataForCurrentAccount(),
+                          key: const Key('account-lock-claim'),
+                          onPressed: _busy
+                              ? null
+                              : () => _runLockAction(
+                                  ref
+                                      .read(accountDataLockActionsProvider)
+                                      .claimPreservedData,
+                                ),
                           child: Text(
                             l10n.text(ChronoSparkString.claimPreservedData),
                           ),
@@ -662,10 +707,62 @@ class _AccountDataLock extends ConsumerWidget {
                       SizedBox(
                         height: 48,
                         child: OutlinedButton(
-                          onPressed: () =>
-                              _confirmClearPreservedData(context, ref),
+                          key: const Key('account-lock-clear'),
+                          onPressed: _busy
+                              ? null
+                              : () => _confirmClearPreservedData(context, ref),
                           child: Text(
                             l10n.text(ChronoSparkString.clearPreservedData),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (boundary.canRecoverBySigningOut) ...<Widget>[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 48,
+                        child: OutlinedButton.icon(
+                          key: const Key('account-lock-sign-out'),
+                          onPressed: _busy
+                              ? null
+                              : () => _runLockAction(
+                                  ref
+                                      .read(accountDataLockActionsProvider)
+                                      .signOut,
+                                ),
+                          icon: const Icon(Icons.logout_rounded),
+                          label: Text(
+                            l10n.text(
+                              ChronoSparkString.signOutAndReturnToLogin,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (_busy) ...<Widget>[
+                      const SizedBox(height: 16),
+                      Semantics(
+                        liveRegion: true,
+                        label: l10n.text(
+                          ChronoSparkString.accountRecoveryInProgress,
+                        ),
+                        child: const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    ],
+                    if (_operationFailed) ...<Widget>[
+                      const SizedBox(height: 16),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          l10n.text(ChronoSparkString.accountRecoveryFailed),
+                          key: const Key('account-lock-operation-error'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
                           ),
                         ),
                       ),
@@ -705,8 +802,33 @@ class _AccountDataLock extends ConsumerWidget {
         ) ??
         false;
     if (!confirmed || !context.mounted) return;
-    await ref
-        .read(authSessionBoundaryCoordinatorProvider)
-        .clearPreservedDataForCurrentAccount();
+    await _runLockAction(
+      ref.read(accountDataLockActionsProvider).clearPreservedData,
+    );
+  }
+
+  Future<void> _runLockAction(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _operationFailed = false;
+    });
+    try {
+      await action();
+    } on Object catch (error, stackTrace) {
+      Logger.errorCode(
+        code: 'account_lock.recovery_action_failed',
+        debugMessage: 'Account lock recovery action failed.',
+        exception: error,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        setState(() => _operationFailed = true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
   }
 }

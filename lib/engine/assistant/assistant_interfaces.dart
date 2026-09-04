@@ -68,6 +68,8 @@ abstract class SmartPlannerInterface<TResult extends Object> {
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   });
 
   Future<String> requestFollowUp({
@@ -76,6 +78,8 @@ abstract class SmartPlannerInterface<TResult extends Object> {
     required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   });
 }
 

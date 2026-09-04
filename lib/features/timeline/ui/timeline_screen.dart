@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/features/timeline/logic/timeline_projection.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -31,6 +32,33 @@ enum _TimelineFilter {
 }
 
 enum _TimelineSourceIssue { persistence, taskLoading, taskError }
+
+@immutable
+final class _TimelineSafetyCopy {
+  const _TimelineSafetyCopy({required this.isSpanish});
+
+  factory _TimelineSafetyCopy.of(BuildContext context) => _TimelineSafetyCopy(
+    isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
+  );
+
+  final bool isSpanish;
+
+  String get repairTitle => isSpanish
+      ? '¿Reparar la actividad guardada de la Línea de Tiempo?'
+      : 'Repair saved Timeline activity?';
+  String get repairBody => isSpanish
+      ? 'ChronoSpark conservará primero los datos originales que no se pueden leer y luego mantendrá cada registro de actividad válido que pueda recuperar.'
+      : 'ChronoSpark will preserve the original unreadable data first, then keep every valid activity record it can read.';
+  String get cancel => isSpanish ? 'Cancelar' : 'Cancel';
+  String get preserveAndRepair =>
+      isSpanish ? 'Conservar y reparar' : 'Preserve and repair';
+  String get repaired => isSpanish
+      ? 'La actividad de la Línea de Tiempo se reparó. Se conservaron los datos originales que no se podían leer.'
+      : 'Timeline activity repaired. The original unreadable data was preserved.';
+  String get notChanged => isSpanish
+      ? 'La actividad de la Línea de Tiempo no cambió porque no se pudo conservar su copia de recuperación.'
+      : 'Timeline activity was not changed because its recovery copy could not be preserved.';
+}
 
 class _TaskEditDraft {
   const _TaskEditDraft({
@@ -384,24 +412,22 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   }
 
   Future<void> _repairTimelinePersistence() async {
+    final _TimelineSafetyCopy copy = _TimelineSafetyCopy.of(context);
     final bool confirmed =
         await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
-            title: const Text('Repair saved Timeline activity?'),
-            content: const Text(
-              'ChronoSpark will preserve the original unreadable data first, '
-              'then keep every valid activity record it can read.',
-            ),
+            title: Text(copy.repairTitle),
+            content: Text(copy.repairBody),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancel'),
+                child: Text(copy.cancel),
               ),
               FilledButton(
                 key: const Key('timeline-confirm-persistence-repair'),
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Preserve and repair'),
+                child: Text(copy.preserveAndRepair),
               ),
             ],
           ),
@@ -414,22 +440,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           .read(timelineProvider.notifier)
           .preserveAndRepairCorruptedStorage();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Timeline activity repaired. The original unreadable data was preserved.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(copy.repaired)));
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Timeline activity was not changed because its recovery copy could not be preserved.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(copy.notChanged)));
     }
   }
 }

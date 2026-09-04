@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
@@ -11,6 +12,7 @@ import 'package:fantastic_guacamole/domain/operating_system/operating_system_con
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/home/ui/first_use_context_offer_card.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
@@ -36,6 +38,82 @@ const String _plannerRetryMessage =
     'Guidance could not be generated. Your check-in is still here. Tap GET GUIDANCE to retry.';
 const String _plannerPersonContextChangedMessage =
     'Your Person Context changed, so the previous guidance was cleared. Tap GET GUIDANCE to review a current plan.';
+
+@immutable
+final class _SmartPlannerConsentCopy {
+  const _SmartPlannerConsentCopy({required this.isSpanish});
+
+  factory _SmartPlannerConsentCopy.of(BuildContext context) =>
+      _SmartPlannerConsentCopy(
+        isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
+      );
+
+  final bool isSpanish;
+
+  String get priorityTitle => isSpanish
+      ? '¿Guardar tu prioridad actual?'
+      : 'Save your current priority?';
+  String get priorityIntroduction => isSpanish
+      ? 'Opcional. Escribe una sola prioridad actual con tus propias palabras. No añadas un perfil de personalidad, una historia de vida ni una etiqueta emocional.'
+      : 'Optional. Enter one exact current priority in your own words. Do not add a personality profile, life history, or emotional label.';
+  String get priorityLabel =>
+      isSpanish ? 'Prioridad actual exacta' : 'Exact current priority';
+  String get priorityHint => isSpanish
+      ? 'Ejemplo: La preparación para la prueba cerrada es lo primero.'
+      : 'Example: Closed-test readiness comes first.';
+  String get priorityDisclosure => isSpanish
+      ? 'Propósito: apoyo para decisiones\nAlcance: solo Planificador Inteligente\nCaducidad: se elimina automáticamente después de 30 días\nEfecto: puede resolver un empate ajustado mientras esta prioridad esté activa; no se convierte en un dato de identidad.'
+      : 'Purpose: decision support\nSurface scope: Smart Planner only\nExpiry: automatically deleted after 30 days\nEffect: may break a close ranking tie while this priority is active; it does not become an identity fact.';
+  String get priorityConsent => isSpanish
+      ? 'Doy mi consentimiento para guardar solo este texto exacto con el propósito, alcance y caducidad indicados arriba.'
+      : 'I consent to saving only this exact text for the purpose, scope, and expiry above.';
+  String get useOnlyThisTime =>
+      isSpanish ? 'Usar solo esta vez' : 'Use only this time';
+  String get saveWithConsent =>
+      isSpanish ? 'Guardar con consentimiento' : 'Save with consent';
+  String get prioritySaved => isSpanish
+      ? 'Contexto opcional guardado con consentimiento · solo Planificador Inteligente · caduca en 30 días · revísalo o elimínalo en Ajustes de contexto.'
+      : 'Optional context saved with consent · Smart Planner only · expires in 30 days · review or delete in Context settings.';
+  String get preferenceTitle => isSpanish
+      ? '¿Recordar una preferencia del Planificador Inteligente?'
+      : 'Remember a Smart Planner preference?';
+  String get preferenceIntroduction => isSpanish
+      ? 'Usar solo esta vez es la opción predeterminada. Escribe únicamente la preferencia exacta sobre el estilo de planificación que quieras guardar; no se copiarán tu registro, emoción ni respuesta.'
+      : 'Use only this time is the default. Enter only the exact planning-style preference you want stored; your check-in, emotion, and response are not copied.';
+  String get preferenceLabel =>
+      isSpanish ? 'Preferencia exacta' : 'Exact preference';
+  String get preferenceHint => isSpanish
+      ? 'Ejemplo: Prefiere un siguiente paso pequeño antes de ideas opcionales más ambiciosas.'
+      : 'Example: Prefer one small next step before optional stretch ideas.';
+  String get deleteAfter => isSpanish
+      ? 'Eliminar automáticamente después de'
+      : 'Automatically delete after';
+  String retentionLabel(int days) {
+    if (!isSpanish) return days == 365 ? '1 year' : '$days days';
+    return days == 365 ? '1 año' : '$days días';
+  }
+
+  String receiptPreview(int days) => isSpanish
+      ? 'Vista previa del recibo\nMotivo: guardar esta preferencia para tu revisión y uso futuro opcional\nLímite de recuperación: solo guía consentida del Planificador Inteligente\nOrigen: solo Planificador Inteligente\nCaducidad: $days días\nControles: ver, corregir, exportar y eliminar en Ajustes'
+      : 'Receipt preview\nWhy: save this preference for your review and future opt-in use\nRecall boundary: consented Smart Planner guidance only\nSource: Smart Planner only\nExpiry: $days days\nControls: view, correct, export, delete in Settings';
+  String get preferenceConsent => isSpanish
+      ? 'Doy mi consentimiento explícito para guardar esta preferencia exacta.'
+      : 'I explicitly consent to storing this exact preference.';
+  String get rememberPreference =>
+      isSpanish ? 'Recordar preferencia' : 'Remember preference';
+  String get usedOnce => isSpanish
+      ? 'Se usó solo para este registro. No se guardó memoria duradera.'
+      : 'Used only for this check-in. No durable memory was saved.';
+  String preferenceSaved(String expiry) => isSpanish
+      ? 'Preferencia guardada con consentimiento. Su uso queda limitado a la guía del Planificador Inteligente · caduca $expiry · adminístrala en Ajustes.'
+      : 'Preference saved with consent. Recall stays limited to Smart Planner guidance · expires $expiry · manage in Settings.';
+  String get contextSaveFailed => isSpanish
+      ? 'No se pudo guardar el contexto opcional. Tu texto no se añadió. Inténtalo de nuevo.'
+      : 'Optional context could not be saved. Your text was not added. Retry.';
+  String get preferenceSaveFailed => isSpanish
+      ? 'No se pudo guardar la preferencia. No se creó memoria duradera. Inténtalo de nuevo.'
+      : 'The preference could not be saved. No durable memory was created. Retry.';
+}
 
 class SmartPlannerScreen extends ConsumerStatefulWidget {
   const SmartPlannerScreen({super.key});
@@ -165,6 +243,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     if (!await _confirmEmotionalSafetyRoute(notes, planner)) {
       return;
     }
+    final ({String? pauseReason, String? question}) supportiveCopy =
+        _localizedSupportiveCopy(notes, planner);
 
     setState(() {
       _gettingPlanningGuidance = true;
@@ -180,6 +260,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             notes: notes,
             history: _conversationHistory(),
             previousSavedNotes: null,
+            supportivePauseReason: supportiveCopy.pauseReason,
+            supportiveQuestion: supportiveCopy.question,
           )
           .timeout(const Duration(seconds: 25));
     } on TimeoutException {
@@ -192,6 +274,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         emotion: _emotion,
         history: _conversationHistory(),
         reason: 'request_timeout',
+        supportivePauseReason: supportiveCopy.pauseReason,
+        supportiveQuestion: supportiveCopy.question,
       );
       final PlannerV2Response effectiveResponse = _applyReviewableLearning(
         fallback.plannerResponse,
@@ -279,68 +363,67 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   }
 
   Future<void> _addFirstUseGoalContext() async {
+    final _SmartPlannerConsentCopy copy = _SmartPlannerConsentCopy.of(context);
     final TextEditingController controller = TextEditingController();
     bool consent = false;
     final String? exactText = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
-          title: const Text('Save your current priority?'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  'Optional. Enter one exact current priority in your own words. Do not add a personality profile, life history, or emotional label.',
+        builder: (BuildContext context, StateSetter setDialogState) =>
+            AlertDialog(
+              title: Text(copy.priorityTitle),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(copy.priorityIntroduction),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('first-use-context-value'),
+                      controller: controller,
+                      maxLength: 280,
+                      minLines: 2,
+                      maxLines: 4,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: InputDecoration(
+                        labelText: copy.priorityLabel,
+                        hintText: copy.priorityHint,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      copy.priorityDisclosure,
+                      style: const TextStyle(height: 1.45),
+                    ),
+                    CheckboxListTile(
+                      key: const Key('first-use-context-consent'),
+                      contentPadding: EdgeInsets.zero,
+                      value: consent,
+                      title: Text(copy.priorityConsent),
+                      onChanged: (bool? value) =>
+                          setDialogState(() => consent = value ?? false),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('first-use-context-value'),
-                  controller: controller,
-                  maxLength: 280,
-                  minLines: 2,
-                  maxLines: 4,
-                  onChanged: (_) => setDialogState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Exact current priority',
-                    hintText: 'Example: Closed-test readiness comes first.',
-                    border: OutlineInputBorder(),
-                  ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(copy.useOnlyThisTime),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Purpose: decision support\nSurface scope: Smart Planner only\nExpiry: automatically deleted after 30 days\nEffect: may break a close ranking tie while this priority is active; it does not become an identity fact.',
-                  style: TextStyle(height: 1.45),
-                ),
-                CheckboxListTile(
-                  key: const Key('first-use-context-consent'),
-                  contentPadding: EdgeInsets.zero,
-                  value: consent,
-                  title: const Text(
-                    'I consent to saving only this exact text for the purpose, scope, and expiry above.',
-                  ),
-                  onChanged: (bool? value) =>
-                      setDialogState(() => consent = value ?? false),
+                FilledButton(
+                  key: const Key('first-use-context-confirm'),
+                  onPressed: consent && controller.text.trim().isNotEmpty
+                      ? () => Navigator.of(
+                          dialogContext,
+                        ).pop(controller.text.trim())
+                      : null,
+                  child: Text(copy.saveWithConsent),
                 ),
               ],
             ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Use only this time'),
-            ),
-            FilledButton(
-              key: const Key('first-use-context-confirm'),
-              onPressed: consent && controller.text.trim().isNotEmpty
-                  ? () =>
-                        Navigator.of(dialogContext).pop(controller.text.trim())
-                  : null,
-              child: const Text('Save with consent'),
-            ),
-          ],
-        ),
       ),
     );
     controller.dispose();
@@ -372,12 +455,22 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       if (!mounted) return;
       setState(() {
         _showFirstUseContextOffer = false;
-        _plannerActionStatus =
-            'Optional context saved with consent · Smart Planner only · expires in 30 days · review or delete in Context settings.';
+        _plannerActionStatus = copy.prioritySaved;
       });
-    } on Object catch (error) {
+    } on Object catch (error, stackTrace) {
+      Logger.errorCode(
+        code: 'planner.person_context_save_failed',
+        debugMessage: 'Optional Planner context could not be saved.',
+        exception: error,
+        stackTrace: stackTrace,
+      );
       if (!mounted) return;
-      setState(() => _plannerActionStatus = error.toString());
+      final PublicFailure failure = PublicFailure.from(
+        error,
+        fallback: copy.contextSaveFailed,
+        isSpanish: copy.isSpanish,
+      );
+      setState(() => _plannerActionStatus = failure.message);
     }
   }
 
@@ -392,6 +485,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     if (!await _confirmEmotionalSafetyRoute(text, planner)) {
       return;
     }
+    final ({String? pauseReason, String? question}) supportiveCopy =
+        _localizedSupportiveCopy(text, planner);
     _followUpController.clear();
     setState(() {
       _sendingFollowUp = true;
@@ -405,6 +500,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             emotion: _emotion,
             reflection: _notesController.text.trim(),
             history: _conversationHistory(),
+            supportivePauseReason: supportiveCopy.pauseReason,
+            supportiveQuestion: supportiveCopy.question,
           )
           .timeout(const Duration(seconds: 25));
       if (!mounted) return;
@@ -474,6 +571,25 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     );
     return mounted &&
         choice == SupportiveDistressChoice.continueWithGentleQuestion;
+  }
+
+  ({String? pauseReason, String? question}) _localizedSupportiveCopy(
+    String input,
+    SmartPlannerQueryController planner,
+  ) {
+    final EmotionalSafetyAssessment assessment = planner.assessEmotionalSafety(
+      input,
+    );
+    if (!assessment.requiresSupportivePause) {
+      return (pauseReason: null, question: null);
+    }
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    return (
+      pauseReason: l10n.emotionalSafetyPauseReason(assessment.pauseReasonCode),
+      question: l10n.emotionalSafetySupportQuestion(
+        assessment.supportQuestionCode,
+      ),
+    );
   }
 
   void _useThisPlan() {
@@ -670,109 +786,112 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   }
 
   Future<void> _rememberPreference() async {
+    final _SmartPlannerConsentCopy copy = _SmartPlannerConsentCopy.of(context);
     final TextEditingController preferenceController = TextEditingController();
     int retentionDays = 90;
     bool consentConfirmed = false;
-    final _PreferenceMemoryChoice?
-    choice = await showDialog<_PreferenceMemoryChoice>(
-      context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (BuildContext context, void Function(void Function()) setDialogState) {
-          return AlertDialog(
-            title: const Text('Remember a Smart Planner preference?'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Text(
-                    'Use only this time is the default. Enter only the exact planning-style preference you want stored; your check-in, emotion, and response are not copied.',
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    key: const Key('planner-memory-preference-field'),
-                    controller: preferenceController,
-                    maxLength: 280,
-                    minLines: 2,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      labelText: 'Exact preference',
-                      hintText:
-                          'Example: Prefer one small next step before optional stretch ideas.',
-                      border: OutlineInputBorder(),
+    final _PreferenceMemoryChoice? choice =
+        await showDialog<_PreferenceMemoryChoice>(
+          context: context,
+          builder: (BuildContext dialogContext) => StatefulBuilder(
+            builder:
+                (
+                  BuildContext context,
+                  void Function(void Function()) setDialogState,
+                ) {
+                  return AlertDialog(
+                    title: Text(copy.preferenceTitle),
+                    content: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(copy.preferenceIntroduction),
+                          const SizedBox(height: 14),
+                          TextField(
+                            key: const Key('planner-memory-preference-field'),
+                            controller: preferenceController,
+                            maxLength: 280,
+                            minLines: 2,
+                            maxLines: 5,
+                            decoration: InputDecoration(
+                              labelText: copy.preferenceLabel,
+                              hintText: copy.preferenceHint,
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<int>(
+                            key: const Key('planner-memory-expiry'),
+                            initialValue: retentionDays,
+                            decoration: InputDecoration(
+                              labelText: copy.deleteAfter,
+                            ),
+                            items: <DropdownMenuItem<int>>[
+                              for (final int days in <int>[30, 90, 180, 365])
+                                DropdownMenuItem(
+                                  value: days,
+                                  child: Text(copy.retentionLabel(days)),
+                                ),
+                            ],
+                            onChanged: (int? value) {
+                              if (value == null) return;
+                              setDialogState(() => retentionDays = value);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.memoryAmber.withValues(
+                                alpha: 0.08,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              copy.receiptPreview(retentionDays),
+                              style: const TextStyle(height: 1.4),
+                            ),
+                          ),
+                          CheckboxListTile(
+                            key: const Key('planner-memory-consent'),
+                            contentPadding: EdgeInsets.zero,
+                            value: consentConfirmed,
+                            title: Text(copy.preferenceConsent),
+                            onChanged: (bool? value) => setDialogState(
+                              () => consentConfirmed = value ?? false,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<int>(
-                    key: const Key('planner-memory-expiry'),
-                    initialValue: retentionDays,
-                    decoration: const InputDecoration(
-                      labelText: 'Automatically delete after',
-                    ),
-                    items: const <DropdownMenuItem<int>>[
-                      DropdownMenuItem(value: 30, child: Text('30 days')),
-                      DropdownMenuItem(value: 90, child: Text('90 days')),
-                      DropdownMenuItem(value: 180, child: Text('180 days')),
-                      DropdownMenuItem(value: 365, child: Text('1 year')),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: Text(copy.useOnlyThisTime),
+                      ),
+                      FilledButton(
+                        key: const Key('planner-confirm-memory'),
+                        onPressed: consentConfirmed
+                            ? () => Navigator.of(dialogContext).pop(
+                                _PreferenceMemoryChoice(
+                                  text: preferenceController.text,
+                                  retentionDays: retentionDays,
+                                ),
+                              )
+                            : null,
+                        child: Text(copy.rememberPreference),
+                      ),
                     ],
-                    onChanged: (int? value) {
-                      if (value == null) return;
-                      setDialogState(() => retentionDays = value);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.memoryAmber.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Receipt preview\nWhy: save this preference for your review and future opt-in use\nRecall boundary: consented Smart Planner guidance only\nSource: Smart Planner only\nExpiry: $retentionDays days\nControls: view, correct, export, delete in Settings',
-                      style: const TextStyle(height: 1.4),
-                    ),
-                  ),
-                  CheckboxListTile(
-                    key: const Key('planner-memory-consent'),
-                    contentPadding: EdgeInsets.zero,
-                    value: consentConfirmed,
-                    title: const Text(
-                      'I explicitly consent to storing this exact preference.',
-                    ),
-                    onChanged: (bool? value) =>
-                        setDialogState(() => consentConfirmed = value ?? false),
-                  ),
-                ],
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Use only this time'),
-              ),
-              FilledButton(
-                key: const Key('planner-confirm-memory'),
-                onPressed: consentConfirmed
-                    ? () => Navigator.of(dialogContext).pop(
-                        _PreferenceMemoryChoice(
-                          text: preferenceController.text,
-                          retentionDays: retentionDays,
-                        ),
-                      )
-                    : null,
-                child: const Text('Remember preference'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+                  );
+                },
+          ),
+        );
     preferenceController.dispose();
     if (choice == null || !mounted) {
       if (choice == null && mounted) {
         setState(() {
-          _plannerActionStatus =
-              'Used only for this check-in. No durable memory was saved.';
+          _plannerActionStatus = copy.usedOnce;
         });
       }
       return;
@@ -800,12 +919,22 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           .split('T')
           .first;
       setState(() {
-        _plannerActionStatus =
-            'Preference saved with consent. Recall stays limited to Smart Planner guidance · expires $expiry · manage in Settings.';
+        _plannerActionStatus = copy.preferenceSaved(expiry);
       });
-    } catch (error) {
+    } on Object catch (error, stackTrace) {
+      Logger.errorCode(
+        code: 'planner.preference_save_failed',
+        debugMessage: 'Planner preference could not be saved.',
+        exception: error,
+        stackTrace: stackTrace,
+      );
       if (!mounted) return;
-      setState(() => _plannerActionStatus = error.toString());
+      final PublicFailure failure = PublicFailure.from(
+        error,
+        fallback: copy.preferenceSaveFailed,
+        isSpanish: copy.isSpanish,
+      );
+      setState(() => _plannerActionStatus = failure.message);
     }
   }
 

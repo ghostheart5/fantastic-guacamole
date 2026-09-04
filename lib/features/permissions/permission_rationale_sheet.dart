@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/features/permissions/permission_explainer.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
@@ -19,35 +20,20 @@ Future<T?> showPermissionRationaleSheet<T>({
       borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
     ),
     builder: (BuildContext modalContext) {
-      final bool isVoice = explainer.title == PermissionExplainers.voice.title;
-      final Color accent = isVoice ? AppColors.neonViolet : AppColors.neonCyan;
-      final IconData permissionIcon = isVoice
-          ? Icons.mic_none_rounded
-          : Icons.notifications_active_outlined;
-      final List<(IconData, String)> facts = isVoice
-          ? <(IconData, String)>[
-              (
-                Icons.touch_app_outlined,
-                'Starts only after you choose a voice control',
-              ),
-              (Icons.mic_off_outlined, 'No background recording'),
-              (Icons.settings_outlined, 'Disable microphone access any time'),
-            ]
-          : <(IconData, String)>[
-              (Icons.schedule_outlined, 'Only at times you choose'),
-              (Icons.tune_rounded, 'Controlled from Settings'),
-              (
-                Icons.notifications_off_outlined,
-                'Optional; the app still works without it',
-              ),
-            ];
+      final bool isSpanish = ChronoSparkLocalizations.of(
+        modalContext,
+      ).isSpanish;
+      final _PermissionPresentation presentation = _presentationFor(
+        explainer.kind,
+        isSpanish: isSpanish,
+      );
       return AnimatedPadding(
         duration: const Duration(milliseconds: 160),
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(modalContext).bottom,
         ),
         child: TemporalGlassSurface(
-          accent: accent,
+          accent: presentation.accent,
           opacity: 0.96,
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: SingleChildScrollView(
@@ -62,14 +48,12 @@ Future<T?> showPermissionRationaleSheet<T>({
                   ),
                 ),
                 const SizedBox(height: 16),
-                Icon(permissionIcon, color: accent, size: 48),
+                Icon(presentation.icon, color: presentation.accent, size: 48),
                 const SizedBox(height: 14),
                 Text(
-                  isVoice
-                      ? 'PERMISSION · MICROPHONE'
-                      : 'PERMISSION · NOTIFICATIONS',
+                  presentation.eyebrow,
                   style: TextStyle(
-                    color: accent,
+                    color: presentation.accent,
                     fontSize: AppSizes.fontBody,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0,
@@ -96,12 +80,12 @@ Future<T?> showPermissionRationaleSheet<T>({
                   ),
                 ),
                 const SizedBox(height: 18),
-                TemporalDivider(color: accent),
+                TemporalDivider(color: presentation.accent),
                 const SizedBox(height: 18),
                 Text(
-                  'WHEN IT IS USED',
+                  isSpanish ? 'CUÁNDO SE USA' : 'WHEN IT IS USED',
                   style: TextStyle(
-                    color: isVoice ? AppColors.neonCyan : AppColors.neonViolet,
+                    color: presentation.sectionAccent,
                     fontSize: AppSizes.fontBody,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0,
@@ -118,15 +102,20 @@ Future<T?> showPermissionRationaleSheet<T>({
                   ),
                 ),
                 const SizedBox(height: 14),
-                for (final (IconData icon, String text) in facts) ...<Widget>[
-                  TemporalStatusRow(icon: icon, text: text, color: accent),
+                for (final (IconData icon, String text)
+                    in presentation.facts) ...<Widget>[
+                  TemporalStatusRow(
+                    icon: icon,
+                    text: text,
+                    color: presentation.accent,
+                  ),
                   const SizedBox(height: 10),
                 ],
                 const SizedBox(height: 4),
                 TemporalActionButton(
                   label: explainer.primaryActionLabel,
-                  icon: permissionIcon,
-                  accent: accent,
+                  icon: presentation.icon,
+                  accent: presentation.accent,
                   onPressed: () async {
                     await onPrimary();
                     if (modalContext.mounted) {
@@ -143,7 +132,7 @@ Future<T?> showPermissionRationaleSheet<T>({
                       Navigator.of(modalContext).pop();
                     },
                     style: TextButton.styleFrom(
-                      foregroundColor: accent,
+                      foregroundColor: presentation.accent,
                       minimumSize: const Size.fromHeight(AppSizes.touchTarget),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -153,9 +142,11 @@ Future<T?> showPermissionRationaleSheet<T>({
                   ),
                 ),
                 const SizedBox(height: 6),
-                const TemporalStatusRow(
+                TemporalStatusRow(
                   icon: Icons.shield_outlined,
-                  text: 'Android will ask you to confirm next.',
+                  text: isSpanish
+                      ? 'Android te pedirá confirmación a continuación.'
+                      : 'Android will ask you to confirm next.',
                   color: AppColors.neonCyan,
                 ),
               ],
@@ -165,4 +156,79 @@ Future<T?> showPermissionRationaleSheet<T>({
       );
     },
   );
+}
+
+@immutable
+class _PermissionPresentation {
+  const _PermissionPresentation({
+    required this.accent,
+    required this.sectionAccent,
+    required this.icon,
+    required this.eyebrow,
+    required this.facts,
+  });
+
+  final Color accent;
+  final Color sectionAccent;
+  final IconData icon;
+  final String eyebrow;
+  final List<(IconData, String)> facts;
+}
+
+_PermissionPresentation _presentationFor(
+  PermissionKind kind, {
+  required bool isSpanish,
+}) {
+  return switch (kind) {
+    PermissionKind.microphone => _PermissionPresentation(
+      accent: AppColors.neonViolet,
+      sectionAccent: AppColors.neonCyan,
+      icon: Icons.mic_none_rounded,
+      eyebrow: isSpanish ? 'PERMISO · MICRÓFONO' : 'PERMISSION · MICROPHONE',
+      facts: <(IconData, String)>[
+        (
+          Icons.touch_app_outlined,
+          isSpanish
+              ? 'Comienza solo después de elegir un control de micrófono'
+              : 'Starts only after you choose a microphone control',
+        ),
+        (
+          Icons.mic_off_outlined,
+          isSpanish ? 'No graba en segundo plano' : 'No background recording',
+        ),
+        (
+          Icons.volume_up_outlined,
+          isSpanish
+              ? 'La reproducción hablada no requiere acceso al micrófono'
+              : 'Spoken playback does not require microphone access',
+        ),
+      ],
+    ),
+    PermissionKind.notifications => _PermissionPresentation(
+      accent: AppColors.neonCyan,
+      sectionAccent: AppColors.neonViolet,
+      icon: Icons.notifications_active_outlined,
+      eyebrow: isSpanish
+          ? 'PERMISO · NOTIFICACIONES'
+          : 'PERMISSION · NOTIFICATIONS',
+      facts: <(IconData, String)>[
+        (
+          Icons.schedule_outlined,
+          isSpanish
+              ? 'Solo en los horarios que elijas'
+              : 'Only at times you choose',
+        ),
+        (
+          Icons.tune_rounded,
+          isSpanish ? 'Se controla desde Ajustes' : 'Controlled from Settings',
+        ),
+        (
+          Icons.notifications_off_outlined,
+          isSpanish
+              ? 'Es opcional; la aplicación funciona sin este permiso'
+              : 'Optional; the app still works without it',
+        ),
+      ],
+    ),
+  };
 }

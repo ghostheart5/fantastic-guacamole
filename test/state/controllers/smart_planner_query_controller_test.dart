@@ -965,6 +965,9 @@ void main() {
               notes: prompt,
               history: const <Map<String, String>>[],
               previousSavedNotes: null,
+              supportivePauseReason:
+                  'Pausing productivity guidance for this concern.',
+              supportiveQuestion: 'Would you like support right now?',
             );
 
         expect(result.plannerResponse.isClarification, isTrue);
@@ -1303,6 +1306,9 @@ void main() {
             notes: 'I am panicking and losing control',
             history: const <Map<String, String>>[],
             previousSavedNotes: null,
+            supportivePauseReason:
+                'Pausing productivity guidance because this sounds urgent.',
+            supportiveQuestion: 'Would you like support right now?',
           );
 
       expect(result.plannerResponse.isClarification, isTrue);

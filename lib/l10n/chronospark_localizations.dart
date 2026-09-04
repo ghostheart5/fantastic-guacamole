@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 
 class ChronoSparkLocalizations {
   const ChronoSparkLocalizations(this.locale);
@@ -168,6 +169,86 @@ class ChronoSparkLocalizations {
         : 'Provisional evidence confidence: $label';
   }
 
+  String emotionalSafetyPauseReason(EmotionalSafetyPauseReasonCode code) {
+    if (isSpanish) {
+      return switch (code) {
+        EmotionalSafetyPauseReasonCode.selfHarm =>
+          'Pausamos la planificación normal porque tus palabras mencionan autolesión o suicidio. Es una precaución de enrutamiento, no un juicio sobre tu intención.',
+        EmotionalSafetyPauseReasonCode.overdose =>
+          'Pausamos la planificación normal porque tus palabras podrían describir una emergencia con medicamentos, drogas o envenenamiento.',
+        EmotionalSafetyPauseReasonCode.abuseOrCoercion =>
+          'Mantenemos tu seguridad y control en el centro, en lugar de convertir esto en una tarea rutinaria de productividad.',
+        EmotionalSafetyPauseReasonCode.panic =>
+          'Pausamos la guía de productividad mientras decides qué tipo de apoyo sería útil ahora.',
+        EmotionalSafetyPauseReasonCode.grief =>
+          'Damos espacio al duelo sin convertirlo en una tarea de productividad no relacionada.',
+        EmotionalSafetyPauseReasonCode.relationshipDistress =>
+          'Primero queremos entender qué apoyo buscas para tu relación antes de proponer una acción.',
+        EmotionalSafetyPauseReasonCode.hallucination =>
+          'Pausamos la planificación normal porque el apoyo inmediato puede ser más útil que una recomendación de tareas.',
+        EmotionalSafetyPauseReasonCode.severeDistress =>
+          'Pausamos la guía de productividad porque tus palabras indican que el apoyo puede importar más que un plan de tareas ahora.',
+        EmotionalSafetyPauseReasonCode.general =>
+          'Pausamos la planificación normal hasta que elijas qué tipo de ayuda quieres.',
+      };
+    }
+    return switch (code) {
+      EmotionalSafetyPauseReasonCode.selfHarm =>
+        'Pausing ordinary planning because your words mention self-harm or suicide. This is a routing precaution, not a judgment about your intent.',
+      EmotionalSafetyPauseReasonCode.overdose =>
+        'Pausing ordinary planning because your words may describe a medication, drug, or poisoning emergency.',
+      EmotionalSafetyPauseReasonCode.abuseOrCoercion =>
+        'Keeping your safety and control central instead of turning this into a routine productivity task.',
+      EmotionalSafetyPauseReasonCode.panic =>
+        'Pausing productivity guidance while you decide what kind of support would be useful right now.',
+      EmotionalSafetyPauseReasonCode.grief =>
+        'Making room for grief without turning it into an unrelated productivity task.',
+      EmotionalSafetyPauseReasonCode.relationshipDistress =>
+        'Understanding what kind of relationship support you want before proposing an action.',
+      EmotionalSafetyPauseReasonCode.hallucination =>
+        'Pausing ordinary planning because immediate support may be more useful than a task recommendation.',
+      EmotionalSafetyPauseReasonCode.severeDistress =>
+        'Pausing productivity guidance because your words indicate that support may matter more than a task plan right now.',
+      EmotionalSafetyPauseReasonCode.general =>
+        'Pausing ordinary planning until you choose what kind of help you want.',
+    };
+  }
+
+  String emotionalSafetySupportQuestion(
+    EmotionalSafetySupportQuestionCode code,
+  ) {
+    if (isSpanish) {
+      return switch (code) {
+        EmotionalSafetySupportQuestionCode.abuseOrCoercion =>
+          '¿Quieres recursos de seguridad inmediata, ayuda para contactar a alguien de confianza o una pregunta suave sobre una obligación práctica?',
+        EmotionalSafetySupportQuestionCode.grief =>
+          '¿Quieres pausar, buscar apoyo o hacer una pregunta suave sobre una obligación práctica?',
+        EmotionalSafetySupportQuestionCode.relationshipDistress =>
+          '¿Quieres ayuda para preparar una conversación, establecer un límite o decidir qué necesita atención primero?',
+        EmotionalSafetySupportQuestionCode.panic =>
+          '¿Quieres pausar, contactar a alguien de confianza o buscar recursos de apoyo inmediato?',
+        EmotionalSafetySupportQuestionCode.hallucination =>
+          '¿Quieres contactar a alguien de confianza o buscar recursos de apoyo inmediato?',
+        EmotionalSafetySupportQuestionCode.general =>
+          '¿Quieres pausar, contactar a alguien de confianza, buscar recursos de apoyo o continuar con una pregunta aclaratoria suave?',
+      };
+    }
+    return switch (code) {
+      EmotionalSafetySupportQuestionCode.abuseOrCoercion =>
+        'Would you like immediate safety resources, help contacting someone you trust, or a gentle question about one practical obligation?',
+      EmotionalSafetySupportQuestionCode.grief =>
+        'Would you like to pause, find support, or ask one gentle question about a practical obligation?',
+      EmotionalSafetySupportQuestionCode.relationshipDistress =>
+        'Would you like help preparing a conversation, setting a boundary, or deciding what needs attention first?',
+      EmotionalSafetySupportQuestionCode.panic =>
+        'Would you like to pause, contact someone you trust, or find immediate support resources?',
+      EmotionalSafetySupportQuestionCode.hallucination =>
+        'Would you like to contact someone you trust or find immediate support resources?',
+      EmotionalSafetySupportQuestionCode.general =>
+        'Would you like to pause, contact someone you trust, find support resources, or continue with one gentle clarifying question?',
+    };
+  }
+
   static const Map<ChronoSparkString, String> _en = <ChronoSparkString, String>{
     ChronoSparkString.nexus: 'Nexus',
     ChronoSparkString.smartPlanner: 'Smart Planner',
@@ -225,6 +306,13 @@ class ChronoSparkLocalizations {
     ChronoSparkString.notNow: 'Not now',
     ChronoSparkString.cancel: 'Cancel',
     ChronoSparkString.securingAccountData: 'Securing account data',
+    ChronoSparkString.accountDataLockIssue:
+        'ChronoSpark could not verify account data safely. Sign out and try again.',
+    ChronoSparkString.signOutAndReturnToLogin: 'Sign out and return to login',
+    ChronoSparkString.accountRecoveryInProgress:
+        'Completing account recovery action',
+    ChronoSparkString.accountRecoveryFailed:
+        'That recovery action could not be completed. Please try again or sign out.',
     ChronoSparkString.onboardingPrivacy:
         'Your display name stays on this device unless you choose cloud backup. Smart Planner and SI Console use saved planning context; external AI processing is opt-in and explained in Settings.',
     ChronoSparkString.onboardingWideBody:
@@ -375,6 +463,14 @@ class ChronoSparkLocalizations {
     ChronoSparkString.notNow: 'Ahora no',
     ChronoSparkString.cancel: 'Cancelar',
     ChronoSparkString.securingAccountData: 'Protegiendo datos de la cuenta',
+    ChronoSparkString.accountDataLockIssue:
+        'ChronoSpark no pudo verificar los datos de la cuenta de forma segura. Cierra sesión e inténtalo de nuevo.',
+    ChronoSparkString.signOutAndReturnToLogin:
+        'Cerrar sesión y volver al inicio',
+    ChronoSparkString.accountRecoveryInProgress:
+        'Completando la acción de recuperación de la cuenta',
+    ChronoSparkString.accountRecoveryFailed:
+        'No se pudo completar esa acción de recuperación. Inténtalo de nuevo o cierra sesión.',
     ChronoSparkString.onboardingPrivacy:
         'Tu nombre visible permanece en este dispositivo salvo que actives la copia en la nube. Planificador Inteligente y Consola SI usan el contexto guardado; el procesamiento externo con IA es opcional y se explica en Ajustes.',
     ChronoSparkString.onboardingWideBody:
@@ -523,6 +619,10 @@ enum ChronoSparkString {
   notNow,
   cancel,
   securingAccountData,
+  accountDataLockIssue,
+  signOutAndReturnToLogin,
+  accountRecoveryInProgress,
+  accountRecoveryFailed,
   onboardingPrivacy,
   onboardingWideBody,
   onboardingCompactBody,

@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
@@ -46,6 +47,41 @@ class _Msg {
   final AIProcessingMode processingMode;
   final bool systemPanel;
   final SIV2Response? siV2;
+}
+
+@immutable
+final class _SIConsoleSafetyCopy {
+  const _SIConsoleSafetyCopy({required this.isSpanish});
+
+  factory _SIConsoleSafetyCopy.of(BuildContext context) => _SIConsoleSafetyCopy(
+    isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
+  );
+
+  final bool isSpanish;
+
+  String get reportTitle =>
+      isSpanish ? 'Reportar respuesta' : 'Report response';
+  String get reportDisclosure => isSpanish
+      ? 'Solo se enviarán la respuesta seleccionada y el motivo para una revisión de seguridad. Tu mensaje y el historial de la conversación no se incluyen.'
+      : 'Only the selected response and your reason are sent for safety review. Your prompt and conversation history are not included.';
+  String get reasonLabel => isSpanish ? 'Motivo' : 'Reason';
+  String reportReason(AiContentReportReason reason) => switch (reason) {
+    AiContentReportReason.unsafe =>
+      isSpanish ? 'Insegura o dañina' : 'Unsafe or harmful',
+    AiContentReportReason.inaccurate =>
+      isSpanish ? 'Engañosa o inexacta' : 'Misleading or inaccurate',
+    AiContentReportReason.privacy =>
+      isSpanish ? 'Problema de privacidad' : 'Privacy concern',
+    AiContentReportReason.other => isSpanish ? 'Otro' : 'Other',
+  };
+  String get cancel => isSpanish ? 'Cancelar' : 'Cancel';
+  String get sendReport => isSpanish ? 'Enviar informe' : 'Send report';
+  String get reportSucceeded => isSpanish
+      ? 'Gracias. La respuesta se envió para una revisión de seguridad.'
+      : 'Thanks. The response was reported for safety review.';
+  String get reportFailed => isSpanish
+      ? 'No se pudo reportar la respuesta. Inténtalo de nuevo.'
+      : 'The response could not be reported. Please try again.';
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +243,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   }
 
   Future<void> _showReportDialog(_Msg msg) async {
+    final _SIConsoleSafetyCopy copy = _SIConsoleSafetyCopy.of(context);
     AiContentReportReason selected = AiContentReportReason.unsafe;
     final AiContentReportReason?
     reason = await showDialog<AiContentReportReason>(
@@ -217,19 +254,17 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             return AlertDialog(
               backgroundColor: const Color(0xFF0C1420),
               surfaceTintColor: Colors.transparent,
-              title: const Text('Report response'),
+              title: Text(copy.reportTitle),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text(
-                      'Only the selected response and your reason are sent for safety review. Your prompt and conversation history are not included.',
-                    ),
+                    Text(copy.reportDisclosure),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<AiContentReportReason>(
                       initialValue: selected,
-                      decoration: const InputDecoration(labelText: 'Reason'),
+                      decoration: InputDecoration(labelText: copy.reasonLabel),
                       items:
                           <AiContentReportReason>[
                                 AiContentReportReason.unsafe,
@@ -241,15 +276,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                 (AiContentReportReason option) =>
                                     DropdownMenuItem<AiContentReportReason>(
                                       value: option,
-                                      child: Text(switch (option) {
-                                        AiContentReportReason.unsafe =>
-                                          'Unsafe or harmful',
-                                        AiContentReportReason.inaccurate =>
-                                          'Misleading or inaccurate',
-                                        AiContentReportReason.privacy =>
-                                          'Privacy concern',
-                                        AiContentReportReason.other => 'Other',
-                                      }),
+                                      child: Text(copy.reportReason(option)),
                                     ),
                               )
                               .toList(growable: false),
@@ -263,11 +290,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(copy.cancel),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(selected),
-                  child: const Text('Send report'),
+                  child: Text(copy.sendReport),
                 ),
               ],
             );
@@ -281,23 +308,15 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           .read(aiContentReportActionsProvider)
           .submit(responseText: msg.text, reason: reason);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Thanks. The response was reported for safety review.',
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(copy.reportSucceeded)));
       }
     } on Object {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'The response could not be reported. Please try again.',
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(copy.reportFailed)));
       }
     }
   }
@@ -460,9 +479,17 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         return;
       }
       _input.clear();
+      final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(
+        context,
+      );
       _appendLocalResponse(
         query: text,
-        typed: controller.supportiveSafetyResponse(query: text),
+        typed: controller.supportiveSafetyResponse(
+          query: text,
+          localizedResponse:
+              '${l10n.emotionalSafetyPauseReason(safety.pauseReasonCode)}\n\n'
+              '${l10n.emotionalSafetySupportQuestion(safety.supportQuestionCode)}',
+        ),
         fallbackEmotion: 'balanced',
       );
       return;

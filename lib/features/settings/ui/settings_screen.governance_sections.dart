@@ -65,11 +65,28 @@ class _MemoryGovernanceSection extends ConsumerWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Preference corrected.')));
-    } catch (error) {
+    } on Object catch (error, stackTrace) {
+      Logger.errorCode(
+        code: 'settings.memory_correction_failed',
+        debugMessage: 'Memory correction failed.',
+        exception: error,
+        stackTrace: stackTrace,
+      );
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            settingsPublicFailureMessage(
+              context,
+              error,
+              englishFallback:
+                  'The preference could not be corrected. Existing memory was unchanged. Retry.',
+              spanishFallback:
+                  'No se pudo corregir la preferencia. La memoria existente no cambió. Inténtalo de nuevo.',
+            ),
+          ),
+        ),
+      );
     }
   }
 
@@ -459,7 +476,14 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
         ),
         error: (Object error, StackTrace _) => _NeonStatusTile(
           title: 'Guide unavailable',
-          subtitle: error.toString(),
+          subtitle: settingsPublicFailureMessage(
+            context,
+            error,
+            englishFallback:
+                'Guide progress could not be read. Existing progress was unchanged. Retry.',
+            spanishFallback:
+                'No se pudo leer el progreso de la guía. El progreso existente no cambió. Inténtalo de nuevo.',
+          ),
         ),
         data: (AdaptiveGuidanceState state) {
           return Column(

@@ -103,35 +103,43 @@ void main() {
         contains('relationship_distress_language'),
       );
       expect(
-        EmotionalSafetyPolicy.planningPauseReason(assessment),
-        'Understanding what kind of relationship support you want before proposing an action.',
+        assessment.pauseReasonCode,
+        EmotionalSafetyPauseReasonCode.relationshipDistress,
+      );
+      expect(
+        assessment.supportQuestionCode,
+        EmotionalSafetySupportQuestionCode.relationshipDistress,
       );
     });
 
-    test('planning pause reasons stay explicit for every fallback concern', () {
-      final Map<EmotionalSafetyAssessment, String>
-      cases = <EmotionalSafetyAssessment, String>{
+    test('planning pause reason codes cover fallback concerns', () {
+      final Map<EmotionalSafetyAssessment, EmotionalSafetyPauseReasonCode>
+      cases = <EmotionalSafetyAssessment, EmotionalSafetyPauseReasonCode>{
         EmotionalSafetyAssessment(
           route: EmotionalSafetyRoute.supportiveDistress,
           concerns: const <EmotionalSafetyConcern>{
             EmotionalSafetyConcern.hallucination,
           },
           findingCodes: const <String>['unusual_perception_language'],
-        ): 'Pausing ordinary planning because immediate support may be more useful than a task recommendation.',
+        ): EmotionalSafetyPauseReasonCode.hallucination,
         EmotionalSafetyAssessment(
           route: EmotionalSafetyRoute.supportiveDistress,
           concerns: const <EmotionalSafetyConcern>{
             EmotionalSafetyConcern.severeDistress,
           },
           findingCodes: const <String>['severe_distress_language'],
-        ): 'Pausing productivity guidance because your words indicate that support may matter more than a task plan right now.',
+        ): EmotionalSafetyPauseReasonCode.severeDistress,
         const EmotionalSafetyAssessment.routine():
-            'Pausing ordinary planning until you choose what kind of help you want.',
+            EmotionalSafetyPauseReasonCode.general,
       };
 
-      for (final MapEntry<EmotionalSafetyAssessment, String> item
+      for (final MapEntry<
+            EmotionalSafetyAssessment,
+            EmotionalSafetyPauseReasonCode
+          >
+          item
           in cases.entries) {
-        expect(EmotionalSafetyPolicy.planningPauseReason(item.key), item.value);
+        expect(item.key.pauseReasonCode, item.value);
       }
     });
 

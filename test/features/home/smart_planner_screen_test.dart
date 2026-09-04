@@ -252,6 +252,54 @@ void main() {
     },
   );
 
+  testWidgets('Spanish priority consent stays localized and defaults off', (
+    WidgetTester tester,
+  ) async {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'spanish-context-account',
+    );
+    final _MemoryPrefs store = _MemoryPrefs();
+    final PersonContextRepository repository = PersonContextRepository(
+      store,
+      scope,
+    );
+    final ProviderContainer container = _container(
+      accountScope: scope,
+      sharedPrefsStore: store,
+      personContextRepository: repository,
+      firstUseContextOfferSeen: false,
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container, locale: const Locale('es'));
+    await _scrollTo(tester, find.byKey(const Key('planner-context-field')));
+    await tester.enterText(
+      find.byKey(const Key('planner-context-field')),
+      'Preparar la prueba cerrada.',
+    );
+    await _requestGuidance(tester);
+    await _scrollTo(tester, find.byKey(const Key('first-use-context-add')));
+    await tester.tap(find.byKey(const Key('first-use-context-add')));
+    await tester.pump();
+
+    expect(find.text('¿Guardar tu prioridad actual?'), findsOneWidget);
+    expect(find.textContaining('No añadas un perfil'), findsOneWidget);
+    expect(
+      find.textContaining('Propósito: apoyo para decisiones'),
+      findsOneWidget,
+    );
+    expect(find.text('Guardar con consentimiento'), findsOneWidget);
+    expect(find.text('Save your current priority?'), findsNothing);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('first-use-context-confirm')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect((await repository.load()).signals, isEmpty);
+  });
+
   testWidgets('staged first value applies context and generates guidance', (
     WidgetTester tester,
   ) async {
@@ -770,6 +818,31 @@ void main() {
     expect(find.textContaining('No durable memory was saved'), findsOneWidget);
   });
 
+  testWidgets('Spanish durable-memory disclosure remains fully localized', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = _container();
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container, locale: const Locale('es'));
+    await _requestGuidance(tester);
+
+    final Finder remember = find.byKey(
+      const Key('planner-remember-preference'),
+    );
+    await _scrollTo(tester, remember);
+    await tester.tap(remember);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.text('¿Recordar una preferencia del Planificador Inteligente?'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Vista previa del recibo'), findsOneWidget);
+    expect(find.textContaining('Límite de recuperación'), findsOneWidget);
+    expect(find.text('Usar solo esta vez'), findsOneWidget);
+    expect(find.text('Remember a Smart Planner preference?'), findsNothing);
+  });
+
   testWidgets(
     'optional explanation quotes before send and cancel executes zero',
     (WidgetTester tester) async {
@@ -1059,6 +1132,8 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) async {
     guidanceRequestCount += 1;
     lastEnergy = energy;
@@ -1073,6 +1148,8 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
     required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) async => 'Follow-up response for $input';
 }
 
@@ -1088,6 +1165,8 @@ class _DelayedPlannerController extends _PlannerV2TestController {
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) async {
     guidanceRequestCount += 1;
     lastEnergy = energy;
@@ -1114,6 +1193,8 @@ class _BlockedPlannerController extends SmartPlannerQueryController {
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) async {
     guidanceRequestCount += 1;
     final AssistantReleaseDecision decision = const AssistantReleaseController()
@@ -1150,6 +1231,8 @@ class _FailingPlannerController extends SmartPlannerQueryController {
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   }) async {
     guidanceRequestCount += 1;
     throw StateError('simulated planner failure');

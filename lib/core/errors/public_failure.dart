@@ -26,26 +26,32 @@ class PublicFailure implements Exception {
   static PublicFailure from(
     Object error, {
     String fallback = 'Something went wrong.',
+    bool isSpanish = false,
   }) {
     if (error is PublicFailure) return error;
     if (error is TimeoutException) {
-      return const PublicFailure(
+      return PublicFailure(
         code: 'timeout',
-        message: 'The request took too long. Check your connection and retry.',
+        message: isSpanish
+            ? 'La solicitud tardó demasiado. Comprueba tu conexión e inténtalo de nuevo.'
+            : 'The request took too long. Check your connection and retry.',
       );
     }
     final String type = error.runtimeType.toString().toLowerCase();
     if (type.contains('auth')) {
-      return const PublicFailure(
+      return PublicFailure(
         code: 'auth',
-        message: 'Your sign-in needs attention. Sign in again and retry.',
+        message: isSpanish
+            ? 'Tu inicio de sesión necesita atención. Inicia sesión de nuevo e inténtalo otra vez.'
+            : 'Your sign-in needs attention. Sign in again and retry.',
       );
     }
     if (type.contains('storage') || type.contains('network')) {
-      return const PublicFailure(
+      return PublicFailure(
         code: 'network',
-        message:
-            'ChronoSpark could not reach its data service. Your local work is unchanged; retry when connected.',
+        message: isSpanish
+            ? 'ChronoSpark no pudo comunicarse con su servicio de datos. Tu trabajo local no cambió; inténtalo de nuevo cuando tengas conexión.'
+            : 'ChronoSpark could not reach its data service. Your local work is unchanged; retry when connected.',
       );
     }
     return PublicFailure(code: 'unexpected', message: fallback);
@@ -70,9 +76,14 @@ class PublicErrorEnvelope {
     Object error, {
     String fallback = 'Something went wrong.',
     String recoveryAction = 'retry',
+    bool isSpanish = false,
   }) {
     return PublicErrorEnvelope(
-      failure: PublicFailure.from(error, fallback: fallback),
+      failure: PublicFailure.from(
+        error,
+        fallback: fallback,
+        isSpanish: isSpanish,
+      ),
       recoveryAction: recoveryAction,
     );
   }

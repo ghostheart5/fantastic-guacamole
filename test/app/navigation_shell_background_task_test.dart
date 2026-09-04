@@ -256,9 +256,11 @@ class _FakeRecoveryService extends AppRecoveryService {
   @override
   Future<void> saveState({
     String? lastRoute,
+    bool clearLastRoute = false,
     String? activeTaskId,
     bool clearActiveTask = false,
     String? draftTaskTitle,
+    bool clearDraftTitle = false,
   }) async {
     saveCalls += 1;
     if (failOnSave) {

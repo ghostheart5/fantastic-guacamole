@@ -284,6 +284,7 @@ class _BubbleTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     final bool isUser = msg.isUser;
     final String? emotion = msg.emotion;
     final bool systemPanel = msg.systemPanel && !isUser;
@@ -384,23 +385,27 @@ class _BubbleTile extends ConsumerWidget {
                     children: <Widget>[
                       Semantics(
                         button: true,
-                        label: 'Read response aloud',
+                        label: isSpanish
+                            ? 'Leer respuesta en voz alta'
+                            : 'Read response aloud',
                         child: TextButton.icon(
                           onPressed: () => unawaited(
                             ref.read(voiceServiceProvider).speak(msg.text),
                           ),
                           icon: const Icon(Icons.volume_up_rounded, size: 16),
-                          label: const Text('SPEAK'),
+                          label: Text(isSpanish ? 'ESCUCHAR' : 'SPEAK'),
                         ),
                       ),
                       if (onReport != null)
                         Semantics(
                           button: true,
-                          label: 'Report response',
+                          label: isSpanish
+                              ? 'Reportar respuesta'
+                              : 'Report response',
                           child: TextButton.icon(
                             onPressed: onReport,
                             icon: const Icon(Icons.flag_outlined, size: 16),
-                            label: const Text('REPORT'),
+                            label: Text(isSpanish ? 'REPORTAR' : 'REPORT'),
                           ),
                         ),
                     ],

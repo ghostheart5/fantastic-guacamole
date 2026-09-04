@@ -110,7 +110,10 @@ class SIConsoleQueryController {
     );
   }
 
-  AIRecommendation supportiveSafetyResponse({required String query}) {
+  AIRecommendation supportiveSafetyResponse({
+    required String query,
+    required String localizedResponse,
+  }) {
     final EmotionalSafetyAssessment assessment = assessEmotionalSafety(query);
     if (!assessment.requiresSupportivePause) {
       throw const AssistantSafetyRouteException(
@@ -118,11 +121,17 @@ class SIConsoleQueryController {
         'A supportive safety response requires non-crisis distress language.',
       );
     }
+    final String response = localizedResponse.trim();
+    if (response.isEmpty) {
+      throw ArgumentError.value(
+        localizedResponse,
+        'localizedResponse',
+        'A localized supportive response is required.',
+      );
+    }
     return _localResponse(
       query: query,
-      response:
-          '${EmotionalSafetyPolicy.planningPauseReason(assessment)}\n\n'
-          '${EmotionalSafetyPolicy.supportiveQuestion(assessment)}',
+      response: response,
       reason: 'supportive_distress_pause',
       kind: AssistantRequestKind.consoleQuery,
       evidence: 'Privacy-safe supportive distress route selected by the user',

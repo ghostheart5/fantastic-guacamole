@@ -5,7 +5,9 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
+import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -180,6 +182,21 @@ final class SettingsSafetyCopy {
     'no-current-user' => signInExpired,
     _ => deletionFailed,
   };
+}
+
+@visibleForTesting
+String settingsPublicFailureMessage(
+  BuildContext context,
+  Object error, {
+  required String englishFallback,
+  required String spanishFallback,
+}) {
+  final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+  return PublicFailure.from(
+    error,
+    fallback: isSpanish ? spanishFallback : englishFallback,
+    isSpanish: isSpanish,
+  ).message;
 }
 
 Future<void> restartFirstSetup(BuildContext context, WidgetRef ref) async {

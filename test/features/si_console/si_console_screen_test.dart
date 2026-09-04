@@ -360,6 +360,46 @@ void main() {
     expect(port.calls, 0);
   });
 
+  testWidgets('Spanish supportive response remains localized after consent', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+    final ProviderContainer container = _container(port, snapshot);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container, locale: const Locale('es'));
+
+    await tester.enterText(
+      find.byKey(const Key('si-query-input')),
+      'Tengo pánico y pierdo el control',
+    );
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const Key('safety-continue-gently')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(port.calls, 0);
+    expect(
+      find.textContaining('Pausamos la guía de productividad'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('¿Quieres pausar'), findsOneWidget);
+    expect(find.textContaining('Pausing productivity guidance'), findsNothing);
+
+    await tester.ensureVisible(find.text('REPORTAR'));
+    await tester.tap(find.text('REPORTAR'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Reportar respuesta'), findsOneWidget);
+    expect(find.textContaining('Tu mensaje y el historial'), findsOneWidget);
+    expect(find.text('Enviar informe'), findsOneWidget);
+  });
+
   testWidgets(
     'non-crisis distress pauses SI and only continues with a gentle local question',
     (WidgetTester tester) async {

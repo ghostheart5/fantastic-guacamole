@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/features/permissions/permission_denied_recovery.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_explainer.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_rationale_sheet.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
@@ -11,16 +12,21 @@ class NotificationPermissionPrompt extends StatelessWidget {
     required this.permissionGranted,
     required this.onRequestPermission,
     required this.onOpenSystemSettings,
-    this.title = 'Notifications',
+    this.title,
   });
 
   final bool? permissionGranted;
   final Future<bool> Function() onRequestPermission;
   final Future<void> Function() onOpenSystemSettings;
-  final String title;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+    final PermissionExplainer explainer = PermissionExplainers.forKind(
+      PermissionKind.notifications,
+      isSpanish: isSpanish,
+    );
     final bool granted = permissionGranted == true;
     final bool denied = permissionGranted == false;
 
@@ -54,9 +60,11 @@ class NotificationPermissionPrompt extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        const Text(
-                          'PERMISSION · NOTIFICATIONS',
-                          style: TextStyle(
+                        Text(
+                          isSpanish
+                              ? 'PERMISO · NOTIFICACIONES'
+                              : 'PERMISSION · NOTIFICATIONS',
+                          style: const TextStyle(
                             color: AppColors.neonCyan,
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
@@ -65,7 +73,8 @@ class NotificationPermissionPrompt extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          title,
+                          title ??
+                              (isSpanish ? 'Notificaciones' : 'Notifications'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -79,9 +88,11 @@ class NotificationPermissionPrompt extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Enable notifications to receive scheduled execution and reflection reminders.',
-                style: TextStyle(
+              Text(
+                isSpanish
+                    ? 'Activa las notificaciones para recibir los recordatorios de ejecución y reflexión que programes.'
+                    : 'Enable notifications to receive scheduled execution and reflection reminders.',
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 13,
                   height: 1.45,
@@ -89,18 +100,22 @@ class NotificationPermissionPrompt extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const TemporalStatusRow(
+              TemporalStatusRow(
                 icon: Icons.tune_rounded,
-                text: 'Optional and controlled from Settings.',
+                text: isSpanish
+                    ? 'Opcionales y controladas desde Ajustes.'
+                    : 'Optional and controlled from Settings.',
               ),
               const SizedBox(height: 14),
               TemporalActionButton(
-                label: 'Enable Notifications',
+                label: isSpanish
+                    ? 'Activar notificaciones'
+                    : 'Enable Notifications',
                 icon: Icons.notifications_active_outlined,
                 onPressed: () async {
                   await showPermissionRationaleSheet<void>(
                     context: context,
-                    explainer: PermissionExplainers.notification,
+                    explainer: explainer,
                     onPrimary: () async {
                       await onRequestPermission();
                     },
@@ -113,9 +128,10 @@ class NotificationPermissionPrompt extends StatelessWidget {
         if (denied) ...<Widget>[
           const SizedBox(height: 10),
           PermissionDeniedRecovery(
-            title: 'Permission Denied',
-            message:
-                'Notifications are disabled at system level. Open settings to re-enable alerts.',
+            title: isSpanish ? 'Permiso denegado' : 'Permission Denied',
+            message: isSpanish
+                ? 'Las notificaciones están desactivadas en el sistema. Abre los ajustes para volver a activar los avisos.'
+                : 'Notifications are disabled at system level. Open settings to re-enable alerts.',
             onOpenSystemSettings: onOpenSystemSettings,
           ),
         ],
