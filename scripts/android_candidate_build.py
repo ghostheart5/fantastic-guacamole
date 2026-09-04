@@ -1,5 +1,9 @@
 """Build-only runner. Never publishes, changes cloud settings, or creates keys."""
 import base64
+<<<<<<< HEAD
+=======
+from contextlib import contextmanager
+>>>>>>> origin/main
 import hashlib
 import json
 import os
@@ -9,6 +13,10 @@ import shutil
 import struct
 import subprocess
 import sys
+<<<<<<< HEAD
+=======
+import tempfile
+>>>>>>> origin/main
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -40,16 +48,50 @@ def require(condition, message):
         raise ValueError(message)
 
 
+<<<<<<< HEAD
 def command(args, root, capture=False):
     result = subprocess.run(args, cwd=root, text=True, capture_output=capture)
+=======
+def command(args, root, capture=False, env=None):
+    result = subprocess.run(args, cwd=root, text=True, capture_output=capture, env=env)
+>>>>>>> origin/main
     require(result.returncode == 0, f"{args[0]} command failed (output not retained)")
     return result.stdout.strip() if capture else ""
 
 
+<<<<<<< HEAD
 def properties_escape(value):
     # java.util.Properties is ISO-8859-1; do not corrupt non-ASCII passwords.
     return "".join(f"\\u{ord(c):04x}" if ord(c) > 126 else
                    "\\" + c if c in "\\ :=#!" else c for c in value)
+=======
+SIGNING_BOOTSTRAP = (
+    "# Non-secret bootstrap; real signing values are injected in memory.\n"
+    "storePassword=environment-injected\n"
+    "keyPassword=environment-injected\n"
+    "keyAlias=environment-injected\n"
+    "storeFile=app/upload-keystore.jks\n"
+)
+
+
+@contextmanager
+def signing_environment(tooling, runner_temp):
+    # Scope the hook and any Gradle daemon/cache state to this one build.
+    # Never serialize the environment or interpolate secret values into a script.
+    with tempfile.TemporaryDirectory(prefix="chronospark-signing-", dir=runner_temp) as folder:
+        home = Path(folder)
+        (home / "init.d").mkdir()
+        shutil.copyfile(tooling / "candidate-signing.init.gradle",
+                        home / "init.d/candidate-signing.init.gradle")
+        (home / "gradle.properties").write_text(
+            "org.gradle.daemon=false\norg.gradle.configuration-cache=false\n",
+            encoding="ascii")
+        env = os.environ.copy()
+        env["GRADLE_USER_HOME"] = str(home)
+        env["GRADLE_OPTS"] = (env.get("GRADLE_OPTS", "") +
+                              " -Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false")
+        yield env
+>>>>>>> origin/main
 
 
 def elf_alignment(data):
@@ -124,11 +166,21 @@ def build(root, bundletool):
     command(["dart", "run", "scripts/validate_production_config.dart", "--platform=android",
              "--google-services=android/app/google-services.json"], root)
     key = root / "android/app/upload-keystore.jks"
+<<<<<<< HEAD
     defines = Path(os.environ["RUNNER_TEMP"]) / "chronospark-candidate-defines.json"
     require(not any(p.exists() for p in (key, defines)), "Temporary signing path already exists")
     os.umask(0o077)
     try:
         key.write_bytes(base64.b64decode(os.environ["ANDROID_KEYSTORE_BASE64"], validate=True))
+=======
+    props = root / "android/key.properties"
+    defines = Path(os.environ["RUNNER_TEMP"]) / "chronospark-candidate-defines.json"
+    require(not any(p.exists() for p in (key, props, defines)), "Temporary signing path already exists")
+    os.umask(0o077)
+    try:
+        key.write_bytes(base64.b64decode(os.environ["ANDROID_KEYSTORE_BASE64"], validate=True))
+        props.write_text(SIGNING_BOOTSTRAP, encoding="ascii")
+>>>>>>> origin/main
         cert = command(["keytool", "-list", "-v", "-J-Duser.language=en",
                         "-keystore", str(key), "-storepass:env", "ANDROID_STORE_PASSWORD",
                         "-alias", os.environ["ANDROID_KEY_ALIAS"]], root, True)
@@ -137,6 +189,7 @@ def build(root, bundletool):
         require(fingerprint and fingerprint[1].replace(":", "").upper() == UPLOAD_SHA1,
                 "Existing upload identity pin mismatch")
         defines.write_text(json.dumps({**FLAGS, **{name: os.environ[name] for name in SETTINGS}}))
+<<<<<<< HEAD
         command(["flutter", "build", "appbundle", "--release", "--no-pub",
                  "--dart-define-from-file=" + str(defines),
                  "-Pandroid.injected.signing.store.file=app/upload-keystore.jks",
@@ -145,6 +198,13 @@ def build(root, bundletool):
                  "-Pandroid.injected.signing.key.password=$ANDROID_KEY_PASSWORD"], root)
     finally:
         for path in (key, defines):
+=======
+        with signing_environment(tooling, Path(os.environ["RUNNER_TEMP"])) as env:
+            command(["flutter", "build", "appbundle", "--release", "--no-pub",
+                     "--dart-define-from-file=" + str(defines)], root, env=env)
+    finally:
+        for path in (key, props, defines):
+>>>>>>> origin/main
             path.unlink(missing_ok=True)
     command(["git", "diff", "--exit-code"], root)
     require(not command(["git", "status", "--porcelain", "--untracked-files=all"], root, True),

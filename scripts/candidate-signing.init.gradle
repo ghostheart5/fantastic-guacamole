@@ -1,0 +1,24 @@
+// Runner-only hook. This file contains variable names, never credential values.
+gradle.beforeProject { project ->
+    if (project.path == ':app') {
+        project.pluginManager.withPlugin('com.android.application') {
+            project.extensions.getByName('androidComponents').finalizeDsl { android ->
+                def required = { name ->
+                    def value = System.getenv(name)
+                    if (value == null || value.trim().isEmpty()) {
+                        throw new GradleException('Missing candidate signing environment variable: ' + name)
+                    }
+                    return value
+                }
+                def signing = android.signingConfigs.getByName('release')
+                signing.storePassword = required('ANDROID_STORE_PASSWORD')
+                signing.keyPassword = required('ANDROID_KEY_PASSWORD')
+                signing.keyAlias = required('ANDROID_KEY_ALIAS')
+                signing.storeFile = project.rootProject.file('app/upload-keystore.jks')
+                if (android.buildTypes.getByName('release').signingConfig != signing) {
+                    throw new GradleException('Release signing configuration changed')
+                }
+            }
+        }
+    }
+}

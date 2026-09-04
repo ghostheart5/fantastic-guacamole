@@ -7,7 +7,12 @@ import tempfile
 import unittest
 import zipfile
 
+<<<<<<< HEAD
 from android_candidate_build import elf_alignment, manifest_identity, properties_escape, PACKAGE, UPLOAD_SHA1
+=======
+from android_candidate_build import (elf_alignment, manifest_identity, signing_environment,
+                                     SIGNING_BOOTSTRAP, PACKAGE, UPLOAD_SHA1)
+>>>>>>> origin/main
 
 
 def elf(load_alignment=16384, offset=0, address=0):
@@ -27,8 +32,29 @@ def manifest(package=PACKAGE, code="2026083003", target="36", debug="false"):
 
 
 class CandidateVerifierTests(unittest.TestCase):
+<<<<<<< HEAD
     def test_properties_escaping(self):
         self.assertEqual(properties_escape(" a:b=c\\d#!é"), r"\ a\:b\=c\\d\#\!\u00e9")
+=======
+    def test_signing_bootstrap_contains_only_fixed_nonsecret_values(self):
+        self.assertEqual(SIGNING_BOOTSTRAP.splitlines()[1:], [
+            "storePassword=environment-injected", "keyPassword=environment-injected",
+            "keyAlias=environment-injected", "storeFile=app/upload-keystore.jks"])
+
+    def test_signing_hook_is_scoped_and_cleaned_after_failure(self):
+        tooling = Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(RuntimeError, "controlled failure"):
+                with signing_environment(tooling, folder) as env:
+                    home = Path(env["GRADLE_USER_HOME"])
+                    self.assertEqual((home / "init.d/candidate-signing.init.gradle").read_bytes(),
+                                     (tooling / "candidate-signing.init.gradle").read_bytes())
+                    self.assertIn("org.gradle.configuration-cache=false",
+                                  (home / "gradle.properties").read_text())
+                    self.assertIn("-Dorg.gradle.daemon=false", env["GRADLE_OPTS"])
+                    raise RuntimeError("controlled failure")
+            self.assertFalse(home.exists())
+>>>>>>> origin/main
 
     def test_16k_elf(self):
         self.assertEqual(elf_alignment(elf()), 16384)
