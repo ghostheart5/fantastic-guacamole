@@ -13,15 +13,7 @@ on:
       - 'web/.well-known/assetlinks.json'
       - '.github/workflows/main.yml'
   pull_request:
-    paths:
-      - 'site/**'
-      - 'web/privacy/**'
-      - 'web/terms/**'
-      - 'web/support/**'
-      - 'web/delete-account/**'
-      - 'web/legal.css'
-      - 'web/.well-known/assetlinks.json'
-      - '.github/workflows/main.yml'
+    branches: [main]
   workflow_dispatch:
 
 permissions:

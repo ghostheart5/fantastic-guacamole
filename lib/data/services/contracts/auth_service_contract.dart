@@ -23,6 +23,9 @@ abstract class AuthServiceContract {
   Future<AccountDeletionResult> deleteCurrentAccount({
     required String password,
   });
+  Future<PendingAccountDeletionStatus?> readPendingAccountDeletion();
+  Future<AccountDeletionResult?> refreshPendingAccountDeletion();
+  Future<void> forgetPendingAccountDeletion();
 }
 
 extension AuthServiceContractResultX on AuthServiceContract {
@@ -102,6 +105,7 @@ extension AuthServiceContractResultX on AuthServiceContract {
           return AppResultErrorCode.conflict;
         case 'operation-not-supported':
         case 'auth-unavailable':
+        case 'local-notification-isolation-failed':
           return AppResultErrorCode.unavailable;
       }
     }

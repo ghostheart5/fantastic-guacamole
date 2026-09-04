@@ -12,8 +12,8 @@ function Normalize-Path([string]$p) {
 function Resolve-Import([string]$fromFile, [string]$uri) {
   if ($uri.StartsWith('dart:')) { return $null }
   if ($uri.StartsWith('package:')) {
-    if ($uri.StartsWith('package:chronospark/')) {
-      $sub = $uri.Substring('package:chronospark/'.Length).Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+    if ($uri.StartsWith('package:fantastic_guacamole/')) {
+      $sub = $uri.Substring('package:fantastic_guacamole/'.Length).Replace('/', [System.IO.Path]::DirectorySeparatorChar)
       return Normalize-Path (Join-Path $libRoot $sub)
     }
     return $null

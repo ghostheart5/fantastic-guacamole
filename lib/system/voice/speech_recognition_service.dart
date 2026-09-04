@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -57,8 +57,13 @@ class PluginSpeechRecognitionService implements SpeechRecognitionService {
       return available;
     } on MissingPluginException {
       return false;
-    } on PlatformException catch (error) {
-      debugPrint('SpeechRecognitionService unavailable: $error');
+    } on PlatformException catch (error, stackTrace) {
+      Logger.errorCode(
+        code: AppDiagnosticCode.speechRecognitionInitializationUnavailable,
+        debugMessage: 'Speech recognition is unavailable.',
+        exception: error,
+        stackTrace: stackTrace,
+      );
       return false;
     } catch (_) {
       return false;

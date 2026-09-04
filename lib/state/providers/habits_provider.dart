@@ -93,6 +93,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
     final HabitOccurrenceResult result = await coordinator.complete(id);
     ref.invalidate(habitOccurrencesProvider);
     ref.invalidate(decisionOutcomesProvider);
+    await ref.read(decisionOutcomeActionsProvider).reconcileRetention();
     if (result.mutation == HabitOccurrenceMutation.applied) {
       AppAnalytics.track(
         'habit_completed',
@@ -112,6 +113,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
     final HabitOccurrenceResult result = await coordinator.skip(id);
     ref.invalidate(habitOccurrencesProvider);
     ref.invalidate(decisionOutcomesProvider);
+    await ref.read(decisionOutcomeActionsProvider).reconcileRetention();
     return result;
   }
 

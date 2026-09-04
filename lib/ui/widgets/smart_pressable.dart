@@ -13,6 +13,7 @@ class SmartPressable extends StatefulWidget {
     this.semanticLabel,
     this.button = true,
     this.selected,
+    this.enabled = true,
     super.key,
   });
 
@@ -28,6 +29,7 @@ class SmartPressable extends StatefulWidget {
   final String? semanticLabel;
   final bool button;
   final bool? selected;
+  final bool enabled;
 
   @override
   State<SmartPressable> createState() => _SmartPressableState();
@@ -38,7 +40,7 @@ class _SmartPressableState extends State<SmartPressable> {
   bool _isRunning = false;
 
   void _setPressed(bool pressed) {
-    if (!mounted) {
+    if (!mounted || !widget.enabled) {
       return;
     }
     setState(() {
@@ -47,7 +49,7 @@ class _SmartPressableState extends State<SmartPressable> {
   }
 
   Future<void> _handleTap() async {
-    if (_isRunning) {
+    if (!widget.enabled || _isRunning) {
       return;
     }
     _isRunning = true;
@@ -68,12 +70,16 @@ class _SmartPressableState extends State<SmartPressable> {
     final bool disableAnimations = MediaQuery.disableAnimationsOf(context);
     final Widget gesture = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: disableAnimations ? null : (_) => _setPressed(true),
-      onTapUp: disableAnimations ? null : (_) => _setPressed(false),
-      onTapCancel: disableAnimations ? null : () => _setPressed(false),
-      onTap: () {
-        unawaited(_handleTap());
-      },
+      onTapDown: !widget.enabled || disableAnimations
+          ? null
+          : (_) => _setPressed(true),
+      onTapUp: !widget.enabled || disableAnimations
+          ? null
+          : (_) => _setPressed(false),
+      onTapCancel: !widget.enabled || disableAnimations
+          ? null
+          : () => _setPressed(false),
+      onTap: widget.enabled ? () => unawaited(_handleTap()) : null,
       child: AnimatedScale(
         scale: disableAnimations ? 1.0 : _scale,
         duration: disableAnimations ? Duration.zero : widget.duration,
@@ -82,6 +88,7 @@ class _SmartPressableState extends State<SmartPressable> {
       ),
     );
     final Widget focusable = FocusableActionDetector(
+      enabled: widget.enabled,
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
         SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
@@ -101,7 +108,8 @@ class _SmartPressableState extends State<SmartPressable> {
       label: label,
       button: widget.button,
       selected: widget.selected,
-      onTap: () => unawaited(_handleTap()),
+      enabled: widget.enabled,
+      onTap: widget.enabled ? () => unawaited(_handleTap()) : null,
       // A custom label replaces descendant text; otherwise it remains the
       // accessible name while this node supplies the button action.
       child: label == null ? focusable : ExcludeSemantics(child: focusable),

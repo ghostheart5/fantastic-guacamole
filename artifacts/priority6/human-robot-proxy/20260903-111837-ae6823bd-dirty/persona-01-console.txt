@@ -1,0 +1,54 @@
+Running on emulator-5558
+ > Flow P6 proxy persona 01 - privacy cautious decline
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/C:/Tools/maestro-cli-2.8.0/maestro/lib/protobuf-java-3.21.9.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+WARNING: sun.misc.Unsafe::arrayBaseOffset will be removed in a future release
+Launch app "com.ghostheart5.chronospark" with clear state... COMPLETED
+Run ../../../../.maestro/subflows/sign-in.yaml...
+  Run skip-onboarding.yaml...
+    Assert that "(?:CONTINUE TO LOGIN|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)" is visible... COMPLETED
+    Run flow when "CONTINUE TO LOGIN" is visible...
+      Tap on "CONTINUE TO LOGIN"... COMPLETED
+      Wait for animation to end within 5000 ms... COMPLETED
+    Run flow when "CONTINUE TO LOGIN" is visible... COMPLETED
+    Assert that "(?:SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)" is visible... COMPLETED
+    Run flow when "SKIP FOR NOW" is visible...
+    Run flow when "SKIP FOR NOW" is visible... SKIPPED
+  Run skip-onboarding.yaml... COMPLETED
+  Run flow when "TESTER ACCESS.*TEST LOGIN" is visible...
+    Tap on "TESTER ACCESS.*TEST LOGIN"... COMPLETED
+  Run flow when "TESTER ACCESS.*TEST LOGIN" is visible... COMPLETED
+  Run flow when "ENTER SYSTEM" is visible...
+  Run flow when "ENTER SYSTEM" is visible... SKIPPED
+  Assert that "NEXUS" is visible... COMPLETED
+Run ../../../../.maestro/subflows/sign-in.yaml... COMPLETED
+Assert that "NEXUS" is visible... COMPLETED
+Run ../../../../.maestro/subflows/open-from-nexus.yaml...
+  Tap on "Open navigation map"... COMPLETED
+  Scrolling DOWN until "${TARGET}\n.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+  Tap on "${TARGET}\n.*"... COMPLETED
+  Wait for animation to end within 5000 ms... COMPLETED
+Run ../../../../.maestro/subflows/open-from-nexus.yaml... COMPLETED
+Assert that "Add optional context" is not visible... COMPLETED
+Tap on "Not set"... COMPLETED
+Input text Choose one useful release step today... COMPLETED
+Scrolling DOWN until "GET GUIDANCE" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+Tap on "GET GUIDANCE"... COMPLETED
+Assert that "(?s)Planning guidance ready.*" is visible... COMPLETED
+Assert that "Use this plan" is visible... COMPLETED
+Scrolling DOWN until "Add optional context" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+Assert that "Nothing is inferred. Use only this time remains the default. If you opt in, you choose the exact words." is visible... FAILED
+
+Assertion is false: "Nothing is inferred. Use only this time remains the default. If you opt in, you choose the exact words." is visible
+
+Assertion '"Nothing is inferred. Use only this time remains the default. If you opt in, you choose the exact words." is visible' failed. Check the UI hierarchy in debug artifacts to verify the element state and properties.
+
+Possible causes:
+- Element selector may be incorrect - check if there are similar elements with slightly different names/properties.
+- Element may be temporarily unavailable due to loading state
+- This could be a real regression that needs to be addressed
+
+==== Debug output (logs & screenshots) ====
+
+C:\Users\keegan radetski\Documents\Codex\2026-09-01\t\ChronoSpark-app-only-priority2\artifacts\priority6\human-robot-proxy\20260903-111837-ae6823bd-dirty\persona-01-maestro\2026-09-03_111911

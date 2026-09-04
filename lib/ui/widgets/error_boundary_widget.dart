@@ -1,8 +1,6 @@
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class ErrorBoundary extends StatefulWidget {
@@ -10,7 +8,7 @@ class ErrorBoundary extends StatefulWidget {
 
   final Widget child;
 
-  static Object? _lastReportedError;
+  static String? _lastReportedErrorFingerprint;
   static bool _isReportingError = false;
 
   static ErrorBoundaryState? of(BuildContext context) {
@@ -19,9 +17,7 @@ class ErrorBoundary extends StatefulWidget {
 
   static void reportGlobalError(Object error, [StackTrace? stackTrace]) {
     final String errorText = Logger.redactSensitive(error.toString());
-    final String stackText = Logger.redactSensitive(
-      (stackTrace ?? StackTrace.current).toString(),
-    );
+    final StackTrace effectiveStack = stackTrace ?? StackTrace.current;
 
     // Prevent recursive ErrorBoundary / Crashlytics / FlutterError loops.
     if (_isReportingError) {
@@ -29,27 +25,24 @@ class ErrorBoundary extends StatefulWidget {
     }
 
     // Prevent the exact same error from spamming forever.
-    if (_lastReportedError?.toString() == errorText) {
+    if (_lastReportedErrorFingerprint == errorText) {
       return;
     }
 
     _isReportingError = true;
-    _lastReportedError = error;
+    _lastReportedErrorFingerprint = errorText;
 
     try {
-      if (kDebugMode || Env.enableVerboseLogs) {
-        debugPrint('Global error captured: $errorText');
-        debugPrint('Global error stack start >>>');
-        debugPrint(stackText);
-        debugPrint('Global error stack end <<<');
-      }
-
       // Do NOT update notifiers or UI during build.
       // Logger is delayed so it cannot trigger another Flutter build error.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
-          Logger.error('Global error captured', error);
-          Logger.error('Global error stack', stackText);
+          Logger.errorCode(
+            code: AppDiagnosticCode.globalErrorBoundary,
+            debugMessage: 'Global error captured.',
+            exception: error,
+            stackTrace: effectiveStack,
+          );
         } catch (_) {
           // Never allow logging to create another crash loop.
         }
@@ -62,7 +55,7 @@ class ErrorBoundary extends StatefulWidget {
   }
 
   static void clearGlobalError() {
-    _lastReportedError = null;
+    _lastReportedErrorFingerprint = null;
   }
 
   @override

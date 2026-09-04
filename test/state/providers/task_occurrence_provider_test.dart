@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/config/env.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/task_occurrence_cloud_replica.dart';
 import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -13,7 +13,7 @@ part 'src/service_endpoints.dart';
 
 abstract final class Env {
   static const String appName = 'ChronoSpark';
-  static const String supportEmail = 'support@chronospark.app';
+  static const String supportEmail = 'ghostheart131517@gmail.com';
   static const String expectedFirebaseProjectId =
       FirebaseIdentity.expectedProjectId;
 

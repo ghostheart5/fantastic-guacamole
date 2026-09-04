@@ -3,12 +3,16 @@ import 'dart:io';
 
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/note_repository.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/services/local_user_data_cleanup_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,9 +68,14 @@ void main() {
 
       for (final String key in AccountDataRegistry.secureExactKeysForAccount(
         'account-a',
+        includeLegacyOwnedData: true,
       )) {
         await secureStore.writeString(key, 'private');
       }
+      await secureStore.writeString(
+        AccountDataRegistry.accountBoundaryOwnerKey,
+        'account-a',
+      );
       await secureStore.writeString(
         AccountDataRegistry.notificationSecureKeyFor('account-a'),
         '[]',
@@ -97,9 +106,15 @@ void main() {
       await secureStore.writeString(scopedBackupKey, 'account-recovery-key');
 
       for (final String key
-          in AccountDataRegistry.preferenceExactKeysForAccount('account-a')) {
+          in AccountDataRegistry.preferenceExactKeysForAccount(
+            'account-a',
+            includeLegacyOwnedData: true,
+          )) {
         await preferences.save(key, 'private');
       }
+      final String otherNotes =
+          'notes_v1.${AccountDataRegistry.accountNamespace('account-b')}';
+      await preferences.save(otherNotes, 'other-owner');
       await preferences.save(
         'chronospark.trajectory.forecast_ledger.v1.$namespace.corrupt.1',
         'private',
@@ -111,6 +126,7 @@ void main() {
       for (final String key
           in AccountDataRegistry.sensitivePreferenceKeysForAccount(
             'account-a',
+            includeLegacyOwnedData: true,
           )) {
         await sensitivePreferences.save(key, 'private');
       }
@@ -130,7 +146,20 @@ void main() {
 
       expect(
         hive.clearedBoxes,
-        containsAll(AccountDataRegistry.hiveBoxesForAccount('account-a')),
+        containsAll(
+          AccountDataRegistry.hiveBoxesForAccount(
+            'account-a',
+            includeLegacyOwnedData: true,
+          ),
+        ),
+      );
+      expect(
+        hive.clearedBoxes,
+        isNot(
+          contains(
+            'tasks_box.${AccountDataRegistry.accountNamespace('account-b')}',
+          ),
+        ),
       );
       expect(
         await secureStore.readString(
@@ -165,6 +194,7 @@ void main() {
       }
       expect(preferences.load('notes_v1'), isNull);
       expect(preferences.load('notes_v1_corrupt_backup'), isNull);
+      expect(preferences.load(otherNotes), 'other-owner');
       expect(sensitivePreferences.load(otherMemory), 'other-owner');
       expect(
         sensitivePreferences.load('governed_memories_v2.$namespace'),
@@ -173,51 +203,221 @@ void main() {
     },
   );
 
+  test('clearing a non-legacy owner deletes only its scoped data', () async {
+    final _RecordingHiveStore hive = _RecordingHiveStore();
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final _MemoryPreferences preferences = _MemoryPreferences();
+    final _MemoryPreferences sensitivePreferences = _MemoryPreferences();
+    final String namespaceA = AccountDataRegistry.accountNamespace('account-a');
+    final String namespaceB = AccountDataRegistry.accountNamespace('account-b');
+    final AccountStorageScope scopeA = AccountStorageScope.authenticated(
+      'account-a',
+    );
+    final AccountStorageScope scopeB = AccountStorageScope.authenticated(
+      'account-b',
+    );
+    final SecureStore secureA = secureStore.forAccount(scopeA);
+    final SecureStore secureB = secureStore.forAccount(scopeB);
+    final AccountScopedSharedPrefsStore preferencesA =
+        AccountScopedSharedPrefsStore(delegate: preferences, scope: scopeA);
+    final AccountScopedSharedPrefsStore preferencesB =
+        AccountScopedSharedPrefsStore(delegate: preferences, scope: scopeB);
+    final AccountScopedSharedPrefsStore sensitiveA =
+        AccountScopedSharedPrefsStore(
+          delegate: sensitivePreferences,
+          scope: scopeA,
+        );
+    final AccountScopedSharedPrefsStore sensitiveB =
+        AccountScopedSharedPrefsStore(
+          delegate: sensitivePreferences,
+          scope: scopeB,
+        );
+
+    await secureStore.writeString(
+      AccountDataRegistry.accountBoundaryOwnerKey,
+      'account-a',
+    );
+    await secureStore.writeString('identity_id', 'legacy-a');
+    await secureStore.writeString(
+      AccountDataRegistry.legacyNotificationSecureKey,
+      'legacy-a',
+    );
+    await secureStore.writeString('learning_state_v2.$namespaceA', 'private-a');
+    await secureStore.writeString('learning_state_v2.$namespaceB', 'private-b');
+    await preferences.save('notes_v1', 'legacy-a');
+    await preferences.save('notes_v1.$namespaceA', 'private-a');
+    await preferences.save('notes_v1.$namespaceB', 'private-b');
+    await sensitivePreferences.save('memories_v1', 'legacy-a');
+    await sensitivePreferences.save(
+      'governed_memories_v2.$namespaceA',
+      'private-a',
+    );
+    await sensitivePreferences.save(
+      'governed_memories_v2.$namespaceB',
+      'private-b',
+    );
+    await secureA.writeString('profile_entity_v1', 'generic-a');
+    await secureB.writeString('profile_entity_v1', 'generic-b');
+    await preferencesA.save('behavior_state_v1', 'generic-a');
+    await preferencesB.save('behavior_state_v1', 'generic-b');
+    await sensitiveA.save('timeline_events_v1', 'generic-a');
+    await sensitiveB.save('timeline_events_v1', 'generic-b');
+
+    final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+      hive: hive,
+      secureStore: secureStore,
+      preferences: preferences,
+      sensitivePreferences: sensitivePreferences,
+      notifications: NotificationScheduler(),
+    );
+
+    await service.clearForAccountSwitch('account-b');
+
+    expect(hive.clearedBoxes, contains('tasks_box.$namespaceB'));
+    expect(hive.clearedBoxes, isNot(contains('tasks_box')));
+    expect(hive.clearedBoxes, isNot(contains('tasks_box.$namespaceA')));
+    expect(await secureStore.readString('identity_id'), 'legacy-a');
+    expect(
+      await secureStore.readString(
+        AccountDataRegistry.legacyNotificationSecureKey,
+      ),
+      'legacy-a',
+    );
+    expect(
+      await secureStore.readString(AccountDataRegistry.accountBoundaryOwnerKey),
+      'account-a',
+    );
+    expect(
+      await secureStore.readString('learning_state_v2.$namespaceA'),
+      'private-a',
+    );
+    expect(
+      await secureStore.readString('learning_state_v2.$namespaceB'),
+      isNull,
+    );
+    expect(preferences.load('notes_v1'), 'legacy-a');
+    expect(preferences.load('notes_v1.$namespaceA'), 'private-a');
+    expect(preferences.load('notes_v1.$namespaceB'), isNull);
+    expect(sensitivePreferences.load('memories_v1'), 'legacy-a');
+    expect(
+      sensitivePreferences.load('governed_memories_v2.$namespaceA'),
+      'private-a',
+    );
+    expect(
+      sensitivePreferences.load('governed_memories_v2.$namespaceB'),
+      isNull,
+    );
+    expect(await secureA.readString('profile_entity_v1'), 'generic-a');
+    expect(await secureB.readString('profile_entity_v1'), isNull);
+    expect(preferencesA.load('behavior_state_v1'), 'generic-a');
+    expect(preferencesB.load('behavior_state_v1'), isNull);
+    expect(sensitiveA.load('timeline_events_v1'), 'generic-a');
+    expect(sensitiveB.load('timeline_events_v1'), isNull);
+  });
+
+  test('markerless legacy cleanup cannot select a known account', () async {
+    final _RecordingHiveStore hive = _RecordingHiveStore();
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final _MemoryPreferences preferences = _MemoryPreferences();
+    await secureStore.writeString(
+      AccountDataRegistry.accountBoundaryOwnerKey,
+      'account-a',
+    );
+    await preferences.save('notes_v1', 'private');
+
+    final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+      hive: hive,
+      secureStore: secureStore,
+      preferences: preferences,
+      sensitivePreferences: _MemoryPreferences(),
+      notifications: NotificationScheduler(),
+    );
+
+    await expectLater(service.clearUnownedLegacyData(), throwsStateError);
+
+    expect(hive.clearedBoxes, isEmpty);
+    expect(preferences.load('notes_v1'), 'private');
+    expect(
+      await secureStore.readString(AccountDataRegistry.accountBoundaryOwnerKey),
+      'account-a',
+    );
+  });
+
+  test('markerless legacy cleanup clears only the legacy inventory', () async {
+    final _RecordingHiveStore hive = _RecordingHiveStore();
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final _MemoryPreferences preferences = _MemoryPreferences();
+    await secureStore.writeString('identity_id', 'legacy');
+    await preferences.save('notes_v1', 'legacy');
+
+    final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+      hive: hive,
+      secureStore: secureStore,
+      preferences: preferences,
+      sensitivePreferences: _MemoryPreferences(),
+      notifications: NotificationScheduler(),
+    );
+
+    await service.clearUnownedLegacyData();
+
+    expect(hive.clearedBoxes, contains(HiveBoxes.tasks));
+    expect(await secureStore.readString('identity_id'), isNull);
+    expect(preferences.load('notes_v1'), isNull);
+  });
+
   test(
-    'uses the stored owner marker when cleanup omits an account ID',
+    'sign-out cancellation retains repository data and scopes legacy schedules to their proven owner',
     () async {
-      final _RecordingHiveStore hive = _RecordingHiveStore();
       final SecureStore secureStore = SecureStore(
         backend: InMemorySecureStoreBackend(),
       );
-      final _MemoryPreferences preferences = _MemoryPreferences();
-      final String namespace = AccountDataRegistry.accountNamespace(
-        'account-a',
-      );
+      final _RecordingScheduler scheduler = _RecordingScheduler();
       await secureStore.writeString(
         AccountDataRegistry.accountBoundaryOwnerKey,
         'account-a',
       );
+      final String storageKey = AccountDataRegistry.notificationSecureKeyFor(
+        'account-a',
+      );
+      await secureStore.writeString(storageKey, '[]');
       await secureStore.writeString(
-        AccountDataRegistry.notificationSecureKeyFor('account-a'),
+        AccountDataRegistry.legacyNotificationSecureKey,
         '[]',
       );
-      await preferences.save(
-        'chronospark.operating.history.v1.$namespace',
-        'private',
-      );
-
       final LocalUserDataCleanupService service = LocalUserDataCleanupService(
-        hive: hive,
+        hive: _RecordingHiveStore(),
         secureStore: secureStore,
-        preferences: preferences,
+        preferences: _MemoryPreferences(),
         sensitivePreferences: _MemoryPreferences(),
-        notifications: NotificationScheduler(),
+        notifications: scheduler,
       );
 
-      await service.clearForAccountSwitch();
+      await service.cancelScheduledNotificationsForAccount('account-a');
 
-      expect(hive.clearedBoxes, contains('task_occurrences_v2.$namespace'));
+      final String accountScope = AccountDataRegistry.accountDigest(
+        'account-a',
+      );
       expect(
-        preferences.load('chronospark.operating.history.v1.$namespace'),
-        isNull,
+        scheduler.cancelled,
+        containsAll(<({String id, String? accountScope})>{
+          (id: 'daily_planning_reminder', accountScope: accountScope),
+          (id: 'daily_planning_reminder', accountScope: null),
+        }),
       );
+      expect(await secureStore.readString(storageKey), '[]');
       expect(
         await secureStore.readString(
-          AccountDataRegistry.accountBoundaryOwnerKey,
+          AccountDataRegistry.legacyNotificationSecureKey,
         ),
-        isNull,
+        '[]',
       );
+      expect(scheduler.clearedTappedPayload, isTrue);
     },
   );
 
@@ -234,9 +434,16 @@ void main() {
       preferences,
       mutationCoordinator: coordinator,
     );
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    await secureStore.writeString(
+      AccountDataRegistry.accountBoundaryOwnerKey,
+      'account-a',
+    );
     final LocalUserDataCleanupService service = LocalUserDataCleanupService(
       hive: _RecordingHiveStore(),
-      secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+      secureStore: secureStore,
       preferences: preferences,
       sensitivePreferences: _MemoryPreferences(),
       notifications: NotificationScheduler(),
@@ -268,9 +475,16 @@ void main() {
   test('detects and clears preserved sensitive corruption backups', () async {
     final _RecoverableMemoryPreferences sensitive =
         _RecoverableMemoryPreferences()..hasBackups = true;
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    await secureStore.writeString(
+      AccountDataRegistry.accountBoundaryOwnerKey,
+      'account-a',
+    );
     final LocalUserDataCleanupService service = LocalUserDataCleanupService(
       hive: const _DirectHiveStore(),
-      secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+      secureStore: secureStore,
       preferences: _MemoryPreferences(),
       sensitivePreferences: sensitive,
       notifications: NotificationScheduler(),
@@ -389,4 +603,43 @@ class _RecordingHiveStore implements HiveStore {
 
   @override
   Future<Box<T>> openBox<T>(String key) => throw UnimplementedError();
+}
+
+final class _RecordingScheduler implements NotificationSchedulerPort {
+  final Set<({String id, String? accountScope})> cancelled =
+      <({String id, String? accountScope})>{};
+  bool clearedTappedPayload = false;
+
+  @override
+  Future<bool> cancel(String id, {String? accountScope}) async {
+    cancelled.add((id: id, accountScope: accountScope));
+    return true;
+  }
+
+  @override
+  Future<bool> cancelAll() async => true;
+
+  @override
+  void clearTappedPayload() {
+    clearedTappedPayload = true;
+  }
+
+  @override
+  Future<bool> requestPermissions() async => true;
+
+  @override
+  Future<bool> schedule(
+    NotificationEntity notification, {
+    String? accountScope,
+  }) async => true;
+
+  @override
+  Future<bool> scheduleDailyAt({
+    required String id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+    String? accountScope,
+  }) async => true;
 }

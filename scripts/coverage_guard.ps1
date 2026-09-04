@@ -2,12 +2,19 @@ param(
   [string]$CoverageFile = 'coverage/lcov.info',
   [double]$MinOverallPercent = 37.0,
   [ValidateSet('target', 'ratchet')]
-  [string]$Mode = 'target'
+  [string]$Mode = 'target',
+  [string]$RepositoryRoot = '',
+  [string]$CoverageExclusionsFile = 'scripts/coverage_exclusions.txt',
+  [string]$CoverageExclusionsLockFile = 'scripts/coverage_exclusions.lock.sha256'
 )
 
 $ErrorActionPreference = 'Stop'
 
-$root = Split-Path -Parent $PSScriptRoot
+$root = if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+  Split-Path -Parent $PSScriptRoot
+} else {
+  [System.IO.Path]::GetFullPath($RepositoryRoot)
+}
 Set-Location $root
 
 $criticalThresholds = @{
@@ -38,7 +45,11 @@ $ratchetLayerThresholds = @{
   'data/storage' = 51.0
   'state/controllers/providers' = 41.5
   'engine/si' = 64.5
-  'features/ui' = 62.5
+  # The inventory-complete denominator counts omitted production UI files at
+  # zero. The prior 62.5 floor came from LCOV-present files only and is not
+  # comparable; retain the declared 50% release floor until exact-head CI sets
+  # a higher inventory-complete ratchet.
+  'features/ui' = 50.0
 }
 
 $effectiveOverallMinimum = if ($Mode -eq 'ratchet') {
@@ -50,56 +61,48 @@ $effectiveOverallMinimum = if ($Mode -eq 'ratchet') {
 $layerThresholds = @(
   @{
     Name = 'domain/usecases'
-    Paths = @('lib/domain/usecases')
     Prefixes = @('lib/domain/usecases/')
     Min = 85.0
     Target = '85-95%'
   },
   @{
     Name = 'domain/policies'
-    Paths = @('lib/domain/policies')
     Prefixes = @('lib/domain/policies/')
     Min = 90.0
     Target = '90%+'
   },
   @{
     Name = 'domain/value_objects'
-    Paths = @('lib/domain/value_objects')
     Prefixes = @('lib/domain/value_objects/')
     Min = 90.0
     Target = '90%+'
   },
   @{
     Name = 'data/repositories'
-    Paths = @('lib/data/repositories')
     Prefixes = @('lib/data/repositories/')
     Min = 75.0
     Target = '75-85%'
   },
   @{
     Name = 'data/storage'
-    Paths = @('lib/data/storage')
     Prefixes = @('lib/data/storage/')
     Min = 80.0
     Target = '80-90%'
   },
   @{
     Name = 'state/controllers/providers'
-    Paths = @('lib/state/controllers', 'lib/state/providers')
     Prefixes = @('lib/state/controllers/', 'lib/state/providers/')
     Min = 70.0
     Target = '70-85%'
   },
   @{
     Name = 'engine/si'
-    Paths = @('lib/engine/si')
     Prefixes = @('lib/engine/si/')
     Min = 70.0
     Target = '70-85% meaningful'
   },
   @{
     Name = 'features/ui'
-    Paths = @('lib/features')
     Prefixes = @('lib/features/')
     IncludeRegex = '/(ui|widgets|screens?)/'
     Min = 50.0
@@ -128,7 +131,95 @@ $criticalTestFiles = @{
   )
 }
 
-$ignoredCoveragePaths = @()
+function Convert-ToRepositoryPath {
+  param([string]$Path)
+
+  $normalized = $Path.Replace('\', '/').Trim()
+  while ($normalized.StartsWith('./')) {
+    $normalized = $normalized.Substring(2)
+  }
+
+  $normalizedRoot = $root.Replace('\', '/').TrimEnd('/')
+  if ($normalized.StartsWith("$normalizedRoot/", [System.StringComparison]::OrdinalIgnoreCase)) {
+    return $normalized.Substring($normalizedRoot.Length + 1)
+  }
+
+  return $normalized
+}
+
+function Get-CoverageExclusionsDigest {
+  param([string[]]$Paths)
+
+  $builder = New-Object System.Text.StringBuilder
+  foreach ($path in @($Paths | Sort-Object)) {
+    $absolutePath = Join-Path $root $path
+    $normalizedContent = [System.IO.File]::ReadAllText($absolutePath).
+      Replace("`r`n", "`n").Replace("`r", "`n")
+    [void]$builder.Append($path.Replace('\', '/'))
+    [void]$builder.Append("`n")
+    [void]$builder.Append($normalizedContent)
+    [void]$builder.Append("`n--END-OF-EXCLUSION--`n")
+  }
+  $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($builder.ToString())
+  $sha256 = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    return ([System.BitConverter]::ToString($sha256.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
+  } finally {
+    $sha256.Dispose()
+  }
+}
+
+if (-not (Test-Path -LiteralPath $CoverageExclusionsFile -PathType Leaf)) {
+  throw "Reviewed coverage exclusions file not found: $CoverageExclusionsFile"
+}
+
+$ignoredCoveragePaths = @(
+  Get-Content -LiteralPath $CoverageExclusionsFile |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { $_ -and -not $_.StartsWith('#') } |
+    ForEach-Object { Convert-ToRepositoryPath $_ }
+)
+
+$duplicateExclusions = @(
+  $ignoredCoveragePaths |
+    Group-Object |
+    Where-Object { $_.Count -gt 1 } |
+    ForEach-Object { $_.Name }
+)
+if ($duplicateExclusions.Count -gt 0) {
+  throw "Reviewed coverage exclusions contain duplicate paths: $($duplicateExclusions -join ', ')"
+}
+
+foreach ($ignoredPath in $ignoredCoveragePaths) {
+  if (-not $ignoredPath.StartsWith('lib/') -or -not $ignoredPath.EndsWith('.dart')) {
+    throw "Reviewed coverage exclusion must be an explicit lib/*.dart path: $ignoredPath"
+  }
+  if (-not (Test-Path -LiteralPath (Join-Path $root $ignoredPath) -PathType Leaf)) {
+    throw "Reviewed coverage exclusion does not exist: $ignoredPath"
+  }
+}
+
+if (-not (Test-Path -LiteralPath $CoverageExclusionsLockFile -PathType Leaf)) {
+  throw "Reviewed coverage exclusions lock not found: $CoverageExclusionsLockFile"
+}
+$expectedExclusionsDigest = (Get-Content -LiteralPath $CoverageExclusionsLockFile -Raw).Trim().ToLowerInvariant()
+if ($expectedExclusionsDigest -notmatch '^[a-f0-9]{64}$') {
+  throw "Reviewed coverage exclusions lock must contain one SHA-256 digest: $CoverageExclusionsLockFile"
+}
+$actualExclusionsDigest = Get-CoverageExclusionsDigest -Paths $ignoredCoveragePaths
+if ($actualExclusionsDigest -cne $expectedExclusionsDigest) {
+  throw 'Reviewed coverage exclusion content changed. Re-review every excluded path as declaration-only, then update the lock digest explicitly.'
+}
+
+$allProductionSourcePaths = @(
+  Get-ChildItem -LiteralPath (Join-Path $root 'lib') -Filter '*.dart' -Recurse -File |
+    ForEach-Object {
+      $_.FullName.Substring($root.Length).TrimStart('\', '/').Replace('\', '/')
+    }
+)
+$productionSourcePaths = @(
+  $allProductionSourcePaths | Where-Object { $ignoredCoveragePaths -notcontains $_ }
+)
 
 if (-not (Test-Path $CoverageFile)) {
   Write-Host "Coverage file not found: $CoverageFile" -ForegroundColor Red
@@ -150,7 +241,7 @@ function Get-SumOrZero {
 
 Get-Content $CoverageFile | ForEach-Object {
   if ($_ -like 'SF:*') {
-    $current = $_.Substring(3).Replace('\', '/')
+    $current = Convert-ToRepositoryPath $_.Substring(3)
   } elseif ($_ -like 'LF:*') {
     $lf = [int]$_.Substring(3)
   } elseif ($_ -like 'LH:*') {
@@ -169,7 +260,35 @@ Get-Content $CoverageFile | ForEach-Object {
   }
 }
 
-$activeRecords = $records | Where-Object { $ignoredCoveragePaths -notcontains $_.File }
+$activeRecords = @(
+  $records | Where-Object { $productionSourcePaths -contains $_.File }
+)
+$trackedProductionPaths = @($activeRecords | ForEach-Object { $_.File } | Select-Object -Unique)
+$missingCoveragePaths = @(
+  $productionSourcePaths | Where-Object { $trackedProductionPaths -notcontains $_ }
+)
+$missingCoverageRecords = @(
+  foreach ($missingCoveragePath in $missingCoveragePaths) {
+    $fullSourcePath = Join-Path $root $missingCoveragePath
+    $conservativeLineCount = @(
+      Get-Content -LiteralPath $fullSourcePath |
+        Where-Object {
+          $trimmed = $_.Trim()
+          $trimmed -and
+            -not $trimmed.StartsWith('//') -and
+            -not $trimmed.StartsWith('///')
+        }
+    ).Count
+    [pscustomobject]@{
+      File = $missingCoveragePath
+      LF = [math]::Max(1, $conservativeLineCount)
+      LH = 0
+      Coverage = 0.0
+      SyntheticZero = $true
+    }
+  }
+)
+$activeRecords = @($activeRecords) + @($missingCoverageRecords)
 $overallLf = Get-SumOrZero (($activeRecords | Measure-Object -Property LF -Sum).Sum)
 $overallLh = Get-SumOrZero (($activeRecords | Measure-Object -Property LH -Sum).Sum)
 $overallCoverage = if ($overallLf -gt 0) {
@@ -191,21 +310,38 @@ $criticalCoverage = if ($criticalLf -gt 0) {
 
 $failures = New-Object System.Collections.Generic.List[string]
 $warnings = New-Object System.Collections.Generic.List[string]
+if ($missingCoveragePaths.Count -gt 0) {
+  $warnings.Add(
+    "$($missingCoveragePaths.Count) production source file(s) were absent from LCOV and conservatively counted as zero coverage."
+  ) | Out-Null
+}
 
 $layerResults = New-Object System.Collections.Generic.List[object]
 
 foreach ($layer in $layerThresholds) {
   $prefixes = @($layer.Prefixes)
-  $paths = @($layer.Paths)
   $includeRegex = if ($layer.ContainsKey('IncludeRegex')) { [string]$layer.IncludeRegex } else { $null }
 
-  $layerSourceCount = 0
-  foreach ($relativePath in $paths) {
-    $fullPath = Join-Path $root $relativePath
-    if (Test-Path $fullPath) {
-      $layerSourceCount += Get-SumOrZero ((Get-ChildItem -Path $fullPath -Filter '*.dart' -Recurse -File | Measure-Object).Count)
+  $layerSourcePaths = @(
+    $productionSourcePaths | Where-Object {
+      $file = $_
+      $prefixMatched = $false
+      foreach ($prefix in $prefixes) {
+        if ($file.StartsWith($prefix)) {
+          $prefixMatched = $true
+          break
+        }
+      }
+      if (-not $prefixMatched) {
+        return $false
+      }
+      if ($null -ne $includeRegex -and $includeRegex.Length -gt 0) {
+        return ($file -match $includeRegex)
+      }
+      return $true
     }
-  }
+  )
+  $layerSourceCount = $layerSourcePaths.Count
 
   $layerRecords = $activeRecords | Where-Object {
     $file = $_.File
@@ -273,29 +409,44 @@ foreach ($layer in $layerThresholds) {
   }
 }
 
-$integrationTestPaths = @(
-  (Join-Path $root 'integration_test'),
-  (Join-Path $root 'test/integration')
-)
-$integrationFlowCount = 0
-foreach ($integrationTestsPath in $integrationTestPaths) {
-  if (Test-Path $integrationTestsPath) {
-    $integrationFlowCount += (
-      Get-ChildItem -Path $integrationTestsPath -Filter '*_test.dart' -File |
-        Measure-Object
-    ).Count
-  }
+$appIntegrationTestsPath = Join-Path $root 'integration_test'
+$hostIntegrationTestsPath = Join-Path $root 'test/integration'
+$appIntegrationFiles = if (Test-Path $appIntegrationTestsPath) {
+  @(
+    Get-ChildItem -Path $appIntegrationTestsPath -Filter '*_test.dart' -File -Recurse
+  )
+} else {
+  @()
+}
+$appIntegrationFlowCount = if ($appIntegrationFiles.Count -gt 0) {
+  Get-SumOrZero (
+    $appIntegrationFiles |
+      Select-String -Pattern '^\s*(?:test|testWidgets)\s*\(' |
+      Measure-Object |
+      Select-Object -ExpandProperty Count
+  )
+} else {
+  0
+}
+$hostIntegrationTestCount = if (Test-Path $hostIntegrationTestsPath) {
+  Get-SumOrZero (
+    Get-ChildItem -Path $hostIntegrationTestsPath -Filter '*_test.dart' -File -Recurse |
+      Measure-Object |
+      Select-Object -ExpandProperty Count
+  )
+} else {
+  0
 }
 
-if ($integrationFlowCount -lt $integrationFlowMinimum) {
+if ($appIntegrationFlowCount -lt $integrationFlowMinimum) {
   $failures.Add(
-    "Integration tests found: $integrationFlowCount. Require at least $integrationFlowMinimum critical flows."
+    "App-root integration flows found: $appIntegrationFlowCount across $($appIntegrationFiles.Count) file(s). Require at least $integrationFlowMinimum declared critical flows under integration_test/; host tests do not satisfy this minimum."
   ) | Out-Null
 }
 
-if ($integrationFlowCount -gt $integrationFlowTargetMax) {
+if ($appIntegrationFlowCount -gt $integrationFlowTargetMax) {
   $warnings.Add(
-    "Integration tests found: $integrationFlowCount. Keep 5-8 critical flows as required gates and move extra coverage to unit/widget tests when practical."
+    "App-root integration tests found: $appIntegrationFlowCount. Keep 5-8 critical flows as required gates and move extra coverage to unit/widget tests when practical."
   ) | Out-Null
 }
 
@@ -344,8 +495,10 @@ foreach ($entry in $criticalTestFiles.GetEnumerator()) {
 
 Write-Host ("Coverage gate mode: {0}" -f $Mode)
 Write-Host ("Overall coverage: {0}% (gate {1}%)" -f $overallCoverage, $effectiveOverallMinimum)
+Write-Host ("Production Dart inventory: {0} LCOV-tracked, {1} counted at zero, {2} reviewed declaration-only exclusions" -f $trackedProductionPaths.Count, $missingCoveragePaths.Count, $ignoredCoveragePaths.Count)
 Write-Host ("Critical-only coverage: {0}%" -f $criticalCoverage)
-Write-Host ("Integration flow count: {0}" -f $integrationFlowCount)
+Write-Host ("App-root integration flow count: {0} across {1} file(s)" -f $appIntegrationFlowCount, $appIntegrationFiles.Count)
+Write-Host ("Host integration test count: {0} (reported separately; does not satisfy the app-root minimum)" -f $hostIntegrationTestCount)
 Write-Host 'Critical coverage targets:'
 foreach ($entry in $criticalThresholds.GetEnumerator()) {
   $path = $entry.Key

@@ -53,7 +53,8 @@ void main() {
 
       expect(source, contains('git merge-base --is-ancestor'));
       expect(source, contains('check_architecture.ps1'));
-      expect(source, contains('flutter analyze --no-fatal-infos'));
+      expect(source, contains('flutter analyze --fatal-infos'));
+      expect(source, isNot(contains('flutter analyze --no-fatal-infos')));
       expect(source, contains('flutter test'));
       expect(source, contains('flutter build apk --debug'));
     },

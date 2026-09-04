@@ -1,4 +1,4 @@
-// CHRONOSPARK-CLASS: DEPRECATED | Feature: Task compatibility
+// CHRONOSPARK-CLASS: LEGACY | Feature: Task compatibility
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
@@ -7,7 +7,6 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 /// All state and behavior live in [TaskEntity]. This subclass only preserves
 /// the historical constructor and non-null duration contract while callers
 /// migrate to the canonical type.
-@Deprecated('Use TaskEntity. This compatibility type stores no extra state.')
 class Task extends TaskEntity {
   // Keep the legacy non-null duration contract while the canonical base is nullable.
   // ignore: use_super_parameters
@@ -32,6 +31,7 @@ class Task extends TaskEntity {
     bool isSkipped = false,
     DateTime? skippedAt,
     String? occurrenceKey,
+    String? recurrenceSeriesId,
   }) : super(
          id: id,
          title: title,
@@ -48,6 +48,7 @@ class Task extends TaskEntity {
          skippedAt: skippedAt,
          scheduledFor: scheduledFor,
          occurrenceKey: occurrenceKey,
+         recurrenceSeriesId: recurrenceSeriesId,
          dueDate: dueDate,
          goalId: goalId,
          isCanceled: isCanceled,
@@ -80,6 +81,7 @@ class Task extends TaskEntity {
     completedAt: entity.completedAt,
     skippedAt: entity.skippedAt,
     occurrenceKey: entity.occurrenceKey,
+    recurrenceSeriesId: entity.recurrenceSeriesId,
     goalId: entity.goalId,
     subtasks: entity.subtasks,
     recurrenceRule: entity.recurrenceRule,
@@ -107,6 +109,7 @@ class Task extends TaskEntity {
     DateTime? scheduledFor,
     bool clearScheduledFor = false,
     String? occurrenceKey,
+    String? recurrenceSeriesId,
     DateTime? dueDate,
     bool clearDueDate = false,
     String? goalId,
@@ -137,6 +140,7 @@ class Task extends TaskEntity {
       completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
       skippedAt: clearSkippedAt ? null : skippedAt ?? this.skippedAt,
       occurrenceKey: occurrenceKey ?? this.occurrenceKey,
+      recurrenceSeriesId: recurrenceSeriesId ?? this.recurrenceSeriesId,
       goalId: clearGoalId ? null : goalId ?? this.goalId,
       subtasks: subtasks ?? this.subtasks,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,

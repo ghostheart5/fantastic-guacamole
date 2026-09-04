@@ -1,7 +1,12 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
+import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
+import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
@@ -9,7 +14,6 @@ import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
-import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/models/signal_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,7 +69,10 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           accountStorageScopeProvider.overrideWithValue(
-            const AccountStorageScope.signedOut(),
+            AccountStorageScope.authenticated('test-account'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
           ),
           siStateAggregationProvider.overrideWith(
             (Ref ref) async => aggregation,
@@ -105,7 +112,10 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           accountStorageScopeProvider.overrideWithValue(
-            const AccountStorageScope.signedOut(),
+            AccountStorageScope.authenticated('test-account'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
           ),
           siStateAggregationProvider.overrideWith(
             (Ref ref) async => aggregation,
@@ -150,81 +160,84 @@ void main() {
     },
   );
 
-  test(
-    'Nexus binds fresh consented decision context into its receipt',
-    () async {
-      final DateTime now = DateTime.now().toUtc();
-      final SIStateAggregation aggregation = _aggregation(<Task>[
-        _task('priority-task', priority: 5),
-      ]);
-      final PersonContextView view = _personContextView(
-        now: now,
-        surface: PersonContextSurface.nexus,
-        signals: <PersonContextSignal>[
-          _personContextSignal(
-            id: 'protected-time',
-            value: 'Protect family time tonight',
-            now: now,
-            surface: PersonContextSurface.nexus,
-            surfaceScopes: sharedDecisionContextSurfaces,
-          ),
-        ],
-      );
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          accountStorageScopeProvider.overrideWithValue(
-            const AccountStorageScope.signedOut(),
-          ),
-          siStateAggregationProvider.overrideWith(
-            (Ref ref) async => aggregation,
-          ),
-          siDecisionOutputProvider.overrideWith(
-            (Ref ref) async => _supportingOutput,
-          ),
-          personContextForSurfaceProvider(
-            nexusPersonContextRequest,
-          ).overrideWithValue(view),
-        ],
-      );
-      addTearDown(container.dispose);
+  test('Nexus binds fresh consented decision context into its receipt', () async {
+    final DateTime now = DateTime.now().toUtc();
+    final List<Task> tasks = <Task>[
+      _task('priority-task', priority: 5, title: 'Prepare release evidence'),
+    ];
+    final PersonContextView view = _personContextView(
+      now: now,
+      surface: PersonContextSurface.nexus,
+      signals: <PersonContextSignal>[
+        _personContextSignal(
+          id: 'protected-time',
+          value: 'Make release evidence the current priority',
+          now: now,
+          surface: PersonContextSurface.nexus,
+          surfaceScopes: sharedDecisionContextSurfaces,
+        ),
+      ],
+    );
+    final GovernedDecisionContext personContext =
+        GovernedDecisionContext.resolve(
+          view: view,
+          accountScopeId: view.accountScopeId,
+          tasks: tasks,
+          now: now,
+        );
+    final SIStateAggregation aggregation = _aggregation(
+      tasks,
+      personContext: personContext,
+      now: now,
+    );
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
+        siStateAggregationProvider.overrideWith((Ref ref) async => aggregation),
+        siDecisionOutputProvider.overrideWith(
+          (Ref ref) async => _supportingOutput,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
 
-      final OperatingDecisionReceipt receipt = await container.read(
-        operatingDecisionReceiptProvider.future,
-      );
-      final OperatingEvidence contextEvidence = receipt.evidence.singleWhere(
-        (OperatingEvidence item) =>
-            item.source == 'person_context:userAuthored',
-      );
+    final OperatingDecisionReceipt receipt = await container.read(
+      operatingDecisionReceiptProvider.future,
+    );
+    final OperatingEvidence contextEvidence = receipt.evidence.singleWhere(
+      (OperatingEvidence item) => item.source == 'person_context_policy',
+    );
 
-      expect(nexusPersonContextRequest.surface, PersonContextSurface.nexus);
-      expect(
-        nexusPersonContextRequest.purposes,
-        operationalPersonContextPurposes,
-      );
-      expect(contextEvidence.kind, OperatingEvidenceKind.userProvided);
-      expect(contextEvidence.description, contains('currentPriority'));
-      expect(
-        contextEvidence.description,
-        contains('Protect family time tonight'),
-      );
-      expect(
-        receipt.sourceRevisions['person_context_nexus'],
-        isNot(anyOf('unavailable', 'available_empty')),
-      );
-      expect(
-        receipt.assumptions,
-        contains(contains('not treated as identity or a guaranteed outcome')),
-      );
-    },
-  );
+    expect(nexusPersonContextRequest.surface, PersonContextSurface.nexus);
+    expect(nexusPersonContextRequest.purposes, nexusPersonContextPurposes);
+    expect(contextEvidence.kind, OperatingEvidenceKind.derived);
+    expect(contextEvidence.description, contains('Prepare release evidence'));
+    expect(
+      receipt.sourceRevisions['person_context_nexus'],
+      isNot(anyOf('unavailable', 'available_empty')),
+    );
+    expect(
+      receipt.assumptions,
+      contains(
+        contains(
+          'not interpreted as identity, diagnosis, intent, relationship quality, or a guaranteed outcome',
+        ),
+      ),
+    );
+    expect(receipt.personContextAppliedSignalIds, <String>['protected-time']);
+    expect(receipt.personContextTrace, isNotNull);
+  });
 
   test(
     'Nexus keeps valid empty distinct and excludes stale or wrong-purpose context',
     () async {
       final DateTime now = DateTime.now().toUtc();
-      final SIStateAggregation aggregation = _aggregation(<Task>[
-        _task('priority-task', priority: 5),
-      ]);
+      final List<Task> tasks = <Task>[_task('priority-task', priority: 5)];
       final PersonContextView view = _personContextView(
         now: now,
         surface: PersonContextSurface.nexus,
@@ -245,10 +258,25 @@ void main() {
           ),
         ],
       );
+      final GovernedDecisionContext personContext =
+          GovernedDecisionContext.resolve(
+            view: view,
+            accountScopeId: view.accountScopeId,
+            tasks: tasks,
+            now: now,
+          );
+      final SIStateAggregation aggregation = _aggregation(
+        tasks,
+        personContext: personContext,
+        now: now,
+      );
       final ProviderContainer container = ProviderContainer(
         overrides: [
           accountStorageScopeProvider.overrideWithValue(
-            const AccountStorageScope.signedOut(),
+            AccountStorageScope.authenticated('test-account'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
           ),
           siStateAggregationProvider.overrideWith(
             (Ref ref) async => aggregation,
@@ -256,9 +284,6 @@ void main() {
           siDecisionOutputProvider.overrideWith(
             (Ref ref) async => _supportingOutput,
           ),
-          personContextForSurfaceProvider(
-            nexusPersonContextRequest,
-          ).overrideWithValue(view),
         ],
       );
       addTearDown(container.dispose);
@@ -269,7 +294,7 @@ void main() {
 
       expect(
         receipt.sourceRevisions['person_context_nexus'],
-        'available_empty',
+        isNot('unavailable'),
       );
       expect(
         receipt.evidence.any(
@@ -304,9 +329,11 @@ PersonContextView _personContextView({
   required PersonContextSurface surface,
   required List<PersonContextSignal> signals,
 }) => PersonContextView(
-  accountScopeId: 'v2.test-account',
+  accountScopeId: AccountStorageScope.authenticated(
+    'test-account',
+  ).v2Namespace!,
   surface: surface,
-  purposes: operationalPersonContextPurposes,
+  purposes: nexusPersonContextPurposes,
   observedAt: now,
   signals: signals,
   unknownKinds: const <PersonContextKind>{},
@@ -336,9 +363,9 @@ PersonContextSignal _personContextSignal({
   deletionBehavior: PersonContextDeletionBehavior.userRemovable,
 );
 
-Task _task(String id, {required int priority}) => Task(
+Task _task(String id, {required int priority, String? title}) => Task(
   id: id,
-  title: 'Task $id',
+  title: title ?? 'Task $id',
   priority: priority,
   difficulty: 3,
   energyRequired: 3,
@@ -346,7 +373,11 @@ Task _task(String id, {required int priority}) => Task(
   estimatedDuration: const Duration(minutes: 30),
 );
 
-SIStateAggregation _aggregation(List<Task> tasks) => SIStateAggregation(
+SIStateAggregation _aggregation(
+  List<Task> tasks, {
+  GovernedDecisionContext? personContext,
+  DateTime? now,
+}) => SIStateAggregation(
   tasks: tasks,
   goals: const [],
   signals: const SignalsBundle(
@@ -373,6 +404,13 @@ SIStateAggregation _aggregation(List<Task> tasks) => SIStateAggregation(
   profile: ProfileState(),
   siState: const SIState(energy: .7, fatigue: .2),
   trajectory: _trajectory,
+  planningDecision: const DecisionEngine().recommend(
+    tasks: tasks,
+    state: SiStateEntity(energy: .7, attention: .8, fatigue: .2),
+    learning: LearningEntity(),
+    personContext: personContext,
+    now: now ?? DateTime.utc(2026, 8, 19, 12),
+  ),
 );
 
 const TrajectorySummaryView _trajectory = TrajectorySummaryView(

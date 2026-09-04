@@ -67,6 +67,8 @@ void main() {
 
       final AIRecommendation result = controller.supportiveSafetyResponse(
         query: 'I am panicking and losing control',
+        localizedResponse:
+            'Pausing productivity guidance.\n\nWould you like support?',
       );
 
       expect(result.message, contains('Pausing productivity guidance'));

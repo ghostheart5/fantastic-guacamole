@@ -13,9 +13,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Enforce maintainer-only PR policy
+        env:
+          ALLOWED_PR_AUTHOR_ID: '294620552'
+          PR_AUTHOR_ID: ${{ github.event.pull_request.user.id }}
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
         run: |
-          if [ "${{ github.triggering_actor }}" != "ghostheart5" ]; then
+          set -euo pipefail
+          if [ "$PR_AUTHOR_ID" != "$ALLOWED_PR_AUTHOR_ID" ]; then
             echo "Pull requests to main are restricted to maintainer-managed changes."
-            echo "Actor '${{ github.triggering_actor }}' is not allowed by PR policy."
+            echo "PR author '$PR_AUTHOR_LOGIN' (id $PR_AUTHOR_ID) is not allowed by policy."
             exit 1
           fi

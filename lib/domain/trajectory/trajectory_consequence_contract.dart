@@ -107,6 +107,8 @@ class TrajectoryBaseline {
     required this.availableMinutes,
     required this.occupiedMinutes,
     required this.unscheduledMinutes,
+    int? noContextAvailableMinutes,
+    int? noContextUnscheduledMinutes,
     required List<TrajectoryTaskNode> tasks,
     required List<TrajectoryGoalNode> goals,
     required List<TrajectoryBlockNode> blocks,
@@ -114,13 +116,29 @@ class TrajectoryBaseline {
     required this.progression,
     required this.confidence,
     required Map<String, String> sourceRevisions,
+    Set<String> boundaryTaskIds = const <String>{},
+    Set<String> protectedCommitmentTaskIds = const <String>{},
+    List<String> personContextWarnings = const <String>[],
+    Map<String, Object?> personContextTrace = const <String, Object?>{},
     this.energyOrigin = PredictiveEvidenceOrigin.observed,
     this.availabilityOrigin = PredictiveEvidenceOrigin.observed,
-  }) : tasks = List<TrajectoryTaskNode>.unmodifiable(tasks),
+  }) : noContextAvailableMinutes =
+           noContextAvailableMinutes ?? availableMinutes,
+       noContextUnscheduledMinutes =
+           noContextUnscheduledMinutes ?? unscheduledMinutes,
+       tasks = List<TrajectoryTaskNode>.unmodifiable(tasks),
        goals = List<TrajectoryGoalNode>.unmodifiable(goals),
        blocks = List<TrajectoryBlockNode>.unmodifiable(blocks),
        timelineSignals = List<TrajectoryTimelineSignal>.unmodifiable(
          timelineSignals,
+       ),
+       boundaryTaskIds = Set<String>.unmodifiable(boundaryTaskIds),
+       protectedCommitmentTaskIds = Set<String>.unmodifiable(
+         protectedCommitmentTaskIds,
+       ),
+       personContextWarnings = List<String>.unmodifiable(personContextWarnings),
+       personContextTrace = Map<String, Object?>.unmodifiable(
+         personContextTrace,
        ),
        sourceRevisions = Map<String, String>.unmodifiable(sourceRevisions);
 
@@ -137,6 +155,8 @@ class TrajectoryBaseline {
   final int availableMinutes;
   final int occupiedMinutes;
   final int unscheduledMinutes;
+  final int noContextAvailableMinutes;
+  final int noContextUnscheduledMinutes;
   final List<TrajectoryTaskNode> tasks;
   final List<TrajectoryGoalNode> goals;
   final List<TrajectoryBlockNode> blocks;
@@ -144,6 +164,10 @@ class TrajectoryBaseline {
   final TrajectoryProgressionSnapshot progression;
   final PredictiveConfidenceProfile confidence;
   final Map<String, String> sourceRevisions;
+  final Set<String> boundaryTaskIds;
+  final Set<String> protectedCommitmentTaskIds;
+  final List<String> personContextWarnings;
+  final Map<String, Object?> personContextTrace;
   final PredictiveEvidenceOrigin energyOrigin;
   final PredictiveEvidenceOrigin availabilityOrigin;
 

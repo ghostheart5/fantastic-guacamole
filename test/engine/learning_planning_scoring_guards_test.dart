@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_observation_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -218,5 +220,68 @@ void main() {
         expect(ranked.last.task.id, 'hard');
       },
     );
+
+    test('surface outcomes never create hidden task-ranking affinity', () {
+      final DateTime now = DateTime.utc(2026, 9, 2);
+      final List<TaskEntity> tasks = <TaskEntity>[
+        TaskEntity(
+          id: 'first',
+          title: 'First',
+          createdAt: now,
+          priority: 3,
+          difficulty: 2,
+          energyRequired: 2,
+        ),
+        TaskEntity(
+          id: 'second',
+          title: 'Second',
+          createdAt: now,
+          priority: 3,
+          difficulty: 2,
+          energyRequired: 2,
+        ),
+      ];
+      LearningEntity learning = LearningEntity().recordObservation(
+        DecisionObservationEntity(
+          id: 'one',
+          type: DecisionObservationType.recommendationRejected,
+          timestamp: now,
+          source: 'decision_outcome:planner',
+          taskId: 'first',
+        ),
+      );
+
+      expect(
+        const TaskRanker()
+            .rank(tasks, learning: learning, energy: .5, fatigue: .2, now: now)
+            .first
+            .task
+            .id,
+        'first',
+        reason: 'one low-confidence outcome must remain neutral',
+      );
+
+      for (int index = 2; index <= 3; index += 1) {
+        learning = learning.recordObservation(
+          DecisionObservationEntity(
+            id: '$index',
+            type: DecisionObservationType.recommendationRejected,
+            timestamp: now,
+            source: 'decision_outcome:planner',
+            taskId: 'first',
+          ),
+        );
+      }
+      expect(
+        const TaskRanker()
+            .rank(tasks, learning: learning, energy: .5, fatigue: .2, now: now)
+            .first
+            .task
+            .id,
+        'first',
+        reason:
+            'reviewable surface learning must not be regrouped by task behind the ledger',
+      );
+    });
   });
 }

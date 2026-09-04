@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 
 sealed class TaskTemporalEdit {
@@ -45,6 +48,7 @@ class TaskEntity {
     this.skippedAt,
     this.scheduledFor,
     this.occurrenceKey,
+    this.recurrenceSeriesId,
     this.dueDate,
     this.goalId,
     this.isCanceled = false,
@@ -71,6 +75,7 @@ class TaskEntity {
   final DateTime? skippedAt;
   final DateTime? scheduledFor;
   final String? occurrenceKey;
+  final String? recurrenceSeriesId;
   final DateTime? dueDate;
   final String? goalId;
   final bool isCanceled;
@@ -100,6 +105,7 @@ class TaskEntity {
       skippedAt: DateTime.tryParse(json['skippedAt']?.toString() ?? ''),
       scheduledFor: DateTime.tryParse(json['scheduledFor']?.toString() ?? ''),
       occurrenceKey: json['occurrenceKey']?.toString(),
+      recurrenceSeriesId: json['recurrenceSeriesId']?.toString(),
       dueDate: DateTime.tryParse(json['dueDate']?.toString() ?? ''),
       goalId: json['goalId']?.toString(),
       isCanceled: json['isCanceled'] as bool? ?? false,
@@ -132,6 +138,7 @@ class TaskEntity {
     if (completedAt != null) 'completedAt': completedAt!.toIso8601String(),
     if (skippedAt != null) 'skippedAt': skippedAt!.toIso8601String(),
     if (occurrenceKey != null) 'occurrenceKey': occurrenceKey,
+    if (recurrenceSeriesId != null) 'recurrenceSeriesId': recurrenceSeriesId,
     if (goalId != null) 'goalId': goalId,
     if (subtasks.isNotEmpty) 'subtasks': subtasks,
     if (recurrenceRule != RecurrenceRule.none)
@@ -142,6 +149,47 @@ class TaskEntity {
     required String taskId,
     required DateTime createdAt,
   }) => 'v1:$taskId:${createdAt.toUtc().toIso8601String()}';
+
+  static const String legacyRecurringSuccessorSeparator = '::next::';
+  static const String recurringSuccessorIdPrefix = 'recurrence-v2-';
+
+  /// Resolves a stable series identity while upgrading legacy nested IDs.
+  static String recurrenceSeriesIdFor({
+    required String taskId,
+    String? storedSeriesId,
+  }) {
+    final String stored = storedSeriesId?.trim() ?? '';
+    final String candidate = stored.isEmpty ? taskId.trim() : stored;
+    final int legacySeparator = candidate.indexOf(
+      legacyRecurringSuccessorSeparator,
+    );
+    if (legacySeparator > 0) {
+      return candidate.substring(0, legacySeparator);
+    }
+    return candidate;
+  }
+
+  /// Produces a fixed-length ID from stable series and occurrence identities.
+  static String recurringSuccessorId({
+    required String seriesId,
+    required String occurrenceKey,
+  }) {
+    final String normalizedSeriesId = recurrenceSeriesIdFor(taskId: seriesId);
+    final String normalizedOccurrenceKey = occurrenceKey.trim();
+    if (normalizedSeriesId.isEmpty || normalizedOccurrenceKey.isEmpty) {
+      throw ArgumentError(
+        'Recurring successor identity requires a series and occurrence.',
+      );
+    }
+    final String digest = sha256
+        .convert(
+          utf8.encode(
+            jsonEncode(<String>[normalizedSeriesId, normalizedOccurrenceKey]),
+          ),
+        )
+        .toString();
+    return '$recurringSuccessorIdPrefix$digest';
+  }
 
   TaskEntity copyWith({
     String? id,
@@ -164,6 +212,7 @@ class TaskEntity {
     DateTime? scheduledFor,
     bool clearScheduledFor = false,
     String? occurrenceKey,
+    String? recurrenceSeriesId,
     DateTime? dueDate,
     bool clearDueDate = false,
     String? goalId,
@@ -198,6 +247,7 @@ class TaskEntity {
           ? null
           : scheduledFor ?? this.scheduledFor,
       occurrenceKey: occurrenceKey ?? this.occurrenceKey,
+      recurrenceSeriesId: recurrenceSeriesId ?? this.recurrenceSeriesId,
       dueDate: clearDueDate ? null : dueDate ?? this.dueDate,
       goalId: clearGoalId ? null : goalId ?? this.goalId,
       isCanceled: isCanceled ?? this.isCanceled,

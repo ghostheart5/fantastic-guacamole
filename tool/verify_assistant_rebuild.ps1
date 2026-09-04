@@ -55,7 +55,7 @@ Invoke-Checked -Label 'Architecture' -Command {
 }
 
 Invoke-Checked -Label 'Static analysis' -Command {
-  & flutter analyze --no-fatal-infos
+  & flutter analyze --fatal-infos
 }
 
 if (-not $SkipFullTests) {

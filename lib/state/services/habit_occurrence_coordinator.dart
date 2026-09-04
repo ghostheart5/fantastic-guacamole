@@ -25,13 +25,16 @@ class HabitOccurrenceCoordinator {
     required this.habitRepository,
     required this.occurrenceRepository,
     required this.outcomeRepository,
+    Future<bool> Function()? learningPaused,
     DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now;
+  }) : _learningPaused = learningPaused ?? _learningEnabled,
+       _clock = clock ?? DateTime.now;
 
   final AccountStorageScope scope;
   final IHabitRepository habitRepository;
   final IHabitOccurrenceRepository occurrenceRepository;
   final IDecisionOutcomeRepository outcomeRepository;
+  final Future<bool> Function() _learningPaused;
   final DateTime Function() _clock;
   Future<void> _tail = Future<void>.value();
 
@@ -97,8 +100,12 @@ class HabitOccurrenceCoordinator {
         }
       }
       if (existing != null) {
+        final bool sameOutcome = existing.outcome == outcome;
+        if (sameOutcome) {
+          await _ensureLearningOutcome(existing);
+        }
         return HabitOccurrenceResult(
-          mutation: existing.outcome == outcome
+          mutation: sameOutcome
               ? HabitOccurrenceMutation.idempotent
               : HabitOccurrenceMutation.conflict,
           occurrence: existing,
@@ -106,20 +113,7 @@ class HabitOccurrenceCoordinator {
       }
 
       await occurrenceRepository.save(candidate);
-      await outcomeRepository.record(
-        DecisionOutcomeEntity(
-          decisionId: 'habit:$normalizedId:$occurrenceKey',
-          kind: outcome == HabitOccurrenceOutcome.completed
-              ? DecisionOutcomeKind.completed
-              : DecisionOutcomeKind.skipped,
-          surface: 'daily-rhythm',
-          recordedAt: now.toUtc(),
-          modelVersion: 'domain-occurrence-v1',
-          recommendationConfidence: 1,
-          subjectId: normalizedId,
-          detail: outcome.name,
-        ),
-      );
+      await _ensureLearningOutcome(candidate);
       return HabitOccurrenceResult(
         mutation: HabitOccurrenceMutation.applied,
         occurrence: candidate,
@@ -127,6 +121,33 @@ class HabitOccurrenceCoordinator {
     });
     _tail = operation.then<void>((_) {}).catchError((Object _) {});
     return operation;
+  }
+
+  Future<void> _ensureLearningOutcome(HabitOccurrenceEntity occurrence) async {
+    if (await _learningPaused()) return;
+    final DecisionOutcomeEntity candidate = DecisionOutcomeEntity(
+      decisionId: 'habit:${occurrence.habitId}:${occurrence.occurrenceKey}',
+      kind: occurrence.outcome == HabitOccurrenceOutcome.completed
+          ? DecisionOutcomeKind.completed
+          : DecisionOutcomeKind.skipped,
+      surface: 'daily-rhythm',
+      situation: 'daily rhythm occurrence',
+      recordedAt: occurrence.recordedAt.toUtc(),
+      modelVersion: 'domain-occurrence-v1',
+      recommendationConfidence: 1,
+      subjectId: occurrence.habitId,
+      detail: occurrence.outcome.name,
+      completionResult: occurrence.outcome.name,
+      recommendationHelped:
+          occurrence.outcome == HabitOccurrenceOutcome.completed,
+    );
+    final List<DecisionOutcomeEntity> recorded = await outcomeRepository.load();
+    if (recorded.any(
+      (DecisionOutcomeEntity value) => value.id == candidate.id,
+    )) {
+      return;
+    }
+    await outcomeRepository.record(candidate);
   }
 
   static String _occurrenceKey(HabitCadence cadence, DateTime timestamp) {
@@ -146,3 +167,5 @@ class HabitOccurrenceCoordinator {
     return '${slot.year}-$month-$day';
   }
 }
+
+Future<bool> _learningEnabled() async => false;

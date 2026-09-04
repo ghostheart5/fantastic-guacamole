@@ -50,6 +50,25 @@ final class SafetySupportResources {
       ),
     };
   }
+
+  /// Preserves the app language while recovering the device region that
+  /// Flutter's supported-locale resolution may remove (for example, en_US
+  /// becomes en). Region determines which verified phone numbers are safe to
+  /// show; language continues to determine the dialog copy.
+  static Locale resolveDeviceRegion({
+    required Locale appLocale,
+    required Iterable<Locale> deviceLocales,
+  }) {
+    if ((appLocale.countryCode ?? '').isNotEmpty) return appLocale;
+    for (final Locale deviceLocale in deviceLocales) {
+      if (deviceLocale.languageCode.toLowerCase() ==
+              appLocale.languageCode.toLowerCase() &&
+          (deviceLocale.countryCode ?? '').isNotEmpty) {
+        return Locale(appLocale.languageCode, deviceLocale.countryCode);
+      }
+    }
+    return appLocale;
+  }
 }
 
 Future<void> showCrisisDialog(
@@ -58,7 +77,11 @@ Future<void> showCrisisDialog(
   SafetySupportLauncher? launcher,
 }) {
   final Locale resolvedLocale =
-      locale ?? WidgetsBinding.instance.platformDispatcher.locale;
+      locale ??
+      SafetySupportResources.resolveDeviceRegion(
+        appLocale: Localizations.localeOf(context),
+        deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
+      );
   final _SafetySupportCopy copy = _SafetySupportCopy(resolvedLocale);
   final SafetySupportResources resources = SafetySupportResources.resolve(
     resolvedLocale,
@@ -82,7 +105,11 @@ Future<SupportiveDistressChoice> showSupportiveDistressDialog(
   SafetySupportLauncher? launcher,
 }) async {
   final Locale resolvedLocale =
-      locale ?? WidgetsBinding.instance.platformDispatcher.locale;
+      locale ??
+      SafetySupportResources.resolveDeviceRegion(
+        appLocale: Localizations.localeOf(context),
+        deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
+      );
   final _SafetySupportCopy copy = _SafetySupportCopy(resolvedLocale);
   final SafetySupportResources resources = SafetySupportResources.resolve(
     resolvedLocale,

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AuthSessionBoundary {
@@ -6,6 +7,7 @@ class AuthSessionBoundary {
     required this.userId,
     required this.isTransitioning,
     required this.isStorageReady,
+    this.legacyOwnership = LegacyScopeOwnership.ambiguous,
     this.blockingIssue,
     this.canRecoverBySigningOut = false,
     this.canClaimPreservedData = false,
@@ -17,6 +19,7 @@ class AuthSessionBoundary {
       userId = null,
       isTransitioning = true,
       isStorageReady = false,
+      legacyOwnership = LegacyScopeOwnership.ambiguous,
       blockingIssue = null,
       canRecoverBySigningOut = false,
       canClaimPreservedData = false,
@@ -26,6 +29,7 @@ class AuthSessionBoundary {
   final String? userId;
   final bool isTransitioning;
   final bool isStorageReady;
+  final LegacyScopeOwnership legacyOwnership;
   final String? blockingIssue;
   final bool canRecoverBySigningOut;
   final bool canClaimPreservedData;
@@ -48,6 +52,7 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       userId: userId,
       isTransitioning: isTransitioning,
       isStorageReady: false,
+      legacyOwnership: LegacyScopeOwnership.ambiguous,
       canRecoverBySigningOut: false,
       canClaimPreservedData: false,
       canClearPreservedData: false,
@@ -55,13 +60,17 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
     return generation;
   }
 
-  void markStorageReady(int generation) {
+  void markStorageReady(
+    int generation, {
+    LegacyScopeOwnership legacyOwnership = LegacyScopeOwnership.ambiguous,
+  }) {
     if (state.generation != generation) return;
     state = AuthSessionBoundary(
       generation: state.generation,
       userId: state.userId,
       isTransitioning: true,
       isStorageReady: true,
+      legacyOwnership: legacyOwnership,
       canRecoverBySigningOut: false,
       canClaimPreservedData: false,
       canClearPreservedData: false,
@@ -75,6 +84,7 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       userId: state.userId,
       isTransitioning: false,
       isStorageReady: storageReady,
+      legacyOwnership: state.legacyOwnership,
       canRecoverBySigningOut: false,
       canClaimPreservedData: false,
       canClearPreservedData: false,
@@ -94,6 +104,7 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       userId: state.userId,
       isTransitioning: false,
       isStorageReady: state.isStorageReady,
+      legacyOwnership: state.legacyOwnership,
       canRecoverBySigningOut: canRecoverBySigningOut,
       canClaimPreservedData: canClaimPreservedData,
       canClearPreservedData: canClearPreservedData,

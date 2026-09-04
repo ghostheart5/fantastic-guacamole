@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
-import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
+import 'package:fantastic_guacamole/engine/assistant/assistant_memory_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final siMemoryProvider =

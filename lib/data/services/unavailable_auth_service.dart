@@ -78,4 +78,14 @@ class UnavailableAuthService implements AuthServiceContract {
   }) async {
     throw _error();
   }
+
+  @override
+  Future<PendingAccountDeletionStatus?> readPendingAccountDeletion() async =>
+      null;
+
+  @override
+  Future<AccountDeletionResult?> refreshPendingAccountDeletion() async => null;
+
+  @override
+  Future<void> forgetPendingAccountDeletion() async {}
 }

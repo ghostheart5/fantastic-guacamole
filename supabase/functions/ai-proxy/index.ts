@@ -12,6 +12,10 @@ import {
   serviceRpc,
   sha256Hex,
 } from "../_shared/billing_backend.ts";
+import {
+  buildServerSystemPrompt,
+  containsBlockedAssistantClaim,
+} from "../_shared/ai_proxy_policy.ts";
 
 const config: BillingBackendConfig = {
   supabaseUrl: Deno.env.get("SUPABASE_URL") ?? "",
@@ -36,7 +40,8 @@ interface ProxyRequest {
   prompt?: string;
   message?: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
-  system?: string;
+  personality?: string;
+  context?: Record<string, unknown>;
   maxTokens?: number;
   allowExternalAi?: boolean;
   requestId?: string;
@@ -128,11 +133,19 @@ Deno.serve(async (req: Request) => {
 
   let reservation: { userId: string; requestId: string } | null = null;
   try {
+    const contentLength = Number(req.headers.get("content-length") ?? 0);
+    if (contentLength > 32_000) {
+      return jsonResponse(req, { error: "request_too_large" }, 413);
+    }
     const body = await req.json() as ProxyRequest;
+    if (JSON.stringify(body).length > 32_000) {
+      return jsonResponse(req, { error: "request_too_large" }, 413);
+    }
     const requestId = validatedAiRequestId(body.requestId);
     const prompt = (body.prompt ?? body.message ?? "").trim();
     const history = Array.isArray(body.history) ? body.history : [];
     const maxTokens = Number(body.maxTokens ?? MAX_TOKENS);
+    const system = buildServerSystemPrompt(body.personality, body.context);
     if (body.allowExternalAi !== true) {
       return jsonResponse(req, {
         requestId: requestId ?? undefined,
@@ -141,6 +154,7 @@ Deno.serve(async (req: Request) => {
     }
     if (
       !requestId || !prompt || prompt.length > 8000 || history.length > 8 ||
+      system === null ||
       !Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > MAX_TOKENS ||
       history.some((item) =>
         !item || (item.role !== "user" && item.role !== "assistant") ||
@@ -202,9 +216,7 @@ Deno.serve(async (req: Request) => {
       max_tokens: maxTokens,
       messages,
     };
-    if (typeof body.system === "string" && body.system.trim()) {
-      upstreamBody.system = body.system.slice(0, 6000);
-    }
+    upstreamBody.system = system;
     const upstream = await fetch(ANTHROPIC_API, {
       method: "POST",
       headers: {
@@ -242,6 +254,20 @@ Deno.serve(async (req: Request) => {
         502,
       );
     }
+    if (containsBlockedAssistantClaim(message)) {
+      await settleReservation(userId, requestId, false, {
+        inputTokens,
+        outputTokens,
+        providerRequestId: typeof data?.id === "string" ? data.id : undefined,
+        failureCode: "unsafe_provider_output",
+      });
+      reservation = null;
+      return jsonResponse(
+        req,
+        { requestId, error: "unsafe_upstream_response" },
+        502,
+      );
+    }
     const responsePayload: ProxyResponse = {
       message,
       model: typeof data?.model === "string" ? data.model : DEFAULT_MODEL,
@@ -255,7 +281,9 @@ Deno.serve(async (req: Request) => {
       inputTokens,
       outputTokens,
       providerRequestId: typeof data?.id === "string" ? data.id : undefined,
-      responsePayload: responsePayload as Record<string, unknown>,
+      // The billing ledger keeps usage metadata only. Conversation content is
+      // returned to the caller but is never persisted for idempotent replay.
+      responsePayload: {},
     });
     if (settled?.state !== "completed") {
       return jsonResponse(

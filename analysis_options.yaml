@@ -1,17 +1,32 @@
 include: package:flutter_lints/flutter.yaml
-avoid_importing_flutter: true
+
 analyzer:
   exclude:
-    - fantastic-guacamole/**
     - build/**
+  cannot-ignore:
+    - avoid_void_async
+    - dead_code
+    - deprecated_member_use_from_same_package
+    - discarded_futures
+    - invalid_use_of_protected_member
+    - invalid_use_of_visible_for_testing_member
+    - only_throw_errors
+    - unawaited_futures
+    - unused_import
+    - unused_local_variable
   errors:
     avoid_relative_lib_imports: error
+    avoid_void_async: error
+    dead_code: error
+    deprecated_member_use_from_same_package: error
+    discarded_futures: error
     implementation_imports: error
+    invalid_use_of_protected_member: error
+    invalid_use_of_visible_for_testing_member: error
+    only_throw_errors: error
+    unawaited_futures: error
     unused_import: error
     unused_local_variable: error
-    dead_code: error
-    avoid_print: warning
-    invalid_use_of_protected_member: error
 
   language:
     strict-casts: true
@@ -38,6 +53,11 @@ linter:
     always_declare_return_types: true
     avoid_dynamic_calls: true
     avoid_print: true
+    avoid_void_async: true
+    deprecated_member_use_from_same_package: true
+    discarded_futures: true
+    only_throw_errors: true
+    unawaited_futures: true
     unnecessary_this: true
     curly_braces_in_flow_control_structures: true
 
@@ -52,4 +72,3 @@ linter:
     # ----------------------------
     camel_case_types: true
     file_names: true
-    non_constant_identifier_names: false

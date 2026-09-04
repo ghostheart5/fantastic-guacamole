@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 

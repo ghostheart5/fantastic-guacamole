@@ -131,6 +131,40 @@ void main() {
       },
     );
 
+    test('auth failures do not expose backend messages', () async {
+      final AuthService service = _service(
+        MockClient((http.Request request) async {
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'msg': 'Internal tenant detail: auth shard alpha failed',
+            }),
+            500,
+            headers: <String, String>{'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      await expectLater(
+        () => service.signIn(
+          email: 'planner@chronospark.app',
+          password: 'CorrectPass123!',
+        ),
+        throwsA(
+          isA<FirebaseAuthException>()
+              .having(
+                (FirebaseAuthException error) => error.code,
+                'code',
+                'auth-unavailable',
+              )
+              .having(
+                (FirebaseAuthException error) => error.message,
+                'message',
+                isNot(contains('tenant detail')),
+              ),
+        ),
+      );
+    });
+
     test('OAuth plugin failures are mapped to safe provider errors', () async {
       final AuthService service = _service(
         MockClient((http.Request request) async {

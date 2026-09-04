@@ -5,14 +5,19 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
+import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
+import 'package:fantastic_guacamole/domain/learning/learning_ledger.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -22,6 +27,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
     as extended_domain;
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
@@ -31,36 +37,172 @@ import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 part 'settings_screen.sections.dart';
+part 'settings_screen.planning_sections.dart';
+part 'settings_screen.person_context.dart';
+part 'settings_screen.governance_sections.dart';
+part 'settings_screen.data_sections.dart';
+part 'settings_screen.widgets.dart';
 
-String accountDeletionOutcomeMessage(AccountDeletionResult result) {
+String accountDeletionOutcomeMessage(
+  AccountDeletionResult result, {
+  bool isSpanish = false,
+}) {
   if (!result.localCleanupCompleted) {
+    if (isSpanish) {
+      return result.isCompleted
+          ? 'La eliminación de la cuenta terminó en el servidor, pero este dispositivo no pudo borrar todos los datos locales de la cuenta.'
+          : 'La eliminación de la cuenta comenzó en el servidor, pero este dispositivo no pudo borrar todos los datos locales de la cuenta.';
+    }
     return result.isCompleted
         ? 'Account deletion completed on the server, but this device could not clear all local account data.'
         : 'Account deletion started on the server, but this device could not clear all local account data.';
   }
   if (result.isCompleted) {
-    return 'Account deletion completed.';
+    return isSpanish
+        ? 'La cuenta se eliminó correctamente.'
+        : 'Account deletion completed.';
   }
   if (!result.statusTrackingAvailable) {
-    return 'Account deletion started. Server cleanup is still in progress, but status tracking could not be saved on this device.';
+    return isSpanish
+        ? 'La eliminación de la cuenta comenzó. La limpieza del servidor sigue en curso, pero no se pudo guardar el seguimiento del estado. Contacta con soporte si necesitas confirmación.'
+        : 'Account deletion started. Server cleanup is still in progress, but status tracking could not be saved. Contact support if you need confirmation.';
   }
-  return 'Account deletion started. Server cleanup is still in progress. You have been signed out.';
+  return isSpanish
+      ? 'La eliminación de la cuenta comenzó. La limpieza del servidor sigue en curso y se cerró tu sesión.'
+      : 'Account deletion started. Server cleanup is still in progress. You have been signed out.';
+}
+
+@immutable
+final class SettingsSafetyCopy {
+  const SettingsSafetyCopy({required this.isSpanish});
+
+  final bool isSpanish;
+
+  static SettingsSafetyCopy of(BuildContext context) => SettingsSafetyCopy(
+    isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
+  );
+
+  String get clearDeviceTitle => isSpanish
+      ? '¿Borrar los datos de este dispositivo?'
+      : 'Clear data from this device?';
+  String get cloudAccountRemains => isSpanish
+      ? 'Tu cuenta de ChronoSpark en la nube y tu suscripción de Google Play seguirán activas.'
+      : 'Your ChronoSpark cloud account and Google Play subscription remain active.';
+  String get planningRecordsRemoved => isSpanish
+      ? 'Los registros de planificación y el historial de Línea de Tiempo se borrarán de este dispositivo.'
+      : 'Planning records and Timeline history are removed from this device.';
+  String get offlineActionsRemoved => isSpanish
+      ? 'Las acciones sin conexión y los recordatorios programados se borrarán.'
+      : 'Offline actions and scheduled reminders are removed.';
+  String get localIntelligenceRemoved => isSpanish
+      ? 'El progreso del perfil y la inteligencia local se borrarán.'
+      : 'Profile progress and local intelligence are removed.';
+  String get localRemovalDisclosure => isSpanish
+      ? 'La eliminación local no se puede deshacer. Esto no elimina la cuenta.'
+      : 'Local removal cannot be undone. This is not account deletion.';
+  String get keepLocalData =>
+      isSpanish ? 'Conservar datos locales' : 'Keep local data';
+  String get clearThisDevice =>
+      isSpanish ? 'Borrar este dispositivo' : 'Clear this device';
+  String get localDataCleared => isSpanish
+      ? 'Los datos locales se borraron de este dispositivo.'
+      : 'Local data cleared from this device.';
+  String get localDataClearFailed => isSpanish
+      ? 'No se pudieron borrar los datos locales. Inténtalo de nuevo.'
+      : 'Local data could not be cleared. Retry.';
+  String get deletePermanentlyTitle => isSpanish
+      ? '¿Eliminar la cuenta permanentemente?'
+      : 'Delete account permanently?';
+  String get deletePermanentlyBody => isSpanish
+      ? 'Tu cuenta de ChronoSpark y los datos de planificación sincronizados se eliminarán permanentemente.'
+      : 'Your ChronoSpark account and synced planning data will be permanently removed.';
+  String get deletedCloudCannotRestore => isSpanish
+      ? 'Los datos eliminados de la nube no se pueden restaurar.'
+      : 'Deleted cloud data cannot be restored.';
+  String get subscriptionNotCanceled => isSpanish
+      ? 'Una suscripción activa de Google Play no se cancela automáticamente. Adminístrala por separado en Google Play.'
+      : 'An active Google Play subscription is not canceled automatically. Manage it separately in Google Play.';
+  String get nothingDeletedYet => isSpanish
+      ? 'Todavía no se ha eliminado nada.'
+      : 'Nothing has been deleted yet.';
+  String get keepMyAccount =>
+      isSpanish ? 'Conservar mi cuenta' : 'Keep my account';
+  String get continueLabel => isSpanish ? 'Continuar' : 'Continue';
+  String verifyWith(String provider) =>
+      isSpanish ? 'Verificar con $provider' : 'Verify with $provider';
+  String providerDeleteBody(String provider) => isSpanish
+      ? 'Esta cuenta usa $provider y no tiene una contraseña de ChronoSpark para introducir aquí. Continúa a la página segura de eliminación de cuenta y sigue las instrucciones para verificar tu identidad.'
+      : 'This account uses $provider, so it does not have a ChronoSpark password to enter here. Continue to the secure account-deletion page and follow its identity-verification instructions.';
+  String get cancel => isSpanish ? 'Cancelar' : 'Cancel';
+  String get continueSecurely =>
+      isSpanish ? 'Continuar de forma segura' : 'Continue securely';
+  String get hostedDeleteOpenFailed => isSpanish
+      ? 'No se pudo abrir la página alojada para eliminar la cuenta.'
+      : 'Unable to open the hosted account-deletion page.';
+  String get confirmDeleteTitle => isSpanish
+      ? 'Confirmar eliminación de cuenta'
+      : 'Confirm account deletion';
+  String get accountPassword =>
+      isSpanish ? 'Contraseña de la cuenta' : 'Account password';
+  String get showPassword => isSpanish ? 'Mostrar contraseña' : 'Show password';
+  String get hidePassword => isSpanish ? 'Ocultar contraseña' : 'Hide password';
+  String get deleteAccount => isSpanish ? 'Eliminar cuenta' : 'Delete Account';
+  String get deletingAccount =>
+      isSpanish ? 'Eliminando cuenta…' : 'Deleting account...';
+  String get deletionFailed => isSpanish
+      ? 'La eliminación de la cuenta falló. Inténtalo de nuevo.'
+      : 'Account deletion failed. Retry.';
+  String get incorrectPassword =>
+      isSpanish ? 'La contraseña es incorrecta.' : 'Password is incorrect.';
+  String get deletionCouldNotComplete => isSpanish
+      ? 'No se pudo completar la eliminación de la cuenta. Inténtalo de nuevo o usa la vía de solicitud de soporte.'
+      : 'Account deletion could not be completed. Retry or use the support request path.';
+  String get signInExpired => isSpanish
+      ? 'La sesión caducó. Inicia sesión de nuevo antes de eliminar la cuenta.'
+      : 'Sign-in expired. Sign in again before deleting the account.';
+  String get deleteTemplateCopied => isSpanish
+      ? 'No se encontró una aplicación de correo. La plantilla para eliminar la cuenta se copió al portapapeles.'
+      : 'No email app found. Account deletion email template copied to clipboard.';
+
+  String friendlyDeleteError(String code) => switch (code) {
+    'wrong-password' || 'invalid-credential' => incorrectPassword,
+    'missing-password' ||
+    'missing-email' ||
+    'operation-not-supported' ||
+    'operation-failed' ||
+    'network-request-failed' ||
+    'invalid-response' => deletionCouldNotComplete,
+    'no-current-user' => signInExpired,
+    _ => deletionFailed,
+  };
+}
+
+@visibleForTesting
+String settingsPublicFailureMessage(
+  BuildContext context,
+  Object error, {
+  required String englishFallback,
+  required String spanishFallback,
+}) {
+  final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+  return PublicFailure.from(
+    error,
+    fallback: isSpanish ? spanishFallback : englishFallback,
+    isSpanish: isSpanish,
+  ).message;
 }
 
 Future<void> restartFirstSetup(BuildContext context, WidgetRef ref) async {
   final String onboardingRoute = ref.read(routeSurfaceProvider).onboarding;
-  final SharedPreferences prefs = await SharedPreferences.getInstance();
-  await prefs.setBool(onboardingCompleteStorageKey, false);
-  await prefs.setBool(onboardingWelcomeCompleteStorageKey, false);
-  await prefs.setInt(onboardingContentVersionStorageKey, 0);
+  await ref.read(onboardingPreferencesRepositoryProvider).resetFirstSetup();
   await ref.read(accountOnboardingCompleteProvider.notifier).reset();
   ref.read(onboardingCompleteProvider.notifier).set(false);
   ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
@@ -106,6 +248,14 @@ class SettingsScreen extends ConsumerWidget {
     final bool? voicePermissionGranted = ref.watch(
       voicePermissionStatusProvider,
     );
+    final bool openContextFromNexus = ref.watch(
+      personContextSettingsEntryProvider,
+    );
+    if (openContextFromNexus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(personContextSettingsEntryProvider.notifier).clear();
+      });
+    }
     final String? telemetryAccountId = ref
         .watch(authUserProvider)
         .asData
@@ -274,21 +424,24 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
 
-              const _SettingsCategory(
+              _SettingsCategory(
                 title: 'Planning & guidance',
                 subtitle:
-                    'Reminders, planning preferences, memory, and tutorials',
+                    'Context, reminders, planning preferences, memory, and tutorials',
                 icon: Icons.auto_awesome_rounded,
                 accent: AppColors.neonViolet,
-                child: Column(
+                initiallyExpanded: openContextFromNexus,
+                child: const Column(
                   children: <Widget>[
+                    _PersonContextSection(),
+                    SizedBox(height: 10),
                     _ReflectionReminderSection(),
                     SizedBox(height: 10),
                     _ReminderAutomationSection(),
                     SizedBox(height: 10),
                     _PersonalizationSection(),
                     SizedBox(height: 10),
-                    _PersonContextSection(),
+                    _LearningLedgerSection(),
                     SizedBox(height: 10),
                     _MemoryGovernanceSection(),
                     SizedBox(height: 10),
@@ -661,6 +814,7 @@ class SettingsScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    final SettingsSafetyCopy copy = SettingsSafetyCopy.of(context);
     final bool confirmed =
         await showDialog<bool>(
           context: context,
@@ -669,44 +823,41 @@ class SettingsScreen extends ConsumerWidget {
               Icons.phonelink_erase_rounded,
               color: AppColors.memoryAmber,
             ),
-            title: const Text('Clear data from this device?'),
-            content: const SingleChildScrollView(
+            title: Text(copy.clearDeviceTitle),
+            content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Your ChronoSpark cloud account and Google Play subscription remain active.',
-                    style: TextStyle(
+                    copy.cloudAccountRemains,
+                    style: const TextStyle(
                       color: AppColors.neonCyan,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   TemporalStatusRow(
                     icon: Icons.history_rounded,
-                    text:
-                        'Planning records and Timeline history are removed from this device.',
+                    text: copy.planningRecordsRemoved,
                     color: AppColors.memoryAmber,
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   TemporalStatusRow(
                     icon: Icons.notifications_off_outlined,
-                    text:
-                        'Offline actions and scheduled reminders are removed.',
+                    text: copy.offlineActionsRemoved,
                     color: AppColors.memoryAmber,
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   TemporalStatusRow(
                     icon: Icons.psychology_outlined,
-                    text:
-                        'Profile progress and local intelligence are removed.',
+                    text: copy.localIntelligenceRemoved,
                     color: AppColors.memoryAmber,
                   ),
-                  SizedBox(height: 14),
+                  const SizedBox(height: 14),
                   Text(
-                    'Local removal cannot be undone. This is not account deletion.',
-                    style: TextStyle(color: Colors.white70, height: 1.4),
+                    copy.localRemovalDisclosure,
+                    style: const TextStyle(color: Colors.white70, height: 1.4),
                   ),
                 ],
               ),
@@ -715,7 +866,7 @@ class SettingsScreen extends ConsumerWidget {
               FilledButton.icon(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
                 icon: const Icon(Icons.shield_outlined),
-                label: const Text('Keep local data'),
+                label: Text(copy.keepLocalData),
               ),
               OutlinedButton.icon(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -723,7 +874,7 @@ class SettingsScreen extends ConsumerWidget {
                   foregroundColor: AppColors.memoryAmber,
                 ),
                 icon: const Icon(Icons.phonelink_erase_rounded),
-                label: const Text('Clear this device'),
+                label: Text(copy.clearThisDevice),
               ),
             ],
           ),
@@ -731,20 +882,23 @@ class SettingsScreen extends ConsumerWidget {
         false;
     if (!confirmed || !context.mounted) return;
     try {
+      final String accountId =
+          ref.read(authServiceProvider).currentUser?.id.trim() ?? '';
+      if (accountId.isEmpty) {
+        throw StateError('No authenticated account is available.');
+      }
       await ref
-          .read(localUserDataCleanupServiceProvider)
-          .clearForAccountSwitch();
+          .read(authSessionBoundaryCoordinatorProvider)
+          .clearLocalDataForCurrentAccount(accountId);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Local data cleared from this device.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(copy.localDataCleared)));
     } on Object {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Local data could not be cleared. Retry.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(copy.localDataClearFailed)));
     }
   }
 
@@ -752,6 +906,7 @@ class SettingsScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    final SettingsSafetyCopy copy = SettingsSafetyCopy.of(context);
     final routes = ref.read(routeSurfaceProvider);
     final bool confirmed =
         await showDialog<bool>(
@@ -762,33 +917,32 @@ class SettingsScreen extends ConsumerWidget {
                 Icons.person_remove_outlined,
                 color: AppColors.recallRed,
               ),
-              title: const Text('Delete account permanently?'),
-              content: const SingleChildScrollView(
+              title: Text(copy.deletePermanentlyTitle),
+              content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Your ChronoSpark account and synced planning data will be permanently removed.',
-                      style: TextStyle(color: Colors.white, height: 1.4),
+                      copy.deletePermanentlyBody,
+                      style: const TextStyle(color: Colors.white, height: 1.4),
                     ),
-                    SizedBox(height: 14),
+                    const SizedBox(height: 14),
                     TemporalStatusRow(
                       icon: Icons.cloud_off_outlined,
-                      text: 'Deleted cloud data cannot be restored.',
+                      text: copy.deletedCloudCannotRestore,
                       color: AppColors.recallRed,
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     TemporalStatusRow(
                       icon: Icons.play_arrow_rounded,
-                      text:
-                          'An active Google Play subscription is not canceled automatically. Manage it separately in Google Play.',
+                      text: copy.subscriptionNotCanceled,
                       color: AppColors.memoryAmber,
                     ),
-                    SizedBox(height: 14),
+                    const SizedBox(height: 14),
                     Text(
-                      'Nothing has been deleted yet.',
-                      style: TextStyle(color: Colors.white70),
+                      copy.nothingDeletedYet,
+                      style: const TextStyle(color: Colors.white70),
                     ),
                   ],
                 ),
@@ -797,7 +951,7 @@ class SettingsScreen extends ConsumerWidget {
                 FilledButton.icon(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
                   icon: const Icon(Icons.shield_outlined),
-                  label: const Text('Keep my account'),
+                  label: Text(copy.keepMyAccount),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -805,7 +959,7 @@ class SettingsScreen extends ConsumerWidget {
                     foregroundColor: AppColors.recallRed,
                   ),
                   icon: const Icon(Icons.arrow_forward_rounded),
-                  label: const Text('Continue'),
+                  label: Text(copy.continueLabel),
                 ),
               ],
             );
@@ -833,19 +987,17 @@ class SettingsScreen extends ConsumerWidget {
             context: context,
             builder: (BuildContext dialogContext) => AlertDialog(
               icon: const Icon(Icons.verified_user_outlined),
-              title: Text('Verify with $providerLabel'),
-              content: Text(
-                'This account uses $providerLabel, so it does not have a ChronoSpark password to enter here. Continue to the secure account-deletion page and follow its identity-verification instructions.',
-              ),
+              title: Text(copy.verifyWith(providerLabel)),
+              content: Text(copy.providerDeleteBody(providerLabel)),
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Cancel'),
+                  child: Text(copy.cancel),
                 ),
                 FilledButton.icon(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
                   icon: const Icon(Icons.open_in_new_rounded),
-                  label: const Text('Continue securely'),
+                  label: Text(copy.continueSecurely),
                 ),
               ],
             ),
@@ -859,7 +1011,7 @@ class SettingsScreen extends ConsumerWidget {
         ref: ref,
         url: AppUrls.deleteAccount,
         fallbackRoute: routes.deleteAccount,
-        failureLabel: 'Unable to open the hosted account-deletion page.',
+        failureLabel: copy.hostedDeleteOpenFailed,
       );
       return;
     }
@@ -872,17 +1024,17 @@ class SettingsScreen extends ConsumerWidget {
         return StatefulBuilder(
           builder: (BuildContext _, StateSetter setState) {
             return AlertDialog(
-              title: const Text('Confirm account deletion'),
+              title: Text(copy.confirmDeleteTitle),
               content: TextField(
                 controller: passwordController,
                 obscureText: obscurePassword,
                 autofocus: true,
                 decoration: InputDecoration(
-                  labelText: 'Account password',
+                  labelText: copy.accountPassword,
                   suffixIcon: IconButton(
                     tooltip: obscurePassword
-                        ? 'Show password'
-                        : 'Hide password',
+                        ? copy.showPassword
+                        : copy.hidePassword,
                     onPressed: () => setState(() {
                       obscurePassword = !obscurePassword;
                     }),
@@ -898,13 +1050,13 @@ class SettingsScreen extends ConsumerWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(copy.cancel),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(
                     dialogContext,
                   ).pop(passwordController.text.trim()),
-                  child: const Text('Delete Account'),
+                  child: Text(copy.deleteAccount),
                 ),
               ],
             );
@@ -921,7 +1073,7 @@ class SettingsScreen extends ConsumerWidget {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Deleting account...')));
+    ).showSnackBar(SnackBar(content: Text(copy.deletingAccount)));
 
     try {
       final AccountDeletionResult result = await ref
@@ -931,42 +1083,27 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(accountDeletionOutcomeMessage(result))),
+        SnackBar(
+          content: Text(
+            accountDeletionOutcomeMessage(result, isSpanish: copy.isSpanish),
+          ),
+        ),
       );
       context.go(routes.login);
     } on FirebaseAuthException catch (error) {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_friendlyDeleteError(error))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(copy.friendlyDeleteError(error.code))),
+      );
     } on Exception {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account deletion failed. Retry.')),
-      );
-    }
-  }
-
-  String _friendlyDeleteError(FirebaseAuthException error) {
-    switch (error.code) {
-      case 'wrong-password':
-      case 'invalid-credential':
-        return 'Password is incorrect.';
-      case 'missing-password':
-      case 'missing-email':
-      case 'operation-not-supported':
-      case 'operation-failed':
-      case 'network-request-failed':
-      case 'invalid-response':
-        return 'Account deletion could not be completed. Retry or use the support request path.';
-      case 'no-current-user':
-        return 'Sign-in expired. Sign in again before deleting the account.';
-      default:
-        return 'Account deletion failed. Retry.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(copy.deletionFailed)));
     }
   }
 
@@ -983,7 +1120,7 @@ class SettingsScreen extends ConsumerWidget {
     if (opened || !context.mounted) {
       return;
     }
-    context.push(fallbackRoute);
+    unawaited(context.push<void>(fallbackRoute));
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(failureLabel)));
@@ -993,6 +1130,7 @@ class SettingsScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    final SettingsSafetyCopy copy = SettingsSafetyCopy.of(context);
     final Uri mail = Uri(
       scheme: 'mailto',
       path: Env.supportEmail,
@@ -1009,19 +1147,15 @@ class SettingsScreen extends ConsumerWidget {
     await Clipboard.setData(
       const ClipboardData(
         text:
-            'To: support@chronospark.app\nSubject: Account deletion request\n\nPlease delete my ChronoSpark account associated with this email.',
+            'To: ${Env.supportEmail}\nSubject: Account deletion request\n\nPlease delete my ChronoSpark account associated with this email.',
       ),
     );
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'No email app found. Account deletion email template copied to clipboard.',
-        ),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(copy.deleteTemplateCopied)));
   }
 
   Future<void> _contactSupportWithDiagnostics(

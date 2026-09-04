@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Smart Planner
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Smart Planner
 ///
 /// Persisted schedule data used by canonical planning flows.
 class PlanEntity {

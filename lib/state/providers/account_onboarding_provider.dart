@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,8 +12,6 @@ final accountOnboardingCompleteProvider =
 
 class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
   static const String _keyPrefix = 'onboarding_profile_complete_v1';
-  static const String _migrationOwnerKey =
-      'onboarding_profile_migration_owner_v1';
 
   String _key(String scope) => '$_keyPrefix.$scope';
 
@@ -24,6 +23,9 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
   @override
   Future<bool> build() async {
     final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+    final LegacyScopeOwnership legacyOwnership = ref.watch(
+      accountLegacyOwnershipProvider,
+    );
     final String? account = scope.isWritable ? scope.v2Namespace : null;
     if (account == null) return false;
 
@@ -31,17 +33,10 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
     final bool? stored = prefs.getBool(_key(account));
     if (stored != null) return stored;
 
-    // Migrate the one account that owned the old device-wide completion flag.
-    // Once claimed, a different account on the same device starts its own flow.
-    final bool legacyComplete =
-        prefs.getBool(onboardingCompleteStorageKey) ?? false;
-    final String? migrationOwner = prefs.getString(_migrationOwnerKey);
-    if (legacyComplete && migrationOwner == null) {
-      await prefs.setString(_migrationOwnerKey, account);
-      await prefs.setBool(_key(account), true);
-      return true;
-    }
-    return false;
+    // Legacy completion remains device-global and read-only. Only the account
+    // proven by the authentication boundary may use it as a fallback.
+    return legacyOwnership == LegacyScopeOwnership.provenOwned &&
+        (prefs.getBool(onboardingCompleteStorageKey) ?? false);
   }
 
   Future<void> complete() async {
@@ -51,7 +46,6 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
     }
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     if (_activeScope != account) return;
-    await prefs.setString(_migrationOwnerKey, account);
     await prefs.setBool(_key(account), true);
     if (_activeScope == account) state = const AsyncData<bool>(true);
   }

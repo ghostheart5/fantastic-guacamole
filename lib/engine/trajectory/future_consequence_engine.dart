@@ -123,8 +123,12 @@ class FutureConsequenceEngine {
         'completed_window=${baseline.completedInWindow}',
         'deferred_window=${baseline.deferredInWindow}',
         'available_minutes=${baseline.availableMinutes}',
+        'no_context_available_minutes=${baseline.noContextAvailableMinutes}',
         'occupied_minutes=${baseline.occupiedMinutes}',
         'unscheduled_minutes=${baseline.unscheduledMinutes}',
+        'no_context_unscheduled_minutes=${baseline.noContextUnscheduledMinutes}',
+        if (baseline.personContextTrace.isNotEmpty)
+          'person_context_trace=${baseline.personContextTrace}',
         'subject=${subject?.id ?? 'portfolio'}',
         ...baseline.sourceRevisions.entries.map(
           (MapEntry<String, String> item) => '${item.key}=${item.value}',
@@ -132,6 +136,9 @@ class FutureConsequenceEngine {
       ],
       assumptions: <String>[
         ...intervention.assumptions,
+        ...baseline.personContextWarnings.map(
+          (String warning) => 'Person Context constraint: $warning',
+        ),
         if (!baseline.hasObservedEnergy)
           'Energy is a seeded planning estimate, not a user observation.',
         if (!baseline.hasObservedAvailability)

@@ -448,6 +448,7 @@ void main() {
 
     test('signOut clears the session without local account cleanup', () async {
       int cleanupCalls = 0;
+      String? isolatedNotificationAccount;
       final MockClient client = MockClient((http.Request request) async {
         if (request.url.path.endsWith('/auth/v1/token')) {
           return http.Response(
@@ -456,11 +457,25 @@ void main() {
             headers: <String, String>{'content-type': 'application/json'},
           );
         }
+        if (request.url.path.endsWith(
+          '/rest/v1/rpc/unregister_firebase_device',
+        )) {
+          return http.Response(
+            '0',
+            200,
+            headers: <String, String>{'content-type': 'application/json'},
+            request: request,
+          );
+        }
         return http.Response('{}', 200);
       });
       final AuthService service = AuthService(
         supabaseClient: _supabaseClient(client),
         store: SecureStore(backend: InMemorySecureStoreBackend()),
+        onBeforeSignedOut: (String accountId) async {
+          isolatedNotificationAccount = accountId;
+        },
+        onDevicePushTokenRevoked: () async {},
         onAccountDeleted: (String accountId) async {
           cleanupCalls += 1;
         },
@@ -474,6 +489,125 @@ void main() {
 
       expect(service.currentUser, isNull);
       expect(cleanupCalls, 0);
+      expect(isolatedNotificationAccount, 'user-1');
+    });
+
+    test(
+      'signOut fails closed before session removal when local schedules cannot be isolated',
+      () async {
+        final MockClient client = MockClient((http.Request request) async {
+          if (request.url.path.endsWith('/auth/v1/token')) {
+            return http.Response(
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 200);
+        });
+        final AuthService service = AuthService(
+          supabaseClient: _supabaseClient(client),
+          store: SecureStore(backend: InMemorySecureStoreBackend()),
+          onBeforeSignedOut: (String accountId) async {
+            throw StateError('scheduler unavailable');
+          },
+        );
+        await service.signIn(
+          email: 'planner@chronospark.app',
+          password: 'correct-pass',
+        );
+
+        await expectLater(
+          service.signOut,
+          throwsA(
+            isA<FirebaseAuthException>().having(
+              (FirebaseAuthException error) => error.code,
+              'code',
+              'local-notification-isolation-failed',
+            ),
+          ),
+        );
+        expect(service.currentUser, isNotNull);
+      },
+    );
+
+    test(
+      'signOut revokes the device token when server cleanup fails',
+      () async {
+        int revokeCalls = 0;
+        final MockClient client = MockClient((http.Request request) async {
+          if (request.url.path.endsWith('/auth/v1/token')) {
+            return http.Response(
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path.endsWith(
+            '/rest/v1/rpc/unregister_firebase_device',
+          )) {
+            throw StateError('offline');
+          }
+          return http.Response('{}', 200);
+        });
+        final AuthService service = AuthService(
+          supabaseClient: _supabaseClient(client),
+          store: SecureStore(backend: InMemorySecureStoreBackend()),
+          onDevicePushTokenRevoked: () async {
+            revokeCalls += 1;
+          },
+        );
+        await service.signIn(
+          email: 'planner@chronospark.app',
+          password: 'correct-pass',
+        );
+
+        await service.signOut();
+
+        expect(revokeCalls, 1);
+        expect(service.currentUser, isNull);
+      },
+    );
+
+    test('signOut fails closed when neither token cleanup succeeds', () async {
+      final MockClient client = MockClient((http.Request request) async {
+        if (request.url.path.endsWith('/auth/v1/token')) {
+          return http.Response(
+            jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+            200,
+            headers: <String, String>{'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith(
+          '/rest/v1/rpc/unregister_firebase_device',
+        )) {
+          throw StateError('offline');
+        }
+        return http.Response('{}', 200);
+      });
+      final AuthService service = AuthService(
+        supabaseClient: _supabaseClient(client),
+        store: SecureStore(backend: InMemorySecureStoreBackend()),
+        onDevicePushTokenRevoked: () async {
+          throw StateError('revocation unavailable');
+        },
+      );
+      await service.signIn(
+        email: 'planner@chronospark.app',
+        password: 'correct-pass',
+      );
+
+      await expectLater(
+        service.signOut,
+        throwsA(
+          isA<FirebaseAuthException>().having(
+            (FirebaseAuthException error) => error.code,
+            'code',
+            'push-token-isolation-failed',
+          ),
+        ),
+      );
+      expect(service.currentUser, isNotNull);
     });
 
     test(
@@ -930,7 +1064,7 @@ void main() {
     );
 
     test(
-      'deleteCurrentAccount preserves a pending status capability securely',
+      'deleteCurrentAccount retains a privacy-safe pending status receipt',
       () async {
         final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
         final SecureStore store = SecureStore(backend: backend);
@@ -975,19 +1109,86 @@ void main() {
 
         expect(result.isPending, isTrue);
         expect(result.serverState, 'sessions_revoked');
+        expect(result.statusTrackingAvailable, isTrue);
         expect(cleanupCalls, 1);
         expect(await store.readString('session-cache'), isNull);
         expect(service.currentUser, isNull);
-        final Map<String, String> secureValues = await store.readAll();
-        final String capability = secureValues.values.singleWhere(
-          (String value) => value.contains(_deletionRequestId),
+        final PendingAccountDeletionStatus? pending = await service
+            .readPendingAccountDeletion();
+        expect(pending?.serverState, 'sessions_revoked');
+        expect(pending?.localCleanupCompleted, isTrue);
+      },
+    );
+
+    test(
+      'pending deletion status uses the opaque capability after sign-out and clears it on completion',
+      () async {
+        int deletionCalls = 0;
+        bool statusHadAuthorization = false;
+        Map<String, dynamic>? statusBody;
+        final SecureStore store = SecureStore(
+          backend: InMemorySecureStoreBackend(),
         );
-        final Map<String, dynamic> decoded =
-            jsonDecode(capability) as Map<String, dynamic>;
-        expect(decoded['requestId'], _deletionRequestId);
-        expect(decoded['receipt'], _deletionReceipt);
-        expect(decoded['state'], 'sessions_revoked');
-        expect(decoded['savedAt'], isA<String>());
+        final MockClient client = MockClient((http.Request request) async {
+          if (request.url.path.endsWith('/auth/v1/token')) {
+            return http.Response(
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          if (request.url.toString() ==
+              'https://api.chronospark.app/account/delete') {
+            final Map<String, dynamic> body = Map<String, dynamic>.from(
+              jsonDecode(request.body) as Map,
+            );
+            if (body['action'] == 'status') {
+              statusHadAuthorization = request.headers.containsKey(
+                'authorization',
+              );
+              statusBody = body;
+              return http.Response(
+                jsonEncode(<String, dynamic>{
+                  'completed': true,
+                  'state': 'completed',
+                }),
+                200,
+                headers: <String, String>{'content-type': 'application/json'},
+              );
+            }
+            deletionCalls += 1;
+            return http.Response(
+              jsonEncode(_deletionResponseJson(completed: false)),
+              202,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 200);
+        });
+        final AuthService service = AuthService(
+          supabaseClient: _supabaseClient(client),
+          store: store,
+          httpClient: client,
+          accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+        );
+        await service.signIn(
+          email: 'planner@chronospark.app',
+          password: 'correct-pass',
+        );
+        await service.deleteCurrentAccount(password: 'correct-pass');
+
+        final AccountDeletionResult? refreshed = await service
+            .refreshPendingAccountDeletion();
+
+        expect(deletionCalls, 1);
+        expect(statusHadAuthorization, isFalse);
+        expect(statusBody, <String, dynamic>{
+          'action': 'status',
+          'requestId': _deletionRequestId,
+          'receipt': _deletionReceipt,
+        });
+        expect(refreshed?.isCompleted, isTrue);
+        expect(await service.readPendingAccountDeletion(), isNull);
       },
     );
 

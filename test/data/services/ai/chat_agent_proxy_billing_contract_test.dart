@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/data/services/ai/agents/chat_agent.dart';
+import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -6,12 +7,15 @@ void main() {
     final Map<String, dynamic> body = buildAiProxyRequestBody(
       prompt: 'Plan the next step',
       history: const <Map<String, String>>[],
-      system: 'system policy',
+      personality: AIPersonality.planner,
+      context: const <String, dynamic>{'querySurface': 'tasks'},
       requestId: 'ai-account-console-1770000000000-1',
     );
 
     expect(body['requestId'], 'ai-account-console-1770000000000-1');
     expect(body['allowExternalAi'], isTrue);
+    expect(body, isNot(contains('system')));
+    expect(body['personality'], 'planner');
   });
 
   test('server 402 preserves authoritative remaining credits', () {

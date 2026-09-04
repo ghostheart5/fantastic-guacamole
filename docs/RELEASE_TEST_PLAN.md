@@ -11,10 +11,13 @@ matched the repository.
 - Fast cross-layer tests: `test/integration/`.
 - Application-root integration journeys: `integration_test/`.
 - Supabase Edge Function tests: `supabase/functions/**/*_test.ts`.
-- Maestro flows: `.maestro/flows/`, with static YAML/subflow validation in CI.
-- Golden comparisons: authentication at 320/500 px and Nexus at 320/375/500
-  px. Five logical comparisons select exact, reviewed Windows or Linux masters
-  for the active renderer. Each committed PNG name is routed through a
+- Maestro flows: `.maestro/flows/`, with static YAML/subflow validation in
+  source CI and exact-build QA smoke on a hosted Android emulator for `main`
+  and release tags.
+- Golden comparisons: login at 320/500 px, Nexus at 320/375/500 px, first-use
+  context at 320/375 px, and the Settings learning ledger. Eight logical
+  comparisons select exact, reviewed Windows or Linux masters for the active
+  renderer. Each committed PNG name is routed through a
   `matchesGoldenFile` assertion; a PNG or update workflow without an executable
   assertion is not evidence.
 - Coverage enforcement: `scripts/coverage_guard.ps1 -Mode ratchet` blocks
@@ -26,21 +29,24 @@ Counts are intentionally not frozen in this document. CI discovers the live
 suite so adding or moving tests cannot silently make a hand-maintained count
 authoritative.
 
-## Required Pull-Request Gate
+## Required Pull-Request Gates
 
-The primary CI workflow must pass all of these without creating a distributable
-build or launching a device:
+The primary `Analyze & Test` aggregate and separate `database` check must pass
+all of these without creating a distributable build or launching a device:
 
 1. Formatting verification for `lib`, `test`, and `integration_test`.
 2. Secret scanning.
 3. Flutter analyzer with informational diagnostics treated as failures.
 4. Architecture boundary validation.
 5. Maestro YAML and `runFlow` target validation.
-6. Deno type checks for every Edge Function.
-7. Deno unit tests for extracted Edge Function logic.
-8. Flutter `test/` execution with serialized isolation and coverage.
+6. The dedicated database workflow type-checks every Edge Function.
+7. The same database workflow runs Deno logic tests, migration replay, local
+   database/RLS contracts, and schema linting once per pull request.
+8. Flutter `test/` execution with serialized isolation, a hard timeout,
+   structured completion evidence, zero unexpected skips, and coverage.
 9. A non-zero golden comparison contract. CI must fail before the test run if
-   the two named golden files contain zero `matchesGoldenFile` assertions.
+   any of the four named golden test files loses an expected
+   `matchesGoldenFile` assertion or a platform master.
 10. Overall, layer, and release-critical coverage ratchet floors. The target
    audit remains required before claiming the coverage destination is met.
 
@@ -52,9 +58,9 @@ The named app-only goldens use the default exact comparator. Their harness
 loads app/icon fonts and disables supported animations; a percentage tolerance
 must not replace deterministic setup or be reported as exact evidence.
 Windows and Linux retain separate exact masters because their font renderers
-produce different pixels. The updater and normal CI comparison are both pinned
-to `ubuntu-24.04`; an unsupported host fails explicitly instead of borrowing a
-different platform's master.
+produce different pixels. Primary CI compares both on pinned `windows-2022`
+and `ubuntu-24.04` jobs; an unsupported host fails explicitly instead of
+borrowing a different platform's master.
 
 ## Release-Critical Automated Flows
 
@@ -113,8 +119,8 @@ different platform's master.
 The following are not represented as passed by the non-build suite:
 
 - signed Android App Bundle creation and install;
-- application-root `integration_test/` execution on target devices;
-- Maestro release-critical and destructive flows;
+- application-root `integration_test/` execution on supported physical target devices;
+- Maestro real-authentication, Play Billing, release-critical account, and destructive flows;
 - Play Billing license-account purchase and restore;
 - microphone, notification, deep-link, and audio-focus behavior;
 - Firebase/Supabase behavior with production credentials and policies;

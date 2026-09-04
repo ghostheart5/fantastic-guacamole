@@ -20,8 +20,10 @@ class AuthService implements AuthServiceContract {
     String? accountDeleteEndpoint,
     String? oauthGoogleRedirectUrl,
     String? oauthGitHubRedirectUrl,
+    Future<void> Function(String accountId)? onBeforeSignedOut,
     Future<void> Function()? onSignedOut,
     Future<void> Function(String accountId)? onAccountDeleted,
+    Future<void> Function()? onDevicePushTokenRevoked,
   }) : _auth = supabaseClient,
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
@@ -29,13 +31,16 @@ class AuthService implements AuthServiceContract {
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
        _oauthGitHubRedirectUrl =
            oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
+       _beforeSignedOutCallback = onBeforeSignedOut,
        _signedOutCallback = onSignedOut,
-       _accountDeletedCallback = onAccountDeleted;
+       _accountDeletedCallback = onAccountDeleted,
+       _devicePushTokenRevokedCallback = onDevicePushTokenRevoked;
 
   static final http.Client _sharedHttpClient = http.Client();
   static const String _pendingDeletionCapabilityKey =
       'account_deletion_pending_capability_v1';
   static final RegExp _opaqueCapabilityPattern = RegExp(r'^[0-9a-f]{64}$');
+  static final RegExp _deletionStatePattern = RegExp(r'^[a-z][a-z0-9_]{0,63}$');
 
   final sb.SupabaseClient _auth;
   final SecureStore store;
@@ -43,8 +48,10 @@ class AuthService implements AuthServiceContract {
   final String _accountDeleteEndpoint;
   final String _oauthGoogleRedirectUrl;
   final String _oauthGitHubRedirectUrl;
+  final Future<void> Function(String accountId)? _beforeSignedOutCallback;
   final Future<void> Function()? _signedOutCallback;
   final Future<void> Function(String accountId)? _accountDeletedCallback;
+  final Future<void> Function()? _devicePushTokenRevokedCallback;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
@@ -269,15 +276,130 @@ class AuthService implements AuthServiceContract {
   @override
   Future<void> signOut() async {
     final sb.User? user = _auth.auth.currentUser;
+    Object? serverTokenCleanupFailure;
     if (user != null) {
       try {
-        await _auth.from('user_push_tokens').delete().eq('user_id', user.id);
+        await _beforeSignedOutCallback?.call(user.id);
+      } on Object {
+        throw FirebaseAuthException(
+          code: 'local-notification-isolation-failed',
+          message:
+              'Sign-out was paused because scheduled reminders could not be isolated safely. Please retry.',
+        );
+      }
+      try {
+        await _auth.rpc<dynamic>('unregister_firebase_device');
       } on Object catch (error) {
+        serverTokenCleanupFailure = error;
         Logger.warn('Push-token cleanup during sign-out failed: $error');
+      }
+      try {
+        await _devicePushTokenRevokedCallback?.call();
+      } on Object {
+        Logger.warn('Device push-token revocation during sign-out failed.');
+        if (serverTokenCleanupFailure != null) {
+          throw FirebaseAuthException(
+            code: 'push-token-isolation-failed',
+            message:
+                'Sign-out was paused because notification isolation could not be confirmed. Please reconnect and retry.',
+          );
+        }
+      }
+      if (serverTokenCleanupFailure != null &&
+          _devicePushTokenRevokedCallback == null) {
+        throw FirebaseAuthException(
+          code: 'push-token-isolation-failed',
+          message:
+              'Sign-out was paused because notification isolation could not be confirmed. Please reconnect and retry.',
+        );
       }
     }
     await _auth.auth.signOut();
     await _signedOutCallback?.call();
+  }
+
+  @override
+  Future<PendingAccountDeletionStatus?> readPendingAccountDeletion() async {
+    final _PendingDeletionCapability? capability =
+        await _readPendingDeletionCapability();
+    if (capability == null) return null;
+    return PendingAccountDeletionStatus(
+      serverState: capability.serverState,
+      createdAtUtc: capability.createdAtUtc,
+      localCleanupCompleted: capability.localCleanupCompleted,
+    );
+  }
+
+  @override
+  Future<AccountDeletionResult?> refreshPendingAccountDeletion() async {
+    final _PendingDeletionCapability? capability =
+        await _readPendingDeletionCapability();
+    if (capability == null) return null;
+
+    final Uri? uri = parseSecureHttpsEndpoint(_accountDeleteEndpoint.trim());
+    if (uri == null) {
+      throw FirebaseAuthException(
+        code: 'operation-not-supported',
+        message: 'Account deletion status is unavailable in this build.',
+      );
+    }
+
+    try {
+      final http.Response response = await _httpClient
+          .post(
+            uri,
+            headers: const <String, String>{'Content-Type': 'application/json'},
+            body: jsonEncode(<String, String>{
+              'action': 'status',
+              'requestId': capability.requestId,
+              'receipt': capability.receipt,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw FirebaseAuthException(
+          code: response.statusCode == 404
+              ? 'deletion-request-not-found'
+              : 'operation-failed',
+          message:
+              'Account deletion status could not be confirmed. Retry or contact support.',
+        );
+      }
+      final Map<String, dynamic> body = _parseDeletionSuccessBody(
+        response: response,
+      );
+      final bool completed = body['completed'] == true;
+      final String state = (body['state'] as String?)?.trim() ?? '';
+      if (!_deletionStatePattern.hasMatch(state) ||
+          (completed && state != 'completed') ||
+          (!completed && state == 'completed')) {
+        throw _invalidDeletionResponse();
+      }
+      if (completed) {
+        await forgetPendingAccountDeletion();
+        return AccountDeletionResult.completed(
+          localCleanupCompleted: capability.localCleanupCompleted,
+        );
+      }
+      await _writePendingDeletionCapability(
+        capability.copyWith(serverState: state),
+      );
+      return AccountDeletionResult.pending(
+        serverState: state,
+        localCleanupCompleted: capability.localCleanupCompleted,
+      );
+    } on TimeoutException {
+      throw FirebaseAuthException(
+        code: 'network-request-failed',
+        message:
+            'Account deletion status timed out. Check your connection and retry.',
+      );
+    }
+  }
+
+  @override
+  Future<void> forgetPendingAccountDeletion() {
+    return store.delete(_pendingDeletionCapabilityKey);
   }
 
   @override
@@ -323,7 +445,6 @@ class AuthService implements AuthServiceContract {
     }
 
     AccountDeletionResult? acceptedResult;
-    Map<String, String>? pendingCapability;
 
     try {
       await _auth.auth.signInWithPassword(email: email, password: password);
@@ -384,13 +505,17 @@ class AuthService implements AuthServiceContract {
           !completed &&
           retry &&
           state != 'completed') {
-        acceptedResult = AccountDeletionResult.pending(serverState: state);
-        pendingCapability = <String, String>{
-          'requestId': requestId,
-          'receipt': receipt,
-          'state': state,
-          'savedAt': DateTime.now().toUtc().toIso8601String(),
-        };
+        final bool statusTrackingAvailable =
+            await _persistPendingDeletionCapability(
+              requestId: requestId,
+              receipt: receipt,
+              serverState: state,
+              localCleanupCompleted: false,
+            );
+        acceptedResult = AccountDeletionResult.pending(
+          serverState: state,
+          statusTrackingAvailable: statusTrackingAvailable,
+        );
       } else {
         throw _invalidDeletionResponse();
       }
@@ -406,32 +531,32 @@ class AuthService implements AuthServiceContract {
     return _finalizeAcceptedDeletion(
       accountId: user.id,
       result: acceptedResult,
-      pendingCapability: pendingCapability,
     );
   }
 
   Future<AccountDeletionResult> _finalizeAcceptedDeletion({
     required String accountId,
     required AccountDeletionResult result,
-    required Map<String, String>? pendingCapability,
   }) async {
     bool localCleanupCompleted = true;
-    bool statusTrackingAvailable = true;
 
-    try {
-      if (pendingCapability == null) {
-        await store.delete(_pendingDeletionCapabilityKey);
-      } else {
-        await store.writeString(
-          _pendingDeletionCapabilityKey,
-          jsonEncode(pendingCapability),
+    if (result.isCompleted) {
+      try {
+        await forgetPendingAccountDeletion();
+      } on Object {
+        localCleanupCompleted = false;
+        Logger.warn(
+          'Completed account deletion receipt cleanup failed after server acceptance.',
         );
       }
+    }
+
+    try {
+      await _beforeSignedOutCallback?.call(accountId);
     } on Object {
       localCleanupCompleted = false;
-      statusTrackingAvailable = pendingCapability == null;
       Logger.warn(
-        'Account deletion capability bookkeeping failed after server acceptance.',
+        'Scheduled reminder isolation failed after server accepted account deletion.',
       );
     }
 
@@ -460,6 +585,17 @@ class AuthService implements AuthServiceContract {
       );
     }
 
+    if (result.isPending && result.statusTrackingAvailable) {
+      try {
+        await _updatePendingDeletionCleanupStatus(localCleanupCompleted);
+      } on Object {
+        localCleanupCompleted = false;
+        Logger.warn(
+          'Pending account deletion cleanup status could not be updated.',
+        );
+      }
+    }
+
     return result.isCompleted
         ? AccountDeletionResult.completed(
             localCleanupCompleted: localCleanupCompleted,
@@ -467,8 +603,82 @@ class AuthService implements AuthServiceContract {
         : AccountDeletionResult.pending(
             serverState: result.serverState,
             localCleanupCompleted: localCleanupCompleted,
-            statusTrackingAvailable: statusTrackingAvailable,
+            statusTrackingAvailable: result.statusTrackingAvailable,
           );
+  }
+
+  Future<bool> _persistPendingDeletionCapability({
+    required String requestId,
+    required String receipt,
+    required String serverState,
+    required bool localCleanupCompleted,
+  }) async {
+    if (!_opaqueCapabilityPattern.hasMatch(requestId) ||
+        !_opaqueCapabilityPattern.hasMatch(receipt) ||
+        !_deletionStatePattern.hasMatch(serverState)) {
+      return false;
+    }
+    try {
+      await _writePendingDeletionCapability(
+        _PendingDeletionCapability(
+          requestId: requestId,
+          receipt: receipt,
+          serverState: serverState,
+          createdAtUtc: DateTime.now().toUtc(),
+          localCleanupCompleted: localCleanupCompleted,
+        ),
+      );
+      return true;
+    } on Object {
+      Logger.warn(
+        'Pending account deletion status capability could not be saved.',
+      );
+      return false;
+    }
+  }
+
+  Future<void> _updatePendingDeletionCleanupStatus(bool completed) async {
+    final _PendingDeletionCapability? capability =
+        await _readPendingDeletionCapability();
+    if (capability == null) return;
+    await _writePendingDeletionCapability(
+      capability.copyWith(localCleanupCompleted: completed),
+    );
+  }
+
+  Future<void> _writePendingDeletionCapability(
+    _PendingDeletionCapability capability,
+  ) {
+    return store.writeString(
+      _pendingDeletionCapabilityKey,
+      jsonEncode(capability.toJson()),
+    );
+  }
+
+  Future<_PendingDeletionCapability?> _readPendingDeletionCapability() async {
+    final String? raw = await store.readString(_pendingDeletionCapabilityKey);
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is! Map) throw const FormatException();
+      final _PendingDeletionCapability? capability =
+          _PendingDeletionCapability.fromJson(
+            decoded.map(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+            ),
+          );
+      if (capability == null ||
+          !_opaqueCapabilityPattern.hasMatch(capability.requestId) ||
+          !_opaqueCapabilityPattern.hasMatch(capability.receipt) ||
+          !_deletionStatePattern.hasMatch(capability.serverState)) {
+        throw const FormatException();
+      }
+      return capability;
+    } on Object {
+      await store.delete(_pendingDeletionCapabilityKey);
+      Logger.warn('Invalid pending account deletion receipt was removed.');
+      return null;
+    }
   }
 
   static Map<String, dynamic> _parseDeletionSuccessBody({
@@ -547,43 +757,107 @@ class AuthService implements AuthServiceContract {
     if (message.contains('invalid login credentials')) {
       return FirebaseAuthException(
         code: 'wrong-password',
-        message: error.message,
+        message: 'Credentials are incorrect.',
       );
     }
     if (message.contains('email not confirmed')) {
       return FirebaseAuthException(
         code: 'user-not-verified',
-        message: error.message,
+        message: 'Verify your email before signing in.',
       );
     }
     if (message.contains('already registered') ||
         message.contains('already been registered')) {
       return FirebaseAuthException(
         code: 'email-already-in-use',
-        message: error.message,
+        message: 'Unable to create account with these details.',
       );
     }
     if (rawCode == '429') {
       return FirebaseAuthException(
         code: 'too-many-requests',
-        message: error.message,
+        message: 'Too many requests. Please wait and try again.',
       );
     }
     if (rawCode == '400' && message.contains('email')) {
       return FirebaseAuthException(
         code: 'invalid-email',
-        message: error.message,
+        message: 'Invalid email format.',
       );
     }
     if (rawCode == '422' && message.contains('password')) {
       return FirebaseAuthException(
         code: 'weak-password',
-        message: error.message,
+        message: 'Password does not meet the security requirements.',
       );
     }
     return FirebaseAuthException(
       code: 'auth-unavailable',
-      message: error.message,
+      message: 'Authentication backend is unavailable.',
+    );
+  }
+}
+
+final class _PendingDeletionCapability {
+  const _PendingDeletionCapability({
+    required this.requestId,
+    required this.receipt,
+    required this.serverState,
+    required this.createdAtUtc,
+    required this.localCleanupCompleted,
+  });
+
+  final String requestId;
+  final String receipt;
+  final String serverState;
+  final DateTime createdAtUtc;
+  final bool localCleanupCompleted;
+
+  Map<String, Object> toJson() => <String, Object>{
+    'version': 1,
+    'requestId': requestId,
+    'receipt': receipt,
+    'serverState': serverState,
+    'createdAtUtc': createdAtUtc.toIso8601String(),
+    'localCleanupCompleted': localCleanupCompleted,
+  };
+
+  _PendingDeletionCapability copyWith({
+    String? serverState,
+    bool? localCleanupCompleted,
+  }) {
+    return _PendingDeletionCapability(
+      requestId: requestId,
+      receipt: receipt,
+      serverState: serverState ?? this.serverState,
+      createdAtUtc: createdAtUtc,
+      localCleanupCompleted:
+          localCleanupCompleted ?? this.localCleanupCompleted,
+    );
+  }
+
+  static _PendingDeletionCapability? fromJson(Map<String, dynamic> json) {
+    if (json['version'] != 1) return null;
+    final String requestId = json['requestId']?.toString().trim() ?? '';
+    final String receipt = json['receipt']?.toString().trim() ?? '';
+    final String serverState = json['serverState']?.toString().trim() ?? '';
+    final DateTime? createdAtUtc = DateTime.tryParse(
+      json['createdAtUtc']?.toString() ?? '',
+    )?.toUtc();
+    final Object? localCleanupCompleted = json['localCleanupCompleted'];
+    if (requestId.isEmpty ||
+        receipt.isEmpty ||
+        serverState.isEmpty ||
+        createdAtUtc == null ||
+        localCleanupCompleted is! bool) {
+      return null;
+    }
+    return _PendingDeletionCapability(
+      requestId: requestId,
+      receipt: receipt,
+      serverState: serverState,
+      createdAtUtc: createdAtUtc,
+      localCleanupCompleted: localCleanupCompleted,
     );
   }
 }

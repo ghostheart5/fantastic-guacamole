@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -46,10 +48,12 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
         .where((GoalEntity goal) => !goal.isCompleted)
         .toList(growable: false);
     final reminders = ref.read(reminderOrchestratorServiceProvider);
-    Future<void>(() async {
-      await reminders.syncGoalReminders(goals);
-      await reminders.ensureDailyPlanningReminder();
-    });
+    unawaited(
+      Future<void>(() async {
+        await reminders.syncGoalReminders(goals);
+        await reminders.ensureDailyPlanningReminder();
+      }),
+    );
     return goals;
   }
 

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/person_context_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -99,6 +99,20 @@ final personContextForSurfaceProvider =
 final personContextActionsProvider = Provider<PersonContextActions>(
   PersonContextActions.new,
 );
+
+final personContextSettingsEntryProvider =
+    NotifierProvider<PersonContextSettingsEntry, bool>(
+      PersonContextSettingsEntry.new,
+    );
+
+class PersonContextSettingsEntry extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void request() => state = true;
+
+  void clear() => state = false;
+}
 
 final class PersonContextActions {
   PersonContextActions(this._ref);

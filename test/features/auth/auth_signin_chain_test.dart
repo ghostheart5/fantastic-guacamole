@@ -359,7 +359,7 @@ void main() {
   );
 
   testWidgets(
-    'QA tester access opens a local test profile without credentials',
+    'QA secondary tester access opens its isolated profile without credentials',
     (WidgetTester tester) async {
       tester.platformDispatcher.views.first
         ..physicalSize = const Size(800, 1400)
@@ -399,9 +399,14 @@ void main() {
         find.text('QA tester build uses an isolated local test profile.'),
         findsOneWidget,
       );
-      final Finder testerAccess = find.byKey(
-        const ValueKey<String>('qa-tester-access-button'),
+      expect(
+        find.byKey(const ValueKey<String>('qa-tester-access-button')),
+        findsOneWidget,
       );
+      final Finder testerAccess = find.byKey(
+        const ValueKey<String>('qa-secondary-tester-access-button'),
+      );
+      expect(testerAccess, findsOneWidget);
       tester.widget<SmartPressable>(testerAccess).onTap();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
@@ -412,7 +417,7 @@ void main() {
       tester
           .container()
           .read(_mutableAccountScopeProvider.notifier)
-          .authenticate('mock-user');
+          .authenticate(secondaryQaAccountId);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -602,6 +607,16 @@ class _FakeAuthService implements AuthServiceContract {
     await signOut();
     return const AccountDeletionResult.completed();
   }
+
+  @override
+  Future<PendingAccountDeletionStatus?> readPendingAccountDeletion() async =>
+      null;
+
+  @override
+  Future<AccountDeletionResult?> refreshPendingAccountDeletion() async => null;
+
+  @override
+  Future<void> forgetPendingAccountDeletion() async {}
 
   @override
   Future<User?> reloadCurrentUser() async => _current;

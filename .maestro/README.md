@@ -1,8 +1,9 @@
 # Maestro E2E flows
 
-End-to-end flows for ChronoSpark on Android. Twelve flows covering the paths
-whose failure is invisible to the Dart test suite: real navigation, real Play
-Billing surfaces, and the destructive account paths.
+End-to-end flows for ChronoSpark on Android. Twelve ordered product flows plus
+three Priority 8 evidence flows cover paths whose failure is invisible to the
+Dart test suite: real navigation, real Play Billing surfaces, and destructive
+account paths.
 
 ## Layout
 
@@ -44,7 +45,7 @@ maestro test --include-tags critical .maestro/flows      # release gate
 maestro test .maestro/flows/01-login.yaml                # one flow
 ```
 
-## Source-paired Android evidence runner (Windows)
+## Source-paired Android evidence runner
 
 For a device result that can be traced to the exact checkout and APK, use the
 PowerShell evidence runner instead of invoking Maestro directly. Its default
@@ -80,6 +81,13 @@ and credential-shaped fields; the raw capture is deleted unless
 `-KeepRawLogcat` is explicitly supplied. Credential values are never written
 to the manifest.
 
+The reusable `.github/workflows/maestro-runtime.yml` runs this same evidence
+path on a pinned GitHub-hosted API 35 emulator for non-destructive QA smoke on
+`main` and release tags. It checksum-verifies Maestro, requires non-zero,
+failure-free JUnit results, and uploads the complete source-bound evidence
+directory. This automated QA profile does not replace signed-AAB, Play Billing,
+real-account, destructive-account, or physical-device validation.
+
 Account deletion is rejected from every normal/custom suite. It requires the
 dedicated suite, a non-QA build, real disposable-account credentials, and the
 exact confirmation phrase:
@@ -114,7 +122,11 @@ downstream flows failing for the same reason.
 | 11 | logout | P1 | Verifies session teardown revokes access |
 | 12 | account-deletion | **P0** | Play data-deletion policy; destructive, so last |
 
-Gate 01–03, 10 and 12 as required on `main`. Run the rest nightly.
+The hosted `main` and release-tag gate runs QA-compatible flows 04–08. Real
+authentication, signup, onboarding, Play Billing, and destructive deletion
+flows require controlled accounts or store state and remain separate required
+release evidence; do not report them as automated merely because QA smoke
+passed.
 
 ## Two things to know before editing
 

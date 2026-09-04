@@ -158,6 +158,63 @@ void main() {
     expect(validEmpty.revision, isNot(unavailable.revision));
   });
 
+  test(
+    'query read admits only relevant user-reported context and carries trace',
+    () async {
+      final SIV2ReadGateway gateway = _gateway(
+        readPersonContext: () => PersonContextView(
+          accountScopeId: 'account:test',
+          surface: PersonContextSurface.siConsole,
+          purposes: SIV2ReadGateway.personContextPurposes,
+          observedAt: now,
+          signals: <PersonContextSignal>[
+            _prioritySignal('release', 'Prepare release evidence', now),
+            _prioritySignal('dentist', 'Call the dentist', now),
+            _capacitySignal('capacity', '15 minutes available today', now),
+          ],
+          unknownKinds: PersonContextKind.values.toSet()
+            ..remove(PersonContextKind.currentPriority),
+        ),
+      );
+
+      final SIV2EvidenceSnapshot snapshot = await gateway.read(
+        observedAt: now,
+        decisionText: 'What should I do next to prepare release evidence?',
+      );
+
+      expect(
+        snapshot.personContext!.signals.map((signal) => signal.id),
+        <String>['release'],
+      );
+      expect(snapshot.personContext!.behaviorTrace['surface'], 'siConsole');
+      expect(
+        snapshot.personContext!.unknownKinds,
+        contains(PersonContextKind.commitment),
+      );
+      expect(
+        snapshot.personContext!.unknownKinds,
+        isNot(contains(PersonContextKind.role)),
+      );
+
+      final SIV2EvidenceSnapshot workload = await gateway.read(
+        observedAt: now,
+        decisionText: 'How much time and capacity do I have?',
+      );
+      expect(
+        workload.personContext!.signals.map((signal) => signal.id),
+        contains('capacity'),
+      );
+      final SIV2EvidenceSnapshot timeline = await gateway.read(
+        observedAt: now,
+        decisionText: 'What happened in my Timeline?',
+      );
+      expect(
+        timeline.personContext!.signals.map((signal) => signal.id),
+        isNot(contains('capacity')),
+      );
+    },
+  );
+
   test('mismatched person context projection fails closed', () async {
     final SIV2EvidenceSnapshot snapshot = await _gateway(
       readPersonContext: () => PersonContextView(
@@ -173,6 +230,44 @@ void main() {
     expect(snapshot.personContext, isNull);
   });
 }
+
+PersonContextSignal _prioritySignal(String id, String value, DateTime now) =>
+    PersonContextSignal(
+      id: id,
+      kind: PersonContextKind.currentPriority,
+      value: value,
+      source: PersonContextSource.userAuthored,
+      consent: PersonContextConsent.granted,
+      consentedAt: now,
+      purpose: PersonContextPurpose.decisionSupport,
+      surfaceScopes: const <PersonContextSurface>{
+        PersonContextSurface.siConsole,
+      },
+      recordedAt: now,
+      freshUntil: now.add(const Duration(days: 1)),
+      expiresAt: now.add(const Duration(days: 2)),
+      exportBehavior: PersonContextExportBehavior.include,
+      deletionBehavior: PersonContextDeletionBehavior.userRemovable,
+    );
+
+PersonContextSignal _capacitySignal(String id, String value, DateTime now) =>
+    PersonContextSignal(
+      id: id,
+      kind: PersonContextKind.presentCapacity,
+      value: value,
+      source: PersonContextSource.userAuthored,
+      consent: PersonContextConsent.granted,
+      consentedAt: now,
+      purpose: PersonContextPurpose.decisionSupport,
+      surfaceScopes: const <PersonContextSurface>{
+        PersonContextSurface.siConsole,
+      },
+      recordedAt: now,
+      freshUntil: now.add(const Duration(hours: 12)),
+      expiresAt: now.add(const Duration(days: 1)),
+      exportBehavior: PersonContextExportBehavior.include,
+      deletionBehavior: PersonContextDeletionBehavior.expiresAutomatically,
+    );
 
 SIV2ReadGateway _gateway({SIV2PersonContextReader? readPersonContext}) =>
     SIV2ReadGateway(

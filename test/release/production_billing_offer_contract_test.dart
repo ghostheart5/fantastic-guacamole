@@ -134,12 +134,8 @@ void main() {
       );
     }
 
-    expect(
-      page,
-      contains(
-        'Credits after a verified purchase or paid renewal: \${plan.aiCreditsIncluded}',
-      ),
-    );
+    expect(page, contains('copy.creditsAfterVerification('));
+    expect(page, contains('plan.aiCreditsIncluded'));
     expect(page, contains('plan.priceLabel'));
     expect(page, isNot(contains('plan.benefits')));
     expect(
@@ -160,7 +156,7 @@ void main() {
     ).readAsStringSync();
     final String env = File('lib/config/env.dart').readAsStringSync();
     final String repositories = File(
-      'lib/data/di/repositories_providers.dart',
+      'lib/state/providers/repository_providers.dart',
     ).readAsStringSync();
     final String provider = File(
       'lib/state/providers/paywall_provider.dart',

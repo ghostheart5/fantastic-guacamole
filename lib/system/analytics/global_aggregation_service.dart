@@ -11,11 +11,14 @@ class GlobalAggregationService {
   GlobalAggregationService({
     required sb.SupabaseClient? client,
     required Future<String> Function() ensureIdentity,
+    required SharedPrefsStore preferences,
   }) : _client = client, // ignore: prefer_initializing_formals
-       _ensureIdentity = ensureIdentity; // ignore: prefer_initializing_formals
+       _ensureIdentity = ensureIdentity, // ignore: prefer_initializing_formals
+       _preferences = preferences; // ignore: prefer_initializing_formals
 
   final sb.SupabaseClient? _client;
   final Future<String> Function() _ensureIdentity;
+  final SharedPrefsStore _preferences;
 
   static const _kCacheKey = 'global_metrics_cache';
   static const _kCacheTsKey = 'global_metrics_cache_ts';
@@ -29,7 +32,7 @@ class GlobalAggregationService {
     if (!Env.enableAnalytics) {
       return;
     }
-    if (SharedPrefsService.load('cloud_sync_enabled_v1') != 'true') {
+    if (!await _cloudSyncEnabled()) {
       return;
     }
     final sb.SupabaseClient? client = _client;
@@ -49,14 +52,14 @@ class GlobalAggregationService {
         'tasks_created': dailySnapshot['tasks_created'],
         'tasks_completed': dailySnapshot['tasks_completed'],
         'momentum_peak': dailySnapshot['momentum_peak'],
-      }, onConflict: 'device_id,date');
+      }, onConflict: 'user_id,date');
     } catch (e) {
       Logger.error('GlobalAggregationService.push failed', e);
     }
   }
 
   Future<GlobalMetrics> fetchGlobalMetrics() async {
-    if (SharedPrefsService.load('cloud_sync_enabled_v1') != 'true') {
+    if (!await _cloudSyncEnabled()) {
       return GlobalMetrics.empty();
     }
     final cached = _loadCache();
@@ -86,13 +89,13 @@ class GlobalAggregationService {
   }
 
   GlobalMetrics? _loadCache() {
-    final tsStr = SharedPrefsService.load(_kCacheTsKey);
+    final tsStr = _preferences.load(_kCacheTsKey);
     if (tsStr == null) return null;
     final ts = int.tryParse(tsStr);
     if (ts == null) return null;
     final age = (DateTime.now().millisecondsSinceEpoch ~/ 1000) - ts;
     if (age > _kCacheMaxAgeSeconds) return null;
-    final raw = SharedPrefsService.load(_kCacheKey);
+    final raw = _preferences.load(_kCacheKey);
     if (raw == null) return null;
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
@@ -108,13 +111,26 @@ class GlobalAggregationService {
 
   Future<void> _saveCache(GlobalMetrics metrics) async {
     final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    await SharedPrefsService.save(_kCacheTsKey, ts.toString());
-    await SharedPrefsService.save(
+    await _preferences.save(_kCacheTsKey, ts.toString());
+    await _preferences.save(
       _kCacheKey,
       jsonEncode({
         'avgTaskCompletionRate': metrics.avgTaskCompletionRate,
         'avgMomentumPeak': metrics.avgMomentumPeak,
       }),
     );
+  }
+
+  Future<bool> _cloudSyncEnabled() async {
+    try {
+      await _preferences.init();
+      return _preferences.load('cloud_sync_enabled_v1') == 'true';
+    } on Object catch (_, stackTrace) {
+      Logger.recordDiagnostic(
+        code: AppDiagnosticCode.globalAggregationConsentScopeUnavailable,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
   }
 }

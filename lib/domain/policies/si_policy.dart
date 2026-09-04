@@ -5,13 +5,13 @@ import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 ///
 /// sanitize() is the terminal gate every SiDecisionEntity must pass.
 class SiPolicy {
-  static const Set<String> _unsafeClaims = <String>{
-    'guarantee',
-    'cure',
-    'diagnose',
-    'prescribe',
-    'legal advice',
-  };
+  static final List<RegExp> _unsafeClaimPatterns = <RegExp>[
+    RegExp(r'\bguarantee(?:d|s|ing)?\b', caseSensitive: false),
+    RegExp(r'\bcure(?:d|s|ing)?\b', caseSensitive: false),
+    RegExp(r'\bdiagnos(?:e|ed|es|ing|is)\b', caseSensitive: false),
+    RegExp(r'\bprescrib(?:e|ed|es|ing)\b', caseSensitive: false),
+    RegExp(r'\blegal advice\b', caseSensitive: false),
+  ];
 
   static bool shouldSuggestBreak(SiStateEntity state) {
     return state.fatigue > 0.7 || state.energy < 0.3;
@@ -47,13 +47,12 @@ class SiPolicy {
   /// [SiDecisionEntity]. Model output previously bypassed this list entirely —
   /// `sanitize` only ever saw decisions, never generated prose.
   static bool containsUnsupportedClaim(String text) {
-    final String lowered = text.toLowerCase();
-    return _unsafeClaims.any(lowered.contains);
+    return _unsafeClaimPatterns.any((RegExp pattern) => pattern.hasMatch(text));
   }
 
   /// Rationale used when a decision is withheld for containing an unsupported
-  /// claim. Deliberately free of every term in [_unsafeClaims] so the fallback
-  /// can never itself fail the safety check.
+  /// claim. Deliberately free of every term in [_unsafeClaimPatterns] so the
+  /// fallback can never itself fail the safety check.
   static const String withheldRationale =
       'Suggestion withheld: it contained an unsupported claim.';
 

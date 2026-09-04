@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:flutter/material.dart';
@@ -47,6 +49,12 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('navigation-back-test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         unreadNotificationsProvider.overrideWithValue(0),
         // GoalsNotifier.build schedules a timer that outlives the test frame,
         // and routing to goals mounts it.

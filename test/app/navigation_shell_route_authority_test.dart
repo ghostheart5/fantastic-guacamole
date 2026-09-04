@@ -3,6 +3,10 @@ import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
@@ -14,6 +18,7 @@ import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dar
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/services/app_recovery_service.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,8 +27,10 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    await SharedPrefsService.init();
+    await SharedPrefsService.clear();
   });
 
   testWidgets(
@@ -148,7 +155,7 @@ void main() {
   testWidgets('saved-tab restoration affects only the default Nexus launch', (
     WidgetTester tester,
   ) async {
-    await PreferenceService().setLastOpenedTab(2);
+    await _testPreferenceService().setLastOpenedTab(2);
 
     final _RouteShellHarness defaultLaunch = await _pumpRouteShell(
       tester,
@@ -180,10 +187,35 @@ void main() {
     expect(explicitNexus.container.read(appFlowProvider), AppView.nexus);
   });
 
+  testWidgets('default launch restores the account recovery primary view', (
+    WidgetTester tester,
+  ) async {
+    await _testRecoveryService().saveState(
+      lastPrimaryViewName: AppView.profile.name,
+    );
+
+    final _RouteShellHarness harness = await _pumpRouteShell(
+      tester,
+      initialLocation: Uri(
+        path: RoutePaths.nexus,
+        queryParameters: const <String, String>{
+          restoreSavedTabQueryParameter: 'true',
+        },
+      ).toString(),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    _expectRouterUri(harness, RoutePaths.profile);
+    _expectRouteAndVisibleView(_byRoute(RoutePaths.profile));
+    expect(harness.container.read(appFlowProvider), AppView.profile);
+  });
+
   testWidgets('mounted shell honors a new saved-tab restore request', (
     WidgetTester tester,
   ) async {
-    await PreferenceService().setLastOpenedTab(2);
+    await _testPreferenceService().setLastOpenedTab(2);
 
     final _RouteShellHarness harness = await _pumpRouteShell(
       tester,
@@ -218,7 +250,7 @@ void main() {
   testWidgets('mounted shell restores Nexus without stale app flow', (
     WidgetTester tester,
   ) async {
-    await PreferenceService().setLastOpenedTab(0);
+    await _testPreferenceService().setLastOpenedTab(0);
 
     final _RouteShellHarness harness = await _pumpRouteShell(
       tester,
@@ -325,7 +357,16 @@ Future<_RouteShellHarness> _pumpRouteShell(
 
   final ProviderContainer container = ProviderContainer(
     overrides: [
-      if (forceOnline) isOnlineProvider.overrideWithValue(true),
+      accountStorageScopeProvider.overrideWithValue(
+        AccountStorageScope.authenticated('navigation-test-account'),
+      ),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
+      if (forceOnline)
+        networkInterfaceAvailabilityProvider.overrideWithValue(
+          NetworkInterfaceAvailability.available,
+        ),
       unreadNotificationsProvider.overrideWithValue(0),
       goalsProvider.overrideWith(_StaticGoals.new),
     ],
@@ -356,6 +397,24 @@ class _RouteShellHarness {
 
   final ProviderContainer container;
   final GoRouter router;
+}
+
+PreferenceService _testPreferenceService() {
+  return PreferenceService(
+    accountStore: AccountScopedSharedPrefsStore(
+      delegate: const SharedPrefsStoreAdapter(),
+      scope: AccountStorageScope.authenticated('navigation-test-account'),
+    ),
+  );
+}
+
+AppRecoveryService _testRecoveryService() {
+  return AppRecoveryService(
+    store: AccountScopedSharedPrefsStore(
+      delegate: const SharedPrefsStoreAdapter(),
+      scope: AccountStorageScope.authenticated('navigation-test-account'),
+    ),
+  );
 }
 
 class _ShellExpectation {

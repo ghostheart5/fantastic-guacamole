@@ -7,7 +7,7 @@
 // built around Smart Planner, SI Console, adaptive learning,
 // progression, goals, workspace, calendar, subscriptions and automation.
 // A file having no callers does NOT mean it is dead code — a lot of this is
-// planned architecture that ships ahead of its UI.
+// planned architecture retained ahead of its UI under an owned manifest.
 //
 // Every file under lib/domain carries a classification banner:
 //
@@ -17,8 +17,9 @@
 //   SHIPPING     — used by production behaviour. Must stay wired, tested,
 //                  policy-gated and input-validated.
 //   PLANNED      — intentionally kept for a ChronoSpark feature that is built
-//                  or partially built but not yet surfaced in UI. Do not
-//                  delete. Do not wire until the matching feature exists.
+//                  or partially built but not yet surfaced in UI. Retain only
+//                  while its manifest owner and removal criteria remain valid;
+//                  do not wire until the matching feature exists.
 //   EXPERIMENTAL — exploratory. Keep, but never treat as shipping behaviour.
 //   LEGACY       — older shape retained for compatibility/migration. Needs a
 //                  migration plan, not a delete.

@@ -7,22 +7,32 @@ These rules are mandatory for release readiness and are enforced by scripts and 
 Run all commands from repository root:
 
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_gate.ps1`
-- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_gate.ps1 -IncludeAndroidRuntime`
-- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_gate.ps1 -IncludeAndroidRuntime -RequireAndroidDevice`
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_gate.ps1 -IncludeAndroidRuntime -AndroidDeviceSerial emulator-5554`
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_gate.ps1 -IncludeAndroidRuntime -RequireAndroidDevice -AndroidDeviceSerial emulator-5554`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_gate.ps1 -IncludeCoverage`
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_gate.ps1 -IncludeCoverage -IncludeIntegrationTest -IncludeDependencyAudit -IncludeAndroidRuntime -RequireAndroidDevice -AndroidDeviceSerial emulator-5554`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release_guard.ps1`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage_guard.ps1`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/critical_coverage_report.ps1`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File check_architecture.ps1`
-- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_android_runtime_gate.ps1`
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_android_runtime_gate.ps1 -DeviceSerial emulator-5554`
 - `dart run tool/validate_github_workflows.dart`
 
-`strict_gate.ps1` is the source-of-truth umbrella gate and must pass before push/release.
+`strict_gate.ps1` is the source-of-truth local umbrella gate. Without
+`-AllowUnselectedStages`, exit `0` means COMPLETE, exit `1` means FAIL, and
+exit `2` means PARTIAL because one or more required evidence categories did not
+run. The default command is therefore not release proof when optional switches
+leave categories out. A release requires
+the complete command above plus the protected remote CI and database checks.
+The pre-push hook explicitly uses `-AllowUnselectedStages`: this permits a
+source-only invocation with unselected optional categories to return zero while
+its manifest and console still say PARTIAL. It never converts a requested stage
+that could not run into success, and it is never release evidence.
 It scans tracked and non-ignored untracked files for secret material and validates GitHub workflow policy before analysis or tests run.
-`strict_gate.ps1 -IncludeAndroidRuntime` enables runtime/device checks as part of the same gate.
-`strict_gate.ps1 -IncludeAndroidRuntime -RequireAndroidDevice` makes missing device a hard failure.
+`strict_gate.ps1 -IncludeAndroidRuntime -AndroidDeviceSerial <serial>` enables runtime/device checks against exactly one selected target.
+Adding `-RequireAndroidDevice` makes a missing selected device a hard failure.
 `strict_gate.ps1 -IncludeCoverage` runs tests with coverage output and enforces coverage thresholds.
-`strict_android_runtime_gate.ps1` is the runtime/device gate. It auto-runs when a device is present and blocks on app-specific fatal runtime markers.
+`strict_android_runtime_gate.ps1` is the runtime/device gate. It requires an explicit serial and blocks unless bounded build, install, launch-readiness, non-empty PID-scoped Logcat, and app-fatal evidence all pass.
 
 ## 2) Crash and Error Capture
 
@@ -60,7 +70,7 @@ It scans tracked and non-ignored untracked files for secret material and validat
 
 ## 6) Testing and Stability Readiness
 
-- `flutter analyze` must pass with zero errors.
+- `flutter analyze --fatal-infos` must pass with zero diagnostics.
 - `flutter test` must pass with zero failures.
 - New critical paths (auth deletion, permissions, startup, SI routing) require focused tests.
 - Coverage floors are enforced by `scripts/coverage_guard.ps1`.
@@ -80,9 +90,17 @@ It scans tracked and non-ignored untracked files for secret material and validat
   - `state/controllers/providers` >= 70% (target 70-85%)
   - `engine/si` >= 70% (target 70-85% meaningful)
   - `features/ui` >= 50% (target 50-70% focused)
+    The inventory-complete CI ratchet is currently 50%; the retired 62.5%
+    value measured only LCOV-present files and cannot be compared after omitted
+    production files began counting at zero.
 - Integration flow gate:
-  - at least 5 integration tests must exist under `integration_test/`
+  - at least 5 declared critical flows must exist across the maintained files under `integration_test/`
   - 5-8 critical integration flows should be treated as required release gates; additional integration tests should not replace unit/domain coverage growth
+- Production Dart files omitted from LCOV are conservatively added to the
+  denominator at zero coverage unless they are declaration-only files on the
+  reviewed explicit exclusion list. A normalized SHA-256 lock covers the path
+  set and contents, so any excluded-file change fails until it is explicitly
+  re-reviewed and the lock is updated.
 - `scripts/coverage_guard.ps1` also reports critical-only coverage across enforced files so release decisions are not distorted by low-value legacy/global noise.
 - `scripts/coverage_guard.ps1` fails if any critical source file is missing its required companion test file.
 - `scripts/critical_coverage_report.ps1` prints uncovered lines only for critical files so follow-up test work stays targeted.
@@ -96,7 +114,8 @@ It scans tracked and non-ignored untracked files for secret material and validat
 ## 8) Hook Enforcement
 
 - `.githooks/pre-commit`: runs release guard with `-NoProfile -ExecutionPolicy Bypass`.
-- `.githooks/pre-push`: runs strict gate with `-NoProfile -ExecutionPolicy Bypass`.
+- `.githooks/pre-push`: runs the bounded source-only strict gate with
+  `-AllowUnselectedStages`; protected remote checks remain authoritative.
 - Activate hooks with:
   - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install_git_hooks.ps1`
 
@@ -106,8 +125,8 @@ It scans tracked and non-ignored untracked files for secret material and validat
   - `android-diagnose-one-click`
   - `android-logcat-scan-latest`
 - For strict runtime enforcement, use:
-  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_android_runtime_gate.ps1`
-  - Add `-RequireDevice` when CI or release rehearsal must fail without a connected device.
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_android_runtime_gate.ps1 -DeviceSerial emulator-5554`
+  - Add `-RequireDevice` when CI or release rehearsal must fail unless that exact device is connected.
 
 ## 10) Non-Negotiable Blocking Criteria
 

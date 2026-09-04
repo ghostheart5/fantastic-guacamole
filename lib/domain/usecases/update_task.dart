@@ -3,10 +3,10 @@ import 'package:fantastic_guacamole/domain/errors/domain_validation_exception.da
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Goals/tasks
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
 ///
-/// Registered as updateTaskUseCaseProvider; no task-edit UI flow yet. Gated by
-/// TaskPolicy.isValid.
+/// Used by the Timeline task-edit flow through taskProvider. Gated by
+/// [TaskPolicy.isValid].
 class UpdateTask {
   UpdateTask(this.repository);
 

@@ -314,7 +314,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
               when binding.hasBoundEvidence) ...[
             const SizedBox(height: 10),
             const Text(
-              'BOUND REVIEW EVIDENCE',
+              'GOVERNED CONTEXT REVIEW',
               style: TextStyle(
                 color: AppColors.neonCyan,
                 fontSize: 10,
@@ -324,7 +324,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             const Text(
-              'This is review evidence only and did not alter the proposed item.',
+              'Relevant user-reported context was checked. The proposal was not silently rewritten; any conflict requires your confirmation.',
               key: Key('creator-bound-evidence-boundary'),
               style: TextStyle(
                 color: Colors.white60,
@@ -333,6 +333,19 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
+            ...binding.conflictWarnings.map(
+              (String warning) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'Warning: $warning',
+                  style: const TextStyle(
+                    color: Colors.amberAccent,
+                    fontSize: 11,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ),
             ...binding.evidenceSummary.indexed.map(((int, String) item) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 4),

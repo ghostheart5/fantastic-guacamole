@@ -1,0 +1,48 @@
+# Priority 8 — state-preserving restart ledger readback only.
+appId: com.ghostheart5.chronospark
+tags:
+  - priority8
+  - readback
+---
+- launchApp
+
+- extendedWaitUntil:
+    visible: "(?s).*(?:TESTER ACCESS.*TEST LOGIN|NEXUS|SETTINGS).*"
+    timeout: 30000
+
+# QA mock authentication is process-local; reuse the same isolated tester
+# identity when the APK reinstall returns to the login boundary.
+- runFlow:
+    when:
+      visible: "TESTER ACCESS.*TEST LOGIN"
+    commands:
+      - tapOn: "TESTER ACCESS.*TEST LOGIN"
+      - extendedWaitUntil:
+          visible: "NEXUS"
+          timeout: 30000
+
+- runFlow:
+    when:
+      visible: "NEXUS"
+    commands:
+      - runFlow:
+          file: ../subflows/open-from-nexus.yaml
+          env:
+            TARGET: "Settings"
+
+- extendedWaitUntil:
+    visible: "(?s).*SETTINGS.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "(?s).*Planning & guidance.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "(?s).*Planning & guidance.*"
+- scrollUntilVisible:
+    element:
+      text: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"
+    direction: DOWN
+    visibilityPercentage: 20
+    timeout: 20000
+- assertVisible: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"

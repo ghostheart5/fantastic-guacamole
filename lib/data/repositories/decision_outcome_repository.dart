@@ -13,14 +13,13 @@ class DecisionOutcomeRepository
     implements
         IDecisionOutcomeRepository,
         IExactDecisionOutcomeSnapshotRepository {
-  DecisionOutcomeRepository(this._store, this._scope, {this.maxRecords});
+  DecisionOutcomeRepository(this._store, this._scope, {this.maxRecords = 256});
 
   final SharedPrefsStore _store;
   final AccountStorageScope _scope;
 
-  /// Optional explicit retention bound. Production keeps the complete local
-  /// ledger unless a caller supplies and discloses a retention policy.
-  final int? maxRecords;
+  /// Explicit local retention bound. Oldest observations are removed first.
+  final int maxRecords;
   Future<void> _tail = Future<void>.value();
 
   String get _key {
@@ -31,6 +30,8 @@ class DecisionOutcomeRepository
     return 'chronospark.decision_outcomes.v1.$namespace';
   }
 
+  String get _pausedKey => '$_key.paused';
+
   @override
   Future<List<DecisionOutcomeEntity>> load() async {
     await _store.init();
@@ -40,7 +41,7 @@ class DecisionOutcomeRepository
     if (decoded is! List<dynamic>) {
       throw const FormatException('Decision outcome storage is not a list.');
     }
-    return decoded
+    final List<DecisionOutcomeEntity> values = decoded
         .whereType<Map<dynamic, dynamic>>()
         .map(
           (Map<dynamic, dynamic> value) => DecisionOutcomeEntity.fromJson(
@@ -51,6 +52,19 @@ class DecisionOutcomeRepository
         )
         .where((DecisionOutcomeEntity value) => value.decisionId.isNotEmpty)
         .toList(growable: false);
+    if (values.length <= maxRecords) return values;
+    final List<DecisionOutcomeEntity> bounded = values.sublist(
+      values.length - maxRecords,
+    );
+    await _store.save(
+      _key,
+      jsonEncode(
+        bounded
+            .map((DecisionOutcomeEntity value) => value.toJson())
+            .toList(growable: false),
+      ),
+    );
+    return bounded;
   }
 
   @override
@@ -60,15 +74,20 @@ class DecisionOutcomeRepository
         throw ArgumentError('Decision outcome identity must not be empty.');
       }
       final List<DecisionOutcomeEntity> values = await load();
-      if (values.any((DecisionOutcomeEntity value) => value.id == outcome.id)) {
-        return;
+      final int existingIndex = values.indexWhere(
+        (DecisionOutcomeEntity value) => value.id == outcome.id,
+      );
+      if (existingIndex >= 0) {
+        if (outcome.kind != DecisionOutcomeKind.corrected) return;
+        values[existingIndex] = outcome;
       }
       final List<DecisionOutcomeEntity> next =
-          <DecisionOutcomeEntity>[...values, outcome]..sort(
-            (DecisionOutcomeEntity first, DecisionOutcomeEntity second) =>
-                first.recordedAt.compareTo(second.recordedAt),
-          );
-      final int trim = maxRecords == null ? 0 : next.length - maxRecords!;
+          <DecisionOutcomeEntity>[...values, if (existingIndex < 0) outcome]
+            ..sort(
+              (DecisionOutcomeEntity first, DecisionOutcomeEntity second) =>
+                  first.recordedAt.compareTo(second.recordedAt),
+            );
+      final int trim = next.length - maxRecords;
       final List<DecisionOutcomeEntity> bounded = trim > 0
           ? next.sublist(trim)
           : next;
@@ -88,20 +107,20 @@ class DecisionOutcomeRepository
   @override
   Future<void> replaceSnapshot(List<DecisionOutcomeEntity> outcomes) {
     final Future<void> operation = _tail.then((_) async {
-      final int? limit = maxRecords;
-      if (limit != null && outcomes.length > limit) {
-        throw StateError('Decision outcome snapshot exceeds its local limit.');
-      }
       await _store.init();
       final List<DecisionOutcomeEntity> sorted = outcomes.toList()
         ..sort(
           (DecisionOutcomeEntity first, DecisionOutcomeEntity second) =>
               first.recordedAt.compareTo(second.recordedAt),
         );
+      final int trim = sorted.length - maxRecords;
+      final List<DecisionOutcomeEntity> bounded = trim > 0
+          ? sorted.sublist(trim)
+          : sorted;
       await _store.save(
         _key,
         jsonEncode(
-          sorted
+          bounded
               .map((DecisionOutcomeEntity value) => value.toJson())
               .toList(growable: false),
         ),
@@ -110,6 +129,31 @@ class DecisionOutcomeRepository
     _tail = operation.catchError((Object _) {});
     return operation;
   }
+
+  Future<bool> isLearningPaused() async {
+    await _store.init();
+    return _store.load(_pausedKey) == 'true';
+  }
+
+  Future<void> setLearningPaused(bool paused) async {
+    await _store.init();
+    if (paused) {
+      await _store.save(_pausedKey, 'true');
+    } else {
+      await _store.delete(_pausedKey);
+    }
+  }
+
+  Future<void> remove(String outcomeId) async {
+    final List<DecisionOutcomeEntity> current = await load();
+    await replaceSnapshot(
+      current
+          .where((DecisionOutcomeEntity value) => value.id != outcomeId)
+          .toList(growable: false),
+    );
+  }
+
+  Future<void> clear() => replaceSnapshot(const <DecisionOutcomeEntity>[]);
 
   Future<void> drain() => _tail.catchError((Object _) {});
 }

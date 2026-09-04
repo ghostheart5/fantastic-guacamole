@@ -1,14 +1,13 @@
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
+import 'package:fantastic_guacamole/engine/assistant/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/emotional_state.dart';
 import 'package:fantastic_guacamole/domain/ports/i_assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
     as si_models;
 import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_evolution_timeline.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
-import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
-import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
-import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 
 abstract class AssistantIntentDetector {
   AssistantIntent detect({
@@ -69,6 +68,8 @@ abstract class SmartPlannerInterface<TResult extends Object> {
     required String notes,
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   });
 
   Future<String> requestFollowUp({
@@ -77,12 +78,14 @@ abstract class SmartPlannerInterface<TResult extends Object> {
     required EmotionalState? emotion,
     required String reflection,
     required List<Map<String, String>> history,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
   });
 }
 
-abstract class SIConsoleInterface {
-  Future<AIRecommendation?> sendMessage(String text);
-  Future<AIRecommendation?> executeConsoleQuery({
+abstract class SIConsoleInterface<TResult extends Object> {
+  Future<TResult?> sendMessage(String text);
+  Future<TResult?> executeConsoleQuery({
     required String input,
     List<Map<String, String>> history,
     Map<String, dynamic> context,

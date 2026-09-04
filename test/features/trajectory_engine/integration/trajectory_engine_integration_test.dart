@@ -140,7 +140,7 @@ void main() {
             momentum: fixture.momentum,
             statusDetail:
                 'Trajectory evidence could not be reconciled. No future conclusion is currently valid.',
-            isOnline: true,
+            hasAvailableNetworkInterface: true,
           ),
         ),
       );
@@ -164,7 +164,7 @@ void main() {
             momentum: fixture.momentum,
             statusDetail:
                 'Record 3 more task outcomes before ChronoSpark compares future paths. No personal forecast is shown yet.',
-            isOnline: true,
+            hasAvailableNetworkInterface: true,
           ),
         ),
       );
@@ -252,6 +252,6 @@ TrajectoryEngineModel _modelForScope(String accountScope) {
     momentum: fixture.momentum,
     comparison: trajectoryTestComparison(baseline: scopedBaseline),
     statusDetail: fixture.statusDetail,
-    isOnline: fixture.isOnline,
+    hasAvailableNetworkInterface: fixture.hasAvailableNetworkInterface,
   );
 }

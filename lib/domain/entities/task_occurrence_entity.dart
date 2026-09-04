@@ -124,9 +124,10 @@ class TaskOccurrence {
       '$taskId::$occurrenceKey';
 
   static String seriesIdFor(TaskEntity task) {
-    const String successorSeparator = '::next::';
-    final int separator = task.id.indexOf(successorSeparator);
-    return separator < 0 ? task.id : task.id.substring(0, separator);
+    return TaskEntity.recurrenceSeriesIdFor(
+      taskId: task.id,
+      storedSeriesId: task.recurrenceSeriesId,
+    );
   }
 
   static String occurrenceKeyFor(TaskEntity task) {
@@ -257,9 +258,10 @@ class TaskOccurrence {
     }
     return TaskOccurrence(
       taskId: taskId,
-      seriesId: storedSeriesId.isEmpty
-          ? taskId.split('::next::').first
-          : storedSeriesId,
+      seriesId: TaskEntity.recurrenceSeriesIdFor(
+        taskId: taskId,
+        storedSeriesId: storedSeriesId,
+      ),
       occurrenceKey: occurrenceKey,
       initialScheduledFor: DateTime.tryParse(
         json['initialScheduledFor']?.toString() ?? '',

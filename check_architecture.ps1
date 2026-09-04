@@ -1,6 +1,14 @@
+param(
+  [string]$Root
+)
+
 $ErrorActionPreference = 'Stop'
 
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ([string]::IsNullOrWhiteSpace($Root)) {
+  $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+
+$root = (Resolve-Path -LiteralPath $Root -ErrorAction Stop).Path
 $libRoot = Join-Path $root 'lib'
 
 if (-not (Test-Path $libRoot)) {
@@ -9,18 +17,87 @@ if (-not (Test-Path $libRoot)) {
 
 $violations = New-Object System.Collections.Generic.List[string]
 
+function Get-ProjectRelativePath {
+  param(
+    [string]$FilePath
+  )
+
+  $fullPath = [System.IO.Path]::GetFullPath($FilePath)
+  $rootPrefix = $root
+  if (
+    -not $rootPrefix.EndsWith([System.IO.Path]::DirectorySeparatorChar) -and
+    -not $rootPrefix.EndsWith([System.IO.Path]::AltDirectorySeparatorChar)
+  ) {
+    $rootPrefix += [System.IO.Path]::DirectorySeparatorChar
+  }
+  $comparison = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+    [System.StringComparison]::OrdinalIgnoreCase
+  } else {
+    [System.StringComparison]::Ordinal
+  }
+
+  if (-not $fullPath.StartsWith($rootPrefix, $comparison)) {
+    throw "Path is outside the architecture scan root: $fullPath"
+  }
+
+  return $fullPath.Substring($rootPrefix.Length).Replace('\', '/')
+}
+
+function Get-DartImports {
+  param(
+    [string]$FilePath
+  )
+
+  [string]$content = Get-Content -LiteralPath $FilePath -Raw
+  $importPattern = '(?ms)^[\t ]*import[\t ]+[''"](?<Uri>[^''"]+)[''"][^;]*;'
+
+  foreach ($match in [regex]::Matches($content, $importPattern)) {
+    [PSCustomObject]@{
+      Uri = $match.Groups['Uri'].Value
+      LineNumber = Get-SourceLineNumber -Content $content -Index $match.Index
+    }
+  }
+}
+
+function Get-ProviderDeclarations {
+  param(
+    [string]$FilePath
+  )
+
+  [string]$content = Get-Content -LiteralPath $FilePath -Raw
+  $providerPattern = '(?ms)^[\t ]*(?:final|const|late[\t ]+final)\b(?:(?!;).)*?\b(?<Name>[A-Za-z_]\w*Provider)\s*=\s*(?<Factory>(?:Provider|[A-Za-z_]\w*Provider))(?=\s*[<.(])'
+
+  foreach ($match in [regex]::Matches($content, $providerPattern)) {
+    [PSCustomObject]@{
+      Name = $match.Groups['Name'].Value
+      Factory = $match.Groups['Factory'].Value
+      LineNumber = Get-SourceLineNumber -Content $content -Index $match.Index
+    }
+  }
+}
+
+function Get-SourceLineNumber {
+  param(
+    [string]$Content,
+    [int]$Index
+  )
+
+  return 1 + [regex]::Matches(
+    $Content.Substring(0, $Index),
+    '\r\n|\r|\n'
+  ).Count
+}
+
 function Get-Imports {
   param(
     [string]$FilePath
   )
 
-  $lines = @(Get-Content -Path $FilePath)
-  for ($i = 0; $i -lt $lines.Length; $i++) {
-    $line = $lines[$i].Trim()
-    if ($line -match "^import\s+'package:fantastic_guacamole/([^']+)';") {
+  foreach ($dartImport in Get-DartImports -FilePath $FilePath) {
+    if ($dartImport.Uri.StartsWith('package:fantastic_guacamole/')) {
       [PSCustomObject]@{
-        ImportPath = $matches[1]
-        LineNumber = $i + 1
+        ImportPath = $dartImport.Uri.Substring('package:fantastic_guacamole/'.Length)
+        LineNumber = $dartImport.LineNumber
       }
     }
   }
@@ -34,15 +111,19 @@ function Add-Violation {
     [string]$ImportPath
   )
 
-  $relativeFile = $FilePath.Replace($root + '\\', '')
+  $relativeFile = Get-ProjectRelativePath -FilePath $FilePath
   $violations.Add("${relativeFile}:$LineNumber -> $Message (import: $ImportPath)") | Out-Null
 }
 
-$dartFiles = Get-ChildItem -Path $libRoot -Filter '*.dart' -Recurse -File
+$dartFiles = @(Get-ChildItem -Path $libRoot -Filter '*.dart' -Recurse -File)
+
+if ($dartFiles.Count -eq 0) {
+  $violations.Add('lib:1 -> architecture scan found no Dart files') | Out-Null
+}
 
 foreach ($file in $dartFiles) {
   $fullPath = $file.FullName
-  $relativePath = $fullPath.Replace($root + '\\', '').Replace('\\', '/')
+  $relativePath = Get-ProjectRelativePath -FilePath $fullPath
   $imports = Get-Imports -FilePath $fullPath
 
   foreach ($imp in $imports) {
@@ -96,14 +177,29 @@ foreach ($file in $dartFiles) {
       }
     }
   }
+
+  # Provider composition belongs in state/providers, never in the data layer.
+  if ($relativePath.StartsWith('lib/data/')) {
+    $dartImports = Get-DartImports -FilePath $fullPath
+    foreach ($dartImport in $dartImports) {
+      if ($dartImport.Uri.StartsWith('package:flutter_riverpod/')) {
+        Add-Violation -FilePath $fullPath -LineNumber $dartImport.LineNumber -Message 'data/* must not import Riverpod; provider composition belongs under state/providers' -ImportPath $dartImport.Uri
+      }
+    }
+
+    $providerDeclarations = Get-ProviderDeclarations -FilePath $fullPath
+    foreach ($providerDeclaration in $providerDeclarations) {
+      $violations.Add("${relativePath}:$($providerDeclaration.LineNumber) -> data/* must not declare providers; provider composition belongs under state/providers (provider: $($providerDeclaration.Name), factory: $($providerDeclaration.Factory))") | Out-Null
+    }
+  }
 }
 
 # Rule 5: feature services should be rare and local-only.
 $featureServiceFiles = Get-ChildItem -Path (Join-Path $libRoot 'features') -Filter '*.dart' -Recurse -File |
-  Where-Object { $_.FullName.Replace('\\', '/') -match '/services/' }
+  Where-Object { (Get-ProjectRelativePath -FilePath $_.FullName) -match '/services/' }
 
 foreach ($file in $featureServiceFiles) {
-  $relativePath = $file.FullName.Replace($root + '\\', '').Replace('\\', '/')
+  $relativePath = Get-ProjectRelativePath -FilePath $file.FullName
   $imports = Get-Imports -FilePath $file.FullName
   foreach ($imp in $imports) {
     if (-not $imp.ImportPath.StartsWith('features/')) {
@@ -118,12 +214,11 @@ $explicitOwners = @{
   'ISignalRepository' = 'lib/state/services/signals_service.dart'
   'ILearningRepository' = 'lib/state/services/intelligence_service.dart'
   'IProgressionRepository' = 'lib/state/services/progression_service.dart'
-  'IThemeRepository' = 'lib/state/services/theme_service.dart'
 }
 
 $implementedInterfaces = New-Object 'System.Collections.Generic.HashSet[string]'
 $implScanFiles = Get-ChildItem -Path $libRoot -Filter '*.dart' -Recurse -File |
-  Where-Object { -not $_.FullName.Replace('\\', '/').Contains('/domain/interfaces/') }
+  Where-Object { -not (Get-ProjectRelativePath -FilePath $_.FullName).StartsWith('lib/domain/interfaces/') }
 
 foreach ($file in $implScanFiles) {
   $content = Get-Content -Path $file.FullName -Raw
@@ -181,7 +276,7 @@ while ($pendingInterfaces.Count -gt 0) {
 }
 
 foreach ($interfaceFile in $interfaceFiles) {
-  $relativeInterfacePath = $interfaceFile.FullName.Replace($root + '\\', '').Replace('\\', '/')
+  $relativeInterfacePath = Get-ProjectRelativePath -FilePath $interfaceFile.FullName
   $content = Get-Content -Path $interfaceFile.FullName -Raw
   if ($content -match 'abstract(?:\s+interface)?\s+class\s+(I[A-Za-z0-9]+Repository)') {
     $interfaceName = $matches[1]
@@ -237,7 +332,7 @@ if (Test-Path $domainEntitiesPath) {
 # Rule 8: centralize application state providers under lib/state/providers.
 $featureFiles = Get-ChildItem -Path (Join-Path $libRoot 'features') -Filter '*.dart' -Recurse -File
 foreach ($file in $featureFiles) {
-  $relativeFeaturePath = $file.FullName.Replace($root + '\\', '').Replace('\\', '/')
+  $relativeFeaturePath = Get-ProjectRelativePath -FilePath $file.FullName
   $lines = @(Get-Content -Path $file.FullName)
 
   for ($i = 0; $i -lt $lines.Length; $i++) {
@@ -299,43 +394,43 @@ foreach ($scanRoot in $importScanRoots) {
   }
 }
 foreach ($file in $allDartFiles) {
-  $relativePath = $file.FullName.Replace($root + '\\', '').Replace('\\', '/')
-  $lines = @(Get-Content -Path $file.FullName)
+  $relativePath = Get-ProjectRelativePath -FilePath $file.FullName
+  $dartImports = Get-DartImports -FilePath $file.FullName
 
-  for ($i = 0; $i -lt $lines.Length; $i++) {
-    $line = $lines[$i].Trim()
-
-    if ($line -match "^import\s+'package:[^']+/src/[^']+';") {
-      $violations.Add("${relativePath}:$($i + 1) -> importing package private src/ is not allowed") | Out-Null
+  foreach ($dartImport in $dartImports) {
+    if ($dartImport.Uri -match '^package:[^/]+/src/') {
+      $violations.Add("${relativePath}:$($dartImport.LineNumber) -> importing package private src/ is not allowed") | Out-Null
     }
 
     $isTestFile = $relativePath.StartsWith('test/') -or $relativePath.StartsWith('integration_test/')
-    if ($isTestFile -and $line -match "^import\s+'\.\./lib/[^']+';") {
-      $violations.Add("${relativePath}:$($i + 1) -> tests must import app code via package:fantastic_guacamole/... not ../lib/") | Out-Null
+    if ($isTestFile -and $dartImport.Uri.StartsWith('../lib/')) {
+      $violations.Add("${relativePath}:$($dartImport.LineNumber) -> tests must import app code via package:fantastic_guacamole/... not ../lib/") | Out-Null
     }
   }
 }
 
-# Rule 11: feature UI/widgets dependency direction.
-$featureUiRoots = @(
+# Rule 11: feature presentation dependency direction.
+$featurePresentationRoots = @(
   (Join-Path $libRoot 'features')
 )
 
-foreach ($featureRoot in $featureUiRoots) {
+foreach ($featureRoot in $featurePresentationRoots) {
   if (-not (Test-Path $featureRoot)) {
     continue
   }
 
-  $uiFiles = Get-ChildItem -Path $featureRoot -Filter '*.dart' -Recurse -File |
+  $presentationFiles = Get-ChildItem -Path $featureRoot -Filter '*.dart' -Recurse -File |
     Where-Object {
-      $normalized = $_.FullName.Replace('\', '/')
-      $normalized.Contains('/ui/') -or $normalized.Contains('/widgets/')
+      $normalized = Get-ProjectRelativePath -FilePath $_.FullName
+      $normalized.Contains('/ui/') -or
+      $normalized.Contains('/widgets/') -or
+      $normalized.Contains('/screens/')
     }
 
-  foreach ($file in $uiFiles) {
-    $relativePath = $file.FullName.Replace($root + '\', '').Replace('\', '/')
-    $imports = Get-Imports -FilePath $file.FullName
-    foreach ($imp in $imports) {
+  foreach ($file in $presentationFiles) {
+    $relativePath = Get-ProjectRelativePath -FilePath $file.FullName
+    $appImports = Get-Imports -FilePath $file.FullName
+    foreach ($imp in $appImports) {
       $importPath = $imp.ImportPath
 
       if (
@@ -344,7 +439,14 @@ foreach ($featureRoot in $featureUiRoots) {
         $importPath.StartsWith('engine/') -or
         $importPath.StartsWith('app/')
       ) {
-        $violations.Add("${relativePath}:$($imp.LineNumber) -> feature ui/widgets must depend on state/domain/ui/features only (import: $importPath)") | Out-Null
+        Add-Violation -FilePath $file.FullName -LineNumber $imp.LineNumber -Message 'feature presentation must depend on state/domain/ui/features only' -ImportPath $importPath
+      }
+    }
+
+    $dartImports = Get-DartImports -FilePath $file.FullName
+    foreach ($dartImport in $dartImports) {
+      if ($dartImport.Uri.StartsWith('package:shared_preferences/')) {
+        Add-Violation -FilePath $file.FullName -LineNumber $dartImport.LineNumber -Message 'feature presentation must not import shared_preferences directly' -ImportPath $dartImport.Uri
       }
     }
   }
@@ -394,17 +496,18 @@ if (Test-Path $smartPlannerPath) {
 $aiControllerPath = Join-Path $root 'lib/state/controllers/ai_controller.dart'
 if (Test-Path $aiControllerPath) {
   $aiControllerRaw = Get-Content -Path $aiControllerPath -Raw
+  $aiControllerImports = Get-Imports -FilePath $aiControllerPath
 
-  if ($aiControllerRaw -notmatch "import\s+'package:fantastic_guacamole/state/controllers/si_state_controller\.dart';") {
+  if ($aiControllerImports.ImportPath -notcontains 'state/controllers/si_state_controller.dart') {
     $violations.Add('lib/state/controllers/ai_controller.dart:1 -> AI controller must depend on SI state controller/provider layer') | Out-Null
   }
-  if ($aiControllerRaw -notmatch "import\s+'package:fantastic_guacamole/state/providers/intelligence_provider\.dart';") {
+  if ($aiControllerImports.ImportPath -notcontains 'state/providers/intelligence_provider.dart') {
     $violations.Add('lib/state/controllers/ai_controller.dart:1 -> AI controller must read intelligence provider for runtime context') | Out-Null
   }
-  if ($aiControllerRaw -notmatch "import\s+'package:fantastic_guacamole/state/providers/si_memory_provider\.dart';") {
+  if ($aiControllerImports.ImportPath -notcontains 'state/providers/si_memory_provider.dart') {
     $violations.Add('lib/state/controllers/ai_controller.dart:1 -> AI controller must capture SI memory snapshots via si_memory_provider') | Out-Null
   }
-  if ($aiControllerRaw -notmatch "import\s+'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator\.dart';") {
+  if ($aiControllerImports.ImportPath -notcontains 'data/services/ai/orchestration/agent_orchestrator.dart') {
     $violations.Add('lib/state/controllers/ai_controller.dart:1 -> AI controller must route chat via agent_orchestrator') | Out-Null
   }
   if ($aiControllerRaw -notmatch 'siMemoryProvider\.notifier\)\s*\.capture\(') {
@@ -480,10 +583,10 @@ $siInternalModules = @(
 )
 
 $nonEngineFiles = Get-ChildItem -Path $libRoot -Filter '*.dart' -Recurse -File |
-  Where-Object { -not $_.FullName.Replace('\', '/').Contains('/lib/engine/') }
+  Where-Object { -not (Get-ProjectRelativePath -FilePath $_.FullName).StartsWith('lib/engine/') }
 
 foreach ($file in $nonEngineFiles) {
-  $relativePath = $file.FullName.Replace($root + '\', '').Replace('\', '/')
+  $relativePath = Get-ProjectRelativePath -FilePath $file.FullName
   $imports = Get-Imports -FilePath $file.FullName
 
   foreach ($imp in $imports) {
@@ -576,12 +679,14 @@ foreach ($relativePath in $assistantStateLayerPaths) {
 # Rule 16: engine/si must remain pure Dart (no Flutter framework imports).
 $siEngineFiles = Get-ChildItem -Path (Join-Path $libRoot 'engine/si') -Filter '*.dart' -Recurse -File
 foreach ($file in $siEngineFiles) {
-  $relativePath = $file.FullName.Replace($root + '\\', '').Replace('\\', '/')
-  $lines = @(Get-Content -Path $file.FullName)
-  for ($i = 0; $i -lt $lines.Length; $i++) {
-    $line = $lines[$i].Trim()
-    if ($line -match "^import\s+'package:flutter/" -or $line -match "^import\s+'package:flutter_riverpod/") {
-      $violations.Add("${relativePath}:$($i + 1) -> engine/si files must be pure Dart and must not import Flutter or Riverpod") | Out-Null
+  $relativePath = Get-ProjectRelativePath -FilePath $file.FullName
+  $dartImports = Get-DartImports -FilePath $file.FullName
+  foreach ($dartImport in $dartImports) {
+    if (
+      $dartImport.Uri.StartsWith('package:flutter/') -or
+      $dartImport.Uri.StartsWith('package:flutter_riverpod/')
+    ) {
+      $violations.Add("${relativePath}:$($dartImport.LineNumber) -> engine/si files must be pure Dart and must not import Flutter or Riverpod") | Out-Null
     }
   }
 }
@@ -622,8 +727,8 @@ if (Test-Path $engineServicePath) {
 }
 
 if (Test-Path $siConsolePath) {
-  $siConsoleRaw = Get-Content -Path $siConsolePath -Raw
-  if ($siConsoleRaw -match "import\s+'package:fantastic_guacamole/engine/si/") {
+  $siConsoleImports = Get-Imports -FilePath $siConsolePath
+  if (@($siConsoleImports | Where-Object { $_.ImportPath.StartsWith('engine/si/') }).Count -gt 0) {
     $violations.Add('lib/features/si_console/ui/si_console_screen.dart:1 -> features/si_console must not import engine/si directly; route through AI controller/intelligence/orchestrator/repository/service bridge') | Out-Null
   }
 }
@@ -641,11 +746,11 @@ foreach ($relativePath in $persistedProviderPaths) {
     continue
   }
 
-  $raw = Get-Content -Path $absolutePath -Raw
-  if ($raw -match "import\s+'package:fantastic_guacamole/data/storage/shared_prefs_service\.dart';") {
+  $imports = Get-Imports -FilePath $absolutePath
+  if ($imports.ImportPath -contains 'data/storage/shared_prefs_service.dart') {
     $violations.Add("${relativePath}:1 -> persisted feature providers must not import SharedPrefsService directly; use domain usecase providers") | Out-Null
   }
-  if ($raw -notmatch "import\s+'package:fantastic_guacamole/state/providers/domain_usecase_providers\.dart';") {
+  if ($imports.ImportPath -notcontains 'state/providers/domain_usecase_providers.dart') {
     $violations.Add("${relativePath}:1 -> persisted feature providers must import domain_usecase_providers.dart to reach domain usecases") | Out-Null
   }
 }
@@ -653,20 +758,28 @@ foreach ($relativePath in $persistedProviderPaths) {
 # Rule 19: lightweight full-vs-placeholder domain file heuristics.
 $domainEntityFiles = Get-ChildItem -Path (Join-Path $libRoot 'domain/entities') -Filter '*.dart' -File
 foreach ($file in $domainEntityFiles) {
-  $relativePath = $file.FullName.Replace($root + '\', '').Replace('\', '/')
-  $raw = Get-Content -Path $file.FullName -Raw
+  $relativePath = Get-ProjectRelativePath -FilePath $file.FullName
+  $dartImports = Get-DartImports -FilePath $file.FullName
 
-  if ($raw -match "^import\s+'package:(flutter|firebase_|hive|supabase_flutter)" ) {
-    $violations.Add("${relativePath}:1 -> domain entities must not import Flutter/Firebase/Hive/Supabase dependencies") | Out-Null
+  foreach ($dartImport in $dartImports) {
+    if (
+      $dartImport.Uri.StartsWith('package:flutter/') -or
+      $dartImport.Uri.StartsWith('package:firebase_') -or
+      $dartImport.Uri.StartsWith('package:hive/') -or
+      $dartImport.Uri.StartsWith('package:supabase_flutter/')
+    ) {
+      $violations.Add("${relativePath}:$($dartImport.LineNumber) -> domain entities must not import Flutter/Firebase/Hive/Supabase dependencies") | Out-Null
+    }
   }
 }
 
 $domainInterfaceFiles = Get-ChildItem -Path (Join-Path $libRoot 'domain/interfaces') -Filter '*.dart' -File
 foreach ($file in $domainInterfaceFiles) {
-  $relativePath = $file.FullName.Replace($root + '\', '').Replace('\', '/')
+  $relativePath = Get-ProjectRelativePath -FilePath $file.FullName
   $raw = Get-Content -Path $file.FullName -Raw
+  $imports = Get-Imports -FilePath $file.FullName
 
-  if ($raw -match "import\s+'package:fantastic_guacamole/(data/|system/)") {
+  if (@($imports | Where-Object { $_.ImportPath.StartsWith('data/') -or $_.ImportPath.StartsWith('system/') }).Count -gt 0) {
     $violations.Add("${relativePath}:1 -> domain interfaces must not depend on data or system implementation layers") | Out-Null
   }
   if ($raw -notmatch 'abstract(?:\s+interface)?\s+class\s+I[A-Za-z0-9]+Repository') {
@@ -676,13 +789,14 @@ foreach ($file in $domainInterfaceFiles) {
 
 $domainUsecaseFiles = Get-ChildItem -Path (Join-Path $libRoot 'domain/usecases') -Filter '*.dart' -File
 foreach ($file in $domainUsecaseFiles) {
-  $relativePath = $file.FullName.Replace($root + '\', '').Replace('\', '/')
-  $raw = Get-Content -Path $file.FullName -Raw
+  $relativePath = Get-ProjectRelativePath -FilePath $file.FullName
+  $appImports = Get-Imports -FilePath $file.FullName
+  $dartImports = Get-DartImports -FilePath $file.FullName
 
-  if ($raw -match "import\s+'package:fantastic_guacamole/data/repositories/") {
+  if (@($appImports | Where-Object { $_.ImportPath.StartsWith('data/repositories/') }).Count -gt 0) {
     $violations.Add("${relativePath}:1 -> domain usecases must depend on interfaces, not concrete data repositories") | Out-Null
   }
-  if ($raw -match "import\s+'package:(flutter|flutter_riverpod)/") {
+  if (@($dartImports | Where-Object { $_.Uri.StartsWith('package:flutter/') -or $_.Uri.StartsWith('package:flutter_riverpod/') }).Count -gt 0) {
     $violations.Add("${relativePath}:1 -> domain usecases must not import Flutter or Riverpod") | Out-Null
   }
 }
@@ -715,6 +829,9 @@ if (Test-Path $appRootPath) {
   }
 }
 
+Write-Host "Architecture scan root: $root"
+Write-Host "Scanned $($dartFiles.Count) Dart files."
+
 if ($violations.Count -gt 0) {
   Write-Host ''
   Write-Host 'ARCHITECTURE CHECK FAILED' -ForegroundColor Red
@@ -727,5 +844,5 @@ if ($violations.Count -gt 0) {
 
 Write-Host ''
 Write-Host 'ARCHITECTURE CHECK PASSED' -ForegroundColor Green
-Write-Host 'No service-layer boundary violations detected.' -ForegroundColor Green
+Write-Host 'No architecture contract violations detected.' -ForegroundColor Green
 exit 0

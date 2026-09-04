@@ -1,6 +1,7 @@
 // Dart SDK imports.
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 // Package imports.
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
@@ -15,14 +16,25 @@ import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart
 /// the primary task mutation, while successfully persisted weights feed the
 /// decision engine on later reads.
 class LearningRepository implements ILearningRepository {
-  LearningRepository(this._store);
+  LearningRepository(this._store, {this.scope});
 
   static const String _stateKey = 'learning_state_v1';
   final SecureStore _store;
+  final AccountStorageScope? scope;
+
+  String get _storageKey {
+    final AccountStorageScope? storageScope = scope;
+    if (storageScope == null) return _stateKey;
+    final String? namespace = storageScope.v2Namespace;
+    if (!storageScope.isWritable || namespace == null) {
+      throw StateError('Learning state requires authenticated storage.');
+    }
+    return 'learning_state_v2.$namespace';
+  }
 
   @override
   Future<LearningEntity?> getState() async {
-    final String? raw = await _store.readString(_stateKey);
+    final String? raw = await _store.readString(_storageKey);
     if (raw == null || raw.trim().isEmpty) {
       return null;
     }
@@ -50,6 +62,6 @@ class LearningRepository implements ILearningRepository {
   @override
   Future<void> saveState(LearningEntity state) {
     state.validate();
-    return _store.writeString(_stateKey, jsonEncode(state.toJson()));
+    return _store.writeString(_storageKey, jsonEncode(state.toJson()));
   }
 }

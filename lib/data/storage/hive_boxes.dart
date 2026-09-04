@@ -16,6 +16,7 @@ class HiveBoxes {
   static const String notifications = 'notifications_box';
   static const String timeline = 'timeline_box';
   static const String cache = 'cache_box';
+  static const String profile = 'profile_box';
 
   static String accountScoped(String baseBox, AccountStorageScope scope) {
     final String? namespace = scope.v2Namespace;

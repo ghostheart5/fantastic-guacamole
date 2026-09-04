@@ -1,11 +1,12 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/engine/signals/signal_engine.dart';
 import 'package:fantastic_guacamole/engine/signals/pattern_signal_engine.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/models/completion_signal_view.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final completionSignalEngineProvider = Provider<CompletionSignalEngine>((ref) {
@@ -31,7 +32,7 @@ final completionSignalProvider = Provider<CompletionSignalView?>((ref) {
 });
 
 final patternSignalProvider = FutureProvider<String>((ref) async {
-  final storage = ref.read(secureStoreProvider);
+  final storage = ref.watch(accountSecureStoreProvider);
   final PatternSignalEngine engine = ref.read(patternSignalEngineProvider);
   final String? raw = await storage.readString('neural_dump');
 
@@ -46,7 +47,12 @@ final patternSignalProvider = FutureProvider<String>((ref) async {
         .map((Map<String, dynamic> e) => NeuralEntry.fromJson(e))
         .toList();
     return engine.generate(history);
-  } catch (_) {
+  } on Object catch (error, stackTrace) {
+    handlePersistedPayloadDecodeFailure(
+      diagnosticCode: 'storage.pattern_signal_history_decode_failed',
+      error: error,
+      stackTrace: stackTrace,
+    );
     return 'No data yet.';
   }
 });

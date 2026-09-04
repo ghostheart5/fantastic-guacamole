@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart' as app;
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';

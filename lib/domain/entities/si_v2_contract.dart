@@ -22,7 +22,12 @@ enum SIV2Source { tasks, goals, milestones, timeline }
 
 enum SIV2TimeRange { today, sevenDays, thirtyDays, all }
 
-enum SIV2StatementKind { observedFact, deterministicCalculation, inference }
+enum SIV2StatementKind {
+  observedFact,
+  userReportedEvidence,
+  deterministicCalculation,
+  inference,
+}
 
 enum SIV2ConflictSeverity { notice, warning, critical }
 
@@ -250,9 +255,9 @@ final class SIV2TimelineEvidence {
 
 /// Bounded, read-only person context projected for the SI Console.
 ///
-/// [userReportedValue] remains untrusted provenance. The current SI V2 engine
-/// does not use it to construct an answer or expose it as answer evidence. It
-/// must never be interpreted as an instruction or mutation request.
+/// [userReportedValue] remains untrusted provenance. SI may cite a relevant
+/// value as user-reported evidence, but must never promote it to independently
+/// verified fact or interpret it as an instruction or mutation request.
 final class SIV2PersonContextSignalEvidence {
   SIV2PersonContextSignalEvidence({
     required String id,
@@ -295,9 +300,11 @@ final class SIV2PersonContextEvidence {
     required Set<PersonContextPurpose> purposes,
     required List<SIV2PersonContextSignalEvidence> signals,
     required Set<PersonContextKind> unknownKinds,
+    Map<String, Object?> behaviorTrace = const <String, Object?>{},
   }) : purposes = Set<PersonContextPurpose>.unmodifiable(purposes),
        signals = List<SIV2PersonContextSignalEvidence>.unmodifiable(signals),
-       unknownKinds = Set<PersonContextKind>.unmodifiable(unknownKinds) {
+       unknownKinds = Set<PersonContextKind>.unmodifiable(unknownKinds),
+       behaviorTrace = Map<String, Object?>.unmodifiable(behaviorTrace) {
     if (this.purposes.isEmpty || this.signals.length > maxSignals) {
       throw ArgumentError('SI V2 person context evidence is unbounded.');
     }
@@ -316,6 +323,7 @@ final class SIV2PersonContextEvidence {
   final Set<PersonContextPurpose> purposes;
   final List<SIV2PersonContextSignalEvidence> signals;
   final Set<PersonContextKind> unknownKinds;
+  final Map<String, Object?> behaviorTrace;
 
   bool get isEmpty => signals.isEmpty;
 }
@@ -468,6 +476,7 @@ final class SIV2EvidenceSnapshot {
                             .map((PersonContextKind kind) => kind.name)
                             .toList()
                           ..sort(),
+                    'behaviorTrace': personContext!.behaviorTrace,
                   },
             'unavailable':
                 unavailableSources
@@ -483,19 +492,23 @@ final class SIV2EvidenceSnapshot {
 final class SIV2EvidenceLink {
   const SIV2EvidenceLink({
     required this.evidenceId,
-    required this.source,
+    this.source,
     required this.label,
     required this.entityId,
     required this.observedAt,
     required this.uri,
+    this.userReported = false,
   });
 
   final String evidenceId;
-  final SIV2Source source;
+
+  /// Null only for governed evidence outside the four selectable app lenses.
+  final SIV2Source? source;
   final String label;
   final String entityId;
   final DateTime observedAt;
   final String uri;
+  final bool userReported;
 }
 
 final class SIV2Statement {
@@ -580,6 +593,7 @@ final class SIV2Response {
     required this.snapshotRevision,
     required String directAnswer,
     required List<SIV2Statement> observedFacts,
+    List<SIV2Statement> userReportedEvidence = const <SIV2Statement>[],
     required List<SIV2Statement> calculations,
     required List<SIV2Statement> inferences,
     required List<String> missingInformation,
@@ -592,6 +606,9 @@ final class SIV2Response {
     this.safetyReceipt,
   }) : directAnswer = directAnswer.trim(),
        observedFacts = List<SIV2Statement>.unmodifiable(observedFacts),
+       userReportedEvidence = List<SIV2Statement>.unmodifiable(
+         userReportedEvidence,
+       ),
        calculations = List<SIV2Statement>.unmodifiable(calculations),
        inferences = List<SIV2Statement>.unmodifiable(inferences),
        missingInformation = List<String>.unmodifiable(missingInformation),
@@ -608,6 +625,7 @@ final class SIV2Response {
   final String snapshotRevision;
   final String directAnswer;
   final List<SIV2Statement> observedFacts;
+  final List<SIV2Statement> userReportedEvidence;
   final List<SIV2Statement> calculations;
   final List<SIV2Statement> inferences;
   final List<String> missingInformation;
@@ -626,6 +644,7 @@ final class SIV2Response {
         snapshotRevision: snapshotRevision,
         directAnswer: directAnswer,
         observedFacts: observedFacts,
+        userReportedEvidence: userReportedEvidence,
         calculations: calculations,
         inferences: inferences,
         missingInformation: missingInformation,
@@ -645,7 +664,7 @@ final class SIV2Response {
     if (receipt.isExpiredAt((now ?? DateTime.now()).toUtc())) return this;
     final SIV2EvidenceLink authorityLink = SIV2EvidenceLink(
       evidenceId: 'decision:${receipt.decisionId}',
-      source: SIV2Source.tasks,
+      source: null,
       label: 'Shared decision receipt',
       entityId: receipt.subjectId ?? receipt.planId,
       observedAt: receipt.generatedAt,
@@ -657,6 +676,7 @@ final class SIV2Response {
       snapshotRevision: snapshotRevision,
       directAnswer: directAnswer,
       observedFacts: observedFacts,
+      userReportedEvidence: userReportedEvidence,
       calculations: calculations,
       inferences: inferences,
       missingInformation: missingInformation,
@@ -707,6 +727,10 @@ final class SIV2Response {
     if (observedFacts.any(
           (SIV2Statement item) => item.kind != SIV2StatementKind.observedFact,
         ) ||
+        userReportedEvidence.any(
+          (SIV2Statement item) =>
+              item.kind != SIV2StatementKind.userReportedEvidence,
+        ) ||
         calculations.any(
           (SIV2Statement item) =>
               item.kind != SIV2StatementKind.deterministicCalculation,
@@ -737,6 +761,7 @@ final class SIV2Response {
     }
     final Iterable<String> citedIds = <Iterable<String>>[
       observedFacts.expand((SIV2Statement item) => item.evidenceIds),
+      userReportedEvidence.expand((SIV2Statement item) => item.evidenceIds),
       calculations.expand((SIV2Statement item) => item.evidenceIds),
       inferences.expand((SIV2Statement item) => item.evidenceIds),
       conflicts.expand((SIV2Conflict item) => item.evidenceIds),
@@ -760,6 +785,7 @@ final class SIV2Response {
         : values.map((SIV2Statement item) => '- ${item.text}').join('\n');
     return 'DIRECT ANSWER\n$directAnswer\n\n'
         'OBSERVED FACTS\n${statements(observedFacts)}\n\n'
+        'USER-REPORTED CONTEXT\n${statements(userReportedEvidence)}\n\n'
         'DETERMINISTIC CALCULATIONS\n${statements(calculations)}\n\n'
         'INFERENCES\n${statements(inferences)}\n\n'
         'MISSING OR CONFLICTING INFORMATION\n'

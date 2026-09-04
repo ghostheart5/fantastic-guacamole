@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/engine/learning/adaptive_learning.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final learningProvider = NotifierProvider<LearningController, LearningState>(
@@ -11,13 +14,15 @@ final learningProvider = NotifierProvider<LearningController, LearningState>(
 );
 
 class LearningController extends Notifier<LearningState> {
+  late SecureStore _store;
+
   @override
   LearningState build() {
-    _load();
+    _store = ref.watch(accountSecureStoreProvider);
+    unawaited(_load());
     return const LearningState();
   }
 
-  SecureStore get _store => ref.read(secureStoreProvider);
   static const String _storageKey = 'ai_learning';
 
   Future<void> _load() async {
@@ -28,8 +33,19 @@ class LearningController extends Notifier<LearningState> {
       }
 
       state = LearningState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
-      // Keep defaults when persistence is empty or invalid.
+    } on Object catch (error, stackTrace) {
+      try {
+        handlePersistedPayloadDecodeFailure(
+          diagnosticCode: 'storage.learning_state_decode_failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      } on Object {
+        Logger.recordDiagnostic(
+          code: AppDiagnosticCode.storageLearningStateLoadFailed,
+          stackTrace: stackTrace,
+        );
+      }
     }
   }
 

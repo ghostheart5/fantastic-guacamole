@@ -34,7 +34,7 @@ Deno.test("reads status only when both request and receipt hash match", async ()
     "a".repeat(64),
     "b".repeat(64),
     config,
-    async (input) => {
+    (input) => {
       const url = new URL(String(input));
       if (
         url.searchParams.get("request_id") !== `eq.${"a".repeat(64)}` ||
@@ -42,7 +42,7 @@ Deno.test("reads status only when both request and receipt hash match", async ()
       ) {
         throw new Error("status query did not bind both capabilities");
       }
-      return Response.json([{ state: "storage_deleted" }]);
+      return Promise.resolve(Response.json([{ state: "storage_deleted" }]));
     },
   );
   if (status?.state !== "storage_deleted" || status.completed) {
@@ -52,26 +52,28 @@ Deno.test("reads status only when both request and receipt hash match", async ()
 
 Deno.test("completes revocation, storage, auth, and durable status", async () => {
   const patches: Array<Record<string, unknown>> = [];
-  const fetcher: typeof fetch = async (input, init) => {
+  const fetcher: typeof fetch = (input, init) => {
     const url = String(input);
     if (url.endsWith("/rpc/claim_account_deletion_request")) {
-      return Response.json({
-        claimed: true,
-        state: "requested",
-        userId: "user-1",
-        sessionsRevoked: false,
-        storageDeleted: false,
-      });
+      return Promise.resolve(
+        Response.json({
+          claimed: true,
+          state: "requested",
+          userId: "user-1",
+          sessionsRevoked: false,
+          storageDeleted: false,
+        }),
+      );
     }
     if (url.endsWith("/rpc/revoke_account_deletion_sessions")) {
-      return Response.json(true);
+      return Promise.resolve(Response.json(true));
     }
     if (url.includes("/account_deletion_requests?")) {
       patches.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
-      return Response.json([{ request_id: "request" }]);
+      return Promise.resolve(Response.json([{ request_id: "request" }]));
     }
     if (url.includes("/auth/v1/admin/users/user-1")) {
-      return new Response(null, { status: 204 });
+      return Promise.resolve(new Response(null, { status: 204 }));
     }
     throw new Error(`unexpected request: ${url}`);
   };
@@ -82,7 +84,7 @@ Deno.test("completes revocation, storage, auth, and durable status", async () =>
     authenticatedUserId: "user-1",
     config,
     fetcher,
-    storageCleanup: async () => true,
+    storageCleanup: () => Promise.resolve(true),
   });
 
   if (!result.completed || result.state !== "completed") {
@@ -96,20 +98,22 @@ Deno.test("completes revocation, storage, auth, and durable status", async () =>
 
 Deno.test("releases its lease when storage cleanup fails", async () => {
   const patches: Array<Record<string, unknown>> = [];
-  const fetcher: typeof fetch = async (input, init) => {
+  const fetcher: typeof fetch = (input, init) => {
     const url = String(input);
     if (url.endsWith("/rpc/claim_account_deletion_request")) {
-      return Response.json({
-        claimed: true,
-        state: "sessions_revoked",
-        userId: "user-1",
-        sessionsRevoked: true,
-        storageDeleted: false,
-      });
+      return Promise.resolve(
+        Response.json({
+          claimed: true,
+          state: "sessions_revoked",
+          userId: "user-1",
+          sessionsRevoked: true,
+          storageDeleted: false,
+        }),
+      );
     }
     if (url.includes("/account_deletion_requests?")) {
       patches.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
-      return Response.json([{ request_id: "request" }]);
+      return Promise.resolve(Response.json([{ request_id: "request" }]));
     }
     throw new Error(`unexpected request: ${url}`);
   };
@@ -120,7 +124,7 @@ Deno.test("releases its lease when storage cleanup fails", async () => {
     receiptHash: "b".repeat(64),
     config,
     fetcher,
-    storageCleanup: async () => false,
+    storageCleanup: () => Promise.resolve(false),
   });
 
   if (!result.retry || result.state !== "sessions_revoked") {

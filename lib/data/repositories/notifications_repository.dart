@@ -7,7 +7,7 @@ import 'package:fantastic_guacamole/data/models/notification_record.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
-import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 
 class NotificationsRepository implements INotificationRepository {
   NotificationsRepository(
@@ -23,7 +23,7 @@ class NotificationsRepository implements INotificationRepository {
            : accountId?.trim(),
        _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
 
-  final NotificationScheduler _scheduler;
+  final NotificationSchedulerPort _scheduler;
   final SecureStore _store;
   final String? _accountId;
   final KeyedMutationCoordinator _mutations;
@@ -57,6 +57,12 @@ class NotificationsRepository implements INotificationRepository {
 
   Future<List<NotificationEntity>> _readNotifications() async {
     final String? storageKey = _storageKey;
+    return _readNotificationsAt(storageKey);
+  }
+
+  Future<List<NotificationEntity>> _readNotificationsAt(
+    String? storageKey,
+  ) async {
     if (storageKey == null) return const <NotificationEntity>[];
     final String? raw = await _store.readString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
@@ -180,7 +186,44 @@ class NotificationsRepository implements INotificationRepository {
     });
   }
 
-  Future<void> clearAccountData() async {
+  /// Cancels only this account's platform schedules while retaining its local
+  /// notification records. Normal sign-out uses this isolation step so a
+  /// later sign-in can restore repository state without leaking reminder text
+  /// from the departing account on the device lock screen.
+  Future<void> cancelAccountSchedules({
+    bool includeLegacyOwnedData = false,
+  }) async {
+    await _runMutation(() async {
+      final Set<String> scopedIds = <String>{
+        ...((await _readNotifications()).map(
+          (NotificationEntity entry) => entry.id,
+        )),
+        'habit_reminder_daily',
+        'daily_planning_reminder',
+        'reflection_reminder',
+      };
+      for (final String id in scopedIds) {
+        await _cancelPlatformStrict(id, accountScope: _accountScope);
+      }
+
+      if (includeLegacyOwnedData) {
+        final Set<String> legacyIds = <String>{
+          ...((await _readNotificationsAt(
+            AccountDataRegistry.legacyNotificationSecureKey,
+          )).map((NotificationEntity entry) => entry.id)),
+          'habit_reminder_daily',
+          'daily_planning_reminder',
+          'reflection_reminder',
+        };
+        for (final String id in legacyIds) {
+          await _cancelPlatformStrict(id, accountScope: null);
+        }
+      }
+      _scheduler.clearTappedPayload();
+    });
+  }
+
+  Future<void> clearAccountData({bool includeLegacyOwnedData = false}) async {
     await _runMutation(() async {
       final List<NotificationEntity> entries = await _readNotifications();
       for (final NotificationEntity entry in entries) {
@@ -195,8 +238,10 @@ class NotificationsRepository implements INotificationRepository {
       }
       final String? storageKey = _storageKey;
       if (storageKey != null) await _store.delete(storageKey);
-      await _store.delete(AccountDataRegistry.legacyNotificationSecureKey);
-      NotificationScheduler.tappedPayloadListenable.value = null;
+      if (includeLegacyOwnedData) {
+        await _store.delete(AccountDataRegistry.legacyNotificationSecureKey);
+      }
+      _scheduler.clearTappedPayload();
     });
   }
 
@@ -246,6 +291,24 @@ class NotificationsRepository implements INotificationRepository {
             ? 'Failed to cancel scheduled notification during delete $id: $error'
             : 'Failed to cancel scheduled notification $id: $error',
       );
+    }
+  }
+
+  Future<void> _cancelPlatformStrict(
+    String id, {
+    required String? accountScope,
+  }) async {
+    final cancel = _cancelScheduledNotification;
+    if (cancel != null) {
+      await cancel(id);
+      return;
+    }
+    final bool cancelled = await _scheduler.cancel(
+      id,
+      accountScope: accountScope,
+    );
+    if (!cancelled) {
+      throw StateError('A scheduled notification could not be cancelled.');
     }
   }
 

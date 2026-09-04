@@ -4,12 +4,15 @@ import 'package:fantastic_guacamole/data/services/contracts/auth_service_contrac
 class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   AlwaysAuthenticatedAuthService({
     required this._user,
+    Future<void> Function(String accountId)? onBeforeSignedOut,
     Future<void> Function()? onSignedOut,
     Future<void> Function(String accountId)? onAccountDeleted,
-  }) : _signedOutCallback = onSignedOut,
+  }) : _beforeSignedOutCallback = onBeforeSignedOut,
+       _signedOutCallback = onSignedOut,
        _accountDeletedCallback = onAccountDeleted;
 
   final User _user;
+  final Future<void> Function(String accountId)? _beforeSignedOutCallback;
   final Future<void> Function()? _signedOutCallback;
   final Future<void> Function(String accountId)? _accountDeletedCallback;
 
@@ -66,6 +69,7 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
 
   @override
   Future<void> signOut() async {
+    await _beforeSignedOutCallback?.call(_user.id);
     await _signedOutCallback?.call();
   }
 
@@ -73,8 +77,19 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   Future<AccountDeletionResult> deleteCurrentAccount({
     required String password,
   }) async {
+    await _beforeSignedOutCallback?.call(_user.id);
     await _accountDeletedCallback?.call(_user.id);
     await _signedOutCallback?.call();
     return const AccountDeletionResult.completed();
   }
+
+  @override
+  Future<PendingAccountDeletionStatus?> readPendingAccountDeletion() async =>
+      null;
+
+  @override
+  Future<AccountDeletionResult?> refreshPendingAccountDeletion() async => null;
+
+  @override
+  Future<void> forgetPendingAccountDeletion() async {}
 }

@@ -13,7 +13,7 @@ This is the required review record for direct packages that handle accounts, use
 | `crypto` | Request signing, purchase verification, and integrity checks | Local cryptographic computation | Authentication and purchase integrity material | Security owner |
 | `http` | Backend and external-service requests | Network | Request metadata and feature-specific payloads | Backend owner |
 | `audioplayers` | Local feedback and voice-adjacent playback | Audio output | Packaged or generated audio | Voice-feature owner |
-| `speech_to_text`, `flutter_tts` | Optional voice interaction | Microphone and speech services | User voice input and generated speech | Voice-feature owner |
+| `speech_to_text`, `audioplayers` | Optional voice interaction and playback | Microphone and audio services | User voice input and generated or packaged audio | Voice-feature owner |
 | `permission_handler` | Runtime permission recovery | OS permission prompts | Permission state only | Mobile platform owner |
 | `flutter_local_notifications` | Local reminders | Notification permission | Reminder content and scheduling metadata | Notifications owner |
 | `app_links` | Auth and app deep links | Incoming URI handling | Link parameters | Auth owner |
@@ -23,9 +23,9 @@ This is the required review record for direct packages that handle accounts, use
 
 ## Override register
 
-| Override | Reason | Owner | Removal condition | Required review |
-| --- | --- | --- | --- | --- |
-| `path_provider_foundation: 2.5.1` | Windows native-assets hook fails when the workspace path contains spaces; [upstream 2.6.0 reference](https://pub.dev/packages/path_provider_foundation/changelog#260) | Mobile release | A clean resolution and supported-target build review pass without the pin | Every dependency upgrade cycle |
+No committed dependency override is present. Any temporary developer override
+must remain in an untracked `pubspec_overrides.yaml` and must not be treated as
+release evidence.
 
 ## Release dependency gate
 
@@ -48,7 +48,6 @@ Current resolver, license, advisory, and toolchain evidence is recorded in
 
 The dependency-remediation pass removed bundled runtime dotenv loading, the
 discontinued golden helper, unused direct capability packages, and unused code
-generators. `state_notifier` now has an explicit tested major-version bound.
-The foundation override remains because required transitive packages still
-resolve through `path_provider`; removal still requires the supported-target
-review above.
+generators. The current manifest has no committed override; transitive platform
+packages are governed by `pubspec.lock` and must be reviewed through the normal
+upgrade gate.

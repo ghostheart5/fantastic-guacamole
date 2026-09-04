@@ -1,18 +1,2 @@
-import 'package:flutter/foundation.dart';
-
-@immutable
-class KillSwitchRegistry {
-  KillSwitchRegistry({Set<String> disabledCapabilities = const <String>{}})
-    : disabledCapabilities = Set<String>.unmodifiable(disabledCapabilities);
-
-  final Set<String> disabledCapabilities;
-
-  bool isDisabled(String capability) =>
-      disabledCapabilities.contains(capability);
-
-  KillSwitchRegistry copyWith({Set<String>? disabledCapabilities}) {
-    return KillSwitchRegistry(
-      disabledCapabilities: disabledCapabilities ?? this.disabledCapabilities,
-    );
-  }
-}
+// Compatibility export for callers that still use the former state path.
+export 'package:fantastic_guacamole/domain/entities/kill_switch_registry.dart';

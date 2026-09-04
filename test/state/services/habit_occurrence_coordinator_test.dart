@@ -64,6 +64,81 @@ void main() {
       throwsA(isA<StateError>()),
     );
   });
+
+  test(
+    'learning pause keeps the occurrence but omits learning outcome',
+    () async {
+      final _OutcomeRepository outcomes = _OutcomeRepository();
+      final HabitOccurrenceCoordinator coordinator = HabitOccurrenceCoordinator(
+        scope: AccountStorageScope.authenticated('account-a'),
+        habitRepository: _HabitRepository(<HabitEntity>[
+          HabitEntity(
+            id: 'habit-1',
+            title: 'Evening reset',
+            createdAt: DateTime.utc(2026, 8, 1),
+            cadence: HabitCadence.daily,
+          ),
+        ]),
+        occurrenceRepository: HabitOccurrenceRepository(
+          _MemoryPrefs(),
+          AccountStorageScope.authenticated('account-a'),
+        ),
+        outcomeRepository: outcomes,
+        learningPaused: () async => true,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+
+      final HabitOccurrenceResult result = await coordinator.complete(
+        'habit-1',
+      );
+      expect(result.mutation, HabitOccurrenceMutation.applied);
+      expect(outcomes.values, isEmpty);
+    },
+  );
+
+  test(
+    'idempotent retry restores a learning outcome after its write fails',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'account-a',
+      );
+      final HabitOccurrenceRepository occurrences = HabitOccurrenceRepository(
+        _MemoryPrefs(),
+        scope,
+      );
+      final _FailOnceOutcomeRepository outcomes = _FailOnceOutcomeRepository();
+      final HabitOccurrenceCoordinator coordinator = HabitOccurrenceCoordinator(
+        scope: scope,
+        habitRepository: _HabitRepository(<HabitEntity>[
+          HabitEntity(
+            id: 'habit-1',
+            title: 'Evening reset',
+            createdAt: DateTime.utc(2026, 8, 1),
+            cadence: HabitCadence.daily,
+          ),
+        ]),
+        occurrenceRepository: occurrences,
+        outcomeRepository: outcomes,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+
+      await expectLater(coordinator.complete('habit-1'), throwsStateError);
+      expect(await occurrences.load(), hasLength(1));
+      expect(outcomes.values, isEmpty);
+
+      final HabitOccurrenceResult recovered = await coordinator.complete(
+        'habit-1',
+      );
+      final HabitOccurrenceResult replay = await coordinator.complete(
+        'habit-1',
+      );
+
+      expect(recovered.mutation, HabitOccurrenceMutation.idempotent);
+      expect(replay.mutation, HabitOccurrenceMutation.idempotent);
+      expect(outcomes.values, hasLength(1));
+      expect(outcomes.recordCalls, 2);
+    },
+  );
 }
 
 class _HabitRepository implements IHabitRepository {
@@ -91,6 +166,19 @@ class _OutcomeRepository implements IDecisionOutcomeRepository {
     if (!values.any((DecisionOutcomeEntity value) => value.id == outcome.id)) {
       values.add(outcome);
     }
+  }
+}
+
+class _FailOnceOutcomeRepository extends _OutcomeRepository {
+  int recordCalls = 0;
+
+  @override
+  Future<void> record(DecisionOutcomeEntity outcome) async {
+    recordCalls += 1;
+    if (recordCalls == 1) {
+      throw StateError('injected learning outcome write failure');
+    }
+    await super.record(outcome);
   }
 }
 

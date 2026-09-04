@@ -183,6 +183,61 @@ List<String> selectRelevantMemorySummariesForTesting({
   );
 }
 
+int aiCreditCostForTesting({
+  required String? input,
+  required AIPersonality personality,
+}) => _aiCreditCost(input: input, personality: personality);
+
+bool recentSkipPressureForTesting(List<LearningHistoryEntry> history) =>
+    _recentSkipPressure(history);
+
+List<SIResponseCandidate> alternativeCandidatesForTesting({
+  required AIRecommendation base,
+  required List<Task> tasks,
+}) => _alternativeCandidates(base: base, tasks: tasks);
+
+String leastRepeatedSafeFallbackForTesting({
+  required SIIntent intent,
+  required List<Task> tasks,
+  required List<String> recentResponseHashes,
+  required List<String> recentResponseSummaries,
+}) => _leastRepeatedSafeFallback(
+  intent: intent,
+  tasks: tasks,
+  recentResponseHashes: recentResponseHashes,
+  recentResponseSummaries: recentResponseSummaries,
+);
+
+String classifyMemoryTypeForTesting({
+  required SIIntent intent,
+  required AIRecommendation recommendation,
+}) => _classifyMemoryType(intent: intent, recommendation: recommendation);
+
+String summarizeInteractionForTesting({
+  required String input,
+  required String output,
+}) => _summarizeInteraction(input: input, output: output);
+
+List<Map<String, dynamic>> appendMemoryEventForTesting({
+  required Map<String, dynamic>? previousState,
+  required Map<String, dynamic> memoryEvent,
+}) =>
+    _appendMemoryEvent(previousState: previousState, memoryEvent: memoryEvent);
+
+List<Map<String, String>> summarizeHistoryForTesting(
+  List<Map<String, String>> history,
+) => _summarizeHistory(history);
+
+AIResponse responseFromAgentResultForTesting({
+  required AgentResult result,
+  required List<Task> tasks,
+  required AIPersonality personality,
+}) => _responseFromAgentResult(
+  result: result,
+  tasks: tasks,
+  personality: personality,
+);
+
 AIResponse _responseFromAgentResult({
   required AgentResult result,
   required List<Task> tasks,

@@ -5,7 +5,7 @@ import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 /// Exploratory priority/energy-weighted XP formula. Shipping awards are the
 /// flat ProgressionPolicy.taskXp via AwardXp. Do not treat as shipping
 /// behaviour.
-/// PLANNED — weighted XP formula. Not the shipping award rule.
+/// Alternative weighted XP formula. Not the shipping award rule.
 ///
 /// Task completion currently awards the flat [ProgressionPolicy.taskXp] via
 /// `AwardXp`. This priority/energy-weighted variant is kept for a future

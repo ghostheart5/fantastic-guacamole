@@ -42,7 +42,7 @@ class KeyedMutationCoordinator {
       } finally {
         _generations[key] = generationFor(key) + 1;
         if (identical(_tails[key], current)) {
-          _tails.remove(key);
+          _tails.remove(key)?.ignore();
         }
       }
     });

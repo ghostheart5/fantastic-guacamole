@@ -1,15 +1,16 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final predictionProvider = FutureProvider.family<Prediction, String>((
   ref,
   String taskTitle,
 ) async {
-  final secureStore = ref.read(secureStoreProvider);
+  final secureStore = ref.watch(accountSecureStoreProvider);
   final String? raw = await secureStore.readString('neural_dump');
 
   List<NeuralEntry> history;
@@ -22,7 +23,12 @@ final predictionProvider = FutureProvider.family<Prediction, String>((
           .whereType<Map<String, dynamic>>()
           .map((Map<String, dynamic> e) => NeuralEntry.fromJson(e))
           .toList();
-    } catch (_) {
+    } on Object catch (error, stackTrace) {
+      handlePersistedPayloadDecodeFailure(
+        diagnosticCode: 'storage.prediction_history_decode_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       history = <NeuralEntry>[];
     }
   }

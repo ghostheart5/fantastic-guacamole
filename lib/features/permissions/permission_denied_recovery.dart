@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:flutter/material.dart';
 
 class PermissionDeniedRecovery extends StatelessWidget {
@@ -18,6 +19,7 @@ class PermissionDeniedRecovery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     return TemporalGlassSurface(
       accent: AppColors.memoryAmber,
       opacity: 0.92,
@@ -41,9 +43,11 @@ class PermissionDeniedRecovery extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text(
-                      'SYSTEM ACCESS NEEDED',
-                      style: TextStyle(
+                    Text(
+                      isSpanish
+                          ? 'SE NECESITA ACCESO DEL SISTEMA'
+                          : 'SYSTEM ACCESS NEEDED',
+                      style: const TextStyle(
                         color: AppColors.memoryAmber,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -77,7 +81,7 @@ class PermissionDeniedRecovery extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           TemporalActionButton(
-            label: 'Open Settings',
+            label: isSpanish ? 'Abrir ajustes' : 'Open Settings',
             icon: Icons.settings_outlined,
             accent: AppColors.memoryAmber,
             onPressed: () async => onOpenSystemSettings(),
@@ -98,7 +102,7 @@ class PermissionDeniedRecovery extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text('Dismiss'),
+                child: Text(isSpanish ? 'Descartar' : 'Dismiss'),
               ),
             ),
           ],

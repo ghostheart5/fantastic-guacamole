@@ -28,8 +28,15 @@ $originalSha = $env:GITHUB_SHA
 $fixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) "chronospark-version-guard-$([guid]::NewGuid().ToString('N'))"
 
 function Invoke-GitFixture([string[]]$Arguments) {
-  $output = & git -C $fixtureRoot @Arguments 2>&1
-  if ($LASTEXITCODE -ne 0) {
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $output = & git -C $fixtureRoot @Arguments 2>&1
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+  if ($exitCode -ne 0) {
     throw "Fixture git command failed: git $($Arguments -join ' ')`n$($output -join "`n")"
   }
   return $output
@@ -55,8 +62,16 @@ function Invoke-ContractCase(
   $arguments += @('-File', $guard, '-RepositoryRoot', $fixtureRoot)
   $arguments += $GuardArguments
 
-  $output = & $powerShellCommand @arguments 2>&1
-  $exitCode = $LASTEXITCODE
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    # Expected rejection cases write to stderr. Keep that output available to
+    # the contract assertions instead of treating it as a harness failure.
+    $output = & $powerShellCommand @arguments 2>&1
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
   $outputText = $output -join "`n"
   if ($exitCode -ne $ExpectedExitCode) {
     $failures.Add(

@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/progression_state.dart';
@@ -24,8 +25,21 @@ void main() {
       final DateTime now = DateTime.now().toUtc();
       final PersonContextView view = _view(now, <PersonContextSignal>[
         _signal(
-          id: 'capacity-boundary',
-          value: 'Keep the evening unscheduled',
+          id: 'explicit-boundary',
+          kind: PersonContextKind.boundary,
+          value: 'Do not schedule Prepare release evidence',
+          now: now,
+        ),
+        _signal(
+          id: 'capacity',
+          kind: PersonContextKind.presentCapacity,
+          value: '10 minutes available today',
+          now: now,
+        ),
+        _signal(
+          id: 'commitment',
+          kind: PersonContextKind.commitment,
+          value: 'Review privacy checklist is scheduled',
           now: now,
         ),
       ]);
@@ -45,9 +59,29 @@ void main() {
       );
       expect(
         trajectoryPersonContextRequest.purposes,
-        operationalPersonContextPurposes,
+        trajectoryPersonContextPurposes,
       );
       expect(revision, isNot(anyOf('unavailable', 'available_empty')));
+      expect(
+        comparison.baseline.availableMinutes,
+        lessThan(comparison.baseline.noContextAvailableMinutes),
+      );
+      expect(
+        comparison.baseline.unscheduledMinutes,
+        greaterThan(comparison.baseline.noContextUnscheduledMinutes),
+      );
+      expect(comparison.baseline.boundaryTaskIds, contains('task-a'));
+      expect(
+        comparison.baseline.protectedCommitmentTaskIds,
+        contains('task-b'),
+      );
+      expect(comparison.baseline.personContextTrace['surface'], 'trajectory');
+      expect(
+        comparison.outcomes.map((outcome) => outcome.intervention.id),
+        isNot(
+          contains(anyOf('complete-task-a', 'delay-task-a', 'reduce-task-b')),
+        ),
+      );
       expect(
         comparison.outcomes.every(
           (outcome) =>
@@ -59,7 +93,7 @@ void main() {
         comparison.outcomes.every(
           (outcome) => outcome.assumptions.any(
             (String assumption) =>
-                assumption.contains('Keep the evening unscheduled') &&
+                assumption.contains('User-reported Person Context') &&
                 assumption.contains('not treated as identity'),
           ),
         ),
@@ -75,12 +109,14 @@ void main() {
       final PersonContextView view = _view(now, <PersonContextSignal>[
         _signal(
           id: 'stale-boundary',
+          kind: PersonContextKind.boundary,
           value: 'Stale trajectory context',
           now: now,
           freshUntil: now.subtract(const Duration(minutes: 1)),
         ),
         _signal(
           id: 'outcome-only',
+          kind: PersonContextKind.outcomeHistory,
           value: 'Outcome-only trajectory context',
           now: now,
           purpose: PersonContextPurpose.outcomeLearning,
@@ -146,7 +182,7 @@ void main() {
 ProviderContainer _container(PersonContextView? view) => ProviderContainer(
   overrides: [
     accountStorageScopeProvider.overrideWithValue(
-      const AccountStorageScope.signedOut(),
+      AccountStorageScope.authenticated('test-account'),
     ),
     siStateAggregationProvider.overrideWith((Ref ref) async => _aggregation),
     progressionProvider.overrideWithValue(ProgressionState.initial()),
@@ -159,9 +195,11 @@ ProviderContainer _container(PersonContextView? view) => ProviderContainer(
 
 PersonContextView _view(DateTime now, List<PersonContextSignal> signals) =>
     PersonContextView(
-      accountScopeId: 'v2.test-account',
+      accountScopeId: AccountStorageScope.authenticated(
+        'test-account',
+      ).v2Namespace!,
       surface: PersonContextSurface.trajectory,
-      purposes: operationalPersonContextPurposes,
+      purposes: trajectoryPersonContextPurposes,
       observedAt: now,
       signals: signals,
       unknownKinds: const <PersonContextKind>{},
@@ -169,18 +207,19 @@ PersonContextView _view(DateTime now, List<PersonContextSignal> signals) =>
 
 PersonContextSignal _signal({
   required String id,
+  required PersonContextKind kind,
   required String value,
   required DateTime now,
-  PersonContextPurpose purpose = PersonContextPurpose.decisionSupport,
+  PersonContextPurpose? purpose,
   DateTime? freshUntil,
 }) => PersonContextSignal(
   id: id,
-  kind: PersonContextKind.boundary,
+  kind: kind,
   value: value,
   source: PersonContextSource.userAuthored,
   consent: PersonContextConsent.granted,
   consentedAt: now.subtract(const Duration(minutes: 5)),
-  purpose: purpose,
+  purpose: purpose ?? PersonContextBehaviorPolicy.ruleFor(kind).purpose,
   surfaceScopes: const <PersonContextSurface>{PersonContextSurface.trajectory},
   recordedAt: now.subtract(const Duration(minutes: 5)),
   freshUntil: freshUntil ?? now.add(const Duration(hours: 2)),
@@ -193,12 +232,20 @@ final SIStateAggregation _aggregation = SIStateAggregation(
   tasks: <Task>[
     Task(
       id: 'task-a',
-      title: 'Task A',
+      title: 'Prepare release evidence',
       priority: 5,
       difficulty: 3,
       energyRequired: 3,
       dueDate: DateTime.now().toUtc().add(const Duration(days: 1)),
       estimatedDuration: const Duration(minutes: 30),
+    ),
+    Task(
+      id: 'task-b',
+      title: 'Review privacy checklist',
+      priority: 2,
+      difficulty: 2,
+      energyRequired: 2,
+      estimatedDuration: const Duration(minutes: 20),
     ),
   ],
   goals: const [],

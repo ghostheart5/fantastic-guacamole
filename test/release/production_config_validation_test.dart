@@ -19,10 +19,11 @@ void main() {
     'CHRONOSPARK_SUPABASE_ANON_KEY':
         'sb_publishable_abcdefghijklmnopqrstuvwxyz0123456789',
     'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT':
-        'https://api.chronospark.app/verify-receipt',
-    'CHRONOSPARK_AI_PROXY_ENDPOINT': 'https://api.chronospark.app/ai-proxy',
+        'https://project-ref.supabase.co/functions/v1/verify-receipt',
+    'CHRONOSPARK_AI_PROXY_ENDPOINT':
+        'https://project-ref.supabase.co/functions/v1/ai-proxy',
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT':
-        'https://api.chronospark.app/account-delete',
+        'https://project-ref.supabase.co/functions/v1/account-delete',
     'CHRONOSPARK_ANDROID_SHA256_CERT': List<String>.filled(32, 'AB').join(':'),
     'CHRONOSPARK_IOS_TEAM_ID': 'A1B2C3D4E5',
   };

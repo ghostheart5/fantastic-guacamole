@@ -1,7 +1,8 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -21,6 +22,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/system/analytics/local_metrics_accumulator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -152,6 +154,52 @@ void main() {
   });
 
   test(
+    'complete task waits for canonical local side effects before returning',
+    () async {
+      final _MemoryTaskRepository repository = _MemoryTaskRepository();
+      await repository.saveTask(
+        TaskEntity(
+          id: 'task-side-effects',
+          title: 'Persist the completion loop',
+          createdAt: DateTime.utc(2026, 9, 3),
+          difficulty: 3,
+          priority: 4,
+        ),
+      );
+      final _BlockingLocalMetricsAccumulator metrics =
+          _BlockingLocalMetricsAccumulator();
+      final ProviderContainer container = _buildTaskContainer(
+        repository,
+        metricsAccumulator: metrics,
+      );
+      addTearDown(container.dispose);
+      expect(await container.read(tasksProvider.future), hasLength(1));
+
+      bool returned = false;
+      final Future<void> completion = container
+          .read(taskActionsProvider)
+          .completeTask('task-side-effects', notify: false)
+          .whenComplete(() => returned = true);
+
+      await metrics.recordingStarted.future;
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        returned,
+        isFalse,
+        reason:
+            'The completion future must not report success while its canonical '
+            'local feedback loop is still pending.',
+      );
+
+      metrics.allowRecordingToFinish.complete();
+      await completion;
+
+      expect(returned, isTrue);
+      expect(metrics.completedCount, 1);
+    },
+  );
+
+  test(
     'complete task recovers task details from repository when provider list is stale',
     () async {
       final _MemoryTaskRepository repository = _MemoryTaskRepository();
@@ -167,6 +215,12 @@ void main() {
 
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('account-1'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
           secureStoreProvider.overrideWithValue(
             SecureStore(backend: InMemorySecureStoreBackend()),
           ),
@@ -213,6 +267,12 @@ void main() {
 
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('account-1'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
           secureStoreProvider.overrideWithValue(
             SecureStore(backend: InMemorySecureStoreBackend()),
           ),
@@ -276,6 +336,7 @@ ProviderContainer _buildTaskContainer(
   ITaskRepository repository, {
   AccountStorageScope? scope,
   bool mutableScope = false,
+  LocalMetricsAccumulator? metricsAccumulator,
 }) {
   return ProviderContainer(
     overrides: [
@@ -287,6 +348,9 @@ ProviderContainer _buildTaskContainer(
         accountStorageScopeProvider.overrideWithValue(
           scope ?? AccountStorageScope.authenticated('account-1'),
         ),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
@@ -296,6 +360,8 @@ ProviderContainer _buildTaskContainer(
       optimizationConfigProvider.overrideWith(
         (Ref ref) async => OptimizationConfig.neutral(),
       ),
+      if (metricsAccumulator != null)
+        localMetricsAccumulatorProvider.overrideWithValue(metricsAccumulator),
       learningProvider.overrideWith(_FixedLearningController.new),
       profileProvider.overrideWith(_TestProfileController.new),
       siStateProvider.overrideWith(_FixedSiStateController.new),
@@ -364,6 +430,21 @@ class _TestProfileController extends ProfileController {
   @override
   Future<void> addXP(int amount) async {
     state = state.copyWith(xp: state.xp + amount);
+  }
+}
+
+class _BlockingLocalMetricsAccumulator extends LocalMetricsAccumulator {
+  final Completer<void> recordingStarted = Completer<void>();
+  final Completer<void> allowRecordingToFinish = Completer<void>();
+  int completedCount = 0;
+
+  @override
+  Future<void> recordTaskCompleted() async {
+    if (!recordingStarted.isCompleted) {
+      recordingStarted.complete();
+    }
+    await allowRecordingToFinish.future;
+    completedCount += 1;
   }
 }
 

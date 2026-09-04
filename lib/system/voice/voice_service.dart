@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:flutter/services.dart';
 
 class VoiceService {
@@ -42,7 +42,11 @@ class VoiceService {
         });
       } catch (error) {
         succeeded = false;
-        debugPrint('VoiceService playback failed: $error');
+        Logger.errorCode(
+          code: AppDiagnosticCode.voicePlaybackFailed,
+          debugMessage: 'VoiceService playback failed.',
+          exception: error,
+        );
       } finally {
         _isSpeaking = false;
       }
@@ -177,8 +181,13 @@ class VoiceService {
       return true;
     } on MissingPluginException {
       return false;
-    } on PlatformException catch (error) {
-      debugPrint('VoiceService unavailable: $error');
+    } on PlatformException catch (error, stackTrace) {
+      Logger.errorCode(
+        code: AppDiagnosticCode.voiceInitializationUnavailable,
+        debugMessage: 'VoiceService is unavailable.',
+        exception: error,
+        stackTrace: stackTrace,
+      );
       return false;
     } catch (_) {
       return false;

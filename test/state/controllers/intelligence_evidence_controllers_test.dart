@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/state/controllers/prediction_controller.dart
 import 'package:fantastic_guacamole/state/controllers/signal_controller.dart';
 import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/explainable_si_provider.dart';
@@ -22,10 +23,12 @@ void main() {
     late ProviderContainer container;
 
     setUp(() {
-      store = SecureStore(backend: InMemorySecureStoreBackend());
+      store = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      ).forAccount(AccountStorageScope.authenticated('account-a'));
       container = ProviderContainer(
         overrides: [
-          secureStoreProvider.overrideWithValue(store),
+          accountSecureStoreProvider.overrideWithValue(store),
           energyProvider.overrideWithValue(0.75),
         ],
       );
@@ -90,9 +93,11 @@ void main() {
     late ProviderContainer container;
 
     setUp(() {
-      store = SecureStore(backend: InMemorySecureStoreBackend());
+      store = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      ).forAccount(AccountStorageScope.authenticated('account-a'));
       container = ProviderContainer(
-        overrides: [secureStoreProvider.overrideWithValue(store)],
+        overrides: [accountSecureStoreProvider.overrideWithValue(store)],
       );
     });
 

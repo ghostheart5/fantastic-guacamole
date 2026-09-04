@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_conten
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
+import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -16,7 +17,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({
@@ -54,8 +54,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     if (_submitting) return;
     setState(() => _submitting = true);
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(onboardingWelcomeCompleteStorageKey, true);
+      await ref
+          .read(onboardingPreferencesRepositoryProvider)
+          .markWelcomeComplete();
       if (!mounted) return;
       ref.read(onboardingWelcomeCompleteProvider.notifier).set(true);
       AppAnalytics.track('onboarding_welcome_completed');
@@ -88,8 +89,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       if (mounted) {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to continue. Please try again.'),
+          SnackBar(
+            content: Text(
+              ChronoSparkLocalizations.of(
+                context,
+              ).text(ChronoSparkString.onboardingContinueError),
+            ),
           ),
         );
       }
@@ -132,12 +137,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         );
       }
 
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(onboardingCompleteStorageKey, true);
-      await prefs.setInt(
-        onboardingContentVersionStorageKey,
-        OnboardingContentContract.currentVersion,
-      );
+      await ref
+          .read(onboardingPreferencesRepositoryProvider)
+          .markOnboardingComplete(
+            contentVersion: OnboardingContentContract.currentVersion,
+          );
       await ref.read(accountOnboardingCompleteProvider.notifier).complete();
       AppAnalytics.track(
         'onboarding_completed',
@@ -233,7 +237,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               onPageChanged: (i) => setState(() => _current = i),
               itemCount: _totalPages,
               itemBuilder: (context, i) {
-                if (i < slides.length) return _SlideView(slide: slides[i]);
+                if (i < slides.length) {
+                  return _SlideView(
+                    slide: slides[i],
+                    footer: landscape
+                        ? SizedBox(
+                            width: 180,
+                            child: _GradientButton(
+                              label: continueToLogin,
+                              onTap: _next,
+                            ),
+                          )
+                        : null,
+                  );
+                }
                 return _FirstValueSlide(
                   helpController: _helpCtrl,
                   selectedCapacity: _capacity,
@@ -251,7 +268,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             ),
 
             // Bottom controls
-            if (_current == 0)
+            if (_current == 0 && !landscape)
               Positioned(
                 left: 0,
                 right: 0,
@@ -317,9 +334,10 @@ class _Slide {
 }
 
 class _SlideView extends StatelessWidget {
-  const _SlideView({required this.slide});
+  const _SlideView({required this.slide, this.footer});
 
   final _Slide slide;
+  final Widget? footer;
 
   Widget _buildPulseAura(
     BuildContext context, {
@@ -478,6 +496,13 @@ class _SlideView extends StatelessWidget {
                             fontWeight: FontWeight.w400,
                           ),
                         ),
+                        if (footer != null) ...[
+                          const SizedBox(height: 24),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: footer,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -586,6 +611,10 @@ class _SlideView extends StatelessWidget {
                   fontWeight: FontWeight.w400,
                 ),
               ),
+              if (footer != null) ...[
+                const SizedBox(height: 24),
+                Align(alignment: Alignment.centerRight, child: footer),
+              ],
             ],
           );
         }
@@ -932,21 +961,26 @@ class _GradientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
       width: double.infinity,
-      child: FilledButton(
-        onPressed: onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF00E5FF),
-          foregroundColor: Colors.black,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 52),
+        child: FilledButton(
+          onPressed: onTap,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF00E5FF),
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0,
+            ),
           ),
+          child: Text(label, textAlign: TextAlign.center),
         ),
-        child: Text(label),
       ),
     );
   }

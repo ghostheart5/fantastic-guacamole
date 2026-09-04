@@ -255,6 +255,70 @@ void main() {
     expect(lottie.animate, isFalse);
     expect(lottie.repeat, isFalse);
   });
+
+  testWidgets('landscape 200 percent text keeps the login action after copy', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 360);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        profileProvider.overrideWith(_TestProfileController.new),
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('onboarding-test-user'),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          builder: (BuildContext context, Widget? child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: const OnboardingScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final Finder body = find.textContaining('Plan with purpose');
+    final Finder action = find.text('CONTINUE TO LOGIN');
+    expect(body, findsOneWidget);
+    expect(action, findsOneWidget);
+    expect(
+      tester.getBottomLeft(body).dy,
+      lessThanOrEqualTo(tester.getTopLeft(action).dy),
+    );
+
+    await tester.scrollUntilVisible(
+      action,
+      80,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(action.hitTestable(), findsOneWidget);
+    final Finder button = find.ancestor(
+      of: action,
+      matching: find.byType(FilledButton),
+    );
+    expect(
+      tester.getRect(button).contains(tester.getRect(action).topLeft),
+      isTrue,
+    );
+    expect(
+      tester.getRect(button).contains(tester.getRect(action).bottomRight),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _TestProfileController extends ProfileController {

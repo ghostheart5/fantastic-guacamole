@@ -32,6 +32,20 @@ class FirebaseMessagingBootstrap {
 
   static String? get latestToken => _latestToken;
 
+  /// Invalidates this installation's current FCM token before an account
+  /// boundary. This is the fallback that prevents a stale server row from
+  /// delivering the departing account's notifications to a later account.
+  Future<void> revokeDeviceToken() async {
+    if (_latestToken == null) {
+      return;
+    }
+    if (!kIsWeb) {
+      await FirebaseMessaging.instance.deleteToken();
+    }
+    _latestToken = null;
+    tokenListenable.value = null;
+  }
+
   static void configureBackgroundHandler() {
     if (kIsWeb) {
       return;

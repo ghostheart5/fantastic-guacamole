@@ -210,5 +210,5 @@ TrajectoryEngineModel trajectoryTestEngineModel({
   comparison: trajectoryTestComparison(),
   statusDetail:
       'Current baseline, Smart Planner plan, Timeline links, goals, and Progression signals are reconciled.',
-  isOnline: true,
+  hasAvailableNetworkInterface: true,
 );

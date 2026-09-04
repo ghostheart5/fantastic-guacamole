@@ -1,0 +1,58 @@
+appId: com.ghostheart5.chronospark
+---
+- runFlow:
+    when:
+      visible: "Start here"
+    commands:
+      - tapOn: "Turn an intention into a path"
+- runFlow:
+    when:
+      notVisible: "CREATOR"
+    commands:
+      - runFlow:
+          file: open-from-nexus.yaml
+          env:
+            TARGET: "Creator"
+- extendedWaitUntil:
+    visible: "CREATOR"
+    timeout: 15000
+- tapOn: "Title *"
+- inputText: "${TASK_TITLE}"
+- tapOn:
+    text: "(?:Done|Enter)"
+    optional: true
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      text: "Schedule date and time"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Schedule date and time"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- scrollUntilVisible:
+    element:
+      text: "REVIEW CHANGES"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "REVIEW CHANGES"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "CONFIRM CREATOR CHANGES"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "CONFIRM SELECTED"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "CONFIRM SELECTED"
+- extendedWaitUntil:
+    visible: "(?s).*${TASK_TITLE}.*Task is scheduled for a planned work time.*"
+    timeout: 20000

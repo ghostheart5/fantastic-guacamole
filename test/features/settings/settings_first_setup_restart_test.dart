@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
@@ -17,15 +18,16 @@ void main() {
   testWidgets(
     'restart first setup resets onboarding only and routes to onboarding',
     (WidgetTester tester) async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'settings-restart-user',
+      );
       SharedPreferences.setMockInitialValues(<String, Object>{
         onboardingCompleteStorageKey: true,
         onboardingWelcomeCompleteStorageKey: true,
         onboardingContentVersionStorageKey: 7,
+        'onboarding_profile_complete_v1.${scope.v2Namespace}': true,
         'tasks_storage_sentinel': 'keep-task-data',
       });
-      final AccountStorageScope scope = AccountStorageScope.authenticated(
-        'settings-restart-user',
-      );
       final _TaskRepository repository = _TaskRepository(<TaskEntity>[
         TaskEntity(
           id: 'retained-task',
@@ -37,6 +39,9 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           accountStorageScopeProvider.overrideWithValue(scope),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
           domainTaskRepositoryProvider.overrideWithValue(repository),
         ],
       );

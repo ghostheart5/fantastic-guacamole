@@ -151,16 +151,27 @@ void main() {
     test(
       'production parser, chips, help, autocomplete, and AI use the registry',
       () {
-        final String screen = File(
+        final String screen = <String>[
           'lib/features/si_console/ui/si_console_screen.dart',
-        ).readAsStringSync();
+          'lib/features/si_console/ui/si_console_screen.widgets.dart',
+        ].map((String path) => File(path).readAsStringSync()).join('\n');
         final String controller = File(
           'lib/state/controllers/ai_controller.dart',
+        ).readAsStringSync();
+        final String localizations = File(
+          'lib/l10n/chronospark_localizations.dart',
         ).readAsStringSync();
 
         expect(screen, contains('SIConsoleShortcutRegistry.parse(text)'));
         expect(screen, contains('SIConsoleShortcutRegistry.chips'));
-        expect(screen, contains('SIConsoleShortcutRegistry.buildHelp'));
+        expect(
+          screen,
+          contains('copy.shortcutHelp(filter: invocation.arguments)'),
+        );
+        expect(
+          localizations,
+          contains('SIConsoleShortcutRegistry.definitions'),
+        );
         expect(screen, contains('SIConsoleShortcutRegistry.autocomplete'));
         expect(
           controller,

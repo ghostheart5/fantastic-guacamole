@@ -2,7 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/input_guard.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Subscriptions/paywall
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Subscriptions/paywall
 ///
 /// Registered as checkEntitlementUseCaseProvider; access checks currently run
 /// through appAccessProvider.

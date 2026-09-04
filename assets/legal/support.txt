@@ -1,0 +1,33 @@
+Support
+
+Last updated: August 31, 2026
+
+Working contact path: Email is available for account, privacy, tester, and technical support. Do not include a password, one-time code, recovery token, payment credential, or secret key.
+
+Email ChronoSpark support at ghostheart131517@gmail.com
+
+Include in a technical request
+
+- ChronoSpark version, device model, and Android version.
+
+- The screen and action where the problem occurred.
+
+- Short reproduction steps and a screenshot when appropriate.
+
+- The sign-in method used, without sending credentials or verification codes.
+
+Invited testing
+
+Use only the Google Play test link associated with the Google account that was invited. This public site does not claim an open Play listing or provide an unofficial APK.
+
+Account deletion
+
+Use the in-app deletion control when you can sign in. The account-deletion page also provides an external email request path.
+
+Purchases
+
+Subscriptions and AI-credit purchases are not enabled for the current release candidate. If a future Play purchase exists, manage store billing through the Google Play account that made the purchase.
+
+Response expectations
+
+Include a safe reply address. Account or deletion requests may require limited identity verification before account-linked information can be discussed or changed.

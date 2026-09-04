@@ -207,7 +207,7 @@ class _FakeTaskRepository implements ITaskRepository {
   final Map<String, TaskEntity> _tasks = <String, TaskEntity>{};
   int saveCalls = 0;
   bool failOnSave = false;
-  Object failWith = StateError('save failed');
+  Error failWith = StateError('save failed');
 
   @override
   Future<void> deleteTask(String id) async {

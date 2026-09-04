@@ -13,6 +13,27 @@ enum EmotionalSafetyConcern {
   severeDistress,
 }
 
+enum EmotionalSafetyPauseReasonCode {
+  selfHarm,
+  overdose,
+  abuseOrCoercion,
+  panic,
+  grief,
+  relationshipDistress,
+  hallucination,
+  severeDistress,
+  general,
+}
+
+enum EmotionalSafetySupportQuestionCode {
+  abuseOrCoercion,
+  grief,
+  relationshipDistress,
+  panic,
+  hallucination,
+  general,
+}
+
 final class EmotionalSafetyAssessment {
   EmotionalSafetyAssessment({
     required this.route,
@@ -45,6 +66,43 @@ final class EmotionalSafetyAssessment {
     }
     return null;
   }
+
+  EmotionalSafetyPauseReasonCode get pauseReasonCode =>
+      switch (primaryConcern) {
+        EmotionalSafetyConcern.selfHarm =>
+          EmotionalSafetyPauseReasonCode.selfHarm,
+        EmotionalSafetyConcern.overdose =>
+          EmotionalSafetyPauseReasonCode.overdose,
+        EmotionalSafetyConcern.abuseOrCoercion =>
+          EmotionalSafetyPauseReasonCode.abuseOrCoercion,
+        EmotionalSafetyConcern.panic => EmotionalSafetyPauseReasonCode.panic,
+        EmotionalSafetyConcern.grief => EmotionalSafetyPauseReasonCode.grief,
+        EmotionalSafetyConcern.relationshipDistress =>
+          EmotionalSafetyPauseReasonCode.relationshipDistress,
+        EmotionalSafetyConcern.hallucination =>
+          EmotionalSafetyPauseReasonCode.hallucination,
+        EmotionalSafetyConcern.severeDistress =>
+          EmotionalSafetyPauseReasonCode.severeDistress,
+        null => EmotionalSafetyPauseReasonCode.general,
+      };
+
+  EmotionalSafetySupportQuestionCode get supportQuestionCode =>
+      switch (primaryConcern) {
+        EmotionalSafetyConcern.abuseOrCoercion =>
+          EmotionalSafetySupportQuestionCode.abuseOrCoercion,
+        EmotionalSafetyConcern.grief =>
+          EmotionalSafetySupportQuestionCode.grief,
+        EmotionalSafetyConcern.relationshipDistress =>
+          EmotionalSafetySupportQuestionCode.relationshipDistress,
+        EmotionalSafetyConcern.panic =>
+          EmotionalSafetySupportQuestionCode.panic,
+        EmotionalSafetyConcern.hallucination =>
+          EmotionalSafetySupportQuestionCode.hallucination,
+        EmotionalSafetyConcern.selfHarm ||
+        EmotionalSafetyConcern.overdose ||
+        EmotionalSafetyConcern.severeDistress ||
+        null => EmotionalSafetySupportQuestionCode.general,
+      };
 }
 
 /// Conservative, deterministic routing for emotionally sensitive input.
@@ -293,46 +351,6 @@ abstract final class EmotionalSafetyPolicy {
       concerns: concerns,
       findingCodes: findings,
     );
-  }
-
-  static String planningPauseReason(EmotionalSafetyAssessment assessment) {
-    return switch (assessment.primaryConcern) {
-      EmotionalSafetyConcern.selfHarm =>
-        'Pausing ordinary planning because your words mention self-harm or suicide. This is a routing precaution, not a judgment about your intent.',
-      EmotionalSafetyConcern.overdose =>
-        'Pausing ordinary planning because your words may describe a medication, drug, or poisoning emergency.',
-      EmotionalSafetyConcern.abuseOrCoercion =>
-        'Keeping your safety and control central instead of turning this into a routine productivity task.',
-      EmotionalSafetyConcern.panic =>
-        'Pausing productivity guidance while you decide what kind of support would be useful right now.',
-      EmotionalSafetyConcern.grief =>
-        'Making room for grief without turning it into an unrelated productivity task.',
-      EmotionalSafetyConcern.relationshipDistress =>
-        'Understanding what kind of relationship support you want before proposing an action.',
-      EmotionalSafetyConcern.hallucination =>
-        'Pausing ordinary planning because immediate support may be more useful than a task recommendation.',
-      EmotionalSafetyConcern.severeDistress =>
-        'Pausing productivity guidance because your words indicate that support may matter more than a task plan right now.',
-      null =>
-        'Pausing ordinary planning until you choose what kind of help you want.',
-    };
-  }
-
-  static String supportiveQuestion(EmotionalSafetyAssessment assessment) {
-    return switch (assessment.primaryConcern) {
-      EmotionalSafetyConcern.abuseOrCoercion =>
-        'Would you like immediate safety resources, help contacting someone you trust, or a gentle question about one practical obligation?',
-      EmotionalSafetyConcern.grief =>
-        'Would you like to pause, find support, or ask one gentle question about a practical obligation?',
-      EmotionalSafetyConcern.relationshipDistress =>
-        'Would you like help preparing a conversation, setting a boundary, or deciding what needs attention first?',
-      EmotionalSafetyConcern.panic =>
-        'Would you like to pause, contact someone you trust, or find immediate support resources?',
-      EmotionalSafetyConcern.hallucination =>
-        'Would you like to contact someone you trust or find immediate support resources?',
-      _ =>
-        'Would you like to pause, contact someone you trust, find support resources, or continue with one gentle clarifying question?',
-    };
   }
 
   static bool _matchesAny(String input, Iterable<RegExp> patterns) {

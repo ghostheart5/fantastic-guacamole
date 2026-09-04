@@ -24,10 +24,12 @@ import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/app_recovery_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
+import 'package:fantastic_guacamole/state/services/app_recovery_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/preference_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
@@ -47,6 +49,9 @@ part 'navigation_shell_lifecycle.dart';
 part 'navigation_shell_notification_routing.dart';
 part 'navigation_shell_ui.dart';
 
+@visibleForTesting
+const Duration networkReconnectRetryDebounce = Duration(milliseconds: 750);
+
 class NavigationShell extends ConsumerStatefulWidget {
   const NavigationShell({
     super.key,
@@ -63,7 +68,8 @@ class NavigationShell extends ConsumerStatefulWidget {
 
 class _NavigationShellState extends ConsumerState<NavigationShell>
     with WidgetsBindingObserver {
-  final PreferenceService _preferenceService = PreferenceService();
+  PreferenceService get _preferenceService =>
+      ref.read(preferenceServiceProvider);
   late final SystemScheduler _systemScheduler;
   DataHygieneScheduler? _dataHygieneScheduler;
   AudioInterruptionService? _audioInterruptionService;
@@ -71,8 +77,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   late final ProviderSubscription<double> _energySubscription;
   late final ProviderSubscription<LearningState> _learningSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
-  late final ProviderSubscription<bool> _networkOnlineSubscription;
+  late final ProviderSubscription<NetworkInterfaceAvailability>
+  _networkAvailabilitySubscription;
   Timer? _entitlementAuthorityRecheckTimer;
+  Timer? _networkRetryDebounceTimer;
   final Set<int> _initializedTabIndexes = <int>{};
   bool _savingCurrentState = false;
 
@@ -110,33 +118,40 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     ) {
       if (_isPrimaryView(next)) {
         _initializedTabIndexes.add(_tabIndexForView(next));
+        _runBackgroundTask(
+          'route recovery save',
+          () => ref
+              .read(appRecoveryProvider)
+              .saveState(lastPrimaryViewName: next.name),
+        );
       }
-      _runBackgroundTask(
-        'route recovery save',
-        () => ref.read(appRecoveryProvider).saveState(lastRoute: next.name),
-      );
     });
-    _networkOnlineSubscription = ref.listenManual<bool>(isOnlineProvider, (
-      bool? previous,
-      bool next,
-    ) {
-      final bool cameBackOnline =
-          next && (previous == null || previous == false);
-      if (!cameBackOnline) {
-        return;
-      }
-      _triggerCloudSyncReplay();
-      _runBackgroundTask(
-        'subscription authority refresh',
-        () => ref.read(entitlementAuthorityRefreshProvider)(force: true),
-      );
-    });
+    _networkAvailabilitySubscription = ref
+        .listenManual<NetworkInterfaceAvailability>(
+          networkInterfaceAvailabilityProvider,
+          (
+            NetworkInterfaceAvailability? previous,
+            NetworkInterfaceAvailability next,
+          ) {
+            if (next != NetworkInterfaceAvailability.available) {
+              _networkRetryDebounceTimer?.cancel();
+              _networkRetryDebounceTimer = null;
+              return;
+            }
+            if (previous != NetworkInterfaceAvailability.available) {
+              _scheduleNetworkRecoveryRetry();
+            }
+          },
+        );
     _startEntitlementAuthorityRechecks();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _initializeRuntimeServices();
       if (widget.allowSavedTabRestore) {
-        _restoreDefaultLaunchTab();
+        _runBackgroundTask(
+          'default launch recovery restore',
+          _restoreDefaultLaunchTab,
+        );
       } else {
         _syncAppFlowToRouteView(widget.initialView);
       }
@@ -157,6 +172,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       _onNotificationTapped,
     );
     _entitlementAuthorityRecheckTimer?.cancel();
+    _networkRetryDebounceTimer?.cancel();
     _systemScheduler.shutdown();
     _dataHygieneScheduler?.shutdown();
     final AudioInterruptionService? audioInterruptionService =
@@ -170,7 +186,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     _energySubscription.close();
     _learningSubscription.close();
     _viewSubscription.close();
-    _networkOnlineSubscription.close();
+    _networkAvailabilitySubscription.close();
     super.dispose();
   }
 
@@ -191,8 +207,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     if (receivedSavedTabRestore) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _syncAppFlowToRouteView(widget.initialView);
-        _restoreDefaultLaunchTab();
+        _runBackgroundTask(
+          'default launch recovery restore',
+          _restoreDefaultLaunchTab,
+        );
       });
       return;
     }
@@ -321,7 +339,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           return;
         }
 
-        SystemNavigator.pop();
+        unawaited(
+          runGuardedBackgroundTask(
+            label: 'application exit',
+            task: () => SystemNavigator.pop(),
+          ),
+        );
       },
       child: OfflineBanner(child: body),
     );

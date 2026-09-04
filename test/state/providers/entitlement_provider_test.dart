@@ -1,10 +1,11 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
@@ -234,6 +235,41 @@ void main() {
   });
 
   group('entitlement is account safe', () {
+    test('legacy owner marker is proven-owner read-only', () async {
+      final SecureStore store = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      await store.writeString(kEntitlementOwnerKey, 'user-a');
+      final _Harness owner = await _Harness.create(
+        subscription: _activeSubscription,
+        user: _user('user-a'),
+        secureStore: store,
+        legacyOwnership: LegacyScopeOwnership.provenOwned,
+      );
+
+      expect(
+        (await owner.container.read(entitlementProvider.future)).isPremium,
+        isTrue,
+      );
+      expect(await store.readString(kEntitlementOwnerKey), 'user-a');
+      expect(
+        await store
+            .forAccount(AccountStorageScope.authenticated('user-a'))
+            .readAll(),
+        isEmpty,
+      );
+
+      final _Harness other = await _Harness.create(
+        subscription: _activeSubscription,
+        user: _user('user-b'),
+        secureStore: store,
+      );
+      expect(
+        (await other.container.read(entitlementProvider.future)).isPremium,
+        isFalse,
+      );
+    });
+
     test(
       'a different account does not inherit premium on the same device',
       () async {
@@ -444,11 +480,14 @@ class _Harness {
     SecureStore? secureStore,
     SubscriptionState? legacyRestoreResult,
     DateTime? legacyRetryAt,
+    LegacyScopeOwnership legacyOwnership = LegacyScopeOwnership.ambiguous,
   }) async {
     final SecureStore store =
         secureStore ?? SecureStore(backend: InMemorySecureStoreBackend());
     if (owner != null) {
-      await store.writeString('$kEntitlementOwnerKey.account.$owner', owner);
+      await store
+          .forAccount(AccountStorageScope.authenticated(owner))
+          .writeString(kEntitlementOwnerKey, owner);
     }
 
     // Not broadcast: the seeded value is buffered until Riverpod subscribes.
@@ -472,6 +511,7 @@ class _Harness {
               ? const AccountStorageScope.signedOut()
               : AccountStorageScope.authenticated(current.id);
         }),
+        accountLegacyOwnershipProvider.overrideWithValue(legacyOwnership),
       ],
     );
     addTearDown(container.dispose);
@@ -497,7 +537,9 @@ class _Harness {
   void switchUser(User user) => authController.add(user);
 
   Future<String?> readOwner([String userId = 'user-a']) {
-    return secureStore.readString('$kEntitlementOwnerKey.account.$userId');
+    return secureStore
+        .forAccount(AccountStorageScope.authenticated(userId))
+        .readString(kEntitlementOwnerKey);
   }
 
   /// Lets a stream event propagate and the entitlement rebuild finish.

@@ -3,7 +3,7 @@ import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
@@ -348,7 +348,9 @@ ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
-      isOnlineProvider.overrideWithValue(true),
+      networkInterfaceAvailabilityProvider.overrideWithValue(
+        NetworkInterfaceAvailability.available,
+      ),
       profileProvider.overrideWith(_IntegrationProfileController.new),
       audioFeedbackControllerProvider.overrideWithValue(
         const _SilentAudioFeedbackController(),
@@ -456,10 +458,10 @@ class _SilentAudioFeedbackController extends AudioFeedbackController {
   const _SilentAudioFeedbackController();
 
   @override
-  void playDecision() {}
+  Future<void> playDecision() => Future<void>.value();
 
   @override
-  void playTaskComplete() {}
+  Future<void> playTaskComplete() => Future<void>.value();
 }
 
 class _InMemoryTaskRepository implements ITaskRepository {
@@ -546,6 +548,16 @@ class _IntegrationFakeAuthService implements AuthServiceContract {
   Future<AccountDeletionResult> deleteCurrentAccount({
     required String password,
   }) async => const AccountDeletionResult.completed();
+
+  @override
+  Future<PendingAccountDeletionStatus?> readPendingAccountDeletion() async =>
+      null;
+
+  @override
+  Future<AccountDeletionResult?> refreshPendingAccountDeletion() async => null;
+
+  @override
+  Future<void> forgetPendingAccountDeletion() async {}
 
   @override
   Future<User?> reloadCurrentUser() async => null;

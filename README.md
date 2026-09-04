@@ -63,6 +63,8 @@ The current product guides are maintained in the [ChronoSpark GitHub Wiki](https
 - [Progression](https://github.com/ghostheart5/fantastic-guacamole/wiki/Progression)
 
 Repository architecture and engineering context is summarized in [CHRONOSPARK.md](CHRONOSPARK.md).
+Production incident triage and evidence boundaries are defined in
+[docs/INCIDENT_RESPONSE_RUNBOOK.md](docs/INCIDENT_RESPONSE_RUNBOOK.md).
 
 ## Development
 
@@ -81,7 +83,8 @@ The file is never bundled as a Flutter asset. Pass it to local debug runs with
 ### Common commands
 
 ```bash
-flutter analyze
+dart format --output=none --set-exit-if-changed lib test integration_test tool scripts
+flutter analyze --fatal-infos
 flutter test
 flutter run -d windows --dart-define-from-file=.env
 ```

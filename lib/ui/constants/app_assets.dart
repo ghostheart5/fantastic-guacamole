@@ -90,4 +90,6 @@ class AppAssets {
   static const legalPrivacyTxt = 'assets/legal/privacy_policy.txt';
   static const legalTermsHtml = 'assets/legal/terms_of_service.html';
   static const legalTermsTxt = 'assets/legal/terms_of_service.txt';
+  static const legalSupportTxt = 'assets/legal/support.txt';
+  static const legalDeleteAccountTxt = 'assets/legal/delete_account.txt';
 }

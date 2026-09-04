@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
+import 'package:fantastic_guacamole/features/auth/ui/account_deletion_status_panel.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
@@ -16,6 +17,7 @@ import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/foundation.dart';
@@ -322,9 +324,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.login,
         builder: (BuildContext context, GoRouterState state) {
           final intelligence = ref.read(intelligenceStateProvider);
+          final String? returnTo = RouteAccessPolicy.validatedReturnTo(
+            state.uri.queryParameters[RouteAccessPolicy.returnToQueryParameter],
+          );
           return AuthGate(
             enableMockLogin: intelligence.flags.mockLoginEnabled,
             deepLinkMode: parseDeepLinkMode(state.uri.queryParameters['mode']),
+            onboardingLocation: RouteAccessPolicy.withReturnTo(
+              RoutePaths.onboarding,
+              returnTo,
+            ),
             child: _navigationShellForRoute(state),
           );
         },
@@ -345,6 +354,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return WebPageView(
             title: l10n.text(ChronoSparkString.privacyPolicyTitle),
             body: l10n.text(ChronoSparkString.privacyPolicyBody),
+            assetPath: AppAssets.legalPrivacyTxt,
             externalUrl: AppUrls.privacy,
             callToActionLabel: l10n.text(
               ChronoSparkString.openHostedPrivacyPolicy,
@@ -361,10 +371,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return WebPageView(
             title: l10n.text(ChronoSparkString.deleteAccountTitle),
             body: l10n.text(ChronoSparkString.deleteAccountBody),
+            assetPath: AppAssets.legalDeleteAccountTxt,
             externalUrl: AppUrls.deleteAccount,
             callToActionLabel: l10n.text(
               ChronoSparkString.openHostedDeleteAccountPage,
             ),
+            additionalContent: const AccountDeletionStatusPanel(),
           );
         },
       ),
@@ -377,6 +389,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return WebPageView(
             title: l10n.text(ChronoSparkString.termsTitle),
             body: l10n.text(ChronoSparkString.termsBody),
+            assetPath: AppAssets.legalTermsTxt,
             externalUrl: AppUrls.terms,
             callToActionLabel: l10n.text(ChronoSparkString.openHostedTerms),
           );
@@ -391,6 +404,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return WebPageView(
             title: l10n.text(ChronoSparkString.supportTitle),
             body: l10n.text(ChronoSparkString.supportBody),
+            assetPath: AppAssets.legalSupportTxt,
             externalUrl: AppUrls.support,
             callToActionLabel: l10n.text(
               ChronoSparkString.openHostedSupportPage,

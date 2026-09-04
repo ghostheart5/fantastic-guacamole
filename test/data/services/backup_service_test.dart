@@ -698,6 +698,125 @@ void main() {
     );
   });
 
+  test('preflight rejects malformed canonical domain shapes precisely', () {
+    Map<String, dynamic> emptyBackup() => _fullBackup(
+      tasks: <Map<String, dynamic>>[],
+      profile: null,
+      settings: <String, dynamic>{},
+    );
+
+    final List<Map<String, dynamic>> invalidBackups = <Map<String, dynamic>>[];
+
+    final Map<String, dynamic> missingRequired = emptyBackup()..remove('tasks');
+    invalidBackups.add(missingRequired);
+
+    final Map<String, dynamic> nonListRecords = emptyBackup()
+      ..['tasks'] = <String, dynamic>{};
+    invalidBackups.add(nonListRecords);
+
+    invalidBackups.add(
+      _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: null,
+        settings: <String, dynamic>{},
+        goals: <Map<String, dynamic>>[
+          <String, dynamic>{
+            ...GoalEntity(
+              id: 'goal-with-space',
+              title: 'Goal',
+              createdAt: DateTime.utc(2026, 9, 3),
+            ).toJson(),
+            'id': ' goal-with-space',
+          },
+        ],
+      ),
+    );
+
+    final Map<String, dynamic> malformedAccount = emptyBackup()
+      ..['account'] = <Object?, Object?>{1: 'not-a-string-key'};
+    invalidBackups.add(malformedAccount);
+
+    final Map<String, dynamic> malformedManifest = emptyBackup();
+    malformedManifest['manifest'] = <String, dynamic>{
+      ...malformedManifest['manifest'] as Map<String, dynamic>,
+      'includedDomains': <Object?>[1],
+    };
+    invalidBackups.add(malformedManifest);
+
+    invalidBackups.add(
+      _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: null,
+        settings: <String, dynamic>{},
+        habits: <Map<String, dynamic>>[
+          <String, dynamic>{
+            ...HabitEntity(
+              id: 'habit-1',
+              title: 'Walk',
+              createdAt: DateTime.utc(2026, 9, 3),
+              updatedAt: DateTime.utc(2026, 9, 3),
+            ).toJson(),
+            'stepTaskIds': <Object?>[1],
+          },
+        ],
+      ),
+    );
+
+    invalidBackups.add(
+      _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: null,
+        settings: <String, dynamic>{},
+        notes: <Map<String, dynamic>>[
+          <String, dynamic>{
+            ...NoteEntity(
+              id: 'note-1',
+              title: 'Note',
+              createdAt: DateTime.utc(2026, 9, 3),
+            ).toJson(),
+            'body': 7,
+          },
+        ],
+      ),
+    );
+
+    invalidBackups.add(
+      _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: null,
+        settings: <String, dynamic>{},
+        taskOccurrences: <Map<String, dynamic>>[
+          <String, dynamic>{'pendingOperation': 'not-an-object'},
+        ],
+      ),
+    );
+
+    invalidBackups.add(
+      _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: null,
+        settings: <String, dynamic>{},
+        decisionOutcomes: <Map<String, dynamic>>[
+          <String, dynamic>{
+            'decisionId': 'decision-1',
+            'surface': 'timeline',
+            'modelVersion': 'test-v1',
+            'recordedAt': '2026-09-03T00:00:00.000Z',
+            'subjectId': 7,
+          },
+        ],
+      ),
+    );
+
+    for (int index = 0; index < invalidBackups.length; index += 1) {
+      expect(
+        () => service.validateFullBackup(invalidBackups[index]),
+        throwsFormatException,
+        reason: 'invalid canonical backup case $index must fail closed',
+      );
+    }
+  });
+
   test('backupProfile and backupSettings expose stored state', () async {
     await profileStorage.put(
       'profile_state',
@@ -1389,6 +1508,33 @@ void main() {
       expect(secureService.prefs.getBool('cloud_sync_enabled_v1'), isFalse);
     },
   );
+
+  test('full restore deletes an absent profile from secure storage', () async {
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    await secureStore.writeString(
+      'profile_state_v2',
+      jsonEncode(<String, dynamic>{'name': 'Remove me'}),
+    );
+    final BackupService secureService = buildService(
+      taskRepository: repository,
+      profileStorage: profileStorage,
+      prefs: service.prefs,
+      secureProfileStore: secureStore,
+    );
+
+    await secureService.restoreFullBackup(
+      _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: null,
+        settings: <String, dynamic>{},
+      ),
+    );
+
+    expect(await secureStore.readString('profile_state_v2'), isNull);
+    expect(profileStorage.get('profile_state'), isNull);
+  });
 }
 
 class _MemoryTaskRepository implements ITaskRepository {

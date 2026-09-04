@@ -53,7 +53,7 @@ void main() {
       'lib/state/providers/assistant_release_provider.dart',
     ).readAsStringSync();
     final String settings = File(
-      'lib/features/settings/ui/settings_screen.sections.dart',
+      'lib/features/settings/ui/settings_screen.governance_sections.dart',
     ).readAsStringSync();
 
     expect(provider, contains('assistant_beta_opt_in_v1.\$digest'));

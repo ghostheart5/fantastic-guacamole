@@ -33,6 +33,13 @@ void main() {
       expect(message, 'Credentials are incorrect.');
     });
 
+    test('does not confirm whether a sign-up email already exists', () {
+      final String message = friendlyAuthErrorMessage('email-already-in-use');
+
+      expect(message, 'Unable to create an account with these details.');
+      expect(message.toLowerCase(), isNot(contains('exists')));
+    });
+
     test('falls back to backend message for unknown code', () {
       final String message = friendlyAuthErrorMessage(
         'custom-backend-error',

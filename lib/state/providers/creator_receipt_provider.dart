@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/state/models/creator_creation_receipt.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

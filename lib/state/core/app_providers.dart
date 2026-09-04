@@ -1,3 +1,9 @@
+export 'package:fantastic_guacamole/domain/interfaces/i_onboarding_preferences_repository.dart'
+    show
+        onboardingCompleteStorageKey,
+        onboardingContentVersionStorageKey,
+        onboardingWelcomeCompleteStorageKey;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 export 'package:fantastic_guacamole/state/core/state_bootstrap.dart'
@@ -11,11 +17,6 @@ export 'package:fantastic_guacamole/state/providers/completion_score_provider.da
 export 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
 export 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 export 'package:fantastic_guacamole/state/providers/task_provider.dart';
-
-const String onboardingCompleteStorageKey = 'onboarding_complete';
-const String onboardingContentVersionStorageKey = 'onboarding_content_version';
-const String onboardingWelcomeCompleteStorageKey =
-    'onboarding_welcome_complete';
 
 final soundEnabledProvider = NotifierProvider<SoundEnabledNotifier, bool>(
   SoundEnabledNotifier.new,

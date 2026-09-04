@@ -12,11 +12,13 @@ import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 void main() {
   late _MemoryTaskRepository repository;
@@ -81,6 +83,61 @@ void main() {
     expect(success, isTrue);
     expect(uploadedTask['id'], 'task-1');
   });
+
+  test(
+    'long recurring series stays valid through cloud backup and restore',
+    () async {
+      final String seriesId = List<String>.filled(20, 'series-root').join('-');
+      TaskEntity current = TaskEntity(
+        id: seriesId,
+        title: 'Long-lived recurring task',
+        createdAt: DateTime.utc(2026, 1, 1),
+        scheduledFor: DateTime.utc(2026, 1, 1, 9),
+        occurrenceKey: 'slot-0',
+        recurrenceRule: RecurrenceRule.daily,
+      );
+      for (int index = 0; index < 120; index++) {
+        final DateTime completedAt = DateTime.utc(2026, 1, 1 + index, 10);
+        await repository.saveTask(
+          current.copyWith(isCompleted: true, completedAt: completedAt),
+        );
+        current = current.copyWith(
+          id: TaskEntity.recurringSuccessorId(
+            seriesId: seriesId,
+            occurrenceKey: 'slot-$index',
+          ),
+          createdAt: completedAt,
+          updatedAt: completedAt,
+          isCompleted: false,
+          clearCompletedAt: true,
+          scheduledFor: DateTime.utc(2026, 1, 2 + index, 9),
+          occurrenceKey: 'slot-${index + 1}',
+          recurrenceSeriesId: seriesId,
+        );
+      }
+      await repository.saveTask(current);
+
+      expect(await syncService.syncToCloud(), isTrue);
+      repository.tasks.clear();
+      expect(
+        await syncService.restoreFromCloud(),
+        CloudRestoreOutcome.restored,
+      );
+
+      final List<TaskEntity> restored = await repository.getAllTasks();
+      expect(restored, hasLength(121));
+      expect(
+        restored.every((TaskEntity task) => task.id.length <= 256),
+        isTrue,
+      );
+      expect(
+        restored
+            .where((TaskEntity task) => task.id != seriesId)
+            .every((TaskEntity task) => task.recurrenceSeriesId == seriesId),
+        isTrue,
+      );
+    },
+  );
 
   test(
     'encrypted cloud backup round-trips only with the retained device key',
@@ -1055,6 +1112,141 @@ void main() {
         (await gateway.downloadTasks()).status,
         CloudBackupReadStatus.unavailable,
       );
+      expect(
+        (await gateway.compareAndSwapBackup(
+          <String, dynamic>{},
+          expectedRevision: 0,
+        )).status,
+        CloudBackupWriteStatus.unavailable,
+      );
+    },
+  );
+
+  test(
+    'local cloud gateway rejects stale revisions and malformed payloads',
+    () async {
+      final LocalTestCloudBackupGateway localGateway =
+          LocalTestCloudBackupGateway(prefs);
+      final CloudBackupWriteResult first = await localGateway
+          .compareAndSwapBackup(<String, dynamic>{
+            'version': 1,
+          }, expectedRevision: 0);
+      expect(first.status, CloudBackupWriteStatus.written);
+      expect(first.revision, 1);
+
+      final CloudBackupWriteResult stale = await localGateway
+          .compareAndSwapBackup(<String, dynamic>{
+            'version': 2,
+          }, expectedRevision: 0);
+      expect(stale.status, CloudBackupWriteStatus.conflict);
+      expect(stale.revision, 1);
+      expect(
+        await localGateway.uploadBackup(<String, dynamic>{'version': 2}),
+        isTrue,
+      );
+
+      await prefs.setString('local_test_cloud_tasks', '{not-json');
+      expect(
+        (await localGateway.downloadTasks()).status,
+        CloudBackupReadStatus.malformed,
+      );
+      await prefs.setString('local_test_cloud_tasks', '[]');
+      expect(
+        (await localGateway.downloadTasks()).status,
+        CloudBackupReadStatus.malformed,
+      );
+    },
+  );
+
+  test(
+    'restore and delta outcomes retain exact cloud failure categories',
+    () async {
+      final Map<CloudBackupReadResult, CloudRestoreOutcome> restoreCases =
+          <CloudBackupReadResult, CloudRestoreOutcome>{
+            const CloudBackupReadResult.unavailable():
+                CloudRestoreOutcome.unavailable,
+            const CloudBackupReadResult.malformed():
+                CloudRestoreOutcome.malformed,
+            const CloudBackupReadResult.ownerMismatch():
+                CloudRestoreOutcome.ownerMismatch,
+          };
+      for (final MapEntry<CloudBackupReadResult, CloudRestoreOutcome> item
+          in restoreCases.entries) {
+        gateway.fullReadOverride = item.key;
+        expect(await syncService.restoreFromCloud(), item.value);
+      }
+
+      final Map<CloudBackupReadResult, CloudSyncOutcome> syncCases =
+          <CloudBackupReadResult, CloudSyncOutcome>{
+            const CloudBackupReadResult.unavailable():
+                CloudSyncOutcome.unavailable,
+            const CloudBackupReadResult.malformed(): CloudSyncOutcome.malformed,
+            const CloudBackupReadResult.ownerMismatch():
+                CloudSyncOutcome.ownerMismatch,
+          };
+      for (final MapEntry<CloudBackupReadResult, CloudSyncOutcome> item
+          in syncCases.entries) {
+        gateway.fullReadOverride = item.key;
+        expect(await syncService.syncDeltaOutcome(), item.value);
+      }
+    },
+  );
+
+  test(
+    'write outcomes retain owner-mismatch and malformed categories',
+    () async {
+      gateway
+        ..fullBackup = _fullCloudBackup(tasks: <Map<String, dynamic>>[])
+        ..revision = 1
+        ..writeOverride = const CloudBackupWriteResult.ownerMismatch();
+      expect(
+        await syncService.syncDeltaOutcome(),
+        CloudSyncOutcome.ownerMismatch,
+      );
+
+      gateway.writeOverride = const CloudBackupWriteResult.malformed();
+      expect(await syncService.syncDeltaOutcome(), CloudSyncOutcome.malformed);
+    },
+  );
+
+  test(
+    'default and Supabase wrappers fail closed without an authenticated owner',
+    () async {
+      final CloudBackupWriteResult defaultWrite = await _DefaultCasGateway()
+          .compareAndSwapBackup(<String, dynamic>{}, expectedRevision: 0);
+      expect(defaultWrite.status, CloudBackupWriteStatus.unavailable);
+
+      final sb.SupabaseClient client = sb.SupabaseClient(
+        'https://example.supabase.co',
+        'public-anon-key',
+      );
+      addTearDown(client.dispose);
+      final SupabaseCasCloudBackupGateway guarded =
+          SupabaseCasCloudBackupGateway(
+            client: client,
+            expectedUserId: 'account-a',
+          );
+      expect(await guarded.uploadBackup(<String, dynamic>{}), isFalse);
+      expect(
+        (await guarded.compareAndSwapBackup(
+          <String, dynamic>{},
+          expectedRevision: 0,
+        )).status,
+        CloudBackupWriteStatus.ownerMismatch,
+      );
+      expect(
+        (await guarded.downloadBackup()).status,
+        CloudBackupReadStatus.ownerMismatch,
+      );
+      expect(
+        (await guarded.downloadTasks()).status,
+        CloudBackupReadStatus.ownerMismatch,
+      );
+      expect(await guarded.uploadTasks(<String, dynamic>{}), isFalse);
+      expect(
+        await guarded.deleteLegacyFullBackup(),
+        LegacyFullBackupCleanupStatus.ownerMismatch,
+      );
     },
   );
 }
@@ -1085,6 +1277,7 @@ class _MemoryCloudBackupGateway implements CloudBackupGateway {
   void Function()? onDownloadBackup;
   void Function()? onUploadBackup;
   Future<void> Function()? beforeCompareAndSwap;
+  CloudBackupWriteResult? writeOverride;
 
   @override
   Future<CloudBackupReadResult> downloadBackup() async {
@@ -1104,6 +1297,8 @@ class _MemoryCloudBackupGateway implements CloudBackupGateway {
     required int expectedRevision,
   }) async {
     await beforeCompareAndSwap?.call();
+    final CloudBackupWriteResult? forced = writeOverride;
+    if (forced != null) return forced;
     final int currentRevision = fullBackup == null
         ? 0
         : (revision == 0 ? 1 : revision);
@@ -1144,6 +1339,22 @@ class _MemoryCloudBackupGateway implements CloudBackupGateway {
     tasksBackup = backup;
     return true;
   }
+}
+
+class _DefaultCasGateway extends CloudBackupGateway {
+  @override
+  Future<CloudBackupReadResult> downloadBackup() async =>
+      const CloudBackupReadResult.unavailable();
+
+  @override
+  Future<CloudBackupReadResult> downloadTasks() async =>
+      const CloudBackupReadResult.unavailable();
+
+  @override
+  Future<bool> uploadBackup(Map<String, dynamic> backup) async => false;
+
+  @override
+  Future<bool> uploadTasks(Map<String, dynamic> backup) async => false;
 }
 
 class _ConcurrentCasGateway implements CloudBackupGateway {

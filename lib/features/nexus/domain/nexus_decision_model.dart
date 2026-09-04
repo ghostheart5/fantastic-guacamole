@@ -6,7 +6,7 @@ enum NexusDecisionStatus { loading, ready, partial, offline, error }
 class NexusDecisionModel {
   const NexusDecisionModel({
     required this.status,
-    required this.isOnline,
+    required this.hasAvailableNetworkInterface,
     required this.pendingSyncCount,
     required this.topRisk,
     required this.recentProgress,
@@ -15,7 +15,7 @@ class NexusDecisionModel {
   });
 
   final NexusDecisionStatus status;
-  final bool isOnline;
+  final bool hasAvailableNetworkInterface;
   final int pendingSyncCount;
   final DecisionIntelligence? intelligence;
   final String topRisk;

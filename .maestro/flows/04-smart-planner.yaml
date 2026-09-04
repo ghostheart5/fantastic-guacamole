@@ -17,3 +17,20 @@ tags:
 
 # The canonical destination must not regress to a retired product label.
 - assertNotVisible: "SMART COACH"
+
+# Exercise a real local Planner input/output cycle. The QA profile keeps
+# external AI contained, so this proves deterministic on-device guidance.
+- tapOn: "Not set"
+- inputText: "Finish the release evidence today"
+- scrollUntilVisible:
+    element:
+      text: "GET GUIDANCE"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "GET GUIDANCE"
+- extendedWaitUntil:
+    visible: "(?s)Planning guidance ready.*"
+    timeout: 30000
+- assertVisible: "Use this plan"
+- assertVisible: "Evidence"
+- assertNotVisible: "External AI"

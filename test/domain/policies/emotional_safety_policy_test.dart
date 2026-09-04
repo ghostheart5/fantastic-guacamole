@@ -103,9 +103,90 @@ void main() {
         contains('relationship_distress_language'),
       );
       expect(
-        EmotionalSafetyPolicy.planningPauseReason(assessment),
-        'Understanding what kind of relationship support you want before proposing an action.',
+        assessment.pauseReasonCode,
+        EmotionalSafetyPauseReasonCode.relationshipDistress,
       );
+      expect(
+        assessment.supportQuestionCode,
+        EmotionalSafetySupportQuestionCode.relationshipDistress,
+      );
+    });
+
+    test('planning pause reason codes cover fallback concerns', () {
+      final Map<EmotionalSafetyAssessment, EmotionalSafetyPauseReasonCode>
+      cases = <EmotionalSafetyAssessment, EmotionalSafetyPauseReasonCode>{
+        EmotionalSafetyAssessment(
+          route: EmotionalSafetyRoute.supportiveDistress,
+          concerns: const <EmotionalSafetyConcern>{
+            EmotionalSafetyConcern.hallucination,
+          },
+          findingCodes: const <String>['unusual_perception_language'],
+        ): EmotionalSafetyPauseReasonCode.hallucination,
+        EmotionalSafetyAssessment(
+          route: EmotionalSafetyRoute.supportiveDistress,
+          concerns: const <EmotionalSafetyConcern>{
+            EmotionalSafetyConcern.severeDistress,
+          },
+          findingCodes: const <String>['severe_distress_language'],
+        ): EmotionalSafetyPauseReasonCode.severeDistress,
+        const EmotionalSafetyAssessment.routine():
+            EmotionalSafetyPauseReasonCode.general,
+      };
+
+      for (final MapEntry<
+            EmotionalSafetyAssessment,
+            EmotionalSafetyPauseReasonCode
+          >
+          item
+          in cases.entries) {
+        expect(item.key.pauseReasonCode, item.value);
+      }
+    });
+
+    test('support questions cover hallucination and immediate concerns', () {
+      const List<
+        ({
+          EmotionalSafetyConcern concern,
+          EmotionalSafetySupportQuestionCode expected,
+        })
+      >
+      cases =
+          <
+            ({
+              EmotionalSafetyConcern concern,
+              EmotionalSafetySupportQuestionCode expected,
+            })
+          >[
+            (
+              concern: EmotionalSafetyConcern.hallucination,
+              expected: EmotionalSafetySupportQuestionCode.hallucination,
+            ),
+            (
+              concern: EmotionalSafetyConcern.selfHarm,
+              expected: EmotionalSafetySupportQuestionCode.general,
+            ),
+            (
+              concern: EmotionalSafetyConcern.overdose,
+              expected: EmotionalSafetySupportQuestionCode.general,
+            ),
+            (
+              concern: EmotionalSafetyConcern.severeDistress,
+              expected: EmotionalSafetySupportQuestionCode.general,
+            ),
+          ];
+
+      for (final item in cases) {
+        final EmotionalSafetyAssessment assessment = EmotionalSafetyAssessment(
+          route: EmotionalSafetyRoute.supportiveDistress,
+          concerns: <EmotionalSafetyConcern>{item.concern},
+          findingCodes: const <String>['bounded_test_fixture'],
+        );
+        expect(
+          assessment.supportQuestionCode,
+          item.expected,
+          reason: item.concern.name,
+        );
+      }
     });
 
     test('legacy crisis boundary maps only immediate-safety routes', () {

@@ -652,16 +652,11 @@ class _PriorityPicker extends StatelessWidget {
                       children: List<Widget>.generate(5, (int index) {
                         final int level = index + 1;
                         return Expanded(
-                          child: Semantics(
-                            button: true,
+                          child: SmartPressable(
                             selected: value == level,
-                            label: 'Set priority level $level',
+                            semanticLabel: 'Set priority level $level',
                             onTap: () => onChanged(level),
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => onChanged(level),
-                              child: const SizedBox.expand(),
-                            ),
+                            child: const SizedBox.expand(),
                           ),
                         );
                       }),

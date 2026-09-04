@@ -106,10 +106,17 @@ class SIStateAggregation {
     required this.trajectory,
     required this.signals,
     DecisionRecommendation? planningDecision,
+    DecisionRecommendation? noContextPlanningDecision,
     SISourceHealth? sourceHealth,
     this.habits = const <HabitEntity>[],
   }) : planningDecision =
            planningDecision ?? _fallbackPlanningDecision(tasks, siState),
+       noContextPlanningDecision =
+           noContextPlanningDecision ??
+           (planningDecision?.personContext == null
+               ? planningDecision
+               : null) ??
+           _fallbackPlanningDecision(tasks, siState),
        sourceHealth =
            sourceHealth ??
            SISourceHealth(
@@ -141,6 +148,7 @@ class SIStateAggregation {
   final TrajectorySummaryView trajectory;
   final SIPlanningEvidence planningEvidence;
   final DecisionRecommendation planningDecision;
+  final DecisionRecommendation noContextPlanningDecision;
   final SISourceHealth sourceHealth;
 
   /// Habits available to Smart Planner and SI. Empty when habit storage has not

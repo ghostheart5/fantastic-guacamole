@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -82,9 +81,7 @@ class FirebaseBootstrap {
 
   Future<String?> _configureCrashlytics() async {
     try {
-      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
-        Env.enableCrashReporting,
-      );
+      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(false);
       return null;
     } on Object catch (error) {
       return 'Firebase initialization failed: $error';

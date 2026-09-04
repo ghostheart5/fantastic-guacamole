@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
@@ -24,6 +25,66 @@ final siV2ClockProvider = Provider<DateTime Function()>(
       () => DateTime.now().toUtc(),
 );
 
+final PersonContextAccessRequest _siV2PersonContextRequest =
+    PersonContextAccessRequest(
+      surface: PersonContextSurface.siConsole,
+      purposes: SIV2ReadGateway.personContextPurposes,
+    );
+
+/// Privacy-safe revision for the Person Context projection bound to SI V2.
+///
+/// The digest contains the complete projected state because SI V2 responses
+/// may cite that projection as provenance. Raw context values never leave this
+/// provider. Context outside the SI surface/purposes is absent from the view and
+/// therefore cannot invalidate an SI response.
+final siV2PersonContextRevisionProvider = Provider<String>((Ref ref) {
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final String accountScopeId = assistantAccountScopeId(
+    authenticatedNamespace: scope.v2Namespace,
+    isSignedOut: scope.state == AccountStorageScopeState.signedOut,
+  );
+  final PersonContextView? view = ref.watch(
+    personContextForSurfaceProvider(_siV2PersonContextRequest),
+  );
+  final SIV2PersonContextEvidence? evidence = siV2PersonContextEvidenceOrNull(
+    view,
+    accountScopeId: accountScopeId,
+  );
+  if (evidence == null) {
+    return evidenceContentDigest(<String, Object?>{
+      'contract': 'si-v2-person-context-revision-v1',
+      'accountScopeId': accountScopeId,
+      'status': 'unavailable',
+    });
+  }
+
+  final List<String> unknownKinds =
+      evidence.unknownKinds
+          .map((PersonContextKind kind) => kind.name)
+          .toList(growable: true)
+        ..sort();
+  return evidenceContentDigest(<String, Object?>{
+    'contract': 'si-v2-person-context-revision-v1',
+    'accountScopeId': accountScopeId,
+    'status': evidence.signals.isEmpty ? 'known_empty' : 'available',
+    'signals': evidence.signals
+        .map(
+          (SIV2PersonContextSignalEvidence signal) => <String, Object?>{
+            'id': signal.id,
+            'kind': signal.kind.name,
+            'value': signal.userReportedValue,
+            'source': signal.source.name,
+            'purpose': signal.purpose.name,
+            'recordedAt': signal.recordedAt.toUtc().toIso8601String(),
+            'freshUntil': signal.freshUntil.toUtc().toIso8601String(),
+            'expiresAt': signal.expiresAt.toUtc().toIso8601String(),
+          },
+        )
+        .toList(growable: false),
+    'unknownKinds': unknownKinds,
+  });
+});
+
 /// Composition root: SI V2 resolves only query use cases and reduces them to
 /// read-only tear-offs. No repository or write-capable object crosses this boundary.
 final siV2ReadGatewayProvider = Provider<SIV2ReadGateway>((Ref ref) {
@@ -33,12 +94,7 @@ final siV2ReadGatewayProvider = Provider<SIV2ReadGateway>((Ref ref) {
   final GetMilestones milestones = ref.read(getMilestonesUseCaseProvider);
   final GetTimelineEvents timeline = ref.read(getTimelineEventsUseCaseProvider);
   final PersonContextView? personContext = ref.watch(
-    personContextForSurfaceProvider(
-      PersonContextAccessRequest(
-        surface: PersonContextSurface.siConsole,
-        purposes: SIV2ReadGateway.personContextPurposes,
-      ),
-    ),
+    personContextForSurfaceProvider(_siV2PersonContextRequest),
   );
   return SIV2ReadGateway(
     accountScopeId: assistantAccountScopeId(
@@ -87,18 +143,26 @@ final class SIV2QueryService implements SIV2QueryPort {
     required this.clock,
     this.engine = const SIV2Engine(),
     this.readDecisionReceipt,
+    this.readEvidenceForDecision,
   });
 
   final Future<SIV2EvidenceSnapshot> Function(DateTime observedAt) readEvidence;
   final DateTime Function() clock;
   final SIV2Engine engine;
   final Future<OperatingDecisionReceipt?> Function()? readDecisionReceipt;
+  final Future<SIV2EvidenceSnapshot> Function(
+    DateTime observedAt,
+    String decisionText,
+  )?
+  readEvidenceForDecision;
 
   @override
   Future<SIV2Response> analyze(SIV2Query query) async {
     _requireSiEmotionalSafetyRoute(query.conversationText);
     final DateTime now = clock().toUtc();
-    final SIV2EvidenceSnapshot snapshot = await readEvidence(now);
+    final SIV2EvidenceSnapshot snapshot =
+        await readEvidenceForDecision?.call(now, query.conversationText) ??
+        await readEvidence(now);
     SIV2Response response = engine.analyze(
       query: query,
       snapshot: snapshot,
@@ -106,7 +170,16 @@ final class SIV2QueryService implements SIV2QueryPort {
     );
     final OperatingDecisionReceipt? sharedDecision = await readDecisionReceipt
         ?.call();
-    if (sharedDecision != null) {
+    final Set<String> siContextSignalIds =
+        snapshot.personContext?.signals
+            .map((SIV2PersonContextSignalEvidence signal) => signal.id)
+            .toSet() ??
+        const <String>{};
+    if (sharedDecision != null &&
+        (sharedDecision.personContextAppliedSignalIds.isEmpty ||
+            siContextSignalIds.containsAll(
+              sharedDecision.personContextAppliedSignalIds,
+            ))) {
       response = response.withOperatingDecision(sharedDecision, now: now);
     }
     final String responseText = response.toPlainText();
@@ -164,6 +237,9 @@ final siV2QueryServiceProvider = Provider<SIV2QueryPort>((Ref ref) {
   final SIV2QueryPort delegate = SIV2QueryService(
     readEvidence: (DateTime observedAt) =>
         ref.read(siV2ReadGatewayProvider).read(observedAt: observedAt),
+    readEvidenceForDecision: (DateTime observedAt, String decisionText) => ref
+        .read(siV2ReadGatewayProvider)
+        .read(observedAt: observedAt, decisionText: decisionText),
     clock: ref.watch(siV2ClockProvider),
     readDecisionReceipt: () async {
       try {

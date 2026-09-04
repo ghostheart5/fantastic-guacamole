@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/data/services/task_occurrence_cloud_replica.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';

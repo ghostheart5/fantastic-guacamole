@@ -44,9 +44,11 @@ Thank you for your interest in contributing to ChronoSpark! This document outlin
    flutter test
    ```
 
-4. **Ensure the analyzer passes** with no errors or warnings:
+4. **Ensure formatting and the strict analyzer pass** with informational
+   diagnostics treated as failures:
    ```bash
-   flutter analyze
+   dart format --output=none --set-exit-if-changed lib test integration_test tool scripts
+   flutter analyze --fatal-infos
    ```
 
 5. **Write a clear PR description.** Explain *what* changed and *why*. Reference any related issue numbers (e.g., `Fixes #42`).
@@ -72,7 +74,9 @@ ChronoSpark is a Flutter/Dart project and follows the conventions established by
 
 - Follow [Flutter's best practices](https://docs.flutter.dev/perf/best-practices).
 - Keep widgets small and focused. Extract reusable UI components into their own widget classes.
-- Use the `Provider` pattern with `ChangeNotifier` for state management, consistent with the existing `AppState` architecture.
+- Use the existing Riverpod 3 providers and notifiers under `lib/state`.
+  Concrete repository and platform wiring belongs in the explicit state
+  composition providers; `lib/data` must not declare Riverpod providers.
 - Do not add new top-level state management libraries without prior discussion.
 
 ### Linting
@@ -80,15 +84,22 @@ ChronoSpark is a Flutter/Dart project and follows the conventions established by
 The project uses `flutter_lints` (configured in `analysis_options.yaml`). All contributed code must pass:
 
 ```bash
-flutter analyze
+flutter analyze --fatal-infos
 ```
 
 Do not suppress lint rules project-wide. If a rule must be suppressed for a specific line or file, add a comment explaining the reason:
 
 ```dart
-// ignore: avoid_print — temporary diagnostic output, tracked in #123
+// Temporary diagnostic output, tracked in #123.
+// ignore: avoid_print
 print('debug');
 ```
+
+Active compatibility APIs must be registered in
+`tool/active_compatibility_manifest.json`. Do not add `@Deprecated` while
+production callers still require broad same-package suppressions; either
+migrate those callers or register the bridge with an owner and removal
+criterion.
 
 ### Testing
 

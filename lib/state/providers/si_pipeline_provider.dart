@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
@@ -5,12 +7,14 @@ import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/assemble_si_decision_output.dart';
 import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,7 +25,10 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   // Repository providers fail closed until account storage is ready. Keep the
   // aggregation subscribed to that lifecycle so an early startup failure is
   // replaced by fresh evidence as soon as the authenticated scope is ready.
-  ref.watch(accountStorageScopeProvider);
+  final AccountStorageScope accountScope = ref.watch(
+    accountStorageScopeProvider,
+  );
+  ref.watch(learningRevisionProvider);
   final DateTime observedAt = DateTime.now();
   final List<TaskEntity> taskEntities = await _loadAllActionableTaskEntities(
     ref,
@@ -29,6 +36,19 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   );
   final List<PlannerInput> plannerInputs = PlannerInputAdapter.fromTaskEntities(
     taskEntities,
+  );
+  final String accountScopeId = assistantAccountScopeId(
+    authenticatedNamespace: accountScope.v2Namespace,
+    isSignedOut: accountScope.state == AccountStorageScopeState.signedOut,
+  );
+  final GovernedDecisionContext personContext = GovernedDecisionContext.resolve(
+    view: ref.watch(
+      personContextForSurfaceProvider(sharedDecisionPersonContextRequest),
+    ),
+    accountScopeId: accountScopeId,
+    tasks: taskEntities,
+    now: observedAt,
+    ignoredSignalIds: ref.watch(personContextDecisionIgnoredSignalsProvider),
   );
   final List<Task> tasks = PlannerInputAdapter.toLegacyTasks(plannerInputs);
   final goals = ref.watch(goalsProvider);
@@ -104,30 +124,42 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   LearningEntity learning = LearningEntity();
   SISourceStatus learningHealth = SISourceStatus.empty;
   try {
-    final LearningEntity? storedLearning = await ref
-        .read(domainLearningRepositoryProvider)
-        .getState();
-    if (storedLearning != null) {
-      learning = storedLearning;
-      learningHealth = SISourceStatus.ready;
+    final bool learningPaused = await ref.watch(learningPausedProvider.future);
+    if (!learningPaused) {
+      final LearningEntity? storedLearning = await ref
+          .read(domainLearningRepositoryProvider)
+          .getState();
+      if (storedLearning != null) {
+        learning = storedLearning;
+        learningHealth = SISourceStatus.ready;
+      }
     }
   } on Object {
     learningHealth = SISourceStatus.error;
   }
+  final SiStateEntity decisionState = SiStateEntity(
+    energy: siState.energy,
+    attention: (1 - siState.fatigue).clamp(0.0, 1.0),
+    fatigue: siState.fatigue,
+    mood: emotion?.name ?? 'unknown',
+    avoidOverwhelm: planningSignals.overwhelm,
+    frictionScore: planningSignals.friction ? .8 : .2,
+    highFriction: planningSignals.friction,
+    lastUpdated: observedAt,
+  );
+  final DecisionRecommendation noContextPlanningDecision =
+      const DecisionEngine().recommend(
+        inputs: plannerInputs,
+        state: decisionState,
+        learning: learning,
+        now: observedAt,
+      );
   final DecisionRecommendation planningDecision = const DecisionEngine()
       .recommend(
         inputs: plannerInputs,
-        state: SiStateEntity(
-          energy: siState.energy,
-          attention: (1 - siState.fatigue).clamp(0.0, 1.0),
-          fatigue: siState.fatigue,
-          mood: emotion?.name ?? 'unknown',
-          avoidOverwhelm: planningSignals.overwhelm,
-          frictionScore: planningSignals.friction ? .8 : .2,
-          highFriction: planningSignals.friction,
-          lastUpdated: observedAt,
-        ),
+        state: decisionState,
         learning: learning,
+        personContext: personContext,
         now: observedAt,
       );
 
@@ -144,6 +176,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     siState: siState,
     trajectory: trajectory,
     planningDecision: planningDecision,
+    noContextPlanningDecision: noContextPlanningDecision,
     sourceHealth: SISourceHealth(
       tasks: tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
       goals: goals.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,

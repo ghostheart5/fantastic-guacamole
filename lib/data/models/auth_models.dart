@@ -84,3 +84,19 @@ class AccountDeletionResult {
   bool get isCompleted => disposition == AccountDeletionDisposition.completed;
   bool get isPending => disposition == AccountDeletionDisposition.pending;
 }
+
+/// Privacy-safe view of a deletion request retained on this device.
+///
+/// The bearer-like request capability never leaves [AuthService]; UI receives
+/// only a server state and a timestamp suitable for status and recovery copy.
+class PendingAccountDeletionStatus {
+  const PendingAccountDeletionStatus({
+    required this.serverState,
+    required this.createdAtUtc,
+    required this.localCleanupCompleted,
+  });
+
+  final String serverState;
+  final DateTime createdAtUtc;
+  final bool localCleanupCompleted;
+}

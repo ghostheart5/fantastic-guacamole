@@ -75,11 +75,129 @@ void main() {
     expect(tasks.values['daily']?.isCompleted, isTrue);
     expect(
       tasks.values.values.where(
-        (TaskEntity task) => task.id.startsWith('daily::next::'),
+        (TaskEntity task) => task.recurrenceSeriesId == 'daily',
       ),
       hasLength(1),
     );
   });
+
+  test(
+    'long recurrence chains retain bounded deterministic identities',
+    () async {
+      const String seriesId = 'long-running-daily-series';
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'long-chain-user',
+      );
+      final _Tasks tasks = _Tasks(<TaskEntity>[
+        _task(
+          seriesId,
+          recurrenceRule: RecurrenceRule.daily,
+          scheduledFor: DateTime.utc(2026, 8, 18, 10),
+        ),
+      ]);
+      final TaskOccurrenceCoordinator coordinator = _coordinator(scope, tasks);
+      String currentId = seriesId;
+
+      for (int index = 0; index < 120; index++) {
+        final TaskEntity current = tasks.values[currentId]!;
+        final String occurrenceKey = TaskOccurrence.occurrenceKeyFor(current);
+        final TaskOccurrenceResult result = await coordinator.complete(
+          currentId,
+        );
+        final TaskEntity successor = result.successor!;
+
+        expect(
+          successor.id,
+          TaskEntity.recurringSuccessorId(
+            seriesId: seriesId,
+            occurrenceKey: occurrenceKey,
+          ),
+          reason: 'generation $index',
+        );
+        expect(successor.id.length, lessThanOrEqualTo(256));
+        expect(successor.recurrenceSeriesId, seriesId);
+        currentId = successor.id;
+      }
+
+      expect(tasks.values, hasLength(121));
+      expect(tasks.values.keys.toSet(), hasLength(121));
+    },
+  );
+
+  test(
+    'legacy nested successors converge without duplication then migrate',
+    () async {
+      const String rootId = 'legacy-series';
+      const String occurrenceKey = '2026-08-18';
+      final String legacySourceId = <String>[
+        rootId,
+        ...List<String>.generate(12, (int index) => 'slot-$index'),
+      ].join(TaskEntity.legacyRecurringSuccessorSeparator);
+      final DateTime mutationAt = DateTime.utc(2026, 8, 18, 11);
+      final TaskEntity source =
+          _task(
+            legacySourceId,
+            recurrenceRule: RecurrenceRule.daily,
+            scheduledFor: DateTime.utc(2026, 8, 18, 10),
+          ).copyWith(
+            occurrenceKey: occurrenceKey,
+            isCompleted: true,
+            completedAt: mutationAt,
+          );
+      final String legacySuccessorId =
+          '$legacySourceId${TaskEntity.legacyRecurringSuccessorSeparator}'
+          '$occurrenceKey';
+      final TaskEntity legacySuccessor = _task(
+        legacySuccessorId,
+        recurrenceRule: RecurrenceRule.daily,
+        scheduledFor: DateTime.utc(2026, 8, 19, 10),
+      ).copyWith(occurrenceKey: '2026-08-19');
+      final _Tasks tasks = _Tasks(<TaskEntity>[source, legacySuccessor]);
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'legacy-chain-user',
+      );
+      final TaskOccurrenceRepository occurrences = _occurrences(scope);
+      final TaskOccurrence pending = TaskOccurrence(
+        taskId: legacySourceId,
+        seriesId: rootId,
+        occurrenceKey: occurrenceKey,
+        initialScheduledFor: source.scheduledFor,
+        pendingOperation: TaskOccurrencePendingOperation(
+          operationId: '$legacySourceId::$occurrenceKey::completed',
+          outcome: TaskOccurrenceOutcome.completed,
+          at: mutationAt,
+        ),
+      );
+      await occurrences.save(pending);
+      final TaskOccurrenceCoordinator coordinator = TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+        clock: () => mutationAt,
+      );
+
+      final TaskOccurrenceResult recovered = await coordinator.complete(
+        legacySourceId,
+      );
+
+      expect(recovered.successor?.id, legacySuccessorId);
+      expect(tasks.values, hasLength(2));
+
+      final TaskOccurrenceResult migrated = await coordinator.complete(
+        legacySuccessorId,
+      );
+      expect(
+        migrated.successor?.id,
+        TaskEntity.recurringSuccessorId(
+          seriesId: rootId,
+          occurrenceKey: '2026-08-19',
+        ),
+      );
+      expect(migrated.successor?.recurrenceSeriesId, rootId);
+      expect(migrated.successor!.id.length, lessThanOrEqualTo(256));
+      expect(tasks.values, hasLength(3));
+    },
+  );
 
   test(
     'recurring successors advance schedules and deadlines together',
@@ -284,7 +402,7 @@ void main() {
       expect(recovered.mutation, TaskOccurrenceMutation.applied);
       expect(
         tasks.values.values.where(
-          (TaskEntity task) => task.id.startsWith('successor-fail::next::'),
+          (TaskEntity task) => task.recurrenceSeriesId == 'successor-fail',
         ),
         hasLength(1),
       );
@@ -328,7 +446,7 @@ void main() {
       expect(recovered.occurrence.transitions, hasLength(1));
       expect(
         tasks.values.values.where(
-          (TaskEntity task) => task.id.startsWith('ledger-fail::next::'),
+          (TaskEntity task) => task.recurrenceSeriesId == 'ledger-fail',
         ),
         hasLength(1),
       );
@@ -448,7 +566,7 @@ void main() {
     );
     expect(
       tasks.values.values.where(
-        (TaskEntity task) => task.id.startsWith('race::next::'),
+        (TaskEntity task) => task.recurrenceSeriesId == 'race',
       ),
       hasLength(1),
     );
@@ -501,7 +619,7 @@ void main() {
       );
       expect(
         tasks.values.values.where(
-          (TaskEntity value) => value.id.startsWith('multi-race::next::'),
+          (TaskEntity value) => value.recurrenceSeriesId == 'multi-race',
         ),
         hasLength(1),
       );

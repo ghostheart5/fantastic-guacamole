@@ -47,8 +47,8 @@ touch lib/data/paywall/paywall_service.dart
 touch lib/data/paywall/entitlement_service.dart
 touch lib/data/paywall/receipt_verifier.dart
 
-touch lib/data/di/services_providers.dart
-touch lib/data/di/repositories_providers.dart
+touch lib/state/providers/service_providers.dart
+touch lib/state/providers/repository_providers.dart
 touch lib/data/di/paywall_providers.dart
 
 # ---------- DOMAIN ----------

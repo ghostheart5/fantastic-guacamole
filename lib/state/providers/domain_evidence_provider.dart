@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/domain_evidence_entry.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';

@@ -58,7 +58,7 @@ final aiDecisionProvider = FutureProvider<Decision?>((ref) async {
   final Decision? decision = core.decide(tasks);
 
   if (decision != null) {
-    ref
+    await ref
         .read(notificationActionsProvider)
         .pushMirroredDecision(decision.task.title);
   }
@@ -78,7 +78,7 @@ final smartPlannerAiResponseProvider =
     );
 
 class AIResponseController extends AsyncNotifier<AIRecommendation?>
-    implements SIConsoleInterface {
+    implements SIConsoleInterface<AIRecommendation> {
   AIResponseController([
     this.conversation = AssistantConversationScope.primarySiConsole,
   ]);

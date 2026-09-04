@@ -29,7 +29,7 @@ final class FlutterSensitiveStorageBackend implements SensitiveStorageBackend {
 }
 
 // Persists sensitive key/value data in platform secure storage (Keychain/Keystore)
-// and migrates known legacy values previously saved in SharedPreferences.
+// while retaining known legacy SharedPreferences values as read-only fallbacks.
 class SensitivePrefsStore
     implements
         SharedPrefsStore,
@@ -62,6 +62,7 @@ class SensitivePrefsStore
   };
 
   final Map<String, String> _values = <String, String>{};
+  final Map<String, String> _legacyValues = <String, String>{};
   final SensitiveStorageBackend _backend;
   final Future<SharedPreferences> Function() _legacyPreferences;
   Future<void>? _initializing;
@@ -85,6 +86,7 @@ class SensitivePrefsStore
 
   Future<void> _initialize() async {
     _values.clear();
+    _legacyValues.clear();
     _recoveredCorruption = false;
     final String? existingCorruptionBackups = await _backend.read(
       _corruptBackupKey,
@@ -112,30 +114,16 @@ class SensitivePrefsStore
     }
 
     final SharedPreferences legacy = await _legacyPreferences();
-    final List<String> migratedKeys = <String>[];
-    bool needsPersist = false;
     for (final String key in _legacyKeys) {
       final String? value = legacy.getString(key);
       if (value == null) continue;
-      if (!_values.containsKey(key)) {
-        _values[key] = value;
-        needsPersist = true;
-      }
-      migratedKeys.add(key);
-    }
-    if (migratedKeys.isNotEmpty) {
-      if (needsPersist) {
-        await _persist();
-      }
-      for (final String key in migratedKeys) {
-        await legacy.remove(key);
-      }
+      _legacyValues[key] = value;
     }
     _initialized = true;
   }
 
   @override
-  String? load(String key) => _values[key];
+  String? load(String key) => _values[key] ?? _legacyValues[key];
 
   @override
   Future<void> save(String key, String value) {

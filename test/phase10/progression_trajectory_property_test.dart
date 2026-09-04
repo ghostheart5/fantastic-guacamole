@@ -25,7 +25,7 @@ void main() {
           final int xp = previousXp + g.between(0, 500);
           final ProgressionEntity progression = ProgressionEntity(
             xp: xp,
-          ).addXp(0);
+          ).awardXp(0);
           expect(progression.level, greaterThanOrEqualTo(previousLevel));
           expect(
             ProgressionPolicy.xpForLevel(progression.level),

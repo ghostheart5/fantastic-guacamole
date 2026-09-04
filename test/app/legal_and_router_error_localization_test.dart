@@ -70,7 +70,7 @@ void main() {
           );
           expect(find.byType(WebPageView), findsOneWidget);
           expect(find.text(expectation.title), findsOneWidget);
-          expect(find.text(expectation.body), findsOneWidget);
+          expect(find.textContaining(expectation.bodyFragment), findsOneWidget);
           expect(find.text(expectation.callToAction), findsOneWidget);
 
           await tester.pumpWidget(const SizedBox.shrink());
@@ -325,14 +325,14 @@ class _LocalizedRouteExpectation {
     required this.path,
     required this.locale,
     required this.title,
-    required this.body,
+    required this.bodyFragment,
     required this.callToAction,
   });
 
   final String path;
   final Locale locale;
   final String title;
-  final String body;
+  final String bodyFragment;
   final String callToAction;
 }
 
@@ -374,32 +374,32 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     path: RoutePaths.privacy,
     locale: Locale('en'),
     title: 'Privacy Policy',
-    body:
-        'ChronoSpark publishes its authoritative privacy policy at the public HTTPS URL below. Use the hosted policy for current data handling, retention, and support terms.',
+    bodyFragment:
+        'This policy describes the data ChronoSpark may process and the stricter feature containment applied to the current release candidate.',
     callToAction: 'Open Hosted Privacy Policy',
   ),
   _LocalizedRouteExpectation(
     path: RoutePaths.terms,
     locale: Locale('en'),
     title: 'Terms of Service',
-    body:
-        'ChronoSpark maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
+    bodyFragment:
+        'These terms govern use of ChronoSpark. By using the app, you agree to these terms and the Privacy Policy.',
     callToAction: 'Open Hosted Terms',
   ),
   _LocalizedRouteExpectation(
     path: RoutePaths.deleteAccount,
     locale: Locale('en'),
     title: 'Delete Account',
-    body:
-        'ChronoSpark publishes account deletion steps at the public HTTPS URL below. Use the hosted page to submit a deletion request and review deletion and retention details.',
+    bodyFragment:
+        'Permanent action: Account deletion removes the authentication account and eligible account-linked data after the request is verified.',
     callToAction: 'Open Hosted Delete Account Page',
   ),
   _LocalizedRouteExpectation(
     path: RoutePaths.support,
     locale: Locale('en'),
     title: 'Support',
-    body:
-        'ChronoSpark publishes release-facing support and account assistance at the public HTTPS URL below so store reviewers and users can reach the current support process from every build.',
+    bodyFragment:
+        'Working contact path: Email is available for account, privacy, tester, and technical support.',
     callToAction: 'Open Hosted Support Page',
   ),
 ];

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/theme/theme.dart' as neon;
 import 'package:flutter/material.dart';
 
@@ -38,13 +40,13 @@ class _HoloButtonState extends State<HoloButton>
 
   Color get _color => widget.color ?? neon.neonCyan;
 
-  void _onTapDown(TapDownDetails _) => _press.forward();
+  void _onTapDown(TapDownDetails _) => unawaited(_press.forward());
   void _onTapUp(TapUpDetails _) {
-    _press.reverse();
+    unawaited(_press.reverse());
     widget.onTap?.call();
   }
 
-  void _onTapCancel() => _press.reverse();
+  void _onTapCancel() => unawaited(_press.reverse());
 
   @override
   Widget build(BuildContext context) {

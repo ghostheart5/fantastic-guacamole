@@ -5,7 +5,7 @@
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Planning and decision-support app with explainable on-device guidance, optional AI assistance, and timeline context.",
+    "description": "Android release candidate for planning and decision support with explainable on-device guidance and timeline context.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
@@ -9,6 +11,7 @@ import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,8 +33,11 @@ void main() {
   late ProviderContainer container;
 
   setUp(() async {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'offline-sync-test-account',
+    );
     SharedPreferences.setMockInitialValues(<String, Object>{
-      'cloud_sync_enabled_v1': true,
+      'cloud_sync_enabled_v1.${scope.v2Namespace}': true,
     });
     hiveDirectory = await Directory.systemTemp.createTemp(
       'chronospark_offline_sync_',
@@ -51,16 +57,24 @@ void main() {
 
     container = ProviderContainer(
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(scope),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         cloudSyncCapabilityProvider.overrideWithValue(true),
         offlineSyncQueueProvider.overrideWithValue(
           OfflineSyncQueueService(
             HiveStorage<String>(HiveBoxes.offlineQueue, hive: _TestHiveStore()),
+            accountId: 'offline-sync-test-account',
+            enforceAccountBinding: true,
           ),
         ),
         syncServiceProvider.overrideWithValue(
           SyncService(
             backup: backupService,
             gateway: gateway,
+            expectedAccountId: 'offline-sync-test-account',
+            currentAccountId: () => 'offline-sync-test-account',
             syncEnabled: true,
             restoreEnabled: true,
           ),

@@ -366,7 +366,7 @@ extension _NavigationShellUi on _NavigationShellState {
   }
 
   void _showNavigationMap() {
-    showModalBottomSheet<void>(
+    final Future<void> navigationMap = showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -510,6 +510,12 @@ extension _NavigationShellUi on _NavigationShellState {
           ),
         );
       },
+    );
+    unawaited(
+      runGuardedBackgroundTask(
+        label: 'navigation map presentation',
+        task: () => navigationMap,
+      ),
     );
   }
 }

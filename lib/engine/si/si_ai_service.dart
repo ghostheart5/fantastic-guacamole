@@ -10,7 +10,6 @@ import 'package:fantastic_guacamole/engine/si/si_engine.dart';
 import 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
 import 'package:fantastic_guacamole/engine/si/si_output_bundle.dart';
 
-@Deprecated('Use SIEngineService. This class is a compatibility adapter.')
 class SIAIService {
   SIAIService({SIEngineService? engineService})
     : _engineService = engineService ?? SIEngineService();

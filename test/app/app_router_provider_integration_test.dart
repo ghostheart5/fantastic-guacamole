@@ -4,6 +4,9 @@ import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
@@ -14,6 +17,7 @@ import 'package:fantastic_guacamole/features/notifications/ui/notification_scree
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/material.dart';
@@ -52,8 +56,13 @@ void _setGuardState(
 }
 
 void main() {
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    // SharedPrefsService intentionally caches the plugin instance for the app
+    // lifetime. Clear that cached test instance as well so a prior router test
+    // cannot leak an account-scoped recovery destination into the next case.
+    await SharedPrefsService.init();
+    await SharedPrefsService.clear();
     NotificationScheduler.tappedPayloadListenable.value = null;
   });
   tearDown(() => NotificationScheduler.tappedPayloadListenable.value = null);
@@ -590,7 +599,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       _expectUri(firstLaunch, RoutePaths.timeline);
-      expect(PreferenceService().getLastOpenedTab(), 2);
+      expect(
+        firstLaunch.container
+            .read(preferenceServiceProvider)
+            .getLastOpenedTab(),
+        2,
+      );
 
       await tester.pumpWidget(const SizedBox.shrink());
       firstLaunch.dispose();
@@ -732,6 +746,12 @@ Future<_RouterHarness> _pumpRealRouter(
 }) async {
   final ProviderContainer container = ProviderContainer(
     overrides: [
+      accountStorageScopeProvider.overrideWithValue(
+        AccountStorageScope.authenticated('router-test-account'),
+      ),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
       guards.authenticatedGuardProvider.overrideWith(
         (Ref ref) => ref.watch(_authenticatedStateProvider),
       ),

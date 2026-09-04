@@ -248,6 +248,99 @@ void main() {
       );
     },
   );
+
+  test(
+    'notes migrate when ownership becomes proven after an ambiguous read',
+    () async {
+      final AccountStorageScope account = AccountStorageScope.authenticated(
+        'account-a',
+      );
+      await preferences.save('notes_v1', '[${_noteJson('legacy-note')}]');
+
+      final NoteRepository unresolved = NoteRepository(
+        preferences,
+        scope: account,
+        legacyOwnership: LegacyScopeOwnership.ambiguous,
+      );
+      expect(await unresolved.getNotes(), isEmpty);
+      expect(
+        preferences.load('notes_v1.${account.v2Namespace}_migration_v1'),
+        isNull,
+      );
+      // Builds that predate the fix could persist this nonterminal marker
+      // before the authentication boundary established ownership.
+      await preferences.save(
+        'notes_v1.${account.v2Namespace}_migration_v1',
+        LegacyScopeOwnership.ambiguous.name,
+      );
+
+      final NoteRepository provenOwner = NoteRepository(
+        preferences,
+        scope: account,
+        legacyOwnership: LegacyScopeOwnership.provenOwned,
+      );
+      expect((await provenOwner.getNotes()).single.id, 'legacy-note');
+      expect(preferences.load('notes_v1'), contains('legacy-note'));
+      expect(
+        preferences.load('notes_v1.${account.v2Namespace}'),
+        contains('legacy-note'),
+      );
+    },
+  );
+
+  test(
+    'notes terminal migration marker prevents legacy resurrection',
+    () async {
+      final AccountStorageScope account = AccountStorageScope.authenticated(
+        'account-a',
+      );
+      final String scopedKey = 'notes_v1.${account.v2Namespace}';
+      await preferences.save('notes_v1', '[${_noteJson('legacy-note')}]');
+      final NoteRepository repository = NoteRepository(
+        preferences,
+        scope: account,
+        legacyOwnership: LegacyScopeOwnership.provenOwned,
+      );
+
+      expect((await repository.getNotes()).single.id, 'legacy-note');
+      await repository.deleteNote('legacy-note');
+      expect(await repository.getNotes(), isEmpty);
+      expect(preferences.load('notes_v1'), contains('legacy-note'));
+
+      // Even if a scoped cleanup removes the empty snapshot, the preserved
+      // legacy payload must not become active again.
+      await preferences.delete(scopedKey);
+      expect(
+        await NoteRepository(
+          preferences,
+          scope: account,
+          legacyOwnership: LegacyScopeOwnership.provenOwned,
+        ).getNotes(),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
+    'signed-out and unsafe note reads and replacements fail closed',
+    () async {
+      for (final AccountStorageScope scope in const <AccountStorageScope>[
+        AccountStorageScope.signedOut(),
+        AccountStorageScope.unsafe(),
+      ]) {
+        final NoteRepository repository = NoteRepository(
+          preferences,
+          scope: scope,
+        );
+        await expectLater(repository.getNotes(), throwsStateError);
+        await expectLater(
+          repository.replaceNoteSnapshot(<NoteEntity>[_note('blocked')]),
+          throwsStateError,
+        );
+      }
+      expect(preferences.load('notes_v1'), isNull);
+    },
+  );
 }
 
 AccountScopedHiveStorage _scopedStorage(

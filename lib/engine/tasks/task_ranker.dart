@@ -118,21 +118,13 @@ class TaskRanker implements ITaskRanker {
     );
 
     final double priorityContribution =
-        task.priority *
-        learning.priorityWeight *
-        priorityScale *
-        policy.priorityWeight *
-        10.0;
+        task.priority * priorityScale * policy.priorityWeight * 10.0;
     final double energyContribution = energyMatch * 12.0 * policy.energyWeight;
     final double fatigueContribution = (1.0 - fatigue) * 6.0;
     final double difficultyAdjustment =
-        -(task.difficulty *
-            learning.effortWeight *
-            difficultyScale *
-            fatigue *
-            4.0);
+        -(task.difficulty * difficultyScale * fatigue * 4.0);
     final double affinity = learning is LearningEntity
-        ? learning.taskAffinity[task.id] ?? .5
+        ? learning.effectiveTaskAffinity(task.id, now: now)
         : .5;
     final double affinityContribution = (affinity - .5) * 8;
     final double goalContribution = (task.goalId?.trim().isNotEmpty ?? false)
@@ -186,8 +178,7 @@ class TaskRanker implements ITaskRanker {
           'Goal linkage contributed ${goalContribution.toStringAsFixed(1)} points.',
         if (quickWinContribution > 0)
           'Short-duration fit contributed ${quickWinContribution.toStringAsFixed(1)} points.',
-        if (learning is LearningEntity &&
-            learning.taskAffinity.containsKey(task.id))
+        if (learning is LearningEntity && affinity != .5)
           'Observed task affinity adjusted the score by ${affinityContribution.toStringAsFixed(1)} points.',
       ],
     );

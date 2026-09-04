@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -32,6 +33,12 @@ final creatorHandshakeProvider =
       CreatorHandshakeNotifier.new,
     );
 
+final PersonContextAccessRequest _creatorPersonContextRequest =
+    PersonContextAccessRequest(
+      surface: PersonContextSurface.creator,
+      purposes: operationalPersonContextPurposes,
+    );
+
 class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
   static const Duration confirmationLifetime = Duration(minutes: 5);
   static const Duration undoLifetime = Duration(seconds: 30);
@@ -41,7 +48,29 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
   bool _undoInFlight = false;
 
   @override
-  CreatorHandshakeState build() => const CreatorHandshakeState();
+  CreatorHandshakeState build() {
+    ref.listen<PersonContextView?>(
+      personContextForSurfaceProvider(_creatorPersonContextRequest),
+      (PersonContextView? previous, PersonContextView? next) {
+        final CreatorHandshakeState current = state;
+        final CreatorHandshakePreview? preview = current.preview;
+        if (preview == null ||
+            current.token == null ||
+            current.receipt != null) {
+          return;
+        }
+        if (!_personContextBindingMatchesView(
+          preview.personContextBinding,
+          next,
+          preview.accountScopeId,
+          preview.operations.single.mutation,
+        )) {
+          _rejectStalePersonContext();
+        }
+      },
+    );
+    return const CreatorHandshakeState();
+  }
 
   Future<CreatorHandshakeState> stage({
     required CreatorFormData data,
@@ -51,8 +80,6 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     final DateTime now = _now();
     final String revision = await _domainRevision();
     final PersonContextView? personContext = _creatorPersonContext(account);
-    final CreatorPersonContextBinding? personContextBinding =
-        personContext == null ? null : _personContextBinding(personContext);
     final int sequence = _proposalSequence++;
     final String proposalSeed = creatorHandshakeDigest(<String, Object?>{
       'account': account,
@@ -68,6 +95,10 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       proposalId: proposalId,
       createdAt: now,
     );
+    final CreatorPersonContextBinding? personContextBinding =
+        personContext == null
+        ? null
+        : _personContextBinding(personContext, mutation: mutation, now: now);
     final CreatorMutationOperation operation = CreatorMutationOperation(
       operationId: '$proposalId:create-${mutation.entityKind.name}',
       kind: switch (mutation.entityKind) {
@@ -99,7 +130,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       preview: preview,
       token: token,
       message: personContextBinding?.hasBoundEvidence ?? false
-          ? 'Review the exact selected change. Consented person context is bound as review evidence only and did not alter the proposed ${_entityLabel(mutation.entityKind).toLowerCase()}. Nothing has been saved yet.'
+          ? 'Review the exact selected change and its governed Person Context warnings. The proposed ${_entityLabel(mutation.entityKind).toLowerCase()} was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.'
           : 'Review the exact selected change. Nothing has been saved yet.',
       formRevision: state.formRevision,
     );
@@ -209,14 +240,12 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       return state;
     }
 
-    final CreatorPersonContextBinding? personContextBinding =
-        preview.personContextBinding;
-    if (!_personContextBindingIsCurrent(personContextBinding, account)) {
+    if (!_personContextBindingIsCurrent(preview, account)) {
       return _rejectStalePersonContext();
     }
 
     final String currentRevision = await _domainRevision();
-    if (!_personContextBindingIsCurrent(personContextBinding, account)) {
+    if (!_personContextBindingIsCurrent(preview, account)) {
       return _rejectStalePersonContext();
     }
     if (currentRevision != preview.baseDomainRevision) {
@@ -287,7 +316,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
 
     try {
       for (final CreatorMutationOperation operation in toCreate) {
-        if (!_personContextBindingIsCurrent(personContextBinding, account)) {
+        if (!_personContextBindingIsCurrent(preview, account)) {
           return _rejectStalePersonContext();
         }
         await _applyCreate(operation);
@@ -524,12 +553,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
 
   PersonContextView? _creatorPersonContext(String accountScopeId) {
     final PersonContextView? view = ref.read(
-      personContextForSurfaceProvider(
-        PersonContextAccessRequest(
-          surface: PersonContextSurface.creator,
-          purposes: operationalPersonContextPurposes,
-        ),
-      ),
+      personContextForSurfaceProvider(_creatorPersonContextRequest),
     );
     if (view == null ||
         view.accountScopeId != accountScopeId ||
@@ -540,24 +564,53 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     return view;
   }
 
-  CreatorPersonContextBinding _personContextBinding(PersonContextView view) {
+  CreatorPersonContextBinding _personContextBinding(
+    PersonContextView view, {
+    required CreatorEntityMutation mutation,
+    required DateTime now,
+  }) {
+    final TaskEntity? proposedTask = mutation is CreatorTaskMutation
+        ? _taskEntityFromMutation(mutation)
+        : null;
+    final GovernedDecisionContext context = GovernedDecisionContext.resolve(
+      view: view,
+      accountScopeId: view.accountScopeId,
+      tasks: proposedTask == null
+          ? const <TaskEntity>[]
+          : <TaskEntity>[proposedTask],
+      now: now,
+      surface: PersonContextSurface.creator,
+    );
+    final Set<String> usedSignalIds = context.appliedSignalIds;
     final List<PersonContextSignal> guidanceSignals =
         view.signals
             .where(
-              (PersonContextSignal signal) =>
-                  signal.source == PersonContextSource.userAuthored &&
-                  operationalPersonContextPurposes.contains(signal.purpose) &&
-                  _creatorGuidanceKindRank(signal.kind) != null,
+              (PersonContextSignal signal) => usedSignalIds.contains(signal.id),
             )
             .toList(growable: true)
-          ..sort(_compareCreatorGuidanceSignals);
+          ..sort(PersonContextBehaviorPolicy.compareSignals);
     final List<String> evidenceSummary = guidanceSignals
         .map(_creatorEvidenceSummary)
         .toList(growable: false);
+    final int? capacityCapMinutes = context.capacityCapMinutes;
+    final List<String> warnings = <String>[
+      if (proposedTask != null &&
+          context.excludedTaskIds.contains(proposedTask.id))
+        'This proposal conflicts with an explicit boundary.',
+      if (proposedTask != null &&
+          capacityCapMinutes != null &&
+          proposedTask.estimateOrDefault.inMinutes > capacityCapMinutes)
+        'The ${proposedTask.estimateOrDefault.inMinutes}-minute estimate exceeds the fresh user-reported $capacityCapMinutes-minute capacity.',
+      if (proposedTask != null &&
+          context.protectedCommitmentTaskIds.contains(proposedTask.id))
+        'This proposal matches a fresh user-reported commitment; confirm timing and duplication before saving.',
+    ];
     return CreatorPersonContextBinding(
       revision: _personContextRevision(view, evidenceSummary),
       hasBoundEvidence: evidenceSummary.isNotEmpty,
       evidenceSummary: evidenceSummary,
+      conflictWarnings: warnings,
+      behaviorTrace: context.trace?.toJson() ?? const <String, Object?>{},
     );
   }
 
@@ -579,13 +632,37 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
   }
 
   bool _personContextBindingIsCurrent(
-    CreatorPersonContextBinding? binding,
+    CreatorHandshakePreview preview,
     String account,
   ) {
-    if (!(binding?.hasBoundEvidence ?? false)) return true;
     final PersonContextView? currentContext = _creatorPersonContext(account);
-    if (currentContext == null) return false;
-    return _personContextBinding(currentContext).revision == binding!.revision;
+    return _personContextBindingMatchesView(
+      preview.personContextBinding,
+      currentContext,
+      account,
+      preview.operations.single.mutation,
+    );
+  }
+
+  bool _personContextBindingMatchesView(
+    CreatorPersonContextBinding? binding,
+    PersonContextView? view,
+    String account,
+    CreatorEntityMutation mutation,
+  ) {
+    if (binding == null) return view == null;
+    if (view == null ||
+        view.accountScopeId != account ||
+        view.surface != PersonContextSurface.creator ||
+        !setEquals(view.purposes, operationalPersonContextPurposes)) {
+      return false;
+    }
+    return _personContextBinding(
+          view,
+          mutation: mutation,
+          now: _now(),
+        ).revision ==
+        binding.revision;
   }
 
   CreatorHandshakeState _rejectStalePersonContext() {
@@ -597,29 +674,6 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     );
     return state;
   }
-
-  int _compareCreatorGuidanceSignals(
-    PersonContextSignal left,
-    PersonContextSignal right,
-  ) {
-    final int kindOrder = _creatorGuidanceKindRank(
-      left.kind,
-    )!.compareTo(_creatorGuidanceKindRank(right.kind)!);
-    if (kindOrder != 0) return kindOrder;
-    final int recordedOrder = right.recordedAt.toUtc().compareTo(
-      left.recordedAt.toUtc(),
-    );
-    return recordedOrder != 0 ? recordedOrder : left.id.compareTo(right.id);
-  }
-
-  int? _creatorGuidanceKindRank(PersonContextKind kind) => switch (kind) {
-    PersonContextKind.currentPriority => 0,
-    PersonContextKind.presentCapacity => 1,
-    PersonContextKind.boundary => 2,
-    PersonContextKind.commitment => 3,
-    PersonContextKind.preferredSupportStyle => 4,
-    _ => null,
-  };
 
   String _creatorEvidenceSummary(PersonContextSignal signal) {
     return '${signal.kind.name}: ${signal.value}';

@@ -1,28 +1,56 @@
-Privacy PolicyLast updated: August 31, 2026
+Privacy Policy
+
+Last updated: September 4, 2026
 
 This policy describes the data ChronoSpark may process and the stricter feature containment applied to the current release candidate. A listed provider is not proof that every provider feature is enabled.
 
+Age and intended audience
+
+ChronoSpark is intended for adults ages 18 and over. It is not designed for or directed to children. Do not create an account or use ChronoSpark if you are under 18.
+
 Information you provide
 
-Account identifiers used for sign-in, such as an email address or sign-in provider identifier.Planning content you intentionally create, including tasks, planning context, goals, notes, schedules, preferences, and reflections.Support or account-deletion messages you choose to send.
+- Account identifiers used for sign-in, such as an email address or sign-in provider identifier.
+
+- Planning content you intentionally create, including tasks, planning context, goals, notes, schedules, preferences, and reflections.
+
+- Support or account-deletion messages you choose to send.
 
 Information needed for app functions
 
-Authentication and security events needed to protect an account.Notification device tokens only when messaging features are initialized for notifications.Purchase or entitlement data only when a supported Google Play billing flow is used.Local diagnostics needed to display and recover from an error on the device.
+- Authentication and security events needed to protect an account.
+
+- Notification device tokens only when messaging features are initialized for notifications.
+
+- Purchase or entitlement data only when a supported Google Play billing flow is used.
+
+- Local diagnostics needed to display and recover from an error on the device.
 
 Current release containment
 
-External AIDisabled. The current release candidate does not send Planner content to an external generative-AI provider.
+External AI
 
-Cloud syncDisabled for the release candidate.
+Disabled. The current release candidate does not send Planner content to an external generative-AI provider.
 
-Cloud restoreDisabled for the release candidate.
+Cloud sync
 
-Subscriptions and creditsDisabled for the release candidate.
+Disabled for the release candidate.
 
-AnalyticsDisabled by default and release-contained off.
+Cloud restore
 
-Crash reportingDisabled by default and release-contained off. Raw account identifiers must not be attached to crash reports if this changes in a future release.
+Disabled for the release candidate.
+
+Subscriptions and credits
+
+Disabled for the release candidate.
+
+Analytics
+
+Disabled by default and release-contained off.
+
+Crash reporting
+
+Disabled by default and release-contained off. Raw account identifiers must not be attached to crash reports if this changes in a future release.
 
 Local and backend storage
 
@@ -38,7 +66,11 @@ Account-linked information is retained only as needed to provide the active serv
 
 Your choices
 
-Control available notifications and privacy settings in the app.Request access, correction, or deletion of account-linked information.Do not send passwords, one-time codes, recovery tokens, payment details, or secret keys in a support request.
+- Control available notifications and privacy settings in the app.
+
+- Request access, correction, or deletion of account-linked information.
+
+- Do not send passwords, one-time codes, recovery tokens, payment details, or secret keys in a support request.
 
 Security and policy changes
 

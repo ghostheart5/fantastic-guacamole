@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -8,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test(
-    'legacy device completion migrates to only the existing account',
+    'legacy device completion is read-only for only the proven owner',
     () async {
       SharedPreferences.setMockInitialValues(<String, Object>{
         onboardingCompleteStorageKey: true,
@@ -18,6 +19,9 @@ void main() {
         overrides: [
           accountStorageScopeProvider.overrideWithValue(
             AccountStorageScope.authenticated('existing-user'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenOwned,
           ),
         ],
       );
@@ -32,12 +36,24 @@ void main() {
           accountStorageScopeProvider.overrideWithValue(
             AccountStorageScope.authenticated('new-user'),
           ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.ambiguous,
+          ),
         ],
       );
       addTearDown(newAccount.dispose);
       expect(
         await newAccount.read(accountOnboardingCompleteProvider.future),
         isFalse,
+      );
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(onboardingCompleteStorageKey), isTrue);
+      expect(
+        prefs.getBool(
+          'onboarding_profile_complete_v1.'
+          '${AccountStorageScope.authenticated('existing-user').v2Namespace}',
+        ),
+        isNull,
       );
     },
   );

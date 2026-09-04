@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';

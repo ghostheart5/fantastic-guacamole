@@ -1,5 +1,3 @@
-// ignore_for_file: deprecated_member_use_from_same_package
-
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';

@@ -33,7 +33,6 @@ import 'package:fantastic_guacamole/state/providers/sync_provider.dart'
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
-import 'package:fantastic_guacamole/system/system_boot.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:firebase_core/firebase_core.dart';

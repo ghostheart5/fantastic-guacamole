@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 
 typedef SIV2TaskReader = Future<List<TaskEntity>> Function();
 typedef SIV2GoalReader = Future<List<GoalEntity>> Function();
@@ -39,7 +40,10 @@ final class SIV2ReadGateway {
   final SIV2TimelineReader readTimeline;
   final SIV2PersonContextReader? readPersonContext;
 
-  Future<SIV2EvidenceSnapshot> read({required DateTime observedAt}) async {
+  Future<SIV2EvidenceSnapshot> read({
+    required DateTime observedAt,
+    String decisionText = '',
+  }) async {
     final Set<SIV2Source> unavailable = <SIV2Source>{};
     List<TaskEntity> taskEntities = const <TaskEntity>[];
     List<GoalEntity> goalEntities = const <GoalEntity>[];
@@ -163,11 +167,18 @@ final class SIV2ReadGateway {
             (SIV2TimelineEvidence left, SIV2TimelineEvidence right) =>
                 right.timestamp.compareTo(left.timestamp),
           );
-    final SIV2PersonContextEvidence? personContext =
-        _personContextEvidenceOrNull(
-          personContextView,
-          accountScopeId: accountScopeId,
-        );
+    final SIV2PersonContextEvidence? personContext = decisionText.trim().isEmpty
+        ? siV2PersonContextEvidenceOrNull(
+            personContextView,
+            accountScopeId: accountScopeId,
+          )
+        : _decisionPersonContextEvidenceOrNull(
+            personContextView,
+            accountScopeId: accountScopeId,
+            tasks: taskEntities,
+            decisionText: decisionText,
+            observedAt: observedAt,
+          );
 
     return SIV2EvidenceSnapshot(
       accountScopeId: accountScopeId,
@@ -182,29 +193,129 @@ final class SIV2ReadGateway {
   }
 }
 
-SIV2PersonContextEvidence? _personContextEvidenceOrNull(
+SIV2PersonContextEvidence? _decisionPersonContextEvidenceOrNull(
+  PersonContextView? view, {
+  required String accountScopeId,
+  required List<TaskEntity> tasks,
+  required String decisionText,
+  required DateTime observedAt,
+}) {
+  if (view == null || view.accountScopeId != accountScopeId) return null;
+  final Set<PersonContextKind> relevantKinds = _relevantUnknownKinds(
+    decisionText,
+  );
+  final GovernedDecisionContext context = GovernedDecisionContext.resolve(
+    view: view,
+    accountScopeId: accountScopeId,
+    tasks: <TaskEntity>[
+      TaskEntity(id: 'si-question', title: decisionText, createdAt: observedAt),
+      ...tasks.where(
+        (TaskEntity task) => _textOverlaps(task.title, decisionText),
+      ),
+    ],
+    now: observedAt,
+    surface: PersonContextSurface.siConsole,
+    ignoredSignalIds: <String>{
+      for (final PersonContextSignal signal in view.signals)
+        if (signal.kind == PersonContextKind.presentCapacity &&
+            !relevantKinds.contains(PersonContextKind.presentCapacity))
+          signal.id,
+    },
+  );
+  if (context.status == GovernedDecisionContextStatus.unavailable) return null;
+  final List<SIV2PersonContextSignalEvidence> signals =
+      view.signals
+          .where(
+            (PersonContextSignal signal) =>
+                context.appliedSignalIds.contains(signal.id),
+          )
+          .map(
+            (PersonContextSignal signal) => SIV2PersonContextSignalEvidence(
+              id: signal.id,
+              kind: signal.kind,
+              userReportedValue: signal.value,
+              source: signal.source,
+              purpose: signal.purpose,
+              recordedAt: signal.recordedAt.toUtc(),
+              freshUntil: signal.freshUntil.toUtc(),
+              expiresAt: signal.expiresAt.toUtc(),
+            ),
+          )
+          .toList(growable: false)
+        ..sort((left, right) => left.id.compareTo(right.id));
+  return SIV2PersonContextEvidence(
+    observedAt: view.observedAt.toUtc(),
+    purposes: SIV2ReadGateway.personContextPurposes,
+    signals: signals,
+    unknownKinds: view.unknownKinds.intersection(relevantKinds),
+    behaviorTrace: context.trace?.toJson() ?? const <String, Object?>{},
+  );
+}
+
+Set<PersonContextKind> _relevantUnknownKinds(String decisionText) {
+  final Set<String> words = _meaningfulWords(decisionText);
+  return <PersonContextKind>{
+    if (words.contains('next') ||
+        words.contains('priority') ||
+        words.contains('first'))
+      PersonContextKind.currentPriority,
+    if (words.contains('time') ||
+        words.contains('capacity') ||
+        words.contains('workload') ||
+        words.contains('schedule'))
+      PersonContextKind.presentCapacity,
+    if (words.contains('schedule') || words.contains('plan'))
+      PersonContextKind.boundary,
+    if (words.contains('commitment') ||
+        words.contains('schedule') ||
+        words.contains('next'))
+      PersonContextKind.commitment,
+  };
+}
+
+bool _textOverlaps(String left, String right) =>
+    _meaningfulWords(left).intersection(_meaningfulWords(right)).isNotEmpty;
+
+Set<String> _meaningfulWords(String value) => RegExp(r'[a-z0-9]+')
+    .allMatches(value.toLowerCase())
+    .map((RegExpMatch match) => match.group(0)!)
+    .where((String word) => word.length >= 4)
+    .toSet();
+
+SIV2PersonContextEvidence? siV2PersonContextEvidenceOrNull(
   PersonContextView? view, {
   required String accountScopeId,
 }) {
   if (view == null ||
       view.accountScopeId != accountScopeId ||
       view.surface != PersonContextSurface.siConsole ||
-      !_samePurposes(view.purposes, SIV2ReadGateway.personContextPurposes) ||
-      view.signals.length > SIV2PersonContextEvidence.maxSignals) {
+      !_samePurposes(view.purposes, SIV2ReadGateway.personContextPurposes)) {
     return null;
   }
   try {
+    final PersonContextBehaviorTrace evaluated =
+        PersonContextBehaviorPolicy.evaluate(
+          signals: view.signals,
+          surface: PersonContextSurface.siConsole,
+          purposes: view.purposes,
+          relevance: <String, PersonContextRelevanceBasis>{
+            for (final PersonContextSignal signal in view.signals)
+              signal.id: PersonContextRelevanceBasis.typedReviewEvidence,
+          },
+          now: view.observedAt,
+          noContextBaseline: const <PersonContextBehaviorField, Object?>{
+            PersonContextBehaviorField.supportingEvidence: 'none',
+          },
+          maxUsedSignals: SIV2PersonContextEvidence.maxSignals,
+        );
+    final Set<String> approvedSignalIds = evaluated.used
+        .map((PersonContextBehaviorDecision decision) => decision.signalId)
+        .toSet();
     final List<SIV2PersonContextSignalEvidence> signals =
         view.signals
             .where(
               (PersonContextSignal signal) =>
-                  SIV2ReadGateway.personContextPurposes.contains(
-                    signal.purpose,
-                  ) &&
-                  signal.isAvailableTo(
-                    PersonContextSurface.siConsole,
-                    view.observedAt,
-                  ),
+                  approvedSignalIds.contains(signal.id),
             )
             .map(
               (PersonContextSignal signal) => SIV2PersonContextSignalEvidence(

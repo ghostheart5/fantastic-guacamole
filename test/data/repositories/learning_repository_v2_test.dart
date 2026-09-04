@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/data/repositories/learning_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_observation_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,4 +48,29 @@ void main() {
     expect(await repository.getState(), isNull);
     expect(await store.readString('learning_state_v1'), '{not-json');
   });
+
+  test(
+    'production learning state is account scoped and signed out fails closed',
+    () async {
+      final LearningRepository accountA = LearningRepository(
+        store,
+        scope: AccountStorageScope.authenticated('account-a'),
+      );
+      final LearningRepository accountB = LearningRepository(
+        store,
+        scope: AccountStorageScope.authenticated('account-b'),
+      );
+      await accountA.saveState(LearningEntity(completed: 3));
+
+      expect((await accountA.getState())?.completed, 3);
+      expect(await accountB.getState(), isNull);
+      await expectLater(
+        LearningRepository(
+          store,
+          scope: const AccountStorageScope.signedOut(),
+        ).getState(),
+        throwsStateError,
+      );
+    },
+  );
 }

@@ -4,13 +4,15 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
+import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/expired_session_cleanup.dart';
@@ -29,6 +31,10 @@ import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+
+final agentOrchestratorProvider = Provider<AgentOrchestrator>(
+  (Ref ref) => const AgentOrchestrator(),
+);
 
 final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
   if (Env.isMockMode || Env.isMockLoginEnabled) {
@@ -56,7 +62,7 @@ final reminderOrchestratorServiceProvider =
     Provider<ReminderOrchestratorService>((Ref ref) {
       final scope = ref.watch(accountStorageScopeProvider);
       return ReminderOrchestratorService(
-        preferences: ref.read(sharedPrefsStoreProvider),
+        preferences: ref.watch(accountSharedPrefsStoreProvider),
         notifications: ref.read(notificationsServiceProvider),
         scheduler: ref.read(notificationSchedulerProvider),
         accountScope: scope.isWritable && scope.rawUserId != null
@@ -90,7 +96,7 @@ final siEngineServiceProvider = Provider<StateSiEngineService>((Ref ref) {
 final workspaceStoreServiceProvider = Provider<WorkspaceStoreService>((
   Ref ref,
 ) {
-  return WorkspaceStoreService(store: ref.read(secureStoreProvider));
+  return WorkspaceStoreService(store: ref.watch(accountSecureStoreProvider));
 });
 
 final externalUrlServiceProvider = Provider<ExternalUrlService>((_) {
@@ -101,9 +107,11 @@ final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((
   Ref ref,
 ) {
   final scope = ref.watch(accountStorageScopeProvider);
+  final scheduler = ref.read(notificationSchedulerProvider);
   return ReflectionReminderService(
-    preferences: ref.read(sharedPrefsStoreProvider),
-    scheduler: ref.read(notificationSchedulerProvider),
+    preferences: ref.watch(accountSharedPrefsStoreProvider),
+    scheduler: scheduler,
+    permissionListenable: scheduler.permissionStatusListenable,
     accountScope: scope.isWritable && scope.rawUserId != null
         ? AccountDataRegistry.accountDigest(scope.rawUserId!)
         : null,
@@ -166,6 +174,8 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
   final FirebaseSupabaseBridgeRepository bridgeRepository = ref.read(
     firebaseSupabaseBridgeRepositoryProvider,
   );
+  final TelemetryConsentAccountTransitionCoordinator telemetryTransitions =
+      TelemetryConsentAccountTransitionCoordinator(TelemetryConsentStore());
   Future<void> authTransitionTail = Future<void>.value();
 
   Future<void> syncIfPossible({required String source}) async {
@@ -213,6 +223,10 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
           if (user != null) {
             await syncIfPossible(source: 'auth-state-change');
           }
+          // Keep runtime telemetry changes on the same ordered account
+          // transition chain. A slow read/configuration for a departing user
+          // must finish before the next user's consent is applied.
+          await telemetryTransitions.applyForAccount(user?.id);
         })
         .catchError((Object error, StackTrace stackTrace) {
           Logger.errorCategory(
@@ -222,15 +236,6 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
             stackTrace,
           );
         });
-  });
-
-  // Runtime collection is both user-consented and build-gated. It is reset at
-  // account boundaries so a prior person's preference cannot carry over.
-  ref.listen<AsyncValue<User?>>(authUserProvider, (_, next) {
-    if (next is! AsyncData<User?>) {
-      return;
-    }
-    unawaited(TelemetryConsentStore().applyForAccount(next.value?.id));
   });
 });
 

@@ -3,11 +3,12 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-class NotificationScheduler {
+class NotificationScheduler implements NotificationSchedulerPort {
   factory NotificationScheduler() => _instance;
 
   NotificationScheduler._() : _plugin = FlutterLocalNotificationsPlugin();
@@ -29,6 +30,14 @@ class NotificationScheduler {
   /// normal launch.
   static final ValueNotifier<String?> tappedPayloadListenable =
       ValueNotifier<String?>(null);
+
+  ValueListenable<bool?> get permissionStatusListenable =>
+      permissionGrantedListenable;
+
+  @override
+  void clearTappedPayload() {
+    tappedPayloadListenable.value = null;
+  }
 
   /// Payload the app was launched with, if it was launched by a notification
   /// tap. Returns null once consumed so a later read cannot re-route.
@@ -182,8 +191,10 @@ class NotificationScheduler {
     return _permissionGranted;
   }
 
+  @override
   Future<bool> requestPermissions() => init(requestPermissions: true);
 
+  @override
   Future<bool> schedule(
     NotificationEntity notification, {
     String? accountScope,
@@ -235,6 +246,7 @@ class NotificationScheduler {
     return true;
   }
 
+  @override
   Future<bool> scheduleDailyAt({
     required String id,
     required String title,
@@ -288,6 +300,7 @@ class NotificationScheduler {
     return true;
   }
 
+  @override
   Future<bool> cancel(String id, {String? accountScope}) async {
     if (!_initialized) {
       Logger.log(
@@ -303,6 +316,7 @@ class NotificationScheduler {
     return true;
   }
 
+  @override
   Future<bool> cancelAll() async {
     if (!_initialized) {
       Logger.log(

@@ -88,6 +88,13 @@ void main() {
     expect(cleanupPlan.hiveBoxes, contains('tasks_box.$namespace'));
     expect(cleanupPlan.hiveBoxes, contains('goals_box.$namespace'));
     expect(cleanupPlan.hiveBoxes, contains('habits_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('daily_plans_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('projects_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('routines_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('subtasks_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('progression_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('offline_queue_box.$namespace'));
+    expect(cleanupPlan.hiveBoxes, contains('profile_box.$namespace'));
     expect(
       cleanupPlan.sensitivePreferenceKeys,
       contains('governed_memories_v2.$namespace'),
@@ -108,10 +115,65 @@ void main() {
       cleanupPlan.preferenceKeyPrefixes,
       contains('adaptive_guidance_v3.$namespace.'),
     );
+    expect(
+      cleanupPlan.preferenceKeyPrefixes,
+      contains('chronospark.si_console.thread.v1.$namespace.corrupt.'),
+    );
+    expect(
+      cleanupPlan.preferenceExactKeys,
+      contains('chronospark.si_console.thread.v1.$namespace'),
+    );
+    for (final String key in AccountDataRegistry.reminderPreferenceKeys) {
+      expect(
+        cleanupPlan.preferenceExactKeys,
+        contains('$key.$namespace'),
+        reason: key,
+      );
+    }
     expect(cleanupPlan.preferenceExactKeys, contains('notes_v1.$namespace'));
+    expect(cleanupPlan.hiveBoxes, isNot(contains('tasks_box')));
+    expect(cleanupPlan.secureExactKeys, isNot(contains('identity_id')));
+    expect(cleanupPlan.preferenceExactKeys, isNot(contains('notes_v1')));
     expect(
       cleanupPlan.preferenceExactKeys,
       contains('chronospark.decision_outcomes.v1.$namespace'),
+    );
+    final String telemetryConsentKey =
+        AccountDataRegistry.telemetryConsentStorageKeyFor('owner-a');
+    expect(
+      cleanupPlan.preferenceExactKeys,
+      containsAll(<String>{
+        '$telemetryConsentKey.analytics',
+        '$telemetryConsentKey.crash_reporting',
+        '$telemetryConsentKey.schema_version',
+        '$telemetryConsentKey.updated_at_utc',
+      }),
+    );
+  });
+
+  test('proven legacy owner inventory includes legacy and scoped storage', () {
+    final String namespace = AccountDataRegistry.accountNamespace('owner-a');
+    final AccountDataCleanupPlan cleanupPlan =
+        AccountDataRegistry.cleanupPlanFor(
+          'owner-a',
+          includeLegacyOwnedData: true,
+        );
+
+    expect(
+      cleanupPlan.hiveBoxes,
+      containsAll(<String>{'tasks_box', 'tasks_box.$namespace'}),
+    );
+    expect(
+      cleanupPlan.secureExactKeys,
+      containsAll(<String>{'identity_id', 'learning_state_v2.$namespace'}),
+    );
+    expect(
+      cleanupPlan.preferenceExactKeys,
+      containsAll(<String>{'notes_v1', 'notes_v1.$namespace'}),
+    );
+    expect(
+      cleanupPlan.secureKeyPrefixes,
+      contains(AccountDataRegistry.pendingPurchaseOwnerSecureKeyPrefix),
     );
   });
 

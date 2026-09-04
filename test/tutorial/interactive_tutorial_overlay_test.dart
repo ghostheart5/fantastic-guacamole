@@ -148,6 +148,57 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('large text keeps the primary action initially discoverable', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey targetKey = GlobalKey();
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (BuildContext context, Widget? child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: Stack(
+            children: <Widget>[
+              Positioned(
+                left: 8,
+                top: 180,
+                right: 8,
+                height: 440,
+                child: SizedBox(key: targetKey),
+              ),
+              InteractiveTutorialOverlay(
+                targetKey: targetKey,
+                stepLabel: 'Setup 2 of 3',
+                title: 'Sign in or create your account',
+                body:
+                    'Use the real account you want ChronoSpark to remember. After authentication, setup continues with your display name.',
+                primaryLabel: 'Start login',
+                onPrimary: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Start login').hitTestable(), findsOneWidget);
+    final Rect callout = tester.getRect(
+      find.byKey(const Key('tutorial_callout')),
+    );
+    expect(callout.top, greaterThanOrEqualTo(0));
+    expect(callout.bottom, lessThanOrEqualTo(640));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('announces the callout as a live modal dialog', (
     WidgetTester tester,
   ) async {

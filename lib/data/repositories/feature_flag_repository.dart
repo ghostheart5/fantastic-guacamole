@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/data/services/remote_config_service.dart';
+import 'package:fantastic_guacamole/domain/entities/experiment_assignment.dart';
+import 'package:fantastic_guacamole/domain/entities/kill_switch_registry.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
-import 'package:fantastic_guacamole/state/models/experiment_assignment.dart';
-import 'package:fantastic_guacamole/state/models/kill_switch_registry.dart';
 
 class FeatureFlagRepository {
   FeatureFlagRepository(this._remoteConfigService);

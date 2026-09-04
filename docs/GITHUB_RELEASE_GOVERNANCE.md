@@ -11,7 +11,9 @@
 Two controls are configured in-repo:
 
 1. `.github/CODEOWNERS` requires maintainer ownership review.
-2. `.github/workflows/pr-policy.yml` fails PRs to `main` unless actor is `ghostheart5`.
+2. `.github/workflows/pr-policy.yml` fails PRs to `main` unless the immutable
+   pull-request author ID belongs to `ghostheart5`. A maintainer rerun cannot
+   turn another author's PR into an authorized PR.
 
 To enforce this in GitHub settings:
 
@@ -22,10 +24,16 @@ To enforce this in GitHub settings:
    - Require review from Code Owners
    - Require status checks to pass before merging
 4. Select required checks (use the exact current names shown in GitHub):
-   - `PR Policy / enforce-maintainer-only`
-   - `CI/CD / Analyze & Test`
-   - `Deploy Flutter Web to GitHub Pages / build`
+   - `enforce-maintainer-only`
+   - `Analyze & Test`
+   - `database`
+   - `build` (the Pages/legal/App Links validation job; it now runs on every PR
+     so the required check cannot remain pending on non-site changes)
 5. Enable Restrict who can push to matching branches and allow only `ghostheart5`.
+
+The repository files cannot prove or change those live GitHub settings. Read
+back branch protection after any settings change; do not claim Code Owner or
+push-restriction enforcement from `CODEOWNERS` alone.
 
 ## 3. Android AAB release
 
@@ -35,6 +43,7 @@ To enforce this in GitHub settings:
   artifacts and GitHub release assets.
 - The tag must match the `pubspec.yaml` semantic version. Missing production
   secrets fail the workflow; no development-readiness fallback is permitted.
+  Publication also waits for the exact-source hosted-emulator QA smoke gate.
 - Repository-side gates are documented in
   [`CI_CD_RELEASE_GATES.md`](CI_CD_RELEASE_GATES.md). Device, Play Console,
   and signed-artifact runtime checks remain separate release-phase evidence.

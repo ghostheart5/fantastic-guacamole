@@ -2,14 +2,15 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/operating_continuity_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/operating_system/i_operating_continuity_repository.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
-import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
@@ -20,11 +21,11 @@ final operatingContinuityRepositoryProvider =
       return OperatingContinuityRepository(ref.watch(sharedPrefsStoreProvider));
     });
 
+const Set<PersonContextPurpose> nexusPersonContextPurposes =
+    sharedDecisionPersonContextPurposes;
+
 final PersonContextAccessRequest nexusPersonContextRequest =
-    PersonContextAccessRequest(
-      surface: PersonContextSurface.nexus,
-      purposes: operationalPersonContextPurposes,
-    );
+    sharedDecisionPersonContextRequest;
 
 const Set<PersonContextSurface> sharedDecisionContextSurfaces =
     <PersonContextSurface>{
@@ -130,23 +131,12 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     operatingDecisionPlanProvider.future,
   );
   final DateTime now = DateTime.now().toUtc();
-  final List<PersonContextSignal>? availablePersonContext =
-      _personContextSignals(
-        ref.watch(personContextForSurfaceProvider(nexusPersonContextRequest)),
-        surface: PersonContextSurface.nexus,
-        purposes: operationalPersonContextPurposes,
-        observedAt: now,
-      );
-  final List<PersonContextSignal>? personContext = availablePersonContext
-      ?.where(
-        (PersonContextSignal signal) =>
-            signal.surfaceScopes.containsAll(sharedDecisionContextSurfaces),
-      )
-      .toList(growable: false);
+  final GovernedDecisionContext? personContext =
+      aggregation.planningDecision.personContext;
   final Map<String, String> receiptRevisions = <String, String>{
     ...snapshot.sourceRevisions,
-    'person_context_shared': _personContextRevision(personContext),
-    'person_context_nexus': _personContextRevision(personContext),
+    'person_context_shared': personContext?.revision ?? 'unavailable',
+    'person_context_nexus': personContext?.revision ?? 'unavailable',
   };
   final String? subjectId = plan.subjectId;
   final String recommendedAction = plan.recommendedAction;
@@ -243,11 +233,17 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
   final String rationale = subjectId == null
       ? 'An actionable commitment is required before ChronoSpark can rank execution.'
       : aggregation.planningDecision.rationale;
-  final String whyItMatters = capacity.isOverloaded
-      ? 'It protects the highest-ranked commitment while the current plan exceeds modeled capacity.'
-      : snapshot.overdueCount > 0
-      ? 'It reduces current schedule risk and prevents overdue pressure from compounding.'
-      : 'It converts the strongest available signal into measurable forward movement.';
+  final String? personContextExplanation =
+      personContext?.hasAppliedBehavior ?? false
+      ? personContext!.explanations.first
+      : null;
+  final String whyItMatters =
+      personContextExplanation ??
+      (capacity.isOverloaded
+          ? 'It protects the highest-ranked commitment while the current plan exceeds modeled capacity.'
+          : snapshot.overdueCount > 0
+          ? 'It reduces current schedule risk and prevents overdue pressure from compounding.'
+          : 'It converts the strongest available signal into measurable forward movement.');
   final String consequence = capacity.isOverloaded
       ? 'Without reducing or moving work, ${capacity.unscheduledMinutes} minutes remain outside available capacity.'
       : snapshot.overdueCount > 0
@@ -309,6 +305,11 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     actionIntent: intent,
     sourceRevisions: Map<String, String>.unmodifiable(receiptRevisions),
     modelVersion: plan.modelVersion,
+    personContextAppliedSignalIds:
+        personContext?.appliedSignalIds.toList(growable: false) ??
+        const <String>[],
+    personContextExplanations: personContext?.explanations ?? const <String>[],
+    personContextTrace: personContext?.trace?.toJson(),
     assumptions: <String>[
       ...capacity.assumptions,
       'Current local records represent the user intent available to ChronoSpark.',
@@ -517,63 +518,12 @@ TaskScoreBreakdown? _scoreFor(List<RankedTask> ranked, String? subjectId) {
   return null;
 }
 
-List<PersonContextSignal>? _personContextSignals(
-  PersonContextView? view, {
-  required PersonContextSurface surface,
-  required Set<PersonContextPurpose> purposes,
-  required DateTime observedAt,
-}) {
-  if (view == null ||
-      view.surface != surface ||
-      !view.purposes.containsAll(purposes)) {
-    return null;
-  }
-  final List<PersonContextSignal> signals =
-      view.signals
-          .where(
-            (PersonContextSignal signal) =>
-                purposes.contains(signal.purpose) &&
-                signal.isAvailableTo(surface, observedAt),
-          )
-          .toList(growable: false)
-        ..sort((PersonContextSignal a, PersonContextSignal b) {
-          final int kind = a.kind.index.compareTo(b.kind.index);
-          return kind != 0 ? kind : a.id.compareTo(b.id);
-        });
-  return List<PersonContextSignal>.unmodifiable(signals);
-}
-
-String _personContextRevision(List<PersonContextSignal>? signals) {
-  if (signals == null) return 'unavailable';
-  if (signals.isEmpty) return 'available_empty';
-  return stableId(<String, dynamic>{
-    'surface': PersonContextSurface.nexus.name,
-    'purposes':
-        operationalPersonContextPurposes
-            .map((PersonContextPurpose value) => value.name)
-            .toList()
-          ..sort(),
-    'signals': signals
-        .map(
-          (PersonContextSignal signal) => <String, dynamic>{
-            'id': signal.id,
-            'kind': signal.kind.name,
-            'value': signal.value,
-            'source': signal.source.name,
-            'purpose': signal.purpose.name,
-            'recordedAt': signal.recordedAt.toUtc().toIso8601String(),
-            'freshUntil': signal.freshUntil.toUtc().toIso8601String(),
-          },
-        )
-        .toList(growable: false),
-  });
-}
-
 List<OperatingEvidence> _personContextEvidence(
-  List<PersonContextSignal>? signals,
+  GovernedDecisionContext? context,
   DateTime recordedAt,
 ) {
-  if (signals == null) {
+  if (context == null ||
+      context.status == GovernedDecisionContextStatus.unavailable) {
     return <OperatingEvidence>[
       OperatingEvidence(
         code: 'person_context_unavailable',
@@ -585,51 +535,45 @@ List<OperatingEvidence> _personContextEvidence(
       ),
     ];
   }
-  if (signals.isEmpty) {
+  if (context.status == GovernedDecisionContextStatus.knownEmpty) {
     return <OperatingEvidence>[
       OperatingEvidence(
         code: 'person_context_available_empty',
         description:
-            'No fresh consented context was authorized across every consuming decision surface.',
+            'No fresh consented context passed the governed Nexus behavior policy.',
         kind: OperatingEvidenceKind.unavailable,
         recordedAt: recordedAt,
         source: 'person_context',
       ),
     ];
   }
-  return signals
+  return context.explanations
       .map(
-        (PersonContextSignal signal) => OperatingEvidence(
+        (String explanation) => OperatingEvidence(
           code:
-              'person_context_${stableId(<String, dynamic>{'id': signal.id, 'kind': signal.kind.name})}',
-          description:
-              'Consented ${signal.kind.name} context for ${signal.purpose.name}: ${signal.value}',
-          kind: signal.source == PersonContextSource.userAuthored
-              ? OperatingEvidenceKind.userProvided
-              : OperatingEvidenceKind.observed,
-          recordedAt: signal.recordedAt.toUtc(),
-          source: 'person_context:${signal.source.name}',
-          freshUntil: signal.freshUntil.toUtc(),
+              'person_context_${stableId(<String, dynamic>{'explanation': explanation})}',
+          description: explanation,
+          kind: OperatingEvidenceKind.derived,
+          recordedAt: recordedAt,
+          source: 'person_context_policy',
         ),
       )
       .toList(growable: false);
 }
 
-List<String> _personContextAssumptions(List<PersonContextSignal>? signals) {
-  if (signals == null) {
+List<String> _personContextAssumptions(GovernedDecisionContext? context) {
+  if (context == null ||
+      context.status == GovernedDecisionContextStatus.unavailable) {
     return const <String>[
       'Person context was unavailable at decision generation, so no personal context was inferred.',
     ];
   }
-  if (signals.isEmpty) {
+  if (context.status == GovernedDecisionContextStatus.knownEmpty) {
     return const <String>[
-      'Person context was available but contained no fresh signals authorized across every consuming decision surface.',
+      'Person context was available but no signal passed the governed Nexus behavior policy.',
     ];
   }
-  return signals
-      .map(
-        (PersonContextSignal signal) =>
-            'The consented ${signal.kind.name} context is attached as reviewable ${signal.purpose.name} evidence only. It does not change deterministic ranking and is not treated as identity or a guaranteed outcome.',
-      )
-      .toList(growable: false);
+  return const <String>[
+    'Only consented, fresh, relevant Person Context changed its policy-permitted field; it was not interpreted as identity, diagnosis, intent, relationship quality, or a guaranteed outcome.',
+  ];
 }

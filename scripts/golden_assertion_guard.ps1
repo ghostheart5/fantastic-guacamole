@@ -22,6 +22,21 @@ $contracts = @(
             'nexus_screen_regular_500.png'
         )
     }
+    [ordered]@{
+        Test = 'test/features/home/first_use_context_offer_card_test.dart'
+        GoldenDirectory = 'test/features/home/goldens'
+        Files = @(
+            'first_use_context_compact_320_200.png'
+            'first_use_context_regular_375_200.png'
+        )
+    }
+    [ordered]@{
+        Test = 'test/features/settings/settings_screen_test.dart'
+        GoldenDirectory = 'test/features/settings/goldens'
+        Files = @(
+            'settings_learning_ledger.png'
+        )
+    }
 )
 
 $platforms = @('windows', 'linux')

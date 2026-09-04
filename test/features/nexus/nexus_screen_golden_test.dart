@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
@@ -5,11 +7,13 @@ import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/signal_model.dart';
 import 'package:fantastic_guacamole/state/models/signals_models.dart';
@@ -18,11 +22,13 @@ import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/golden_harness.dart';
@@ -33,12 +39,15 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  Future<void> pumpNexusScreen(
+  Future<ProviderContainer> pumpNexusScreen(
     WidgetTester tester, {
     required double width,
     List<Task>? tasks,
     List<TimelineEventEntity>? timeline,
     bool observedVitals = true,
+    NexusDecisionModel? decisionModel,
+    Locale locale = const Locale('en'),
+    List<DecisionOutcomeKind>? recordedDecisionOutcomes,
   }) async {
     tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -47,6 +56,12 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('nexus-golden-test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         unreadNotificationsProvider.overrideWithValue(0),
         profileProvider.overrideWith(_PopulatedProfileController.new),
         siStateProvider.overrideWith(
@@ -69,7 +84,14 @@ void main() {
         nexusScreenModelProvider.overrideWith(
           (Ref ref) async => _populatedNexusModel,
         ),
-        nexusDecisionProvider.overrideWithValue(_readyNexusDecisionModel),
+        nexusDecisionProvider.overrideWithValue(
+          decisionModel ?? _readyNexusDecisionModel,
+        ),
+        if (recordedDecisionOutcomes != null)
+          decisionOutcomeActionsProvider.overrideWith(
+            (Ref ref) =>
+                _RecordingDecisionOutcomeActions(ref, recordedDecisionOutcomes),
+          ),
       ],
     );
     addTearDown(container.dispose);
@@ -77,11 +99,22 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: NexusScreen()),
+        child: MaterialApp(
+          locale: locale,
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const NexusScreen(),
+        ),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
+    return container;
   }
 
   Future<void> pumpNexusGolden(
@@ -91,6 +124,12 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('nexus-golden-test-account'),
+        ),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
         unreadNotificationsProvider.overrideWithValue(0),
         profileProvider.overrideWith(_PopulatedProfileController.new),
         siStateProvider.overrideWith(
@@ -140,6 +179,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await pumpNexusGolden(tester, width: 320);
+      expect(find.byKey(const Key('nexus-context-settings')), findsOneWidget);
       await expectLater(
         find.byType(NexusScreen),
         matchesGoldenFile(
@@ -179,6 +219,21 @@ void main() {
         textWidgetContaining(tester, 'LVL 10').style?.fontSize,
         AppSizes.fontMicro,
       );
+    });
+
+    testWidgets('visible Context entry requests Settings governance', (
+      WidgetTester tester,
+    ) async {
+      final ProviderContainer container = await pumpNexusScreen(
+        tester,
+        width: 320,
+      );
+
+      expect(find.text('CONTEXT'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('nexus-context-settings')));
+      await tester.pump();
+
+      expect(container.read(personContextSettingsEntryProvider), isTrue);
     });
 
     testWidgets('uses compact values from 340px up to 389px', (
@@ -249,7 +304,111 @@ void main() {
       expect(find.text('NOT CHECKED'), findsOneWidget);
       expect(find.text('78%'), findsNothing);
     });
+
+    testWidgets(
+      'labels heuristic confidence as provisional without a percent',
+      (WidgetTester tester) async {
+        await pumpNexusScreen(tester, width: Breakpoints.compact);
+
+        expect(
+          find.text('Provisional evidence confidence: high'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('% evidence confidence'), findsNothing);
+      },
+    );
+
+    testWidgets('renders the provisional confidence disclosure in Spanish', (
+      WidgetTester tester,
+    ) async {
+      await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+        locale: const Locale('es'),
+      );
+
+      expect(
+        find.text('Confianza provisional de la evidencia: alta'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('does not persist a shown outcome merely by rendering Nexus', (
+      WidgetTester tester,
+    ) async {
+      final List<DecisionOutcomeKind> recorded = <DecisionOutcomeKind>[];
+      await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+        recordedDecisionOutcomes: recorded,
+      );
+
+      expect(recorded, isEmpty);
+    });
+
+    testWidgets('explains and can ignore governed Person Context', (
+      WidgetTester tester,
+    ) async {
+      final ProviderContainer container = await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+        decisionModel: _contextNexusDecisionModel,
+      );
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('nexus-person-context-why')),
+        400,
+      );
+      expect(
+        find.textContaining('Why this changed: Current priority matched'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(
+          'Fresh capacity limited this decision to 30 minutes.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('nexus-ignore-person-context')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('nexus-ignore-person-context')));
+      await tester.pump();
+
+      expect(
+        find.text('This Person Context is ignored for the current use.'),
+        findsOneWidget,
+      );
+      expect(
+        container.read(personContextDecisionIgnoredSignalsProvider),
+        containsAll(<String>['priority-review', 'capacity-30']),
+      );
+    });
   });
+}
+
+class _RecordingDecisionOutcomeActions extends DecisionOutcomeActions {
+  _RecordingDecisionOutcomeActions(super.ref, this.recordedKinds);
+
+  final List<DecisionOutcomeKind> recordedKinds;
+
+  @override
+  Future<void> record({
+    required OperatingDecisionReceipt receipt,
+    required DecisionOutcomeKind kind,
+    required String surface,
+    String? detail,
+    String? situation,
+    String? optionChosen,
+    int? optionSizeMinutes,
+    String? deferralReason,
+    String? completionResult,
+    bool? recommendationHelped,
+  }) async {
+    recordedKinds.add(kind);
+  }
 }
 
 final DateTime _decisionObservedAt = DateTime.utc(2026, 9, 2, 12);
@@ -308,7 +467,7 @@ final OperatingDecisionReceipt _operatingDecision = OperatingDecisionReceipt(
 
 final NexusDecisionModel _readyNexusDecisionModel = NexusDecisionModel(
   status: NexusDecisionStatus.ready,
-  isOnline: true,
+  hasAvailableNetworkInterface: true,
   pendingSyncCount: 0,
   intelligence: DecisionIntelligence(
     snapshot: _operatingSnapshot,
@@ -318,6 +477,64 @@ final NexusDecisionModel _readyNexusDecisionModel = NexusDecisionModel(
       comparedAt: _decisionObservedAt,
     ),
     decision: _operatingDecision,
+    acknowledgedSnapshotId: null,
+  ),
+  topRisk: 'No active risk is supported by current evidence.',
+  recentProgress: 'One task was completed in the current evidence window.',
+  statusDetail: 'The local planning summary is ready.',
+);
+
+final OperatingDecisionReceipt
+_contextOperatingDecision = OperatingDecisionReceipt(
+  subjectId: 'task-1',
+  recommendedAction: 'Finish quarterly review',
+  rationale: 'It is the highest-priority grounded task.',
+  whyItMatters:
+      'Current priority matched "Finish quarterly review" and may only break a close ranking tie.',
+  consequenceOfDelay: 'The launch review remains incomplete.',
+  generatedAt: _decisionObservedAt,
+  expiresAt: _decisionFreshUntil,
+  confidence: OperatingConfidence.high,
+  recommendationConfidence: .82,
+  evidence: const <OperatingEvidence>[],
+  actionIntent: const OperatingActionIntent(
+    id: 'context-action-1',
+    type: OperatingActionType.openTimeline,
+    label: 'Review on Timeline',
+    destination: '/timeline',
+    targetEntityId: 'task-1',
+  ),
+  sourceRevisions: const <String, String>{
+    'tasks': 'golden-1',
+    'person_context_nexus': 'context-1',
+  },
+  modelVersion: 'predictive-planning-v3-context',
+  personContextAppliedSignalIds: const <String>[
+    'priority-review',
+    'capacity-30',
+  ],
+  personContextExplanations: const <String>[
+    'Current priority matched "Finish quarterly review" and may only break a close ranking tie.',
+    'Fresh capacity limited this decision to 30 minutes.',
+  ],
+  personContextTrace: const <String, Object?>{
+    'used': <Object?>[],
+    'rejected': <Object?>[],
+  },
+);
+
+final NexusDecisionModel _contextNexusDecisionModel = NexusDecisionModel(
+  status: NexusDecisionStatus.ready,
+  hasAvailableNetworkInterface: true,
+  pendingSyncCount: 0,
+  intelligence: DecisionIntelligence(
+    snapshot: _operatingSnapshot,
+    delta: const OperatingDeltaEngine().compare(
+      previous: null,
+      current: _operatingSnapshot,
+      comparedAt: _decisionObservedAt,
+    ),
+    decision: _contextOperatingDecision,
     acknowledgedSnapshotId: null,
   ),
   topRisk: 'No active risk is supported by current evidence.',

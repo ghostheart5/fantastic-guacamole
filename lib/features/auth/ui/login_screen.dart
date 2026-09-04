@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
@@ -26,6 +27,7 @@ class LoginScreen extends StatefulWidget {
     required this.onPrivacyPolicy,
     required this.onTermsOfService,
     this.onMockLogin,
+    this.onSecondaryMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
     this.startupError,
@@ -48,6 +50,7 @@ class LoginScreen extends StatefulWidget {
   final VoidCallback onPrivacyPolicy;
   final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
+  final VoidCallback? onSecondaryMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
   final String? startupError;
@@ -93,10 +96,10 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
     if (!_pulse.isAnimating) {
-      _pulse.repeat(reverse: true);
+      unawaited(_pulse.repeat(reverse: true));
     }
     if (_entry.value == 0 && !_entry.isAnimating) {
-      _entry.forward();
+      unawaited(_entry.forward());
     }
   }
 
@@ -111,6 +114,7 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final VoidCallback? onMockLogin = widget.onMockLogin;
+    final VoidCallback? onSecondaryMockLogin = widget.onSecondaryMockLogin;
     final String? startupError = widget.startupError;
     final String? startupMessage =
         startupError != null && startupError.trim().isNotEmpty
@@ -156,6 +160,7 @@ class _LoginScreenState extends State<LoginScreen>
                 onPrivacyPolicy: widget.onPrivacyPolicy,
                 onTermsOfService: widget.onTermsOfService,
                 onMockLogin: onMockLogin,
+                onSecondaryMockLogin: onSecondaryMockLogin,
                 onToggleMode: widget.onToggleMode,
                 onTogglePassword: widget.onTogglePassword,
                 showMockHint: widget.showMockHint,
@@ -181,6 +186,7 @@ class _LoginScreenState extends State<LoginScreen>
                 onPrivacyPolicy: widget.onPrivacyPolicy,
                 onTermsOfService: widget.onTermsOfService,
                 onMockLogin: onMockLogin,
+                onSecondaryMockLogin: onSecondaryMockLogin,
                 onToggleMode: widget.onToggleMode,
                 onTogglePassword: widget.onTogglePassword,
                 showMockHint: widget.showMockHint,
@@ -250,6 +256,7 @@ class _PortraitLoginContent extends StatelessWidget {
     required this.onPrivacyPolicy,
     required this.onTermsOfService,
     required this.onMockLogin,
+    required this.onSecondaryMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
     required this.showMockHint,
@@ -274,6 +281,7 @@ class _PortraitLoginContent extends StatelessWidget {
   final VoidCallback onPrivacyPolicy;
   final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
+  final VoidCallback? onSecondaryMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
   final bool showMockHint;
@@ -332,6 +340,7 @@ class _PortraitLoginContent extends StatelessWidget {
                       onPrivacyPolicy: onPrivacyPolicy,
                       onTermsOfService: onTermsOfService,
                       onMockLogin: onMockLogin,
+                      onSecondaryMockLogin: onSecondaryMockLogin,
                       onToggleMode: onToggleMode,
                       onTogglePassword: onTogglePassword,
                       showMockHint: showMockHint,
@@ -367,6 +376,7 @@ class _LandscapeLoginContent extends StatelessWidget {
     required this.onPrivacyPolicy,
     required this.onTermsOfService,
     required this.onMockLogin,
+    required this.onSecondaryMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
     required this.showMockHint,
@@ -391,6 +401,7 @@ class _LandscapeLoginContent extends StatelessWidget {
   final VoidCallback onPrivacyPolicy;
   final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
+  final VoidCallback? onSecondaryMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
   final bool showMockHint;
@@ -457,6 +468,7 @@ class _LandscapeLoginContent extends StatelessWidget {
                                   onPrivacyPolicy: onPrivacyPolicy,
                                   onTermsOfService: onTermsOfService,
                                   onMockLogin: onMockLogin,
+                                  onSecondaryMockLogin: onSecondaryMockLogin,
                                   onToggleMode: onToggleMode,
                                   onTogglePassword: onTogglePassword,
                                   showMockHint: showMockHint,
@@ -513,6 +525,8 @@ class _LoginBrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
     final bool compact = width < Breakpoints.compact;
+    final double textScale = MediaQuery.textScalerOf(context).scale(1);
+    final bool stackBrand = compact && textScale >= 1.5;
     final double titleSize = compact ? 34 : 42;
     final double subtitleSize = compact ? AppSizes.fontXs : AppSizes.fontSm;
     return Column(
@@ -527,7 +541,9 @@ class _LoginBrandHeader extends StatelessWidget {
                 colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
               ).createShader(bounds),
               child: Text(
-                'CHRONOSPARK',
+                stackBrand ? 'CHRONO\nSPARK' : 'CHRONOSPARK',
+                semanticsLabel: 'ChronoSpark',
+                maxLines: stackBrand ? 2 : 1,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: titleSize,
@@ -606,6 +622,7 @@ class _LoginFormCard extends StatelessWidget {
     required this.onPrivacyPolicy,
     required this.onTermsOfService,
     required this.onMockLogin,
+    required this.onSecondaryMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
     required this.showMockHint,
@@ -628,6 +645,7 @@ class _LoginFormCard extends StatelessWidget {
   final VoidCallback onPrivacyPolicy;
   final VoidCallback onTermsOfService;
   final VoidCallback? onMockLogin;
+  final VoidCallback? onSecondaryMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
   final bool showMockHint;
@@ -636,12 +654,14 @@ class _LoginFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final double width = MediaQuery.sizeOf(context).width;
     final bool compact = width < Breakpoints.compact;
     final double edgePadding = compact ? 14 : 18;
     final double sectionGap = compact ? 10 : 14;
     final String startupText = startupMessage ?? '';
     final VoidCallback mockLoginTap = onMockLogin ?? () {};
+    final VoidCallback secondaryMockLoginTap = onSecondaryMockLogin ?? () {};
     return TemporalGlassSurface(
       accent: isSignUpMode ? AppColors.neonViolet : AppColors.neonCyan,
       opacity: 0.92,
@@ -651,7 +671,9 @@ class _LoginFormCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            isSignUpMode ? 'CREATE ACCOUNT' : 'ACCESS SYSTEM',
+            isSignUpMode
+                ? l10n.text(ChronoSparkString.loginCreateAccountEyebrow)
+                : l10n.text(ChronoSparkString.loginAccessSystemEyebrow),
             style: TextStyle(
               color: isSignUpMode ? AppColors.neonViolet : AppColors.neonCyan,
               fontSize: compact ? AppSizes.fontXs : AppSizes.fontSm,
@@ -661,7 +683,9 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 4 : 6),
           Text(
-            isSignUpMode ? 'Create your workspace' : 'Welcome back',
+            isSignUpMode
+                ? l10n.text(ChronoSparkString.loginCreateWorkspace)
+                : l10n.text(ChronoSparkString.loginWelcomeBack),
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
@@ -670,7 +694,7 @@ class _LoginFormCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Secure access to your connected planning workspace.',
+            l10n.text(ChronoSparkString.loginSecureAccessBody),
             style: TextStyle(
               color: Colors.white60,
               fontSize: compact ? AppSizes.fontCaption : AppSizes.fontBody,
@@ -706,7 +730,7 @@ class _LoginFormCard extends StatelessWidget {
             icon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
             semanticIdentifier: 'login-email-field',
-            label: 'Email address',
+            label: l10n.text(ChronoSparkString.loginEmailAddress),
             obscure: false,
             accentColor: AppColors.neonCyan,
           ),
@@ -717,26 +741,29 @@ class _LoginFormCard extends StatelessWidget {
             icon: Icons.key_rounded,
             keyboardType: TextInputType.visiblePassword,
             semanticIdentifier: 'login-password-field',
-            label: 'Password',
+            label: l10n.text(ChronoSparkString.loginPassword),
             obscure: obscurePassword,
             accentColor: AppColors.neonViolet,
             trailing: SmartPressable(
               onTap: onTogglePassword,
               semanticLabel: obscurePassword
-                  ? 'Show password'
-                  : 'Hide password',
-              child: Icon(
-                obscurePassword
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
-                color: AppColors.neonViolet.withValues(alpha: 0.7),
-                size: 18,
+                  ? l10n.text(ChronoSparkString.loginShowPassword)
+                  : l10n.text(ChronoSparkString.loginHidePassword),
+              child: SizedBox.square(
+                dimension: AppSizes.touchTarget,
+                child: Icon(
+                  obscurePassword
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                  color: AppColors.neonViolet.withValues(alpha: 0.7),
+                  size: 18,
+                ),
               ),
             ),
           ),
           SizedBox(height: compact ? 6 : 8),
-          SizedBox(
-            height: AppSizes.touchTarget,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
             child: Align(
               alignment: Alignment.centerRight,
               child: SmartPressable(
@@ -747,7 +774,8 @@ class _LoginFormCard extends StatelessWidget {
                     vertical: 12,
                   ),
                   child: Text(
-                    'Forgot Password?',
+                    l10n.text(ChronoSparkString.loginForgotPassword),
+                    textAlign: TextAlign.end,
                     style: TextStyle(
                       color: AppColors.neonCyan.withValues(alpha: 0.9),
                       fontSize: AppSizes.fontBody,
@@ -766,7 +794,9 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 10 : 14),
           _PrimaryButton(
-            label: isSignUpMode ? 'INITIALIZE PROFILE' : 'ENTER SYSTEM',
+            label: isSignUpMode
+                ? l10n.text(ChronoSparkString.loginInitializeProfile)
+                : l10n.text(ChronoSparkString.loginEnterSystem),
             isLoading: isSubmitting,
             onTap: onPrimaryAction,
           ),
@@ -777,15 +807,19 @@ class _LoginFormCard extends StatelessWidget {
                 Expanded(
                   child: Divider(color: Colors.white.withValues(alpha: 0.18)),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'OR CONTINUE WITH',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: AppSizes.fontXs,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
+                Flexible(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      l10n.text(ChronoSparkString.loginContinueDivider),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: AppSizes.fontXs,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
                     ),
                   ),
                 ),
@@ -796,7 +830,7 @@ class _LoginFormCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _SecondaryButton(
-              label: 'Continue with Google',
+              label: l10n.text(ChronoSparkString.loginContinueGoogle),
               icon: Icons.g_mobiledata_rounded,
               color: Colors.white,
               leading: const _GoogleGlyph(size: 18),
@@ -804,7 +838,7 @@ class _LoginFormCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _SecondaryButton(
-              label: 'Continue with GitHub',
+              label: l10n.text(ChronoSparkString.loginContinueGithub),
               icon: Icons.code_rounded,
               color: Colors.white,
               leading: const _GitHubGlyph(size: 16),
@@ -820,8 +854,8 @@ class _LoginFormCard extends StatelessWidget {
                   Expanded(
                     child: _SecondaryButton(
                       label: isSignUpMode
-                          ? 'Switch to Login'
-                          : 'Create Account',
+                          ? l10n.text(ChronoSparkString.loginSwitchToLogin)
+                          : l10n.text(ChronoSparkString.loginCreateAccount),
                       icon: isSignUpMode
                           ? Icons.arrow_back_rounded
                           : Icons.person_add_rounded,
@@ -838,7 +872,9 @@ class _LoginFormCard extends StatelessWidget {
                 if (allowSignUp) ...[
                   const SizedBox(height: 2),
                   _SecondaryButton(
-                    label: isSignUpMode ? 'Switch to Login' : 'Create Account',
+                    label: isSignUpMode
+                        ? l10n.text(ChronoSparkString.loginSwitchToLogin)
+                        : l10n.text(ChronoSparkString.loginCreateAccount),
                     icon: isSignUpMode
                         ? Icons.arrow_back_rounded
                         : Icons.person_add_rounded,
@@ -890,6 +926,51 @@ class _LoginFormCard extends StatelessWidget {
                 ),
               ),
             ),
+            if (onSecondaryMockLogin != null) ...[
+              const SizedBox(height: 8),
+              SmartPressable(
+                key: const ValueKey<String>(
+                  'qa-secondary-tester-access-button',
+                ),
+                onTap: secondaryMockLoginTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x1A6C8CFF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0x996C8CFF)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.switch_account_rounded,
+                        size: 16,
+                        color: Color(0xFF9FB2FF),
+                      ),
+                      SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'TESTER B  ·  ISOLATION LOGIN',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFFC9D2FF),
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppSizes.fontCaption,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
           if (showMockHint && (mockHint?.trim().isNotEmpty ?? false)) ...[
             const SizedBox(height: 6),
@@ -921,33 +1002,38 @@ class _LoginLegalActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final bool stacked = MediaQuery.textScalerOf(context).scale(1) >= 1.5;
+    final Widget privacy = _LoginLegalAction(
+      key: const ValueKey<String>('login-privacy-action'),
+      label: l10n.isSpanish ? 'Privacidad' : 'Privacy',
+      semanticLabel: l10n.isSpanish
+          ? 'Abrir política de privacidad'
+          : 'Open Privacy Policy',
+      icon: Icons.privacy_tip_outlined,
+      onTap: onPrivacyPolicy,
+    );
+    final Widget terms = _LoginLegalAction(
+      key: const ValueKey<String>('login-terms-action'),
+      label: l10n.isSpanish ? 'Términos' : 'Terms',
+      semanticLabel: l10n.isSpanish
+          ? 'Abrir términos del servicio'
+          : 'Open Terms of Service',
+      icon: Icons.description_outlined,
+      onTap: onTermsOfService,
+    );
+    if (stacked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[privacy, const SizedBox(height: 8), terms],
+      );
+    }
     return SizedBox(
       height: AppSizes.touchTarget,
       child: Row(
         children: <Widget>[
-          Expanded(
-            child: _LoginLegalAction(
-              key: const ValueKey<String>('login-privacy-action'),
-              label: l10n.isSpanish ? 'Privacidad' : 'Privacy',
-              semanticLabel: l10n.isSpanish
-                  ? 'Abrir política de privacidad'
-                  : 'Open Privacy Policy',
-              icon: Icons.privacy_tip_outlined,
-              onTap: onPrivacyPolicy,
-            ),
-          ),
+          Expanded(child: privacy),
           const SizedBox(width: 8),
-          Expanded(
-            child: _LoginLegalAction(
-              key: const ValueKey<String>('login-terms-action'),
-              label: l10n.isSpanish ? 'Términos' : 'Terms',
-              semanticLabel: l10n.isSpanish
-                  ? 'Abrir términos del servicio'
-                  : 'Open Terms of Service',
-              icon: Icons.description_outlined,
-              onTap: onTermsOfService,
-            ),
-          ),
+          Expanded(child: terms),
         ],
       ),
     );
@@ -989,8 +1075,8 @@ class _LoginLegalAction extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: AppSizes.fontCaption,
@@ -1030,6 +1116,47 @@ class _NeonInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool stackedLabel = MediaQuery.textScalerOf(context).scale(1) >= 1.5;
+    final Widget inputRow = Row(
+      children: [
+        Icon(icon, color: accentColor.withValues(alpha: 0.9), size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: MergeSemantics(
+            child: Semantics(
+              identifier: semanticIdentifier,
+              label: label,
+              child: TextField(
+                controller: controller,
+                obscureText: obscure,
+                keyboardType: keyboardType,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: AppSizes.fontLabel,
+                  letterSpacing: 0,
+                ),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  labelText: stackedLabel ? null : label,
+                  floatingLabelBehavior: FloatingLabelBehavior.never,
+                  labelStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontSize: AppSizes.fontLabel,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (trailing case final Widget value)
+          SizedBox.square(
+            dimension: AppSizes.touchTarget,
+            child: Center(child: value),
+          ),
+      ],
+    );
     return Container(
       constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
       decoration: BoxDecoration(
@@ -1045,45 +1172,26 @@ class _NeonInput extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      child: Row(
-        children: [
-          Icon(icon, color: accentColor.withValues(alpha: 0.9), size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: MergeSemantics(
-              child: Semantics(
-                identifier: semanticIdentifier,
-                child: TextField(
-                  controller: controller,
-                  obscureText: obscure,
-                  keyboardType: keyboardType,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: AppSizes.fontLabel,
-                    letterSpacing: 0,
-                  ),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    labelText: label,
-                    floatingLabelBehavior: FloatingLabelBehavior.never,
-                    labelStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.25),
-                      fontSize: AppSizes.fontLabel,
+      child: stackedLabel
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(left: 30, top: 8),
+                  child: ExcludeSemantics(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontSize: AppSizes.fontLabel,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          if (trailing case final Widget value)
-            SizedBox.square(
-              dimension: AppSizes.touchTarget,
-              child: Center(child: value),
-            ),
-        ],
-      ),
+                inputRow,
+              ],
+            )
+          : inputRow,
     );
   }
 }
@@ -1105,6 +1213,7 @@ class _PrimaryButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           gradient: const LinearGradient(
@@ -1130,6 +1239,8 @@ class _PrimaryButton extends StatelessWidget {
               )
             : Text(
                 label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: AppSizes.fontBodyLg,
@@ -1200,8 +1311,8 @@ class _SecondaryButton extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.88),
                   fontSize: AppSizes.fontBody,

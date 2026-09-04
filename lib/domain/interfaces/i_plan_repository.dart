@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Smart Planner
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Smart Planner
 ///
 /// Persisted planning contract used for schedule durability work.
 ///

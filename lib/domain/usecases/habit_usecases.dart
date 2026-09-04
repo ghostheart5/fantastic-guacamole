@@ -12,8 +12,6 @@ class GetHabits {
   Future<List<HabitEntity>> call() => _repository.getHabits();
 }
 
-/// CHRONOSPARK-CLASS: SHIPPING | Feature: Habits
-///
 /// Adds a habit to the front of the list. Blank titles are rejected, matching
 /// the behaviour the provider previously implemented inline.
 class CreateHabit {
@@ -49,8 +47,6 @@ class CreateHabit {
   }
 }
 
-/// CHRONOSPARK-CLASS: SHIPPING | Feature: Habits
-///
 /// Flips a habit's active flag. This is what habit completion means in the
 /// current model. Completion occurrences remain a separate timeline concern.
 class ToggleHabit {
@@ -80,8 +76,6 @@ class ToggleHabit {
   }
 }
 
-/// CHRONOSPARK-CLASS: SHIPPING | Feature: Habits
-///
 /// Renames a habit. Blank titles and unknown ids leave the list untouched.
 class UpdateHabit {
   const UpdateHabit(this._repository);
@@ -109,8 +103,6 @@ class UpdateHabit {
   }
 }
 
-/// CHRONOSPARK-CLASS: SHIPPING | Feature: Habits
-///
 /// Removes a habit by id.
 class DeleteHabit {
   const DeleteHabit(this._repository);
@@ -132,8 +124,6 @@ class DeleteHabit {
   }
 }
 
-/// CHRONOSPARK-CLASS: SHIPPING | Feature: Habits
-///
 /// Bulk replace, for import/restore paths.
 class SaveHabits {
   const SaveHabits(this._repository);

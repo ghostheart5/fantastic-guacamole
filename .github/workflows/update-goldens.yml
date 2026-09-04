@@ -2,26 +2,53 @@ name: Update Golden Images
 
 on:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to update goldens on'
-        required: false
-        default: ''
 
 permissions:
   contents: read
 
 jobs:
   update-goldens:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux
+          - runner: windows-2022
+            platform: windows
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+          ref: ${{ github.sha }}
           persist-credentials: false
+
+      - name: Record exact checked-out source
+        shell: pwsh
+        env:
+          SELECTED_REF: ${{ github.ref }}
+          RUN_CONTEXT_SHA: ${{ github.sha }}
+          GOLDEN_PLATFORM: ${{ matrix.platform }}
+        run: |
+          $actualCommit = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualCommit -notmatch '^[0-9a-f]{40}$') {
+            throw 'Unable to resolve the exact checked-out commit.'
+          }
+          if ($actualCommit -cne $env:RUN_CONTEXT_SHA) {
+            throw "Checked-out commit $actualCommit does not match workflow commit $env:RUN_CONTEXT_SHA."
+          }
+          [ordered]@{
+            schemaVersion = 1
+            repository = $env:GITHUB_REPOSITORY
+            actualCommit = $actualCommit
+            selectedRef = $env:SELECTED_REF
+            runContextSha = $env:RUN_CONTEXT_SHA
+            platform = $env:GOLDEN_PLATFORM
+            generatedAt = (Get-Date).ToUniversalTime().ToString('o')
+          } | ConvertTo-Json | Set-Content exact-commit.json -Encoding utf8
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -30,35 +57,48 @@ jobs:
           flutter-version: '3.44.6'
 
       - name: Create .env for CI
-        run: cp .env.example .env
+        shell: pwsh
+        run: Copy-Item .env.example .env
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Verify dependency lock is unchanged
+        run: git diff --exit-code -- pubspec.lock
+
+      - name: Regenerate golden images
+        run: flutter test test/features/auth/login_screen_golden_test.dart test/features/home/first_use_context_offer_card_test.dart test/features/nexus/nexus_screen_golden_test.dart test/features/settings/settings_screen_test.dart --update-goldens
 
       - name: Verify golden comparison contract
         shell: pwsh
         run: ./scripts/golden_assertion_guard.ps1
 
-      - name: Regenerate golden images
-        run: |
-          flutter test \
-            test/features/auth/login_screen_golden_test.dart \
-            test/features/nexus/nexus_screen_golden_test.dart \
-            --update-goldens
-
       - name: Capture candidate golden diff
+        if: always()
+        shell: bash
         run: |
-          git diff --binary -- test/features/auth/goldens/ test/features/nexus/goldens/ > golden-update.patch
+          git diff --binary -- \
+            test/features/auth/goldens/ \
+            test/features/home/goldens/ \
+            test/features/nexus/goldens/ \
+            test/features/settings/goldens/ \
+            > golden-update.patch
           if [ ! -s golden-update.patch ]; then
             echo "No golden changes detected."
           fi
 
       - name: Upload golden update for review
+        if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-golden-update-${{ github.run_id }}
-          if-no-files-found: warn
+          name: chronospark-golden-update-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 30
           path: |
+            exact-commit.json
             golden-update.patch
-            test/features/auth/goldens/**
-            test/features/nexus/goldens/**
+            test/features/auth/goldens/${{ matrix.platform }}/**
+            test/features/home/goldens/${{ matrix.platform }}/**
+            test/features/nexus/goldens/${{ matrix.platform }}/**
+            test/features/settings/goldens/${{ matrix.platform }}/**
+            test/**/failures/**

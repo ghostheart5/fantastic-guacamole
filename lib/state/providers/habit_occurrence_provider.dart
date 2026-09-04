@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/decision_outcome_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/habit_occurrence_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
@@ -45,5 +45,6 @@ final habitOccurrenceCoordinatorProvider =
         habitRepository: ref.read(domainHabitRepositoryProvider),
         occurrenceRepository: occurrences,
         outcomeRepository: outcomes,
+        learningPaused: outcomes.isLearningPaused,
       );
     });

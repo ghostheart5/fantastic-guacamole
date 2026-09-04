@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/input_guard.dart';
 
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Goals/tasks
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
 ///
 /// Registered as deleteGoalUseCaseProvider. The only destructive goal path; UI
 /// currently completes instead.

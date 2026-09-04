@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
@@ -88,7 +90,8 @@ void main() {
     testWidgets('forces entitlement authority refresh on reconnect', (
       WidgetTester tester,
     ) async {
-      final StreamController<bool> network = StreamController<bool>();
+      final StreamController<NetworkStatus> network =
+          StreamController<NetworkStatus>();
       addTearDown(network.close);
       final List<bool> forces = <bool>[];
       _entitlementRefreshProbe = ({bool force = false}) async {
@@ -96,10 +99,70 @@ void main() {
       };
       await _pumpShell(tester, probeEntitlement: true, networkStatus: network);
 
-      network.add(false);
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.unavailable,
+        ),
+      );
       await tester.pump();
-      network.add(true);
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.available,
+        ),
+      );
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 749));
+
+      expect(forces, isEmpty);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+
+      expect(forces, <bool>[true]);
+    });
+
+    testWidgets('debounces interface flapping before reconnect retry', (
+      WidgetTester tester,
+    ) async {
+      final StreamController<NetworkStatus> network =
+          StreamController<NetworkStatus>();
+      addTearDown(network.close);
+      final List<bool> forces = <bool>[];
+      _entitlementRefreshProbe = ({bool force = false}) async {
+        forces.add(force);
+      };
+      await _pumpShell(tester, probeEntitlement: true, networkStatus: network);
+
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.unavailable,
+        ),
+      );
+      await tester.pump();
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.available,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.unavailable,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(forces, isEmpty);
+
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.available,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(networkReconnectRetryDebounce);
       await tester.pump();
 
       expect(forces, <bool>[true]);
@@ -193,10 +256,16 @@ Future<ProviderContainer> _pumpShell(
   bool probeEntitlement = false,
   bool premiumAccess = false,
   Duration? authorityRecheckInterval,
-  StreamController<bool>? networkStatus,
+  StreamController<NetworkStatus>? networkStatus,
 }) async {
   final ProviderContainer container = ProviderContainer(
     overrides: [
+      accountStorageScopeProvider.overrideWithValue(
+        AccountStorageScope.authenticated('navigation-background-test-account'),
+      ),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
       unreadNotificationsProvider.overrideWithValue(0),
       goalsProvider.overrideWith(_StaticGoals.new),
       appRecoveryProvider.overrideWithValue(recovery ?? _FakeRecoveryService()),
@@ -247,10 +316,8 @@ class _FakeRecoveryService extends AppRecoveryService {
 
   @override
   Future<void> saveState({
-    String? lastRoute,
-    String? activeTaskId,
-    bool clearActiveTask = false,
-    String? draftTaskTitle,
+    String? lastPrimaryViewName,
+    bool clearLastPrimaryView = false,
   }) async {
     saveCalls += 1;
     if (failOnSave) {

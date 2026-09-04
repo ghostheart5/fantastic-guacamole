@@ -8,6 +8,10 @@ tags:
 - launchApp:
     clearState: true
 
+- extendedWaitUntil:
+    visible: "CHRONOSPARK"
+    timeout: 60000
+
 - assertVisible: "CHRONOSPARK"
 - assertVisible: "A living decision system"
 - assertVisible: "Plan with purpose. Act. Learn. ChronoSpark keeps the context behind your decisions."

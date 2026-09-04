@@ -5,8 +5,6 @@ import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/rate_limiter.dart';
 import 'package:fantastic_guacamole/core/utils/throttle.dart';
-import 'package:fantastic_guacamole/data/di/services_providers.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
@@ -43,6 +41,7 @@ import 'package:fantastic_guacamole/state/models/assistant_memory_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
@@ -1259,7 +1258,7 @@ class AIController {
     required double quality,
     DateTime? timestamp,
   }) async {
-    final store = _ref.read(secureStoreProvider);
+    final store = _ref.read(accountSecureStoreProvider);
     final String? raw = await store.readString(_neuralDumpKey);
 
     final List<Map<String, dynamic>> existing =
@@ -1381,4 +1380,119 @@ class AIController {
   void _captureSnapshot(AssistantMemorySnapshot snapshot) {
     _ref.read(siMemoryProvider.notifier).capture(snapshot);
   }
+
+  /// Pure SI classification seam retained so the production rules can be
+  /// exercised without initializing storage, networking, or mutable state.
+  List<String> detectQuerySurfacesForTesting(
+    String input, {
+    String? forcedSurface,
+  }) => _detectQuerySurfaces(input, forcedSurface: forcedSurface);
+
+  String deriveConsoleIntentForTesting(List<String> matchedSurfaces) =>
+      _deriveConsoleIntent(matchedSurfaces);
+
+  String detectSIIntentCategoryForTesting(
+    String input,
+    List<String> matchedSurfaces,
+  ) => _detectSIIntentCategory(input, matchedSurfaces);
+
+  bool isStructuredSIResponseForTesting(String message) =>
+      _isStructuredSIResponse(message);
+
+  AIRecommendation? timelineResponseForTesting({
+    required String input,
+    String? forcedSurface,
+    required List<String> matchedSurfaces,
+    required String category,
+    required List<TimelineEventEntity> timelineEvents,
+    required List<TimelineEventEntity> timelineUpcomingEvents,
+    required int timelineOverdueCount,
+    required int timelineUpcomingCount,
+    required int timelineHealthScore,
+    required int timelineRiskScore,
+    required int timelineRiskEventsCount,
+    required int timelineRecommendationCount,
+  }) => _tryDeterministicTimelineResponse(
+    input: input,
+    forcedSurface: forcedSurface,
+    matchedSurfaces: matchedSurfaces,
+    category: category,
+    timelineEvents: timelineEvents,
+    timelineUpcomingEvents: timelineUpcomingEvents,
+    timelineOverdueCount: timelineOverdueCount,
+    timelineUpcomingCount: timelineUpcomingCount,
+    timelineHealthScore: timelineHealthScore,
+    timelineRiskScore: timelineRiskScore,
+    timelineRiskEventsCount: timelineRiskEventsCount,
+    timelineRecommendationCount: timelineRecommendationCount,
+  );
+
+  AIRecommendation? trajectoryResponseForTesting({
+    required String input,
+    String? forcedSurface,
+    required List<String> matchedSurfaces,
+    required String category,
+    required int pressure,
+    required double momentum,
+    required int divergence,
+    String? prediction,
+    String? alert,
+  }) => _tryDeterministicTrajectoryResponse(
+    input: input,
+    forcedSurface: forcedSurface,
+    matchedSurfaces: matchedSurfaces,
+    category: category,
+    pressure: pressure,
+    momentum: momentum,
+    divergence: divergence,
+    prediction: prediction,
+    alert: alert,
+  );
+
+  AIRecommendation? milestoneResponseForTesting({
+    required String input,
+    String? forcedSurface,
+    required List<String> matchedSurfaces,
+    required String category,
+    required MilestoneSummary summary,
+    required List<MilestoneEntity> milestones,
+    required List<MilestoneRisk> risks,
+    required List<MilestoneEntity> overdue,
+    required List<MilestoneEntity> upcoming,
+  }) => _tryDeterministicMilestoneResponse(
+    input: input,
+    forcedSurface: forcedSurface,
+    matchedSurfaces: matchedSurfaces,
+    category: category,
+    summary: summary,
+    milestones: milestones,
+    risks: risks,
+    overdue: overdue,
+    upcoming: upcoming,
+  );
+
+  AIRecommendation structuredFallbackForTesting({
+    required String query,
+    required String category,
+    required List<TaskEntity> tasks,
+    required int goalsCount,
+    required int timelineOverdueCount,
+    required int timelineUpcomingCount,
+    required int timelineHealthScore,
+    required int timelineRiskScore,
+  }) => _buildStructuredSIFallback(
+    query: query,
+    category: category,
+    tasks: tasks,
+    goalsCount: goalsCount,
+    timelineOverdueCount: timelineOverdueCount,
+    timelineUpcomingCount: timelineUpcomingCount,
+    timelineHealthScore: timelineHealthScore,
+    timelineRiskScore: timelineRiskScore,
+  );
+
+  Map<String, dynamic> responseContractForTesting(
+    String primarySurface,
+    List<String> matchedSurfaces,
+  ) => _responseContract(primarySurface, matchedSurfaces);
 }

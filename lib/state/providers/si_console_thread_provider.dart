@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
-import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_message.dart';
+import 'package:fantastic_guacamole/domain/entities/si_console_message.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

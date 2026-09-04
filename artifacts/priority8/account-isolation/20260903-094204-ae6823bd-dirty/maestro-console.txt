@@ -1,0 +1,139 @@
+Running on emulator-5558
+ > Flow priority8-account-isolation
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/C:/Tools/maestro-cli-2.8.0/maestro/lib/protobuf-java-3.21.9.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+WARNING: sun.misc.Unsafe::arrayBaseOffset will be removed in a future release
+Launch app "com.ghostheart5.chronospark" with clear state... COMPLETED
+Run ../subflows/sign-in.yaml...
+  Run skip-onboarding.yaml...
+    Assert that "(?:CONTINUE TO LOGIN|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)" is visible... COMPLETED
+    Run flow when "CONTINUE TO LOGIN" is visible...
+      Tap on "CONTINUE TO LOGIN"... COMPLETED
+      Wait for animation to end within 5000 ms... COMPLETED
+    Run flow when "CONTINUE TO LOGIN" is visible... COMPLETED
+    Assert that "(?:SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)" is visible... COMPLETED
+    Run flow when "SKIP FOR NOW" is visible...
+    Run flow when "SKIP FOR NOW" is visible... SKIPPED
+  Run skip-onboarding.yaml... COMPLETED
+  Run flow when "TESTER ACCESS.*TEST LOGIN" is visible...
+    Tap on "TESTER ACCESS.*TEST LOGIN"... COMPLETED
+  Run flow when "TESTER ACCESS.*TEST LOGIN" is visible... COMPLETED
+  Run flow when "ENTER SYSTEM" is visible...
+  Run flow when "ENTER SYSTEM" is visible... SKIPPED
+  Assert that "NEXUS" is visible... COMPLETED
+Run ../subflows/sign-in.yaml... COMPLETED
+Run ../subflows/create-scheduled-task.yaml...
+  Run flow when "Start here" is visible...
+  Run flow when "Start here" is visible... SKIPPED
+  Run flow when "CREATOR" is not visible...
+    Run open-from-nexus.yaml...
+      Tap on "Open navigation map"... COMPLETED
+      Scrolling DOWN until "${TARGET}\n.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+      Tap on "${TARGET}\n.*"... COMPLETED
+      Wait for animation to end within 5000 ms... COMPLETED
+    Run open-from-nexus.yaml... COMPLETED
+  Run flow when "CREATOR" is not visible... COMPLETED
+  Assert that "CREATOR" is visible... COMPLETED
+  Tap on "Title *"... COMPLETED
+  Input text ${TASK_TITLE}... COMPLETED
+  Tap on (Optional) "(?:Done|Enter)"... COMPLETED
+  Wait for animation to end... COMPLETED
+  Scrolling DOWN until "Schedule date and time" is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED
+  Tap on "Schedule date and time"... COMPLETED
+  Assert that "OK" is visible... COMPLETED
+  Tap on "OK"... COMPLETED
+  Assert that "OK" is visible... COMPLETED
+  Tap on "OK"... COMPLETED
+  Scrolling DOWN until "REVIEW CHANGES" is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED
+  Tap on "REVIEW CHANGES"... COMPLETED
+  Assert that "CONFIRM CREATOR CHANGES" is visible... COMPLETED
+  Scrolling DOWN until "CONFIRM SELECTED" is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED
+  Tap on "CONFIRM SELECTED"... COMPLETED
+  Assert that "(?s).*${TASK_TITLE}.*Task is scheduled for a planned work time.*" is visible... COMPLETED
+Run ../subflows/create-scheduled-task.yaml... COMPLETED
+Assert that "(?s).*P8 Account A Sentinel.*" is visible... COMPLETED
+Run ../subflows/exit-tester-account.yaml...
+  Run open-from-nexus.yaml...
+    Tap on "Open navigation map"... COMPLETED
+    Scrolling DOWN until "${TARGET}\n.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+    Tap on "${TARGET}\n.*"... COMPLETED
+    Wait for animation to end within 5000 ms... COMPLETED
+  Run open-from-nexus.yaml... COMPLETED
+  Scrolling DOWN until "Data & account
+.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+  Tap on "Data & account
+.*"... COMPLETED
+  Scrolling DOWN until "Exit Tester Mode
+.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+  Tap on "Exit Tester Mode
+.*"... COMPLETED
+  Assert that "TESTER ACCESS.*TEST LOGIN" is visible... COMPLETED
+Run ../subflows/exit-tester-account.yaml... COMPLETED
+Tap on "TESTER B.*ISOLATION LOGIN"... COMPLETED
+Assert that "NEXUS" is visible... COMPLETED
+Run ../subflows/open-from-nexus.yaml...
+  Tap on "Open navigation map"... COMPLETED
+  Scrolling DOWN until "${TARGET}\n.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+  Tap on "${TARGET}\n.*"... COMPLETED
+  Wait for animation to end within 5000 ms... COMPLETED
+Run ../subflows/open-from-nexus.yaml... COMPLETED
+Assert that "(?s).*P8 Account A Sentinel.*" is not visible... COMPLETED
+Run ../subflows/open-from-nexus.yaml...
+  Tap on "Open navigation map"... COMPLETED
+  Scrolling DOWN until "${TARGET}\n.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+  Tap on "${TARGET}\n.*"... COMPLETED
+  Wait for animation to end within 5000 ms... COMPLETED
+Run ../subflows/open-from-nexus.yaml... COMPLETED
+Run ../subflows/create-scheduled-task.yaml...
+  Run flow when "Start here" is visible...
+  Run flow when "Start here" is visible... SKIPPED
+  Run flow when "CREATOR" is not visible...
+  Run flow when "CREATOR" is not visible... SKIPPED
+  Assert that "CREATOR" is visible... COMPLETED
+  Tap on "Title *"... COMPLETED
+  Input text ${TASK_TITLE}... COMPLETED
+  Tap on (Optional) "(?:Done|Enter)"... COMPLETED
+  Wait for animation to end... COMPLETED
+  Scrolling DOWN until "Schedule date and time" is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED
+  Tap on "Schedule date and time"... COMPLETED
+  Assert that "OK" is visible... COMPLETED
+  Tap on "OK"... COMPLETED
+  Assert that "OK" is visible... COMPLETED
+  Tap on "OK"... COMPLETED
+  Scrolling DOWN until "REVIEW CHANGES" is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED
+  Tap on "REVIEW CHANGES"... COMPLETED
+  Assert that "CONFIRM CREATOR CHANGES" is visible... COMPLETED
+  Scrolling DOWN until "CONFIRM SELECTED" is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED
+  Tap on "CONFIRM SELECTED"... COMPLETED
+  Assert that "(?s).*${TASK_TITLE}.*Task is scheduled for a planned work time.*" is visible... COMPLETED
+Run ../subflows/create-scheduled-task.yaml... COMPLETED
+Assert that "(?s).*P8 Account B Sentinel.*" is visible... COMPLETED
+Assert that "(?s).*P8 Account A Sentinel.*" is not visible... COMPLETED
+Run ../subflows/exit-tester-account.yaml...
+  Run open-from-nexus.yaml...
+    Tap on "Open navigation map"... COMPLETED
+    Scrolling DOWN until "${TARGET}\n.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+    Tap on "${TARGET}\n.*"... COMPLETED
+    Wait for animation to end within 5000 ms... COMPLETED
+  Run open-from-nexus.yaml... COMPLETED
+  Scrolling DOWN until "Data & account
+.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+  Tap on "Data & account
+.*"... COMPLETED
+  Scrolling DOWN until "Exit Tester Mode
+.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+  Tap on "Exit Tester Mode
+.*"... COMPLETED
+  Assert that "TESTER ACCESS.*TEST LOGIN" is visible... COMPLETED
+Run ../subflows/exit-tester-account.yaml... COMPLETED
+Tap on "TESTER ACCESS.*TEST LOGIN"... COMPLETED
+Assert that "NEXUS" is visible... COMPLETED
+Run ../subflows/open-from-nexus.yaml...
+  Tap on "Open navigation map"... COMPLETED
+  Scrolling DOWN until "${TARGET}\n.*" is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled... COMPLETED
+  Tap on "${TARGET}\n.*"... COMPLETED
+  Wait for animation to end within 5000 ms... COMPLETED
+Run ../subflows/open-from-nexus.yaml... COMPLETED
+Assert that "(?s).*P8 Account A Sentinel.*" is visible... COMPLETED
+Assert that "(?s).*P8 Account B Sentinel.*" is not visible... COMPLETED

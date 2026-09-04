@@ -1,11 +1,11 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
-import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -42,16 +42,31 @@ final _backupServiceProvider = Provider<BackupService?>((ref) {
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
     _sharedPrefsProvider,
   );
+  final scope = ref.watch(accountStorageScopeProvider);
+  final legacyOwnership = ref.watch(accountLegacyOwnershipProvider);
   return prefsAsync.whenOrNull(
-    data: (SharedPrefsStorage prefs) => BackupService(
-      taskRepository: ref.read(domainTaskRepositoryProvider),
-      profileStorage: HiveStorage<String>(
-        'profile_box',
-        hive: const HiveStoreAdapter(),
-      ),
-      prefs: prefs,
-      secureProfileStore: ref.read(secureStoreProvider),
-    ),
+    data: (SharedPrefsStorage prefs) {
+      final AccountScopedSharedPrefsStorage scopedPrefs =
+          AccountScopedSharedPrefsStorage(
+            delegate: prefs,
+            scope: scope,
+            legacyOwnership: legacyOwnership,
+          );
+      return BackupService(
+        taskRepository: ref.watch(domainTaskRepositoryProvider),
+        profileStorage: AccountScopedHiveStorage(
+          baseBox: HiveBoxes.profile,
+          scope: scope,
+          hive: ref.read(hiveStoreProvider),
+          legacyOwnership: legacyOwnership,
+        ),
+        prefs: scopedPrefs,
+        scope: scope,
+        secureProfileStore: ref
+            .read(secureStoreProvider)
+            .forAccount(scope, legacyOwnership: legacyOwnership),
+      );
+    },
   );
 });
 
@@ -71,7 +86,12 @@ final offlineSyncQueueProvider = Provider<OfflineSyncQueueService?>((ref) {
   final HiveStore hive = ref.read(hiveStoreProvider);
   final scope = ref.watch(accountStorageScopeProvider);
   return OfflineSyncQueueService(
-    HiveStorage<String>(HiveBoxes.offlineQueue, hive: hive),
+    AccountScopedHiveStorage(
+      baseBox: HiveBoxes.offlineQueue,
+      scope: scope,
+      hive: hive,
+      legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+    ),
     accountId: scope.isWritable ? scope.rawUserId : null,
     enforceAccountBinding: true,
   );
@@ -88,27 +108,33 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
   final BackupService? backup = ref.watch(_backupServiceProvider);
   final supabaseClient = ref.watch(supabaseClientProvider);
   final scope = ref.watch(accountStorageScopeProvider);
+  final legacyOwnership = ref.watch(accountLegacyOwnershipProvider);
   final bool userEnabled =
       ref.watch(cloudSyncPreferenceProvider).asData?.value ?? false;
   return prefsAsync.whenOrNull(
-    data: (SharedPrefsStorage prefs) => backup == null
-        ? null
-        : SyncService(
-            backup: backup,
-            gateway: Env.isMockMode
-                ? LocalTestCloudBackupGateway(prefs)
-                : (Env.enableCloudSync && userEnabled && supabaseClient != null)
-                ? SupabaseCasCloudBackupGateway(
-                    client: supabaseClient,
-                    expectedUserId: scope.isWritable
-                        ? scope.rawUserId ?? ''
-                        : '',
-                  )
-                : const UnavailableCloudBackupGateway(),
-            secureStore: ref.read(secureStoreProvider),
-            expectedAccountId: scope.isWritable ? scope.rawUserId : null,
-            currentAccountId: () => supabaseClient?.auth.currentUser?.id,
-          ),
+    data: (SharedPrefsStorage prefs) {
+      if (backup == null) return null;
+      final AccountScopedSharedPrefsStorage scopedPrefs =
+          AccountScopedSharedPrefsStorage(
+            delegate: prefs,
+            scope: scope,
+            legacyOwnership: legacyOwnership,
+          );
+      return SyncService(
+        backup: backup,
+        gateway: Env.isMockMode
+            ? LocalTestCloudBackupGateway(scopedPrefs)
+            : (Env.enableCloudSync && userEnabled && supabaseClient != null)
+            ? SupabaseCasCloudBackupGateway(
+                client: supabaseClient,
+                expectedUserId: scope.isWritable ? scope.rawUserId ?? '' : '',
+              )
+            : const UnavailableCloudBackupGateway(),
+        secureStore: ref.read(secureStoreProvider),
+        expectedAccountId: scope.isWritable ? scope.rawUserId : null,
+        currentAccountId: () => supabaseClient?.auth.currentUser?.id,
+      );
+    },
   );
 });
 

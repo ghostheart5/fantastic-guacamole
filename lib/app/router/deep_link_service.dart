@@ -4,13 +4,12 @@ import 'dart:async';
 // Package imports.
 import 'package:app_links/app_links.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/models/deep_link_mode.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The set of recognized `?mode=` values a deep link may carry into
-/// [AuthGate]. Anything that doesn't match one of these is untrusted input
-/// and is rejected by [parseDeepLinkMode] rather than passed through.
-enum DeepLinkMode { recovery, verifyEmail, authCallback }
+export 'package:fantastic_guacamole/domain/models/deep_link_mode.dart'
+    show DeepLinkMode;
 
 /// Validates the raw `mode` query parameter from a deep link against the
 /// known allowlist. Returns `null` for anything unrecognized (including
@@ -45,11 +44,21 @@ class DeepLinkState {
 }
 
 class DeepLinkService {
-  DeepLinkService._();
+  DeepLinkService._() : _initialLinkLoader = null, _uriLinkStream = null;
+
+  @visibleForTesting
+  factory DeepLinkService.forTesting({
+    required Future<Uri?> Function() initialLinkLoader,
+    required Stream<Uri> uriLinkStream,
+  }) => DeepLinkService._withSources(initialLinkLoader, uriLinkStream);
+
+  DeepLinkService._withSources(this._initialLinkLoader, this._uriLinkStream);
 
   static final DeepLinkService instance = DeepLinkService._();
 
   AppLinks? _appLinks;
+  final Future<Uri?> Function()? _initialLinkLoader;
+  final Stream<Uri>? _uriLinkStream;
   StreamSubscription<Uri>? _subscription;
   final StreamController<Uri> _controller = StreamController<Uri>.broadcast();
   Uri? _latestUri;
@@ -57,14 +66,23 @@ class DeepLinkService {
   Uri? get latestUri => _latestUri;
 
   Future<void> initializeEarly() async {
-    _appLinks ??= AppLinks();
-    final AppLinks? appLinks = _appLinks;
-    if (appLinks == null) {
-      return;
+    final Future<Uri?> Function() loadInitialLink;
+    final Stream<Uri> uriLinkStream;
+    final Future<Uri?> Function()? injectedInitialLinkLoader =
+        _initialLinkLoader;
+    final Stream<Uri>? injectedUriLinkStream = _uriLinkStream;
+    if (injectedInitialLinkLoader != null && injectedUriLinkStream != null) {
+      loadInitialLink = injectedInitialLinkLoader;
+      uriLinkStream = injectedUriLinkStream;
+    } else {
+      _appLinks ??= AppLinks();
+      final AppLinks appLinks = _appLinks!;
+      loadInitialLink = appLinks.getInitialLink;
+      uriLinkStream = appLinks.uriLinkStream;
     }
 
     // Capture cold-start deep link as early as possible.
-    final Uri? initialLink = await appLinks.getInitialLink();
+    final Uri? initialLink = await loadInitialLink();
     if (initialLink != null && _isTrusted(initialLink)) {
       _latestUri ??= initialLink;
     }
@@ -73,7 +91,7 @@ class DeepLinkService {
       _controller.add(initial);
     }
 
-    _subscription ??= appLinks.uriLinkStream.listen((Uri uri) {
+    _subscription ??= uriLinkStream.listen((Uri uri) {
       if (!_isTrusted(uri)) return;
       _latestUri = uri;
       _controller.add(uri);
@@ -92,15 +110,27 @@ class DeepLinkService {
         (uri.path == '/app' || uri.path.startsWith('/app/'));
   }
 
-  void dispose() {
-    _subscription?.cancel();
+  Future<void> dispose() async {
+    final StreamSubscription<Uri>? subscription = _subscription;
     _subscription = null;
+    await subscription?.cancel();
   }
 }
 
 final deepLinkServiceProvider = Provider<DeepLinkService>((ref) {
   final DeepLinkService service = DeepLinkService.instance;
-  ref.onDispose(service.dispose);
+  ref.onDispose(() {
+    unawaited(
+      service.dispose().catchError((Object error, StackTrace stackTrace) {
+        Logger.errorCategory(
+          'deep_link_dispose',
+          'Deep-link subscription disposal failed.',
+          error,
+          stackTrace,
+        );
+      }),
+    );
+  });
   return service;
 });
 

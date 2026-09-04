@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/domain/entities/calendar_entry.dart';
+import 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
@@ -14,7 +14,8 @@ export 'package:fantastic_guacamole/domain/planning/adaptive_plan_policy.dart';
 /// The persisted path remains a schedule-storage mechanism, not a second
 /// recommendation authority.
 class CalendarService implements IAdaptivePlanGenerator {
-  final Map<String, CalendarEntry> _entries = <String, CalendarEntry>{};
+  final Map<String, CalendarEntryEntity> _entries =
+      <String, CalendarEntryEntity>{};
   final Map<String, List<TimeBlock>> _timeBlocksByDay =
       <String, List<TimeBlock>>{};
   final Map<String, List<Task>> _tasksByDay = <String, List<Task>>{};
@@ -125,7 +126,7 @@ class CalendarService implements IAdaptivePlanGenerator {
     return blocks;
   }
 
-  CalendarEntry getDay(DateTime date) {
+  CalendarEntryEntity getDay(DateTime date) {
     final String key = _keyFor(date);
     return _entries[key] ?? _defaultEntry(date, key);
   }
@@ -194,9 +195,9 @@ class CalendarService implements IAdaptivePlanGenerator {
   DateTime _normalizedDate(DateTime date) =>
       DateTime(date.year, date.month, date.day);
 
-  CalendarEntry _defaultEntry(DateTime date, String key) {
+  CalendarEntryEntity _defaultEntry(DateTime date, String key) {
     final DateTime start = DateTime(date.year, date.month, date.day);
-    return CalendarEntry(
+    return CalendarEntryEntity(
       id: key,
       title: 'Day Plan',
       start: start,
@@ -204,10 +205,10 @@ class CalendarService implements IAdaptivePlanGenerator {
     );
   }
 
-  CalendarEntry _summaryEntryForDay(DateTime date, String key) {
+  CalendarEntryEntity _summaryEntryForDay(DateTime date, String key) {
     final List<TimeBlock> blocks = _timeBlocksByDay[key] ?? <TimeBlock>[];
     final DateTime start = DateTime(date.year, date.month, date.day);
-    return CalendarEntry(
+    return CalendarEntryEntity(
       id: key,
       title: blocks.isEmpty
           ? 'Day Plan'

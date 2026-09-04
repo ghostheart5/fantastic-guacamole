@@ -1,4 +1,4 @@
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Future automation
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Future automation
 ///
 /// Canonical Daily Rhythm model shared by habit and routine persistence.
 enum HabitCadence { daily, weekly, monthly }

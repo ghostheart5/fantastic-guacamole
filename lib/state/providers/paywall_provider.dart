@@ -1,9 +1,10 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart'
     show appPaywallRepositoryProvider;
-import 'package:fantastic_guacamole/data/di/storage_providers.dart'
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart'
     show sharedPrefsStoreProvider, supabaseClientProvider;
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart'
     show ContainedPaywallRepository;
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
@@ -20,13 +21,20 @@ import 'package:fantastic_guacamole/domain/usecases/restore_purchases.dart';
 import 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final creditServiceProvider = Provider<CreditService>((ref) {
-  return CreditService(prefs: ref.read(sharedPrefsStoreProvider));
+  return CreditService(
+    prefs: AccountScopedSharedPrefsStore(
+      delegate: ref.read(sharedPrefsStoreProvider),
+      scope: ref.watch(accountStorageScopeProvider),
+      legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
+    ),
+  );
 });
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {

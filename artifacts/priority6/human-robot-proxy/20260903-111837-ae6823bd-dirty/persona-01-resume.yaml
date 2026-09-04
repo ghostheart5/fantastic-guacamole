@@ -1,0 +1,34 @@
+appId: com.ghostheart5.chronospark
+name: "P6 proxy persona 01 - resume decline evidence"
+tags:
+  - priority6
+  - human-robot-proxy
+---
+- launchApp
+- scrollUntilVisible:
+    element:
+      text: "Add optional context"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "(?s).*Nothing is inferred.*Use only this time remains the default.*Smart Planner only.*30 days.*close ranking tie.*"
+- takeScreenshot: persona-01-offer
+- tapOn: "Not now"
+- assertVisible: "Use this plan"
+- assertNotVisible: "Add optional context"
+- tapOn: "Back"
+- extendedWaitUntil:
+    visible: "NEXUS"
+    timeout: 15000
+- tapOn: "CONTEXT"
+- extendedWaitUntil:
+    visible: "PERSON CONTEXT"
+    timeout: 15000
+- assertVisible: "Right now\nNot provided"
+- scrollUntilVisible:
+    element:
+      text: "Review and correct\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Review and correct\n.*"
+- assertVisible: "Not provided. ChronoSpark will not invent personal context."
+- takeScreenshot: persona-01-no-durable-context

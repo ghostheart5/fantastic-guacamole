@@ -1,11 +1,10 @@
-// CHRONOSPARK-CLASS: DEPRECATED | Feature: Calendar compatibility
+// CHRONOSPARK-CLASS: LEGACY | Feature: Calendar compatibility
 import 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
 
 /// Planner compatibility view over [CalendarEntryEntity].
 ///
 /// The historical `completed` name remains available, but the block stores no
 /// state beyond the canonical calendar entity.
-@Deprecated('Use CalendarEntryEntity.')
 class TimeBlock extends CalendarEntryEntity {
   const TimeBlock({
     required super.id,

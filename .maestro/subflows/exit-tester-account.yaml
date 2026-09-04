@@ -1,0 +1,21 @@
+appId: com.ghostheart5.chronospark
+---
+- runFlow:
+    file: open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Data & account\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Data & account\n.*"
+- scrollUntilVisible:
+    element:
+      text: "Exit Tester Mode\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Exit Tester Mode\n.*"
+- extendedWaitUntil:
+    visible: "TESTER ACCESS.*TEST LOGIN"
+    timeout: 20000

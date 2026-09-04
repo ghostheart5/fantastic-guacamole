@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -218,11 +218,11 @@ void main() {
               PersonContextSignal(
                 id: 'current-capacity',
                 kind: PersonContextKind.presentCapacity,
-                value: 'Keep this confirmation step small today',
+                value: '10 minutes available today',
                 source: PersonContextSource.userAuthored,
                 consent: PersonContextConsent.granted,
                 consentedAt: now.subtract(const Duration(hours: 1)),
-                purpose: PersonContextPurpose.planningGuidance,
+                purpose: PersonContextPurpose.decisionSupport,
                 surfaceScopes: const <PersonContextSurface>{
                   PersonContextSurface.creator,
                 },
@@ -258,18 +258,22 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('BOUND REVIEW EVIDENCE'), findsOneWidget);
+    expect(find.text('GOVERNED CONTEXT REVIEW'), findsOneWidget);
     expect(
       find.text(
-        'This is review evidence only and did not alter the proposed item.',
+        'Relevant user-reported context was checked. The proposal was not silently rewritten; any conflict requires your confirmation.',
       ),
       findsOneWidget,
     );
     expect(
-      find.text('presentCapacity: Keep this confirmation step small today'),
+      find.text('presentCapacity: 10 minutes available today'),
       findsOneWidget,
     );
-    expect(find.textContaining('did not alter the proposed'), findsNWidgets(2));
+    expect(find.textContaining('not silently rewritten'), findsNWidgets(2));
+    expect(
+      find.textContaining('exceeds the fresh user-reported'),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('creator-confirm-selected')), findsOneWidget);
     expect(repository.saveCalls, 0);
   });

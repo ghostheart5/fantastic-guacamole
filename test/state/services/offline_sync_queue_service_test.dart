@@ -221,18 +221,100 @@ void main() {
     expect(await service.queuedCount(), 2);
   });
 
-  test('loadQueue ignores malformed entries', () async {
+  test('quarantines every rejected member before a queue rewrite', () async {
+    final OfflineSyncQueueService accountService = OfflineSyncQueueService(
+      queueStorage,
+      accountId: 'account-a',
+      enforceAccountBinding: true,
+    );
+    final List<dynamic> seeded = <dynamic>[
+      'not-an-object',
+      <String, dynamic>{
+        'id': '',
+        'actionType': 'sync_to_cloud',
+        'dedupeKey': 'bad_empty_id',
+        'payload': <String, dynamic>{},
+        'enqueuedAtUtc': DateTime.now().toUtc().toIso8601String(),
+        'attempts': 0,
+        'accountId': 'account-a',
+      },
+      <String, dynamic>{
+        'id': 'missing-action',
+        'dedupeKey': 'missing-action',
+        'payload': <String, dynamic>{},
+        'enqueuedAtUtc': DateTime.now().toUtc().toIso8601String(),
+        'attempts': 0,
+        'accountId': 'account-a',
+      },
+      <String, dynamic>{
+        'id': 'wrong-account',
+        'actionType': 'sync_to_cloud',
+        'dedupeKey': 'wrong-account',
+        'payload': <String, dynamic>{},
+        'enqueuedAtUtc': DateTime.now().toUtc().toIso8601String(),
+        'attempts': 0,
+        'accountId': 'account-b',
+      },
+      <String, dynamic>{
+        'id': 'good-id',
+        'actionType': 'sync_to_cloud',
+        'dedupeKey': 'good',
+        'payload': <String, dynamic>{},
+        'enqueuedAtUtc': DateTime.now().toUtc().toIso8601String(),
+        'attempts': 0,
+        'accountId': 'account-a',
+      },
+    ];
+    final String originalPayload = jsonEncode(seeded);
     await queueStorage.put(
-      OfflineSyncQueueService.storageKey,
-      jsonEncode(<Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': '',
-          'actionType': 'sync_to_cloud',
-          'dedupeKey': 'bad_empty_id',
-          'payload': <String, dynamic>{},
-          'enqueuedAtUtc': DateTime.now().toUtc().toIso8601String(),
-          'attempts': 0,
-        },
+      '${OfflineSyncQueueService.storageKey}:account-a',
+      originalPayload,
+    );
+
+    await accountService.enqueue(
+      actionType: 'sync_delta',
+      dedupeKey: 'replacement',
+    );
+
+    final Box<String> box = Hive.box<String>('offline_sync_queue_box');
+    final Map<String, dynamic> quarantine =
+        jsonDecode(
+              box.get(
+                '${OfflineSyncQueueService.corruptStorageKey}:account-a',
+              )!,
+            )
+            as Map<String, dynamic>;
+    final Map<String, dynamic> snapshot =
+        (quarantine['snapshots'] as List<dynamic>).single
+            as Map<String, dynamic>;
+    final List<dynamic> rejected = snapshot['rejectedMembers'] as List<dynamic>;
+
+    expect(snapshot, isNot(contains('sourcePayload')));
+    expect(rejected, hasLength(4));
+    expect(rejected.map((dynamic value) => (value as Map)['index']), <int>[
+      0,
+      1,
+      2,
+      3,
+    ]);
+    expect(
+      rejected.map((dynamic value) => (value as Map)['raw']),
+      seeded.take(4),
+    );
+    expect(
+      (await accountService.loadQueue()).map(
+        (OfflineSyncQueueItem item) => item.id,
+      ),
+      containsAll(<String>['good-id']),
+    );
+    expect(await accountService.queuedCount(), 2);
+  });
+
+  test(
+    'aborts a rewrite when rejected members cannot be quarantined',
+    () async {
+      final List<dynamic> seeded = <dynamic>[
+        <String, dynamic>{'id': '', 'actionType': 'sync_to_cloud'},
         <String, dynamic>{
           'id': 'good-id',
           'actionType': 'sync_to_cloud',
@@ -241,13 +323,31 @@ void main() {
           'enqueuedAtUtc': DateTime.now().toUtc().toIso8601String(),
           'attempts': 0,
         },
-      ]),
-    );
+      ];
+      final String originalPayload = jsonEncode(seeded);
+      await queueStorage.put(
+        OfflineSyncQueueService.storageKey,
+        originalPayload,
+      );
+      final OfflineSyncQueueService blocked = OfflineSyncQueueService(
+        _FailingQuarantineStorage(
+          'offline_sync_queue_box',
+          hive: _TestHiveStore(),
+          blockedKey: OfflineSyncQueueService.corruptStorageKey,
+        ),
+      );
 
-    final List<OfflineSyncQueueItem> queue = await service.loadQueue();
-    expect(queue, hasLength(1));
-    expect(queue.single.id, 'good-id');
-  });
+      await expectLater(
+        blocked.enqueue(actionType: 'sync_delta', dedupeKey: 'new-item'),
+        throwsStateError,
+      );
+
+      expect(
+        queueStorage.get(OfflineSyncQueueService.storageKey),
+        originalPayload,
+      );
+    },
+  );
 
   test(
     'preserves a corrupt queue payload before a later enqueue replaces it',
@@ -265,10 +365,13 @@ void main() {
       );
 
       final Box<String> box = Hive.box<String>('offline_sync_queue_box');
-      expect(
-        box.get(OfflineSyncQueueService.corruptStorageKey),
-        corruptPayload,
-      );
+      final Map<String, dynamic> quarantine =
+          jsonDecode(box.get(OfflineSyncQueueService.corruptStorageKey)!)
+              as Map<String, dynamic>;
+      final Map<String, dynamic> snapshot =
+          (quarantine['snapshots'] as List<dynamic>).single
+              as Map<String, dynamic>;
+      expect(snapshot['sourcePayload'], corruptPayload);
       expect(await service.queuedCount(), 1);
     },
   );
@@ -366,5 +469,23 @@ class _TestHiveStore implements HiveStore {
       return Future<Box<T>>.value(Hive.box<T>(key));
     }
     return Hive.openBox<T>(key);
+  }
+}
+
+class _FailingQuarantineStorage extends HiveStorage<String> {
+  _FailingQuarantineStorage(
+    super.boxKey, {
+    required super.hive,
+    required this.blockedKey,
+  });
+
+  final String blockedKey;
+
+  @override
+  Future<void> put(String key, String value) {
+    if (key == blockedKey) {
+      throw StateError('injected quarantine write failure');
+    }
+    return super.put(key, value);
   }
 }
