@@ -214,7 +214,6 @@ $explicitOwners = @{
   'ISignalRepository' = 'lib/state/services/signals_service.dart'
   'ILearningRepository' = 'lib/state/services/intelligence_service.dart'
   'IProgressionRepository' = 'lib/state/services/progression_service.dart'
-  'IThemeRepository' = 'lib/state/services/theme_service.dart'
 }
 
 $implementedInterfaces = New-Object 'System.Collections.Generic.HashSet[string]'

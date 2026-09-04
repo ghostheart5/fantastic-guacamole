@@ -28,6 +28,30 @@ final class AccountScopedSharedPrefsStore
   @override
   Future<void> init() => delegate.init();
 
+  /// Copies explicitly selected legacy values into this account's exact V2
+  /// namespace only when the authentication boundary has proven ownership.
+  /// The legacy source is preserved so migration is recoverable and another
+  /// account can never acquire it through an ambiguous owner inference.
+  Future<void> migrateOwnedLegacyValues(Iterable<String> keys) async {
+    if (legacyOwnership != LegacyScopeOwnership.provenOwned) return;
+    await delegate.init();
+    for (final String key in keys.toSet()) {
+      if (key.trim().isEmpty) continue;
+      final String storageKey = _storageKey(key);
+      final String? scopedValue = delegate.load(storageKey);
+      final String? legacyValue = delegate.load(key);
+      final LegacyMigrationEligibility eligibility =
+          AccountStorageNamespace.legacyMigrationEligibility(
+            v2Exists: scopedValue != null,
+            legacyExists: legacyValue != null,
+            ownership: legacyOwnership,
+          );
+      if (eligibility == LegacyMigrationEligibility.copyAllowed) {
+        await delegate.save(storageKey, legacyValue!);
+      }
+    }
+  }
+
   @override
   Future<void> save(String key, String value) {
     return delegate.save(_storageKey(key), value);

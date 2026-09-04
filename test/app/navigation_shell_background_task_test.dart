@@ -90,7 +90,8 @@ void main() {
     testWidgets('forces entitlement authority refresh on reconnect', (
       WidgetTester tester,
     ) async {
-      final StreamController<bool> network = StreamController<bool>();
+      final StreamController<NetworkStatus> network =
+          StreamController<NetworkStatus>();
       addTearDown(network.close);
       final List<bool> forces = <bool>[];
       _entitlementRefreshProbe = ({bool force = false}) async {
@@ -98,10 +99,70 @@ void main() {
       };
       await _pumpShell(tester, probeEntitlement: true, networkStatus: network);
 
-      network.add(false);
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.unavailable,
+        ),
+      );
       await tester.pump();
-      network.add(true);
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.available,
+        ),
+      );
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 749));
+
+      expect(forces, isEmpty);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+
+      expect(forces, <bool>[true]);
+    });
+
+    testWidgets('debounces interface flapping before reconnect retry', (
+      WidgetTester tester,
+    ) async {
+      final StreamController<NetworkStatus> network =
+          StreamController<NetworkStatus>();
+      addTearDown(network.close);
+      final List<bool> forces = <bool>[];
+      _entitlementRefreshProbe = ({bool force = false}) async {
+        forces.add(force);
+      };
+      await _pumpShell(tester, probeEntitlement: true, networkStatus: network);
+
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.unavailable,
+        ),
+      );
+      await tester.pump();
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.available,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.unavailable,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(forces, isEmpty);
+
+      network.add(
+        const NetworkStatus(
+          interfaceAvailability: NetworkInterfaceAvailability.available,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(networkReconnectRetryDebounce);
       await tester.pump();
 
       expect(forces, <bool>[true]);
@@ -195,7 +256,7 @@ Future<ProviderContainer> _pumpShell(
   bool probeEntitlement = false,
   bool premiumAccess = false,
   Duration? authorityRecheckInterval,
-  StreamController<bool>? networkStatus,
+  StreamController<NetworkStatus>? networkStatus,
 }) async {
   final ProviderContainer container = ProviderContainer(
     overrides: [
@@ -255,12 +316,8 @@ class _FakeRecoveryService extends AppRecoveryService {
 
   @override
   Future<void> saveState({
-    String? lastRoute,
-    bool clearLastRoute = false,
-    String? activeTaskId,
-    bool clearActiveTask = false,
-    String? draftTaskTitle,
-    bool clearDraftTitle = false,
+    String? lastPrimaryViewName,
+    bool clearLastPrimaryView = false,
   }) async {
     saveCalls += 1;
     if (failOnSave) {

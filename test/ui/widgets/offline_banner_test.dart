@@ -12,7 +12,11 @@ void main() {
   testWidgets('shows banner when offline', (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [isOnlineProvider.overrideWithValue(false)],
+        overrides: [
+          networkInterfaceAvailabilityProvider.overrideWithValue(
+            NetworkInterfaceAvailability.unavailable,
+          ),
+        ],
         child: const MaterialApp(
           home: OfflineBanner(child: Scaffold(body: Text('content'))),
         ),
@@ -29,10 +33,16 @@ void main() {
     expect(find.text('content'), findsOneWidget);
   });
 
-  testWidgets('hides banner when online', (WidgetTester tester) async {
+  testWidgets('hides banner when a network interface is available', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [isOnlineProvider.overrideWithValue(true)],
+        overrides: [
+          networkInterfaceAvailabilityProvider.overrideWithValue(
+            NetworkInterfaceAvailability.available,
+          ),
+        ],
         child: const MaterialApp(
           home: OfflineBanner(child: Scaffold(body: Text('content'))),
         ),
@@ -49,6 +59,27 @@ void main() {
     expect(find.text('content'), findsOneWidget);
   });
 
+  testWidgets('does not call an unknown interface state offline', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          networkInterfaceAvailabilityProvider.overrideWithValue(
+            NetworkInterfaceAvailability.unknown,
+          ),
+        ],
+        child: const MaterialApp(
+          home: OfflineBanner(child: Scaffold(body: Text('content'))),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.textContaining('Offline Mode'), findsNothing);
+    expect(find.text('content'), findsOneWidget);
+  });
+
   testWidgets('announces offline banner with live region semantics', (
     WidgetTester tester,
   ) async {
@@ -56,7 +87,11 @@ void main() {
     try {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [isOnlineProvider.overrideWithValue(false)],
+          overrides: [
+            networkInterfaceAvailabilityProvider.overrideWithValue(
+              NetworkInterfaceAvailability.unavailable,
+            ),
+          ],
           child: const MaterialApp(
             home: OfflineBanner(child: Scaffold(body: Text('content'))),
           ),
@@ -85,7 +120,11 @@ void main() {
     try {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [isOnlineProvider.overrideWithValue(false)],
+          overrides: [
+            networkInterfaceAvailabilityProvider.overrideWithValue(
+              NetworkInterfaceAvailability.unavailable,
+            ),
+          ],
           child: const MaterialApp(
             locale: Locale('es'),
             supportedLocales: ChronoSparkLocalizations.supportedLocales,
@@ -123,7 +162,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          isOnlineProvider.overrideWithValue(false),
+          networkInterfaceAvailabilityProvider.overrideWithValue(
+            NetworkInterfaceAvailability.unavailable,
+          ),
           cloudSyncCapabilityProvider.overrideWithValue(true),
         ],
         child: const MaterialApp(
@@ -143,7 +184,11 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [isOnlineProvider.overrideWithValue(false)],
+        overrides: [
+          networkInterfaceAvailabilityProvider.overrideWithValue(
+            NetworkInterfaceAvailability.unavailable,
+          ),
+        ],
         child: MaterialApp(
           home: MediaQuery(
             data: const MediaQueryData(padding: EdgeInsets.only(top: 24)),
@@ -185,7 +230,11 @@ void main() {
         'Offline Mode — local features available; cloud sync unavailable';
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [isOnlineProvider.overrideWithValue(false)],
+        overrides: [
+          networkInterfaceAvailabilityProvider.overrideWithValue(
+            NetworkInterfaceAvailability.unavailable,
+          ),
+        ],
         child: const MaterialApp(
           home: MediaQuery(
             data: MediaQueryData(textScaler: TextScaler.linear(2)),

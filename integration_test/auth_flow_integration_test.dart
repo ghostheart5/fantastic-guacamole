@@ -348,7 +348,9 @@ ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
-      isOnlineProvider.overrideWithValue(true),
+      networkInterfaceAvailabilityProvider.overrideWithValue(
+        NetworkInterfaceAvailability.available,
+      ),
       profileProvider.overrideWith(_IntegrationProfileController.new),
       audioFeedbackControllerProvider.overrideWithValue(
         const _SilentAudioFeedbackController(),
@@ -546,6 +548,16 @@ class _IntegrationFakeAuthService implements AuthServiceContract {
   Future<AccountDeletionResult> deleteCurrentAccount({
     required String password,
   }) async => const AccountDeletionResult.completed();
+
+  @override
+  Future<PendingAccountDeletionStatus?> readPendingAccountDeletion() async =>
+      null;
+
+  @override
+  Future<AccountDeletionResult?> refreshPendingAccountDeletion() async => null;
+
+  @override
+  Future<void> forgetPendingAccountDeletion() async {}
 
   @override
   Future<User?> reloadCurrentUser() async => null;

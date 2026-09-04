@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -150,23 +151,50 @@ class OfflineSyncQueueService {
       await _preserveCorruptPayload(encoded);
       return const <OfflineSyncQueueItem>[];
     }
-    final List<dynamic> raw = decoded;
-    return raw
-        .whereType<Map<dynamic, dynamic>>()
-        .map(
-          (Map<dynamic, dynamic> value) => OfflineSyncQueueItem.fromJson(
-            value.map<String, dynamic>(
-              (dynamic key, dynamic item) => MapEntry(key.toString(), item),
-            ),
+    final List<OfflineSyncQueueItem> valid = <OfflineSyncQueueItem>[];
+    final List<_RejectedQueueMember> rejected = <_RejectedQueueMember>[];
+    for (int index = 0; index < decoded.length; index++) {
+      final Object? rawMember = decoded[index];
+      if (rawMember is! Map<dynamic, dynamic>) {
+        rejected.add(
+          _RejectedQueueMember(
+            index: index,
+            reason: 'member-is-not-an-object',
+            raw: rawMember,
           ),
-        )
-        .where(
-          (OfflineSyncQueueItem item) =>
-              item.id.isNotEmpty &&
-              item.actionType.isNotEmpty &&
-              (!_enforceAccountBinding || item.accountId == _accountId),
-        )
-        .toList(growable: false);
+        );
+        continue;
+      }
+      final Map<String, dynamic> value = rawMember.map<String, dynamic>(
+        (dynamic key, dynamic item) => MapEntry(key.toString(), item),
+      );
+      try {
+        final String? invalidReason = _invalidMemberReason(value);
+        if (invalidReason != null) {
+          rejected.add(
+            _RejectedQueueMember(
+              index: index,
+              reason: invalidReason,
+              raw: rawMember,
+            ),
+          );
+          continue;
+        }
+        valid.add(OfflineSyncQueueItem.fromJson(value));
+      } on Object {
+        rejected.add(
+          _RejectedQueueMember(
+            index: index,
+            reason: 'member-could-not-be-decoded',
+            raw: rawMember,
+          ),
+        );
+      }
+    }
+    if (rejected.isNotEmpty) {
+      await _preserveCorruptMembers(encoded, rejected);
+    }
+    return List<OfflineSyncQueueItem>.unmodifiable(valid);
   }
 
   Future<int> queuedCount() async {
@@ -373,11 +401,143 @@ class OfflineSyncQueueService {
     );
   }
 
-  Future<void> _preserveCorruptPayload(String payload) async {
-    await _prefs.put(_scopedCorruptStorageKey, payload);
+  String? _invalidMemberReason(Map<String, dynamic> value) {
+    for (final String key in <String>[
+      'id',
+      'actionType',
+      'dedupeKey',
+      'enqueuedAtUtc',
+    ]) {
+      final Object? raw = value[key];
+      if (raw is! String || raw.trim().isEmpty) {
+        return 'missing-or-invalid-$key';
+      }
+    }
+    if (DateTime.tryParse(value['enqueuedAtUtc'] as String) == null) {
+      return 'invalid-enqueuedAtUtc';
+    }
+    if (value['payload'] is! Map<dynamic, dynamic>) {
+      return 'missing-or-invalid-payload';
+    }
+    final Object? attempts = value['attempts'];
+    if (attempts is! int || attempts < 0) {
+      return 'missing-or-invalid-attempts';
+    }
+    for (final String key in <String>['lastAttemptAtUtc', 'nextAttemptAtUtc']) {
+      final Object? raw = value[key];
+      if (raw != null &&
+          (raw is! String ||
+              (raw.trim().isNotEmpty && DateTime.tryParse(raw) == null))) {
+        return 'invalid-$key';
+      }
+    }
+    final Object? deadLettered = value['deadLettered'];
+    if (deadLettered != null && deadLettered is! bool) {
+      return 'invalid-deadLettered';
+    }
+    final Object? accountId = value['accountId'];
+    if (accountId != null && accountId is! String) {
+      return 'invalid-accountId';
+    }
+    if (_enforceAccountBinding && accountId != _accountId) {
+      return 'account-mismatch';
+    }
+    return null;
+  }
+
+  Future<void> _preserveCorruptPayload(String payload) {
+    return _appendQuarantineSnapshot(
+      payload: payload,
+      kind: 'invalid-queue-payload',
+      rejected: const <_RejectedQueueMember>[],
+      preserveWholePayload: true,
+    );
+  }
+
+  Future<void> _preserveCorruptMembers(
+    String payload,
+    List<_RejectedQueueMember> rejected,
+  ) {
+    return _appendQuarantineSnapshot(
+      payload: payload,
+      kind: 'invalid-queue-members',
+      rejected: rejected,
+      preserveWholePayload: false,
+    );
+  }
+
+  Future<void> _appendQuarantineSnapshot({
+    required String payload,
+    required String kind,
+    required List<_RejectedQueueMember> rejected,
+    required bool preserveWholePayload,
+  }) async {
+    final String sourceDigest = sha256.convert(utf8.encode(payload)).toString();
+    final List<dynamic> snapshots = <dynamic>[];
+    final String? existing = _prefs.get(_scopedCorruptStorageKey);
+    if (existing != null && existing.trim().isNotEmpty) {
+      try {
+        final Object? decoded = jsonDecode(existing);
+        if (decoded is Map<dynamic, dynamic> &&
+            decoded['version'] == 2 &&
+            decoded['snapshots'] is List<dynamic>) {
+          snapshots.addAll(decoded['snapshots'] as List<dynamic>);
+        } else {
+          snapshots.add(<String, dynamic>{
+            'kind': 'legacy-quarantine',
+            'sourcePayload': existing,
+            'sourceDigest': sha256.convert(utf8.encode(existing)).toString(),
+          });
+        }
+      } on FormatException {
+        snapshots.add(<String, dynamic>{
+          'kind': 'legacy-quarantine',
+          'sourcePayload': existing,
+          'sourceDigest': sha256.convert(utf8.encode(existing)).toString(),
+        });
+      }
+    }
+    if (snapshots.whereType<Map<dynamic, dynamic>>().any(
+      (Map<dynamic, dynamic> snapshot) =>
+          snapshot['sourceDigest'] == sourceDigest ||
+          snapshot['sourcePayload'] == payload,
+    )) {
+      return;
+    }
+    snapshots.add(<String, dynamic>{
+      'capturedAtUtc': DateTime.now().toUtc().toIso8601String(),
+      'kind': kind,
+      'sourceDigest': sourceDigest,
+      if (preserveWholePayload) 'sourcePayload': payload,
+      'rejectedMembers': rejected
+          .map((_RejectedQueueMember member) => member.toJson())
+          .toList(growable: false),
+    });
+    await _prefs.put(
+      _scopedCorruptStorageKey,
+      jsonEncode(<String, dynamic>{'version': 2, 'snapshots': snapshots}),
+    );
   }
 
   Future<T> _serialize<T>(Future<T> Function() operation) {
     return _mutations.runExclusive<T>(_mutationKey, operation);
   }
+}
+
+class _RejectedQueueMember {
+  const _RejectedQueueMember({
+    required this.index,
+    required this.reason,
+    required this.raw,
+  });
+
+  final int index;
+  final String reason;
+  final Object? raw;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'index': index,
+    'reason': reason,
+    'raw': raw,
+  };
 }

@@ -817,7 +817,7 @@ class _AccountDataLockState extends ConsumerState<_AccountDataLock> {
       await action();
     } on Object catch (error, stackTrace) {
       Logger.errorCode(
-        code: 'account_lock.recovery_action_failed',
+        code: AppDiagnosticCode.accountLockRecoveryActionFailed,
         debugMessage: 'Account lock recovery action failed.',
         exception: error,
         stackTrace: stackTrace,

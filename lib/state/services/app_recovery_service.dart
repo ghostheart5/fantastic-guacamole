@@ -4,49 +4,32 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 class AppRecoveryState {
-  const AppRecoveryState({
-    this.lastRoute,
-    this.activeTaskId,
-    this.draftTaskTitle,
-  });
+  const AppRecoveryState({required this.lastPrimaryViewName});
 
-  final String? lastRoute;
-  final String? activeTaskId;
-  final String? draftTaskTitle;
+  final String lastPrimaryViewName;
 }
 
 class AppRecoveryService {
   AppRecoveryService({SharedPrefsStore? store})
     : _store = store ?? const SharedPrefsStoreAdapter();
 
-  static const _kLastRoute = 'rec_last_route';
-  static const _kTaskId = 'rec_active_task';
-  static const _kDraftTitle = 'rec_draft_title';
+  // Keep the established key so existing route recovery survives this model
+  // tightening. The unsupported task/draft keys are removed on read/clear.
+  static const _kLastPrimaryViewName = 'rec_last_route';
+  static const _kLegacyTaskId = 'rec_active_task';
+  static const _kLegacyDraftTitle = 'rec_draft_title';
   final SharedPrefsStore _store;
 
   Future<void> saveState({
-    String? lastRoute,
-    bool clearLastRoute = false,
-    String? activeTaskId,
-    bool clearActiveTask = false,
-    String? draftTaskTitle,
-    bool clearDraftTitle = false,
+    String? lastPrimaryViewName,
+    bool clearLastPrimaryView = false,
   }) async {
     try {
-      if (clearLastRoute) {
-        await _store.delete(_kLastRoute);
-      } else if (lastRoute != null) {
-        await _saveNormalized(_kLastRoute, lastRoute);
-      }
-      if (clearActiveTask) {
-        await _store.delete(_kTaskId);
-      } else if (activeTaskId != null) {
-        await _saveNormalized(_kTaskId, activeTaskId);
-      }
-      if (clearDraftTitle) {
-        await _store.delete(_kDraftTitle);
-      } else if (draftTaskTitle != null) {
-        await _saveNormalized(_kDraftTitle, draftTaskTitle);
+      await _store.init();
+      if (clearLastPrimaryView) {
+        await _store.delete(_kLastPrimaryViewName);
+      } else if (lastPrimaryViewName != null) {
+        await _saveNormalized(_kLastPrimaryViewName, lastPrimaryViewName);
       }
     } on Object catch (error) {
       Logger.warn('RECOVERY_SAVE_FAILED: $error');
@@ -65,19 +48,19 @@ class AppRecoveryService {
 
   Future<AppRecoveryState?> loadState() async {
     try {
-      final String? lastRoute = _normalizedOrNull(_store.load(_kLastRoute));
-      final String? activeTaskId = _normalizedOrNull(_store.load(_kTaskId));
-      final String? draftTitle = _normalizedOrNull(_store.load(_kDraftTitle));
-
-      if (lastRoute == null && activeTaskId == null && draftTitle == null) {
+      await _store.init();
+      final String? lastPrimaryViewName = _normalizedOrNull(
+        _store.load(_kLastPrimaryViewName),
+      );
+      try {
+        await _removeUnsupportedLegacyFields();
+      } on Object catch (error) {
+        Logger.warn('RECOVERY_LEGACY_CLEANUP_FAILED: $error');
+      }
+      if (lastPrimaryViewName == null) {
         return null;
       }
-
-      return AppRecoveryState(
-        lastRoute: lastRoute,
-        activeTaskId: activeTaskId,
-        draftTaskTitle: draftTitle,
-      );
+      return AppRecoveryState(lastPrimaryViewName: lastPrimaryViewName);
     } on Object catch (error) {
       Logger.warn('RECOVERY_LOAD_FAILED: $error');
       return null;
@@ -89,15 +72,20 @@ class AppRecoveryService {
     return normalized.isEmpty ? null : normalized;
   }
 
-  Future<void> clearDraft() async {
-    await saveState(clearDraftTitle: true);
+  Future<void> _removeUnsupportedLegacyFields() async {
+    for (final String key in <String>[_kLegacyTaskId, _kLegacyDraftTitle]) {
+      if (_store.load(key) != null) {
+        await _store.delete(key);
+      }
+    }
   }
 
   Future<void> clearAll() async {
     try {
-      await _store.delete(_kLastRoute);
-      await _store.delete(_kTaskId);
-      await _store.delete(_kDraftTitle);
+      await _store.init();
+      await _store.delete(_kLastPrimaryViewName);
+      await _store.delete(_kLegacyTaskId);
+      await _store.delete(_kLegacyDraftTitle);
     } on Object catch (error) {
       Logger.warn('RECOVERY_CLEAR_FAILED: $error');
     }

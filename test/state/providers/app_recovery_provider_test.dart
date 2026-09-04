@@ -1,88 +1,95 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
-import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/app_recovery_provider.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    await SharedPrefsService.init();
-    await SharedPrefsService.clear();
-  });
+  test('recovery state remains isolated by exact account scope', () async {
+    final _MemoryStore delegate = _MemoryStore();
+    final ProviderContainer alpha = _container('alpha', delegate);
+    final ProviderContainer beta = _container('beta', delegate);
+    addTearDown(alpha.dispose);
+    addTearDown(beta.dispose);
 
-  test('detects recoverable app state from storage', () async {
-    final ProviderContainer container = _container();
-    addTearDown(container.dispose);
-
-    final service = container.read(appRecoveryProvider);
-
-    await service.saveState(lastRoute: '/plan', activeTaskId: 'task-1');
-    final state = await service.loadState();
-
-    expect(state, isNotNull);
-    expect(state?.lastRoute, '/plan');
-    expect(state?.activeTaskId, 'task-1');
-  });
-
-  test('restores interrupted app state with draft metadata', () async {
-    final ProviderContainer container = _container();
-    addTearDown(container.dispose);
-    final service = container.read(appRecoveryProvider);
-
-    await service.saveState(
-      lastRoute: '/timeline',
-      activeTaskId: 'task-9',
-      draftTaskTitle: 'resume deep work',
+    await alpha
+        .read(appRecoveryProvider)
+        .saveState(lastPrimaryViewName: 'timeline');
+    expect(
+      (await alpha.read(appRecoveryProvider).loadState())?.lastPrimaryViewName,
+      'timeline',
     );
+    expect(await beta.read(appRecoveryProvider).loadState(), isNull);
 
-    final restored = await service.loadState();
-
-    expect(restored, isNotNull);
-    expect(restored?.lastRoute, '/timeline');
-    expect(restored?.activeTaskId, 'task-9');
-    expect(restored?.draftTaskTitle, 'resume deep work');
-  });
-
-  test('clears completed app recovery state', () async {
-    final ProviderContainer container = _container();
-    addTearDown(container.dispose);
-    final service = container.read(appRecoveryProvider);
-
-    await service.saveState(
-      lastRoute: '/timeline',
-      activeTaskId: 'task-9',
-      draftTaskTitle: 'temporary',
+    await beta
+        .read(appRecoveryProvider)
+        .saveState(lastPrimaryViewName: 'profile');
+    expect(
+      (await beta.read(appRecoveryProvider).loadState())?.lastPrimaryViewName,
+      'profile',
     );
-    await service.clearDraft();
-
-    final afterDraftClear = await service.loadState();
-    expect(afterDraftClear?.draftTaskTitle, isNull);
-
-    await service.clearAll();
-    final afterAllClear = await service.loadState();
-    expect(afterAllClear, isNull);
+    expect(
+      (await alpha.read(appRecoveryProvider).loadState())?.lastPrimaryViewName,
+      'timeline',
+    );
   });
 
-  test('handles corrupted recovery state safely', () async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('rec_last_route', 42);
-    await prefs.setBool('rec_draft_title', true);
+  test('clearing one account preserves another account recovery', () async {
+    final _MemoryStore delegate = _MemoryStore();
+    final ProviderContainer alpha = _container('alpha', delegate);
+    final ProviderContainer beta = _container('beta', delegate);
+    addTearDown(alpha.dispose);
+    addTearDown(beta.dispose);
 
-    final ProviderContainer container = _container();
-    addTearDown(container.dispose);
-    final service = container.read(appRecoveryProvider);
+    await alpha
+        .read(appRecoveryProvider)
+        .saveState(lastPrimaryViewName: 'timeline');
+    await beta
+        .read(appRecoveryProvider)
+        .saveState(lastPrimaryViewName: 'profile');
 
-    final state = await service.loadState();
-    expect(state, isNull);
+    await alpha.read(appRecoveryProvider).clearAll();
+
+    expect(await alpha.read(appRecoveryProvider).loadState(), isNull);
+    expect(
+      (await beta.read(appRecoveryProvider).loadState())?.lastPrimaryViewName,
+      'profile',
+    );
   });
 }
 
-ProviderContainer _container() => ProviderContainer(
-  overrides: [
-    accountSharedPrefsStoreProvider.overrideWithValue(
-      const SharedPrefsStoreAdapter(),
-    ),
-  ],
-);
+ProviderContainer _container(String accountId, SharedPrefsStore delegate) {
+  return ProviderContainer(
+    overrides: [
+      sharedPrefsStoreProvider.overrideWithValue(delegate),
+      accountStorageScopeProvider.overrideWithValue(
+        AccountStorageScope.authenticated(accountId),
+      ),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
+    ],
+  );
+}
+
+class _MemoryStore implements SharedPrefsStore {
+  final Map<String, String> values = <String, String>{};
+
+  @override
+  Future<void> clear() async => values.clear();
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  String? load(String key) => values[key];
+
+  @override
+  Future<void> save(String key, String value) async => values[key] = value;
+}

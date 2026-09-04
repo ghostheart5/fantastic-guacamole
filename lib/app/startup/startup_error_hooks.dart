@@ -45,7 +45,7 @@ class AppBootstrapper {
         errorDetails.stack,
       );
       Logger.errorCode(
-        code: 'startup.flutter_framework_error',
+        code: AppDiagnosticCode.startupFlutterFrameworkError,
         debugMessage: 'Flutter framework error.',
         exception: errorDetails.exception,
         stackTrace: stackTrace,
@@ -67,7 +67,7 @@ class AppBootstrapper {
       );
       ErrorBoundary.reportGlobalError(error, stack);
       Logger.errorCode(
-        code: 'startup.platform_dispatcher_error',
+        code: AppDiagnosticCode.startupPlatformDispatcherError,
         debugMessage: 'Platform dispatcher uncaught error.',
         exception: error,
         stackTrace: stack,
@@ -101,7 +101,7 @@ class AppBootstrapper {
     );
     ErrorBoundary.reportGlobalError(error, stack);
     Logger.errorCode(
-      code: 'startup.uncaught_zone_error',
+      code: AppDiagnosticCode.startupUncaughtZoneError,
       debugMessage: 'Uncaught zone error.',
       exception: error,
       stackTrace: stack,

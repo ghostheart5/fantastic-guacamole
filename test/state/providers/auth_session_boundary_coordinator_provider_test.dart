@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
@@ -207,6 +208,59 @@ void main() {
       await disposed.dispose();
     },
   );
+
+  test(
+    'explicit local clear requires and forwards the current authenticated account',
+    () async {
+      final _BoundaryHarness harness = _BoundaryHarness();
+      addTearDown(harness.dispose);
+      await harness.secureStore.writeString(_markerKey, 'account-a');
+      final Future<void> initialized = harness.coordinator.initialize();
+      harness.auth.add(_user('account-a'));
+      await initialized;
+
+      await expectLater(
+        harness.coordinator.clearLocalDataForCurrentAccount('account-b'),
+        throwsStateError,
+      );
+      expect(harness.cleanup.clearCalls, 0);
+
+      await harness.coordinator.clearLocalDataForCurrentAccount('account-a');
+
+      expect(harness.cleanup.clearCalls, 1);
+      expect(harness.cleanup.clearedAccountId, 'account-a');
+      expect(harness.boundary.userId, 'account-a');
+      expect(harness.boundary.isStorageReady, isTrue);
+      expect(harness.boundary.isTransitioning, isFalse);
+    },
+  );
+
+  test('only the proven legacy owner receives reminder migration', () async {
+    final _BoundaryHarness harness = _BoundaryHarness();
+    addTearDown(harness.dispose);
+    await harness.secureStore.writeString(_markerKey, 'account-a');
+    await harness.preferences.save('goal_reminders_enabled', 'false');
+    final Future<void> initialized = harness.coordinator.initialize();
+    harness.auth.add(_user('account-a'));
+    await initialized;
+
+    final String namespaceA = AccountDataRegistry.accountNamespace('account-a');
+    expect(
+      harness.preferences.load('goal_reminders_enabled.$namespaceA'),
+      'false',
+    );
+
+    harness.auth.add(null);
+    await harness.settle();
+    harness.auth.add(_user('account-b'));
+    await harness.settle();
+    final String namespaceB = AccountDataRegistry.accountNamespace('account-b');
+    expect(
+      harness.preferences.load('goal_reminders_enabled.$namespaceB'),
+      isNull,
+    );
+    expect(harness.preferences.load('goal_reminders_enabled'), 'false');
+  });
 }
 
 User _user(String id) => User(id: id, emailVerified: true);
@@ -237,6 +291,7 @@ final class _BoundaryHarness {
           occurrenceCoordinator,
         ),
         decisionOutcomeRepositoryProvider.overrideWithValue(outcomeRepository),
+        sharedPrefsStoreProvider.overrideWithValue(preferences),
         domainTaskRepositoryProvider.overrideWithValue(_EmptyTaskRepository()),
       ],
     );
@@ -245,6 +300,7 @@ final class _BoundaryHarness {
   final StreamController<User?> auth;
   final SecureStore secureStore;
   final _TestCleanupService cleanup;
+  final _MemoryPreferences preferences = _MemoryPreferences();
   late final ProviderContainer container;
 
   AuthSessionBoundaryCoordinator get coordinator =>
@@ -310,9 +366,16 @@ final class _TestCleanupService extends LocalUserDataCleanupService {
 
   final bool hasUnownedData;
   int clearCalls = 0;
+  String? clearedAccountId;
 
   @override
-  Future<void> clearForAccountSwitch([String? accountId]) async {
+  Future<void> clearForAccountSwitch(String accountId) async {
+    clearCalls += 1;
+    clearedAccountId = accountId;
+  }
+
+  @override
+  Future<void> clearUnownedLegacyData() async {
     clearCalls += 1;
   }
 

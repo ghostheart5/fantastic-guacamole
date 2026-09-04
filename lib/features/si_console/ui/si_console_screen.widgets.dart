@@ -21,32 +21,31 @@ class _ContextStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final SIRoutineCopy copy = ChronoSparkLocalizations.of(context).siRoutine;
     final String message;
     final IconData icon;
     final Color accent;
     if (availabilityError != null) {
-      message = 'SI Console access could not be verified. No query was sent.';
+      message = copy.accessCheckFailed;
       icon = Icons.error_outline_rounded;
       accent = Colors.amberAccent;
     } else if (availabilityLoading) {
-      message = 'Checking SI Console access...';
+      message = copy.checkingAccess;
       icon = Icons.sync_rounded;
       accent = AppColors.neonCyan;
     } else if (!available) {
-      message =
-          'SI Console is not enabled for this account. No query was sent.';
+      message = copy.accessUnavailable;
       icon = Icons.lock_outline_rounded;
       accent = Colors.amberAccent;
     } else if (error != null) {
       message = PublicFailure.from(
         error!,
-        fallback:
-            'Strategic context is temporarily unavailable. Saved work is unchanged.',
+        fallback: copy.contextUnavailable,
       ).message;
       icon = Icons.error_outline_rounded;
       accent = Colors.amberAccent;
     } else if (loading) {
-      message = 'Initializing SI context...';
+      message = copy.initializingContext;
       icon = Icons.sync_rounded;
       accent = AppColors.neonCyan;
     } else {
@@ -58,10 +57,16 @@ class _ContextStatusBanner extends StatelessWidget {
                 evidence.milestones.length +
                 evidence.timeline.length;
       message = evidence == null
-          ? 'Evidence state unavailable.'
+          ? copy.evidenceUnavailable
           : evidenceCount == 0
-          ? 'No planning evidence yet. SI will identify what it cannot determine. ${_personContextBoundary(evidence)}'
-          : 'Evidence ready: ${evidence.tasks.length} tasks · ${evidence.goals.length} goals · ${evidence.milestones.length} milestones · ${evidence.timeline.length} Timeline. ${_personContextBoundary(evidence)}';
+          ? copy.noEvidence(_personContextBoundary(evidence, copy))
+          : copy.evidenceReady(
+              tasks: evidence.tasks.length,
+              goals: evidence.goals.length,
+              milestones: evidence.milestones.length,
+              timeline: evidence.timeline.length,
+              personBoundary: _personContextBoundary(evidence, copy),
+            );
       icon = Icons.verified_rounded;
       accent = Colors.greenAccent;
     }
@@ -97,10 +102,7 @@ class _ContextStatusBanner extends StatelessWidget {
           ),
           if (availabilityError != null || error != null) ...<Widget>[
             const SizedBox(width: 8),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('Retry evidence loading'),
-            ),
+            TextButton(onPressed: onRetry, child: Text(copy.retryEvidence)),
           ],
         ],
       ),
@@ -108,15 +110,18 @@ class _ContextStatusBanner extends StatelessWidget {
   }
 }
 
-String _personContextBoundary(SIV2EvidenceSnapshot snapshot) {
+String _personContextBoundary(
+  SIV2EvidenceSnapshot snapshot,
+  SIRoutineCopy copy,
+) {
   final SIV2PersonContextEvidence? context = snapshot.personContext;
   if (context == null) {
-    return 'Person context: unavailable; SI inferred nothing personal.';
+    return copy.personContextUnavailable;
   }
   if (context.isEmpty) {
-    return 'Person context: shared but no item was relevant to this lens.';
+    return copy.personContextNotRelevant;
   }
-  return 'Person context: ${context.signals.length} relevant user-reported ${context.signals.length == 1 ? 'item is' : 'items are'} cited as evidence and not independently verified.';
+  return copy.personContextEvidence(context.signals.length);
 }
 
 class _Header extends StatelessWidget {
@@ -131,6 +136,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final SIRoutineCopy copy = ChronoSparkLocalizations.of(context).siRoutine;
     final bool largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
@@ -141,11 +147,11 @@ class _Header extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Semantics(
-                label: 'Back to Nexus',
+                label: copy.backToNexus,
                 button: true,
                 onTap: onBack,
                 child: IconButton(
-                  tooltip: 'Back to Nexus',
+                  tooltip: copy.backToNexus,
                   onPressed: onBack,
                   constraints: const BoxConstraints.tightFor(
                     width: 48,
@@ -158,11 +164,9 @@ class _Header extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: TemporalScreenHeader(
-                  title: 'SI Console V2',
-                  subtitle: largeText
-                      ? null
-                      : 'Systems intelligence · source-aware guidance',
-                  eyebrow: largeText ? null : 'Evidence trace',
+                  title: copy.title,
+                  subtitle: largeText ? null : copy.subtitle,
+                  eyebrow: largeText ? null : copy.eyebrow,
                 ),
               ),
               const SizedBox(width: 8),
@@ -170,7 +174,7 @@ class _Header extends StatelessWidget {
                 width: 48,
                 height: 48,
                 child: IconButton(
-                  tooltip: 'Read summary',
+                  tooltip: copy.readSummary,
                   onPressed: onSpeakSummary,
                   color: AppColors.neonCyan,
                   icon: const Icon(Icons.volume_up_rounded),
@@ -181,7 +185,7 @@ class _Header extends StatelessWidget {
                 width: 48,
                 height: 48,
                 child: IconButton(
-                  tooltip: 'Accessibility guide',
+                  tooltip: copy.accessibilityGuide,
                   onPressed: onSpeakAccessibility,
                   color: Colors.white70,
                   icon: const Icon(Icons.accessibility_new_rounded),
@@ -208,6 +212,7 @@ class _ConsoleWelcome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final SIRoutineCopy copy = ChronoSparkLocalizations.of(context).siRoutine;
     final SIV2EvidenceSnapshot? evidence = snapshot;
     final int evidenceCount = evidence == null
         ? 0
@@ -216,13 +221,13 @@ class _ConsoleWelcome extends StatelessWidget {
               evidence.milestones.length +
               evidence.timeline.length;
     final String body = !enabled
-        ? 'This account does not currently have access. Your saved work is unchanged.'
+        ? copy.unavailableSavedWork
         : evidenceCount == 0
-        ? 'No planning evidence is available yet. SI will name missing evidence instead of guessing.'
-        : 'Ask about current tasks, goals, milestones, or Timeline. SI reads evidence and cannot change saved data.';
-    final List<String> questions = evidenceCount == 0
-        ? const <String>['What evidence is missing?', 'What can you determine?']
-        : const <String>['What needs attention?', 'What should I do next?'];
+        ? copy.welcomeNoEvidence
+        : copy.welcomeReady;
+    final List<String> questions = copy.welcomeExamples(
+      noEvidence: evidenceCount == 0,
+    );
 
     return Padding(
       key: const Key('si-console-welcome'),
@@ -230,9 +235,9 @@ class _ConsoleWelcome extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'Ask from current evidence',
-            style: TextStyle(
+          Text(
+            copy.askFromEvidence,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -284,7 +289,9 @@ class _BubbleTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final bool isSpanish = l10n.isSpanish;
+    final SIRoutineCopy copy = l10n.siRoutine;
     final bool isUser = msg.isUser;
     final String? emotion = msg.emotion;
     final bool systemPanel = msg.systemPanel && !isUser;
@@ -310,7 +317,7 @@ class _BubbleTile extends ConsumerWidget {
                 Semantics(
                   container: true,
                   liveRegion: !isUser,
-                  label: isUser ? 'Your query' : 'SI response',
+                  label: isUser ? copy.yourQuery : copy.siResponse,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -368,7 +375,7 @@ class _BubbleTile extends ConsumerWidget {
                       [
                         if (msg.rationale != null &&
                             msg.rationale!.trim().isNotEmpty)
-                          'Why this appears: ${msg.rationale!.trim()}',
+                          copy.whyThisAppears(msg.rationale!.trim()),
                       ].join('\n'),
                       style: const TextStyle(
                         color: Colors.white54,
@@ -428,83 +435,111 @@ class _SIV2ResponseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final SIRoutineCopy copy = ChronoSparkLocalizations.of(context).siRoutine;
     return Container(
       key: const Key('si-v2-response'),
       constraints: const BoxConstraints(maxWidth: 680),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _section('DIRECT ANSWER', <String>[response.directAnswer]),
-          _section('RECOMMENDATION', <String>[response.recommendation]),
+          _section(copy.directAnswer, <String>[
+            response.directAnswer,
+          ], emptyLabel: copy.noneIdentified),
+          _section(copy.recommendation, <String>[
+            response.recommendation,
+          ], emptyLabel: copy.noneIdentified),
           Material(
             color: Colors.transparent,
             child: ExpansionTile(
               key: const Key('si-v2-response-advanced'),
               tilePadding: EdgeInsets.zero,
               childrenPadding: EdgeInsets.zero,
-              title: const Text(
-                'Advanced',
-                style: TextStyle(
+              title: Text(
+                copy.advanced,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              subtitle: const Text(
-                'Confidence, evidence, calculations, and assumptions',
-                style: TextStyle(color: Colors.white60, fontSize: 11),
+              subtitle: Text(
+                copy.responseAdvancedSubtitle,
+                style: const TextStyle(color: Colors.white60, fontSize: 11),
               ),
               children: <Widget>[
                 _section(
-                  'OBSERVED FACTS',
+                  copy.observedFacts,
                   response.observedFacts
                       .map((SIV2Statement item) => item.text)
                       .toList(),
+                  emptyLabel: copy.noneIdentified,
                 ),
                 _section(
-                  'USER-REPORTED CONTEXT',
+                  copy.userReportedContext,
                   response.userReportedEvidence
                       .map((SIV2Statement item) => item.text)
                       .toList(),
+                  emptyLabel: copy.noneIdentified,
                 ),
                 _section(
-                  'DETERMINISTIC CALCULATIONS',
+                  copy.deterministicCalculations,
                   response.calculations
                       .map((SIV2Statement item) => item.text)
                       .toList(),
+                  accentOverride: AppColors.neonViolet,
+                  emptyLabel: copy.noneIdentified,
                 ),
                 _section(
-                  'INFERENCES',
+                  copy.inferences,
                   response.inferences
                       .map((SIV2Statement item) => item.text)
                       .toList(),
+                  accentOverride: AppColors.memoryAmber,
+                  emptyLabel: copy.noneIdentified,
                 ),
-                _section('MISSING OR CONFLICTING INFORMATION', <String>[
-                  ...response.missingInformation,
-                  ...response.conflicts.map(
-                    (SIV2Conflict item) =>
-                        '${item.severity.name.toUpperCase()}: ${item.summary}',
-                  ),
-                ]),
                 _section(
-                  'SCENARIOS',
+                  copy.missingOrConflicting,
+                  <String>[
+                    ...response.missingInformation,
+                    ...response.conflicts.map(
+                      (SIV2Conflict item) =>
+                          '${item.severity.name.toUpperCase()}: ${item.summary}',
+                    ),
+                  ],
+                  accentOverride: AppColors.recallRed,
+                  emptyLabel: copy.noneIdentified,
+                ),
+                _section(
+                  copy.scenarios,
                   response.scenarios
                       .map(
                         (SIV2Scenario item) =>
                             '${item.label}: ${item.projectedEffect}',
                       )
                       .toList(),
+                  accentOverride: AppColors.memoryAmber,
+                  emptyLabel: copy.noneIdentified,
                 ),
-                _section('SCENARIO ASSUMPTIONS', response.scenarioAssumptions),
-                _section('CONFIDENCE ANATOMY', <String>[
-                  'Evidence strength: ${response.confidence.strength.name}',
-                  'Coverage: ${response.confidence.coveredSignals} of ${response.confidence.requiredSignals} required signals',
-                  'Freshness: ${response.confidence.freshness.name}',
-                  'Conflicts: ${response.confidence.conflictCount}',
-                  'Assumptions: ${response.confidence.assumptionCount}',
-                ]),
                 _section(
-                  'EVIDENCE LINKS',
+                  copy.scenarioAssumptions,
+                  response.scenarioAssumptions,
+                  accentOverride: AppColors.memoryAmber,
+                  emptyLabel: copy.noneIdentified,
+                ),
+                _section(copy.confidenceAnatomy, <String>[
+                  copy.evidenceStrength(response.confidence.strength.name),
+                  copy.confidenceCoverage(
+                    covered: response.confidence.coveredSignals,
+                    required: response.confidence.requiredSignals,
+                  ),
+                  copy.confidenceFreshness(response.confidence.freshness.name),
+                  copy.confidenceConflicts(response.confidence.conflictCount),
+                  copy.confidenceAssumptions(
+                    response.confidence.assumptionCount,
+                  ),
+                ], emptyLabel: copy.noneIdentified),
+                _section(
+                  copy.evidenceLinks,
                   response.evidenceLinks
                       .map(
                         (SIV2EvidenceLink item) =>
@@ -512,6 +547,7 @@ class _SIV2ResponseCard extends StatelessWidget {
                       )
                       .toList(),
                   bottomPadding: 0,
+                  emptyLabel: copy.noneIdentified,
                 ),
               ],
             ),
@@ -525,20 +561,24 @@ class _SIV2ResponseCard extends StatelessWidget {
     String title,
     List<String> values, {
     double bottomPadding = 14,
+    Color? accentOverride,
+    String emptyLabel = 'None identified.',
   }) {
     final List<String> visible = values
         .map((String item) => item.trim())
         .where((String item) => item.isNotEmpty)
         .toList(growable: false);
-    final Color accent = switch (title) {
-      'OBSERVED FACTS' => AppColors.neonCyan,
-      'DETERMINISTIC CALCULATIONS' => AppColors.neonViolet,
-      'INFERENCES' ||
-      'SCENARIOS' ||
-      'SCENARIO ASSUMPTIONS' => AppColors.memoryAmber,
-      'MISSING OR CONFLICTING INFORMATION' => AppColors.recallRed,
-      _ => AppColors.neonCyan,
-    };
+    final Color accent =
+        accentOverride ??
+        switch (title) {
+          'OBSERVED FACTS' => AppColors.neonCyan,
+          'DETERMINISTIC CALCULATIONS' => AppColors.neonViolet,
+          'INFERENCES' ||
+          'SCENARIOS' ||
+          'SCENARIO ASSUMPTIONS' => AppColors.memoryAmber,
+          'MISSING OR CONFLICTING INFORMATION' => AppColors.recallRed,
+          _ => AppColors.neonCyan,
+        };
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
       child: Container(
@@ -563,9 +603,9 @@ class _SIV2ResponseCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             if (visible.isEmpty)
-              const Text(
-                'None identified.',
-                style: TextStyle(
+              Text(
+                emptyLabel,
+                style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 12,
                   height: 1.4,
@@ -882,6 +922,7 @@ class _InputBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final SIRoutineCopy copy = ChronoSparkLocalizations.of(context).siRoutine;
     final VoiceState voice = ref.watch(voiceControllerProvider);
     final bool listening = voice.isListening;
     final bool interactive = enabled && !busy;
@@ -932,24 +973,27 @@ class _InputBar extends ConsumerWidget {
                       key: const Key('si-v2-advanced'),
                       tilePadding: EdgeInsets.zero,
                       childrenPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'Advanced',
-                        style: TextStyle(
+                      title: Text(
+                        copy.advanced,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      subtitle: const Text(
-                        'Intent, sources, range, filters, assumptions, and aliases',
-                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      subtitle: Text(
+                        copy.advancedSubtitle,
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 11,
+                        ),
                       ),
                       children: <Widget>[
-                        const Align(
+                        Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'SI V2 QUERY BUILDER',
-                            style: TextStyle(
+                            copy.queryBuilder,
+                            style: const TextStyle(
                               color: AppColors.neonCyan,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
@@ -1061,13 +1105,13 @@ class _InputBar extends ConsumerWidget {
                                   key: const Key('si-v2-entity-filter'),
                                   controller: entityFilterController,
                                   enabled: interactive,
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     isDense: true,
-                                    labelText: 'Entity filter (optional)',
-                                    labelStyle: TextStyle(
+                                    labelText: copy.entityFilter,
+                                    labelStyle: const TextStyle(
                                       color: AppColors.neonCyan,
                                     ),
-                                    floatingLabelStyle: TextStyle(
+                                    floatingLabelStyle: const TextStyle(
                                       color: AppColors.neonCyan,
                                     ),
                                   ),
@@ -1076,13 +1120,13 @@ class _InputBar extends ConsumerWidget {
                                   key: const Key('si-v2-assumption'),
                                   controller: scenarioAssumptionController,
                                   enabled: interactive,
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     isDense: true,
-                                    labelText: 'Scenario assumption (optional)',
-                                    labelStyle: TextStyle(
+                                    labelText: copy.scenarioAssumption,
+                                    labelStyle: const TextStyle(
                                       color: AppColors.neonCyan,
                                     ),
-                                    floatingLabelStyle: TextStyle(
+                                    floatingLabelStyle: const TextStyle(
                                       color: AppColors.neonCyan,
                                     ),
                                   ),
@@ -1109,7 +1153,7 @@ class _InputBar extends ConsumerWidget {
                         PopupMenuButton<SIConsoleShortcutDefinition>(
                           key: const Key('si-v2-power-alias-menu'),
                           enabled: interactive,
-                          tooltip: 'Choose a power alias',
+                          tooltip: copy.choosePowerAlias,
                           color: const Color(0xFF0A1520),
                           onSelected:
                               (SIConsoleShortcutDefinition definition) =>
@@ -1117,13 +1161,14 @@ class _InputBar extends ConsumerWidget {
                           itemBuilder: (BuildContext context) =>
                               SIConsoleShortcutRegistry.chips
                                   .map(
-                                    (SIConsoleShortcutDefinition definition) =>
-                                        PopupMenuItem<
-                                          SIConsoleShortcutDefinition
-                                        >(
-                                          value: definition,
-                                          child: Text(definition.shortcut),
-                                        ),
+                                    (
+                                      SIConsoleShortcutDefinition definition,
+                                    ) => PopupMenuItem<SIConsoleShortcutDefinition>(
+                                      value: definition,
+                                      child: Text(
+                                        '${definition.shortcut} · ${copy.shortcutLabel(definition)} — ${copy.shortcutDescription(definition)}',
+                                      ),
+                                    ),
                                   )
                                   .toList(growable: false),
                           child: Container(
@@ -1142,18 +1187,18 @@ class _InputBar extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: <Widget>[
-                                Icon(
+                                const Icon(
                                   Icons.terminal_rounded,
                                   size: 18,
                                   color: AppColors.neonCyan,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'POWER ALIASES',
-                                    style: TextStyle(
+                                    copy.powerAliases,
+                                    style: const TextStyle(
                                       color: AppColors.neonCyan,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -1161,7 +1206,7 @@ class _InputBar extends ConsumerWidget {
                                     ),
                                   ),
                                 ),
-                                Icon(
+                                const Icon(
                                   Icons.expand_more_rounded,
                                   size: 18,
                                   color: Color(0xFFAEB9D0),
@@ -1206,7 +1251,9 @@ class _InputBar extends ConsumerWidget {
                                             ),
                                           ),
                                         ),
-                                        child: Text(definition.shortcut),
+                                        child: Text(
+                                          '${definition.shortcut} · ${copy.shortcutLabel(definition)}',
+                                        ),
                                       ),
                                     )
                                     .toList(growable: false),
@@ -1236,14 +1283,14 @@ class _InputBar extends ConsumerWidget {
                         cursorColor: AppColors.neonCyan,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
-                          labelText: 'SI query',
+                          labelText: copy.queryLabel,
                           labelStyle: const TextStyle(
                             color: AppColors.neonCyan,
                           ),
                           floatingLabelStyle: const TextStyle(
                             color: AppColors.neonCyan,
                           ),
-                          hintText: 'Ask SI V2 about current evidence...',
+                          hintText: copy.queryHint,
                           hintStyle: const TextStyle(
                             color: Colors.white60,
                             fontSize: 13,
@@ -1280,26 +1327,23 @@ class _InputBar extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
                     Semantics(
-                      label: listening
-                          ? 'Stop voice input'
-                          : 'Start voice input',
-                      button: true,
-                      enabled: interactive,
                       liveRegion: listening,
-                      child: GestureDetector(
-                        onTap: !interactive
-                            ? null
-                            : () async {
-                                if (listening) {
-                                  await ref
-                                      .read(voiceControllerProvider.notifier)
-                                      .stopListening();
-                                  return;
-                                }
-                                await ref
-                                    .read(voiceControllerProvider.notifier)
-                                    .startListening();
-                              },
+                      child: SmartPressable(
+                        semanticLabel: copy.voiceInputLabel(
+                          listening: listening,
+                        ),
+                        enabled: interactive,
+                        onTap: () async {
+                          if (listening) {
+                            await ref
+                                .read(voiceControllerProvider.notifier)
+                                .stopListening();
+                            return;
+                          }
+                          await ref
+                              .read(voiceControllerProvider.notifier)
+                              .startListening();
+                        },
                         child: Container(
                           width: 48,
                           height: 48,
@@ -1327,39 +1371,35 @@ class _InputBar extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Semantics(
-                      label: !enabled
-                          ? 'SI Console unavailable'
-                          : busy
-                          ? 'SI is analyzing'
-                          : 'Send SI query',
-                      button: true,
+                    SmartPressable(
+                      semanticLabel: copy.sendLabel(
+                        enabled: enabled,
+                        busy: busy,
+                      ),
                       enabled: interactive,
-                      child: GestureDetector(
-                        onTap: interactive ? onSend : null,
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+                      onTap: onSend,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: !interactive
+                              ? const Color(0xFF151B22)
+                              : const Color(0xFF102436),
+                          border: Border.all(
                             color: !interactive
-                                ? const Color(0xFF151B22)
-                                : const Color(0xFF102436),
-                            border: Border.all(
-                              color: !interactive
-                                  ? Colors.white12
-                                  : AppColors.neonCyan,
-                            ),
-                          ),
-                          child: Icon(
-                            busy
-                                ? Icons.hourglass_top_rounded
-                                : Icons.send_rounded,
-                            color: !interactive
-                                ? Colors.white38
+                                ? Colors.white12
                                 : AppColors.neonCyan,
-                            size: 18,
                           ),
+                        ),
+                        child: Icon(
+                          busy
+                              ? Icons.hourglass_top_rounded
+                              : Icons.send_rounded,
+                          color: !interactive
+                              ? Colors.white38
+                              : AppColors.neonCyan,
+                          size: 18,
                         ),
                       ),
                     ),

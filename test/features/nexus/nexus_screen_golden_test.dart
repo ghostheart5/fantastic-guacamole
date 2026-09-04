@@ -467,7 +467,7 @@ final OperatingDecisionReceipt _operatingDecision = OperatingDecisionReceipt(
 
 final NexusDecisionModel _readyNexusDecisionModel = NexusDecisionModel(
   status: NexusDecisionStatus.ready,
-  isOnline: true,
+  hasAvailableNetworkInterface: true,
   pendingSyncCount: 0,
   intelligence: DecisionIntelligence(
     snapshot: _operatingSnapshot,
@@ -525,7 +525,7 @@ _contextOperatingDecision = OperatingDecisionReceipt(
 
 final NexusDecisionModel _contextNexusDecisionModel = NexusDecisionModel(
   status: NexusDecisionStatus.ready,
-  isOnline: true,
+  hasAvailableNetworkInterface: true,
   pendingSyncCount: 0,
   intelligence: DecisionIntelligence(
     snapshot: _operatingSnapshot,

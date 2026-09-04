@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
@@ -138,9 +141,11 @@ class AuthSessionBoundaryCoordinator {
             .writeString(_accountMarkerKey, currentId);
         if (!_isLatest(sequence)) return;
         invalidateAccountOwnedProviders(_ref);
-        _openStorageGate(
+        await _openStorageGate(
           boundary,
           generation,
+          accountId: currentId,
+          sequence: sequence,
           legacyOwnership: LegacyScopeOwnership.provenOwned,
         );
         return;
@@ -171,9 +176,11 @@ class AuthSessionBoundaryCoordinator {
             .writeString(_accountMarkerKey, currentId);
         if (!_isLatest(sequence)) return;
         invalidateAccountOwnedProviders(_ref);
-        _openStorageGate(
+        await _openStorageGate(
           boundary,
           generation,
+          accountId: currentId,
+          sequence: sequence,
           legacyOwnership: LegacyScopeOwnership.provenOwned,
         );
         return;
@@ -186,7 +193,13 @@ class AuthSessionBoundaryCoordinator {
           ? LegacyScopeOwnership.provenOwned
           : LegacyScopeOwnership.provenNotOwned;
       invalidateAccountOwnedProviders(_ref);
-      _openStorageGate(boundary, generation, legacyOwnership: legacyOwnership);
+      await _openStorageGate(
+        boundary,
+        generation,
+        accountId: currentId,
+        sequence: sequence,
+        legacyOwnership: legacyOwnership,
+      );
     } on Object catch (error, stackTrace) {
       if (!_isLatest(sequence)) return;
       Logger.errorCategory(
@@ -225,9 +238,11 @@ class AuthSessionBoundaryCoordinator {
     final AuthSessionBoundaryNotifier boundary = _ref.read(
       authSessionBoundaryProvider.notifier,
     );
-    _openStorageGate(
+    await _openStorageGate(
       boundary,
       current.generation,
+      accountId: userId,
+      sequence: sequence,
       legacyOwnership: LegacyScopeOwnership.provenOwned,
     );
   }
@@ -250,7 +265,7 @@ class AuthSessionBoundaryCoordinator {
     await runAccountStorageMutation(
       () => _ref
           .read(localUserDataCleanupServiceProvider)
-          .clearForAccountSwitch(),
+          .clearUnownedLegacyData(),
     );
     if (!_isLatest(sequence) ||
         _validId(_ref.read(authUserProvider).asData?.value?.id) != userId) {
@@ -261,21 +276,159 @@ class AuthSessionBoundaryCoordinator {
     final AuthSessionBoundaryNotifier boundary = _ref.read(
       authSessionBoundaryProvider.notifier,
     );
-    _openStorageGate(
+    await _openStorageGate(
       boundary,
       current.generation,
+      accountId: userId,
+      sequence: sequence,
       legacyOwnership: LegacyScopeOwnership.provenOwned,
     );
   }
 
-  void _openStorageGate(
+  /// Runs the destructive "Clear this device" action behind the same account
+  /// lifecycle fence as authentication transitions. The supplied identity is
+  /// mandatory and must still be the current authenticated account.
+  Future<void> clearLocalDataForCurrentAccount(String expectedAccountId) {
+    final String? normalizedAccountId = _validId(expectedAccountId);
+    if (normalizedAccountId == null) {
+      return Future<void>.error(
+        ArgumentError.value(
+          expectedAccountId,
+          'expectedAccountId',
+          'Must be non-empty and trimmed.',
+        ),
+      );
+    }
+    if (!_started || _disposed) {
+      return Future<void>.error(
+        StateError('The account lifecycle coordinator is unavailable.'),
+      );
+    }
+
+    final int sequence = ++_latestSequence;
+    final Future<void> operation = _transitionTail.then(
+      (_) => _clearLocalDataForCurrentAccount(
+        sequence: sequence,
+        expectedAccountId: normalizedAccountId,
+      ),
+    );
+    _transitionTail = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {
+        Logger.errorCategory(
+          'AuthBoundary',
+          'Explicit local account-data clearing failed.',
+          error,
+          stackTrace,
+        );
+      },
+    );
+    return operation;
+  }
+
+  Future<void> _clearLocalDataForCurrentAccount({
+    required int sequence,
+    required String expectedAccountId,
+  }) async {
+    if (!_isLatest(sequence)) {
+      throw StateError('The authenticated account changed before clearing.');
+    }
+    final String? currentAccountId = _validId(
+      _ref.read(authUserProvider).asData?.value?.id,
+    );
+    final AuthSessionBoundary current = _ref.read(authSessionBoundaryProvider);
+    if (currentAccountId != expectedAccountId ||
+        current.userId != expectedAccountId ||
+        current.isTransitioning ||
+        !current.isStorageReady ||
+        current.blockingIssue != null) {
+      throw StateError(
+        'Local data can only be cleared for the current unlocked account.',
+      );
+    }
+
+    final AuthSessionBoundaryNotifier boundary = _ref.read(
+      authSessionBoundaryProvider.notifier,
+    );
+    final int generation = boundary.begin(
+      userId: expectedAccountId,
+      isTransitioning: true,
+    );
+    try {
+      await _ref.read(taskOccurrenceCoordinatorProvider).cancelAndDrain();
+      await _ref.read(decisionOutcomeRepositoryProvider)?.drain();
+      if (!_isLatestAccount(sequence, expectedAccountId, generation)) return;
+
+      invalidateAccountOwnedProviders(_ref);
+      final String? storedAccountId = _validId(
+        await _ref
+            .read(secureStoreProvider)
+            .readString(AccountDataRegistry.accountBoundaryOwnerKey),
+      );
+      await _ref
+          .read(localUserDataCleanupServiceProvider)
+          .clearForAccountSwitch(expectedAccountId);
+      if (!_isLatestAccount(sequence, expectedAccountId, generation)) return;
+
+      invalidateAccountOwnedProviders(_ref);
+      final LegacyScopeOwnership legacyOwnership =
+          storedAccountId == expectedAccountId
+          ? LegacyScopeOwnership.provenOwned
+          : LegacyScopeOwnership.provenNotOwned;
+      if (legacyOwnership == LegacyScopeOwnership.provenOwned) {
+        await _ref
+            .read(secureStoreProvider)
+            .writeString(
+              AccountDataRegistry.accountBoundaryOwnerKey,
+              expectedAccountId,
+            );
+      }
+      await _openStorageGate(
+        boundary,
+        generation,
+        accountId: expectedAccountId,
+        sequence: sequence,
+        legacyOwnership: legacyOwnership,
+      );
+    } on Object {
+      if (_isLatestAccount(sequence, expectedAccountId, generation)) {
+        invalidateAccountOwnedProviders(_ref);
+        boundary.block(
+          generation,
+          issue: 'ChronoSpark could not clear local account data safely.',
+          canRecoverBySigningOut: true,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _openStorageGate(
     AuthSessionBoundaryNotifier boundary,
     int generation, {
+    required String accountId,
+    required int sequence,
     required LegacyScopeOwnership legacyOwnership,
-  }) {
+  }) async {
+    if (legacyOwnership == LegacyScopeOwnership.provenOwned) {
+      await AccountScopedSharedPrefsStore(
+        delegate: _ref.read(sharedPrefsStoreProvider),
+        scope: AccountStorageScope.authenticated(accountId),
+        legacyOwnership: legacyOwnership,
+      ).migrateOwnedLegacyValues(AccountDataRegistry.reminderPreferenceKeys);
+    }
+    if (!_isLatestAccount(sequence, accountId, generation)) return;
     boundary.markStorageReady(generation, legacyOwnership: legacyOwnership);
     boundary.complete(generation);
     _ref.read(getTasksUseCaseProvider);
+  }
+
+  bool _isLatestAccount(int sequence, String accountId, int generation) {
+    if (!_isLatest(sequence)) return false;
+    if (_validId(_ref.read(authUserProvider).asData?.value?.id) != accountId) {
+      return false;
+    }
+    return _ref.read(authSessionBoundaryProvider).generation == generation;
   }
 
   void _blockForAuthError(int sequence, User? previousUser) {

@@ -158,10 +158,20 @@ void main() {
         final String controller = File(
           'lib/state/controllers/ai_controller.dart',
         ).readAsStringSync();
+        final String localizations = File(
+          'lib/l10n/chronospark_localizations.dart',
+        ).readAsStringSync();
 
         expect(screen, contains('SIConsoleShortcutRegistry.parse(text)'));
         expect(screen, contains('SIConsoleShortcutRegistry.chips'));
-        expect(screen, contains('SIConsoleShortcutRegistry.buildHelp'));
+        expect(
+          screen,
+          contains('copy.shortcutHelp(filter: invocation.arguments)'),
+        );
+        expect(
+          localizations,
+          contains('SIConsoleShortcutRegistry.definitions'),
+        );
         expect(screen, contains('SIConsoleShortcutRegistry.autocomplete'));
         expect(
           controller,

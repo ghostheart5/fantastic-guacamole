@@ -27,17 +27,11 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'smart_planner_screen.widgets.dart';
-
-const String _plannerUnavailableMessage =
-    'Smart Planner is not enabled for this account yet. Your check-in was not saved or changed.';
-const String _plannerRetryMessage =
-    'Guidance could not be generated. Your check-in is still here. Tap GET GUIDANCE to retry.';
-const String _plannerPersonContextChangedMessage =
-    'Your Person Context changed, so the previous guidance was cleared. Tap GET GUIDANCE to review a current plan.';
 
 @immutable
 final class _SmartPlannerConsentCopy {
@@ -216,7 +210,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       if (mounted) {
         setState(() {
           _gettingPlanningGuidance = false;
-          _guidanceError = _plannerUnavailableMessage;
+          _guidanceError = ChronoSparkLocalizations.of(
+            context,
+          ).plannerRoutine.guidanceUnavailable;
         });
       }
     } catch (error, stackTrace) {
@@ -229,7 +225,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       if (!mounted) return;
       setState(() {
         _gettingPlanningGuidance = false;
-        _guidanceError = _plannerRetryMessage;
+        _guidanceError = ChronoSparkLocalizations.of(
+          context,
+        ).plannerRoutine.guidanceRetry;
       });
     }
   }
@@ -267,9 +265,14 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     } on TimeoutException {
       if (!mounted) return;
       final SmartPlannerResult fallback = planner.localFallbackResult(
-        input: notes.isEmpty ? 'quick check-in' : notes,
-        message:
-            'Guidance request timed out. Tap GET GUIDANCE again or shorten your input for a faster response.',
+        input: notes.isEmpty
+            ? (ChronoSparkLocalizations.of(context).isSpanish
+                  ? 'registro rápido'
+                  : 'quick check-in')
+            : notes,
+        message: ChronoSparkLocalizations.of(
+          context,
+        ).plannerRoutine.guidanceTimeout,
         energy: _energy,
         emotion: _emotion,
         history: _conversationHistory(),
@@ -459,7 +462,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       });
     } on Object catch (error, stackTrace) {
       Logger.errorCode(
-        code: 'planner.person_context_save_failed',
+        code: AppDiagnosticCode.plannerPersonContextSaveFailed,
         debugMessage: 'Optional Planner context could not be saved.',
         exception: error,
         stackTrace: stackTrace,
@@ -535,19 +538,25 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       if (!mounted) return;
       setState(() {
         _sendingFollowUp = false;
-        _followUpError = 'Follow-up timed out. Retry with a shorter prompt.';
+        _followUpError = ChronoSparkLocalizations.of(
+          context,
+        ).plannerRoutine.followUpTimeout;
       });
     } on AssistantReleaseBlockedException {
       if (!mounted) return;
       setState(() {
         _sendingFollowUp = false;
-        _followUpError = _plannerUnavailableMessage;
+        _followUpError = ChronoSparkLocalizations.of(
+          context,
+        ).plannerRoutine.guidanceUnavailable;
       });
     } catch (error, stackTrace) {
       if (!mounted) return;
       setState(() {
         _sendingFollowUp = false;
-        _followUpError = 'Follow-up transmit failed. Tap Retry Link.';
+        _followUpError = ChronoSparkLocalizations.of(
+          context,
+        ).plannerRoutine.followUpTransmitFailed;
       });
       ErrorBoundary.of(context)?.captureError(error, stackTrace);
     }
@@ -641,7 +650,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       _followUps.clear();
       _followUpError = null;
       _plannerActionStatus = null;
-      _guidanceError = _plannerPersonContextChangedMessage;
+      _guidanceError = ChronoSparkLocalizations.of(
+        context,
+      ).plannerRoutine.personContextChanged;
       _saved = false;
       _showFirstUseContextOffer = false;
       _showWhy = false;
@@ -653,6 +664,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   void _makeSmaller() {
     final PlannerV2Response? response = _plannerResponse;
     if (response == null || response.isClarification) return;
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     final PlannerOption minimum =
         response.optionByKind[PlannerOptionKind.minimum]!;
     final PlannerV2Response smaller;
@@ -662,12 +676,13 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         minimum.estimatedMinutes,
       );
       final PlannerOption reduced = minimum.copyWith(
-        title: 'Smaller: ${minimum.title}',
-        description:
-            'Begin with a $minutes-minute setup step. ${minimum.description}',
+        title: copy.smallerTitle(minimum.title),
+        description: copy.smallerDescription(
+          minutes: minutes,
+          detail: minimum.description,
+        ),
         estimatedMinutes: minutes,
-        tradeoff:
-            'This reduces activation cost further and leaves more work for later.',
+        tradeoff: copy.smallerTradeoff,
       );
       smaller = response.copyWith(
         options: <PlannerOption>[
@@ -677,19 +692,17 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           ),
         ],
         nextStep: reduced.description,
-        recommendationReason:
-            'You asked for a smaller start, so this keeps only a brief setup step.',
+        recommendationReason: copy.smallerReason,
       );
     } else {
       smaller = response.recommend(
         PlannerOptionKind.minimum,
-        why:
-            'You asked for a smaller plan, so the minimum option is now selected.',
+        why: copy.minimumSelectedReason,
       );
     }
     setState(() {
       _plannerResponse = smaller;
-      _plannerActionStatus = 'The plan is smaller. Nothing has been saved.';
+      _plannerActionStatus = copy.smallerStatus;
       _clearPlannerExplanationState();
     });
     _recordOperatingOutcome(
@@ -705,17 +718,18 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   void _chooseDifferentApproach() {
     final PlannerV2Response? response = _plannerResponse;
     if (response == null || response.isClarification) return;
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     final List<PlannerOptionKind> kinds = PlannerOptionKind.values;
     final int current = kinds.indexOf(response.recommendedKind);
     final PlannerOptionKind next = kinds[(current + 1) % kinds.length];
     setState(() {
       _plannerResponse = response.recommend(
         next,
-        why:
-            'You asked for a different approach, so another bounded option is selected.',
+        why: copy.differentApproachReason,
       );
-      _plannerActionStatus =
-          'A different approach is selected. Nothing has been saved.';
+      _plannerActionStatus = copy.differentApproachStatus;
       _clearPlannerExplanationState();
     });
     _recordOperatingOutcome(
@@ -923,7 +937,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       });
     } on Object catch (error, stackTrace) {
       Logger.errorCode(
-        code: 'planner.preference_save_failed',
+        code: AppDiagnosticCode.plannerPreferenceSaveFailed,
         debugMessage: 'Planner preference could not be saved.',
         exception: error,
         stackTrace: stackTrace,
@@ -1187,6 +1201,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final PlannerRoutineCopy routine = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     ref.watch(decisionOutcomesProvider);
     ref.watch(learningPausedProvider);
     ref.listen<String>(
@@ -1238,7 +1255,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           Text(
-                            'CURRENT CHECK-IN',
+                            routine.currentCheckInSection,
                             style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
                                   color: AppColors.neonCyan,
@@ -1259,7 +1276,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                           const Divider(color: Colors.white12),
                           const SizedBox(height: 8),
                           Text(
-                            'EMOTIONAL STATE',
+                            routine.emotionalStateSection,
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
                                   color: AppColors.neonViolet,
@@ -1277,9 +1294,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            humanContext.emotionAllowed
-                                ? 'Only the state you select is used for this check-in.'
-                                : 'Emotional state is not used. Enable it in Settings to include a selection.',
+                            routine.emotionalStateNotice(
+                              enabled: humanContext.emotionAllowed,
+                            ),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: Colors.white70),
                           ),
@@ -1287,7 +1304,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                           const Divider(color: Colors.white12),
                           const SizedBox(height: 8),
                           Text(
-                            'PLANNING CONTEXT',
+                            routine.planningContextSection,
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
                                   color: AppColors.neonCyan,
@@ -1297,7 +1314,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                           ),
                           const SizedBox(height: 10),
                           Semantics(
-                            label: 'Planning context',
+                            label: routine.planningContextLabel,
                             textField: true,
                             child: TextField(
                               key: const Key('planner-context-field'),
@@ -1310,16 +1327,15 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                                 height: 1.5,
                                 letterSpacing: 0,
                               ),
-                              decoration: const InputDecoration(
-                                hintText:
-                                    'What would you like help planning right now?',
-                                hintStyle: TextStyle(
+                              decoration: InputDecoration(
+                                hintText: routine.planningContextHint,
+                                hintStyle: const TextStyle(
                                   color: Color(0xFFAEB9D0),
                                   fontSize: 16,
                                   height: 1.5,
                                   letterSpacing: 0,
                                 ),
-                                contentPadding: EdgeInsets.all(16),
+                                contentPadding: const EdgeInsets.all(16),
                               ),
                               onChanged: (_) {
                                 if (_saved) {
@@ -1329,9 +1345,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'Your words and check-in stay ephemeral. A local decision receipt may record which guidance was shown or used. Nothing else is saved unless you explicitly remember a preference.',
-                            style: TextStyle(
+                          Text(
+                            routine.ephemeralNotice,
+                            style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
                               height: 1.45,
@@ -1349,13 +1365,14 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                     ),
                     const SizedBox(height: 10),
                     TemporalActionButton(
+                      key: const Key('planner-guidance-button'),
                       label: plannerAvailability.isLoading
-                          ? 'CHECKING ACCESS...'
+                          ? routine.checkingButton
                           : !plannerAvailable
-                          ? 'PLANNER UNAVAILABLE'
+                          ? routine.unavailableButton
                           : _gettingPlanningGuidance
-                          ? 'THINKING...'
-                          : (_saved ? 'REFRESH GUIDANCE' : 'GET GUIDANCE'),
+                          ? routine.thinkingButton
+                          : routine.guidanceButton(refresh: _saved),
                       accent: AppColors.neonCyan,
                       icon: Icons.auto_awesome_rounded,
                       onPressed: !plannerAvailable || _gettingPlanningGuidance
@@ -1397,7 +1414,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                         key: _plannerResponseKey,
                         container: true,
                         liveRegion: true,
-                        label: 'Planning guidance ready',
+                        label: routine.guidanceReady,
                         child: _PlannerV2ResponsePanel(
                           response: plannerResponse,
                           actionStatus: _plannerActionStatus,
@@ -1502,10 +1519,12 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   }
 
   Widget _buildHeader() {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final PlannerRoutineCopy routine = l10n.plannerRoutine;
     return TemporalScreenHeader(
-      title: 'Smart Planner',
-      subtitle: 'Build your next plan from real evidence.',
-      eyebrow: 'Plan spectrum',
+      title: l10n.text(ChronoSparkString.smartPlanner),
+      subtitle: routine.subtitle,
+      eyebrow: routine.eyebrow,
       onBack: () => goToAppView(context, ref, AppView.nexus),
     );
   }

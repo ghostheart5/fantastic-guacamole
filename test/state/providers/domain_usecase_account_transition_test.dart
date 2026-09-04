@@ -10,7 +10,7 @@ final NotifierProvider<_ScopeNotifier, AccountStorageScope> _scopeProvider =
 
 void main() {
   test(
-    'account-scoped repositories and their domain use cases rotate together',
+    'account repositories rotate while the installation bridge stays stable',
     () {
       final ProviderContainer container = ProviderContainer(
         overrides: [
@@ -117,7 +117,7 @@ void main() {
       );
       expect(
         container.read(firebaseSupabaseBridgeRepositoryProvider),
-        isNot(same(firstFirebaseBridgeRepository)),
+        same(firstFirebaseBridgeRepository),
       );
     },
   );

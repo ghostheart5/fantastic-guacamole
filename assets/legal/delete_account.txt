@@ -1,0 +1,47 @@
+Delete a ChronoSpark Account
+
+Last updated: August 31, 2026
+
+Permanent action: Account deletion removes the authentication account and eligible account-linked data after the request is verified. It cannot be undone.
+
+Delete from the app
+
+- Open ChronoSpark and sign in.
+
+- Open Settings and find the account and security controls.
+
+- Select Delete account.
+
+- Complete the requested identity verification and confirm deletion.
+
+Request deletion without the app
+
+Send the request from the email address tied to the account when possible. State that you want the ChronoSpark account and account-linked data deleted. Limited additional verification may be required.
+
+Request account deletion at ghostheart131517@gmail.com
+
+Never send a password, one-time code, recovery token, payment credential, or secret key.
+
+Data covered by deletion
+
+- The authentication account and account profile.
+
+- Eligible account-linked planning content, settings, progress, and cloud records.
+
+- Account-linked notification-device registrations.
+
+Device-local data
+
+A web request cannot directly erase files on an offline device. After remote deletion, clear ChronoSpark app storage or uninstall the app on devices you no longer use. The in-app deletion flow also attempts local cleanup on the device where it runs.
+
+Limited retention
+
+Limited transaction, tax, fraud-prevention, security, or dispute records may be retained when required by law or necessary to protect the service. Those records are restricted to those purposes and are not used to recreate a deleted account.
+
+Store billing is separate
+
+Deleting a ChronoSpark account does not cancel a Google Play purchase or subscription. Subscriptions are not enabled for the current release candidate. If a future subscription exists, cancel it separately in Google Play.
+
+Processing time
+
+Verified requests are processed without unreasonable delay and ordinarily within 30 days. Additional time may be required when applicable law or a security review requires it.

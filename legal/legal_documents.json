@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "id": "privacy",
+      "source": "web/privacy/index.html",
+      "publicRoute": "/privacy/",
+      "outputs": [
+        {
+          "path": "privacy.html",
+          "format": "html",
+          "replacements": {
+            "href=\"../legal.css\"": "href=\"web/legal.css\"",
+            "href=\"../privacy/\"": "href=\"web/privacy/\"",
+            "href=\"../terms/\"": "href=\"web/terms/\"",
+            "href=\"../support/\"": "href=\"web/support/\"",
+            "href=\"../delete-account/\"": "href=\"web/delete-account/\""
+          }
+        },
+        {"path": "assets/legal/privacy_policy.html", "format": "html"},
+        {"path": "assets/legal/privacy_policy.txt", "format": "text"}
+      ]
+    },
+    {
+      "id": "terms",
+      "source": "web/terms/index.html",
+      "publicRoute": "/terms/",
+      "outputs": [
+        {"path": "terms/index.html", "format": "html"},
+        {"path": "assets/legal/terms_of_service.html", "format": "html"},
+        {"path": "assets/legal/terms_of_service.txt", "format": "text"}
+      ]
+    },
+    {
+      "id": "support",
+      "source": "web/support/index.html",
+      "publicRoute": "/support/",
+      "outputs": [
+        {"path": "support/index.html", "format": "html"},
+        {"path": "assets/legal/support.html", "format": "html"},
+        {"path": "assets/legal/support.txt", "format": "text"}
+      ]
+    },
+    {
+      "id": "delete-account",
+      "source": "web/delete-account/index.html",
+      "publicRoute": "/delete-account/",
+      "outputs": [
+        {"path": "delete-account/index.html", "format": "html"},
+        {
+          "path": "docs/delete-account.html",
+          "format": "html",
+          "replacements": {
+            "content=\"index,follow\"": "content=\"noindex,follow\""
+          }
+        },
+        {"path": "assets/legal/delete_account.html", "format": "html"},
+        {"path": "assets/legal/delete_account.txt", "format": "text"}
+      ]
+    }
+  ],
+  "sharedCopies": [
+    {"source": "web/legal.css", "path": "legal.css"}
+  ]
+}

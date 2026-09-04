@@ -225,9 +225,13 @@ class TaskOccurrenceCoordinator {
     }
 
     final _TaskMutation mutation = _taskMutation(current, occurrence, pending);
+    final TaskEntity? existingSuccessor = mutation.successor == null
+        ? null
+        : await _existingSuccessor(current, occurrence);
+    _ensureActive();
     await taskRepository.saveTask(mutation.task);
     _ensureActive();
-    if (mutation.successor != null) {
+    if (mutation.successor != null && existingSuccessor == null) {
       await taskRepository.saveTask(mutation.successor!);
       _ensureActive();
     }
@@ -255,7 +259,7 @@ class TaskOccurrenceCoordinator {
       mutation: TaskOccurrenceMutation.applied,
       occurrence: replicated,
       task: mutation.task,
-      successor: mutation.successor,
+      successor: existingSuccessor ?? mutation.successor,
     );
   }
 
@@ -390,7 +394,7 @@ class TaskOccurrenceCoordinator {
       nextDeadline = _addCalendarDays(nextDeadline, calendarDays);
     }
     return source.copyWith(
-      id: '${source.id}::next::${occurrence.occurrenceKey}',
+      id: _successorId(occurrence),
       isCompleted: false,
       isSkipped: false,
       clearCompletedAt: true,
@@ -400,6 +404,7 @@ class TaskOccurrenceCoordinator {
       scheduledFor: next,
       dueDate: nextDeadline,
       occurrenceKey: next.toUtc().toIso8601String(),
+      recurrenceSeriesId: occurrence.seriesId,
     );
   }
 
@@ -413,15 +418,26 @@ class TaskOccurrenceCoordinator {
   Future<TaskEntity?> _existingSuccessor(
     TaskEntity source,
     TaskOccurrence occurrence,
-  ) {
+  ) async {
     if (source.recurrenceRule == RecurrenceRule.none) {
-      return Future<TaskEntity?>.value();
+      return null;
     }
-    return taskRepository.getTaskById(_successorId(source, occurrence));
+    final TaskEntity? bounded = await taskRepository.getTaskById(
+      _successorId(occurrence),
+    );
+    if (bounded != null) return bounded;
+    return taskRepository.getTaskById(_legacySuccessorId(source, occurrence));
   }
 
-  String _successorId(TaskEntity source, TaskOccurrence occurrence) =>
-      '${source.id}::next::${occurrence.occurrenceKey}';
+  String _successorId(TaskOccurrence occurrence) =>
+      TaskEntity.recurringSuccessorId(
+        seriesId: occurrence.seriesId,
+        occurrenceKey: occurrence.occurrenceKey,
+      );
+
+  String _legacySuccessorId(TaskEntity source, TaskOccurrence occurrence) =>
+      '${source.id}${TaskEntity.legacyRecurringSuccessorSeparator}'
+      '${occurrence.occurrenceKey}';
 
   String _operationId({
     required TaskOccurrence occurrence,

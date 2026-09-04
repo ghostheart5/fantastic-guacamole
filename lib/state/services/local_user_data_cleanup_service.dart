@@ -28,21 +28,58 @@ class LocalUserDataCleanupService {
   final NotificationSchedulerPort _notifications;
   final KeyedMutationCoordinator _mutations;
 
-  Future<void> clearForAccountSwitch([String? accountId]) async {
+  Future<void> clearForAccountSwitch(String accountId) async {
+    final String departingAccountId = _requiredAccountId(accountId);
     return runAccountStorageMutation(
-      () => _clearForAccountSwitch(accountId),
+      () => _clearForAccountSwitch(departingAccountId),
       coordinator: _mutations,
     );
   }
 
-  Future<void> _clearForAccountSwitch(String? accountId) async {
-    final String? requestedAccountId = _normalizedAccountId(accountId);
+  /// Deletes markerless legacy data only from the explicit preserved-data
+  /// recovery flow. It can never fall back to a known owner's marker.
+  Future<void> clearUnownedLegacyData() async {
+    return runAccountStorageMutation(() async {
+      final String? storedAccountId = _normalizedAccountId(
+        await _secureStore.readString(
+          AccountDataRegistry.accountBoundaryOwnerKey,
+        ),
+      );
+      if (storedAccountId != null) {
+        throw StateError('Known account data requires an explicit account ID.');
+      }
+      await _clearForAccountSwitch(null);
+    }, coordinator: _mutations);
+  }
+
+  /// Cancels this account's OS schedules without deleting its retained local
+  /// repository records. A legacy unscoped schedule is touched only when the
+  /// stable owner marker proves it belongs to the departing account.
+  Future<void> cancelScheduledNotificationsForAccount(String accountId) async {
+    final String departingAccountId = _requiredAccountId(accountId);
+    await runAccountStorageMutation(() async {
+      final String? storedAccountId = _normalizedAccountId(
+        await _secureStore.readString(
+          AccountDataRegistry.accountBoundaryOwnerKey,
+        ),
+      );
+      await NotificationsRepository(
+        _notifications,
+        _secureStore,
+        accountId: departingAccountId,
+        mutationCoordinator: _mutations,
+      ).cancelAccountSchedules(
+        includeLegacyOwnedData: storedAccountId == departingAccountId,
+      );
+    }, coordinator: _mutations);
+  }
+
+  Future<void> _clearForAccountSwitch(String? departingAccountId) async {
     final String? storedAccountId = _normalizedAccountId(
       await _secureStore.readString(
         AccountDataRegistry.accountBoundaryOwnerKey,
       ),
     );
-    final String? departingAccountId = requestedAccountId ?? storedAccountId;
     final bool includeLegacyOwnedData =
         departingAccountId != null && departingAccountId == storedAccountId;
     if (departingAccountId != null) {
@@ -164,5 +201,17 @@ class LocalUserDataCleanupService {
   String? _normalizedAccountId(String? accountId) {
     final String normalized = accountId?.trim() ?? '';
     return normalized.isEmpty ? null : normalized;
+  }
+
+  String _requiredAccountId(String accountId) {
+    final String? normalized = _normalizedAccountId(accountId);
+    if (normalized == null || normalized != accountId) {
+      throw ArgumentError.value(
+        accountId,
+        'accountId',
+        'Must be non-empty and trimmed.',
+      );
+    }
+    return normalized;
   }
 }

@@ -143,6 +143,52 @@ void main() {
       }
     });
 
+    test('support questions cover hallucination and immediate concerns', () {
+      const List<
+        ({
+          EmotionalSafetyConcern concern,
+          EmotionalSafetySupportQuestionCode expected,
+        })
+      >
+      cases =
+          <
+            ({
+              EmotionalSafetyConcern concern,
+              EmotionalSafetySupportQuestionCode expected,
+            })
+          >[
+            (
+              concern: EmotionalSafetyConcern.hallucination,
+              expected: EmotionalSafetySupportQuestionCode.hallucination,
+            ),
+            (
+              concern: EmotionalSafetyConcern.selfHarm,
+              expected: EmotionalSafetySupportQuestionCode.general,
+            ),
+            (
+              concern: EmotionalSafetyConcern.overdose,
+              expected: EmotionalSafetySupportQuestionCode.general,
+            ),
+            (
+              concern: EmotionalSafetyConcern.severeDistress,
+              expected: EmotionalSafetySupportQuestionCode.general,
+            ),
+          ];
+
+      for (final item in cases) {
+        final EmotionalSafetyAssessment assessment = EmotionalSafetyAssessment(
+          route: EmotionalSafetyRoute.supportiveDistress,
+          concerns: <EmotionalSafetyConcern>{item.concern},
+          findingCodes: const <String>['bounded_test_fixture'],
+        );
+        expect(
+          assessment.supportQuestionCode,
+          item.expected,
+          reason: item.concern.name,
+        );
+      }
+    });
+
     test('legacy crisis boundary maps only immediate-safety routes', () {
       expect(CrisisDetectionPolicy.detects('I want to die.'), isTrue);
       expect(

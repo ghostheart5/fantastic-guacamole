@@ -12,28 +12,32 @@ class OfflineBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isOnline = ref.watch(isOnlineProvider);
+    final NetworkInterfaceAvailability interfaceAvailability = ref.watch(
+      networkInterfaceAvailabilityProvider,
+    );
+    final bool interfaceUnavailable =
+        interfaceAvailability == NetworkInterfaceAvailability.unavailable;
     final bool cloudSyncAvailable = ref.watch(cloudSyncCapabilityProvider);
     final int pendingSyncCount = ref
         .watch(offlineQueueCountProvider)
         .maybeWhen(data: (int count) => count, orElse: () => 0);
 
     return SafeArea(
-      top: !isOnline,
-      left: !isOnline,
-      right: !isOnline,
+      top: interfaceUnavailable,
+      left: interfaceUnavailable,
+      right: interfaceUnavailable,
       bottom: false,
       child: Column(
         children: [
           AnimatedSize(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            child: isOnline
-                ? const SizedBox.shrink()
-                : _OfflineBannerBar(
+            child: interfaceUnavailable
+                ? _OfflineBannerBar(
                     pendingSyncCount: pendingSyncCount,
                     cloudSyncAvailable: cloudSyncAvailable,
-                  ),
+                  )
+                : const SizedBox.shrink(),
           ),
           Expanded(child: child),
         ],

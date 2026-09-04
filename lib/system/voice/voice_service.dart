@@ -43,7 +43,7 @@ class VoiceService {
       } catch (error) {
         succeeded = false;
         Logger.errorCode(
-          code: 'voice.playback_failed',
+          code: AppDiagnosticCode.voicePlaybackFailed,
           debugMessage: 'VoiceService playback failed.',
           exception: error,
         );
@@ -183,7 +183,7 @@ class VoiceService {
       return false;
     } on PlatformException catch (error, stackTrace) {
       Logger.errorCode(
-        code: 'voice.initialization_unavailable',
+        code: AppDiagnosticCode.voiceInitializationUnavailable,
         debugMessage: 'VoiceService is unavailable.',
         exception: error,
         stackTrace: stackTrace,

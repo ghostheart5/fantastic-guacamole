@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
+import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 
 class ChronoSparkLocalizations {
   const ChronoSparkLocalizations(this.locale);
@@ -24,6 +25,10 @@ class ChronoSparkLocalizations {
       const ChronoSparkLocalizations(Locale('en'));
 
   bool get isSpanish => locale.languageCode.toLowerCase() == 'es';
+
+  PlannerRoutineCopy get plannerRoutine => PlannerRoutineCopy(isSpanish);
+
+  SIRoutineCopy get siRoutine => SIRoutineCopy(isSpanish);
 
   String text(ChronoSparkString key) =>
       (isSpanish ? _es : _en)[key] ?? _en[key] ?? key.name;
@@ -564,6 +569,487 @@ class ChronoSparkLocalizations {
     ChronoSparkString.routerErrorReturnOnboarding: 'Volver a configuración',
     ChronoSparkString.routerErrorReturnSupport: 'Volver a soporte',
   };
+}
+
+@immutable
+final class PlannerRoutineCopy {
+  const PlannerRoutineCopy(this.isSpanish);
+
+  final bool isSpanish;
+
+  String get accessCheckFailed => isSpanish
+      ? 'No se pudo verificar el acceso al Planificador Inteligente. No se enviará ninguna solicitud de orientación.'
+      : 'Planner access could not be verified. No guidance request will be sent.';
+  String get checkingAccess => isSpanish
+      ? 'Verificando el acceso al Planificador Inteligente...'
+      : 'Checking Smart Planner access...';
+  String get accessUnavailable => isSpanish
+      ? 'El Planificador Inteligente no está habilitado para esta cuenta. No se enviará ninguna solicitud de orientación.'
+      : 'Smart Planner is not enabled for this account. No guidance request will be sent.';
+  String get onDeviceReady => isSpanish
+      ? 'El Planificador Inteligente en el dispositivo está listo.'
+      : 'On-device Smart Planner is ready.';
+  String get retryAccessCheck =>
+      isSpanish ? 'Reintentar verificación de acceso' : 'Retry access check';
+  String get guidanceUnavailable => isSpanish
+      ? 'El Planificador Inteligente aún no está habilitado para esta cuenta. Tu registro no se guardó ni cambió.'
+      : 'Smart Planner is not enabled for this account yet. Your check-in was not saved or changed.';
+  String get guidanceRetry => isSpanish
+      ? 'No se pudo generar la orientación. Tu registro sigue aquí. Pulsa OBTENER ORIENTACIÓN para reintentar.'
+      : 'Guidance could not be generated. Your check-in is still here. Tap GET GUIDANCE to retry.';
+  String get personContextChanged => isSpanish
+      ? 'Tu Contexto Personal cambió, por lo que se borró la orientación anterior. Pulsa OBTENER ORIENTACIÓN para revisar un plan actual.'
+      : 'Your Person Context changed, so the previous guidance was cleared. Tap GET GUIDANCE to review a current plan.';
+  String get guidanceTimeout => isSpanish
+      ? 'La solicitud de orientación agotó el tiempo. Pulsa OBTENER ORIENTACIÓN otra vez o acorta el texto para recibir una respuesta más rápida.'
+      : 'Guidance request timed out. Tap GET GUIDANCE again or shorten your input for a faster response.';
+  String get followUpTimeout => isSpanish
+      ? 'La pregunta de seguimiento agotó el tiempo. Reintenta con una indicación más corta.'
+      : 'Follow-up timed out. Retry with a shorter prompt.';
+  String get followUpTransmitFailed => isSpanish
+      ? 'No se pudo enviar el seguimiento. Pulsa REINTENTAR ENLACE.'
+      : 'Follow-up transmit failed. Tap Retry Link.';
+  String get smallerStatus => isSpanish
+      ? 'El plan ahora es más pequeño. No se guardó nada.'
+      : 'The plan is smaller. Nothing has been saved.';
+  String smallerTitle(String title) =>
+      isSpanish ? 'Más pequeño: $title' : 'Smaller: $title';
+  String smallerDescription({required int minutes, required String detail}) =>
+      isSpanish
+      ? 'Empieza con un paso de preparación de $minutes minutos. $detail'
+      : 'Begin with a $minutes-minute setup step. $detail';
+  String get smallerTradeoff => isSpanish
+      ? 'Esto reduce todavía más el costo de empezar y deja más trabajo para después.'
+      : 'This reduces activation cost further and leaves more work for later.';
+  String get smallerReason => isSpanish
+      ? 'Pediste un comienzo más pequeño, así que se conserva solo un breve paso de preparación.'
+      : 'You asked for a smaller start, so this keeps only a brief setup step.';
+  String get minimumSelectedReason => isSpanish
+      ? 'Pediste un plan más pequeño, así que ahora está seleccionada la opción mínima.'
+      : 'You asked for a smaller plan, so the minimum option is now selected.';
+  String get differentApproachStatus => isSpanish
+      ? 'Se seleccionó un enfoque distinto. No se guardó nada.'
+      : 'A different approach is selected. Nothing has been saved.';
+  String get differentApproachReason => isSpanish
+      ? 'Pediste un enfoque distinto, así que se seleccionó otra opción limitada.'
+      : 'You asked for a different approach, so another bounded option is selected.';
+  String get audioUnavailable => isSpanish
+      ? 'El audio no está disponible. Revisa la configuración de texto a voz y el volumen multimedia.'
+      : 'Audio is unavailable. Check text-to-speech settings and media volume.';
+  String voiceReadLabel({required bool reading}) => isSpanish
+      ? reading
+            ? 'Leyendo en voz alta toda la orientación de planificación'
+            : 'Leer en voz alta toda la orientación de planificación'
+      : reading
+      ? 'Reading full planning guidance aloud'
+      : 'Read full planning guidance aloud';
+  String voiceReadButton({required bool reading}) => isSpanish
+      ? reading
+            ? 'LEYENDO'
+            : 'LEER EN VOZ ALTA'
+      : reading
+      ? 'READING'
+      : 'READ ALOUD';
+  String get voiceSummaryLabel => isSpanish
+      ? 'Leer en voz alta un resumen breve de planificación'
+      : 'Read condensed planning summary aloud';
+  String get voiceSummaryTitle => isSpanish
+      ? 'Resumen de voz del Planificador Inteligente'
+      : 'Smart Planner voice summary';
+  String get summaryButton => isSpanish ? 'RESUMEN' : 'SUMMARY';
+  String energySummary(double? energy) => energy == null
+      ? isSpanish
+            ? 'No se indicó la energía'
+            : 'Energy was not set'
+      : isSpanish
+      ? 'La energía es ${(energy * 100).round()} por ciento'
+      : 'Energy is ${(energy * 100).round()} percent';
+  String emotionSummary(String? emotion) => emotion == null
+      ? isSpanish
+            ? 'No se usó el estado emocional'
+            : 'Emotional state was not used'
+      : isSpanish
+      ? 'El estado emocional es $emotion'
+      : 'Emotion state is $emotion';
+  String get accessibilityLabel => isSpanish
+      ? 'Abrir la guía de accesibilidad del Planificador Inteligente y leerla en voz alta'
+      : 'Open Smart Planner accessibility guide and read it aloud';
+  String get accessibilityTitle =>
+      isSpanish ? 'Guía de accesibilidad' : 'Accessibility Guide';
+  String get accessibilityBody => isSpanish
+      ? 'A11Y significa accesibilidad. Usa estos controles para facilitar la lectura y la orientación por audio.'
+      : 'A11Y means accessibility. Use these controls for easier reading and audio guidance.';
+  String get accessibilityButton => isSpanish ? 'ACCESO' : 'ACCESS';
+  String get accessibilitySurface =>
+      isSpanish ? 'Planificador Inteligente' : 'Smart Planner';
+  List<String> get accessibilityControls => isSpanish
+      ? const <String>[
+          'Ajusta el control de energía para definir la intensidad',
+          'Selecciona el estado emocional para adaptar la orientación',
+          'Usa Obtener orientación para generar una respuesta de planificación',
+          'Usa el botón de voz para leer en voz alta la orientación más reciente',
+          'Usa el botón de resumen para escuchar un repaso breve',
+          'Usa el botón del micrófono para las interacciones de voz',
+        ]
+      : const <String>[
+          'Adjust energy slider to set intensity',
+          'Select emotional state to tune guidance',
+          'Use Get Guidance to generate a planning response',
+          'Use the speak button to read the latest guidance aloud',
+          'Use summary button for condensed voice recap',
+          'Use microphone button for voice interactions',
+        ];
+  String voiceInputLabel({required bool listening}) => isSpanish
+      ? listening
+            ? 'Detener entrada de voz'
+            : 'Iniciar entrada de voz'
+      : listening
+      ? 'Stop voice input'
+      : 'Start voice input';
+  String voiceInputButton({required bool listening}) => isSpanish
+      ? listening
+            ? 'ESCUCHANDO'
+            : 'ENTRADA DE VOZ'
+      : listening
+      ? 'LISTENING'
+      : 'VOICE INPUT';
+  String get voiceInputUnavailable => isSpanish
+      ? 'La entrada de voz no está disponible. Revisa el permiso y reintenta.'
+      : 'Voice input is unavailable. Check permission and retry.';
+  String get planningContextLabel =>
+      isSpanish ? 'Contexto de planificación' : 'Planning context';
+  String get currentCheckInSection =>
+      isSpanish ? 'REGISTRO ACTUAL' : 'CURRENT CHECK-IN';
+  String get emotionalStateSection =>
+      isSpanish ? 'ESTADO EMOCIONAL' : 'EMOTIONAL STATE';
+  String get planningContextSection =>
+      isSpanish ? 'CONTEXTO DE PLANIFICACIÓN' : 'PLANNING CONTEXT';
+  String emotionalStateNotice({required bool enabled}) => isSpanish
+      ? enabled
+            ? 'Solo se usa el estado que seleccionas para este registro.'
+            : 'No se usa el estado emocional. Actívalo en Configuración para incluir una selección.'
+      : enabled
+      ? 'Only the state you select is used for this check-in.'
+      : 'Emotional state is not used. Enable it in Settings to include a selection.';
+  String get planningContextHint => isSpanish
+      ? '¿Qué te gustaría planificar ahora?'
+      : 'What would you like help planning right now?';
+  String get ephemeralNotice => isSpanish
+      ? 'Tus palabras y tu registro son temporales. Un recibo local de decisión puede registrar qué orientación se mostró o usó. No se guarda nada más salvo que recuerdes una preferencia de forma explícita.'
+      : 'Your words and check-in stay ephemeral. A local decision receipt may record which guidance was shown or used. Nothing else is saved unless you explicitly remember a preference.';
+  String get checkingButton =>
+      isSpanish ? 'VERIFICANDO ACCESO...' : 'CHECKING ACCESS...';
+  String get unavailableButton =>
+      isSpanish ? 'PLANIFICADOR NO DISPONIBLE' : 'PLANNER UNAVAILABLE';
+  String get thinkingButton => isSpanish ? 'PENSANDO...' : 'THINKING...';
+  String guidanceButton({required bool refresh}) => isSpanish
+      ? refresh
+            ? 'ACTUALIZAR ORIENTACIÓN'
+            : 'OBTENER ORIENTACIÓN'
+      : refresh
+      ? 'REFRESH GUIDANCE'
+      : 'GET GUIDANCE';
+  String get guidanceReady => isSpanish
+      ? 'Orientación de planificación lista'
+      : 'Planning guidance ready';
+  String get subtitle => isSpanish
+      ? 'Construye tu próximo plan con evidencia real.'
+      : 'Build your next plan from real evidence.';
+  String get eyebrow => isSpanish ? 'Espectro del plan' : 'Plan spectrum';
+}
+
+@immutable
+final class SIRoutineCopy {
+  const SIRoutineCopy(this.isSpanish);
+
+  final bool isSpanish;
+
+  String get accessCheckFailed => isSpanish
+      ? 'No se pudo verificar el acceso a la Consola SI. No se envió ninguna consulta.'
+      : 'SI Console access could not be verified. No query was sent.';
+  String get checkingAccess => isSpanish
+      ? 'Verificando el acceso a la Consola SI...'
+      : 'Checking SI Console access...';
+  String get accessUnavailable => isSpanish
+      ? 'La Consola SI no está habilitada para esta cuenta. No se envió ninguna consulta.'
+      : 'SI Console is not enabled for this account. No query was sent.';
+  String get contextUnavailable => isSpanish
+      ? 'El contexto estratégico no está disponible temporalmente. Tu trabajo guardado no cambió.'
+      : 'Strategic context is temporarily unavailable. Saved work is unchanged.';
+  String get initializingContext => isSpanish
+      ? 'Inicializando el contexto SI...'
+      : 'Initializing SI context...';
+  String get evidenceUnavailable => isSpanish
+      ? 'Estado de evidencia no disponible.'
+      : 'Evidence state unavailable.';
+  String noEvidence(String personBoundary) => isSpanish
+      ? 'Todavía no hay evidencia de planificación. SI identificará lo que no puede determinar. $personBoundary'
+      : 'No planning evidence yet. SI will identify what it cannot determine. $personBoundary';
+  String evidenceReady({
+    required int tasks,
+    required int goals,
+    required int milestones,
+    required int timeline,
+    required String personBoundary,
+  }) => isSpanish
+      ? 'Evidencia lista: $tasks tareas · $goals objetivos · $milestones hitos · $timeline en Línea de Tiempo. $personBoundary'
+      : 'Evidence ready: $tasks tasks · $goals goals · $milestones milestones · $timeline Timeline. $personBoundary';
+  String get personContextUnavailable => isSpanish
+      ? 'Contexto personal: no disponible; SI no infirió nada personal.'
+      : 'Person context: unavailable; SI inferred nothing personal.';
+  String get personContextNotRelevant => isSpanish
+      ? 'Contexto personal: compartido, pero ningún elemento fue relevante para este enfoque.'
+      : 'Person context: shared but no item was relevant to this lens.';
+  String personContextEvidence(int count) => isSpanish
+      ? 'Contexto personal: ${count == 1 ? 'se cita 1 elemento pertinente declarado por el usuario' : 'se citan $count elementos pertinentes declarados por el usuario'} como evidencia no verificada de forma independiente.'
+      : 'Person context: $count relevant user-reported ${count == 1 ? 'item is' : 'items are'} cited as evidence and not independently verified.';
+  String get retryEvidence =>
+      isSpanish ? 'Reintentar carga de evidencia' : 'Retry evidence loading';
+  String get unavailableSavedWork => isSpanish
+      ? 'Esta cuenta no tiene acceso actualmente. Tu trabajo guardado no cambió.'
+      : 'This account does not currently have access. Your saved work is unchanged.';
+  String get welcomeNoEvidence => isSpanish
+      ? 'Todavía no hay evidencia de planificación disponible. SI indicará la evidencia faltante en vez de adivinar.'
+      : 'No planning evidence is available yet. SI will name missing evidence instead of guessing.';
+  String get welcomeReady => isSpanish
+      ? 'Pregunta por tareas, objetivos, hitos o la Línea de Tiempo actuales. SI lee evidencia y no puede cambiar los datos guardados.'
+      : 'Ask about current tasks, goals, milestones, or Timeline. SI reads evidence and cannot change saved data.';
+  List<String> welcomeExamples({required bool noEvidence}) => isSpanish
+      ? noEvidence
+            ? const <String>['¿Qué evidencia falta?', '¿Qué puedes determinar?']
+            : const <String>[
+                '¿Qué necesita atención?',
+                '¿Qué debería hacer después?',
+              ]
+      : noEvidence
+      ? const <String>['What evidence is missing?', 'What can you determine?']
+      : const <String>['What needs attention?', 'What should I do next?'];
+  String get askFromEvidence => isSpanish
+      ? 'Pregunta desde la evidencia actual'
+      : 'Ask from current evidence';
+  String get backToNexus => isSpanish ? 'Volver a Nexus' : 'Back to Nexus';
+  String get title => isSpanish ? 'Consola SI V2' : 'SI Console V2';
+  String get subtitle => isSpanish
+      ? 'Inteligencia de sistemas · orientación con fuentes'
+      : 'Systems intelligence · source-aware guidance';
+  String get eyebrow => isSpanish ? 'Rastreo de evidencia' : 'Evidence trace';
+  String get readSummary => isSpanish ? 'Leer resumen' : 'Read summary';
+  String get accessibilityGuide =>
+      isSpanish ? 'Guía de accesibilidad' : 'Accessibility guide';
+  String get advanced => isSpanish ? 'Avanzado' : 'Advanced';
+  String get advancedSubtitle => isSpanish
+      ? 'Intención, fuentes, intervalo, filtros, supuestos y alias'
+      : 'Intent, sources, range, filters, assumptions, and aliases';
+  String get queryBuilder =>
+      isSpanish ? 'GENERADOR DE CONSULTAS SI V2' : 'SI V2 QUERY BUILDER';
+  String get entityFilter =>
+      isSpanish ? 'Filtro de entidad (opcional)' : 'Entity filter (optional)';
+  String get scenarioAssumption => isSpanish
+      ? 'Supuesto del escenario (opcional)'
+      : 'Scenario assumption (optional)';
+  String get choosePowerAlias =>
+      isSpanish ? 'Elegir un alias avanzado' : 'Choose a power alias';
+  String get powerAliases => isSpanish ? 'ALIAS AVANZADOS' : 'POWER ALIASES';
+  String get queryLabel => isSpanish ? 'Consulta SI' : 'SI query';
+  String get queryHint => isSpanish
+      ? 'Pregunta a SI V2 sobre la evidencia actual...'
+      : 'Ask SI V2 about current evidence...';
+  String get yourQuery => isSpanish ? 'Tu consulta' : 'Your query';
+  String get siResponse => isSpanish ? 'Respuesta de SI' : 'SI response';
+  String whyThisAppears(String rationale) => isSpanish
+      ? 'Por qué aparece: $rationale'
+      : 'Why this appears: $rationale';
+  String get directAnswer => isSpanish ? 'RESPUESTA DIRECTA' : 'DIRECT ANSWER';
+  String get recommendation => isSpanish ? 'RECOMENDACIÓN' : 'RECOMMENDATION';
+  String get responseAdvancedSubtitle => isSpanish
+      ? 'Confianza, evidencia, cálculos y supuestos'
+      : 'Confidence, evidence, calculations, and assumptions';
+  String get observedFacts =>
+      isSpanish ? 'HECHOS OBSERVADOS' : 'OBSERVED FACTS';
+  String get userReportedContext =>
+      isSpanish ? 'CONTEXTO DECLARADO POR EL USUARIO' : 'USER-REPORTED CONTEXT';
+  String get deterministicCalculations =>
+      isSpanish ? 'CÁLCULOS DETERMINISTAS' : 'DETERMINISTIC CALCULATIONS';
+  String get inferences => isSpanish ? 'INFERENCIAS' : 'INFERENCES';
+  String get missingOrConflicting => isSpanish
+      ? 'INFORMACIÓN FALTANTE O CONTRADICTORIA'
+      : 'MISSING OR CONFLICTING INFORMATION';
+  String get scenarios => isSpanish ? 'ESCENARIOS' : 'SCENARIOS';
+  String get scenarioAssumptions =>
+      isSpanish ? 'SUPUESTOS DEL ESCENARIO' : 'SCENARIO ASSUMPTIONS';
+  String get confidenceAnatomy =>
+      isSpanish ? 'ANATOMÍA DE LA CONFIANZA' : 'CONFIDENCE ANATOMY';
+  String get evidenceLinks =>
+      isSpanish ? 'ENLACES DE EVIDENCIA' : 'EVIDENCE LINKS';
+  String get noneIdentified =>
+      isSpanish ? 'No se identificó ninguno.' : 'None identified.';
+  String evidenceStrength(String value) => isSpanish
+      ? 'Solidez de la evidencia: $value'
+      : 'Evidence strength: $value';
+  String confidenceCoverage({required int covered, required int required}) =>
+      isSpanish
+      ? 'Cobertura: $covered de $required señales requeridas'
+      : 'Coverage: $covered of $required required signals';
+  String confidenceFreshness(String value) =>
+      isSpanish ? 'Actualidad: $value' : 'Freshness: $value';
+  String confidenceConflicts(int count) =>
+      isSpanish ? 'Conflictos: $count' : 'Conflicts: $count';
+  String confidenceAssumptions(int count) =>
+      isSpanish ? 'Supuestos: $count' : 'Assumptions: $count';
+  String get accessibilityTitle =>
+      isSpanish ? 'Guía de accesibilidad' : 'Accessibility Guide';
+  String get accessibilityBody => isSpanish
+      ? 'Usa estos controles para obtener orientación legible y hablada.'
+      : 'Use these controls for readable and spoken guidance.';
+  List<String> get accessibilityControls => isSpanish
+      ? const <String>[
+          'Escribe una indicación en el campo y luego envíala.',
+          'Usa Resumen para escuchar respuestas recientes del asistente.',
+          'Usa Escuchar en las respuestas del asistente para leerlas en voz alta.',
+          'Usa Atrás para volver a Nexus.',
+        ]
+      : const <String>[
+          'Type a prompt in the input field, then send.',
+          'Use Summary to hear recent assistant responses.',
+          'Use Speak on assistant bubbles to read aloud.',
+          'Use Back to return to Nexus.',
+        ];
+  List<String> get accessibilitySteps => isSpanish
+      ? const <String>[
+          '1. Escribe una indicación y luego envíala.',
+          '2. Resumen lee respuestas recientes del asistente.',
+          '3. Escuchar lee una respuesta en voz alta.',
+          '4. Atrás vuelve a Nexus.',
+        ]
+      : const <String>[
+          '1. Type a prompt, then send.',
+          '2. Summary reads recent assistant responses.',
+          '3. Speak reads one response aloud.',
+          '4. Back returns to Nexus.',
+        ];
+  String get accessibilitySurface => isSpanish ? 'Consola SI' : 'SI Console';
+  String get personContextChanged => isSpanish
+      ? 'Tu Contexto Personal cambió, por lo que se borraron las respuestas anteriores basadas en evidencia de SI. Pregunta otra vez para usar la evidencia actual.'
+      : 'Your Person Context changed, so previous SI evidence responses were cleared. Ask again to use the current evidence.';
+  String unknownShortcut(String token) => isSpanish
+      ? 'Atajo desconocido "$token". No se envió ni descartó ninguna parte de la solicitud. Usa /help para ver los atajos disponibles.'
+      : 'Unknown shortcut "$token". No part of the request was sent or discarded. Use /help to list the available shortcuts.';
+  String rejectedArguments({
+    required String shortcut,
+    required String arguments,
+  }) => isSpanish
+      ? '$shortcut no acepta texto adicional. No se ignoró ni envió ningún argumento. Usa $shortcut solo. Recibido: "$arguments"'
+      : '$shortcut does not accept extra text. No argument was ignored or sent. Use $shortcut alone. Received: "$arguments"';
+  String shortcutLabel(SIConsoleShortcutDefinition definition) {
+    if (!isSpanish) return definition.label;
+    return switch (definition.id) {
+      'help' => 'Ayuda',
+      'status' => 'Estado',
+      'tasks' => 'Tareas',
+      'goals' => 'Objetivos',
+      'plan' => 'Plan',
+      'milestones' => 'Hitos',
+      'timeline' => 'Línea de Tiempo',
+      'trajectory' => 'Trayectoria',
+      'progression' => 'Progresión',
+      'memories' => 'Memorias',
+      'emotions' => 'Emociones',
+      _ => definition.label,
+    };
+  }
+
+  String shortcutDescription(SIConsoleShortcutDefinition definition) {
+    if (!isSpanish) return definition.description;
+    return switch (definition.id) {
+      'help' => 'ver los atajos o explicar uno',
+      'status' => 'mostrar qué fuentes de evidencia están disponibles',
+      'tasks' => 'revisar tareas activas y próximos pasos',
+      'goals' => 'resumir objetivos y desvíos',
+      'plan' => 'resumir el horario y los próximos bloques',
+      'milestones' => 'resumir salud, riesgo y próximo objetivo de los hitos',
+      'timeline' => 'resumir hitos y eventos recientes',
+      'trajectory' => 'resumir impulso, presión y predicción',
+      'progression' => 'analizar nivel, XP, racha y señales de progreso',
+      'memories' => 'analizar preferencias guardadas y memorias pertinentes',
+      'emotions' => 'analizar evidencia explícita del registro emocional',
+      _ => definition.description,
+    };
+  }
+
+  String shortcutHelp({required String filter}) {
+    final String normalized = filter.trim();
+    final List<SIConsoleShortcutDefinition> selected = normalized.isEmpty
+        ? SIConsoleShortcutRegistry.definitions
+        : SIConsoleShortcutRegistry.definitions
+              .where(
+                (SIConsoleShortcutDefinition item) =>
+                    item.matchesFilter(normalized),
+              )
+              .toList(growable: false);
+    if (selected.isEmpty) {
+      return isSpanish
+          ? 'ATAJOS DE CONSULTA SI\n\nNingún atajo coincide con "$normalized". Usa /help para ver todos los atajos disponibles.'
+          : 'SI QUERY SHORTCUTS\n\nNo shortcut matches "$normalized". Use /help to list every available shortcut.';
+    }
+    final String lines = selected
+        .map((SIConsoleShortcutDefinition item) {
+          final String aliases = item.aliases
+              .where((String alias) => alias.startsWith('/'))
+              .join(', ');
+          final String aliasText = aliases.isEmpty
+              ? ''
+              : isSpanish
+              ? ' (alias: $aliases)'
+              : ' (aliases: $aliases)';
+          return '- ${item.usage}$aliasText: ${shortcutDescription(item)}';
+        })
+        .join('\n');
+    return isSpanish
+        ? 'ATAJOS DE CONSULTA SI\n\nAtajos disponibles:\n$lines'
+        : 'SI QUERY SHORTCUTS\n\nAvailable shortcuts:\n$lines';
+  }
+
+  String get shortcutRules => isSpanish
+      ? 'Reglas:\n- Las tareas se crean solo en Creador. Usa Creador para crear tareas.\n- SI V2 tiene acceso de solo lectura a la evidencia y no puede modificar los datos del dominio.\n- El generador visible de consultas es el control principal; los atajos son alias.\n\nIndicaciones SI V2 de alta señal:\n- "¿Qué necesita atención?"\n- "¿Por qué está en riesgo este objetivo?"\n- "Compara mis dos objetivos más próximos."\n- "¿Qué pasa si aplazo esta tarea?"\n- "¿Qué compromisos entran en conflicto?"\n- "¿Qué cambiaría tu recomendación?"'
+      : 'Rules:\n- Task creation is Creator-only. Use Creator to create tasks.\n- SI V2 has read-only evidence capability and cannot mutate domain data.\n- The visible query builder is primary; shortcuts are aliases.\n\nHigh-signal SI V2 prompts:\n- "What needs attention?"\n- "Why is this goal at risk?"\n- "Compare my two nearest goals."\n- "What happens if I defer this task?"\n- "Which commitments conflict?"\n- "What would change your recommendation?"';
+  String statusLoading() => isSpanish
+      ? 'ESTADO DE SI\n\nLas fuentes de datos locales todavía se están cargando. Reintenta /status en un momento.\nNo se cambió ningún dato del dominio.'
+      : 'SI STATUS\n\nLocal data sources are still loading. Retry /status in a second.\nNo domain data was changed.';
+  String statusReady({
+    required int tasks,
+    required int goals,
+    required int milestones,
+    required int timeline,
+    required int unavailableSources,
+    required String revision,
+    required String aliases,
+  }) => isSpanish
+      ? 'ESTADO DE SI\n\nEnfoque de evidencia de solo lectura:\n- tareas: $tasks\n- objetivos: $goals\n- hitos: $milestones\n- Línea de Tiempo: $timeline\n- fuentes no disponibles: $unavailableSources\n- revisión: $revision\n\nAlias de evidencia disponibles: $aliases.'
+      : 'SI STATUS\n\nRead-only Evidence Lens:\n- tasks: $tasks\n- goals: $goals\n- milestones: $milestones\n- Timeline: $timeline\n- unavailable sources: $unavailableSources\n- revision: $revision\n\nAvailable evidence aliases: $aliases.';
+  String get responseValidationFailed => isSpanish
+      ? 'SI V2 no pudo validar una respuesta de evidencia de solo lectura. Reintenta, amplía el Enfoque de Evidencia o selecciona tareas, objetivos, hitos o Línea de Tiempo. No se cambió nada.'
+      : 'SI V2 could not validate a read-only evidence response. Retry, broaden the Evidence Lens, or select tasks, goals, milestones, or Timeline. Nothing was changed.';
+  String get voiceSummaryTitle => isSpanish
+      ? 'Resumen de voz de la Consola SI'
+      : 'SI console voice summary';
+  String voiceInputLabel({required bool listening}) => isSpanish
+      ? listening
+            ? 'Detener entrada de voz'
+            : 'Iniciar entrada de voz'
+      : listening
+      ? 'Stop voice input'
+      : 'Start voice input';
+  String sendLabel({required bool enabled, required bool busy}) => isSpanish
+      ? !enabled
+            ? 'Consola SI no disponible'
+            : busy
+            ? 'SI está analizando'
+            : 'Enviar consulta SI'
+      : !enabled
+      ? 'SI Console unavailable'
+      : busy
+      ? 'SI is analyzing'
+      : 'Send SI query';
 }
 
 enum ChronoSparkString {

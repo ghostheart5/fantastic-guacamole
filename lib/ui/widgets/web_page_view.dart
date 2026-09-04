@@ -15,6 +15,7 @@ class WebPageView extends StatelessWidget {
     this.assetPath,
     this.externalUrl,
     this.callToActionLabel,
+    this.additionalContent,
     super.key,
   }) : assert(
          body != null || assetPath != null || externalUrl != null,
@@ -26,10 +27,21 @@ class WebPageView extends StatelessWidget {
   final String? assetPath;
   final String? externalUrl;
   final String? callToActionLabel;
+  final Widget? additionalContent;
 
   @override
   Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    if (assetPath != null) {
+      return _AssetTextPage(
+        title: title,
+        assetPath: assetPath!,
+        externalUrl: externalUrl,
+        callToActionLabel:
+            callToActionLabel ?? l10n.text(ChronoSparkString.openWebsite),
+        additionalContent: additionalContent,
+      );
+    }
     if (externalUrl != null) {
       return _ExternalLinkPage(
         title: title,
@@ -37,10 +49,8 @@ class WebPageView extends StatelessWidget {
         externalUrl: externalUrl!,
         callToActionLabel:
             callToActionLabel ?? l10n.text(ChronoSparkString.openWebsite),
+        additionalContent: additionalContent,
       );
-    }
-    if (assetPath != null) {
-      return _AssetTextPage(title: title, assetPath: assetPath!);
     }
     return _StaticPage(title: title, body: body!);
   }
@@ -51,12 +61,14 @@ class _ExternalLinkPage extends StatelessWidget {
     required this.title,
     required this.externalUrl,
     required this.callToActionLabel,
+    this.additionalContent,
     this.body,
   });
 
   final String title;
   final String externalUrl;
   final String callToActionLabel;
+  final Widget? additionalContent;
   final String? body;
 
   @override
@@ -115,6 +127,10 @@ class _ExternalLinkPage extends StatelessWidget {
                   ],
                 ),
               ),
+              if (additionalContent != null) ...<Widget>[
+                const SizedBox(height: 16),
+                additionalContent!,
+              ],
             ],
           ),
         ),
@@ -157,10 +173,19 @@ class _StaticPage extends StatelessWidget {
 }
 
 class _AssetTextPage extends StatefulWidget {
-  const _AssetTextPage({required this.title, required this.assetPath});
+  const _AssetTextPage({
+    required this.title,
+    required this.assetPath,
+    required this.callToActionLabel,
+    this.externalUrl,
+    this.additionalContent,
+  });
 
   final String title;
   final String assetPath;
+  final String? externalUrl;
+  final String callToActionLabel;
+  final Widget? additionalContent;
 
   @override
   State<_AssetTextPage> createState() => _AssetTextPageState();
@@ -214,14 +239,49 @@ class _AssetTextPageState extends State<_AssetTextPage> {
               else if (_content == null)
                 const Center(child: CircularProgressIndicator())
               else
-                TemporalGlassSurface(
-                  child: SelectableText(
-                    _content!,
-                    style: const TextStyle(height: 1.55),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    TemporalGlassSurface(
+                      child: SelectableText(
+                        _content!,
+                        style: const TextStyle(height: 1.55),
+                      ),
+                    ),
+                    if (widget.additionalContent != null) ...<Widget>[
+                      const SizedBox(height: 16),
+                      widget.additionalContent!,
+                    ],
+                    if (widget.externalUrl != null) ...<Widget>[
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => _openHostedCopy(context),
+                        icon: const Icon(Icons.open_in_new),
+                        label: Text(widget.callToActionLabel),
+                      ),
+                    ],
+                  ],
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openHostedCopy(BuildContext context) async {
+    final bool opened = await const ExternalUrlService().open(
+      Uri.parse(widget.externalUrl!),
+    );
+    if (!context.mounted || opened) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ChronoSparkLocalizations.of(
+            context,
+          ).text(ChronoSparkString.unableToOpenWebsite),
         ),
       ),
     );

@@ -176,6 +176,45 @@ void main() {
       expect(root.load('timeline_v1'), 'legacy');
       expect(await accountA.keys(), isEmpty);
     });
+
+    test(
+      'explicit migration copies only a proven owner and preserves existing V2 values',
+      () async {
+        final _MemoryPreferences root = _MemoryPreferences();
+        await root.save('goal_reminders_enabled', 'false');
+        final AccountStorageScope scopeA = AccountStorageScope.authenticated(
+          'account-a',
+        );
+        final AccountScopedSharedPrefsStore proven =
+            AccountScopedSharedPrefsStore(
+              delegate: root,
+              scope: scopeA,
+              legacyOwnership: LegacyScopeOwnership.provenOwned,
+            );
+        final AccountScopedSharedPrefsStore ambiguous =
+            AccountScopedSharedPrefsStore(
+              delegate: root,
+              scope: AccountStorageScope.authenticated('account-b'),
+            );
+
+        await proven.migrateOwnedLegacyValues(<String>{
+          'goal_reminders_enabled',
+        });
+        await ambiguous.migrateOwnedLegacyValues(<String>{
+          'goal_reminders_enabled',
+        });
+
+        expect(proven.load('goal_reminders_enabled'), 'false');
+        expect(ambiguous.load('goal_reminders_enabled'), isNull);
+        expect(root.load('goal_reminders_enabled'), 'false');
+
+        await proven.save('goal_reminders_enabled', 'true');
+        await proven.migrateOwnedLegacyValues(<String>{
+          'goal_reminders_enabled',
+        });
+        expect(proven.load('goal_reminders_enabled'), 'true');
+      },
+    );
   });
 }
 

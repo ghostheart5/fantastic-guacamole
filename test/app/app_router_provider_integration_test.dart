@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
@@ -55,8 +56,13 @@ void _setGuardState(
 }
 
 void main() {
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    // SharedPrefsService intentionally caches the plugin instance for the app
+    // lifetime. Clear that cached test instance as well so a prior router test
+    // cannot leak an account-scoped recovery destination into the next case.
+    await SharedPrefsService.init();
+    await SharedPrefsService.clear();
     NotificationScheduler.tappedPayloadListenable.value = null;
   });
   tearDown(() => NotificationScheduler.tappedPayloadListenable.value = null);

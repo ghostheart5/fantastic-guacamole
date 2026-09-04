@@ -134,12 +134,8 @@ void main() {
       );
     }
 
-    expect(
-      page,
-      contains(
-        'Credits after a verified purchase or paid renewal: \${plan.aiCreditsIncluded}',
-      ),
-    );
+    expect(page, contains('copy.creditsAfterVerification('));
+    expect(page, contains('plan.aiCreditsIncluded'));
     expect(page, contains('plan.priceLabel'));
     expect(page, isNot(contains('plan.benefits')));
     expect(

@@ -80,8 +80,8 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
     await _saveOptimizationConfig(store, adjusted, today);
     return adjusted;
   } on Object catch (_, stackTrace) {
-    Logger.recordDiagnosticCode(
-      code: 'optimization.compute_failed',
+    Logger.recordDiagnostic(
+      code: AppDiagnosticCode.optimizationComputeFailed,
       stackTrace: stackTrace,
     );
     return OptimizationConfig.neutral();

@@ -37,6 +37,7 @@ import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -881,9 +882,14 @@ class SettingsScreen extends ConsumerWidget {
         false;
     if (!confirmed || !context.mounted) return;
     try {
+      final String accountId =
+          ref.read(authServiceProvider).currentUser?.id.trim() ?? '';
+      if (accountId.isEmpty) {
+        throw StateError('No authenticated account is available.');
+      }
       await ref
-          .read(localUserDataCleanupServiceProvider)
-          .clearForAccountSwitch();
+          .read(authSessionBoundaryCoordinatorProvider)
+          .clearLocalDataForCurrentAccount(accountId);
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,

@@ -83,7 +83,11 @@ extension _NavigationShellLifecycle on _NavigationShellState {
     _savingCurrentState = true;
     try {
       final AppView view = widget.initialView;
-      await ref.read(appRecoveryProvider).saveState(lastRoute: view.name);
+      if (_isPrimaryView(view)) {
+        await ref
+            .read(appRecoveryProvider)
+            .saveState(lastPrimaryViewName: view.name);
+      }
       _runBackgroundTask('daily metrics upload', _pushDailyMetrics);
     } finally {
       _savingCurrentState = false;
@@ -106,5 +110,22 @@ extension _NavigationShellLifecycle on _NavigationShellState {
     ref.invalidate(replayOfflineQueueProvider);
     ref.invalidate(syncToCloudProvider);
     ref.invalidate(offlineQueueCountProvider);
+  }
+
+  void _scheduleNetworkRecoveryRetry() {
+    _networkRetryDebounceTimer?.cancel();
+    _networkRetryDebounceTimer = Timer(networkReconnectRetryDebounce, () {
+      _networkRetryDebounceTimer = null;
+      if (!mounted ||
+          ref.read(networkInterfaceAvailabilityProvider) !=
+              NetworkInterfaceAvailability.available) {
+        return;
+      }
+      _triggerCloudSyncReplay();
+      _runBackgroundTask(
+        'subscription authority retry after network interface recovery',
+        () => ref.read(entitlementAuthorityRefreshProvider)(force: true),
+      );
+    });
   }
 }

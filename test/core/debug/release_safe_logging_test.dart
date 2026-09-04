@@ -68,48 +68,56 @@ void main() {
       expect(output.last, contains('package:chronospark/debug.dart:1'));
     });
 
-    test(
-      'sensitive failure paths use Logger with literal diagnostic codes',
-      () {
-        const List<String> paths = <String>[
-          'lib/system/voice/voice_service.dart',
-          'lib/system/voice/speech_recognition_service.dart',
-          'lib/system/voice/audio_interruption_service.dart',
-          'lib/state/services/reflection_reminder_service.dart',
-          'lib/ui/widgets/error_boundary_widget.dart',
-          'lib/app/startup/startup_error_hooks.dart',
-        ];
-        final RegExp invocationPattern = RegExp(
-          r'Logger\.errorCode\(([\s\S]*?)\);',
-        );
-        final RegExp fixedCodePattern = RegExp(
-          r"\bcode:\s*'[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*'",
-        );
+    test('sensitive failure paths use Logger with typed diagnostic codes', () {
+      const List<String> paths = <String>[
+        'lib/system/voice/voice_service.dart',
+        'lib/system/voice/speech_recognition_service.dart',
+        'lib/system/voice/audio_interruption_service.dart',
+        'lib/state/services/reflection_reminder_service.dart',
+        'lib/ui/widgets/error_boundary_widget.dart',
+        'lib/app/startup/startup_error_hooks.dart',
+      ];
+      final RegExp invocationPattern = RegExp(
+        r'Logger\.errorCode\(([\s\S]*?)\);',
+      );
+      final RegExp fixedCodePattern = RegExp(
+        r'\bcode:\s*AppDiagnosticCode\.[a-z][A-Za-z0-9]*',
+      );
 
-        for (final String path in paths) {
-          final String source = File(path).readAsStringSync();
-          expect(source, isNot(contains('debugPrint(')), reason: path);
-          expect(source, isNot(contains('Logger.error(')), reason: path);
+      for (final String path in paths) {
+        final String source = File(path).readAsStringSync();
+        expect(source, isNot(contains('debugPrint(')), reason: path);
+        expect(source, isNot(contains('Logger.error(')), reason: path);
+        expect(source, isNot(contains('Logger.errorCategory(')), reason: path);
+
+        final List<RegExpMatch> invocations = invocationPattern
+            .allMatches(source)
+            .toList(growable: false);
+        expect(invocations, isNotEmpty, reason: path);
+        for (final RegExpMatch invocation in invocations) {
           expect(
-            source,
-            isNot(contains('Logger.errorCategory(')),
-            reason: path,
+            invocation.group(1),
+            matches(fixedCodePattern),
+            reason: 'Diagnostic codes must be typed and non-sensitive: $path',
           );
-
-          final List<RegExpMatch> invocations = invocationPattern
-              .allMatches(source)
-              .toList(growable: false);
-          expect(invocations, isNotEmpty, reason: path);
-          for (final RegExpMatch invocation in invocations) {
-            expect(
-              invocation.group(1),
-              matches(fixedCodePattern),
-              reason:
-                  'Diagnostic codes must be literal and non-sensitive: $path',
-            );
-          }
         }
-      },
-    );
+      }
+    });
+
+    test('typed diagnostic catalog has unique privacy-safe wire names', () {
+      final List<String> names = AppDiagnosticCode.values
+          .map((AppDiagnosticCode code) => code.wireName)
+          .toList(growable: false);
+
+      expect(names.toSet(), hasLength(names.length));
+      for (final String name in names) {
+        expect(name, matches(RegExp(r'^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$')));
+        expect(name.length, lessThanOrEqualTo(64));
+        expect(
+          name,
+          isNot(matches(RegExp(r'email|token|password|prompt|device|user_id'))),
+        );
+      }
+    });
   });
 }

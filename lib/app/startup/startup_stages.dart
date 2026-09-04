@@ -350,8 +350,8 @@ Future<void> _captureDiagnosticsContext(
       return;
     }
     Logger.warn('Diagnostics context capture failed (non-fatal).');
-    Logger.recordDiagnosticCode(
-      code: 'startup.diagnostics_context_capture_failed',
+    Logger.recordDiagnostic(
+      code: AppDiagnosticCode.startupDiagnosticsContextCaptureFailed,
       stackTrace: stackTrace,
     );
   }

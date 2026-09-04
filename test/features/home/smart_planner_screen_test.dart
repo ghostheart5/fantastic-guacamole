@@ -1076,8 +1076,11 @@ Future<void> _pumpPlanner(
 }
 
 Future<void> _requestGuidance(WidgetTester tester) async {
-  await _scrollTo(tester, find.text('GET GUIDANCE'));
-  await tester.tap(find.text('GET GUIDANCE'));
+  final Finder guidanceButton = find.byKey(
+    const Key('planner-guidance-button'),
+  );
+  await _scrollTo(tester, guidanceButton);
+  await tester.tap(guidanceButton);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
 }

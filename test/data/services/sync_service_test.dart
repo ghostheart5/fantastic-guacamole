@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -82,6 +83,61 @@ void main() {
     expect(success, isTrue);
     expect(uploadedTask['id'], 'task-1');
   });
+
+  test(
+    'long recurring series stays valid through cloud backup and restore',
+    () async {
+      final String seriesId = List<String>.filled(20, 'series-root').join('-');
+      TaskEntity current = TaskEntity(
+        id: seriesId,
+        title: 'Long-lived recurring task',
+        createdAt: DateTime.utc(2026, 1, 1),
+        scheduledFor: DateTime.utc(2026, 1, 1, 9),
+        occurrenceKey: 'slot-0',
+        recurrenceRule: RecurrenceRule.daily,
+      );
+      for (int index = 0; index < 120; index++) {
+        final DateTime completedAt = DateTime.utc(2026, 1, 1 + index, 10);
+        await repository.saveTask(
+          current.copyWith(isCompleted: true, completedAt: completedAt),
+        );
+        current = current.copyWith(
+          id: TaskEntity.recurringSuccessorId(
+            seriesId: seriesId,
+            occurrenceKey: 'slot-$index',
+          ),
+          createdAt: completedAt,
+          updatedAt: completedAt,
+          isCompleted: false,
+          clearCompletedAt: true,
+          scheduledFor: DateTime.utc(2026, 1, 2 + index, 9),
+          occurrenceKey: 'slot-${index + 1}',
+          recurrenceSeriesId: seriesId,
+        );
+      }
+      await repository.saveTask(current);
+
+      expect(await syncService.syncToCloud(), isTrue);
+      repository.tasks.clear();
+      expect(
+        await syncService.restoreFromCloud(),
+        CloudRestoreOutcome.restored,
+      );
+
+      final List<TaskEntity> restored = await repository.getAllTasks();
+      expect(restored, hasLength(121));
+      expect(
+        restored.every((TaskEntity task) => task.id.length <= 256),
+        isTrue,
+      );
+      expect(
+        restored
+            .where((TaskEntity task) => task.id != seriesId)
+            .every((TaskEntity task) => task.recurrenceSeriesId == seriesId),
+        isTrue,
+      );
+    },
+  );
 
   test(
     'encrypted cloud backup round-trips only with the retained device key',

@@ -41,7 +41,7 @@ class TrajectoryEngineModel {
     required this.summary,
     required this.momentum,
     required this.statusDetail,
-    required this.isOnline,
+    required this.hasAvailableNetworkInterface,
     this.comparison,
     this.decisionIntelligence,
   });
@@ -52,7 +52,7 @@ class TrajectoryEngineModel {
   final TrajectoryComparison? comparison;
   final DecisionIntelligence? decisionIntelligence;
   final String statusDetail;
-  final bool isOnline;
+  final bool hasAvailableNetworkInterface;
 
   bool get hasComparison =>
       comparison != null && comparison!.outcomes.isNotEmpty;
@@ -71,7 +71,9 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
   final AsyncValue<DecisionIntelligence> decisionAsync = ref.watch(
     decisionIntelligenceProvider,
   );
-  final bool isOnline = ref.watch(isOnlineProvider);
+  final NetworkInterfaceAvailability interfaceAvailability = ref.watch(
+    networkInterfaceAvailabilityProvider,
+  );
   final TrajectoryComparison? candidateComparison = comparisonAsync.isLoading
       ? null
       : comparisonAsync.asData?.value;
@@ -107,10 +109,15 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
     final int observed = candidateComparison.baseline.observationCount;
     detail =
         'Record ${trajectoryMinimumObservedOutcomes - observed} more task outcome${trajectoryMinimumObservedOutcomes - observed == 1 ? '' : 's'} before ChronoSpark compares future paths. No personal forecast is shown yet.';
-  } else if (!isOnline) {
+  } else if (interfaceAvailability ==
+      NetworkInterfaceAvailability.unavailable) {
     status = TrajectoryEngineStatus.offline;
     detail =
-        'Using locally available evidence. Network-backed freshness is unavailable.';
+        'No network interface is available. Using local evidence without network-backed freshness.';
+  } else if (interfaceAvailability == NetworkInterfaceAvailability.unknown) {
+    status = TrajectoryEngineStatus.partial;
+    detail =
+        'Using local evidence while network interface availability is checked.';
   } else if (comparison != null &&
       !comparison.baseline.hasObservedAvailability) {
     status = TrajectoryEngineStatus.partial;
@@ -135,7 +142,8 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
     comparison: comparison,
     decisionIntelligence: intelligence,
     statusDetail: detail,
-    isOnline: isOnline,
+    hasAvailableNetworkInterface:
+        interfaceAvailability == NetworkInterfaceAvailability.available,
   );
 });
 

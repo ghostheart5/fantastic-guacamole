@@ -85,7 +85,7 @@ void main() {
     () {
       const NexusDecisionModel model = NexusDecisionModel(
         status: NexusDecisionStatus.ready,
-        isOnline: true,
+        hasAvailableNetworkInterface: true,
         pendingSyncCount: 0,
         topRisk: 'No material constraint is supported yet.',
         recentProgress: 'No prior snapshot.',

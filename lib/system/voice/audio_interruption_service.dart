@@ -39,7 +39,7 @@ class PluginAudioInterruptionService implements AudioInterruptionService {
       // No audio session support in this environment (e.g. flutter test).
     } on PlatformException catch (error, stackTrace) {
       Logger.errorCode(
-        code: 'audio_interruption.initialization_unavailable',
+        code: AppDiagnosticCode.audioInterruptionInitializationUnavailable,
         debugMessage: 'Audio interruption handling is unavailable.',
         exception: error,
         stackTrace: stackTrace,

@@ -3,11 +3,14 @@ import 'package:fantastic_guacamole/data/services/contracts/auth_service_contrac
 
 class MockAuthService implements AuthServiceContract {
   MockAuthService({
+    Future<void> Function(String accountId)? onBeforeSignedOut,
     Future<void> Function()? onSignedOut,
     Future<void> Function(String accountId)? onAccountDeleted,
-  }) : _signedOutCallback = onSignedOut,
+  }) : _beforeSignedOutCallback = onBeforeSignedOut,
+       _signedOutCallback = onSignedOut,
        _accountDeletedCallback = onAccountDeleted;
 
+  final Future<void> Function(String accountId)? _beforeSignedOutCallback;
   final Future<void> Function()? _signedOutCallback;
   final Future<void> Function(String accountId)? _accountDeletedCallback;
 
@@ -90,6 +93,10 @@ class MockAuthService implements AuthServiceContract {
 
   @override
   Future<void> signOut() async {
+    final String? accountId = _currentUser?.id;
+    if (accountId != null) {
+      await _beforeSignedOutCallback?.call(accountId);
+    }
     _currentUser = null;
     await _signedOutCallback?.call();
   }
@@ -105,9 +112,20 @@ class MockAuthService implements AuthServiceContract {
         message: 'No signed-in user found.',
       );
     }
+    await _beforeSignedOutCallback?.call(accountId);
     _currentUser = null;
     await _accountDeletedCallback?.call(accountId);
     await _signedOutCallback?.call();
     return const AccountDeletionResult.completed();
   }
+
+  @override
+  Future<PendingAccountDeletionStatus?> readPendingAccountDeletion() async =>
+      null;
+
+  @override
+  Future<AccountDeletionResult?> refreshPendingAccountDeletion() async => null;
+
+  @override
+  Future<void> forgetPendingAccountDeletion() async {}
 }

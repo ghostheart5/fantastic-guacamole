@@ -609,6 +609,16 @@ class _FakeAuthService implements AuthServiceContract {
   }
 
   @override
+  Future<PendingAccountDeletionStatus?> readPendingAccountDeletion() async =>
+      null;
+
+  @override
+  Future<AccountDeletionResult?> refreshPendingAccountDeletion() async => null;
+
+  @override
+  Future<void> forgetPendingAccountDeletion() async {}
+
+  @override
   Future<User?> reloadCurrentUser() async => _current;
 
   @override

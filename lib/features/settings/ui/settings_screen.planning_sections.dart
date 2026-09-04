@@ -80,9 +80,10 @@ class _ReflectionReminderSectionState
             onChanged: _toggle,
           ),
           if (_enabled)
-            GestureDetector(
+            SmartPressable(
+              semanticLabel:
+                  'Change reflection reminder time, current ${_time.format(context)}',
               onTap: _pickTime,
-              behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -247,9 +248,10 @@ class _ReminderAutomationSectionState
             subtitle: 'Triggers once each day at the selected planning time.',
           ),
           if (_dailyPlanningEnabled)
-            GestureDetector(
+            SmartPressable(
+              semanticLabel:
+                  'Change daily planning time, current ${_dailyPlanningTime.format(context)}',
               onTap: _pickDailyPlanningTime,
-              behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,

@@ -1253,6 +1253,9 @@ void main() {
     final String source = File(
       'lib/features/home/ui/smart_planner_screen.dart',
     ).readAsStringSync();
+    final String localizations = File(
+      'lib/l10n/chronospark_localizations.dart',
+    ).readAsStringSync();
     const List<String> forbidden = <String>[
       'planProposalProvider',
       'Apply to Timeline',
@@ -1267,11 +1270,12 @@ void main() {
       expect(source, isNot(contains(token)), reason: 'Forbidden hook: $token');
     }
     expect(
-      source,
+      localizations,
       contains(
         'Your words and check-in stay ephemeral. A local decision receipt may record which guidance was shown or used. Nothing else is saved unless you explicitly remember a preference.',
       ),
     );
+    expect(source, contains('routine.ephemeralNotice'));
   });
 
   test('crisis detection remains active before planning', () {

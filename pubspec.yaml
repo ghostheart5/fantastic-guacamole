@@ -103,7 +103,20 @@ flutter:
     - assets/audio/action_tick.wav
     - assets/audio/signal_ping.wav
     - assets/audio/milestone_lift.wav
-    - assets/backgrounds/
+    - assets/backgrounds/activity_archive_v1.jpg
+    - assets/backgrounds/arrival_threshold_v1.jpg
+    - assets/backgrounds/creator_intent_field_v1.jpg
+    - assets/backgrounds/first_signal_activation_v1.jpg
+    - assets/backgrounds/home_daily_orbit_v1.jpg
+    - assets/backgrounds/identity_constellation_v1.jpg
+    - assets/backgrounds/progression_ascension_v1.jpg
+    - assets/backgrounds/reflection_pool_v1.jpg
+    - assets/backgrounds/settings_control_plane_v1.jpg
+    - assets/backgrounds/temporal_atmosphere_calm_v1.jpg
+    - assets/backgrounds/temporal_atmosphere_plan_v1.jpg
+    - assets/backgrounds/temporal_atmosphere_recovery_v1.jpg
+    - assets/backgrounds/timeline_threads_v1.jpg
+    - assets/backgrounds/trajectory_fork_v1.jpg
     - assets/data/creator_seed.json
     - assets/data/si_seed.json
     - assets/data/tasks.json
@@ -136,6 +149,8 @@ flutter:
     - assets/legal/privacy_policy.txt
     - assets/legal/terms_of_service.html
     - assets/legal/terms_of_service.txt
+    - assets/legal/support.txt
+    - assets/legal/delete_account.txt
   fonts:
     - family: Inter
       fonts:

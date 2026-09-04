@@ -326,7 +326,7 @@ class _PersonContextSection extends ConsumerWidget {
     StackTrace stackTrace,
   ) {
     Logger.errorCode(
-      code: 'settings.person_context_action_failed',
+      code: AppDiagnosticCode.settingsPersonContextActionFailed,
       debugMessage: 'A Person Context action failed.',
       exception: error,
       stackTrace: stackTrace,

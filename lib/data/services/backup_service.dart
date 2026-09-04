@@ -1454,6 +1454,7 @@ class BackupService {
     for (final String key in <String>[
       'description',
       'occurrenceKey',
+      'recurrenceSeriesId',
       'goalId',
     ]) {
       final Object? value = task[key];

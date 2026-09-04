@@ -207,6 +207,18 @@ abstract final class AccountDataRegistry {
   static const String pendingPurchaseOwnerSecureKeyPrefix =
       'paywall_pending_purchase_owner_v1.';
 
+  /// Reminder choices and the scheduler bookkeeping they control belong to
+  /// the authenticated account, never to the device as a whole.
+  static const Set<String> reminderPreferenceKeys = <String>{
+    'reflection_reminder_enabled',
+    'reflection_reminder_time',
+    'goal_reminders_enabled',
+    'habit_reminders_enabled',
+    'daily_planning_reminder_enabled',
+    'daily_planning_reminder_time',
+    'scheduled_goal_reminder_ids',
+  };
+
   static const Set<String> legacyAccountHiveBoxes = <String>{
     'tasks_box',
     'goals_box',
@@ -297,12 +309,7 @@ abstract final class AccountDataRegistry {
     'draft_task_title',
     'ai_credit_wallet',
     'cloud_sync_enabled_v1',
-    'reflection_reminder_enabled',
-    'reflection_reminder_time',
-    'goal_reminders_enabled',
-    'habit_reminders_enabled',
-    'daily_planning_reminder_enabled',
-    'daily_planning_reminder_time',
+    ...reminderPreferenceKeys,
     'paywall_auto_restore_prompted_v1',
     'paywall_subscription_state_v1',
     'settings',
@@ -472,10 +479,14 @@ abstract final class AccountDataRegistry {
       'chronospark.trajectory.forecast_ledger.v1.$namespace',
       'chronospark.operating.history.v1.$namespace',
       'chronospark.operating.ack.v1.$namespace',
+      'chronospark.si_console.thread.v1.$namespace',
       'onboarding_profile_complete_v1.$namespace',
       'assistant_beta_opt_in_v1.$namespaceDigest',
+      ...reminderPreferenceKeys.map((String key) => '$key.$namespace'),
       '$telemetryConsentKey.analytics',
       '$telemetryConsentKey.crash_reporting',
+      '$telemetryConsentKey.schema_version',
+      '$telemetryConsentKey.updated_at_utc',
     };
   }
 
@@ -483,6 +494,7 @@ abstract final class AccountDataRegistry {
     final String namespace = accountNamespace(accountId);
     return <String>{
       'adaptive_guidance_v3.$namespace.',
+      'chronospark.si_console.thread.v1.$namespace.corrupt.',
       'chronospark.trajectory.forecast_ledger.v1.$namespace.corrupt.',
       'chronospark.operating.history.v1.$namespace.corrupt.',
     };

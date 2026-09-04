@@ -100,8 +100,12 @@ class HabitOccurrenceCoordinator {
         }
       }
       if (existing != null) {
+        final bool sameOutcome = existing.outcome == outcome;
+        if (sameOutcome) {
+          await _ensureLearningOutcome(existing);
+        }
         return HabitOccurrenceResult(
-          mutation: existing.outcome == outcome
+          mutation: sameOutcome
               ? HabitOccurrenceMutation.idempotent
               : HabitOccurrenceMutation.conflict,
           occurrence: existing,
@@ -109,25 +113,7 @@ class HabitOccurrenceCoordinator {
       }
 
       await occurrenceRepository.save(candidate);
-      if (!await _learningPaused()) {
-        await outcomeRepository.record(
-          DecisionOutcomeEntity(
-            decisionId: 'habit:$normalizedId:$occurrenceKey',
-            kind: outcome == HabitOccurrenceOutcome.completed
-                ? DecisionOutcomeKind.completed
-                : DecisionOutcomeKind.skipped,
-            surface: 'daily-rhythm',
-            situation: 'daily rhythm occurrence',
-            recordedAt: now.toUtc(),
-            modelVersion: 'domain-occurrence-v1',
-            recommendationConfidence: 1,
-            subjectId: normalizedId,
-            detail: outcome.name,
-            completionResult: outcome.name,
-            recommendationHelped: outcome == HabitOccurrenceOutcome.completed,
-          ),
-        );
-      }
+      await _ensureLearningOutcome(candidate);
       return HabitOccurrenceResult(
         mutation: HabitOccurrenceMutation.applied,
         occurrence: candidate,
@@ -135,6 +121,33 @@ class HabitOccurrenceCoordinator {
     });
     _tail = operation.then<void>((_) {}).catchError((Object _) {});
     return operation;
+  }
+
+  Future<void> _ensureLearningOutcome(HabitOccurrenceEntity occurrence) async {
+    if (await _learningPaused()) return;
+    final DecisionOutcomeEntity candidate = DecisionOutcomeEntity(
+      decisionId: 'habit:${occurrence.habitId}:${occurrence.occurrenceKey}',
+      kind: occurrence.outcome == HabitOccurrenceOutcome.completed
+          ? DecisionOutcomeKind.completed
+          : DecisionOutcomeKind.skipped,
+      surface: 'daily-rhythm',
+      situation: 'daily rhythm occurrence',
+      recordedAt: occurrence.recordedAt.toUtc(),
+      modelVersion: 'domain-occurrence-v1',
+      recommendationConfidence: 1,
+      subjectId: occurrence.habitId,
+      detail: occurrence.outcome.name,
+      completionResult: occurrence.outcome.name,
+      recommendationHelped:
+          occurrence.outcome == HabitOccurrenceOutcome.completed,
+    );
+    final List<DecisionOutcomeEntity> recorded = await outcomeRepository.load();
+    if (recorded.any(
+      (DecisionOutcomeEntity value) => value.id == candidate.id,
+    )) {
+      return;
+    }
+    await outcomeRepository.record(candidate);
   }
 
   static String _occurrenceKey(HabitCadence cadence, DateTime timestamp) {

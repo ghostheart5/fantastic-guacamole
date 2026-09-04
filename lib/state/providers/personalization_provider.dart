@@ -129,8 +129,8 @@ class PersonalizationProfileController
           stackTrace: stackTrace,
         );
       } on Object {
-        Logger.recordDiagnosticCode(
-          code: 'storage.personalization_profile_load_failed',
+        Logger.recordDiagnostic(
+          code: AppDiagnosticCode.storagePersonalizationProfileLoadFailed,
           stackTrace: stackTrace,
         );
       }
@@ -199,8 +199,8 @@ class ObservedPlanningPatternsController
           stackTrace: stackTrace,
         );
       } on Object {
-        Logger.recordDiagnosticCode(
-          code: 'storage.planning_patterns_load_failed',
+        Logger.recordDiagnostic(
+          code: AppDiagnosticCode.storagePlanningPatternsLoadFailed,
           stackTrace: stackTrace,
         );
       }

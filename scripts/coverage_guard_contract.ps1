@@ -150,8 +150,17 @@ function Invoke-ContractCase {
     '-MinOverallPercent', '0'
   )
 
-  $output = & $powerShellCommand @arguments 2>&1
-  $exitCode = $LASTEXITCODE
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    # Several contract cases intentionally launch a failing child process.
+    # Capture that stderr as assertion input instead of letting Windows
+    # PowerShell promote it to a terminating NativeCommandError.
+    $output = & $powerShellCommand @arguments 2>&1
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
   $outputText = $output -join "`n"
   if ($exitCode -ne $ExpectedExitCode) {
     $failures.Add(

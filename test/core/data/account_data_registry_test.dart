@@ -115,6 +115,21 @@ void main() {
       cleanupPlan.preferenceKeyPrefixes,
       contains('adaptive_guidance_v3.$namespace.'),
     );
+    expect(
+      cleanupPlan.preferenceKeyPrefixes,
+      contains('chronospark.si_console.thread.v1.$namespace.corrupt.'),
+    );
+    expect(
+      cleanupPlan.preferenceExactKeys,
+      contains('chronospark.si_console.thread.v1.$namespace'),
+    );
+    for (final String key in AccountDataRegistry.reminderPreferenceKeys) {
+      expect(
+        cleanupPlan.preferenceExactKeys,
+        contains('$key.$namespace'),
+        reason: key,
+      );
+    }
     expect(cleanupPlan.preferenceExactKeys, contains('notes_v1.$namespace'));
     expect(cleanupPlan.hiveBoxes, isNot(contains('tasks_box')));
     expect(cleanupPlan.secureExactKeys, isNot(contains('identity_id')));
@@ -130,6 +145,8 @@ void main() {
       containsAll(<String>{
         '$telemetryConsentKey.analytics',
         '$telemetryConsentKey.crash_reporting',
+        '$telemetryConsentKey.schema_version',
+        '$telemetryConsentKey.updated_at_utc',
       }),
     );
   });

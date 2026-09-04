@@ -64,21 +64,40 @@ void main() {
     final String contract = File(
       'lib/domain/entities/si_v2_contract.dart',
     ).readAsStringSync();
+    final String localizations = File(
+      'lib/l10n/chronospark_localizations.dart',
+    ).readAsStringSync();
 
-    for (final String section in <String>[
-      'DIRECT ANSWER',
-      'OBSERVED FACTS',
-      'DETERMINISTIC CALCULATIONS',
-      'INFERENCES',
-      'MISSING OR CONFLICTING INFORMATION',
-      'SCENARIO ASSUMPTIONS',
-      'RECOMMENDATION',
-      'CONFIDENCE ANATOMY',
-      'EVIDENCE LINKS',
-    ]) {
-      expect(screen, contains(section), reason: section);
+    for (final ({String property, String englishLabel}) section
+        in <({String property, String englishLabel})>[
+          (property: 'directAnswer', englishLabel: 'DIRECT ANSWER'),
+          (property: 'observedFacts', englishLabel: 'OBSERVED FACTS'),
+          (
+            property: 'deterministicCalculations',
+            englishLabel: 'DETERMINISTIC CALCULATIONS',
+          ),
+          (property: 'inferences', englishLabel: 'INFERENCES'),
+          (
+            property: 'missingOrConflicting',
+            englishLabel: 'MISSING OR CONFLICTING INFORMATION',
+          ),
+          (
+            property: 'scenarioAssumptions',
+            englishLabel: 'SCENARIO ASSUMPTIONS',
+          ),
+          (property: 'recommendation', englishLabel: 'RECOMMENDATION'),
+          (property: 'confidenceAnatomy', englishLabel: 'CONFIDENCE ANATOMY'),
+          (property: 'evidenceLinks', englishLabel: 'EVIDENCE LINKS'),
+        ]) {
+      expect(screen, contains('copy.${section.property}'));
+      expect(
+        localizations,
+        contains("'${section.englishLabel}'"),
+        reason: section.englishLabel,
+      );
     }
-    expect(screen, contains('SI V2 QUERY BUILDER'));
+    expect(screen, contains('copy.queryBuilder'));
+    expect(localizations, contains("'SI V2 QUERY BUILDER'"));
     expect(screen, contains('SIV2Intent.values'));
     expect(screen, contains('SIV2Source.values'));
     expect(screen, contains('SIV2TimeRange.values'));

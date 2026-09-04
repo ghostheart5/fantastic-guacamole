@@ -126,8 +126,8 @@ class GlobalAggregationService {
       await _preferences.init();
       return _preferences.load('cloud_sync_enabled_v1') == 'true';
     } on Object catch (_, stackTrace) {
-      Logger.recordDiagnosticCode(
-        code: 'global_aggregation.consent_scope_unavailable',
+      Logger.recordDiagnostic(
+        code: AppDiagnosticCode.globalAggregationConsentScopeUnavailable,
         stackTrace: stackTrace,
       );
       return false;

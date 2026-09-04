@@ -38,7 +38,7 @@ class ErrorBoundary extends StatefulWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
           Logger.errorCode(
-            code: 'error_boundary.global_error',
+            code: AppDiagnosticCode.globalErrorBoundary,
             debugMessage: 'Global error captured.',
             exception: error,
             stackTrace: effectiveStack,

@@ -67,7 +67,7 @@ class _MemoryGovernanceSection extends ConsumerWidget {
       ).showSnackBar(const SnackBar(content: Text('Preference corrected.')));
     } on Object catch (error, stackTrace) {
       Logger.errorCode(
-        code: 'settings.memory_correction_failed',
+        code: AppDiagnosticCode.settingsMemoryCorrectionFailed,
         debugMessage: 'Memory correction failed.',
         exception: error,
         stackTrace: stackTrace,

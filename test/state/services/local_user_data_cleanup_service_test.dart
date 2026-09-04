@@ -11,6 +11,8 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/services/local_user_data_cleanup_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -315,51 +317,107 @@ void main() {
     expect(sensitiveB.load('timeline_events_v1'), isNull);
   });
 
+  test('markerless legacy cleanup cannot select a known account', () async {
+    final _RecordingHiveStore hive = _RecordingHiveStore();
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final _MemoryPreferences preferences = _MemoryPreferences();
+    await secureStore.writeString(
+      AccountDataRegistry.accountBoundaryOwnerKey,
+      'account-a',
+    );
+    await preferences.save('notes_v1', 'private');
+
+    final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+      hive: hive,
+      secureStore: secureStore,
+      preferences: preferences,
+      sensitivePreferences: _MemoryPreferences(),
+      notifications: NotificationScheduler(),
+    );
+
+    await expectLater(service.clearUnownedLegacyData(), throwsStateError);
+
+    expect(hive.clearedBoxes, isEmpty);
+    expect(preferences.load('notes_v1'), 'private');
+    expect(
+      await secureStore.readString(AccountDataRegistry.accountBoundaryOwnerKey),
+      'account-a',
+    );
+  });
+
+  test('markerless legacy cleanup clears only the legacy inventory', () async {
+    final _RecordingHiveStore hive = _RecordingHiveStore();
+    final SecureStore secureStore = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final _MemoryPreferences preferences = _MemoryPreferences();
+    await secureStore.writeString('identity_id', 'legacy');
+    await preferences.save('notes_v1', 'legacy');
+
+    final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+      hive: hive,
+      secureStore: secureStore,
+      preferences: preferences,
+      sensitivePreferences: _MemoryPreferences(),
+      notifications: NotificationScheduler(),
+    );
+
+    await service.clearUnownedLegacyData();
+
+    expect(hive.clearedBoxes, contains(HiveBoxes.tasks));
+    expect(await secureStore.readString('identity_id'), isNull);
+    expect(preferences.load('notes_v1'), isNull);
+  });
+
   test(
-    'uses the stored owner marker when cleanup omits an account ID',
+    'sign-out cancellation retains repository data and scopes legacy schedules to their proven owner',
     () async {
-      final _RecordingHiveStore hive = _RecordingHiveStore();
       final SecureStore secureStore = SecureStore(
         backend: InMemorySecureStoreBackend(),
       );
-      final _MemoryPreferences preferences = _MemoryPreferences();
-      final String namespace = AccountDataRegistry.accountNamespace(
-        'account-a',
-      );
+      final _RecordingScheduler scheduler = _RecordingScheduler();
       await secureStore.writeString(
         AccountDataRegistry.accountBoundaryOwnerKey,
         'account-a',
       );
+      final String storageKey = AccountDataRegistry.notificationSecureKeyFor(
+        'account-a',
+      );
+      await secureStore.writeString(storageKey, '[]');
       await secureStore.writeString(
-        AccountDataRegistry.notificationSecureKeyFor('account-a'),
+        AccountDataRegistry.legacyNotificationSecureKey,
         '[]',
       );
-      await preferences.save(
-        'chronospark.operating.history.v1.$namespace',
-        'private',
-      );
-
       final LocalUserDataCleanupService service = LocalUserDataCleanupService(
-        hive: hive,
+        hive: _RecordingHiveStore(),
         secureStore: secureStore,
-        preferences: preferences,
+        preferences: _MemoryPreferences(),
         sensitivePreferences: _MemoryPreferences(),
-        notifications: NotificationScheduler(),
+        notifications: scheduler,
       );
 
-      await service.clearForAccountSwitch();
+      await service.cancelScheduledNotificationsForAccount('account-a');
 
-      expect(hive.clearedBoxes, contains('task_occurrences_v2.$namespace'));
+      final String accountScope = AccountDataRegistry.accountDigest(
+        'account-a',
+      );
       expect(
-        preferences.load('chronospark.operating.history.v1.$namespace'),
-        isNull,
+        scheduler.cancelled,
+        containsAll(<({String id, String? accountScope})>{
+          (id: 'daily_planning_reminder', accountScope: accountScope),
+          (id: 'daily_planning_reminder', accountScope: null),
+        }),
       );
+      expect(await secureStore.readString(storageKey), '[]');
       expect(
         await secureStore.readString(
-          AccountDataRegistry.accountBoundaryOwnerKey,
+          AccountDataRegistry.legacyNotificationSecureKey,
         ),
-        isNull,
+        '[]',
       );
+      expect(scheduler.clearedTappedPayload, isTrue);
     },
   );
 
@@ -545,4 +603,43 @@ class _RecordingHiveStore implements HiveStore {
 
   @override
   Future<Box<T>> openBox<T>(String key) => throw UnimplementedError();
+}
+
+final class _RecordingScheduler implements NotificationSchedulerPort {
+  final Set<({String id, String? accountScope})> cancelled =
+      <({String id, String? accountScope})>{};
+  bool clearedTappedPayload = false;
+
+  @override
+  Future<bool> cancel(String id, {String? accountScope}) async {
+    cancelled.add((id: id, accountScope: accountScope));
+    return true;
+  }
+
+  @override
+  Future<bool> cancelAll() async => true;
+
+  @override
+  void clearTappedPayload() {
+    clearedTappedPayload = true;
+  }
+
+  @override
+  Future<bool> requestPermissions() async => true;
+
+  @override
+  Future<bool> schedule(
+    NotificationEntity notification, {
+    String? accountScope,
+  }) async => true;
+
+  @override
+  Future<bool> scheduleDailyAt({
+    required String id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+    String? accountScope,
+  }) async => true;
 }

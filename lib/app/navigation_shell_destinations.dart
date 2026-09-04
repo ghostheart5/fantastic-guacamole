@@ -10,12 +10,29 @@ extension _NavigationShellDestinations on _NavigationShellState {
       AppRouteRegistry.routeForView(view).navigationGroup ==
       AppNavigationGroup.primary;
 
-  void _restoreDefaultLaunchTab() {
+  Future<void> _restoreDefaultLaunchTab() async {
+    final AppRecoveryState? recoveryState = await ref
+        .read(appRecoveryProvider)
+        .loadState();
+    if (!mounted) {
+      return;
+    }
+    final String? savedViewName = recoveryState?.lastPrimaryViewName;
+    final AppView? recoveredView =
+        AppRouteRegistry.viewForName(savedViewName) ??
+        AppRouteRegistry.viewForPath(savedViewName);
+    if (recoveredView != null && _isPrimaryView(recoveredView)) {
+      _syncAppFlowToRouteView(recoveredView);
+      _goToView(recoveredView);
+      return;
+    }
+
     final int? restoredTab = _preferenceService.getLastOpenedTab();
     final AppView restoredView =
         restoredTab == null || restoredTab < 0 || restoredTab > 3
         ? AppView.nexus
         : _viewForTabIndex(restoredTab);
+    _syncAppFlowToRouteView(restoredView);
     _goToView(restoredView);
   }
 

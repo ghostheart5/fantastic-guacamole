@@ -19,7 +19,9 @@ final nexusDecisionProvider = Provider<NexusDecisionModel>((Ref ref) {
   final DailyDecisionIntelligence dailyIntelligence = ref.watch(
     dailyDecisionIntelligenceProvider,
   );
-  final bool isOnline = ref.watch(isOnlineProvider);
+  final NetworkInterfaceAvailability interfaceAvailability = ref.watch(
+    networkInterfaceAvailabilityProvider,
+  );
   final AsyncValue<int> pendingSyncAsync = ref.watch(offlineQueueCountProvider);
   final String? syncError = ref.watch(syncErrorMessageProvider);
 
@@ -44,8 +46,11 @@ final nexusDecisionProvider = Provider<NexusDecisionModel>((Ref ref) {
     status = NexusDecisionStatus.error;
   } else if (decisionLoading) {
     status = NexusDecisionStatus.loading;
-  } else if (!isOnline) {
+  } else if (interfaceAvailability ==
+      NetworkInterfaceAvailability.unavailable) {
     status = NexusDecisionStatus.offline;
+  } else if (interfaceAvailability == NetworkInterfaceAvailability.unknown) {
+    status = NexusDecisionStatus.partial;
   } else if (failures.isNotEmpty) {
     status = NexusDecisionStatus.partial;
   } else {
@@ -68,13 +73,15 @@ final nexusDecisionProvider = Provider<NexusDecisionModel>((Ref ref) {
     NexusDecisionStatus.ready =>
       'Your planning summary is available on this device.',
     NexusDecisionStatus.partial =>
-      failures.isEmpty
+      interfaceAvailability == NetworkInterfaceAvailability.unknown
+          ? 'Using local evidence while network interface availability is checked.'
+          : failures.isEmpty
           ? 'The primary decision is ready while supporting signals finish loading.'
           : failures.join(' '),
     NexusDecisionStatus.offline =>
       pendingSyncCount > 0
-          ? 'Using local evidence. $pendingSyncCount change${pendingSyncCount == 1 ? '' : 's'} will synchronize later.'
-          : 'Using local evidence. Network-backed freshness is unavailable.',
+          ? 'No network interface is available. Using local evidence; $pendingSyncCount change${pendingSyncCount == 1 ? '' : 's'} will synchronize later.'
+          : 'No network interface is available. Using local evidence without network-backed freshness.',
     NexusDecisionStatus.error =>
       failures.isEmpty
           ? 'Nexus could not build a decision.'
@@ -83,7 +90,8 @@ final nexusDecisionProvider = Provider<NexusDecisionModel>((Ref ref) {
 
   return NexusDecisionModel(
     status: status,
-    isOnline: isOnline,
+    hasAvailableNetworkInterface:
+        interfaceAvailability == NetworkInterfaceAvailability.available,
     pendingSyncCount: pendingSyncCount,
     intelligence: intelligence,
     topRisk: topRisk,

@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/ui/widgets/typing_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -117,9 +118,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   static const String _personContextChangedReason =
       'person_context_revision_changed';
-  static const String _personContextChangedMessage =
-      'Your Person Context changed, so previous SI evidence responses were '
-      'cleared. Ask again to use the current evidence.';
 
   /// Captured in [initState] because `ref` cannot be read from [dispose] —
   /// the element is already deactivated by then and Riverpod throws.
@@ -168,8 +166,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             (_Msg message) => message.rationale == _personContextChangedReason,
           )) {
         _messages.add(
-          const _Msg(
-            text: _personContextChangedMessage,
+          _Msg(
+            text: ChronoSparkLocalizations.of(
+              context,
+            ).siRoutine.personContextChanged,
             isUser: false,
             emotion: 'cautious',
             rationale: _personContextChangedReason,
@@ -325,12 +325,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     if (!mounted) {
       return;
     }
-    const List<String> controls = <String>[
-      'Type a prompt in the input field, then tap send.',
-      'Use Summary to hear recent assistant responses.',
-      'Use Speak on assistant bubbles to read aloud.',
-      'Use Back to return to Nexus.',
-    ];
+    final SIRoutineCopy copy = ChronoSparkLocalizations.of(context).siRoutine;
+    final List<String> controls = copy.accessibilityControls;
     await showDialog<void>(
       context: context,
       barrierColor: Colors.black87,
@@ -339,45 +335,35 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           backgroundColor: const Color(0xFF0C1420),
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          child: const Padding(
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 20),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Accessibility Guide',
-                  style: TextStyle(
+                  copy.accessibilityTitle,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
-                  'Use these controls for readable and spoken guidance.',
-                  style: TextStyle(
+                  copy.accessibilityBody,
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
                     height: 1.5,
                   ),
                 ),
-                SizedBox(height: 12),
-                Text(
-                  '1. Type a prompt, then send.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                Text(
-                  '2. Summary reads recent assistant responses.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                Text(
-                  '3. Speak reads one response aloud.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                Text(
-                  '4. Back returns to Nexus.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                const SizedBox(height: 12),
+                ...copy.accessibilitySteps.map(
+                  (String step) => Text(
+                    step,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
                 ),
               ],
             ),
@@ -386,7 +372,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       },
     );
     unawaited(
-      _speakAccessibilityHint(surface: 'SI Console', controls: controls),
+      _speakAccessibilityHint(
+        surface: copy.accessibilitySurface,
+        controls: controls,
+      ),
     );
   }
 
@@ -519,14 +508,14 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   }
 
   bool _handleLocalShortcut(String text) {
+    final SIRoutineCopy copy = ChronoSparkLocalizations.of(context).siRoutine;
     final SIConsoleShortcutInvocation invocation =
         SIConsoleShortcutRegistry.parse(text);
     if (invocation.kind == SIShortcutParseKind.notShortcut) return false;
     if (invocation.kind == SIShortcutParseKind.unknown) {
       _addShortcutFallback(
         query: text,
-        response:
-            'Unknown shortcut "${invocation.token}". No part of the request was sent or discarded. Use /help to list the available shortcuts.',
+        response: copy.unknownShortcut(invocation.token),
         reason: 'unknown_shortcut:${invocation.token.toLowerCase()}',
       );
       return true;
@@ -541,8 +530,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     if (invocation.argumentsRejected) {
       _addShortcutFallback(
         query: text,
-        response:
-            '${definition.shortcut} does not accept extra text. No argument was ignored or sent. Use ${definition.shortcut} alone. Received: "${invocation.arguments}"',
+        response: copy.rejectedArguments(
+          shortcut: definition.shortcut,
+          arguments: invocation.arguments,
+        ),
         reason: 'shortcut_arguments_rejected:${definition.id}',
       );
       return true;
@@ -554,18 +545,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           query: text,
           definition: definition,
           response:
-              '${SIConsoleShortcutRegistry.buildHelp(filter: invocation.arguments)}\n\n'
-              'Rules:\n'
-              '- Task creation is Creator-only. Use Creator to create tasks.\n'
-              '- SI V2 has read-only evidence capability and cannot mutate domain data.\n'
-              '- The visible query builder is primary; shortcuts are aliases.\n\n'
-              'High-signal SI V2 prompts:\n'
-              '- "What needs attention?"\n'
-              '- "Why is this goal at risk?"\n'
-              '- "Compare my two nearest goals."\n'
-              '- "What happens if I defer this task?"\n'
-              '- "Which commitments conflict?"\n'
-              '- "What would change your recommendation?"',
+              '${copy.shortcutHelp(filter: invocation.arguments)}\n\n'
+              '${copy.shortcutRules}',
         );
         return true;
       case SIShortcutRoute.status:
@@ -578,18 +559,16 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             .map((SIConsoleShortcutDefinition item) => item.shortcut)
             .join(', ');
         final String status = (snapshot == null)
-            ? 'SI STATUS\n\n'
-                  'Local data sources are still loading. Retry /status in a second.\n'
-                  'No domain data was changed.'
-            : 'SI STATUS\n\n'
-                  'Read-only Evidence Lens:\n'
-                  '- tasks: ${snapshot.tasks.length}\n'
-                  '- goals: ${snapshot.goals.length}\n'
-                  '- milestones: ${snapshot.milestones.length}\n'
-                  '- Timeline: ${snapshot.timeline.length}\n'
-                  '- unavailable sources: ${snapshot.unavailableSources.length}\n'
-                  '- revision: ${snapshot.revision.substring(0, 16)}\n\n'
-                  'Available evidence aliases: $surfaceShortcuts.';
+            ? copy.statusLoading()
+            : copy.statusReady(
+                tasks: snapshot.tasks.length,
+                goals: snapshot.goals.length,
+                milestones: snapshot.milestones.length,
+                timeline: snapshot.timeline.length,
+                unavailableSources: snapshot.unavailableSources.length,
+                revision: snapshot.revision.substring(0, 16),
+                aliases: surfaceShortcuts,
+              );
 
         _addShortcutResponse(
           query: text,
@@ -671,8 +650,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           .read(siConsoleQueryControllerProvider)
           .localFallbackResponse(
             query: text,
-            response:
-                'SI V2 could not validate a read-only evidence response. Retry, broaden the Evidence Lens, or select tasks, goals, milestones, or Timeline. Nothing was changed.',
+            response: ChronoSparkLocalizations.of(
+              context,
+            ).siRoutine.responseValidationFailed,
             reason: 'si_v2_contract_or_evidence_failure',
             emotion: 'cautious',
           );
@@ -746,6 +726,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   Widget build(BuildContext context) {
+    final SIRoutineCopy routine = ChronoSparkLocalizations.of(
+      context,
+    ).siRoutine;
     ref.listen<String>(siV2PersonContextRevisionProvider, (
       String? previous,
       String next,
@@ -800,7 +783,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                           ref
                               .read(voiceServiceProvider)
                               .speakSummary(
-                                title: 'SI console voice summary',
+                                title: routine.voiceSummaryTitle,
                                 points: points,
                               ),
                         );

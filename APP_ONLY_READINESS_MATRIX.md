@@ -23,6 +23,144 @@ public product claim.
 | Gate 1 evidence state | Exact-source CI run `33680196098` passed; PR #90 required checks passed and the branch was merged into `origin/main`. |
 | Priority 2/3 working-tree base | `bc414f2dd851bba18570ec12e27d830b62fd10fb`; local uncommitted host evidence only |
 
+## Deferred follow-up note
+
+These follow-up items are intentionally divided by who can complete them.
+Remote-safe work is limited to repository source, documentation, and local or
+CI verification. Human/live work requires physical access, production or
+provider access, qualified review, human participation, or a product/legal
+decision.
+
+### Remote-safe source and test repairs
+
+Checked items below were implemented and focused-verified in the local dirty
+working tree based on `1f1b93838221e5a00a9315ce085f37f254af2920`. They are
+not exact-commit CI, deployment, store, or production-service evidence.
+
+- [x] Repair **Clear this device** so it requires the current authenticated
+  account ID, distinguishes legacy-owner deletion, closes the storage gate,
+  drains mutations, clears only the intended account, invalidates every
+  account-owned provider, and reopens only the unchanged account generation.
+- [x] Cancel the departing account's scheduled local notifications before
+  sign-out completes, without deleting the account's intentionally preserved
+  repository data.
+- [x] Replace recursively growing recurring-task successor IDs with bounded,
+  deterministic IDs; migrate existing nested IDs and prove long recurrence
+  chains survive backup, sync, and restore validation.
+- [x] Move goal, habit, daily-planning, reflection, and tracked reminder
+  preferences to account-scoped storage with legacy-owner-only migration.
+- [x] Register and delete account-scoped SI Console corruption backups during
+  local clearing and account deletion.
+- [x] Preserve or quarantine each malformed offline-queue member instead of
+  silently dropping it when the remaining queue is rewritten.
+- [x] Make Daily Rhythm occurrence and learning-outcome persistence recoverable
+  through an outbox, pending-side-effect marker, or idempotent reconciliation.
+- [x] Retain a privacy-safe pending account-deletion receipt and expose the
+  existing capability-based status and recovery path in the app.
+- [x] Restore green source gates: repair the two architecture violations and
+  actionlint findings, correct the Supabase contract runner's false nonzero
+  result, and update only the stale billing-copy and installation-scoped bridge
+  tests to match their real contracts.
+- [x] Investigate the small Login golden drift. The compact and regular layouts
+  retain the same structure; the remaining 0.57% and 0.47% pixel differences
+  are isolated to localized placeholder/divider rendering and remain queued for
+  the explicit human visual decision below. No reviewed baseline was replaced.
+- [x] Convert tap-only Smart Planner, SI Console, Settings, and Creator controls
+  to keyboard-operable controls and add focused Enter, Space, focus-order, and
+  disabled-state tests.
+- [x] Route routine Smart Planner and SI Console responses, shortcuts, guides,
+  fallbacks, and voice summaries through locale-aware typed copy. Keep final
+  Spanish-language approval in the human list.
+- [x] Establish one canonical structured source for privacy, terms, support,
+  and deletion pages; generate and parity-test derivatives, remove contradictory
+  source ownership, and make complete bundled legal text readable offline
+  without changing unapproved policy meaning.
+- [x] Make telemetry consent versioned, timestamped, in-memory gated, and
+  rollback-safe before any collection capability can be enabled.
+- [x] Separate network-interface availability from verified service reachability;
+  debounce retry behavior and remove or complete the internally inconsistent
+  app-recovery path.
+- [x] Add privacy-safe typed diagnostic codes and truthful incident-response
+  runbooks, correct unsupported public AI/platform claims, and replace broad
+  asset-directory inclusion with the explicit assets actually used.
+- [x] For every repair, run the smallest focused test first and do not
+  repeatedly rerun the full suite.
+- [ ] After the human Login-golden decision and a commit, run one complete CI
+  pass and preserve exact-SHA evidence.
+
+Remote-safe validation recorded on 2026-09-04:
+
+- One complete local source run executed 2,339 tests: 2,328 passed, nine
+  remote-safe failures were repaired and then passed as focused reruns, zero
+  tests were skipped, and the two Login golden comparisons remain the human
+  visual hold described below. The complete suite was not rerun.
+- The focused policy coverage repair raised domain-policy coverage from 98.6%
+  to 99.1%; the ratchet passes at 71.7% overall. The original full-run LCOV was
+  preserved before merging the single focused coverage result.
+- All eight emulator integration tests passed with zero skips. Flutter static
+  analysis, the 730-file architecture check, dependency audit, release guard,
+  version consistency, workflow checks, Maestro contracts, Supabase migration
+  replay, Edge Function checks, legal parity, and secret guards passed.
+- Exact-commit CI remains open because this evidence belongs to an uncommitted,
+  pre-existing dirty working tree and the two reviewed Login golden decisions
+  are still human-owned.
+
+### Human, physical-device, and live-service to-do
+
+Carried-forward side notes: the unfinished Priority 6 exit gate, deferred
+Priority 9, remaining Google Play app section, and website/domain work are
+included below as later human or live-service work. None is complete.
+
+- [ ] Reconcile the final release SHA with the live Supabase environment:
+  deployed migrations and Functions, RLS and grants, Auth security and redirect
+  settings, Storage restrictions, deletion and reconciliation queues,
+  retention, backups, and a timed restore drill. Capture privacy-safe readback
+  without exposing production data.
+- [ ] Replace the temporary Priority 8 emulator substitution with exact-build
+  physical Android evidence covering TalkBack, 200% text, keyboard order,
+  native permissions and denial recovery, offline and captive-portal behavior,
+  process death and restart, crisis call/text actions, final screenshots, and
+  the accepted performance budget.
+- [ ] **Side note - Priority 6:** Finish the exit gate with five moderated
+  real-participant usability sessions and record the required comprehension,
+  optional-context, timing, and zero-rescue results.
+- [ ] **Side note - Priority 9:** Complete the deferred human and
+  qualified-review gate, including Spanish translation and distress-language
+  comprehension,
+  accessibility-technology behavior, deletion and support journeys, visual
+  polish, mental-health-safety review, and claim-to-observed-behavior approval.
+- [ ] Review the Login compact and regular golden differences and explicitly
+  approve corrected visuals or replacement baselines before they are committed.
+- [ ] Validate live Firebase controls with authorized credentials: App Check
+  and API restrictions, consent actually controlling Analytics and Crashlytics,
+  event ingestion and grouping, Cloud Messaging and remote configuration, and
+  alert delivery in a release-like build.
+- [ ] **Side note - Google Play app section:** Complete the remaining Google
+  Play Console and test-account evidence: target-age declarations, Data Safety,
+  public policy and deletion
+  URLs, signed-build provenance, purchase and restore behavior,
+  acknowledgement, refunds, RTDN, and entitlement authority. Independently
+  verify that every required field is saved and accepted before any separately
+  authorized publication or rollout.
+- [ ] Resolve the product and legal decisions that cannot be authored safely by
+  engineering alone: target-age policy, assent and acceptance records, legal
+  entity and jurisdiction, liability language, translated legal text, deletion
+  timelines, and current crisis-resource claims. Obtain dated qualified
+  privacy, legal, and safety review.
+- [ ] **Side note - Website/domain:** Choose and configure the ChronoSpark
+  website domain, then verify public HTTPS, hosting, DNS, App Links, deployed
+  legal/support/deletion routes, and
+  support-mailbox delivery and readback.
+- [ ] Before external AI is ever enabled, verify the provider contract and DPA,
+  retention or zero-data-retention settings, production secret handling, live
+  transport, cost/refund containment, content scrubbing, and reconciliation.
+
+Checked remote-safe items do not mark any human or live-service item complete
+and do not authorize a domain purchase, DNS change, deployment, production-data
+access or mutation, credential use, Firebase or Supabase change, signed build,
+external-AI enablement, Play Console submission, publication, rollout, or
+release.
+
 Baseline conclusions apply only to `6118ba6`. Before commit, rows explicitly
 labeled `Gate 1` apply to the reviewed working tree; after commit, they apply to
 the commit carrying this file only when the committed diff matches that review.

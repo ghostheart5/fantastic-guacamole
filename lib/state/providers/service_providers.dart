@@ -62,7 +62,7 @@ final reminderOrchestratorServiceProvider =
     Provider<ReminderOrchestratorService>((Ref ref) {
       final scope = ref.watch(accountStorageScopeProvider);
       return ReminderOrchestratorService(
-        preferences: ref.read(sharedPrefsStoreProvider),
+        preferences: ref.watch(accountSharedPrefsStoreProvider),
         notifications: ref.read(notificationsServiceProvider),
         scheduler: ref.read(notificationSchedulerProvider),
         accountScope: scope.isWritable && scope.rawUserId != null
@@ -109,7 +109,7 @@ final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((
   final scope = ref.watch(accountStorageScopeProvider);
   final scheduler = ref.read(notificationSchedulerProvider);
   return ReflectionReminderService(
-    preferences: ref.read(sharedPrefsStoreProvider),
+    preferences: ref.watch(accountSharedPrefsStoreProvider),
     scheduler: scheduler,
     permissionListenable: scheduler.permissionStatusListenable,
     accountScope: scope.isWritable && scope.rawUserId != null

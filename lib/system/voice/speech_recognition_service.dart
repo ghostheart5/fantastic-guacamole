@@ -59,7 +59,7 @@ class PluginSpeechRecognitionService implements SpeechRecognitionService {
       return false;
     } on PlatformException catch (error, stackTrace) {
       Logger.errorCode(
-        code: 'speech_recognition.initialization_unavailable',
+        code: AppDiagnosticCode.speechRecognitionInitializationUnavailable,
         debugMessage: 'Speech recognition is unavailable.',
         exception: error,
         stackTrace: stackTrace,

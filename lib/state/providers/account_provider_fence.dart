@@ -98,6 +98,8 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(extendedDomainBootstrapProvider);
   ref.invalidate(notesProvider);
   ref.invalidate(notificationProvider);
+  ref.invalidate(reminderOrchestratorServiceProvider);
+  ref.invalidate(reflectionReminderServiceProvider);
   ref.invalidate(behaviorStateProvider);
   ref.invalidate(optimizationConfigProvider);
   ref.invalidate(learningHistoryProvider);

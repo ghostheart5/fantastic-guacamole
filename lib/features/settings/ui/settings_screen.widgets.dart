@@ -379,9 +379,9 @@ class _NeonNavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return SmartPressable(
+      semanticLabel: subtitle == null ? title : '$title. $subtitle',
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: ConstrainedBox(

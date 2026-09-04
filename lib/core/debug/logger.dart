@@ -1,11 +1,56 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/core/utils/helpers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
+
+/// Stable, privacy-safe identifiers for production diagnostic events.
+///
+/// Values are fixed at compile time and must never contain account, request,
+/// device, prompt, or user-authored data. Free-form details remain available
+/// only under the explicit development/verbose logging gate below.
+enum AppDiagnosticCode {
+  loggerError('logger.error'),
+  loggerCategorizedError('logger.categorized_error'),
+  globalErrorBoundary('error_boundary.global_error'),
+  accountLockRecoveryActionFailed('account_lock.recovery_action_failed'),
+  startupFlutterFrameworkError('startup.flutter_framework_error'),
+  startupPlatformDispatcherError('startup.platform_dispatcher_error'),
+  startupUncaughtZoneError('startup.uncaught_zone_error'),
+  startupDiagnosticsContextCaptureFailed(
+    'startup.diagnostics_context_capture_failed',
+  ),
+  plannerPersonContextSaveFailed('planner.person_context_save_failed'),
+  plannerPreferenceSaveFailed('planner.preference_save_failed'),
+  settingsPersonContextActionFailed('settings.person_context_action_failed'),
+  settingsMemoryCorrectionFailed('settings.memory_correction_failed'),
+  voicePlaybackFailed('voice.playback_failed'),
+  voiceInitializationUnavailable('voice.initialization_unavailable'),
+  speechRecognitionInitializationUnavailable(
+    'speech_recognition.initialization_unavailable',
+  ),
+  audioInterruptionInitializationUnavailable(
+    'audio_interruption.initialization_unavailable',
+  ),
+  voicePermissionRequestUnavailable('voice_permission.request_unavailable'),
+  globalAggregationConsentScopeUnavailable(
+    'global_aggregation.consent_scope_unavailable',
+  ),
+  storageLearningStateLoadFailed('storage.learning_state_load_failed'),
+  storagePersonalizationProfileLoadFailed(
+    'storage.personalization_profile_load_failed',
+  ),
+  storagePlanningPatternsLoadFailed('storage.planning_patterns_load_failed'),
+  optimizationComputeFailed('optimization.compute_failed');
+
+  const AppDiagnosticCode(this.wireName);
+
+  final String wireName;
+}
 
 class Logger {
   static bool enabled = true;
@@ -42,7 +87,7 @@ class Logger {
 
   static void error(Object? message, [Object? exception]) {
     errorCode(
-      code: 'logger.error',
+      code: AppDiagnosticCode.loggerError,
       debugMessage: message,
       exception: exception,
       stackTrace: exception != null ? StackTrace.current : null,
@@ -56,7 +101,7 @@ class Logger {
     StackTrace? stackTrace,
   ]) {
     errorCode(
-      code: 'logger.categorized_error',
+      code: AppDiagnosticCode.loggerCategorizedError,
       debugMessage: '[$category] ${safeString(message)}',
       exception: exception,
       stackTrace: stackTrace,
@@ -68,14 +113,14 @@ class Logger {
   /// constant; [debugMessage], [exception], and [stackTrace] are emitted only
   /// when [freeFormOutputEnabled] is true.
   static void errorCode({
-    required String code,
+    required AppDiagnosticCode code,
     Object? debugMessage,
     Object? exception,
     StackTrace? stackTrace,
     bool fatal = false,
     String? debugMarker,
   }) {
-    final String safeCode = _safeCode(code);
+    final String safeCode = _safeCode(code.wireName);
     if (errorOutputEnabled) {
       final String timestamp = _now();
       for (final String line in resolveLocalDiagnosticOutput(
@@ -169,6 +214,18 @@ class Logger {
     );
   }
 
+  static void recordDiagnostic({
+    required AppDiagnosticCode code,
+    StackTrace? stackTrace,
+    bool fatal = false,
+  }) {
+    recordDiagnosticCode(
+      code: code.wireName,
+      stackTrace: stackTrace,
+      fatal: fatal,
+    );
+  }
+
   static Future<T> withMutedErrors<T>(Future<T> Function() action) async {
     final bool previous = errorOutputEnabled;
     errorOutputEnabled = false;
@@ -255,6 +312,7 @@ class Logger {
 
   static bool get _supportsCrashlytics =>
       Env.enableCrashReporting &&
+      TelemetryConsentStore.crashDispatchAllowed &&
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS ||

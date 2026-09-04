@@ -17,25 +17,26 @@ class _PlannerAvailabilityStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     final String message;
     final IconData icon;
     final Color accent;
     if (availability.isLoading) {
-      message = 'Checking Smart Planner access...';
+      message = copy.checkingAccess;
       icon = Icons.sync_rounded;
       accent = AppColors.neonCyan;
     } else if (availability.hasError) {
-      message =
-          'Planner access could not be verified. No guidance request will be sent.';
+      message = copy.accessCheckFailed;
       icon = Icons.error_outline_rounded;
       accent = AppColors.memoryAmber;
     } else if (availability.asData?.value != true) {
-      message =
-          'Smart Planner is not enabled for this account. No guidance request will be sent.';
+      message = copy.accessUnavailable;
       icon = Icons.lock_outline_rounded;
       accent = AppColors.memoryAmber;
     } else {
-      message = 'On-device Smart Planner is ready.';
+      message = copy.onDeviceReady;
       icon = Icons.verified_rounded;
       accent = Colors.greenAccent;
     }
@@ -69,7 +70,7 @@ class _PlannerAvailabilityStatus extends StatelessWidget {
             TextButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Retry access check'),
+              label: Text(copy.retryAccessCheck),
             ),
         ],
       ),
@@ -747,56 +748,53 @@ class _VoiceButtonState extends ConsumerState<_VoiceButton> {
     if (!mounted) return;
     setState(() => _reading = false);
     if (!played) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Audio is unavailable. Check text-to-speech settings and media volume.',
-          ),
-        ),
-      );
+      final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+        context,
+      ).plannerRoutine;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(copy.audioUnavailable)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: _reading
-          ? 'Reading full planning guidance aloud'
-          : 'Read full planning guidance aloud',
-      button: true,
-      child: GestureDetector(
-        onTap: _reading ? null : () => unawaited(_readAloud()),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-          decoration: BoxDecoration(
-            color: AppColors.memoryAmber.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: AppColors.memoryAmber.withValues(alpha: 0.4),
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
+    return SmartPressable(
+      semanticLabel: copy.voiceReadLabel(reading: _reading),
+      enabled: !_reading,
+      onTap: () => unawaited(_readAloud()),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: AppColors.memoryAmber.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.memoryAmber.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.volume_up_rounded,
+              color: AppColors.memoryAmber,
+              size: 15,
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.volume_up_rounded,
+            const SizedBox(width: 6),
+            Text(
+              copy.voiceReadButton(reading: _reading),
+              style: const TextStyle(
                 color: AppColors.memoryAmber,
-                size: 15,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
               ),
-              const SizedBox(width: 6),
-              Text(
-                _reading ? 'READING' : 'READ ALOUD',
-                style: const TextStyle(
-                  color: AppColors.memoryAmber,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -816,57 +814,50 @@ class _VoiceSummaryButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Semantics(
-      label: 'Read condensed planning summary aloud',
-      button: true,
-      child: GestureDetector(
-        onTap: () => unawaited(
-          ref
-              .read(voiceServiceProvider)
-              .speakSummary(
-                title: 'Smart Planner voice summary',
-                points: <String>[
-                  energy == null
-                      ? 'Energy was not set'
-                      : 'Energy is ${(energy! * 100).round()} percent',
-                  emotion == null
-                      ? 'Emotional state was not used'
-                      : 'Emotion state is ${emotion!.name}',
-                  headline,
-                ],
-              ),
-        ),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-          decoration: BoxDecoration(
-            color: AppColors.neonCyan.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: AppColors.neonCyan.withValues(alpha: 0.45),
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
+    return SmartPressable(
+      semanticLabel: copy.voiceSummaryLabel,
+      onTap: () => unawaited(
+        ref
+            .read(voiceServiceProvider)
+            .speakSummary(
+              title: copy.voiceSummaryTitle,
+              points: <String>[
+                copy.energySummary(energy),
+                copy.emotionSummary(emotion?.name),
+                headline,
+              ],
             ),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.summarize_rounded,
+      ),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: AppColors.neonCyan.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.summarize_rounded,
+              color: AppColors.neonCyan,
+              size: 15,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              copy.summaryButton,
+              style: const TextStyle(
                 color: AppColors.neonCyan,
-                size: 15,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
               ),
-              SizedBox(width: 6),
-              Text(
-                'SUMMARY',
-                style: TextStyle(
-                  color: AppColors.neonCyan,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -878,98 +869,90 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Semantics(
-      label: 'Open Smart Planner accessibility guide and read it aloud',
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          unawaited(
-            showModalBottomSheet<void>(
-              context: context,
-              backgroundColor: const Color(0xFF0D1420),
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-              ),
-              builder: (BuildContext context) {
-                return const SafeArea(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Accessibility Guide',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0,
-                            ),
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
+    return SmartPressable(
+      semanticLabel: copy.accessibilityLabel,
+      onTap: () {
+        unawaited(
+          showModalBottomSheet<void>(
+            context: context,
+            backgroundColor: const Color(0xFF0D1420),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+            ),
+            builder: (BuildContext context) {
+              return SafeArea(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          copy.accessibilityTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
                           ),
-                          SizedBox(height: 8),
-                          Text(
-                            'A11Y means accessibility. Use these controls for easier reading and audio guidance.',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              height: 1.5,
-                            ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          copy.accessibilityBody,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            height: 1.5,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
+                ),
+              );
+            },
+          ),
+        );
+        unawaited(
+          ref
+              .read(voiceServiceProvider)
+              .speakAccessibilityHint(
+                surface: copy.accessibilitySurface,
+                controls: copy.accessibilityControls,
+              ),
+        );
+      },
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.accessibility_new_rounded,
+              color: Colors.white70,
+              size: 15,
             ),
-          );
-          unawaited(
-            ref
-                .read(voiceServiceProvider)
-                .speakAccessibilityHint(
-                  surface: 'Smart Planner',
-                  controls: const <String>[
-                    'Adjust energy slider to set intensity',
-                    'Select emotional state to tune guidance',
-                    'Use Get Guidance to generate a planning response',
-                    'Use the speak button to read the latest guidance aloud',
-                    'Use summary button for condensed voice recap',
-                    'Use microphone button for voice interactions',
-                  ],
-                ),
-          );
-        },
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white24),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.accessibility_new_rounded,
+            const SizedBox(width: 5),
+            Text(
+              copy.accessibilityButton,
+              style: const TextStyle(
                 color: Colors.white70,
-                size: 15,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
               ),
-              SizedBox(width: 5),
-              Text(
-                'ACCESS',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -983,6 +966,9 @@ class _MicButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     final VoiceState voice = ref.watch(voiceControllerProvider);
     final bool listening = voice.isListening;
 
@@ -998,11 +984,9 @@ class _MicButton extends ConsumerWidget {
     });
 
     return Semantics(
-      label: listening ? 'Stop voice input' : 'Start voice input',
-      button: true,
       liveRegion: listening,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+      child: SmartPressable(
+        semanticLabel: copy.voiceInputLabel(listening: listening),
         onTap: () async {
           if (listening) {
             await ref.read(voiceControllerProvider.notifier).stopListening();
@@ -1014,13 +998,9 @@ class _MicButton extends ConsumerWidget {
           }
           final String? error = ref.read(voiceControllerProvider).error;
           if (error != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Voice input is unavailable. Check permission and retry.',
-                ),
-              ),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(copy.voiceInputUnavailable)));
           }
         },
         child: Container(
@@ -1047,7 +1027,7 @@ class _MicButton extends ConsumerWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                listening ? 'LISTENING' : 'VOICE INPUT',
+                copy.voiceInputButton(listening: listening),
                 style: TextStyle(
                   color: listening ? AppColors.neonCyan : Colors.white54,
                   fontSize: 11,

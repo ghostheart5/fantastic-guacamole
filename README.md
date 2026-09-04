@@ -63,6 +63,8 @@ The current product guides are maintained in the [ChronoSpark GitHub Wiki](https
 - [Progression](https://github.com/ghostheart5/fantastic-guacamole/wiki/Progression)
 
 Repository architecture and engineering context is summarized in [CHRONOSPARK.md](CHRONOSPARK.md).
+Production incident triage and evidence boundaries are defined in
+[docs/INCIDENT_RESPONSE_RUNBOOK.md](docs/INCIDENT_RESPONSE_RUNBOOK.md).
 
 ## Development
 

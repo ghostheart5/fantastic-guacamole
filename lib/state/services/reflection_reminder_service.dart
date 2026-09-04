@@ -108,7 +108,7 @@ class VoicePermissionService {
       return false;
     } on PlatformException catch (error, stackTrace) {
       Logger.errorCode(
-        code: 'voice_permission.request_unavailable',
+        code: AppDiagnosticCode.voicePermissionRequestUnavailable,
         debugMessage: 'Microphone permission request is unavailable.',
         exception: error,
         stackTrace: stackTrace,

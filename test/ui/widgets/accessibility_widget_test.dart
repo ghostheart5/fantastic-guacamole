@@ -132,6 +132,57 @@ void main() {
     expect(activations, 1);
   });
 
+  testWidgets(
+    'SmartPressable skips disabled controls and preserves keyboard order',
+    (WidgetTester tester) async {
+      final SemanticsHandle semantics = tester.ensureSemantics();
+      final List<String> activations = <String>[];
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Row(
+                children: <Widget>[
+                  SmartPressable(
+                    semanticLabel: 'Unavailable action',
+                    enabled: false,
+                    onTap: () => activations.add('disabled'),
+                    child: const SizedBox(width: 48, height: 48),
+                  ),
+                  SmartPressable(
+                    semanticLabel: 'First action',
+                    onTap: () => activations.add('first'),
+                    child: const SizedBox(width: 48, height: 48),
+                  ),
+                  SmartPressable(
+                    semanticLabel: 'Second action',
+                    onTap: () => activations.add('second'),
+                    child: const SizedBox(width: 48, height: 48),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        final SemanticsData disabledData = tester
+            .getSemantics(find.bySemanticsLabel('Unavailable action'))
+            .getSemanticsData();
+        expect(disabledData.flagsCollection.isEnabled, Tristate.isFalse);
+        expect(disabledData.hasAction(SemanticsAction.tap), isFalse);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+
+        expect(activations, <String>['first', 'second']);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
   testWidgets('SmartPressable skips press animation when motion is reduced', (
     WidgetTester tester,
   ) async {

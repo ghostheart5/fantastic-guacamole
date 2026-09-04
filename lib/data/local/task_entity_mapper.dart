@@ -37,6 +37,7 @@ class TaskEntityMapper {
       occurrenceKey: storedOccurrenceKey == null || storedOccurrenceKey.isEmpty
           ? TaskEntity.deriveOccurrenceKey(taskId: id, createdAt: createdAt)
           : storedOccurrenceKey,
+      recurrenceSeriesId: json['recurrenceSeriesId']?.toString(),
       dueDate: _dateTimeFromJson(json['dueDate']),
       goalId: json['goalId']?.toString(),
       isCanceled: json['isCanceled'] as bool? ?? false,
@@ -68,6 +69,8 @@ class TaskEntityMapper {
     'skippedAt': task.skippedAt?.toIso8601String(),
     'scheduledFor': task.scheduledFor?.toIso8601String(),
     'occurrenceKey': task.occurrenceKey,
+    if (task.recurrenceSeriesId != null)
+      'recurrenceSeriesId': task.recurrenceSeriesId,
     'dueDate': task.dueDate?.toIso8601String(),
     'goalId': task.goalId,
     'isCanceled': task.isCanceled,

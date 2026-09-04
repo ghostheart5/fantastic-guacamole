@@ -41,8 +41,8 @@ class LearningController extends Notifier<LearningState> {
           stackTrace: stackTrace,
         );
       } on Object {
-        Logger.recordDiagnosticCode(
-          code: 'storage.learning_state_load_failed',
+        Logger.recordDiagnostic(
+          code: AppDiagnosticCode.storageLearningStateLoadFailed,
           stackTrace: stackTrace,
         );
       }
