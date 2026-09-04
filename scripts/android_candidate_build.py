@@ -124,18 +124,11 @@ def build(root, bundletool):
     command(["dart", "run", "scripts/validate_production_config.dart", "--platform=android",
              "--google-services=android/app/google-services.json"], root)
     key = root / "android/app/upload-keystore.jks"
-    props = root / "android/key.properties"
     defines = Path(os.environ["RUNNER_TEMP"]) / "chronospark-candidate-defines.json"
-    require(not any(p.exists() for p in (key, props, defines)), "Temporary signing path already exists")
+    require(not any(p.exists() for p in (key, defines)), "Temporary signing path already exists")
     os.umask(0o077)
     try:
         key.write_bytes(base64.b64decode(os.environ["ANDROID_KEYSTORE_BASE64"], validate=True))
-        props.write_text("\n".join([
-            "storePassword=" + properties_escape(os.environ["ANDROID_STORE_PASSWORD"]),
-            "keyPassword=" + properties_escape(os.environ["ANDROID_KEY_PASSWORD"]),
-            "keyAlias=" + properties_escape(os.environ["ANDROID_KEY_ALIAS"]),
-            "storeFile=app/upload-keystore.jks", "",
-        ]), encoding="ascii")
         cert = command(["keytool", "-list", "-v", "-J-Duser.language=en",
                         "-keystore", str(key), "-storepass:env", "ANDROID_STORE_PASSWORD",
                         "-alias", os.environ["ANDROID_KEY_ALIAS"]], root, True)
@@ -145,9 +138,13 @@ def build(root, bundletool):
                 "Existing upload identity pin mismatch")
         defines.write_text(json.dumps({**FLAGS, **{name: os.environ[name] for name in SETTINGS}}))
         command(["flutter", "build", "appbundle", "--release", "--no-pub",
-                 "--dart-define-from-file=" + str(defines)], root)
+                 "--dart-define-from-file=" + str(defines),
+                 "-Pandroid.injected.signing.store.file=app/upload-keystore.jks",
+                 "-Pandroid.injected.signing.store.password=$ANDROID_STORE_PASSWORD",
+                 "-Pandroid.injected.signing.key.alias=" + os.environ["ANDROID_KEY_ALIAS"],
+                 "-Pandroid.injected.signing.key.password=$ANDROID_KEY_PASSWORD"], root)
     finally:
-        for path in (key, props, defines):
+        for path in (key, defines):
             path.unlink(missing_ok=True)
     command(["git", "diff", "--exit-code"], root)
     require(not command(["git", "status", "--porcelain", "--untracked-files=all"], root, True),
