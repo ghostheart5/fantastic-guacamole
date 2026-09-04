@@ -25,6 +25,15 @@ public product claim.
 
 ## Deferred follow-up note
 
+Current safe-quick repair sequence: see
+[Phase 5 and Phase 6 checkpoint](docs/engineering/SAFE_QUICK_PHASE_5_6_STATUS_20260904.md).
+As of 2026-09-04, **Phase 5 is INCOMPLETE / DEFERRED** at the user's request;
+the domain and DNS are configured, but HTTPS and the remaining public-service
+exit checks are not complete. **Phase 6 has started with a source preflight;
+the signed production-candidate build is BLOCKED**, not passed. These phase
+numbers refer to the safe-quick repair plan, not the older binder priorities
+or the launch-readiness checkpoint numbers.
+
 These follow-up items are intentionally divided by who can complete them.
 Remote-safe work is limited to repository source, documentation, and local or
 CI verification. Human/live work requires physical access, production or
@@ -147,10 +156,15 @@ included below as later human or live-service work. None is complete.
   entity and jurisdiction, liability language, translated legal text, deletion
   timelines, and current crisis-resource claims. Obtain dated qualified
   privacy, legal, and safety review.
-- [ ] **Side note - Website/domain:** Choose and configure the ChronoSpark
-  website domain, then verify public HTTPS, hosting, DNS, App Links, deployed
-  legal/support/deletion routes, and
-  support-mailbox delivery and readback.
+- [ ] **Side note - Website/domain / repair Phase 5: INCOMPLETE, DEFERRED.**
+  `chronospark.app` is registered and its four GitHub Pages A records plus
+  `www` CNAME were saved and read back on 2026-09-04. GitHub accepted the custom
+  domain and confirmed valid DNS for both names. Last HTTPS check failed:
+  certificate not yet issued; HTTPS enforcement is off. Still required:
+  certificate issuance, HTTPS enforcement and secure-route verification,
+  canonical legal-content parity, download information, exact-build App Links,
+  and a real support-message delivery/readback. HTTP 200 responses do not close
+  this gate. See the linked checkpoint for exact resume actions.
 - [ ] Before external AI is ever enabled, verify the provider contract and DPA,
   retention or zero-data-retention settings, production secret handling, live
   transport, cost/refund containment, content scrubbing, and reconciliation.
