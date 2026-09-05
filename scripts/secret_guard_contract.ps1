@@ -72,3 +72,7 @@ try {
     Remove-Item -LiteralPath $resolvedFixtureRoot -Recurse -Force
   }
 }
+
+# Expected child failures must not leak into the CI PowerShell wrapper's exit.
+# A fixture or cleanup exception terminates before this successful exit.
+exit 0
