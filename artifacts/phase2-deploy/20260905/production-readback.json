@@ -1,0 +1,346 @@
+{
+  "projectId": "qpwhuckyirnqtmvhpede",
+  "checkedAtUtc": "2026-09-05T05:09:45.070408+00:00",
+  "localHead": "0c2449016a36a0cb3ff3e431cbf799cb291c7aea",
+  "testedBackendSource": "1f07020e309c10b1b3942349cd436948811f2759",
+  "authorization": "User approved only two deletion-function deployments and tested cron migration; no credential, Firebase, redirect, domain, device, feature, commit or push changes.",
+  "migration": {
+    "version": "20260905041637",
+    "name": "consolidate_subscription_expiry_schedule",
+    "beforeCount": 44,
+    "afterCount": 45,
+    "appliedVia": "Supabase CLI 2.116.0 db push --project-ref qpwhuckyirnqtmvhpede --skip-vault --yes; dry run listed this sole file; no seeds or roles."
+  },
+  "functions": [
+    {
+      "id": "354e318a-122f-4b83-b1e2-305901b728c9",
+      "slug": "account-delete",
+      "name": "account-delete",
+      "status": "ACTIVE",
+      "version": 9,
+      "created_at": 1786292875118,
+      "updated_at": 1788584927663,
+      "verify_jwt": true,
+      "import_map": false,
+      "entrypoint_path": "/tmp/user_fn_qpwhuckyirnqtmvhpede_354e318a-122f-4b83-b1e2-305901b728c9_9/source/functions/account-delete/index.ts",
+      "ezbr_sha256": "f79eddf9b098a77fc342df03490cff159134e5bebaf721b02c9165bae296b2eb"
+    },
+    {
+      "id": "36e4ac6d-1b4a-44b5-9bb8-5598a228baf7",
+      "slug": "account-delete-reconcile",
+      "name": "account-delete-reconcile",
+      "status": "ACTIVE",
+      "version": 7,
+      "created_at": 1786883902384,
+      "updated_at": 1788584939154,
+      "verify_jwt": false,
+      "import_map": false,
+      "entrypoint_path": "/tmp/user_fn_qpwhuckyirnqtmvhpede_36e4ac6d-1b4a-44b5-9bb8-5598a228baf7_7/source/functions/account-delete-reconcile/index.ts",
+      "ezbr_sha256": "0c858b44742bc4af1aea06f22ac6d30a12bb5aff4646062567706f45fb41af99"
+    }
+  ],
+  "deployedSourceComparisons": [
+    {
+      "slug": "account-delete",
+      "file": "functions/account-delete/index.ts",
+      "exactContentMatch": true
+    },
+    {
+      "slug": "account-delete",
+      "file": "functions/account-delete/recent_sign_in_policy.ts",
+      "exactContentMatch": true
+    },
+    {
+      "slug": "account-delete",
+      "file": "functions/_shared/account_deletion_state_machine.ts",
+      "exactContentMatch": true
+    },
+    {
+      "slug": "account-delete",
+      "file": "functions/_shared/storage_cleanup.ts",
+      "exactContentMatch": true
+    },
+    {
+      "slug": "account-delete-reconcile",
+      "file": "functions/_shared/account_deletion_state_machine.ts",
+      "exactContentMatch": true
+    },
+    {
+      "slug": "account-delete-reconcile",
+      "file": "functions/_shared/storage_cleanup.ts",
+      "exactContentMatch": true
+    },
+    {
+      "slug": "account-delete-reconcile",
+      "file": "functions/account-delete-reconcile/index.ts",
+      "exactContentMatch": true
+    }
+  ],
+  "localFileSha256": [
+    {
+      "path": "supabase/functions/account-delete/index.ts",
+      "sha256": "E7E10D0F94D790F654A5B50FFB98412A2C6B42A3A38CA6354FC67BEA04256BEB"
+    },
+    {
+      "path": "supabase/functions/account-delete/recent_sign_in_policy.ts",
+      "sha256": "1BE941AF5144530C3455177490500F961AA61456AE9D557C73DDB384CA205E92"
+    },
+    {
+      "path": "supabase/functions/_shared/account_deletion_state_machine.ts",
+      "sha256": "9663834C4B4F2072CE8526538AD3465761A6D42BC20C0BCE07C64D6F2C12694C"
+    },
+    {
+      "path": "supabase/functions/_shared/storage_cleanup.ts",
+      "sha256": "F4AB25AD0B5E2E123FC4CBFA9D3842F02F399688A5059AF74999E18A9D6CEB43"
+    },
+    {
+      "path": "supabase/functions/account-delete-reconcile/index.ts",
+      "sha256": "27D65CF87DF229ABED702621354FBCD16CD9F5C76825AF93CAD6571C5652FC13"
+    },
+    {
+      "path": "supabase/migrations/20260905041637_consolidate_subscription_expiry_schedule.sql",
+      "sha256": "6D8A132C1286EFF71F7E73933F9D15E5B8D5352572BDEAC02212AAA774BEFD23"
+    }
+  ],
+  "allCronRowsUnchanged": true,
+  "preflight": {
+    "jobs": [
+      {
+        "jobid": 1,
+        "active": false,
+        "command": "select public.expire_stale_monetization_subscriptions();",
+        "jobname": "chronospark-expire-subscriptions",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "*/15 * * * *",
+        "username": "postgres"
+      },
+      {
+        "jobid": 3,
+        "active": true,
+        "command": "select public.purge_expired_ai_response_payloads();",
+        "jobname": "chronospark-purge-expired-ai-responses",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "*/5 * * * *",
+        "username": "postgres"
+      },
+      {
+        "jobid": 4,
+        "active": true,
+        "command": "select public.refund_stale_ai_usage_reservations(interval '10 minutes');",
+        "jobname": "chronospark-refund-stale-ai-reservations",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "*/5 * * * *",
+        "username": "postgres"
+      },
+      {
+        "jobid": 5,
+        "active": true,
+        "command": "select public.expire_stale_monetization_subscriptions();",
+        "jobname": "chronospark-expire-stale-subscriptions",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "*/15 * * * *",
+        "username": "postgres"
+      },
+      {
+        "jobid": 6,
+        "active": true,
+        "command": "select public.scrub_expired_ai_response_content();",
+        "jobname": "chronospark-scrub-expired-ai-response-content",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "* * * * *",
+        "username": "postgres"
+      }
+    ],
+    "checked_at": "2026-09-05T05:08:04.361438+00:00",
+    "deletion_requests": 0,
+    "provider_rechecks": 0
+  },
+  "postflight": {
+    "jobs": [
+      {
+        "jobid": 1,
+        "active": false,
+        "command": "select public.expire_stale_monetization_subscriptions();",
+        "jobname": "chronospark-expire-subscriptions",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "*/15 * * * *",
+        "username": "postgres"
+      },
+      {
+        "jobid": 3,
+        "active": true,
+        "command": "select public.purge_expired_ai_response_payloads();",
+        "jobname": "chronospark-purge-expired-ai-responses",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "*/5 * * * *",
+        "username": "postgres"
+      },
+      {
+        "jobid": 4,
+        "active": true,
+        "command": "select public.refund_stale_ai_usage_reservations(interval '10 minutes');",
+        "jobname": "chronospark-refund-stale-ai-reservations",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "*/5 * * * *",
+        "username": "postgres"
+      },
+      {
+        "jobid": 5,
+        "active": true,
+        "command": "select public.expire_stale_monetization_subscriptions();",
+        "jobname": "chronospark-expire-stale-subscriptions",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "*/15 * * * *",
+        "username": "postgres"
+      },
+      {
+        "jobid": 6,
+        "active": true,
+        "command": "select public.scrub_expired_ai_response_content();",
+        "jobname": "chronospark-scrub-expired-ai-response-content",
+        "database": "postgres",
+        "nodename": "localhost",
+        "nodeport": 5432,
+        "schedule": "* * * * *",
+        "username": "postgres"
+      }
+    ],
+    "checked_at": "2026-09-05T05:09:45.070408+00:00",
+    "deletion_requests": 0,
+    "provider_rechecks": 0,
+    "recent_expiry_runs": [
+      {
+        "jobid": 5,
+        "status": "succeeded",
+        "end_time": "2026-09-05T05:00:00.05628+00:00",
+        "start_time": "2026-09-05T05:00:00.041775+00:00",
+        "return_message": "1 row"
+      },
+      {
+        "jobid": 5,
+        "status": "succeeded",
+        "end_time": "2026-09-05T04:45:00.054469+00:00",
+        "start_time": "2026-09-05T04:45:00.045857+00:00",
+        "return_message": "1 row"
+      },
+      {
+        "jobid": 5,
+        "status": "succeeded",
+        "end_time": "2026-09-05T04:30:00.030983+00:00",
+        "start_time": "2026-09-05T04:30:00.023645+00:00",
+        "return_message": "1 row"
+      },
+      {
+        "jobid": 5,
+        "status": "succeeded",
+        "end_time": "2026-09-05T04:15:00.082153+00:00",
+        "start_time": "2026-09-05T04:15:00.055819+00:00",
+        "return_message": "1 row"
+      }
+    ]
+  },
+  "otherFunctionReadback": [
+    {
+      "id": "d4b9f157-2177-4d5c-8d52-20110d23fa85",
+      "slug": "verify-receipt",
+      "name": "verify-receipt",
+      "status": "ACTIVE",
+      "version": 10,
+      "created_at": 1783901305796,
+      "updated_at": 1788347737915,
+      "verify_jwt": true,
+      "import_map": false,
+      "entrypoint_path": "file:///app/supabase/functions/verify-receipt/index.ts",
+      "ezbr_sha256": "98a054fb4c244410226d186b4009ce708bbc581f46d18a17e4dd6a85a8b29d46"
+    },
+    {
+      "id": "487fdaac-bee9-477d-9404-613646471787",
+      "slug": "ai-proxy",
+      "name": "ai-proxy",
+      "status": "ACTIVE",
+      "version": 12,
+      "created_at": 1783901306319,
+      "updated_at": 1788565684979,
+      "verify_jwt": true,
+      "import_map": false,
+      "entrypoint_path": "file:///app/supabase/functions/ai-proxy/index.ts",
+      "ezbr_sha256": "f83cb1fe7652300509e352ffd08b77902637cb09c6525aab5c6e24721f5378ad"
+    },
+    {
+      "id": "e5aa616c-4e04-42fc-9858-d92738393c50",
+      "slug": "google-play-rtdn",
+      "name": "google-play-rtdn",
+      "status": "ACTIVE",
+      "version": 6,
+      "created_at": 1786883902384,
+      "updated_at": 1788347737915,
+      "verify_jwt": false,
+      "import_map": false,
+      "entrypoint_path": "file:///app/supabase/functions/google-play-rtdn/index.ts",
+      "ezbr_sha256": "aa231c3b4696e1f8898dc61ad1a01a4fa95c432c4607f24035a9c69a501733eb"
+    },
+    {
+      "id": "17452cd1-eee8-4bbb-a0c2-e329e76421de",
+      "slug": "ai-report",
+      "name": "ai-report",
+      "status": "ACTIVE",
+      "version": 3,
+      "created_at": 1788347736975,
+      "updated_at": 1788565684979,
+      "verify_jwt": true,
+      "entrypoint_path": "file:///app/supabase/functions/ai-report/index.ts",
+      "ezbr_sha256": "07478ce88bde591149a44c4894f170e8180c533a58826e3de28782f90d6f6fac"
+    },
+    {
+      "id": "56060c6a-c766-4483-a202-eda4dfce5912",
+      "slug": "planner-explanation",
+      "name": "planner-explanation",
+      "status": "ACTIVE",
+      "version": 2,
+      "created_at": 1788347737308,
+      "updated_at": 1788347737915,
+      "verify_jwt": true,
+      "entrypoint_path": "file:///app/supabase/functions/planner-explanation/index.ts",
+      "ezbr_sha256": "0ac73ccbf7a46e96fe81e7f1d6315e368e705003bc48ef38d90949b6bee8e04f"
+    }
+  ],
+  "getChecks": [
+    {
+      "slug": "account-delete",
+      "status": 401,
+      "errorCode": "UNAUTHORIZED_NO_AUTH_HEADER",
+      "scope": "Gateway rejects missing authorization; no handler or real Auth/session deletion proof."
+    },
+    {
+      "slug": "account-delete-reconcile",
+      "status": 405,
+      "contract": "account-delete-reconcile-v1",
+      "error": "method_not_allowed",
+      "scope": "Handler starts and rejects GET; custom-secret authentication/deletion not exercised."
+    }
+  ],
+  "limits": [
+    "No deletion-capable request, paid AI request, device check or full test suite run.",
+    "No post-migration naturally scheduled expiry run had occurred at readback; last natural success at 05:00 UTC was before migration.",
+    "Phase 2 remains incomplete with owner/configuration/credential gates; Phase 3 not started.",
+    "Rollback snapshot artifacts/phase2-predeploy/0c244901 preserved; restoring old authentication requires explicit incident decision."
+  ]
+}

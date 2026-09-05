@@ -1,0 +1,72 @@
+{
+  "dateUtc": "2026-09-05",
+  "localHead": "0c2449016a36a0cb3ff3e431cbf799cb291c7aea",
+  "project": "chronospark-app",
+  "temporaryKeyId": "1f4879bb-4d01-4f85-86a4-37a1270c2e9b",
+  "temporaryKeyName": "chronospark-phase2-disposable-20260905",
+  "temporaryApplicationRestriction": "None",
+  "temporarySelectedApis": [
+    "Cloud Datastore API", "Cloud Firestore API", "Cloud Logging API",
+    "FCM Registration API", "Firebase App Distribution API", "Firebase Hosting API",
+    "Firebase Installations API", "Firebase Management API", "Firebase Remote Config API",
+    "Firebase Remote Config Realtime API", "Firebase Rules API", "Identity Toolkit API", "Token Service API"
+  ],
+  "protocolResult": "PASS_WITH_RECORDED_FAILED_LEG_RETRY",
+  "initialReport": "firebase-api-probe-results.json",
+  "initialStatus": "FAILED",
+  "initialPassedLegs": 7,
+  "initialTotalLegs": 8,
+  "originalFailure": "Temporary-subset macOS fresh FIS token request returned404 after registration200; cause not established.",
+  "retryReport": "firebase-api-probe-macos-retry-results.json",
+  "retryScope": "Only failed macOS leg, fresh disposable installation, one retry",
+  "retryStatus": "PASS_PROTOCOL_ONLY",
+  "disposableInstallations": { "created": 9, "deletionAccepted": 9, "pending": 0, "uncertain": 0 },
+  "temporaryKeyCleanup": {
+    "deleted": true,
+    "readback": "Exact-name deletion completed; independent active-list reload shows only the three original keys, all Available with25APIs.",
+    "recoverableDays": 30,
+    "restored": false
+  },
+  "productionChange": {
+    "status": "PASS_SAVED_CONFIGURATION",
+    "completedCheckpointUtc": "2026-09-05T13:25:12Z",
+    "authorization": "Owner explicitly approved removing the three named APIs from all three production keys (Android, Browser/web-Windows, iOS/macOS), preserving the other22 permissions and application restrictions.",
+    "priorAttempt": {
+      "status": "BLOCKED_APPROVAL_NOT_SAVED",
+      "reason": "Approval system required explicit authorization for the named production keys and removals; no bypass attempted.",
+      "androidDraft": "Staged exactly three removals to22, Save rejected, unsaved edit canceled. Other keys were not edited in that attempt."
+    },
+    "requiredRemovals": ["sqladmin.googleapis.com", "firebaseapphosting.googleapis.com", "firebasedataconnect.googleapis.com"],
+    "removedNames": ["Cloud SQL Admin API", "Firebase App Hosting API", "Firebase SQL Connect API"],
+    "retainedApiNames": [
+      "Cloud Datastore API", "Cloud Firestore API", "Cloud Logging API", "Cloud Storage for Firebase API",
+      "FCM Registration API", "Firebase AI Logic API", "Firebase App Check API", "Firebase App Distribution API",
+      "Firebase App Testers API", "Firebase Hosting API", "Firebase In-App Messaging API", "Firebase Installations API",
+      "Firebase ML API", "Firebase Management API", "Firebase Phone Number Verification API",
+      "Firebase Realtime Database Management API", "Firebase Remote Config API", "Firebase Remote Config Realtime API",
+      "Firebase Rules API", "Identity Toolkit API", "ML Kit API", "Token Service API"
+    ],
+    "beforeReference": "redirect-and-firebase-readback.json firebase.identicalSelectedApis; each current25-name set matched before editing",
+    "verificationMethod": "Compare complete rendered API-name list and application restriction beforeSave and after independent exact-record reopen/reload; final Credentials inventory readback.",
+    "tested13AreSubsetOfRetained22": true,
+    "testsRerunForProductionSave": false,
+    "keyValuesRevealedOrRotated": false,
+    "quotaOrEnabledServiceChangesMade": false,
+    "nativeDeviceOrPostChangeProtocolProof": false,
+    "propagation": "Console reports up to5minutes; enforcement propagation not independently measured.",
+    "currentKeys": [
+      { "name": "Android key (auto created by Firebase)", "id": "e184f343-0f57-41b9-8306-293c9040ed69", "beforeApiCount": 25, "apiCount": 22, "savedSetMatchesRetainedNames": true, "applicationRestriction": "None", "readbackAt": "2026-09-05T13:19:35.553Z", "status": "Available" },
+      { "name": "Browser key (auto created by Firebase)", "id": "78970ff4-1470-42a9-a66b-f44bbb7e38c7", "beforeApiCount": 25, "apiCount": 22, "savedSetMatchesRetainedNames": true, "applicationRestriction": "None", "readbackAt": "2026-09-05T13:21:59.083Z", "status": "Available" },
+      { "name": "iOS key (auto created by Firebase)", "id": "4f3d50ad-9883-4166-9f29-bb54852f7eb1", "beforeApiCount": 25, "apiCount": 22, "savedSetMatchesRetainedNames": true, "applicationRestriction": "None", "readbackAt": "2026-09-05T13:23:31.116Z", "status": "Available" }
+    ]
+  },
+  "limits": ["13-entry subset protocol check, not exact22 rehearsal", "No native SDK or FCM registration/delivery proof", "Original404 retained and not diagnosed", "No phone/emulator/full suite or app configuration change", "No telemetry or Remote Config activation", "Phase2 remains incomplete"],
+  "sources": [
+    "https://firebase.google.com/docs/projects/api-keys",
+    "https://raw.githubusercontent.com/firebase/firebase-js-sdk/main/packages/installations/src/functions/create-installation-request.ts",
+    "https://raw.githubusercontent.com/firebase/firebase-js-sdk/main/packages/installations/src/functions/generate-auth-token-request.ts",
+    "https://raw.githubusercontent.com/firebase/firebase-js-sdk/main/packages/installations/src/functions/delete-installation-request.ts",
+    "https://raw.githubusercontent.com/firebase/firebase-js-sdk/main/packages/remote-config/src/client/rest_client.ts",
+    "https://raw.githubusercontent.com/firebase/firebase-js-sdk/main/packages/installations/src/helpers/refresh-auth-token.ts"
+  ]
+}

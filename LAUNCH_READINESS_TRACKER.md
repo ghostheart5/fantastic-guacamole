@@ -1,5 +1,29 @@
 # ChronoSpark 2040 Launch Readiness Tracker
 
+## Current closeout notice - 2026-09-04
+
+This document preserves the older 2040 repair checkpoints and findings at their
+recorded source revisions. Its phase numbers are not the current nine-phase
+closeout sequence, the 13-phase safe-quick plan, or the binder priorities.
+
+Current evidence is in the [Phase 5/6 checkpoint](docs/engineering/SAFE_QUICK_PHASE_5_6_STATUS_20260904.md)
+and [Phase 7 checkpoint](docs/engineering/SAFE_QUICK_PHASE_7_STATUS_20260904.md):
+exact-source CI for `61c7331dda9e82201a0561dbcd79aa0b37118446` passed 2,352
+Flutter tests and 15 configuration tests plus static/golden/integration/coverage
+gates; signed build `33940078212`, focused physical smoke, and one real task
+lifecycle passed. Live backend source/configuration checks and Firebase alert
+configuration also have recorded partial proof. Earlier NOT_RUN/build/CLI
+blockers below must not be treated as current failures or reasons to repeat
+passing tests. Full device, human, live-runtime, recovery, and Play gates remain
+open; production verdict remains **NO-GO - NOT READY**.
+
+The current `ChronoSparkLocalizations.supportedLocales` contains both `en` and
+`es`, superseding the historical English-only Phase 9 decision below. Spanish
+legal/usability/distress-language human review remains required. Bundled policy
+is adults 18+; matching Play declarations and qualified review remain open.
+Domain work is excluded from the current closeout scope, not passed. Historical
+containment passes do not mean the disabled capability is a completed product.
+
 ## Baseline
 
 - Audit: `C:\Users\keegan radetski\Downloads\ChronoSpark_2040_Vision_Reaudit_2026-08-30.md`
@@ -112,7 +136,7 @@ Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is n
 - Blocked external evidence: device TalkBack/Switch Access and 200% text interaction, native permission dialog behavior, Firebase console/runtime telemetry verification, physical-device performance measurements, signed AAB size/reproducibility, and the full exact-candidate CI/release gate remain Phase 10 work.
 - Rollback: revert only the Phase 9 checkpoint. Do not enable telemetry, Spanish support, paid features, external AI, cloud restore, or sync as a rollback side effect.
 
-## Findings
+## Historical findings at the recorded checkpoints
 
 | ID | Severity | Finding | Phase | Status | Feature state | Repair commit | Evidence |
 |---|---|---|---:|---|---|---|---|

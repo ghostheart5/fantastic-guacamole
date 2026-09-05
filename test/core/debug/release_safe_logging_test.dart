@@ -76,6 +76,9 @@ void main() {
         'lib/state/services/reflection_reminder_service.dart',
         'lib/ui/widgets/error_boundary_widget.dart',
         'lib/app/startup/startup_error_hooks.dart',
+        'lib/app/startup/startup_stages.dart',
+        'lib/app/startup/startup_coordinator.dart',
+        'lib/app/startup/startup_preference_migration.dart',
       ];
       final RegExp invocationPattern = RegExp(
         r'Logger\.errorCode\(([\s\S]*?)\);',
@@ -119,5 +122,25 @@ void main() {
         );
       }
     });
+
+    test(
+      'startup failure codes remain identifiable without private details',
+      () {
+        for (final AppDiagnosticCode code in AppDiagnosticCode.values.where(
+          (code) => code.wireName.startsWith('startup.'),
+        )) {
+          expect(
+            Logger.resolveLocalDiagnosticOutput(
+              code: code.wireName,
+              debugMessage: 'person@example.com password=private',
+              exception: StateError('Bearer private-token'),
+              isDebugMode: false,
+              verboseLogsEnabled: false,
+            ),
+            <String>['[ERROR][${code.wireName}]'],
+          );
+        }
+      },
+    );
   });
 }

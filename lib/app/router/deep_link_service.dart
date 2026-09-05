@@ -4,6 +4,7 @@ import 'dart:async';
 // Package imports.
 import 'package:app_links/app_links.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/config/auth_callback.dart';
 import 'package:fantastic_guacamole/domain/models/deep_link_mode.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,7 +102,9 @@ class DeepLinkService {
   Stream<Uri> get links => _controller.stream;
 
   bool _isTrusted(Uri uri) {
+    if (isTrustedAuthCallback(uri)) return true;
     if (uri.scheme != 'https') return false;
+    if (uri.userInfo.isNotEmpty || uri.hasPort) return false;
     const Set<String> hosts = <String>{
       'chronospark.app',
       'www.chronospark.app',

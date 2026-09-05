@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/observers/riverpod_observer.dart';
 import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
@@ -26,6 +27,7 @@ import 'package:fantastic_guacamole/state/core/state_bootstrap.dart'
     show stateBootstrapProvider;
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show identityServiceProvider;
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart'

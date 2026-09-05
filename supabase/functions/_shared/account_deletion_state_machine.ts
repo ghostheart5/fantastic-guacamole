@@ -10,7 +10,7 @@ export interface AccountDeletionConfig {
 export interface AuthenticatedDeletionUser {
   id: string;
   email: string | null;
-  lastSignInAt: string | null;
+  sessionSignInAtSeconds: number | null;
 }
 
 export interface DeletionResult {
@@ -102,7 +102,17 @@ export async function authenticatedDeletionUser(
   config: AccountDeletionConfig,
   fetcher: typeof fetch = fetch,
 ): Promise<AuthenticatedDeletionUser | null> {
-  if (!authorization.startsWith("Bearer ")) return null;
+  if (
+    !/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(
+      authorization,
+    )
+  ) {
+    return null;
+  }
+  // Validate this exact token with Auth before reading any of its claims. Auth's
+  // /user endpoint verifies the signature/expiry and loads session_id from the
+  // server, rejecting missing (signed-out/revoked) sessions. Local JWT decoding
+  // or account-wide last_sign_in_at alone cannot establish either guarantee.
   const response = await fetcher(`${config.supabaseUrl}/auth/v1/user`, {
     headers: {
       Authorization: authorization,
@@ -112,13 +122,87 @@ export async function authenticatedDeletionUser(
   if (!response.ok) return null;
   const user = await response.json();
   if (typeof user?.id !== "string") return null;
+  const claims = readValidatedSessionClaims(authorization, user.id);
+  if (!claims || user.is_anonymous === true) return null;
   return {
     id: user.id,
     email: typeof user.email === "string" ? user.email : null,
-    lastSignInAt: typeof user.last_sign_in_at === "string"
-      ? user.last_sign_in_at
-      : null,
+    sessionSignInAtSeconds: sessionSignInAtSeconds(claims),
   };
+}
+
+// Private deliberately: callers must not use claims until /auth/v1/user has
+// accepted the same bearer. Never read user_metadata for authorization.
+function readValidatedSessionClaims(
+  authorization: string,
+  verifiedUserId: string,
+): Record<string, unknown> | null {
+  try {
+    const payload = authorization.slice("Bearer ".length).split(".")[1];
+    const encoded = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const bytes = Uint8Array.from(
+      atob(encoded),
+      (value) => value.charCodeAt(0),
+    );
+    const claims = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+    );
+    if (!claims || typeof claims !== "object" || Array.isArray(claims)) {
+      return null;
+    }
+    if (
+      claims.sub !== verifiedUserId || claims.role !== "authenticated" ||
+      claims.is_anonymous !== false ||
+      typeof claims.session_id !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(claims.session_id)
+    ) return null;
+    return claims;
+  } catch {
+    return null;
+  }
+}
+
+const SIGN_IN_METHODS = new Set([
+  "password",
+  "oauth",
+  "otp",
+  "totp",
+  "sso/saml",
+  "magiclink",
+  "recovery",
+  "invite",
+  "email/signup",
+]);
+
+function sessionSignInAtSeconds(
+  claims: Record<string, unknown>,
+): number | null {
+  if (!Array.isArray(claims.amr)) return null;
+  const issuedAt = claims.iat;
+  if (
+    typeof issuedAt !== "number" || !Number.isSafeInteger(issuedAt) ||
+    issuedAt <= 0
+  ) {
+    return null;
+  }
+  let latest: number | null = null;
+  for (const reference of claims.amr) {
+    if (
+      !reference || typeof reference !== "object" || Array.isArray(reference)
+    ) continue;
+    const { method, timestamp } = reference;
+    // Refreshing an old session is not reauthentication. Unknown methods fail
+    // closed until explicitly supported; neither token iat nor metadata is a
+    // fallback for a missing/invalid AMR timestamp.
+    if (
+      typeof method !== "string" || !SIGN_IN_METHODS.has(method) ||
+      typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) ||
+      timestamp <= 0 || timestamp > issuedAt
+    ) continue;
+    latest = Math.max(latest ?? 0, timestamp);
+  }
+  return latest;
 }
 
 function readClaim(value: unknown): DeletionClaim | null {

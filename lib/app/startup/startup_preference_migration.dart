@@ -104,7 +104,7 @@ Future<PrefsLoadResult> _loadPrefsSafe(
     if (cancellationToken.isCancelled) {
       return _cancelledPrefsLoadResult;
     }
-    Logger.warn('Local preferences initialization timed out.');
+    Logger.errorCode(code: AppDiagnosticCode.startupPreferencesTimedOut);
     RuntimeDiagnostics.record('Local preferences initialization timed out.');
     return const PrefsLoadResult(
       hasOnboarded: false,
@@ -115,7 +115,11 @@ Future<PrefsLoadResult> _loadPrefsSafe(
     if (cancellationToken.isCancelled) {
       return _cancelledPrefsLoadResult;
     }
-    Logger.error('Local preferences initialization failed.', error);
+    Logger.errorCode(
+      code: AppDiagnosticCode.startupPreferencesFailed,
+      debugMessage: 'Local preferences initialization failed.',
+      exception: error,
+    );
     RuntimeDiagnostics.record('Local preferences initialization failed.');
     return const PrefsLoadResult(
       hasOnboarded: false,

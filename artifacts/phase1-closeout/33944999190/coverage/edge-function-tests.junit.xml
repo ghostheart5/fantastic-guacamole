@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="deno test" tests="83" failures="0" errors="0" time="0.217">
+    <testsuite name="./supabase/functions/planner-explanation/planner_explanation_test.ts" tests="19" disabled="0" errors="0" failures="0">
+        <testcase name="kill switch defaults false and rejects before quote or provider" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.001" line="158" col="6">
+        </testcase>
+        <testcase name="authentication and durable rate limit fail closed" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="180" col="6">
+        </testcase>
+        <testcase name="retention and qualified safety gates reject before quote" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="205" col="6">
+        </testcase>
+        <testcase name="quote response has the exact Phase 7 disclosure shape" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.003" line="233" col="6">
+        </testcase>
+        <testcase name="request schema rejects missing and unknown fields with minimal errors" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="285" col="6">
+        </testcase>
+        <testcase name="client system model account and action authority is rejected" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="306" col="6">
+        </testcase>
+        <testcase name="poisoned visible clauses are rejected before quote or reserve" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="324" col="6">
+        </testcase>
+        <testcase name="distress stays on the deterministic safety route" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.001" line="345" col="6">
+        </testcase>
+        <testcase name="safe output is validated before one successful settlement" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.003" line="371" col="6">
+        </testcase>
+        <testcase name="Anthropic adapter separates system instructions from untrusted data" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="417" col="6">
+        </testcase>
+        <testcase name="malformed provider JSON refunds the reservation" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="465" col="6">
+        </testcase>
+        <testcase name="unsafe provider claims and provenance are refunded" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.002" line="491" col="6">
+        </testcase>
+        <testcase name="provider digest mismatch and model mismatch refund" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="543" col="6">
+        </testcase>
+        <testcase name="timeout refusal and provider failure each refund" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.007" line="577" col="6">
+        </testcase>
+        <testcase name="cost mismatch and missing consent reject before reserve" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="627" col="6">
+        </testcase>
+        <testcase name="model allowlist and evaluation gate reject before quote" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="647" col="6">
+        </testcase>
+        <testcase name="exact duplicate invokes provider and positive settlement once" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="678" col="6">
+        </testcase>
+        <testcase name="full-envelope mismatch conflicts without another provider call" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="702" col="6">
+        </testcase>
+        <testcase name="expired replay is scrubbed to exact billing metadata" classname="./supabase/functions/planner-explanation/planner_explanation_test.ts" time="0.000" line="732" col="6">
+        </testcase>
+    </testsuite>
+    <testsuite name="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" tests="18" disabled="0" errors="0" failures="0">
+        <testcase name="RTDN payload decoder rejects malformed input" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="37" col="6">
+        </testcase>
+        <testcase name="unknown subscription states remain explicitly unsupported" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="52" col="6">
+        </testcase>
+        <testcase name="cancellation remains active strictly before expiry" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="75" col="6">
+        </testcase>
+        <testcase name="cancellation is inactive at and after expiry" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="89" col="6">
+        </testcase>
+        <testcase name="grace-period subscriptions retain entitlement" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="110" col="6">
+        </testcase>
+        <testcase name="pending, hold, and pause states remain explicit" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="123" col="6">
+        </testcase>
+        <testcase name="RTDN causes identify lifecycle events and only type 2 is renewal" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="158" col="6">
+        </testcase>
+        <testcase name="type 4 RTDN product identity comes from verified Play authority" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="182" col="6">
+        </testcase>
+        <testcase name="deferred renewal selects the current line in either provider order" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="211" col="6">
+        </testcase>
+        <testcase name="initial deferred replacement keeps the existing entitlement in either order" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="242" col="6">
+        </testcase>
+        <testcase name="multiple current recognized lines fail closed as ambiguous" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="272" col="6">
+        </testcase>
+        <testcase name="canceled pending successor rechecks the linked predecessor" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="299" col="6">
+        </testcase>
+        <testcase name="subscriptions-center resubscribe exposes the expired token lineage" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="364" col="6">
+        </testcase>
+        <testcase name="paid renewal requires active authority and a successful order" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="400" col="6">
+        </testcase>
+        <testcase name="revocation and expiry notifications map coherently" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="459" col="6">
+        </testcase>
+        <testcase name="linked purchase lineage uses the hash-only binding RPC" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="493" col="6">
+        </testcase>
+        <testcase name="terminal notifications reject contradictory Play states" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="561" col="6">
+        </testcase>
+        <testcase name="stale and old-token reconciliation outcomes are handled" classname="./supabase/functions/google-play-rtdn/rtdn_logic_test.ts" time="0.000" line="576" col="6">
+        </testcase>
+    </testsuite>
+    <testsuite name="./supabase/functions/account-delete/recent_sign_in_policy_test.ts" tests="4" disabled="0" errors="0" failures="0">
+        <testcase name="accepts a recent sign-in inside the deletion window" classname="./supabase/functions/account-delete/recent_sign_in_policy_test.ts" time="0.000" line="8" col="6">
+        </testcase>
+        <testcase name="rejects missing, invalid, future, and stale sign-ins" classname="./supabase/functions/account-delete/recent_sign_in_policy_test.ts" time="0.000" line="16" col="6">
+        </testcase>
+        <testcase name="accepts exactly the configured recent authentication boundary" classname="./supabase/functions/account-delete/recent_sign_in_policy_test.ts" time="0.000" line="26" col="6">
+        </testcase>
+        <testcase name="rejects invalid windows and invalid clocks" classname="./supabase/functions/account-delete/recent_sign_in_policy_test.ts" time="0.000" line="36" col="6">
+        </testcase>
+    </testsuite>
+    <testsuite name="./supabase/functions/verify-receipt/subscription_verification_test.ts" tests="16" disabled="0" errors="0" failures="0">
+        <testcase name="active matching subscription is accepted" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="39" col="6">
+        </testcase>
+        <testcase name="initial and cancelled subscriptions retain access through expiry" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="50" col="6">
+        </testcase>
+        <testcase name="mismatched and expired subscriptions fail closed" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="69" col="6">
+        </testcase>
+        <testcase name="hashed external account identifiers bind only to the auth user" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="115" col="6">
+        </testcase>
+        <testcase name="out-of-app resubscribe context supplies account and lineage proof" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="162" col="6">
+        </testcase>
+        <testcase name="missing account identifier is legacy-only and still needs binding" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="219" col="6">
+        </testcase>
+        <testcase name="purchase recovery accepts only same-user or detached durable bindings" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="259" col="6">
+        </testcase>
+        <testcase name="server acknowledgement uses the verified subscription authority" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="339" col="6">
+        </testcase>
+        <testcase name="active authority is never applied before acknowledgement" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="373" col="6">
+        </testcase>
+        <testcase name="provider and acknowledgement failures stay distinguishable" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="413" col="6">
+        </testcase>
+        <testcase name="purchase binding separates owner conflicts from retryable gaps" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="436" col="6">
+        </testcase>
+        <testcase name="line-item successful order wins with validated legacy fallback" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="467" col="6">
+        </testcase>
+        <testcase name="receipt reconciliation builds timestamped authority arguments" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="503" col="6">
+        </testcase>
+        <testcase name="receipt event keys distinguish every authoritative state field" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="541" col="6">
+        </testcase>
+        <testcase name="linked purchase token builds immutable timestamped lineage args" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="574" col="6">
+        </testcase>
+        <testcase name="terminal reconciliation wins over duplicate acceptance" classname="./supabase/functions/verify-receipt/subscription_verification_test.ts" time="0.000" line="597" col="6">
+        </testcase>
+    </testsuite>
+    <testsuite name="./supabase/functions/_shared/account_deletion_auth_test.ts" tests="10" disabled="0" errors="0" failures="0">
+        <testcase name="two sessions: a fresh account login cannot authorize an older presented session" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.001" line="60" col="6">
+        </testcase>
+        <testcase name="refreshing an old session does not count as recent authentication" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.000" line="91" col="6">
+        </testcase>
+        <testcase name="untrusted fresh claims are rejected when Auth rejects the token" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.000" line="111" col="6">
+        </testcase>
+        <testcase name="revoked session response rejects a still-unexpired fresh token" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.000" line="130" col="6">
+        </testcase>
+        <testcase name="malformed bearer cannot reach Auth or authorize deletion" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.000" line="145" col="6">
+        </testcase>
+        <testcase name="malformed payload is rejected even if an unexpected Auth response succeeds" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.000" line="165" col="6">
+        </testcase>
+        <testcase name="subject mismatch, anonymous, privileged and sessionless tokens are rejected" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.000" line="180" col="6">
+        </testcase>
+        <testcase name="user metadata cannot supply missing session authentication evidence" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.000" line="207" col="6">
+        </testcase>
+        <testcase name="invalid, unknown, refresh-only and anonymous AMR entries fail closed" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.000" line="226" col="6">
+        </testcase>
+        <testcase name="supported password/OAuth/OTP methods and later MFA retain recent-auth behavior" classname="./supabase/functions/_shared/account_deletion_auth_test.ts" time="0.001" line="258" col="6">
+        </testcase>
+    </testsuite>
+    <testsuite name="./supabase/functions/_shared/account_deletion_state_machine_test.ts" tests="4" disabled="0" errors="0" failures="0">
+        <testcase name="deletion identifiers are stable and opaque" classname="./supabase/functions/_shared/account_deletion_state_machine_test.ts" time="0.000" line="13" col="6">
+        </testcase>
+        <testcase name="reads status only when both request and receipt hash match" classname="./supabase/functions/_shared/account_deletion_state_machine_test.ts" time="0.000" line="32" col="6">
+        </testcase>
+        <testcase name="completes revocation, storage, auth, and durable status" classname="./supabase/functions/_shared/account_deletion_state_machine_test.ts" time="0.000" line="53" col="6">
+        </testcase>
+        <testcase name="releases its lease when storage cleanup fails" classname="./supabase/functions/_shared/account_deletion_state_machine_test.ts" time="0.000" line="99" col="6">
+        </testcase>
+    </testsuite>
+    <testsuite name="./supabase/functions/_shared/ai_billing_test.ts" tests="4" disabled="0" errors="0" failures="0">
+        <testcase name="AI request identifiers accept candidate envelope IDs" classname="./supabase/functions/_shared/ai_billing_test.ts" time="0.000" line="7" col="6">
+        </testcase>
+        <testcase name="AI request identifiers reject missing or unsafe values" classname="./supabase/functions/_shared/ai_billing_test.ts" time="0.000" line="14" col="6">
+        </testcase>
+        <testcase name="AI credit cost is bounded and deterministic" classname="./supabase/functions/_shared/ai_billing_test.ts" time="0.000" line="24" col="6">
+        </testcase>
+        <testcase name="idempotency mismatches map to conflict, not exhausted credits" classname="./supabase/functions/_shared/ai_billing_test.ts" time="0.000" line="31" col="6">
+        </testcase>
+    </testsuite>
+    <testsuite name="./supabase/functions/_shared/ai_proxy_policy_test.ts" tests="3" disabled="0" errors="0" failures="0">
+        <testcase name="builds policy only from allowlisted control fields" classname="./supabase/functions/_shared/ai_proxy_policy_test.ts" time="0.000" line="6" col="6">
+        </testcase>
+        <testcase name="rejects oversized and deeply nested context" classname="./supabase/functions/_shared/ai_proxy_policy_test.ts" time="0.000" line="22" col="6">
+        </testcase>
+        <testcase name="blocks unsupported and prompt-disclosure claims" classname="./supabase/functions/_shared/ai_proxy_policy_test.ts" time="0.000" line="36" col="6">
+        </testcase>
+    </testsuite>
+    <testsuite name="./supabase/functions/_shared/billing_backend_test.ts" tests="2" disabled="0" errors="0" failures="0">
+        <testcase name="billing rate limits use the first trusted forwarding hop" classname="./supabase/functions/_shared/billing_backend_test.ts" time="0.000" line="3" col="6">
+        </testcase>
+        <testcase name="billing identifiers are irreversibly hashed" classname="./supabase/functions/_shared/billing_backend_test.ts" time="0.000" line="12" col="6">
+        </testcase>
+    </testsuite>
+    <testsuite name="./supabase/functions/_shared/storage_cleanup_test.ts" tests="3" disabled="0" errors="0" failures="0">
+        <testcase name="recursively lists nested folders and deletes every file" classname="./supabase/functions/_shared/storage_cleanup_test.ts" time="0.000" line="3" col="6">
+        </testcase>
+        <testcase name="paginates listings and deletes in bounded batches" classname="./supabase/functions/_shared/storage_cleanup_test.ts" time="0.000" line="45" col="6">
+        </testcase>
+        <testcase name="fails closed on malformed listings or delete failure" classname="./supabase/functions/_shared/storage_cleanup_test.ts" time="0.000" line="79" col="6">
+        </testcase>
+    </testsuite>
+</testsuites>

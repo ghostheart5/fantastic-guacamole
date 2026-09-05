@@ -9,6 +9,71 @@ These are the website/domain and signed-candidate phases from the agreed
 13-phase safe-quick repair plan. They are not binder Priority 5/6 or the older
 `LAUNCH_READINESS_TRACKER.md` checkpoint numbering.
 
+Phase 7 live-backend repairs and remaining gates are tracked separately in
+[Phase 7 status](SAFE_QUICK_PHASE_7_STATUS_20260904.md). Phase 7 remains incomplete;
+its operational repair does not close the deferred Phase 5 or release gates.
+
+## Current checkpoint - signed candidate and focused physical smoke PASS
+
+This checkpoint supersedes the historical Phase 6 preflight below. Phase 5
+remains INCOMPLETE / DEFERRED; no website or Play change is implied.
+
+- Frozen app source: `61c7331dda9e82201a0561dbcd79aa0b37118446`.
+- Exact-source [CI run 33939436515](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/33939436515):
+  SUCCESS. 2352 Flutter tests and 15 configuration tests passed with zero
+  failures/errors/skips. Static policy, Windows goldens, Linux app-root
+  integration and coverage ratchet passed; overall coverage 71.7%.
+- Tooling source: `7274e369f589faafe4e0f276cf7ef7cd2610e4b7`.
+- [Signed build 33940078212](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/33940078212),
+  attempt 1: SUCCESS; artifact ID `9961652612`.
+- AAB SHA-256: `94259b7deefeb05430c3f9bb194aebee8dfc8e8f48e494e6b22b8a60302ffa21`.
+- Verified downloaded AAB provenance, pinned upload signature, bundle validity,
+  package `com.ghostheart5.chronospark`, version `4.1.0+2026083003`, target 36,
+  non-debuggable manifest, 16 KB bundle alignment request/native ELF alignment,
+  R8 mapping parity and build containment flags. Full native-symbol completeness
+  and Play version-code/signing authority remain open.
+- Device-specific APKs were generated from that verified AAB, signature-checked,
+  and installed in place on the physical Moto G Stylus 5G (2022), Android 13.
+  All four installed APK hashes matched the verified local split set.
+- Focused physical smoke PASS: startup without limited-mode warning, retained
+  signed-in session, Nexus/Timeline/Profile/Trajectory navigation, cold restart,
+  Creator entry, Creator background/resume, and exit without saving.
+- Filtered release app error logs were empty during these checks. No account
+  data clear, uninstall, sign-out, test-data save, purchase or backend mutation.
+
+Local evidence folder beside this checkout:
+`phase6-startup-repair-4315fbed/`, including `STATUS.md`,
+`MOTO_DEVICE_SMOKE.md`, the candidate manifest/AAB/mapping, and UI captures.
+These are local retained evidence, not files attached to this repository note.
+
+### Remaining gates and next safe action
+
+1. Authorized single-task physical journey: PASS on the same signed candidate.
+   `TEST-ONLY-20260904-2210-LIFECYCLE` saved once, survived a cold restart,
+   appeared on Nexus and Timeline, completed once, and retained exactly one
+   visible completion event plus 25 XP after another cold restart. The task,
+   completion history and 1d streak remain in the account with user approval.
+   Evidence: `phase6-startup-repair-4315fbed/MOTO_TASK_LIFECYCLE.md` beside
+   this checkout. This later authorized test supersedes the initial smoke's
+   no-test-data-save boundary above. Double-submit and interruption-during-write
+   scenarios remain unrun; do not mark full UAT-003/UAT-005 complete.
+2. Full human UAT, accessibility, permissions, interruptions and representative
+   devices remain separate. Creator entry/resume is not UAT-003 completion;
+   one background/resume is not the resource-pressure UAT-015 scenario.
+3. This 4 KB-page phone does not establish 16 KB runtime behavior.
+4. Play signing authority, increasing version-code eligibility, native-symbol
+   completeness, live backend, and deferred Phase 5 legal/HTTPS/support checks
+   remain open. No upload, submission, publication, or provider enablement.
+
+No full test suite was rerun after the approved exact-source CI passed.
+Current release-gate status: **not ready**.
+
+## Historical preflight and deferred Phase 5 record
+
+The remaining sections preserve the earlier checkpoint. Statements such as
+"NOT BUILT" and "NOT RUN" below describe that earlier preflight, not the
+current candidate documented above.
+
 ## Phase 5 - INCOMPLETE / DEFERRED
 
 User direction: save this phase as incomplete and begin Phase 6 preparation.
