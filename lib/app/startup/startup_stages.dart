@@ -86,6 +86,15 @@ Future<StartupBootstrapResult> _initializeStartup(
     return _cancelledStartupResult;
   }
   startupError = _appendStartupIssue(startupError, storageIssue ?? '');
+  if (Env.isLocalMode && storageIssue != null) {
+    return StartupBootstrapResult(
+      hasOnboarded: false,
+      hasSeenWelcome: false,
+      startupError: storageIssue,
+      productionReadinessBlocked: false,
+      localStorageUnavailable: true,
+    );
+  }
 
   final String? firebaseIssue = await _measureIssueStage(
     'firebase',
@@ -100,7 +109,8 @@ Future<StartupBootstrapResult> _initializeStartup(
   }
   startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
 
-  final bool firebaseInitialized = Firebase.apps.isNotEmpty;
+  final bool firebaseInitialized =
+      Env.cloudServicesEnabled && Firebase.apps.isNotEmpty;
   final String? firebaseProjectId = firebaseInitialized
       ? Firebase.app().options.projectId
       : null;
@@ -133,6 +143,15 @@ Future<StartupBootstrapResult> _initializeStartup(
   );
   if (cancellationToken.isCancelled) {
     return _cancelledStartupResult;
+  }
+  if (Env.isLocalMode && prefsResult.issue != null) {
+    return StartupBootstrapResult(
+      hasOnboarded: false,
+      hasSeenWelcome: false,
+      startupError: prefsResult.issue,
+      productionReadinessBlocked: false,
+      localStorageUnavailable: true,
+    );
   }
 
   unawaited(
@@ -301,6 +320,7 @@ Future<String?> _initFirebaseSafe({
   if (cancellationToken.isCancelled) {
     return null;
   }
+  if (!Env.cloudServicesEnabled) return null;
   if (isMockMode) {
     Logger.log('Startup', 'Mock mode active: Firebase startup skipped.');
     RuntimeDiagnostics.record('Mock mode active: Firebase startup skipped.');
@@ -364,7 +384,7 @@ Future<String?> _initSupabaseSafe({
   if (cancellationToken.isCancelled) {
     return null;
   }
-  if (isMockMode || !Env.isSupabaseConfigured) {
+  if (!Env.cloudServicesEnabled || isMockMode || !Env.isSupabaseConfigured) {
     Logger.log(
       'Startup',
       'Supabase startup skipped (mockMode=$isMockMode, configured=${Env.isSupabaseConfigured}).',

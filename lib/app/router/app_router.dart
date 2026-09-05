@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/auth/ui/account_deletion_status_panel.dart';
@@ -381,6 +382,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.deleteAccount,
         builder: (BuildContext context, GoRouterState state) {
+          if (Env.isLocalMode) {
+            final bool spanish =
+                Localizations.localeOf(context).languageCode == 'es';
+            return WebPageView(
+              title: spanish ? 'Eliminar perfil local' : 'Delete local profile',
+              body: spanish
+                  ? 'Abre tu perfil local y ve a Ajustes > Datos y cuenta > Eliminar perfil local. Confirma para eliminar permanentemente el perfil y sus datos de este dispositivo. Si una eliminación anterior no terminó, usa Reintentar eliminación en la pantalla de perfil. No se crea ninguna cuenta en la nube en este modo.'
+                  : 'Open your local profile, then go to Settings > Data & account > Delete Local Profile. Confirm to permanently remove that profile and its data from this device. If a previous deletion did not finish, use Retry deletion on the profile screen. No cloud account is created in this mode.',
+            );
+          }
           final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(
             context,
           );

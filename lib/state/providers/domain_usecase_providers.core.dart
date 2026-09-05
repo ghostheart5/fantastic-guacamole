@@ -55,27 +55,27 @@ final addLogEntryUseCaseProvider = Provider<AddLogEntry>((ref) {
 });
 
 final getCurrentThemeUseCaseProvider = Provider<GetCurrentTheme>((ref) {
-  return GetCurrentTheme(ref.read(domainThemeRepositoryProvider));
+  return GetCurrentTheme(ref.watch(domainThemeRepositoryProvider));
 });
 
 final saveThemeUseCaseProvider = Provider<SaveTheme>((ref) {
-  return SaveTheme(ref.read(domainThemeRepositoryProvider));
+  return SaveTheme(ref.watch(domainThemeRepositoryProvider));
 });
 
 final getAllThemesUseCaseProvider = Provider<GetAllThemes>((ref) {
-  return GetAllThemes(ref.read(domainThemeRepositoryProvider));
+  return GetAllThemes(ref.watch(domainThemeRepositoryProvider));
 });
 
 final switchThemeUseCaseProvider = Provider<SwitchTheme>((ref) {
-  return SwitchTheme(ref.read(domainThemeRepositoryProvider));
+  return SwitchTheme(ref.watch(domainThemeRepositoryProvider));
 });
 
 final getIdentityProfileUseCaseProvider = Provider<GetIdentityProfile>((ref) {
-  return GetIdentityProfile(ref.read(domainIdentityRepositoryProvider));
+  return GetIdentityProfile(ref.watch(domainIdentityRepositoryProvider));
 });
 
 final saveIdentityProfileUseCaseProvider = Provider<SaveIdentityProfile>((ref) {
-  return SaveIdentityProfile(ref.read(domainIdentityRepositoryProvider));
+  return SaveIdentityProfile(ref.watch(domainIdentityRepositoryProvider));
 });
 
 final createGoalUseCaseProvider = Provider<CreateGoal>((ref) {

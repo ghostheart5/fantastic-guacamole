@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/features/auth/ui/local_profile_screen.dart';
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -148,7 +150,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    final bool allowMockAccess = widget.enableMockLogin;
+    final bool allowMockAccess = widget.enableMockLogin && !Env.isLocalMode;
     final String? startupMessage = _effectiveStartupError;
     final String onboardingLocation =
         widget.onboardingLocation ?? ref.read(routeSurfaceProvider).onboarding;
@@ -160,7 +162,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     final bool mockSignInActive = ref.watch(mockSignInProvider);
     final String qaAccountId = ref.watch(qaMockAccountIdProvider);
 
-    if (mockSignInActive) {
+    if (mockSignInActive && !Env.isLocalMode) {
       return _scopeIsReadyFor(accountScope, qaAccountId)
           ? widget.child
           : const _AuthLoadingShell();
@@ -268,6 +270,15 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                   );
                 }
 
+                if (authService is LocalProfileAuthService) {
+                  if (user == null) {
+                    return LocalProfileScreen(service: authService);
+                  }
+                  return user.isLocalProfile &&
+                          _scopeIsReadyFor(accountScope, user.id)
+                      ? widget.child
+                      : const _AuthLoadingShell();
+                }
                 if (recoveryState.isPending && recoveryAuth != null) {
                   return _AuthScreen(
                     key: ValueKey<String>(
@@ -327,6 +338,22 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   Future<void> _initializeAuth() async {
     if (widget.authService != null) {
       _authService = widget.authService;
+      return;
+    }
+
+    if (Env.isLocalMode) {
+      try {
+        final AuthServiceContract service = _authRuntime.readService();
+        if (service is! LocalProfileAuthService) {
+          throw StateError('Local profile service is unavailable.');
+        }
+        await service.initialize();
+        _authService = service;
+      } on Object {
+        _authInitError =
+            'Local profile storage could not be opened. Retry to protect your saved data.';
+        _authService = _authRuntime.unavailableService;
+      }
       return;
     }
 

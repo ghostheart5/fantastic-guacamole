@@ -35,7 +35,14 @@ class MainActivity : FlutterActivity() {
     private var ttsVolume = 1.0f
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
+        val backendMode = packageManager
+            .getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+            .metaData?.getString("chronospark.backend_mode")
+        when (backendMode) {
+            "local" -> LocalPluginRegistrant.registerWith(flutterEngine)
+            "cloud" -> super.configureFlutterEngine(flutterEngine)
+            else -> error("ChronoSpark backend mode is missing or invalid.")
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, locationChannelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

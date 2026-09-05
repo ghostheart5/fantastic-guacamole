@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provid
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/local_profile_auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,10 +43,15 @@ class AuthSessionBoundaryCoordinator {
   int _latestSequence = 0;
   bool _started = false;
   bool _disposed = false;
+  LocalProfileLifecycleActions? _localLifecycle;
 
   Future<void> initialize() {
     if (_started) return _initialTransition.future;
     _started = true;
+    if (Env.isLocalMode) {
+      _localLifecycle = _ref.read(localProfileLifecycleActionsProvider);
+      _localLifecycle!.attach(this, deleteLocalProfileData);
+    }
     _subscription = _ref.listen<AsyncValue<User?>>(
       authUserProvider,
       _onAuthState,
@@ -125,6 +131,19 @@ class AuthSessionBoundaryCoordinator {
         // owner marker lets a later sign-in prove which account may reopen it.
         invalidateAccountOwnedProviders(_ref);
         boundary.complete(generation, storageReady: false);
+        return;
+      }
+
+      // Local identities are new namespaces, never owners of retained cloud
+      // or markerless legacy data. Do not adopt or relabel that data.
+      if (Env.isLocalMode && currentUser!.isLocalProfile) {
+        await _openStorageGate(
+          boundary,
+          generation,
+          accountId: currentId,
+          sequence: sequence,
+          legacyOwnership: LegacyScopeOwnership.provenNotOwned,
+        );
         return;
       }
 
@@ -326,6 +345,53 @@ class AuthSessionBoundaryCoordinator {
     return operation;
   }
 
+  /// Closes the storage gate before deleting a journaled local profile. The
+  /// journal authorizes retries after a crash; partial data is never reopened.
+  Future<void> deleteLocalProfileData(String accountId) {
+    if (!Env.isLocalMode ||
+        _ref.read(localProfileAuthServiceProvider).pendingDeletionAccountId !=
+            accountId ||
+        _disposed) {
+      throw StateError('A journaled local profile deletion is required.');
+    }
+    final int sequence = ++_latestSequence;
+    final Future<void> operation = _transitionTail.then((_) async {
+      if (!_isLatest(sequence)) {
+        throw StateError('Profile changed before deletion.');
+      }
+      // Capture the departing instances while their scope is still writable.
+      // Reading these providers after begin would rebuild an unsafe coordinator
+      // and a null outcome repository, leaving the old write queues undrained.
+      final occurrenceCoordinator = _ref.read(
+        taskOccurrenceCoordinatorProvider,
+      );
+      final outcomeRepository = _ref.read(decisionOutcomeRepositoryProvider);
+      final boundary = _ref.read(authSessionBoundaryProvider.notifier);
+      final int generation = boundary.begin(
+        userId: accountId,
+        isTransitioning: true,
+      );
+      await occurrenceCoordinator.cancelAndDrain();
+      await outcomeRepository?.drain();
+      invalidateAccountOwnedProviders(_ref);
+      try {
+        await _ref
+            .read(localUserDataCleanupServiceProvider)
+            .clearForAccountSwitch(accountId);
+      } finally {
+        if (_isLatest(sequence)) {
+          invalidateAccountOwnedProviders(_ref);
+          boundary.complete(generation, storageReady: false);
+        }
+      }
+    });
+    _transitionTail = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
+  }
+
   Future<void> _clearLocalDataForCurrentAccount({
     required int sequence,
     required String expectedAccountId,
@@ -347,6 +413,8 @@ class AuthSessionBoundaryCoordinator {
       );
     }
 
+    final occurrenceCoordinator = _ref.read(taskOccurrenceCoordinatorProvider);
+    final outcomeRepository = _ref.read(decisionOutcomeRepositoryProvider);
     final AuthSessionBoundaryNotifier boundary = _ref.read(
       authSessionBoundaryProvider.notifier,
     );
@@ -355,8 +423,8 @@ class AuthSessionBoundaryCoordinator {
       isTransitioning: true,
     );
     try {
-      await _ref.read(taskOccurrenceCoordinatorProvider).cancelAndDrain();
-      await _ref.read(decisionOutcomeRepositoryProvider)?.drain();
+      await occurrenceCoordinator.cancelAndDrain();
+      await outcomeRepository?.drain();
       if (!_isLatestAccount(sequence, expectedAccountId, generation)) return;
 
       invalidateAccountOwnedProviders(_ref);
@@ -478,6 +546,7 @@ class AuthSessionBoundaryCoordinator {
 
   void dispose() {
     _disposed = true;
+    _localLifecycle?.detach(this);
     _subscription?.close();
     if (!_initialTransition.isCompleted) {
       _initialTransition.complete();

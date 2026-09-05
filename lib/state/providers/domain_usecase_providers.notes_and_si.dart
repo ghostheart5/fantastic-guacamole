@@ -53,8 +53,8 @@ final deleteMilestoneUseCaseProvider = Provider<DeleteMilestone>((ref) {
 
 final generateSiDecisionUseCaseProvider = Provider<GenerateSiDecision>((ref) {
   return GenerateSiDecision(
-    ref.read(domainTaskRepositoryProvider),
-    ref.read(domainSiRepositoryProvider),
+    ref.watch(domainTaskRepositoryProvider),
+    ref.watch(domainSiRepositoryProvider),
   );
 });
 

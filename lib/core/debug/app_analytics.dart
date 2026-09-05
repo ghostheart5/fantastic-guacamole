@@ -23,7 +23,8 @@ class AppAnalytics {
     String event, {
     Map<String, Object?> params = const <String, Object?>{},
   }) {
-    if (!Env.enableAnalytics ||
+    if (!Env.cloudServicesEnabled ||
+        !Env.enableAnalytics ||
         !TelemetryConsentStore.analyticsDispatchAllowed) {
       return;
     }

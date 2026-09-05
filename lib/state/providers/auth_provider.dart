@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/state/providers/local_profile_auth_provider.dart';
 import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/data/services/supabase_password_recovery.dart';
@@ -11,6 +13,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final passwordRecoveryStateProvider = StreamProvider<PasswordRecoveryState>((
   ref,
 ) {
+  if (!Env.cloudServicesEnabled) {
+    return Stream<PasswordRecoveryState>.value(
+      const PasswordRecoveryState.inactive(),
+    );
+  }
   final client = ref.watch(supabaseClientProvider);
   if (client == null) {
     return Stream<PasswordRecoveryState>.value(
@@ -23,8 +30,13 @@ final passwordRecoveryStateProvider = StreamProvider<PasswordRecoveryState>((
 final authServiceProvider = Provider<AuthServiceContract>(
   (ref) => createAuthService(
     store: ref.read(secureStoreProvider),
-    supabaseClient: ref.read(supabaseClientProvider),
+    supabaseClient: Env.cloudServicesEnabled
+        ? ref.read(supabaseClientProvider)
+        : null,
     intelligence: ref.read(intelligenceStateProvider),
+    localProfileService: Env.isLocalMode
+        ? ref.read(localProfileAuthServiceProvider)
+        : null,
     localDataCleanup: ref.read(localUserDataCleanupServiceProvider),
     onBeforeSignedOut: ref
         .read(localUserDataCleanupServiceProvider)
@@ -45,6 +57,7 @@ class AuthRuntimeCoordinator {
   AuthServiceContract get unavailableService => const UnavailableAuthService();
 
   Future<String?> initializeBackend({required bool isMockMode}) {
+    if (Env.isLocalMode) return Future<String?>.value();
     return const SupabaseClientService().initialize(isMockMode: isMockMode);
   }
 

@@ -170,6 +170,7 @@ final dataHygieneSchedulerProvider = Provider<DataHygieneScheduler>((Ref ref) {
 });
 
 final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
+  if (!Env.cloudServicesEnabled) return;
   final sb.SupabaseClient? client = ref.watch(supabaseClientProvider);
   final FirebaseSupabaseBridgeRepository bridgeRepository = ref.read(
     firebaseSupabaseBridgeRepositoryProvider,

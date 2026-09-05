@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final creditServiceProvider = Provider<CreditService>((ref) {
   return CreditService(
+    spendingEnabled: Env.creditSpendingEnabled,
     prefs: AccountScopedSharedPrefsStore(
       delegate: ref.read(sharedPrefsStoreProvider),
       scope: ref.watch(accountStorageScopeProvider),
@@ -38,7 +39,7 @@ final creditServiceProvider = Provider<CreditService>((ref) {
 });
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
-  if (!LaunchContainment.creditSpendingEnabled) {
+  if (!Env.creditSpendingEnabled) {
     final DateTime now = DateTime.now();
     return AiCreditWallet(
       balance: 0,
@@ -141,7 +142,7 @@ final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
 });
 
 final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
-  if (!LaunchContainment.paidCreditPlansEnabled) {
+  if (!Env.paidCreditPlansEnabled) {
     return const ContainedPaywallRepository().getPaywallConfig();
   }
   final List<PaywallPlan> plans = await ref
@@ -169,7 +170,7 @@ class PaywallActions {
   final Ref _ref;
 
   Future<SubscriptionState> startSubscription(String planId) async {
-    if (!LaunchContainment.paidCreditPlansEnabled) {
+    if (!Env.paidCreditPlansEnabled) {
       throw const LaunchContainedException('Subscriptions');
     }
     final SubscriptionState purchased = await _ref
@@ -179,7 +180,7 @@ class PaywallActions {
   }
 
   Future<SubscriptionState> restorePurchases() async {
-    if (!LaunchContainment.paidCreditPlansEnabled) {
+    if (!Env.paidCreditPlansEnabled) {
       throw const LaunchContainedException('Purchase restoration');
     }
     final SubscriptionState restored = await _ref
@@ -248,7 +249,7 @@ class PaywallPrompt {
 }
 
 final paywallEnabledProvider = Provider<bool>((ref) {
-  if (!LaunchContainment.paidCreditPlansEnabled) {
+  if (!Env.paidCreditPlansEnabled) {
     return false;
   }
   final bool localEnabled = ref.watch(appAccessProvider).paywallEnabled;

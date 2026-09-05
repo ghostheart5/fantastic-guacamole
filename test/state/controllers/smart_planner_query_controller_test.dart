@@ -42,45 +42,48 @@ void main() {
     PersonContextView? personContext,
     OperatingDecisionReceipt? operatingReceipt,
     List<MemoryEntity> plannerMemories = const <MemoryEntity>[],
-  }) => ProviderContainer(
-    overrides: [
-      assistantReleaseConfigProvider.overrideWith(
-        (Ref ref) async => AssistantReleaseConfig(
-          stage: AssistantReleaseStage.general,
-          canaryBasisPoints: 0,
-          shadowEvaluationEnabled: false,
-          internalAccountDigests: const <String>{},
-          rollbackCapabilities: const <AssistantReleaseCapability>{},
-        ),
-      ),
-      assistantBetaOptInProvider.overrideWith(_ImmediateBetaOptIn.new),
-      accountStorageScopeProvider.overrideWithValue(_plannerTestAccountScope),
-      domainTaskRepositoryProvider.overrideWithValue(
-        tasks ?? _MemoryTaskRepository(),
-      ),
-      domainGoalRepositoryProvider.overrideWithValue(
-        goals ?? _MemoryGoalRepository(),
-      ),
-      smartPlannerClockProvider.overrideWithValue(
-        () => DateTime.utc(2026, 8, 29, 18),
-      ),
-      smartPlannerOperatingReceiptProvider.overrideWithValue(operatingReceipt),
-      memoryRecallProvider(
-        MemorySurface.smartPlanner,
-      ).overrideWithValue(plannerMemories),
-      personalizationProfileProvider.overrideWith(
-        emotionConsent
-            ? _ConsentedPersonalizationController.new
-            : _RevokedPersonalizationController.new,
-      ),
-      personContextForSurfaceProvider(
-        PersonContextAccessRequest(
-          surface: PersonContextSurface.smartPlanner,
-          purposes: operationalPersonContextPurposes,
-        ),
-      ).overrideWithValue(personContext),
-    ],
-  );
+  }) =>
+      ProviderContainer(
+        overrides: [
+          assistantReleaseConfigProvider.overrideWith(
+            (Ref ref) async => AssistantReleaseConfig(
+              stage: AssistantReleaseStage.general,
+              canaryBasisPoints: 0,
+              shadowEvaluationEnabled: false,
+              internalAccountDigests: const <String>{},
+              rollbackCapabilities: const <AssistantReleaseCapability>{},
+            ),
+          ),
+          assistantBetaOptInProvider.overrideWith(_ImmediateBetaOptIn.new),
+          accountStorageScopeProvider
+              .overrideWithValue(_plannerTestAccountScope),
+          domainTaskRepositoryProvider.overrideWithValue(
+            tasks ?? _MemoryTaskRepository(),
+          ),
+          domainGoalRepositoryProvider.overrideWithValue(
+            goals ?? _MemoryGoalRepository(),
+          ),
+          smartPlannerClockProvider.overrideWithValue(
+            () => DateTime.utc(2026, 8, 29, 18),
+          ),
+          smartPlannerOperatingReceiptProvider
+              .overrideWithValue(operatingReceipt),
+          memoryRecallProvider(
+            MemorySurface.smartPlanner,
+          ).overrideWithValue(plannerMemories),
+          personalizationProfileProvider.overrideWith(
+            emotionConsent
+                ? _ConsentedPersonalizationController.new
+                : _RevokedPersonalizationController.new,
+          ),
+          personContextForSurfaceProvider(
+            PersonContextAccessRequest(
+              surface: PersonContextSurface.smartPlanner,
+              purposes: operationalPersonContextPurposes,
+            ),
+          ).overrideWithValue(personContext),
+        ],
+      );
 
   PersonContextSignal contextSignal({
     required String id,
@@ -90,43 +93,45 @@ void main() {
     PersonContextKnowledge knowledge = PersonContextKnowledge.known,
     PersonContextPurpose? purpose,
     DateTime? freshUntil,
-  }) => PersonContextSignal(
-    id: id,
-    kind: kind,
-    value: value,
-    source: PersonContextSource.userAuthored,
-    consent: consent,
-    consentedAt: consent == PersonContextConsent.granted
-        ? DateTime.utc(2026, 8, 29, 16)
-        : DateTime.utc(2026, 8, 29, 15),
-    withdrawnAt: consent == PersonContextConsent.withdrawn
-        ? DateTime.utc(2026, 8, 29, 17)
-        : null,
-    purpose: purpose ?? PersonContextBehaviorPolicy.ruleFor(kind).purpose,
-    surfaceScopes: const <PersonContextSurface>{
-      PersonContextSurface.smartPlanner,
-    },
-    recordedAt: DateTime.utc(2026, 8, 29, 16),
-    freshUntil: freshUntil ?? DateTime.utc(2026, 8, 30, 16),
-    expiresAt: DateTime.utc(2026, 9, 30, 16),
-    exportBehavior: PersonContextExportBehavior.include,
-    deletionBehavior: PersonContextDeletionBehavior.userRemovable,
-    knowledge: knowledge,
-  );
+  }) =>
+      PersonContextSignal(
+        id: id,
+        kind: kind,
+        value: value,
+        source: PersonContextSource.userAuthored,
+        consent: consent,
+        consentedAt: consent == PersonContextConsent.granted
+            ? DateTime.utc(2026, 8, 29, 16)
+            : DateTime.utc(2026, 8, 29, 15),
+        withdrawnAt: consent == PersonContextConsent.withdrawn
+            ? DateTime.utc(2026, 8, 29, 17)
+            : null,
+        purpose: purpose ?? PersonContextBehaviorPolicy.ruleFor(kind).purpose,
+        surfaceScopes: const <PersonContextSurface>{
+          PersonContextSurface.smartPlanner,
+        },
+        recordedAt: DateTime.utc(2026, 8, 29, 16),
+        freshUntil: freshUntil ?? DateTime.utc(2026, 8, 30, 16),
+        expiresAt: DateTime.utc(2026, 9, 30, 16),
+        exportBehavior: PersonContextExportBehavior.include,
+        deletionBehavior: PersonContextDeletionBehavior.userRemovable,
+        knowledge: knowledge,
+      );
 
   PersonContextView contextView(
     List<PersonContextSignal> signals, {
     String? accountScopeId,
-  }) => PersonContextView(
-    accountScopeId: accountScopeId ?? _plannerTestAccountScopeId,
-    surface: PersonContextSurface.smartPlanner,
-    purposes: operationalPersonContextPurposes,
-    observedAt: DateTime.utc(2026, 8, 29, 18),
-    signals: signals,
-    unknownKinds: PersonContextKind.values.toSet().difference(
-      signals.map((PersonContextSignal signal) => signal.kind).toSet(),
-    ),
-  );
+  }) =>
+      PersonContextView(
+        accountScopeId: accountScopeId ?? _plannerTestAccountScopeId,
+        surface: PersonContextSurface.smartPlanner,
+        purposes: operationalPersonContextPurposes,
+        observedAt: DateTime.utc(2026, 8, 29, 18),
+        signals: signals,
+        unknownKinds: PersonContextKind.values.toSet().difference(
+              signals.map((PersonContextSignal signal) => signal.kind).toSet(),
+            ),
+      );
 
   test('Planner V2 returns the complete typed response contract', () async {
     final ProviderContainer container = plannerContainer();
@@ -179,7 +184,7 @@ void main() {
   });
 
   test(
-    'fresh scoped person context changes grounded output and typed evidence',
+    'current priority ranks saved evidence but cannot become the sole plan subject',
     () async {
       Future<SmartPlannerResult> requestFor(String priority) async {
         final ProviderContainer container = plannerContainer(
@@ -212,15 +217,20 @@ void main() {
 
       expect(
         familyTime.plannerResponse.mattersMost,
-        contains('Protect family time tonight'),
+        isNot(contains('Protect family time tonight')),
       );
       expect(
         releaseNotes.plannerResponse.mattersMost,
-        contains('Prepare release notes first'),
+        isNot(contains('Prepare release notes first')),
       );
       expect(
-        familyTime.plannerResponse.mattersMost,
-        isNot(releaseNotes.plannerResponse.mattersMost),
+        familyTime.plannerResponse.options
+            .expand((PlannerOption option) => <String>[
+                  option.title,
+                  option.description,
+                ])
+            .join(' '),
+        isNot(contains('Protect family time tonight')),
       );
       expect(
         familyTime.plannerResponse.verifiedEvidence,
@@ -241,6 +251,41 @@ void main() {
       ]);
     },
   );
+
+  test('reported capacity caps every Planner option duration', () async {
+    final ProviderContainer container = plannerContainer(
+      personContext: contextView(<PersonContextSignal>[
+        contextSignal(
+          id: 'capacity',
+          kind: PersonContextKind.presentCapacity,
+          value: '10 minutes available today',
+        ),
+      ]),
+    );
+    addTearDown(container.dispose);
+
+    final SmartPlannerResult result = await container
+        .read(smartPlannerQueryControllerProvider)
+        .requestPlanningGuidance(
+          energy: 0.61,
+          emotion: EmotionalState.calm,
+          notes: 'Help me choose the next practical step.',
+          history: const <Map<String, String>>[],
+          previousSavedNotes: null,
+        );
+
+    expect(
+      result.plannerResponse.options
+          .map((PlannerOption option) => option.estimatedMinutes),
+      everyElement(lessThanOrEqualTo(10)),
+    );
+    expect(
+      result.plannerResponse.adaptationReceipt.adjustments,
+      contains(
+        'Applied your reported capacity limit of 10 minutes: no option exceeds it.',
+      ),
+    );
+  });
 
   test(
     'query-bound revision invalidates displayed exact-match context but ignores unrelated changes',
@@ -330,9 +375,8 @@ void main() {
         'boundary',
         'currentPriority',
       ]);
-      final Map<String, Object?> trace =
-          result.request.context['personContextDecisionTrace']!
-              as Map<String, Object?>;
+      final Map<String, Object?> trace = result.request
+          .context['personContextDecisionTrace']! as Map<String, Object?>;
       final List<dynamic> used = trace['used']! as List<dynamic>;
       expect((used.first as Map<dynamic, dynamic>)['kind'], 'boundary');
       expect(trace['noContextBaseline'], isA<Map<String, Object?>>());
@@ -389,9 +433,8 @@ void main() {
       'commitment',
       'presentCapacity',
     ]);
-    final Map<String, Object?> trace =
-        result.request.context['personContextDecisionTrace']!
-            as Map<String, Object?>;
+    final Map<String, Object?> trace = result
+        .request.context['personContextDecisionTrace']! as Map<String, Object?>;
     final List<dynamic> rejected = trace['rejected']! as List<dynamic>;
     expect(
       rejected.map(
@@ -547,9 +590,8 @@ void main() {
       expect(result.request.context['personContextEvidenceKinds'], <String>[
         'currentPriority',
       ]);
-      final Map<String, Object?> trace =
-          result.request.context['personContextDecisionTrace']!
-              as Map<String, Object?>;
+      final Map<String, Object?> trace = result.request
+          .context['personContextDecisionTrace']! as Map<String, Object?>;
       final List<dynamic> rejected = trace['rejected']! as List<dynamic>;
       expect(
         rejected.map(
@@ -606,14 +648,14 @@ void main() {
         smartPlannerQueryControllerProvider,
       );
 
-      final SmartPlannerResult result = await controller
-          .requestPlanningGuidance(
-            energy: 0.31,
-            emotion: EmotionalState.anxious,
-            notes: 'My work deadline feels overloaded',
-            history: const <Map<String, String>>[],
-            previousSavedNotes: null,
-          );
+      final SmartPlannerResult result =
+          await controller.requestPlanningGuidance(
+        energy: 0.31,
+        emotion: EmotionalState.anxious,
+        notes: 'My work deadline feels overloaded',
+        history: const <Map<String, String>>[],
+        previousSavedNotes: null,
+      );
 
       expect(result.plannerResponse.recommendedKind, PlannerOptionKind.minimum);
       expect(
@@ -664,12 +706,13 @@ void main() {
 
     final PlannerV2Response response =
         (await controller.requestPlanningGuidance(
-          energy: 0.9,
-          emotion: EmotionalState.engaged,
-          notes: 'Advance the next goal milestone',
-          history: const <Map<String, String>>[],
-          previousSavedNotes: null,
-        )).plannerResponse;
+      energy: 0.9,
+      emotion: EmotionalState.engaged,
+      notes: 'Advance the next goal milestone',
+      history: const <Map<String, String>>[],
+      previousSavedNotes: null,
+    ))
+            .plannerResponse;
 
     expect(response.recommendedKind, PlannerOptionKind.stretch);
     expect(response.recommendedOption.estimatedMinutes, 60);
@@ -1145,25 +1188,25 @@ void main() {
     final SmartPlannerResult result = await container
         .read(smartPlannerQueryControllerProvider)
         .requestFollowUpResult(
-          input: 'Make that more specific.',
-          energy: 0.55,
-          emotion: EmotionalState.neutral,
-          reflection: '',
-          history: const <Map<String, String>>[
-            <String, String>{
-              'role': 'user',
-              'content': 'Help me organize this week.',
-            },
-            <String, String>{
-              'role': 'assistant',
-              'content': 'Earlier deterministic plan.',
-            },
-            <String, String>{
-              'role': 'user',
-              'content': 'Focus on preparing the release notes.',
-            },
-          ],
-        );
+      input: 'Make that more specific.',
+      energy: 0.55,
+      emotion: EmotionalState.neutral,
+      reflection: '',
+      history: const <Map<String, String>>[
+        <String, String>{
+          'role': 'user',
+          'content': 'Help me organize this week.',
+        },
+        <String, String>{
+          'role': 'assistant',
+          'content': 'Earlier deterministic plan.',
+        },
+        <String, String>{
+          'role': 'user',
+          'content': 'Focus on preparing the release notes.',
+        },
+      ],
+    );
 
     expect(
       result.plannerResponse.whatIHeard,
@@ -1181,17 +1224,17 @@ void main() {
         () => container
             .read(smartPlannerQueryControllerProvider)
             .requestFollowUpResult(
-              input: 'What should I do next?',
-              energy: 0.2,
-              emotion: EmotionalState.negative,
-              reflection: '',
-              history: const <Map<String, String>>[
-                <String, String>{
-                  'role': 'user',
-                  'content': 'I want to kill myself.',
-                },
-              ],
-            ),
+          input: 'What should I do next?',
+          energy: 0.2,
+          emotion: EmotionalState.negative,
+          reflection: '',
+          history: const <Map<String, String>>[
+            <String, String>{
+              'role': 'user',
+              'content': 'I want to kill myself.',
+            },
+          ],
+        ),
         throwsA(
           isA<AssistantSafetyRouteException>().having(
             (AssistantSafetyRouteException error) => error.code,
@@ -1249,7 +1292,8 @@ void main() {
     expect(source, contains("'persistenceMode': 'ephemeral_read_only'"));
   });
 
-  test('Planner screen has no hidden persistence, analytics, or apply hooks', () {
+  test('Planner screen has no hidden persistence, analytics, or apply hooks',
+      () {
     final String source = File(
       'lib/features/home/ui/smart_planner_screen.dart',
     ).readAsStringSync();
@@ -1303,17 +1347,17 @@ void main() {
         smartPlannerQueryControllerProvider,
       );
 
-      final SmartPlannerResult result = await controller
-          .requestPlanningGuidance(
-            energy: 0.2,
-            emotion: EmotionalState.anxious,
-            notes: 'I am panicking and losing control',
-            history: const <Map<String, String>>[],
-            previousSavedNotes: null,
-            supportivePauseReason:
-                'Pausing productivity guidance because this sounds urgent.',
-            supportiveQuestion: 'Would you like support right now?',
-          );
+      final SmartPlannerResult result =
+          await controller.requestPlanningGuidance(
+        energy: 0.2,
+        emotion: EmotionalState.anxious,
+        notes: 'I am panicking and losing control',
+        history: const <Map<String, String>>[],
+        previousSavedNotes: null,
+        supportivePauseReason:
+            'Pausing productivity guidance because this sounds urgent.',
+        supportiveQuestion: 'Would you like support right now?',
+      );
 
       expect(result.plannerResponse.isClarification, isTrue);
       expect(result.plannerResponse.options, isEmpty);
@@ -1360,9 +1404,9 @@ class _ConsentedPersonalizationController
     extends PersonalizationProfileController {
   @override
   PersonalizationProfile build() => PersonalizationProfile(
-    useEmotionSignals: true,
-    emotionConsentGrantedAt: DateTime.utc(2026, 8, 29),
-  );
+        useEmotionSignals: true,
+        emotionConsentGrantedAt: DateTime.utc(2026, 8, 29),
+      );
 }
 
 class _RevokedPersonalizationController
@@ -1377,34 +1421,34 @@ class _ImmediateBetaOptIn extends AssistantBetaOptInNotifier {
 }
 
 OperatingDecisionReceipt _operatingReceipt() => OperatingDecisionReceipt(
-  decisionId: 'receipt-release',
-  subjectId: null,
-  recommendedAction: 'Prepare release evidence',
-  rationale: 'The current launch gate needs verified local evidence.',
-  whyItMatters: 'A verified release decision is the current priority.',
-  consequenceOfDelay: 'The release decision remains unresolved.',
-  generatedAt: DateTime.utc(2026, 8, 29, 17),
-  expiresAt: DateTime.utc(2026, 8, 29, 21),
-  confidence: OperatingConfidence.moderate,
-  evidence: <OperatingEvidence>[
-    OperatingEvidence(
-      code: 'release-check',
-      description: 'Release evidence remains incomplete.',
-      kind: OperatingEvidenceKind.observed,
-      recordedAt: DateTime.utc(2026, 8, 29, 17),
-      source: 'local_release_gate',
-    ),
-  ],
-  actionIntent: const OperatingActionIntent(
-    id: 'open-creator',
-    type: OperatingActionType.openCreator,
-    label: 'Review in Creator',
-    destination: 'creator',
-    requiresConfirmation: true,
-  ),
-  sourceRevisions: const <String, String>{'release': 'r1'},
-  modelVersion: 'operating-receipt-test-v1',
-);
+      decisionId: 'receipt-release',
+      subjectId: null,
+      recommendedAction: 'Prepare release evidence',
+      rationale: 'The current launch gate needs verified local evidence.',
+      whyItMatters: 'A verified release decision is the current priority.',
+      consequenceOfDelay: 'The release decision remains unresolved.',
+      generatedAt: DateTime.utc(2026, 8, 29, 17),
+      expiresAt: DateTime.utc(2026, 8, 29, 21),
+      confidence: OperatingConfidence.moderate,
+      evidence: <OperatingEvidence>[
+        OperatingEvidence(
+          code: 'release-check',
+          description: 'Release evidence remains incomplete.',
+          kind: OperatingEvidenceKind.observed,
+          recordedAt: DateTime.utc(2026, 8, 29, 17),
+          source: 'local_release_gate',
+        ),
+      ],
+      actionIntent: const OperatingActionIntent(
+        id: 'open-creator',
+        type: OperatingActionType.openCreator,
+        label: 'Review in Creator',
+        destination: 'creator',
+        requiresConfirmation: true,
+      ),
+      sourceRevisions: const <String, String>{'release': 'r1'},
+      modelVersion: 'operating-receipt-test-v1',
+    );
 
 MemoryEntity _plannerMemory({
   required String id,
@@ -1412,25 +1456,26 @@ MemoryEntity _plannerMemory({
   MemorySurface surface = MemorySurface.smartPlanner,
   MemoryPurpose purpose = MemoryPurpose.guidancePreference,
   MemoryConsentStatus consent = MemoryConsentStatus.granted,
-}) => MemoryEntity(
-  id: id,
-  text: text,
-  date: DateTime.utc(2026, 8, 29, 16),
-  category: MemoryCategory.planningGuidancePreference,
-  accountScopeId: _plannerTestAccountScopeId,
-  sourceSurface: surface,
-  purpose: purpose,
-  sensitivity: MemorySensitivity.standard,
-  consentStatus: consent,
-  consentedAt: DateTime.utc(2026, 8, 29, 16),
-  expiresAt: DateTime.utc(2026, 9, 29, 16),
-  provenance: 'test',
-  whyStored: 'test',
-);
+}) =>
+    MemoryEntity(
+      id: id,
+      text: text,
+      date: DateTime.utc(2026, 8, 29, 16),
+      category: MemoryCategory.planningGuidancePreference,
+      accountScopeId: _plannerTestAccountScopeId,
+      sourceSurface: surface,
+      purpose: purpose,
+      sensitivity: MemorySensitivity.standard,
+      consentStatus: consent,
+      consentedAt: DateTime.utc(2026, 8, 29, 16),
+      expiresAt: DateTime.utc(2026, 9, 29, 16),
+      provenance: 'test',
+      whyStored: 'test',
+    );
 
 class _MemoryTaskRepository implements ITaskRepository {
   _MemoryTaskRepository([List<TaskEntity> tasks = const <TaskEntity>[]])
-    : _tasks = List<TaskEntity>.from(tasks);
+      : _tasks = List<TaskEntity>.from(tasks);
 
   final List<TaskEntity> _tasks;
   int readCalls = 0;
@@ -1483,7 +1528,7 @@ class _GatedTaskRepository extends _MemoryTaskRepository {
 
 class _MemoryGoalRepository implements IGoalRepository {
   _MemoryGoalRepository([List<GoalEntity> goals = const <GoalEntity>[]])
-    : _goals = List<GoalEntity>.from(goals);
+      : _goals = List<GoalEntity>.from(goals);
 
   final List<GoalEntity> _goals;
   int readCalls = 0;

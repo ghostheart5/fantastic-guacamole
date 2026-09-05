@@ -24,7 +24,9 @@ class SupabaseClientService {
   }
 
   Future<String?> initialize({required bool isMockMode}) async {
-    if (isMockMode || !(_isConfiguredOverride ?? Env.isSupabaseConfigured)) {
+    if (!Env.cloudServicesEnabled ||
+        isMockMode ||
+        !(_isConfiguredOverride ?? Env.isSupabaseConfigured)) {
       return null;
     }
     final Future<String?> initialization = _initialization ??=
@@ -68,7 +70,7 @@ class SupabaseClientService {
   }
 
   sb.SupabaseClient? get client {
-    if (!Env.isSupabaseConfigured) {
+    if (!Env.cloudServicesEnabled || !Env.isSupabaseConfigured) {
       return null;
     }
     try {

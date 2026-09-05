@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:flutter/services.dart';
 
@@ -171,6 +172,7 @@ class VoiceService {
   }
 
   Future<bool> _ensureInitialized() async {
+    if (!Env.cloudServicesEnabled) return false;
     if (_initialized) {
       return true;
     }

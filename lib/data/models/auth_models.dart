@@ -15,15 +15,24 @@ class User {
     this.displayName,
     required this.emailVerified,
     this.appMetadata = const <String, dynamic>{},
-  });
+  }) : isLocalProfile = false;
+
+  /// A device profile is identity for local storage, never a cloud credential.
+  const User.localProfile({required this.id, this.displayName})
+    : email = null,
+      emailVerified = false,
+      appMetadata = const <String, dynamic>{},
+      isLocalProfile = true;
 
   final String id;
   final String? email;
   final String? displayName;
   final bool emailVerified;
   final Map<String, dynamic> appMetadata;
+  final bool isLocalProfile;
 
   bool get hasInternalAdvisorAccess {
+    if (isLocalProfile) return false;
     if (appMetadata['chronospark_admin'] == true) {
       return true;
     }

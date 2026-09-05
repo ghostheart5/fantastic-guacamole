@@ -29,6 +29,12 @@
         android:usesCleartextTraffic="false"
         android:enableOnBackInvokedCallback="true">
         <meta-data
+            android:name="chronospark.backend_mode"
+            android:value="${chronosparkBackendMode}" />
+        <meta-data
+            android:name="io.flutter.automatically-register-plugins"
+            android:value="${chronosparkAutoRegisterPlugins}" />
+        <meta-data
             android:name="firebase_analytics_collection_enabled"
             android:value="false" />
         <meta-data

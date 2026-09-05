@@ -24,8 +24,7 @@ enum PlannerExplanationAvailability {
 
 final plannerExplanationAvailabilityProvider =
     FutureProvider<PlannerExplanationAvailability>((Ref ref) async {
-      if (!LaunchContainment.externalAiEnabled ||
-          !LaunchContainment.creditSpendingEnabled) {
+      if (!Env.externalAiEnabled || !Env.creditSpendingEnabled) {
         return PlannerExplanationAvailability.launchContained;
       }
       if (!LaunchContainment.externalAiProviderRetentionVerified) {
