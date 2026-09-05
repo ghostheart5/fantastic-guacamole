@@ -742,7 +742,7 @@ $fatalPatterns = @(
     'E/flutter',
     'FLUTTER_ERROR_MARKER\s+>>>',
     'Tasks require authenticated account storage',
-    'ANR in',
+    ('ANR in\s+' + [regex]::Escape($PackageName)),
     ('Process\s+' + [regex]::Escape($PackageName) + '\s+has died'),
     'MissingPluginException',
     'Failed assertion',

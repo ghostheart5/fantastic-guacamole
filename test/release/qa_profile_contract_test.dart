@@ -106,7 +106,7 @@ void main() {
   });
 
   test(
-    'Maestro evidence fails on Flutter and account-storage race markers',
+    'Maestro evidence scopes Android ANR markers to the tested app',
     () {
       final String maestroRunner = File(
         'scripts/run_maestro_android_evidence.ps1',
@@ -117,6 +117,11 @@ void main() {
         maestroRunner,
         contains("'Tasks require authenticated account storage'"),
       );
+      expect(
+        maestroRunner,
+        contains(r"('ANR in\s+' + [regex]::Escape($PackageName))"),
+      );
+      expect(maestroRunner, isNot(contains("    'ANR in',")));
       expect(
         maestroRunner,
         contains(r'$runPassed = $maestroPassed -and $fatalHits.Count -eq 0'),
