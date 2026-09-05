@@ -14,12 +14,19 @@ jobs:
     steps:
       - name: Enforce maintainer-only PR policy
         env:
-          ALLOWED_PR_AUTHOR_ID: '294620552'
+          ALLOWED_PR_AUTHOR_IDS: '294620552 198982749'
           PR_AUTHOR_ID: ${{ github.event.pull_request.user.id }}
           PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
-          if [ "$PR_AUTHOR_ID" != "$ALLOWED_PR_AUTHOR_ID" ]; then
+          allowed=false
+          for id in ${ALLOWED_PR_AUTHOR_IDS:-${ALLOWED_PR_AUTHOR_ID:-}}; do
+            if [ "$PR_AUTHOR_ID" = "$id" ]; then
+              allowed=true
+              break
+            fi
+          done
+          if [ "$allowed" = "false" ]; then
             echo "Pull requests to main are restricted to maintainer-managed changes."
             echo "PR author '$PR_AUTHOR_LOGIN' (id $PR_AUTHOR_ID) is not allowed by policy."
             exit 1

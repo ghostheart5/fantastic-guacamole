@@ -759,7 +759,12 @@ void main() {
     );
     final YamlMap step = namedStep(policy, 'Enforce maintainer-only PR policy');
     final YamlMap environment = step['env'] as YamlMap;
-    expect(environment['ALLOWED_PR_AUTHOR_ID'].toString(), '294620552');
+    final String allowedIds =
+        (environment['ALLOWED_PR_AUTHOR_IDS'] ??
+                environment['ALLOWED_PR_AUTHOR_ID'])
+            .toString();
+    expect(allowedIds, contains('294620552'));
+    expect(allowedIds, contains('198982749'));
     expect(
       environment['PR_AUTHOR_ID'],
       r'${{ github.event.pull_request.user.id }}',
