@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('QA mock profile cannot contact production-facing services', () {
-    final Map<String, dynamic> defines =
-        jsonDecode(File('tool/qa_defines.json').readAsStringSync())
-            as Map<String, dynamic>;
+    final Map<String, dynamic> defines = jsonDecode(
+      File('tool/qa_defines.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
 
     expect(defines['CHRONOSPARK_APP_FLAVOR'], 'qa');
     expect(defines['CHRONOSPARK_ENABLE_MOCK_LOGIN'], isTrue);
@@ -69,16 +69,13 @@ void main() {
     final String maestroRunner = File(
       'scripts/run_maestro_android_evidence.ps1',
     ).readAsStringSync();
-    final String maestroSignIn = File(
-      '.maestro/subflows/sign-in.yaml',
-    ).readAsStringSync();
-    final String featureFlags = File(
-      'lib/config/src/feature_flags.dart',
-    ).readAsStringSync();
+    final String maestroSignIn = File('.maestro/subflows/sign-in.yaml')
+        .readAsStringSync();
+    final String featureFlags = File('lib/config/src/feature_flags.dart')
+        .readAsStringSync();
     final String env = File('lib/config/env.dart').readAsStringSync();
-    final String authGate = File(
-      'lib/features/auth/screens/auth_gate.dart',
-    ).readAsStringSync();
+    final String authGate = File('lib/features/auth/screens/auth_gate.dart')
+        .readAsStringSync();
 
     for (final String key in <String>[
       'CHRONOSPARK_MOCK_LOGIN_EMAIL',
@@ -105,29 +102,26 @@ void main() {
     expect(maestroSignIn, contains(r'${MAESTRO_TEST_PASSWORD}'));
   });
 
-  test(
-    'Maestro evidence scopes Android ANR markers to the tested app',
-    () {
-      final String maestroRunner = File(
-        'scripts/run_maestro_android_evidence.ps1',
-      ).readAsStringSync();
+  test('Maestro evidence scopes Android ANR markers to the tested app', () {
+    final String maestroRunner = File(
+      'scripts/run_maestro_android_evidence.ps1',
+    ).readAsStringSync();
 
-      expect(maestroRunner, contains("'FLUTTER_ERROR_MARKER\\s+>>>'"));
-      expect(
-        maestroRunner,
-        contains("'Tasks require authenticated account storage'"),
-      );
-      expect(
-        maestroRunner,
-        contains(r"('ANR in\s+' + [regex]::Escape($PackageName))"),
-      );
-      expect(maestroRunner, isNot(contains("    'ANR in',")));
-      expect(
-        maestroRunner,
-        contains(r'$runPassed = $maestroPassed -and $fatalHits.Count -eq 0'),
-      );
-    },
-  );
+    expect(maestroRunner, contains("'FLUTTER_ERROR_MARKER\\s+>>>'"));
+    expect(
+      maestroRunner,
+      contains("'Tasks require authenticated account storage'"),
+    );
+    expect(
+      maestroRunner,
+      contains(r"('ANR in\s+' + [regex]::Escape($PackageName))"),
+    );
+    expect(maestroRunner, isNot(contains("    'ANR in',")));
+    expect(
+      maestroRunner,
+      contains(r'$runPassed = $maestroPassed -and $fatalHits.Count -eq 0'),
+    );
+  });
 
   test('Maestro execution is bounded and its JUnit gate fails closed', () {
     final String maestroRunner = File(
