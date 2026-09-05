@@ -14,8 +14,8 @@ concurrency:
 # Deliberately frozen app source. Workflow tooling has separate provenance.
 # Changing this pair requires a reviewed source candidate with its own green CI.
 env:
-  CANDIDATE_SHA: 61c7331dda9e82201a0561dbcd79aa0b37118446
-  CANDIDATE_CI_RUN: '33939436515'
+  CANDIDATE_SHA: 85f04ed879c63adae876e46050b50e37097b65a1
+  CANDIDATE_CI_RUN: '33990630158'
 
 jobs:
   source-gate:
