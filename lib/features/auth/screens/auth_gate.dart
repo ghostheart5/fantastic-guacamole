@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
-import 'package:fantastic_guacamole/data/services/contracts/password_recovery_auth.dart';
 import 'package:fantastic_guacamole/domain/models/deep_link_mode.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
