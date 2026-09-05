@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -8,18 +9,22 @@ class AppAccessState {
     required this.hasPremiumAccess,
     required this.hasTesterFullAccess,
     required this.paywallDisabled,
+    this.isLocalMode = false,
   });
 
   final bool hasPremiumAccess;
   final bool hasTesterFullAccess;
   final bool paywallDisabled;
+  final bool isLocalMode;
 
   bool get paywallEnabled =>
+      !isLocalMode &&
       LaunchContainment.subscriptionsEnabled &&
       !paywallDisabled &&
       !hasTesterFullAccess;
 
   String get subscriptionStatusLabel {
+    if (isLocalMode) return 'Local profile';
     if (!LaunchContainment.subscriptionsEnabled) {
       return 'Plans unavailable';
     }
@@ -33,6 +38,9 @@ class AppAccessState {
   }
 
   String get subscriptionStatusDetail {
+    if (isLocalMode) {
+      return 'Your profile and plans are stored on this device. No subscription is required.';
+    }
     if (!LaunchContainment.subscriptionsEnabled) {
       return 'Subscriptions are disabled while launch-readiness work is completed.';
     }
@@ -53,10 +61,19 @@ class AppAccessState {
 /// cause of paid access being lost on relaunch, because it always rebuilt to
 /// false and nothing rehydrated it from the persisted subscription.
 final runtimePremiumAccessProvider = Provider<bool>((ref) {
+  if (Env.isLocalMode) return false;
   return ref.watch(entitlementProvider).asData?.value.isPremium ?? false;
 });
 
 final appAccessProvider = Provider<AppAccessState>((ref) {
+  if (Env.isLocalMode) {
+    return const AppAccessState(
+      hasPremiumAccess: false,
+      hasTesterFullAccess: false,
+      paywallDisabled: false,
+      isLocalMode: true,
+    );
+  }
   final intelligence = ref.watch(intelligenceStateProvider);
   final bool testerFullAccess =
       intelligence.flags.testerFullAccess ||

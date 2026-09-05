@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/firebase_options.dart';
@@ -9,6 +10,7 @@ import 'package:flutter/foundation.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (!Env.cloudServicesEnabled) return;
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -36,7 +38,7 @@ class FirebaseMessagingBootstrap {
   /// boundary. This is the fallback that prevents a stale server row from
   /// delivering the departing account's notifications to a later account.
   Future<void> revokeDeviceToken() async {
-    if (_latestToken == null) {
+    if (!Env.cloudServicesEnabled || _latestToken == null) {
       return;
     }
     if (!kIsWeb) {
@@ -47,14 +49,14 @@ class FirebaseMessagingBootstrap {
   }
 
   static void configureBackgroundHandler() {
-    if (kIsWeb) {
+    if (!Env.cloudServicesEnabled || kIsWeb) {
       return;
     }
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   }
 
   Future<String?> initialize({required bool isMockMode}) async {
-    if (isMockMode || kIsWeb) {
+    if (!Env.cloudServicesEnabled || isMockMode || kIsWeb) {
       return null;
     }
     final Future<String?>? inFlight = _initialization;
@@ -103,7 +105,7 @@ class FirebaseMessagingBootstrap {
   /// user-facing notification action. Startup calls [initialize], which only
   /// installs listeners and never opens an operating-system prompt.
   Future<String?> requestPermissionAndToken({required bool isMockMode}) async {
-    if (isMockMode || kIsWeb) {
+    if (!Env.cloudServicesEnabled || isMockMode || kIsWeb) {
       return null;
     }
     configureBackgroundHandler();

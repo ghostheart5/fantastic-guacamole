@@ -1,4 +1,9 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/state/providers/local_profile_auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
@@ -11,6 +16,7 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
@@ -29,6 +35,154 @@ import 'package:hive/hive.dart';
 const String _markerKey = 'auth_boundary_account_marker_v1';
 
 void main() {
+  if (Env.isLocalMode) {
+    for (final bool deleteProfile in <bool>[true, false]) {
+      test(
+        'local ${deleteProfile ? 'profile deletion' : 'data clearing'} drains the departing outcome save before cleanup',
+        () async {
+          final store = _BlockingOutcomePreferences();
+          final harness = _BoundaryHarness(
+            useLocalAuth: true,
+            liveOutcomeStore: store,
+          );
+          addTearDown(harness.dispose);
+          harness.cleanup.onClear = (_) async => store.values.clear();
+          await harness.coordinator.initialize();
+          final local = harness.container.read(localProfileAuthServiceProvider);
+          final user = await local.createProfile();
+          await harness.settle();
+          final repository = harness.container.read(
+            decisionOutcomeRepositoryProvider,
+          )!;
+          final write = repository.record(
+            DecisionOutcomeEntity(
+              decisionId: 'pending-decision',
+              kind: DecisionOutcomeKind.completed,
+              surface: 'planner',
+              recordedAt: DateTime.utc(2026, 9, 5),
+              modelVersion: 'local',
+              recommendationConfidence: 0.5,
+            ),
+          );
+          await store.writeStarted.future;
+          final Future<void> deletion = deleteProfile
+              ? local.deleteCurrentAccount(password: '').then<void>((_) {})
+              : harness.coordinator.clearLocalDataForCurrentAccount(user.id);
+          addTearDown(() async {
+            if (!store.releaseWrite.isCompleted) store.releaseWrite.complete();
+            await write;
+            await deletion;
+          });
+          await harness.settle();
+          expect(
+            harness.container.read(accountStorageScopeProvider).isWritable,
+            isFalse,
+          );
+          expect(
+            harness.cleanup.clearCalls,
+            0,
+            reason: 'Cleanup must wait for the departing repository save.',
+          );
+          store.releaseWrite.complete();
+          await write;
+          await deletion;
+          await harness.settle();
+          expect(harness.cleanup.clearCalls, 1);
+          expect(local.hasStoredProfile, !deleteProfile);
+          expect(
+            harness.container.read(accountStorageScopeProvider).isWritable,
+            !deleteProfile,
+          );
+          expect(
+            store.values,
+            isEmpty,
+            reason:
+                'A late outcome write must not recreate deleted profile data.',
+          );
+        },
+      );
+    }
+
+    test(
+      'provider identity grants local routing only after isolation and deletion closes scope',
+      () async {
+        final harness = _BoundaryHarness(useLocalAuth: true);
+        addTearDown(harness.dispose);
+        final local = harness.container.read(localProfileAuthServiceProvider);
+        final initialized = harness.coordinator.initialize();
+        await initialized;
+        expect(
+          harness.container.read(guards.authenticatedGuardProvider),
+          isFalse,
+        );
+        final user = await local.createProfile();
+        await harness.settle();
+        expect(harness.container.read(authServiceProvider), same(local));
+        expect(
+          harness.container.read(guards.authenticatedGuardProvider),
+          isTrue,
+        );
+        expect(
+          harness.container.read(accountStorageScopeProvider).rawUserId,
+          user.id,
+        );
+        expect(
+          harness.boundary.legacyOwnership,
+          LegacyScopeOwnership.provenNotOwned,
+        );
+        await local.deleteCurrentAccount(password: '');
+        await harness.settle();
+        expect(harness.cleanup.clearedAccountId, user.id);
+        expect(
+          harness.container.read(accountStorageScopeProvider).isWritable,
+          isFalse,
+        );
+        expect(
+          harness.container.read(guards.authenticatedGuardProvider),
+          isFalse,
+        );
+        expect(local.hasStoredProfile, isFalse);
+      },
+    );
+
+    test(
+      'local profile opens its own namespace without claiming markerless legacy data',
+      () async {
+        final harness = _BoundaryHarness(hasUnownedData: true);
+        addTearDown(harness.dispose);
+        final initialized = harness.coordinator.initialize();
+        harness.auth.add(
+          const User.localProfile(id: 'local-00000000000000000000000000000001'),
+        );
+        await initialized;
+        expect(harness.boundary.isStorageReady, isTrue);
+        expect(
+          harness.boundary.legacyOwnership,
+          LegacyScopeOwnership.provenNotOwned,
+        );
+        expect(await harness.secureStore.readString(_markerKey), isNull);
+        expect(harness.cleanup.clearCalls, 0);
+      },
+    );
+
+    test('local profile preserves a cloud legacy owner marker', () async {
+      final harness = _BoundaryHarness(hasUnownedData: true);
+      addTearDown(harness.dispose);
+      await harness.secureStore.writeString(_markerKey, 'cloud-account');
+      final initialized = harness.coordinator.initialize();
+      harness.auth.add(
+        const User.localProfile(id: 'local-00000000000000000000000000000002'),
+      );
+      await initialized;
+      expect(harness.boundary.isStorageReady, isTrue);
+      expect(
+        harness.boundary.legacyOwnership,
+        LegacyScopeOwnership.provenNotOwned,
+      );
+      expect(await harness.secureStore.readString(_markerKey), 'cloud-account');
+      expect(harness.cleanup.clearCalls, 0);
+    });
+  }
   test(
     'first verified account claims an empty device and opens storage',
     () async {
@@ -266,11 +420,15 @@ void main() {
 User _user(String id) => User(id: id, emailVerified: true);
 
 final class _BoundaryHarness {
-  _BoundaryHarness({bool hasUnownedData = false, SecureStore? secureStore})
-    : auth = StreamController<User?>(),
-      secureStore =
-          secureStore ?? SecureStore(backend: InMemorySecureStoreBackend()),
-      cleanup = _TestCleanupService(hasUnownedData: hasUnownedData) {
+  _BoundaryHarness({
+    bool hasUnownedData = false,
+    SecureStore? secureStore,
+    bool useLocalAuth = false,
+    SharedPrefsStore? liveOutcomeStore,
+  }) : auth = StreamController<User?>.broadcast(),
+       secureStore =
+           secureStore ?? SecureStore(backend: InMemorySecureStoreBackend()),
+       cleanup = _TestCleanupService(hasUnownedData: hasUnownedData) {
     final AccountStorageScope coordinatorScope =
         AccountStorageScope.authenticated('coordinator-account');
     final _MemoryPreferences outcomePreferences = _MemoryPreferences();
@@ -284,13 +442,26 @@ final class _BoundaryHarness {
         DecisionOutcomeRepository(outcomePreferences, coordinatorScope);
     container = ProviderContainer(
       overrides: [
-        authUserProvider.overrideWith((Ref ref) => auth.stream),
+        if (!useLocalAuth)
+          authUserProvider.overrideWith((Ref ref) => auth.stream),
+        if (useLocalAuth)
+          supabaseClientProvider.overrideWith(
+            (Ref ref) => throw StateError('Local auth must not read Supabase.'),
+          ),
         secureStoreProvider.overrideWithValue(this.secureStore),
         localUserDataCleanupServiceProvider.overrideWithValue(cleanup),
         taskOccurrenceCoordinatorProvider.overrideWithValue(
           occurrenceCoordinator,
         ),
-        decisionOutcomeRepositoryProvider.overrideWithValue(outcomeRepository),
+        if (liveOutcomeStore == null)
+          decisionOutcomeRepositoryProvider.overrideWithValue(outcomeRepository)
+        else
+          decisionOutcomeRepositoryProvider.overrideWith((ref) {
+            final scope = ref.watch(accountStorageScopeProvider);
+            return scope.isWritable
+                ? DecisionOutcomeRepository(liveOutcomeStore, scope)
+                : null;
+          }),
         sharedPrefsStoreProvider.overrideWithValue(preferences),
         domainTaskRepositoryProvider.overrideWithValue(_EmptyTaskRepository()),
       ],
@@ -367,11 +538,13 @@ final class _TestCleanupService extends LocalUserDataCleanupService {
   final bool hasUnownedData;
   int clearCalls = 0;
   String? clearedAccountId;
+  Future<void> Function(String)? onClear;
 
   @override
   Future<void> clearForAccountSwitch(String accountId) async {
     clearCalls += 1;
     clearedAccountId = accountId;
+    await onClear?.call(accountId);
   }
 
   @override
@@ -423,4 +596,24 @@ final class _FailingSecureStoreBackend implements SecureStoreBackend {
   @override
   Future<void> write({required String key, required String value}) async =>
       throw _failure();
+}
+
+final class _BlockingOutcomePreferences implements SharedPrefsStore {
+  final Map<String, String> values = <String, String>{};
+  final Completer<void> writeStarted = Completer<void>();
+  final Completer<void> releaseWrite = Completer<void>();
+  @override
+  Future<void> clear() async => values.clear();
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+  @override
+  Future<void> init() async {}
+  @override
+  String? load(String key) => values[key];
+  @override
+  Future<void> save(String key, String value) async {
+    if (!writeStarted.isCompleted) writeStarted.complete();
+    await releaseWrite.future;
+    values[key] = value;
+  }
 }

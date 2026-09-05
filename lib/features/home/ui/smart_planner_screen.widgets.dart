@@ -966,6 +966,9 @@ class _MicButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(voiceInputEnabledProvider)) {
+      return const SizedBox.shrink();
+    }
     final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
       context,
     ).plannerRoutine;

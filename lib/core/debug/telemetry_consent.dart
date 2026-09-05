@@ -185,11 +185,15 @@ class TelemetryConsentStore {
   }
 
   static bool analyticsCollectionEnabled(TelemetryConsent consent) {
-    return Env.enableAnalytics && consent.isCurrent && consent.analytics;
+    return Env.cloudServicesEnabled &&
+        Env.enableAnalytics &&
+        consent.isCurrent &&
+        consent.analytics;
   }
 
   static bool crashCollectionEnabled(TelemetryConsent consent) {
-    return Env.enableCrashReporting &&
+    return Env.cloudServicesEnabled &&
+        Env.enableCrashReporting &&
         consent.isCurrent &&
         consent.crashReporting;
   }
@@ -322,7 +326,7 @@ class TelemetryConsentStore {
   static Future<void> _configureFirebaseRuntime(
     TelemetryConsent consent,
   ) async {
-    if (kIsWeb || Firebase.apps.isEmpty) {
+    if (!Env.cloudServicesEnabled || kIsWeb || Firebase.apps.isEmpty) {
       return;
     }
     await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(

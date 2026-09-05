@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/config/env.dart';
-import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
@@ -301,7 +300,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
 
-              if (LaunchContainment.subscriptionsEnabled) ...<Widget>[
+              if (Env.subscriptionsEnabled) ...<Widget>[
                 _PlanAndCreditsCard(
                   planStatus: access.subscriptionStatusLabel,
                   planDetail: access.subscriptionStatusDetail,
@@ -455,15 +454,17 @@ class SettingsScreen extends ConsumerWidget {
 
               _SettingsCategory(
                 title: 'Data & account',
-                subtitle:
-                    'Cloud backup, sign out, local data, and account controls',
+                subtitle: Env.isLocalMode
+                    ? 'Local profile, device data, and privacy controls'
+                    : 'Cloud backup, sign out, local data, and account controls',
                 icon: Icons.shield_outlined,
                 accent: AppColors.neonCyan,
                 child: Column(
                   children: <Widget>[
                     const _CloudDataControlSection(),
                     const SizedBox(height: 10),
-                    if (telemetryAccountId != null) ...<Widget>[
+                    if (telemetryAccountId != null &&
+                        Env.cloudServicesEnabled) ...<Widget>[
                       _Section(
                         label: 'PRIVATE DIAGNOSTICS',
                         accentColor: AppColors.neonCyan,
@@ -518,10 +519,14 @@ class SettingsScreen extends ConsumerWidget {
                       child: Column(
                         children: <Widget>[
                           _NeonNavTile(
-                            title: hasMockSignIn
+                            title: Env.isLocalMode
+                                ? 'Close Profile'
+                                : hasMockSignIn
                                 ? 'Exit Tester Mode'
                                 : 'Log Out',
-                            subtitle: hasMockSignIn
+                            subtitle: Env.isLocalMode
+                                ? 'Close this profile and keep its data on this device.'
+                                : hasMockSignIn
                                 ? 'Return to login and disable the current tester sign-in state.'
                                 : 'Sign out and return to login.',
                             onTap: () => unawaited(
@@ -549,12 +554,18 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           if (!hasMockSignIn)
                             _NeonNavTile(
-                              title: 'Delete Account',
-                              subtitle: accountDeletionConfigured
+                              title: Env.isLocalMode
+                                  ? 'Delete Local Profile'
+                                  : 'Delete Account',
+                              subtitle: Env.isLocalMode
+                                  ? 'Permanently remove this profile and its data from this device.'
+                                  : accountDeletionConfigured
                                   ? 'Permanent deletion of account and synced data.'
                                   : 'Deletion endpoint unavailable in this build; request deletion via support.',
                               onTap: () => unawaited(
-                                accountDeletionConfigured
+                                Env.isLocalMode
+                                    ? _confirmDeleteLocalProfile(context, ref)
+                                    : accountDeletionConfigured
                                     ? _confirmDeleteAccount(context, ref)
                                     : _requestAccountDeletionSupport(
                                         context,
@@ -830,7 +841,11 @@ class SettingsScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    copy.cloudAccountRemains,
+                    Env.isLocalMode
+                        ? (copy.isSpanish
+                              ? 'Se conserva tu perfil local. Sus datos de planificación se eliminarán de este dispositivo.'
+                              : 'Your local profile is kept. Its planning data will be removed from this device.')
+                        : copy.cloudAccountRemains,
                     style: const TextStyle(
                       color: AppColors.neonCyan,
                       fontWeight: FontWeight.w700,
@@ -899,6 +914,69 @@ class SettingsScreen extends ConsumerWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(copy.localDataClearFailed)));
+    }
+  }
+
+  Future<void> _confirmDeleteLocalProfile(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final bool spanish = Localizations.localeOf(context).languageCode == 'es';
+    String copy(String en, String es) => spanish ? es : en;
+    final AuthServiceContract service = ref.read(authServiceProvider);
+    if (service is! LocalProfileAuthService || service.currentUser == null) {
+      return;
+    }
+    final String login = ref.read(routeSurfaceProvider).login;
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(
+              copy(
+                'Delete local profile permanently?',
+                '¿Eliminar el perfil local permanentemente?',
+              ),
+            ),
+            content: Text(
+              copy(
+                'This removes this profile and its saved planning data, local intelligence, private keys, and scheduled notifications from this device. There is no cloud copy or account recovery. This cannot be undone.',
+                'Se eliminarán este perfil, sus datos de planificación, inteligencia local, claves privadas y notificaciones programadas de este dispositivo. No hay copia en la nube ni recuperación de cuenta. Esta acción no se puede deshacer.',
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(copy('Keep profile', 'Conservar perfil')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(copy('Delete profile', 'Eliminar perfil')),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !context.mounted) return;
+    try {
+      await service.deleteCurrentAccount(password: '');
+      if (context.mounted) context.go(login);
+    } on Object {
+      // The persisted deletion journal keeps partial data closed and exposes
+      // an explicit retry from the profile entry screen, including on restart.
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              copy(
+                'Deletion is incomplete. Return to your profile screen and retry.',
+                'La eliminación no terminó. Vuelve a la pantalla de perfil y reintenta.',
+              ),
+            ),
+          ),
+        );
+        context.go(login);
+      }
     }
   }
 

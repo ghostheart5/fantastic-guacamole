@@ -89,6 +89,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         _waitingForStartupQuiescence = false;
         _startupRecoveryRequired = false;
         _startupRetryReady = false;
+        _startupError = null;
       });
     }
     // Last-resort guard. Every stage below catches its own failures, but if
@@ -180,6 +181,21 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
           }),
         );
       }
+      _bootstrapInProgress = false;
+      return;
+    }
+
+    if (result.localStorageUnavailable ||
+        (Env.isLocalMode && fatalIssue.isNotEmpty)) {
+      if (!mounted) {
+        _bootstrapInProgress = false;
+        return;
+      }
+      setState(() {
+        _startupError = result.startupError ?? fatalIssue;
+        _startupRecoveryRequired = true;
+        _startupRetryReady = cancellationToken.isSourceSettled;
+      });
       _bootstrapInProgress = false;
       return;
     }
@@ -292,7 +308,9 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                _startupRetryReady
+                                _startupError != null
+                                    ? 'Local data could not be opened. Your data remains locked. Retry startup to continue.'
+                                    : _startupRetryReady
                                     ? 'The previous attempt stopped safely. Retry to continue.'
                                     : 'Account data remains locked while the previous attempt stops. You can close and reopen ChronoSpark if this does not clear.',
                                 textAlign: TextAlign.center,

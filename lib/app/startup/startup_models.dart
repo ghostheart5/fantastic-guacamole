@@ -25,12 +25,14 @@ class StartupBootstrapResult {
     required this.hasSeenWelcome,
     required this.startupError,
     required this.productionReadinessBlocked,
+    this.localStorageUnavailable = false,
   });
 
   final bool hasOnboarded;
   final bool hasSeenWelcome;
   final String? startupError;
   final bool productionReadinessBlocked;
+  final bool localStorageUnavailable;
 }
 
 const StartupBootstrapResult _cancelledStartupResult = StartupBootstrapResult(

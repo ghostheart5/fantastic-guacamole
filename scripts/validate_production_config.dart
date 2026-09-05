@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fantastic_guacamole/config/backend_mode.dart';
 import 'package:fantastic_guacamole/config/firebase_identity.dart';
 
 enum ProductionTarget { all, android, ios }
@@ -19,6 +20,18 @@ List<String> validateProductionConfiguration(
   ProductionTarget target = ProductionTarget.all,
 }) {
   final List<String> failures = <String>[];
+  final BackendMode? mode = BackendConfiguration.parse(
+    values['CHRONOSPARK_BACKEND_MODE'] ?? 'cloud',
+  );
+  if (mode == null) {
+    return <String>['CHRONOSPARK_BACKEND_MODE must be cloud or local.'];
+  }
+  if (mode == BackendMode.local) {
+    if (target == ProductionTarget.ios) {
+      return <String>['Local production currently supports Android only.'];
+    }
+    return validateLocalProductionConfiguration(values);
+  }
   final List<String> requiredVariables = <String>[
     ...commonRequiredProductionVariables,
     if (target != ProductionTarget.ios) 'CHRONOSPARK_ANDROID_SHA256_CERT',
@@ -146,9 +159,29 @@ List<String> validateProductionConfiguration(
 
 void main(List<String> arguments) {
   String? googleServicesJson;
+  Map<String, String> values = Map<String, String>.from(Platform.environment);
   ProductionTarget target = ProductionTarget.all;
   for (final String argument in arguments) {
-    if (argument.startsWith('--google-services=')) {
+    if (argument.startsWith('--defines=')) {
+      final String path = argument.substring('--defines='.length);
+      try {
+        final Object? decoded = jsonDecode(File(path).readAsStringSync());
+        if (decoded is! Map<String, dynamic> ||
+            decoded.values.any(
+              (Object? value) =>
+                  value is! String && value is! bool && value is! num,
+            )) {
+          throw const FormatException('Defines must be a scalar JSON object.');
+        }
+        values = decoded.map(
+          (String key, dynamic value) => MapEntry(key, value.toString()),
+        );
+      } on Object {
+        stderr.writeln('Cannot read a valid production defines file.');
+        exitCode = 64;
+        return;
+      }
+    } else if (argument.startsWith('--google-services=')) {
       final String path = argument.substring('--google-services='.length);
       final File file = File(path);
       if (!file.existsSync()) {
@@ -180,7 +213,7 @@ void main(List<String> arguments) {
   }
 
   final List<String> failures = validateProductionConfiguration(
-    Platform.environment,
+    values,
     googleServicesJson: googleServicesJson,
     target: target,
   );
@@ -193,6 +226,41 @@ void main(List<String> arguments) {
     return;
   }
   stdout.writeln('Production configuration guard passed.');
+}
+
+List<String> validateLocalProductionConfiguration(Map<String, String> values) {
+  final List<String> failures = <String>[];
+  if (values['CHRONOSPARK_APP_FLAVOR'] != 'prod') {
+    failures.add('Local production requires CHRONOSPARK_APP_FLAVOR=prod.');
+  }
+  if (values['CHRONOSPARK_ENFORCE_PROD_READINESS'] != 'true') {
+    failures.add('Local production must enforce production readiness.');
+  }
+  for (final String key in <String>[
+    'CHRONOSPARK_ENABLE_MOCK_LOGIN',
+    'CHRONOSPARK_ENABLE_MOCK_MODE',
+    'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
+    'CHRONOSPARK_PAYWALL_DISABLED',
+    'CHRONOSPARK_ENABLE_CLOUD_SYNC',
+    'CHRONOSPARK_ENABLE_ANALYTICS',
+    'CHRONOSPARK_ENABLE_CRASH_REPORTING',
+    'CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS',
+    'CHRONOSPARK_VERBOSE_LOGS',
+  ]) {
+    if (values[key] != 'false') {
+      failures.add('$key must be explicitly false for local production.');
+    }
+  }
+  for (final String key in <String>[
+    ...commonRequiredProductionVariables,
+    'CHRONOSPARK_AI_REPORT_ENDPOINT',
+    'CHRONOSPARK_REMOTE_CONFIG_JSON',
+  ]) {
+    if ((values[key]?.trim() ?? '').isNotEmpty) {
+      failures.add('$key must be empty for local production.');
+    }
+  }
+  return failures;
 }
 
 bool _looksLikePlaceholder(String value) {

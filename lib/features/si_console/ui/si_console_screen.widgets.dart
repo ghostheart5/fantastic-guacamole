@@ -1326,50 +1326,51 @@ class _InputBar extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Semantics(
-                      liveRegion: listening,
-                      child: SmartPressable(
-                        semanticLabel: copy.voiceInputLabel(
-                          listening: listening,
-                        ),
-                        enabled: interactive,
-                        onTap: () async {
-                          if (listening) {
+                    if (ref.watch(voiceInputEnabledProvider))
+                      Semantics(
+                        liveRegion: listening,
+                        child: SmartPressable(
+                          semanticLabel: copy.voiceInputLabel(
+                            listening: listening,
+                          ),
+                          enabled: interactive,
+                          onTap: () async {
+                            if (listening) {
+                              await ref
+                                  .read(voiceControllerProvider.notifier)
+                                  .stopListening();
+                              return;
+                            }
                             await ref
                                 .read(voiceControllerProvider.notifier)
-                                .stopListening();
-                            return;
-                          }
-                          await ref
-                              .read(voiceControllerProvider.notifier)
-                              .startListening();
-                        },
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: listening
-                                ? AppColors.neonCyan.withValues(alpha: 0.22)
-                                : !interactive
-                                ? const Color(0xFF151B22)
-                                : const Color(0xFF102436),
-                            border: Border.all(
-                              color: !interactive
-                                  ? Colors.white12
-                                  : AppColors.neonCyan,
+                                .startListening();
+                          },
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: listening
+                                  ? AppColors.neonCyan.withValues(alpha: 0.22)
+                                  : !interactive
+                                  ? const Color(0xFF151B22)
+                                  : const Color(0xFF102436),
+                              border: Border.all(
+                                color: !interactive
+                                    ? Colors.white12
+                                    : AppColors.neonCyan,
+                              ),
                             ),
-                          ),
-                          child: Icon(
-                            listening ? Icons.mic : Icons.mic_none_rounded,
-                            color: !interactive
-                                ? Colors.white38
-                                : AppColors.neonCyan,
-                            size: 18,
+                            child: Icon(
+                              listening ? Icons.mic : Icons.mic_none_rounded,
+                              color: !interactive
+                                  ? Colors.white38
+                                  : AppColors.neonCyan,
+                              size: 18,
+                            ),
                           ),
                         ),
                       ),
-                    ),
                     const SizedBox(width: 10),
                     SmartPressable(
                       semanticLabel: copy.sendLabel(

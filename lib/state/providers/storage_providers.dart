@@ -14,7 +14,7 @@ final flutterSecureStorageProvider = Provider<FlutterSecureStorage>(
 
 final secureStoreProvider = Provider<SecureStore>((Ref ref) {
   return SecureStore(
-    backend: Env.isMockMode
+    backend: !Env.isLocalMode && Env.isMockMode
         ? InMemorySecureStoreBackend()
         : RealSecureStoreBackend(
             storage: ref.read(flutterSecureStorageProvider),
@@ -35,7 +35,7 @@ final sensitivePrefsStoreProvider = Provider<SharedPrefsStore>(
 );
 
 final supabaseClientProvider = Provider<sb.SupabaseClient?>((Ref ref) {
-  if (!Env.isSupabaseConfigured) {
+  if (!Env.cloudServicesEnabled || !Env.isSupabaseConfigured) {
     return null;
   }
   try {

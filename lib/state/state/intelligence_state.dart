@@ -6,12 +6,14 @@ class EnvironmentState {
     required this.appFlavor,
     required this.isProduction,
     required this.isSupabaseConfigured,
+    this.isLocalMode = false,
   });
 
   final String appName;
   final String appFlavor;
   final bool isProduction;
   final bool isSupabaseConfigured;
+  final bool isLocalMode;
 
   Map<String, Object?> toMap() {
     return <String, Object?>{
@@ -19,6 +21,7 @@ class EnvironmentState {
       'appFlavor': appFlavor,
       'isProduction': isProduction,
       'isSupabaseConfigured': isSupabaseConfigured,
+      'isLocalMode': isLocalMode,
     };
   }
 }
@@ -103,6 +106,7 @@ class IntelligenceState {
   final MockLoginConfigState mockLogin;
 
   bool get paywallEnabled =>
+      !environment.isLocalMode &&
       LaunchContainment.subscriptionsEnabled &&
       !flags.paywallDisabled &&
       !flags.testerFullAccess;

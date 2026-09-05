@@ -246,6 +246,17 @@ class _CloudDataControlSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (Env.isLocalMode) {
+      return const _Section(
+        label: 'YOUR DATA',
+        accentColor: AppColors.neonCyan,
+        child: _NeonStatusTile(
+          title: 'Stored on this device',
+          subtitle:
+              'Your local profile and planning data stay on this device. Cloud backup, sync, and account recovery are unavailable. Removing the app or losing this device can permanently lose your data.',
+        ),
+      );
+    }
     final AsyncValue<bool> syncAsync = ref.watch(cloudSyncPreferenceProvider);
     final bool enabled = syncAsync.asData?.value ?? false;
     final bool available = Env.enableCloudSync;
