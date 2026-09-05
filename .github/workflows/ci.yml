@@ -100,6 +100,10 @@ jobs:
         shell: pwsh
         run: ./scripts/secret_content_guard.ps1
 
+      - name: Verify secret scanner filename handling
+        shell: pwsh
+        run: ./scripts/secret_guard_contract.ps1
+
       - name: Analyze project source
         run: flutter analyze --fatal-infos
 

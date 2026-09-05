@@ -3,6 +3,41 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('local production builder validates before signing or compilation', () {
+    final String build = File(
+      'scripts/build_android_aab_prod_guarded.ps1',
+    ).readAsStringSync();
+    final int sourceGuard = build.indexOf("'release_guard.ps1'");
+    final int configGuard = build.indexOf(
+      'dart run scripts/validate_production_config.dart',
+    );
+    final int signing = build.indexOf(
+      r'Copy-Item -LiteralPath $resolvedSigningPropertiesPath',
+    );
+    final int compilation = build.indexOf(r'& flutter @flutterArgs');
+    expect(sourceGuard, greaterThan(0));
+    expect(configGuard, greaterThan(sourceGuard));
+    expect(signing, greaterThan(configGuard));
+    expect(compilation, greaterThan(signing));
+    expect(build, contains(r'"--defines=$dartDefineFile"'));
+    expect(build, contains('--platform=android'));
+    expect(
+      build,
+      contains('--google-services=android/app/google-services.json'),
+    );
+    expect(
+      build,
+      contains("throw 'Release source guard failed. No bundle was produced.'"),
+    );
+    expect(
+      build,
+      contains(
+        "throw 'Production configuration guard failed. No bundle was produced.'",
+      ),
+    );
+    expect(build, contains("CHRONOSPARK_BACKEND_MODE = 'cloud'"));
+  });
+
   test('every production build entry point freezes launch-sensitive flags', () {
     final String guardedBuild = File(
       'scripts/build_android_aab_prod_guarded.ps1',

@@ -13,7 +13,7 @@ class CreateTask {
   final ITaskRepository repo;
   final GenerateSiDecision? generateSiDecision;
 
-  Future<void> call(TaskEntity task) async {
+  Future<void> call(TaskEntity task, {bool Function()? shouldContinue}) async {
     if (!TaskPolicy.isValid(task)) {
       throw const DomainValidationException(
         code: 'invalid_task',
@@ -31,6 +31,9 @@ class CreateTask {
       );
     }
 
+    // Planner preparation can outlive the account session that requested the
+    // task. Check immediately before entering durable storage mutation.
+    if (shouldContinue != null && !shouldContinue()) return;
     await repo.saveTask(finalTask);
   }
 }

@@ -169,7 +169,7 @@ dependencies {
     // Billing Library version is intentionally NOT pinned here.
     // in_app_purchase_android manages its own billing dependency; an explicit
     // pin either duplicates or overrides what the plugin expects, which can
-    // cause a Play upload rejection (v6 is below the v7+ floor) or a
+    // cause a Play upload rejection when the policy floor changes or a
     // runtime NoSuchMethodError in release builds only.
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }

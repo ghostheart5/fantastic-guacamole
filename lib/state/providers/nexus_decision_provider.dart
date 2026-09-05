@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -80,7 +81,7 @@ final nexusDecisionProvider = Provider<NexusDecisionModel>((Ref ref) {
           : failures.join(' '),
     NexusDecisionStatus.offline =>
       pendingSyncCount > 0
-          ? 'No network interface is available. Using local evidence; $pendingSyncCount change${pendingSyncCount == 1 ? '' : 's'} will synchronize later.'
+          ? 'No network interface is available. Using local evidence; $pendingSyncCount change${pendingSyncCount == 1 ? '' : 's'} remain${pendingSyncCount == 1 ? 's' : ''} queued on this device. ${_offlineSyncDetail(ref)}'
           : 'No network interface is available. Using local evidence without network-backed freshness.',
     NexusDecisionStatus.error =>
       failures.isEmpty
@@ -99,6 +100,23 @@ final nexusDecisionProvider = Provider<NexusDecisionModel>((Ref ref) {
     statusDetail: statusDetail,
   );
 });
+
+String _offlineSyncDetail(Ref ref) {
+  if (!ref.watch(cloudSyncCapabilityProvider)) {
+    return 'Cloud synchronization is unavailable in this build.';
+  }
+  final AsyncValue<bool> preference = ref.watch(cloudSyncPreferenceProvider);
+  if (preference.isLoading) {
+    return 'Cloud synchronization preference is still being checked.';
+  }
+  if (preference.hasError) {
+    return 'Cloud synchronization preference is unavailable.';
+  }
+  if (preference.asData?.value != true) {
+    return 'Cloud synchronization is turned off in Settings.';
+  }
+  return 'Cloud synchronization is enabled and requires a connection to the service.';
+}
 
 final nexusDecisionActionsProvider = Provider<NexusDecisionActions>(
   NexusDecisionActions.new,

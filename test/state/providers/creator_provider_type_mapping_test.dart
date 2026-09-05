@@ -94,7 +94,8 @@ class _CaptureCreateTaskUseCase extends CreateTask {
   TaskEntity? lastCreated;
 
   @override
-  Future<void> call(TaskEntity task) async {
+  Future<void> call(TaskEntity task, {bool Function()? shouldContinue}) async {
+    if (shouldContinue != null && !shouldContinue()) return;
     lastCreated = task;
   }
 }

@@ -220,10 +220,12 @@ void main() {
       );
       expect(
         familyTime.plannerResponse.options
-            .expand((PlannerOption option) => <String>[
-                  option.title,
-                  option.description,
-                ])
+            .expand(
+              (PlannerOption option) => <String>[
+                option.title,
+                option.description,
+              ],
+            )
             .join(' '),
         isNot(contains('Protect family time tonight')),
       );
@@ -270,8 +272,9 @@ void main() {
         );
 
     expect(
-      result.plannerResponse.options
-          .map((PlannerOption option) => option.estimatedMinutes),
+      result.plannerResponse.options.map(
+        (PlannerOption option) => option.estimatedMinutes,
+      ),
       everyElement(lessThanOrEqualTo(10)),
     );
     expect(

@@ -572,12 +572,17 @@ void main() {
   test('local secret guards cover the whole repository and fail closed', () {
     final String repositoryGuard = read('scripts/security_secret_guard.ps1');
     final String contentGuard = read('scripts/secret_content_guard.ps1');
+    final String repositoryFiles = read('scripts/repository_scan_files.ps1');
     final String strictGate = read('scripts/strict_gate.ps1');
 
-    expect(repositoryGuard, contains('--others --exclude-standard'));
+    expect(
+      repositoryFiles,
+      contains('ls-files -z --cached --others --exclude-standard'),
+    );
+    expect(repositoryGuard, contains('Get-RepositoryScanFiles'));
     expect(repositoryGuard, contains(r'\.env(?:\..+)?'));
     expect(repositoryGuard, contains('jks|keystore|p12|pfx|key'));
-    expect(contentGuard, contains('--others --exclude-standard'));
+    expect(contentGuard, contains('Get-RepositoryScanFiles'));
     expect(contentGuard, contains(r'gh[pousr]_'));
     expect(contentGuard, contains('github_pat_'));
     expect(contentGuard, contains("'.sql'"));

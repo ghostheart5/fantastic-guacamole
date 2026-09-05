@@ -175,17 +175,17 @@ void main() {
     ]) {
       expect(containment, contains(requiredGate));
     }
-    expect(env, contains('LaunchContainment.paidCreditPlansEnabled'));
-    expect(repositories, contains('if (!Env.paidCreditPlansEnabled)'));
     expect(
-      provider,
-      contains('if (!LaunchContainment.paidCreditPlansEnabled)'),
+      env,
+      contains(
+        'cloudServicesEnabled && LaunchContainment.paidCreditPlansEnabled',
+      ),
     );
+    expect(repositories, contains('if (!Env.paidCreditPlansEnabled)'));
+    expect(provider, contains('if (!Env.paidCreditPlansEnabled)'));
     expect(
       page,
-      contains(
-        'paidCreditPlansEnabled: LaunchContainment.paidCreditPlansEnabled',
-      ),
+      contains('paidCreditPlansEnabled: Env.paidCreditPlansEnabled'),
     );
     expect(page, isNot(contains('config.plans.any')));
   });

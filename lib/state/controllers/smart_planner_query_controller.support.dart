@@ -185,7 +185,8 @@ final class _PlannerEvidence {
     final int taskMatch = matchedTask == null
         ? 0
         : _taskTextMatch(matchedTask, terms);
-    final bool hasCloseTaskTie = activeTasks
+    final bool hasCloseTaskTie =
+        activeTasks
             .where(
               (TaskEntity task) => _taskTextMatch(task, terms) == taskMatch,
             )
@@ -797,9 +798,9 @@ final class _PlannerPersonContextEvidence {
       }
       final Object? value =
           appliedOutput[PersonContextBehaviorField.capacityLimit];
-      final RegExpMatch? match = RegExp(r'\b(\d{1,3})\b').firstMatch(
-        value is String ? value : '',
-      );
+      final RegExpMatch? match = RegExp(
+        r'\b(\d{1,3})\b',
+      ).firstMatch(value is String ? value : '');
       final int? minutes = value is int
           ? value
           : int.tryParse(match?.group(1) ?? '');

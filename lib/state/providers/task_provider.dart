@@ -23,6 +23,7 @@ import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
@@ -109,22 +110,29 @@ class TaskActions {
       return;
     }
 
+    final _TaskAccountOperation operation = _TaskAccountOperation.capture(_ref);
+    if (!operation.isCurrent(_ref)) return;
     final DateTime now = DateTime.now();
     final TaskEntity normalized = entity.copyWith(
       title: trimmed,
       createdAt: entity.createdAt,
     );
 
-    await _ref.read(createTaskUseCaseProvider).call(normalized);
+    await _ref
+        .read(createTaskUseCaseProvider)
+        .call(normalized, shouldContinue: () => operation.isCurrent(_ref));
+    if (!operation.isCurrent(_ref)) return;
     AppAnalytics.track(
       'task_created',
       params: <String, Object?>{'has_task_id': normalized.id.isNotEmpty},
     );
     await _recordCreationSideEffects(
+      operation: operation,
       task: normalized,
       timestamp: now,
       notify: notify,
     );
+    if (!operation.isCurrent(_ref)) return;
 
     _ref
         .read(eventBusProvider)
@@ -192,6 +200,8 @@ class TaskActions {
       );
     }
     final String? normalizedGoalId = goalId?.trim();
+    final _TaskAccountOperation operation = _TaskAccountOperation.capture(_ref);
+    if (!operation.isCurrent(_ref)) return;
     if (!clearGoalId && normalizedGoalId?.isNotEmpty == true) {
       final bool goalExists = _ref
           .read(domainGoalRepositoryProvider)
@@ -204,9 +214,11 @@ class TaskActions {
       }
     }
 
+    final updateTask = _ref.read(updateTaskUseCaseProvider);
     final TaskEntity? existing = await _ref
         .read(domainTaskRepositoryProvider)
         .getTaskById(taskId);
+    if (!operation.isCurrent(_ref)) return;
     if (existing == null) {
       throw StateError('Task not found');
     }
@@ -235,7 +247,8 @@ class TaskActions {
     } else if (dueDate != null) {
       updated = updated.applyTemporalEdit(SetDeadline(dueDate), at: updatedAt);
     }
-    await _ref.read(updateTaskUseCaseProvider).call(updated);
+    await updateTask.call(updated);
+    if (!operation.isCurrent(_ref)) return;
     _publishTaskMutation(updated, action: 'updated');
   }
 
@@ -245,30 +258,39 @@ class TaskActions {
       throw ArgumentError.value(id, 'id', 'Task id cannot be blank.');
     }
 
+    final _TaskAccountOperation operation = _TaskAccountOperation.capture(_ref);
+    if (!operation.isCurrent(_ref)) return;
+    final deleteTask = _ref.read(deleteTaskUseCaseProvider);
     final TaskEntity? existing = await _ref
         .read(domainTaskRepositoryProvider)
         .getTaskById(taskId);
+    if (!operation.isCurrent(_ref)) return;
     if (existing == null) {
       throw StateError('Task not found');
     }
 
-    await _ref.read(deleteTaskUseCaseProvider).call(taskId);
+    await deleteTask.call(taskId);
+    if (!operation.isCurrent(_ref)) return;
     _publishTaskMutation(existing, action: 'deleted');
   }
 
   Future<void> completeTask(String id, {bool notify = true}) async {
+    final _TaskAccountOperation operation = _TaskAccountOperation.capture(_ref);
+    if (!operation.isCurrent(_ref)) return;
     Task? selectedTask = _taskFromCachedTasks(id);
     final Future<Task?> selectedTaskFuture = selectedTask != null
         ? Future<Task?>.value(selectedTask)
-        : _taskFromRepository(id);
+        : _taskFromRepository(id, operation);
 
     final CompletionSideEffectDecision completionDecision = await _ref
         .read(completeTaskUseCaseProvider)
         .call(id);
+    if (!operation.isCurrent(_ref)) return;
     if (completionDecision.shouldRunGuidance) {
-      unawaited(_recordGuidance(GuidanceMilestone.firstCompletion));
+      unawaited(_recordGuidance(operation, GuidanceMilestone.firstCompletion));
     }
     selectedTask ??= await selectedTaskFuture;
+    if (!operation.isCurrent(_ref)) return;
 
     if (selectedTask != null && completionDecision.shouldRunReward) {
       final Task completedTask = selectedTask;
@@ -295,24 +317,31 @@ class TaskActions {
       await _ref
           .read(profileProvider.notifier)
           .awardXP(score.xp, source: 'task_completion');
-      if (!await _isLearningPaused()) {
+      if (!operation.isCurrent(_ref)) return;
+      final bool learningPaused = await _isLearningPaused(operation);
+      if (!operation.isCurrent(_ref)) return;
+      if (!learningPaused) {
         await _ref
             .read(observedPlanningPatternsProvider.notifier)
             .recordCompletion(difficulty: selectedTask.difficulty);
+        if (!operation.isCurrent(_ref)) return;
       }
       _ref.read(siStateProvider.notifier).recordCompletion();
       await _bestEffort(
+        operation,
         () => _recordCompletionSideEffects(
+          operation: operation,
           task: completedTask,
           durationSeconds: estimatedSeconds,
           timestamp: now,
           notify: notify,
         ),
       );
+      if (!operation.isCurrent(_ref)) return;
     }
 
     if (selectedTask == null && completionDecision.shouldRunNotification) {
-      unawaited(_refreshPlannerDecision(notify: notify));
+      unawaited(_refreshPlannerDecision(operation, notify: notify));
     }
 
     if (selectedTask != null && completionDecision.shouldRunAnalytics) {
@@ -337,17 +366,30 @@ class TaskActions {
     _ref.invalidate(goalProgressProvider);
   }
 
-  Future<Task?> _taskFromRepository(String id) async {
+  Future<Task?> _taskFromRepository(
+    String id,
+    _TaskAccountOperation operation,
+  ) async {
     if (id.trim().isEmpty) {
       return null;
     }
-    final TaskEntity? entity = await _ref
-        .read(domainTaskRepositoryProvider)
-        .getTaskById(id);
-    if (entity == null || entity.isCompleted || entity.isCanceled) {
-      return null;
+    try {
+      final TaskEntity? entity = await _ref
+          .read(domainTaskRepositoryProvider)
+          .getTaskById(id);
+      if (!operation.isCurrent(_ref) ||
+          entity == null ||
+          entity.isCompleted ||
+          entity.isCanceled) {
+        return null;
+      }
+      return _taskFromEntity(entity);
+    } catch (_) {
+      // Completion may already have returned after an account transition while
+      // its parallel context lookup is still waiting for storage to close.
+      if (!operation.isCurrent(_ref)) return null;
+      rethrow;
     }
-    return _taskFromEntity(entity);
   }
 
   Task? _taskFromCachedTasks(String id) {
@@ -368,7 +410,10 @@ class TaskActions {
   }
 
   Future<void> skipTask(String id, {bool notify = true}) async {
+    final _TaskAccountOperation operation = _TaskAccountOperation.capture(_ref);
+    if (!operation.isCurrent(_ref)) return;
     final List<Task> tasks = await _ref.read(tasksProvider.future);
+    if (!operation.isCurrent(_ref)) return;
     Task? selectedTask;
     for (final Task task in tasks) {
       if (task.id == id) {
@@ -384,17 +429,22 @@ class TaskActions {
     final TaskOccurrenceResult occurrence = await _ref
         .read(taskOccurrenceCoordinatorProvider)
         .skip(selectedTask.id);
+    if (!operation.isCurrent(_ref)) return;
     if (occurrence.mutation != TaskOccurrenceMutation.applied) {
       _ref.invalidate(tasksProvider);
       return;
     }
-    final bool learningPaused = await _isLearningPaused();
+    final bool learningPaused = await _isLearningPaused(operation);
+    if (!operation.isCurrent(_ref)) return;
     if (!learningPaused) {
       await _ref
           .read(learningProvider.notifier)
           .update(success: false, difficulty: selectedTask.difficulty);
+      if (!operation.isCurrent(_ref)) return;
       await _ref.read(observedPlanningPatternsProvider.notifier).recordSkip();
+      if (!operation.isCurrent(_ref)) return;
       await _bestEffort(
+        operation,
         () => _ref
             .read(decisionOutcomeActionsProvider)
             .recordDirect(
@@ -412,7 +462,9 @@ class TaskActions {
             ),
       );
       await _bestEffort(
+        operation,
         () => _recordTaskOutcomeLearning(
+          operation: operation,
           task: selectedTask!,
           durationSeconds: 0,
           completed: false,
@@ -420,11 +472,13 @@ class TaskActions {
         ),
       );
     }
-    unawaited(_recordGuidance(GuidanceMilestone.firstTaskDeferral));
+    if (!operation.isCurrent(_ref)) return;
+    unawaited(_recordGuidance(operation, GuidanceMilestone.firstTaskDeferral));
     _ref.read(siStateProvider.notifier).taskSkipped();
     await _ref
         .read(logsActionsProvider)
         .addMirroredEntry(source: 'task_skipped', message: selectedTask.title);
+    if (!operation.isCurrent(_ref)) return;
     await _ref
         .read(timelineActionsProvider)
         .addMirroredEvent(
@@ -438,12 +492,15 @@ class TaskActions {
             relatedId: selectedTask.id,
           ),
         );
+    if (!operation.isCurrent(_ref)) return;
     if (notify) {
       await _ref
           .read(notificationActionsProvider)
           .pushMirroredTaskSkipped(selectedTask.title);
     }
-    await _refreshPlannerDecision(notify: notify);
+    if (!operation.isCurrent(_ref)) return;
+    await _refreshPlannerDecision(operation, notify: notify);
+    if (!operation.isCurrent(_ref)) return;
 
     _ref
         .read(eventBusProvider)
@@ -459,11 +516,16 @@ class TaskActions {
     _ref.invalidate(goalProgressProvider);
   }
 
-  Future<void> _refreshPlannerDecision({required bool notify}) async {
+  Future<void> _refreshPlannerDecision(
+    _TaskAccountOperation operation, {
+    required bool notify,
+  }) async {
+    if (!operation.isCurrent(_ref)) return;
     try {
       final decision = await _ref
           .read(generateSiDecisionUseCaseProvider)
           .call();
+      if (!operation.isCurrent(_ref)) return;
       _ref.invalidate(domainSiDecisionProvider);
       if (!notify) {
         return;
@@ -477,6 +539,7 @@ class TaskActions {
       final TaskEntity? selected = await _ref
           .read(domainTaskRepositoryProvider)
           .getTaskById(selectedTaskId);
+      if (!operation.isCurrent(_ref)) return;
       final String selectedTitle = selected?.title.trim() ?? '';
       if (selectedTitle.isEmpty) {
         return;
@@ -504,7 +567,11 @@ class TaskActions {
     _ref.invalidate(domainSiDecisionProvider);
   }
 
-  Future<void> _recordGuidance(GuidanceMilestone milestone) async {
+  Future<void> _recordGuidance(
+    _TaskAccountOperation operation,
+    GuidanceMilestone milestone,
+  ) async {
+    if (!operation.isCurrent(_ref)) return;
     try {
       await _ref.read(adaptiveGuidanceProvider.notifier).record(milestone);
     } catch (_) {
@@ -513,14 +580,17 @@ class TaskActions {
   }
 
   Future<void> _recordTaskOutcomeLearning({
+    required _TaskAccountOperation operation,
     required Task task,
     required int durationSeconds,
     required bool completed,
     required DateTime timestamp,
   }) async {
+    if (!operation.isCurrent(_ref)) return;
     const String storageKey = 'neural_dump';
     final store = _ref.read(accountSecureStoreProvider);
     final String? raw = await store.readString(storageKey);
+    if (!operation.isCurrent(_ref)) return;
     final Map<String, dynamic> entry = NeuralEntry(
       task: task.title,
       reasoning: completed
@@ -537,23 +607,28 @@ class TaskActions {
       _appendNeuralDumpEntry,
       <String, dynamic>{'raw': raw, 'entry': entry},
     );
+    if (!operation.isCurrent(_ref)) return;
     await store.writeString(storageKey, encoded);
   }
 
   Future<void> _recordCreationSideEffects({
+    required _TaskAccountOperation operation,
     required TaskEntity task,
     required DateTime timestamp,
     required bool notify,
   }) async {
     await _bestEffort(
+      operation,
       () => _ref.read(localMetricsAccumulatorProvider).recordTaskCreated(),
     );
     await _bestEffort(
+      operation,
       () => _ref
           .read(logsActionsProvider)
           .addMirroredEntry(source: 'task_created', message: task.title),
     );
     await _bestEffort(
+      operation,
       () => _ref
           .read(timelineActionsProvider)
           .addMirroredEvent(
@@ -568,23 +643,27 @@ class TaskActions {
             ),
           ),
     );
-    await _refreshPlannerDecision(notify: notify);
+    await _refreshPlannerDecision(operation, notify: notify);
   }
 
   Future<void> _recordCompletionSideEffects({
+    required _TaskAccountOperation operation,
     required Task task,
     required int durationSeconds,
     required DateTime timestamp,
     required bool notify,
   }) async {
-    final bool learningPaused = await _isLearningPaused();
+    final bool learningPaused = await _isLearningPaused(operation);
+    if (!operation.isCurrent(_ref)) return;
     if (!learningPaused) {
       await _bestEffort(
+        operation,
         () => _ref
             .read(learningProvider.notifier)
             .update(success: true, difficulty: task.difficulty),
       );
       await _bestEffort(
+        operation,
         () => _ref
             .read(decisionOutcomeActionsProvider)
             .recordDirect(
@@ -602,11 +681,14 @@ class TaskActions {
       );
     }
     await _bestEffort(
+      operation,
       () => _ref.read(localMetricsAccumulatorProvider).recordTaskCompleted(),
     );
     if (!learningPaused) {
       await _bestEffort(
+        operation,
         () => _recordTaskOutcomeLearning(
+          operation: operation,
           task: task,
           durationSeconds: durationSeconds,
           completed: true,
@@ -615,11 +697,13 @@ class TaskActions {
       );
     }
     await _bestEffort(
+      operation,
       () => _ref
           .read(logsActionsProvider)
           .addCompletedTask(task: task.title, mirrored: true),
     );
     await _bestEffort(
+      operation,
       () => _ref
           .read(timelineActionsProvider)
           .addMirroredEvent(
@@ -636,27 +720,55 @@ class TaskActions {
     );
     if (notify) {
       await _bestEffort(
+        operation,
         () => _ref
             .read(notificationActionsProvider)
             .pushMirroredCompletionFeedback(task.title),
       );
     }
-    await _refreshPlannerDecision(notify: notify);
+    await _refreshPlannerDecision(operation, notify: notify);
   }
 
-  Future<bool> _isLearningPaused() async {
+  Future<bool> _isLearningPaused(_TaskAccountOperation operation) async {
+    if (!operation.isCurrent(_ref)) return true;
     final repository = _ref.read(decisionOutcomeRepositoryProvider);
     if (repository == null) return true;
     return repository.isLearningPaused();
   }
 
-  Future<void> _bestEffort(Future<void> Function() operation) async {
+  Future<void> _bestEffort(
+    _TaskAccountOperation accountOperation,
+    Future<void> Function() operation,
+  ) async {
+    if (!accountOperation.isCurrent(_ref)) return;
     try {
       await operation();
     } catch (_) {
       // The task mutation already succeeded. Supporting telemetry and learning
       // must not turn a successful completion into a false failure for users.
     }
+  }
+}
+
+/// Prevents an awaited task action from resuming in another account or in a
+/// reopened session for the same account after sign-out or a data reset.
+final class _TaskAccountOperation {
+  const _TaskAccountOperation(this.namespace, this.generation);
+
+  factory _TaskAccountOperation.capture(Ref ref) => _TaskAccountOperation(
+    ref.read(accountStorageScopeProvider).v2Namespace,
+    ref.read(authSessionBoundaryProvider).generation,
+  );
+
+  final String? namespace;
+  final int generation;
+
+  bool isCurrent(Ref ref) {
+    if (!ref.mounted) return false;
+    final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
+    return scope.isWritable &&
+        scope.v2Namespace == namespace &&
+        ref.read(authSessionBoundaryProvider).generation == generation;
   }
 }
 

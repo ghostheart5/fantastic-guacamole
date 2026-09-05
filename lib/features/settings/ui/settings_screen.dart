@@ -962,7 +962,7 @@ class SettingsScreen extends ConsumerWidget {
       await service.deleteCurrentAccount(password: '');
       if (context.mounted) context.go(login);
     } on Object {
-      // The persisted deletion journal keeps partial data closed and exposes
+      // The persisted deletion recovery record keeps partial data closed and exposes
       // an explicit retry from the profile entry screen, including on restart.
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
