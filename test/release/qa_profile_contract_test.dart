@@ -105,24 +105,26 @@ void main() {
     expect(maestroSignIn, contains(r'${MAESTRO_TEST_PASSWORD}'));
   });
 
-  test(
-    'Maestro evidence fails on Flutter and account-storage race markers',
-    () {
-      final String maestroRunner = File(
-        'scripts/run_maestro_android_evidence.ps1',
-      ).readAsStringSync();
+  test('Maestro evidence scopes Android ANR markers to the tested app', () {
+    final String maestroRunner = File(
+      'scripts/run_maestro_android_evidence.ps1',
+    ).readAsStringSync();
 
-      expect(maestroRunner, contains("'FLUTTER_ERROR_MARKER\\s+>>>'"));
-      expect(
-        maestroRunner,
-        contains("'Tasks require authenticated account storage'"),
-      );
-      expect(
-        maestroRunner,
-        contains(r'$runPassed = $maestroPassed -and $fatalHits.Count -eq 0'),
-      );
-    },
-  );
+    expect(maestroRunner, contains("'FLUTTER_ERROR_MARKER\\s+>>>'"));
+    expect(
+      maestroRunner,
+      contains("'Tasks require authenticated account storage'"),
+    );
+    expect(
+      maestroRunner,
+      contains(r"('ANR in\s+' + [regex]::Escape($PackageName))"),
+    );
+    expect(maestroRunner, isNot(contains("    'ANR in',")));
+    expect(
+      maestroRunner,
+      contains(r'$runPassed = $maestroPassed -and $fatalHits.Count -eq 0'),
+    );
+  });
 
   test('Maestro execution is bounded and its JUnit gate fails closed', () {
     final String maestroRunner = File(
