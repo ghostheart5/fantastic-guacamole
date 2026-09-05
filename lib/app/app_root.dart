@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/app/startup/startup_notice_layout.dart';
 
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
@@ -336,35 +337,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
         return Stack(
           fit: StackFit.expand,
           children: [
-            appChild,
-            if (startupBannerMessage.isNotEmpty)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: SafeArea(
-                  minimum: const EdgeInsets.all(16),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.redAccent.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Text(
-                        startupBannerMessage,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            StartupNoticeLayout(message: startupBannerMessage, child: appChild),
             if (_showRemoteAnnouncement(remoteAnnouncement) &&
                 remoteAnnouncement != null)
               Align(

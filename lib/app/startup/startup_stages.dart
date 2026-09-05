@@ -35,9 +35,11 @@ StartupBootstrapResult? _productionReadinessBlockResult(
     return null;
   }
 
-  Logger.error(
-    'Production readiness enforcement blocked startup: '
-    '${readinessIssues.length} issue(s).',
+  Logger.errorCode(
+    code: AppDiagnosticCode.startupReadinessBlocked,
+    debugMessage:
+        'Production readiness enforcement blocked startup: '
+        '${readinessIssues.length} issue(s).',
   );
   RuntimeDiagnostics.recordState(
     'startup.blocked',
@@ -124,16 +126,6 @@ Future<StartupBootstrapResult> _initializeStartup(
     return _cancelledStartupResult;
   }
   startupError = _appendStartupIssue(startupError, supabaseIssue ?? '');
-
-  final String? identityIssue = await _measureIssueStage(
-    'identity',
-    () => _initIdentitySafe(ref, cancellationToken),
-    cancellationToken: cancellationToken,
-  );
-  if (cancellationToken.isCancelled) {
-    return _cancelledStartupResult;
-  }
-  startupError = _appendStartupIssue(startupError, identityIssue ?? '');
 
   final PrefsLoadResult prefsResult = await _measurePrefsStage(
     () => _loadPrefsSafe(cancellationToken),
@@ -255,7 +247,11 @@ Future<String?> _initStorageSafe(
     if (cancellationToken.isCancelled) {
       return null;
     }
-    Logger.error('Local storage initialization failed.', error);
+    Logger.errorCode(
+      code: AppDiagnosticCode.startupStorageFailed,
+      debugMessage: 'Local storage initialization failed.',
+      exception: error,
+    );
     RuntimeDiagnostics.record('Local storage initialization failed: $error');
     return 'Local storage could not be opened. Restart ChronoSpark and retry.';
   }
@@ -325,7 +321,11 @@ Future<String?> _initFirebaseSafe({
     RuntimeDiagnostics.record('Firebase initialized.');
     unawaited(_captureDiagnosticsContext(cancellationToken));
   } else {
-    Logger.error('Firebase initialization failed.', issue);
+    Logger.errorCode(
+      code: AppDiagnosticCode.startupFirebaseFailed,
+      debugMessage: 'Firebase initialization failed.',
+      exception: issue,
+    );
     RuntimeDiagnostics.record('Firebase initialization failed: $issue');
   }
   return issue;
@@ -385,7 +385,11 @@ Future<String?> _initSupabaseSafe({
     Logger.log('Startup', 'Supabase initialized.');
     RuntimeDiagnostics.record('Supabase initialized.');
   } else {
-    Logger.error('Supabase initialization failed.', issue);
+    Logger.errorCode(
+      code: AppDiagnosticCode.startupSupabaseFailed,
+      debugMessage: 'Supabase initialization failed.',
+      exception: issue,
+    );
     RuntimeDiagnostics.record('Supabase initialization failed: $issue');
   }
   return issue;
@@ -449,6 +453,23 @@ Future<String?> _initDeepLinksSafe() async {
   }
 }
 
+/// Account-owned identity must never run against signed-out or unverified
+/// storage. The callback is lazy so even the scoped service is read only after
+/// the account boundary has granted access.
+Future<void> runAccountIdentityStartup({
+  required AccountStorageScope scope,
+  required Future<String> Function() ensureIdentity,
+  Duration timeout = const Duration(seconds: 4),
+}) async {
+  if (!scope.isWritable) {
+    return;
+  }
+  // This operation uses an immutable account-scoped store. A slow native
+  // operation can finish only in that verified namespace; it must not hold
+  // the loading screen indefinitely after the global bootstrap has settled.
+  await ensureIdentity().timeout(timeout);
+}
+
 Future<String?> _initIdentitySafe(
   WidgetRef ref,
   StartupCancellationToken cancellationToken,
@@ -459,7 +480,10 @@ Future<String?> _initIdentitySafe(
   try {
     Logger.log('Startup', 'Bootstrapping identity...');
     RuntimeDiagnostics.record('Bootstrapping identity...');
-    await ref.read(identityServiceProvider).ensureIdentity();
+    await runAccountIdentityStartup(
+      scope: ref.read(accountStorageScopeProvider),
+      ensureIdentity: () => ref.read(identityServiceProvider).ensureIdentity(),
+    );
     if (cancellationToken.isCancelled) {
       return null;
     }
@@ -470,14 +494,18 @@ Future<String?> _initIdentitySafe(
     if (cancellationToken.isCancelled) {
       return null;
     }
-    Logger.warn('Identity bootstrap timed out.');
+    Logger.errorCode(code: AppDiagnosticCode.startupIdentityTimedOut);
     RuntimeDiagnostics.record('Identity bootstrap timed out.');
     return 'Identity bootstrap timed out.';
   } on Object catch (error) {
     if (cancellationToken.isCancelled) {
       return null;
     }
-    Logger.error('Identity bootstrap failed.', error);
+    Logger.errorCode(
+      code: AppDiagnosticCode.startupIdentityFailed,
+      debugMessage: 'Identity bootstrap failed.',
+      exception: error,
+    );
     RuntimeDiagnostics.record('Identity bootstrap failed.');
     return 'Account state could not be restored. Sign in again and retry.';
   }

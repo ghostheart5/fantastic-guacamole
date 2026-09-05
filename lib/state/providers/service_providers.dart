@@ -40,7 +40,7 @@ final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
   if (Env.isMockMode || Env.isMockLoginEnabled) {
     return MockIdentityService(mockIdentity: 'mock-identity-0001');
   }
-  return IdentityService(ref.read(identityRepositoryProvider));
+  return IdentityService(ref.watch(identityRepositoryProvider));
 });
 
 final notificationsServiceProvider = Provider<NotificationsService>((Ref ref) {

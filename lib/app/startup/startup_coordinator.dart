@@ -115,7 +115,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         cancellationToken: cancellationToken,
         onTimeout: () {
           startupTimedOut = true;
-          Logger.error('Startup bootstrap timed out before completion.');
+          Logger.errorCode(code: AppDiagnosticCode.startupBootstrapTimedOut);
           RuntimeDiagnostics.record(
             'Startup bootstrap timed out before completion.',
           );
@@ -129,7 +129,12 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         },
       );
     } on Object catch (error, stackTrace) {
-      Logger.errorCategory('Startup', 'Bootstrap failed', error, stackTrace);
+      Logger.errorCode(
+        code: AppDiagnosticCode.startupBootstrapFailed,
+        debugMessage: 'Bootstrap failed',
+        exception: error,
+        stackTrace: stackTrace,
+      );
       RuntimeDiagnostics.record('Startup bootstrap failed: $error');
       fatalIssue = 'Startup did not complete. App started in degraded mode.';
     }
@@ -148,9 +153,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         );
         sourceSettled = true;
       } on TimeoutException {
-        Logger.error(
-          'Timed-out startup did not stop within the safety window.',
-        );
+        Logger.errorCode(code: AppDiagnosticCode.startupQuiescenceTimedOut);
         RuntimeDiagnostics.record(
           'Timed-out startup did not stop within the safety window.',
         );
@@ -190,7 +193,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
     if (initializeAccountBoundary) {
       stateBootstrapIssue = widget.initializeAccountBoundary != null
           ? await widget.initializeAccountBoundary!(ref)
-          : await _initializeAccountBoundarySafe(ref);
+          : await _initializeAccountBoundarySafe(ref, cancellationToken);
     }
 
     final String? startupError = _appendStartupIssue(
@@ -353,7 +356,10 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   }
 }
 
-Future<String?> _initializeAccountBoundarySafe(WidgetRef ref) async {
+Future<String?> _initializeAccountBoundarySafe(
+  WidgetRef ref,
+  StartupCancellationToken cancellationToken,
+) async {
   try {
     await ref
         .read(authSessionBoundaryCoordinatorProvider)
@@ -361,17 +367,24 @@ Future<String?> _initializeAccountBoundarySafe(WidgetRef ref) async {
         .timeout(const Duration(seconds: 8));
     final boundary = ref.read(authSessionBoundaryProvider);
     if (boundary.isStorageReady) {
-      return _runStateBootstrapSafe(ref);
+      final String? identityIssue = await _measureIssueStage(
+        'identity',
+        () => _initIdentitySafe(ref, cancellationToken),
+        cancellationToken: cancellationToken,
+      );
+      final String? stateIssue = await _runStateBootstrapSafe(ref);
+      return _appendStartupIssue(identityIssue, stateIssue ?? '');
     }
     return boundary.blockingIssue;
   } on TimeoutException {
+    Logger.errorCode(code: AppDiagnosticCode.startupAccountBoundaryTimedOut);
     return 'Account storage verification timed out. Account data remains locked.';
   } on Object catch (error, stackTrace) {
-    Logger.errorCategory(
-      'Startup',
-      'State bootstrap failed',
-      error,
-      stackTrace,
+    Logger.errorCode(
+      code: AppDiagnosticCode.startupAccountBoundaryFailed,
+      debugMessage: 'Account boundary initialization failed',
+      exception: error,
+      stackTrace: stackTrace,
     );
     return 'State bootstrap failed.';
   }
@@ -386,11 +399,15 @@ Future<String?> _runStateBootstrapSafe(WidgetRef ref) async {
     RuntimeDiagnostics.record('State bootstrap completed.');
     return null;
   } on TimeoutException {
-    Logger.warn('State bootstrap timed out.');
+    Logger.errorCode(code: AppDiagnosticCode.startupStateTimedOut);
     RuntimeDiagnostics.record('State bootstrap timed out.');
     return 'State bootstrap timed out.';
   } on Object catch (error) {
-    Logger.error('State bootstrap failed.', error);
+    Logger.errorCode(
+      code: AppDiagnosticCode.startupStateFailed,
+      debugMessage: 'State bootstrap failed.',
+      exception: error,
+    );
     RuntimeDiagnostics.record('State bootstrap failed.');
     return 'State bootstrap failed. Local data remains available; retry from the app when ready.';
   }
