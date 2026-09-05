@@ -66,16 +66,16 @@ final rejectPlanProposalUseCaseProvider = Provider<RejectPlanProposal>((ref) {
 
 final createTaskUseCaseProvider = Provider<CreateTask>((ref) {
   return CreateTask(
-    ref.read(domainTaskRepositoryProvider),
+    ref.watch(domainTaskRepositoryProvider),
     generateSiDecision: ref.read(generateSiDecisionUseCaseProvider),
   );
 });
 
 final completeTaskUseCaseProvider = Provider<CompleteTask>((ref) {
   return CompleteTask(
-    ref.read(domainTaskRepositoryProvider),
+    ref.watch(domainTaskRepositoryProvider),
     progressionRepo: ref.watch(domainProgressionRepositoryProvider),
-    siRepo: ref.read(domainSiRepositoryProvider),
+    siRepo: ref.watch(domainSiRepositoryProvider),
     durableMutation: (String taskId) async {
       final TaskOccurrenceResult result = await ref
           .read(taskOccurrenceCoordinatorProvider)
@@ -93,11 +93,11 @@ final completeTaskUseCaseProvider = Provider<CompleteTask>((ref) {
 });
 
 final updateTaskUseCaseProvider = Provider<UpdateTask>((ref) {
-  return UpdateTask(ref.read(domainTaskRepositoryProvider));
+  return UpdateTask(ref.watch(domainTaskRepositoryProvider));
 });
 
 final deleteTaskUseCaseProvider = Provider<DeleteTask>((ref) {
-  return DeleteTask(ref.read(domainTaskRepositoryProvider));
+  return DeleteTask(ref.watch(domainTaskRepositoryProvider));
 });
 
 final scheduleNotificationUseCaseProvider = Provider<ScheduleNotification>((

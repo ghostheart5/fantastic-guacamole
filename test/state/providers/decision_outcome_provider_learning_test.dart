@@ -307,6 +307,62 @@ void main() {
     expect(await outcomes.load(), isEmpty);
     expect(learning.state!.observations, isEmpty);
   });
+
+  test('queued decision work is discarded after an account transition', () async {
+    final _MemoryPrefs prefs = _MemoryPrefs();
+    final Map<String, DecisionOutcomeRepository> outcomes =
+        <String, DecisionOutcomeRepository>{
+          'account-a': DecisionOutcomeRepository(
+            prefs,
+            AccountStorageScope.authenticated('account-a'),
+          ),
+          'account-b': DecisionOutcomeRepository(
+            prefs,
+            AccountStorageScope.authenticated('account-b'),
+          ),
+        };
+    final Map<String, _MemoryLearningRepository> learning =
+        <String, _MemoryLearningRepository>{
+          'account-a': _MemoryLearningRepository(),
+          'account-b': _MemoryLearningRepository(),
+        };
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWith(
+          (Ref ref) => ref.watch(_mutableDecisionScopeProvider),
+        ),
+        decisionOutcomeRepositoryProvider.overrideWith((Ref ref) {
+          final String accountId =
+              ref.watch(accountStorageScopeProvider).rawUserId!;
+          return outcomes[accountId];
+        }),
+        applyLearningFeedbackUseCaseProvider.overrideWith((Ref ref) {
+          final String accountId =
+              ref.watch(accountStorageScopeProvider).rawUserId!;
+          return ApplyLearningFeedback(learning[accountId]!);
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    final DecisionOutcomeActions actions = container.read(
+      decisionOutcomeActionsProvider,
+    );
+
+    final Future<void> queued = actions.recordDirect(
+      decisionId: 'queued-under-a',
+      kind: DecisionOutcomeKind.accepted,
+      surface: 'smart_planner',
+      modelVersion: 'decision-v1',
+      recommendationConfidence: .6,
+    );
+    container.read(_mutableDecisionScopeProvider.notifier).switchTo('account-b');
+    await queued;
+
+    expect(await outcomes['account-a']!.load(), isEmpty);
+    expect(await outcomes['account-b']!.load(), isEmpty);
+    expect(learning['account-a']!.state, isNull);
+    expect(learning['account-b']!.state, isNull);
+  });
 }
 
 DecisionOutcomeEntity _outcomeForKind(
@@ -383,4 +439,19 @@ class _MemoryPrefs implements SharedPrefsStore {
 
   @override
   Future<void> clear() async => values.clear();
+}
+
+final NotifierProvider<_MutableDecisionScope, AccountStorageScope>
+_mutableDecisionScopeProvider =
+    NotifierProvider<_MutableDecisionScope, AccountStorageScope>(
+      _MutableDecisionScope.new,
+    );
+
+final class _MutableDecisionScope extends Notifier<AccountStorageScope> {
+  @override
+  AccountStorageScope build() => AccountStorageScope.authenticated('account-a');
+
+  void switchTo(String accountId) {
+    state = AccountStorageScope.authenticated(accountId);
+  }
 }

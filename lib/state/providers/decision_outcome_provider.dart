@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/domain/operating_system/operating_system_con
 import 'package:fantastic_guacamole/domain/usecases/decision_outcome_usecases.dart';
 import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -163,12 +164,16 @@ class DecisionOutcomeActions {
     bool? recommendationHelped,
     DateTime? recordedAt,
   }) async {
+    final _AccountOperationToken token = _AccountOperationToken.capture(_ref);
     final AccountStorageScope before = _ref.read(accountStorageScopeProvider);
     final DecisionOutcomeRepository? repository = _ref.read(
       decisionOutcomeRepositoryProvider,
     );
-    if (!before.isWritable || repository == null) return;
+    if (!token.isCurrent(_ref) || !before.isWritable || repository == null) {
+      return;
+    }
     if (await repository.isLearningPaused()) return;
+    if (!token.isCurrent(_ref)) return;
     final DecisionOutcomeEntity outcome = DecisionOutcomeEntity(
       decisionId: decisionId,
       kind: kind,
@@ -186,13 +191,16 @@ class DecisionOutcomeActions {
       recommendationHelped: recommendationHelped,
     );
     await RecordDecisionOutcome(repository)(outcome);
+    if (!token.isCurrent(_ref)) return;
     final ApplyLearningFeedback learning = _ref.read(
       applyLearningFeedbackUseCaseProvider,
     );
     final LearningFeedbackChange change = await learning.recordDecisionOutcome(
       outcome,
     );
+    if (!token.isCurrent(_ref)) return;
     await learning.retainDecisionOutcomes(await repository.load());
+    if (!token.isCurrent(_ref)) return;
     _ref.read(latestDecisionLearningChangeProvider.notifier).publish(change);
     final AccountStorageScope after = _ref.read(accountStorageScopeProvider);
     if (after.v2Namespace == before.v2Namespace && after.isWritable) {
@@ -393,7 +401,11 @@ class DecisionOutcomeActions {
   });
 
   Future<void> _enqueue(Future<void> Function() operation) {
-    final Future<void> result = _tail.then((_) => operation());
+    final _AccountOperationToken token = _AccountOperationToken.capture(_ref);
+    final Future<void> result = _tail.then((_) async {
+      if (!token.isCurrent(_ref)) return;
+      await operation();
+    });
     _tail = result.catchError((Object _) {});
     return result;
   }
@@ -408,4 +420,31 @@ class DecisionOutcomeActions {
         .map((DecisionOutcomeEntity outcome) => outcome.toJson())
         .toList(growable: false),
   });
+}
+
+/// Binds queued learning work to the account session that requested it.
+/// Namespace prevents a cross-account replay; generation also rejects an
+/// A -> B -> A transition before the queued work begins.
+final class _AccountOperationToken {
+  const _AccountOperationToken._(this.namespace, this.generation);
+
+  factory _AccountOperationToken.capture(Ref ref) {
+    final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
+    final AuthSessionBoundary boundary = ref.read(authSessionBoundaryProvider);
+    final int? generation =
+        boundary.userId == scope.rawUserId && boundary.isStorageReady
+        ? boundary.generation
+        : null;
+    return _AccountOperationToken._(scope.v2Namespace, generation);
+  }
+
+  final String? namespace;
+  final int? generation;
+
+  bool isCurrent(Ref ref) {
+    final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
+    if (!scope.isWritable || scope.v2Namespace != namespace) return false;
+    if (generation == null) return true;
+    return ref.read(authSessionBoundaryProvider).generation == generation;
+  }
 }

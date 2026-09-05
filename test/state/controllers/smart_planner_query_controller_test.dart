@@ -179,7 +179,7 @@ void main() {
   });
 
   test(
-    'fresh scoped person context changes grounded output and typed evidence',
+    'current priority ranks saved evidence but cannot become the sole plan subject',
     () async {
       Future<SmartPlannerResult> requestFor(String priority) async {
         final ProviderContainer container = plannerContainer(
@@ -212,15 +212,20 @@ void main() {
 
       expect(
         familyTime.plannerResponse.mattersMost,
-        contains('Protect family time tonight'),
+        isNot(contains('Protect family time tonight')),
       );
       expect(
         releaseNotes.plannerResponse.mattersMost,
-        contains('Prepare release notes first'),
+        isNot(contains('Prepare release notes first')),
       );
       expect(
-        familyTime.plannerResponse.mattersMost,
-        isNot(releaseNotes.plannerResponse.mattersMost),
+        familyTime.plannerResponse.options
+            .expand((PlannerOption option) => <String>[
+                  option.title,
+                  option.description,
+                ])
+            .join(' '),
+        isNot(contains('Protect family time tonight')),
       );
       expect(
         familyTime.plannerResponse.verifiedEvidence,
@@ -241,6 +246,41 @@ void main() {
       ]);
     },
   );
+
+  test('reported capacity caps every Planner option duration', () async {
+    final ProviderContainer container = plannerContainer(
+      personContext: contextView(<PersonContextSignal>[
+        contextSignal(
+          id: 'capacity',
+          kind: PersonContextKind.presentCapacity,
+          value: '10 minutes available today',
+        ),
+      ]),
+    );
+    addTearDown(container.dispose);
+
+    final SmartPlannerResult result = await container
+        .read(smartPlannerQueryControllerProvider)
+        .requestPlanningGuidance(
+          energy: 0.61,
+          emotion: EmotionalState.calm,
+          notes: 'Help me choose the next practical step.',
+          history: const <Map<String, String>>[],
+          previousSavedNotes: null,
+        );
+
+    expect(
+      result.plannerResponse.options
+          .map((PlannerOption option) => option.estimatedMinutes),
+      everyElement(lessThanOrEqualTo(10)),
+    );
+    expect(
+      result.plannerResponse.adaptationReceipt.adjustments,
+      contains(
+        'Applied your reported capacity limit of 10 minutes: no option exceeds it.',
+      ),
+    );
+  });
 
   test(
     'query-bound revision invalidates displayed exact-match context but ignores unrelated changes',

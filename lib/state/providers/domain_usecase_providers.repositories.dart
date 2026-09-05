@@ -65,11 +65,11 @@ final domainTimelineRepositoryProvider = Provider<ITimelineRepository>((ref) {
 });
 
 final domainThemeRepositoryProvider = Provider<IThemeRepository>((ref) {
-  return ref.read(themeRepositoryProvider);
+  return ref.watch(themeRepositoryProvider);
 });
 
 final domainIdentityRepositoryProvider = Provider<IIdentityRepository>((ref) {
-  return ref.read(identityRepositoryProvider);
+  return ref.watch(identityRepositoryProvider);
 });
 
 final domainSiRepositoryProvider = Provider<ISiRepository>((ref) {
@@ -84,7 +84,7 @@ final domainCalendarRepositoryProvider = Provider<ICalendarRepository>((ref) {
 });
 
 final domainSettingsRepositoryProvider = Provider<ISettingsRepository>((ref) {
-  return ref.read(settingsRepositoryProvider);
+  return ref.watch(settingsRepositoryProvider);
 });
 
 final domainWorkspaceRepositoryProvider = Provider<IWorkspaceRepository>((ref) {
@@ -111,51 +111,51 @@ final extendedDomainRepositoryProvider = Provider<IExtendedDomainRepository>((
 });
 
 final getPlannerMessagesUseCaseProvider = Provider<GetPlannerMessages>((ref) {
-  return GetPlannerMessages(ref.read(extendedDomainRepositoryProvider));
+  return GetPlannerMessages(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final savePlannerMessageUseCaseProvider = Provider<SavePlannerMessage>((ref) {
-  return SavePlannerMessage(ref.read(extendedDomainRepositoryProvider));
+  return SavePlannerMessage(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final getSiQueriesExtendedUseCaseProvider = Provider<GetSiQueriesExtended>((
   ref,
 ) {
-  return GetSiQueriesExtended(ref.read(extendedDomainRepositoryProvider));
+  return GetSiQueriesExtended(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final saveSiQueryExtendedUseCaseProvider = Provider<SaveSiQueryExtended>((ref) {
-  return SaveSiQueryExtended(ref.read(extendedDomainRepositoryProvider));
+  return SaveSiQueryExtended(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final getReflectionEntriesUseCaseProvider = Provider<GetReflectionEntries>((
   ref,
 ) {
-  return GetReflectionEntries(ref.read(extendedDomainRepositoryProvider));
+  return GetReflectionEntries(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final saveReflectionEntryUseCaseProvider = Provider<SaveReflectionEntry>((ref) {
-  return SaveReflectionEntry(ref.read(extendedDomainRepositoryProvider));
+  return SaveReflectionEntry(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final getAnalyticsMetricsUseCaseProvider = Provider<GetAnalyticsMetrics>((ref) {
-  return GetAnalyticsMetrics(ref.read(extendedDomainRepositoryProvider));
+  return GetAnalyticsMetrics(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final saveAnalyticsMetricUseCaseProvider = Provider<SaveAnalyticsMetric>((ref) {
-  return SaveAnalyticsMetric(ref.read(extendedDomainRepositoryProvider));
+  return SaveAnalyticsMetric(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final getExtendedAppSettingsUseCaseProvider = Provider<GetExtendedAppSettings>((
   ref,
 ) {
-  return GetExtendedAppSettings(ref.read(extendedDomainRepositoryProvider));
+  return GetExtendedAppSettings(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final saveExtendedAppSettingUseCaseProvider = Provider<SaveExtendedAppSetting>((
   ref,
 ) {
-  return SaveExtendedAppSetting(ref.read(extendedDomainRepositoryProvider));
+  return SaveExtendedAppSetting(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final extendedDomainBootstrapProvider = FutureProvider<void>((ref) async {

@@ -632,7 +632,7 @@ void main() {
   testWidgets('records canonical receipt outcomes and stages Creator preview', (
     WidgetTester tester,
   ) async {
-    final List<DecisionOutcomeKind> outcomes = <DecisionOutcomeKind>[];
+    final List<_RecordedOutcome> outcomes = <_RecordedOutcome>[];
     final ProviderContainer container = _container(
       operatingReceipt: _screenOperatingReceipt(),
       outcomes: outcomes,
@@ -642,26 +642,30 @@ void main() {
     await _requestGuidance(tester);
     await tester.pump();
 
-    expect(outcomes, <DecisionOutcomeKind>[DecisionOutcomeKind.shown]);
+    expect(
+      outcomes.map((_RecordedOutcome outcome) => outcome.kind),
+      <DecisionOutcomeKind>[DecisionOutcomeKind.shown],
+    );
 
     await _scrollTo(tester, find.text('Make smaller'));
     await tester.tap(find.text('Make smaller'));
     await tester.pump();
-    expect(outcomes.last, DecisionOutcomeKind.deferred);
+    expect(outcomes.last.kind, DecisionOutcomeKind.deferred);
 
     await _scrollTo(tester, find.text('Different approach'));
     await tester.tap(find.text('Different approach'));
     await tester.pump();
-    expect(outcomes.last, DecisionOutcomeKind.rejected);
+    expect(outcomes.last.kind, DecisionOutcomeKind.rejected);
+    expect(outcomes.last.optionChosen, PlannerOptionKind.minimum.name);
 
     await _scrollTo(tester, find.text('Use this plan'));
     await tester.tap(find.text('Use this plan'));
     await tester.pump();
 
-    expect(outcomes.last, DecisionOutcomeKind.accepted);
+    expect(outcomes.last.kind, DecisionOutcomeKind.accepted);
     expect(
       outcomes.where(
-        (DecisionOutcomeKind kind) => kind == DecisionOutcomeKind.shown,
+        (_RecordedOutcome outcome) => outcome.kind == DecisionOutcomeKind.shown,
       ),
       hasLength(1),
     );
@@ -953,7 +957,7 @@ void main() {
 ProviderContainer _container({
   VoiceService? voiceService,
   OperatingDecisionReceipt? operatingReceipt,
-  List<DecisionOutcomeKind>? outcomes,
+  List<_RecordedOutcome>? outcomes,
   AccountStorageScope? accountScope,
   SmartPlannerQueryController Function(Ref)? plannerBuilder,
   PlannerExplanationPort? explanationPort,
@@ -1001,7 +1005,7 @@ ProviderContainer _container({
       decisionOutcomeActionsProvider.overrideWith(
         (Ref ref) => _RecordingDecisionOutcomeActions(
           ref,
-          outcomes ?? <DecisionOutcomeKind>[],
+          outcomes ?? <_RecordedOutcome>[],
         ),
       ),
       if (explanationPort != null)
@@ -1340,7 +1344,7 @@ OperatingDecisionReceipt _screenOperatingReceipt() {
 class _RecordingDecisionOutcomeActions extends DecisionOutcomeActions {
   _RecordingDecisionOutcomeActions(super.ref, this.outcomes);
 
-  final List<DecisionOutcomeKind> outcomes;
+  final List<_RecordedOutcome> outcomes;
 
   @override
   Future<void> record({
@@ -1357,8 +1361,15 @@ class _RecordingDecisionOutcomeActions extends DecisionOutcomeActions {
   }) async {
     expect(receipt.decisionId, 'screen-receipt');
     expect(surface, 'smart_planner');
-    outcomes.add(kind);
+    outcomes.add(_RecordedOutcome(kind: kind, optionChosen: optionChosen));
   }
+}
+
+class _RecordedOutcome {
+  const _RecordedOutcome({required this.kind, this.optionChosen});
+
+  final DecisionOutcomeKind kind;
+  final String? optionChosen;
 }
 
 class _FakePlannerExplanationPort implements PlannerExplanationPort {

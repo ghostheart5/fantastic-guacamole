@@ -185,6 +185,12 @@ final class _PlannerEvidence {
     final int taskMatch = matchedTask == null
         ? 0
         : _taskTextMatch(matchedTask, terms);
+    final bool hasCloseTaskTie = activeTasks
+            .where(
+              (TaskEntity task) => _taskTextMatch(task, terms) == taskMatch,
+            )
+            .length >
+        1;
     final int goalMatch = matchedGoal == null
         ? 0
         : _goalTextMatch(matchedGoal, terms);
@@ -207,7 +213,7 @@ final class _PlannerEvidence {
           break;
         }
       }
-    } else {
+    } else if (hasCloseTaskTie) {
       final _PlannerPersonContextSignal? rankingFocus =
           resolvedPersonContext.rankingFocus;
       final Set<String> contextTerms = rankingFocus == null
@@ -781,6 +787,27 @@ final class _PlannerPersonContextEvidence {
     return null;
   }
 
+  /// A present-capacity signal can reduce or rescope a plan only when its
+  /// applied value contains an explicit positive minute limit.
+  int? get capacityLimitMinutes {
+    for (final _PlannerPersonContextSignal signal in signals) {
+      if (signal.kind != PersonContextKind.presentCapacity ||
+          !_hasAppliedEffect(signal)) {
+        continue;
+      }
+      final Object? value =
+          appliedOutput[PersonContextBehaviorField.capacityLimit];
+      final RegExpMatch? match = RegExp(r'\b(\d{1,3})\b').firstMatch(
+        value is String ? value : '',
+      );
+      final int? minutes = value is int
+          ? value
+          : int.tryParse(match?.group(1) ?? '');
+      if (minutes != null && minutes > 0) return minutes;
+    }
+    return null;
+  }
+
   bool _hasAppliedEffect(_PlannerPersonContextSignal signal) {
     final PersonContextBehaviorField permittedField =
         PersonContextBehaviorPolicy.ruleFor(signal.kind).permittedField;
@@ -877,13 +904,13 @@ final class _PlannerPersonContextSignal {
       switch (PersonContextBehaviorPolicy.ruleFor(kind).overrideBehavior) {
         PersonContextOverrideBehavior.hardBoundary ||
         PersonContextOverrideBehavior.scheduleConstraint ||
-        PersonContextOverrideBehavior.reduceOrRescopeOnly ||
-        PersonContextOverrideBehavior.tieBreakOnly ||
         PersonContextOverrideBehavior.scopeOnly => true,
         PersonContextOverrideBehavior.safetyGate ||
         PersonContextOverrideBehavior.evidenceOnly ||
         PersonContextOverrideBehavior.wordingOnly ||
-        PersonContextOverrideBehavior.calibrationOnly => false,
+        PersonContextOverrideBehavior.calibrationOnly ||
+        PersonContextOverrideBehavior.reduceOrRescopeOnly ||
+        PersonContextOverrideBehavior.tieBreakOnly => false,
       };
 
   String get label => switch (kind) {
@@ -1045,6 +1072,12 @@ final class _EffortProfile {
   final int minimumMinutes;
   final int bestFitMinutes;
   final int stretchMinutes;
+
+  _EffortProfile cappedAt(int maximumMinutes) => _EffortProfile(
+    math.min(minimumMinutes, maximumMinutes),
+    math.min(bestFitMinutes, maximumMinutes),
+    math.min(stretchMinutes, maximumMinutes),
+  );
 }
 
 final class _PlannerStrategy {
