@@ -1,0 +1,53 @@
+{
+  "project": "chronospark-app",
+  "temporaryKeyId": "1f4879bb-4d01-4f85-86a4-37a1270c2e9b",
+  "fisSdk": "w:0.6.24",
+  "jsSdk": "12.18.0",
+  "runMode": "retry-only-failed-macos",
+  "testPolicy": "13 enabled retained APIs, strict subset of proposed22",
+  "scope": "FIS and Remote Config protocol only; no native SDK, FCM delivery, telemetry or device proof",
+  "status": "PASS_PROTOCOL_ONLY",
+  "results": [
+    {
+      "platform": "macos",
+      "appId": "1:956622397052:ios:ae0e18f5cc5a6c459133f9",
+      "policy": "temporary13Subset",
+      "startedAt": "2026-09-05T13:03:07.097Z",
+      "pass": true,
+      "createOutcome": "CREATED_RECOVERABLE",
+      "create": {
+        "status": 200,
+        "reasons": [],
+        "validTokens": true
+      },
+      "disposableFidSha256": "3c5a6327d99ef6fb53b4575ac621a4860095af345fa1bfcf59213a5b1e5095c0",
+      "token": {
+        "status": 200,
+        "reasons": [],
+        "validToken": true
+      },
+      "remoteConfig": {
+        "status": 200,
+        "reasons": [],
+        "state": "UPDATE",
+        "parsedJson": true,
+        "entryCount": 8,
+        "valuesActivated": false
+      },
+      "cleanup": {
+        "status": 200,
+        "accepted": true,
+        "reasons": []
+      },
+      "finishedAt": "2026-09-05T13:03:08.125Z"
+    }
+  ],
+  "startedAt": "2026-09-05T13:03:07.097Z",
+  "cleanup": {
+    "created": 1,
+    "accepted": 1,
+    "pending": 0,
+    "uncertainCreations": 0
+  },
+  "finishedAt": "2026-09-05T13:03:08.125Z"
+}

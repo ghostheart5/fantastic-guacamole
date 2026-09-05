@@ -128,6 +128,74 @@ void main() {
     );
   });
 
+  test('full backup waits for an in-flight account storage write', () async {
+    final KeyedMutationCoordinator coordinator = KeyedMutationCoordinator();
+    final Completer<void> started = Completer<void>();
+    final Completer<void> release = Completer<void>();
+    final BackupService coordinated = buildService(
+      taskRepository: repository,
+      profileStorage: profileStorage,
+      prefs: service.prefs,
+      mutationCoordinator: coordinator,
+    );
+    final Future<void> mutation = runAccountStorageMutation(() async {
+      started.complete();
+      await release.future;
+      await repository.saveTask(
+        TaskEntity(
+          id: 'committed-task',
+          title: 'Committed together',
+          createdAt: DateTime.utc(2026, 9, 5),
+        ),
+      );
+      await profileStorage.put('profile_state', '{"name":"Committed profile"}');
+    }, coordinator: coordinator);
+    await started.future;
+    final Future<Map<String, dynamic>> backup = coordinated.createFullBackup();
+    await Future<void>.delayed(Duration.zero);
+    final int readsWhileWritePending = repository.readCount;
+    release.complete();
+    await mutation;
+    final Map<String, dynamic> result = await backup;
+    expect(readsWhileWritePending, 0);
+    final Map<String, dynamic> savedTask =
+        (result['tasks'] as List<dynamic>).single as Map<String, dynamic>;
+    expect(savedTask['id'], 'committed-task');
+    expect(result['profile'], <String, dynamic>{'name': 'Committed profile'});
+  });
+
+  for (final String invalidProfile in <String>[
+    '{private-corrupt',
+    '',
+    'null',
+    '[]',
+    '42',
+  ]) {
+    test(
+      'backup rejects invalid stored profile ${invalidProfile.length}',
+      () async {
+        await profileStorage.put('profile_state', invalidProfile);
+        await expectLater(
+          service.createFullBackup(),
+          throwsA(
+            isA<FormatException>().having(
+              (FormatException error) => error.message,
+              'safe message',
+              'Stored profile is invalid; backup cancelled.',
+            ),
+          ),
+        );
+        expect(profileStorage.get('profile_state'), invalidProfile);
+        await expectLater(
+          service.createVersionedFullBackup(),
+          throwsFormatException,
+        );
+        await expectLater(service.backupProfile(), throwsFormatException);
+        expect(profileStorage.get('profile_state'), invalidProfile);
+      },
+    );
+  }
+
   test('backs up canonical task fields', () async {
     final DateTime createdAt = DateTime.utc(2026, 7, 4, 12);
     final DateTime dueDate = DateTime.utc(2026, 7, 8);
@@ -839,13 +907,14 @@ void main() {
   });
 
   test(
-    'backupProfile returns null when profile state is missing or malformed',
+    'backupProfile distinguishes missing profile from preserved corruption',
     () async {
       expect((await service.backupProfile())['profile'], isNull);
 
       await profileStorage.put('profile_state', '{not valid json');
 
-      expect((await service.backupProfile())['profile'], isNull);
+      await expectLater(service.backupProfile(), throwsFormatException);
+      expect(profileStorage.get('profile_state'), '{not valid json');
     },
   );
 
@@ -1543,6 +1612,7 @@ class _MemoryTaskRepository implements ITaskRepository {
   String? failEverySaveForId;
   bool _didFailConfiguredSave = false;
   Future<void> Function(TaskEntity task)? beforeSave;
+  int readCount = 0;
 
   void clear() => _tasks.clear();
 
@@ -1553,6 +1623,7 @@ class _MemoryTaskRepository implements ITaskRepository {
 
   @override
   Future<List<TaskEntity>> getAllTasks() async {
+    readCount++;
     return _tasks.values.toList(growable: false);
   }
 

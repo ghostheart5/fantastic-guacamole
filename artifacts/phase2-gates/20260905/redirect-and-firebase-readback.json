@@ -1,0 +1,99 @@
+{
+  "dateUtc": "2026-09-05",
+  "localHead": "0c2449016a36a0cb3ff3e431cbf799cb291c7aea",
+  "auth": {
+    "projectRef": "qpwhuckyirnqtmvhpede",
+    "authorization": "User confirmed all four legacy callbacks unused and approved their removal.",
+    "siteUrlBefore": "chronospark://auth-callback",
+    "siteUrlAfter": "chronospark://auth-callback",
+    "removed": [
+      "http://localhost:3000",
+      "http://localhost:8000",
+      "https://chronospark.ai",
+      "https://www.chronospark.ai"
+    ],
+    "retained": [
+      "chronospark://auth-callback",
+      "https://chronospark.app/app/auth/callback"
+    ],
+    "beforeCount": 6,
+    "afterCount": 2,
+    "verification": "Explicit removal dialog listed exactly the four approved URLs; saved state and independent browser reload showed only two retained URLs with unchanged Site URL.",
+    "rollback": "Restore only a confirmed legitimate owner-controlled callback with explicit approval; do not automatically re-add the old domains.",
+    "scope": "Configuration cleanup only; no sign-in, email, reset-password, or device journey performed."
+  },
+  "firebase": {
+    "project": "chronospark-app",
+    "account": "domnichols39@gmail.com",
+    "keyIds": [
+      {
+        "platform": "Android",
+        "id": "e184f343-0f57-41b9-8306-293c9040ed69"
+      },
+      {
+        "platform": "Web/Windows",
+        "id": "78970ff4-1470-42a9-a66b-f44bbb7e38c7"
+      },
+      {
+        "platform": "iOS/macOS",
+        "id": "4f3d50ad-9883-4166-9f29-bb54852f7eb1"
+      }
+    ],
+    "identicalSelectedApis": [
+      "Cloud Datastore API",
+      "Cloud Firestore API",
+      "Cloud Logging API",
+      "Cloud SQL Admin API",
+      "Cloud Storage for Firebase API",
+      "FCM Registration API",
+      "Firebase AI Logic API",
+      "Firebase App Check API",
+      "Firebase App Distribution API",
+      "Firebase App Hosting API",
+      "Firebase App Testers API",
+      "Firebase Hosting API",
+      "Firebase In-App Messaging API",
+      "Firebase Installations API",
+      "Firebase Management API",
+      "Firebase ML API",
+      "Firebase Phone Number Verification API",
+      "Firebase Realtime Database Management API",
+      "Firebase Remote Config API",
+      "Firebase Remote Config Realtime API",
+      "Firebase Rules API",
+      "Firebase SQL Connect API",
+      "Identity Toolkit API",
+      "ML Kit API",
+      "Token Service API"
+    ],
+    "applicationRestrictionForAll": "None",
+    "generativeLanguageApiAllowed": false,
+    "unresolvedAllowlistExtensions": [
+      "Cloud SQL Admin API",
+      "Firebase App Hosting API",
+      "Firebase SQL Connect API"
+    ],
+    "baseline": "Partial: 22 entries mapped to Firebase required-API table; three extensions not justified as needed for this app. App Hosting and SQL Connect are Firebase products; that alone does not establish required allowlist status.",
+    "applicationRestrictions": "Recommended hardening, not a universal Firebase production prerequisite. Existing project hardening commitment remains open pending owner scope/certificates/staged compatibility evidence, not silently waived.",
+    "changesMade": false,
+    "secretsRevealed": false
+  },
+  "provider": {
+    "url": "https://platform.claude.com/settings/keys",
+    "session": "Sign-in page observed; no authenticated key-status evidence.",
+    "changedCredentials": false,
+    "paidRequests": false
+  },
+  "preserved": [
+    "Phone",
+    "Domain/DNS/TLS",
+    "App/provider enablement",
+    "Git index and HEAD",
+    "Production credentials"
+  ],
+  "sources": [
+    "https://firebase.google.com/docs/projects/api-keys",
+    "https://docs.cloud.google.com/api-keys/docs/add-restrictions-api-keys",
+    "https://supabase.com/docs/guides/auth/redirect-urls"
+  ]
+}

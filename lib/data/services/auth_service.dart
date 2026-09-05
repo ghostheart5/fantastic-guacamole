@@ -2,22 +2,26 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/config/auth_callback.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart'
     as secure_endpoint;
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
+import 'package:fantastic_guacamole/data/services/contracts/password_recovery_auth.dart';
+import 'package:fantastic_guacamole/data/services/supabase_password_recovery.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
-class AuthService implements AuthServiceContract {
+class AuthService implements AuthServiceContract, PasswordRecoveryAuth {
   AuthService({
     required sb.SupabaseClient supabaseClient,
     required this.store,
     http.Client? httpClient,
     String? accountDeleteEndpoint,
+    String? passwordUpdateEndpoint,
     String? oauthGoogleRedirectUrl,
     String? oauthGitHubRedirectUrl,
     Future<void> Function(String accountId)? onBeforeSignedOut,
@@ -25,9 +29,12 @@ class AuthService implements AuthServiceContract {
     Future<void> Function(String accountId)? onAccountDeleted,
     Future<void> Function()? onDevicePushTokenRevoked,
   }) : _auth = supabaseClient,
+       _recovery = SupabasePasswordRecovery.forClient(supabaseClient),
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
            accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
+       _passwordUpdateEndpoint =
+           passwordUpdateEndpoint ?? '${Env.supabaseUrl}/auth/v1/user',
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
        _oauthGitHubRedirectUrl =
            oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
@@ -43,9 +50,11 @@ class AuthService implements AuthServiceContract {
   static final RegExp _deletionStatePattern = RegExp(r'^[a-z][a-z0-9_]{0,63}$');
 
   final sb.SupabaseClient _auth;
+  final SupabasePasswordRecovery _recovery;
   final SecureStore store;
   final http.Client _httpClient;
   final String _accountDeleteEndpoint;
+  final String _passwordUpdateEndpoint;
   final String _oauthGoogleRedirectUrl;
   final String _oauthGitHubRedirectUrl;
   final Future<void> Function(String accountId)? _beforeSignedOutCallback;
@@ -64,6 +73,73 @@ class AuthService implements AuthServiceContract {
 
   @override
   User? get currentUser => _mapUser(_auth.auth.currentUser);
+
+  @override
+  PasswordRecoveryState get passwordRecoveryState => _recovery.state;
+
+  @override
+  Stream<PasswordRecoveryState> get passwordRecoveryChanges =>
+      _recovery.changes;
+
+  @override
+  Future<void> completePasswordRecovery({required String newPassword}) async {
+    final int revision = _recovery.requireCurrentSession();
+    final sb.Session session = _auth.auth.currentSession!;
+    final String password = newPassword.trim();
+    if (password.isEmpty) {
+      throw FirebaseAuthException(code: 'missing-password');
+    }
+    final Uri? endpoint = parseSecureHttpsEndpoint(_passwordUpdateEndpoint);
+    if (endpoint == null) {
+      throw FirebaseAuthException(code: 'auth-unavailable');
+    }
+    try {
+      // Bind the PUT to this exact session without mutating the shared SDK
+      // client. SDK updateUser can otherwise copy A's response into B's session
+      // when the account changes while the request is in flight.
+      final http.Response response = await _httpClient
+          .put(
+            endpoint,
+            headers: <String, String>{
+              ..._auth.auth.headers,
+              'Authorization': 'Bearer ${session.accessToken}',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(<String, String>{'password': password}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        throw FirebaseAuthException(
+          code: switch (response.statusCode) {
+            401 || 403 => 'recovery-session-required',
+            422 => 'weak-password',
+            429 => 'too-many-requests',
+            _ => 'operation-failed',
+          },
+        );
+      }
+      final Object? payload = jsonDecode(response.body);
+      if (payload is! Map<String, dynamic> ||
+          payload['id'] != session.user.id) {
+        throw FirebaseAuthException(code: 'operation-failed');
+      }
+    } on FirebaseAuthException {
+      rethrow;
+    } on Object {
+      throw FirebaseAuthException(code: 'auth-unavailable');
+    }
+    if (_recovery.requireCurrentSession() != revision) {
+      throw recoverySessionRequired();
+    }
+    _recovery.complete(revision);
+  }
+
+  @override
+  Future<void> cancelPasswordRecovery() async {
+    final int revision = _recovery.requireCurrentSession();
+    await _signOut(recoveryRevision: revision);
+    // signedOut clears the tracker. Never dismiss it before sign-out succeeds.
+  }
 
   @override
   Future<UserCredential> signIn({
@@ -187,7 +263,10 @@ class AuthService implements AuthServiceContract {
   @override
   Future<void> sendPasswordReset(String email) async {
     try {
-      await _auth.auth.resetPasswordForEmail(email);
+      await _auth.auth.resetPasswordForEmail(
+        email,
+        redirectTo: passwordRecoveryRedirectUrl,
+      );
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
     } on Object {
@@ -274,7 +353,17 @@ class AuthService implements AuthServiceContract {
   }
 
   @override
-  Future<void> signOut() async {
+  Future<void> signOut() => _signOut();
+
+  Future<void> _signOut({int? recoveryRevision}) async {
+    void requireRecoveryLease() {
+      if (recoveryRevision != null &&
+          _recovery.requireCurrentSession() != recoveryRevision) {
+        throw recoverySessionRequired();
+      }
+    }
+
+    requireRecoveryLease();
     final sb.User? user = _auth.auth.currentUser;
     Object? serverTokenCleanupFailure;
     if (user != null) {
@@ -287,12 +376,14 @@ class AuthService implements AuthServiceContract {
               'Sign-out was paused because scheduled reminders could not be isolated safely. Please retry.',
         );
       }
+      requireRecoveryLease();
       try {
         await _auth.rpc<dynamic>('unregister_firebase_device');
       } on Object catch (error) {
         serverTokenCleanupFailure = error;
         Logger.warn('Push-token cleanup during sign-out failed: $error');
       }
+      requireRecoveryLease();
       try {
         await _devicePushTokenRevokedCallback?.call();
       } on Object {
@@ -305,6 +396,7 @@ class AuthService implements AuthServiceContract {
           );
         }
       }
+      requireRecoveryLease();
       if (serverTokenCleanupFailure != null &&
           _devicePushTokenRevokedCallback == null) {
         throw FirebaseAuthException(
@@ -314,7 +406,11 @@ class AuthService implements AuthServiceContract {
         );
       }
     }
+    requireRecoveryLease();
     await _auth.auth.signOut();
+    if (recoveryRevision != null && _auth.auth.currentSession != null) {
+      throw recoverySessionRequired();
+    }
     await _signedOutCallback?.call();
   }
 

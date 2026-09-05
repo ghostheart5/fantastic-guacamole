@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:fantastic_guacamole/config/auth_callback.dart';
 import 'package:fantastic_guacamole/app/startup/startup_notice_layout.dart';
 
 import 'package:fantastic_guacamole/app/router/app_router.dart';
@@ -88,7 +90,10 @@ void _observeAppFuture<T>(
 
 @visibleForTesting
 String resolveExternalDeepLinkLocation(Uri uri) {
-  final String appPath = _normalizeExternalAppPath(uri.path);
+  final String appPath = isTrustedAuthCallback(uri)
+      ? '/app/auth/callback'
+      : _normalizeExternalAppPath(uri.path);
+  if (uri.scheme == 'chronospark' && !isTrustedAuthCallback(uri)) return '';
   if (appPath.isEmpty) {
     return '';
   }

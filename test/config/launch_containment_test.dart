@@ -78,7 +78,16 @@ void main() {
       'android/app/src/main/AndroidManifest.xml',
     ).readAsStringSync();
 
-    expect(manifest, contains('firebase_analytics_collection_enabled'));
+    for (final String setting in <String>[
+      'firebase_analytics_collection_enabled',
+      'firebase_messaging_auto_init_enabled',
+    ]) {
+      final List<RegExpMatch> entries = RegExp(
+        '<meta-data\\s+[^>]*android:name="$setting"[^>]*/>',
+      ).allMatches(manifest).toList();
+      expect(entries, hasLength(1), reason: setting);
+      expect(entries.single.group(0), contains('android:value="false"'));
+    }
     expect(manifest, contains('firebase_crashlytics_collection_enabled'));
     expect(manifest, contains('android:name="com.android.vending.BILLING"'));
     expect(manifest, contains('tools:node="remove"'));
@@ -92,6 +101,20 @@ void main() {
       final String plist = File(path).readAsStringSync();
       expect(plist, contains('FIREBASE_ANALYTICS_COLLECTION_ENABLED'));
       expect(plist, contains('FirebaseCrashlyticsCollectionEnabled'));
+      expect(
+        RegExp(
+          r'<key>FirebaseMessagingAutoInitEnabled</key>',
+        ).allMatches(plist),
+        hasLength(1),
+        reason: path,
+      );
+      expect(
+        RegExp(
+          r'<key>FirebaseMessagingAutoInitEnabled</key>\s*<false\s*/>',
+        ).allMatches(plist),
+        hasLength(1),
+        reason: path,
+      );
     }
   });
 }

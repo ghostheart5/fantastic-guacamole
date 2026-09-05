@@ -18,14 +18,18 @@ This is the new nine-phase closeout plan, not the binder priorities or earlier
 - Production migrations/deployments, credential or client restriction changes,
   destructive account testing, paid resources, commit/push and store submission
   retain their explicit authorization gates. Never expose secret values.
+- **Owner-directed sequencing exception, September 5:** defer the remaining
+  Phase 2 provider-credit gate and start Phase 3 now. Do not retry provider
+  credentials or require funding before local Phase 3 work. This is deferral,
+  not a passed provider check or permission for destructive production tests.
 
 ## Ordered phase gates
 
 | Phase | Work and required exit evidence | Status |
 | --- | --- | --- |
 | 1. Source, security and release records | Session-bound deletion recency; durable duplicate-cron repair; focused source and disposable database verification; consistent release/age/auth records without invented owner decisions | **COMPLETE for source/disposable-backend scope on `1f07020e`; production and device proof remain later gates** |
-| 2. Firebase and backend hardening | Exact API-key consumer mapping; staged restriction/App Check applicability; approved redirect and secret decisions; approved deployment/migration with independent readback | Not started in this closeout run |
-| 3. Account and data recovery | Authorized disposable two-account/two-session isolation and deletion/reconciliation; Storage cleanup; isolated timed database and object restore; agreed RTO/RPO | Not started |
+| 2. Firebase and backend hardening | Exact API-key consumer mapping; staged restriction/App Check applicability; approved redirect and secret decisions; approved deployment/migration with independent readback | **CLOSED AT OWNER DIRECTION: owner reports provider credits added and declared Phase 2 done. The earlier installed-secret check and cleanup evidence remain recorded; no credit-funded recheck was run in Phase 3** |
+| 3. Account and data recovery | Focused password-recovery event/route/UI repair and real recovery journey; authorized disposable two-account/two-session isolation and deletion/reconciliation; Storage cleanup; isolated timed database and object restore; agreed RTO/RPO | **IN PROGRESS: recovery event/session/route/UI and local backup-corruption/concurrency repairs implemented; focused source validation passes. Live disposable-account and isolated restore gates remain separately controlled** |
 | 4. Disabled product capabilities | Approved release scope; real provider safety/cost/privacy, Play billing lifecycle/reconciliation, two-device sync/conflict/recovery, consent/telemetry/alerts and kill-switch proof for anything enabled | Not started; containment preserved |
 | 5. Final candidate | Freeze exact source; one required full CI gate; required rebuild, signing, bundle/version/size/native-symbol evidence and backend parity | Not started; prior candidate evidence preserved, not transferable to new source |
 | 6. Physical-device validation | **Pause for phone replacement first.** Then final-candidate journeys, accessibility, reliability, offline/recovery, performance and smoke on the replacement device | Explicit user handoff before starting |
@@ -38,6 +42,76 @@ they cannot be described as completed full-product capabilities. Legal operator,
 jurisdiction, countries/track, retention commitments, and qualified review results
 must be supplied or verified, never invented. Public content/support/deletion
 work remains in scope even though the domain setup itself is excluded.
+
+Current [Phase 2 repair and live-preflight checkpoint](PHASE_2_BACKEND_HARDENING_20260904.md)
+records the native FCM default-off repair, App Check applicability correction,
+live key fingerprints/shared consumers and the approved production readback:
+`account-delete` v9, reconciler v7, all seven source instances exact, 45 migration
+records and one active expiry schedule. Other functions and cron rows were
+preserved. The approved Firebase key changes now have independent exact 22-API
+readback on all three original keys, with application restrictions unchanged.
+The four approved missing Play signing fingerprints are now saved on the existing
+production Android app. Full-reload readback at 2026-09-05T14:10:48.223Z confirms
+the exact ten-entry set: six originals preserved plus four additions. This is
+certificate-registration evidence, not native runtime or release readiness.
+No destructive account test or phone use occurred; Phase 3 remains
+not started while Phase 2 owner/configuration gates are open.
+The 2026-09-05 14:16 UTC completion attempt reached an owner/credential-access
+handoff: the signed-in provider account lists zero keys, while the production
+secret's unchanged metadata cannot prove old-key revocation or replacement
+validity. The owner subsequently explicitly accepted the verified Firebase-only
+API allowlists as the Phase 2 baseline, retaining extra per-app restrictions as a
+compatibility-dependent follow-up. This is accepted residual hardening, not
+completed application restrictions; it is no longer a Phase 2 exit blocker.
+At 2026-09-05 14:26 UTC, the owner signed in as `domnichols39@gmail.com`.
+Organization-level key inventory revealed the active Personal/Organization key
+Dom (`apikey_01JxbP8RRmLPrBaaZkR1fRbb`, created September 2), whose masked ending
+matches the exposed key. The zero-key Default workspace view did not include it.
+Account access is resolved. The owner explicitly approved disabling this exact
+candidate; full-reload readback at 2026-09-05T14:28:01.899Z confirms **Disabled**
+on the same record and owner. This is reversible disablement, not deletion; no
+old-key test or Supabase secret replacement was performed. Replacement setup,
+installation provenance and server-held authentication verification remain open.
+The owner created service account `chronospark-supabase-prod`
+(`svac_01ErTRqsVrWv8YS4qNsPubbA`). Independent reload at
+2026-09-05T14:32:49.142Z verified Developer role, only Default workspace with
+Workspace User access, zero keys and zero federation rules. A Default-only,
+30-day replacement-key form is prepared but not submitted; key creation, direct
+secret installation and protected server verification remain uncompleted.
+Subsequent readback confirms the owner-created replacement key
+`chronospark-supabase-prod-20260905`, linked to that service account, Default
+scope, **Active** under the provider status filter, and saved expiry
+**October 5, 2026**. The old Dom record remains Disabled. Following the owner's
+direct secret entry, Supabase `ANTHROPIC_API_KEY` shows updated at
+**September 5, 14:44:19 UTC**, independently reloaded at
+**2026-09-05T14:48:00.949Z**. Saved-update metadata is PASS; secret-content
+equality and protected server-held authentication are not yet proven. The exact
+new key record ID was not retrieved. A temporary admin-only, non-generating
+server check and its removal await scoped approval and a verified protected
+invocation path; none was deployed or invoked. Rotate before October 5; no
+reminder automation was created. Phase 2 remains open only for the provider
+credential verification gate, not another secret-entry handoff.
+
+The owner subsequently approved the temporary protected server check and cleanup.
+At **2026-09-05T15:02:37.776Z**, the installed secret reached organization
+`481a4381-f1cb-43b2-a749-0d2a408395ac`, expected Default workspace
+`wrkspc_015MTvox1RzbTyqFSYqZxUqe`, but the fixed token-count operation returned
+**HTTP 400 / insufficient_provider_credits**. This was one focused diagnostic
+retry after the initial 400, not a paid message-generation request. The function
+required an existing admin secret key; unauthenticated invocation returned 403.
+Only the temporary function used custom auth with legacy-JWT verification off.
+It was deleted and independently confirmed absent, endpoint 404, by 15:03:22 UTC;
+the original seven functions retained their preflight IDs, versions, hashes and
+auth settings. Non-secret source/result evidence is retained locally. No funds
+were added and no further provider requests were run. The remaining owner action
+is resolution of the provider credit gate, then approval for a bounded recheck;
+Phase 2 is not marked complete and Phase 3 has not started.
+
+Retained follow-up: stage Android production/legacy signer compatibility; separate
+browser restrictions from the shared Windows key only through an approved client
+migration; verify both Apple native bundle identities before restrictions. Preserve
+all existing clients and identities. Final release review must retain this accepted
+residual risk and reassess it if services, clients or API scope change.
 
 ## Phase 1 checkpoint
 

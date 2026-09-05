@@ -18,7 +18,8 @@ not authorize upload, publishing, credential replacement or feature enablement.
 - [x] FlutterFire project configured for `chronospark-app`
 - [x] Production Android project/app identity matches the frozen candidate, as recorded in the backend checkpoint
 - [x] Android `google-services.json` generated
-- [ ] Verify API-key consumer mappings/restrictions and applicable App Check readiness without breaking approved clients
+- [ ] Verify API-key consumer mappings/restrictions without breaking approved clients; this remains independent of App Check applicability
+- [x] Assess App Check applicability for current Firebase integrations: FCM, Remote Config, Analytics and Crashlytics are not on its built-in supported-service list; no blanket enforcement gate applies to these integrations
 - [ ] Verify real Messaging delivery and any separately approved telemetry/alert journey; saved email preferences are not delivery proof
 - [ ] Verify Supabase Email/Password and Google OAuth signup/sign-in/recovery/deletion behavior on the final candidate
 
@@ -26,6 +27,14 @@ Account authentication is implemented with Supabase, not Firebase Auth. Do not
 enable Firebase Email/Password to satisfy this checklist. Apple configuration
 is outside this Android Play gate. Keep disabled telemetry and external features
 disabled until their independent exit gates and enablement approval are complete.
+
+Reassess against the [official App Check supported-service list](https://firebase.google.com/docs/app-check)
+if Firebase services change. A Firebase Console toggle does not protect Supabase
+authentication or data endpoints; custom-backend attestation requires separate
+design and approval. For any future applicable integration, validate signed-client
+tokens and staged rejection/compatibility tests before separately approved
+enforcement. This scope assessment does not complete API-key restrictions or
+the broader Phase 2 backend hardening work.
 
 ## In-App Purchases
 

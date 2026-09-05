@@ -15,6 +15,7 @@ import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -51,6 +52,7 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
     );
     _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
     _ref.listen(internalAdvisorAccessProvider, (_, _) => notifyListeners());
+    _ref.listen(passwordRecoveryStateProvider, (_, _) => notifyListeners());
   }
 
   final Ref _ref;
@@ -59,6 +61,8 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
   bool get onboardingComplete => _ref.read(onboardingCompleteGuardProvider);
   bool get welcomeComplete => _ref.read(onboardingWelcomeCompleteGuardProvider);
   bool get hasInternalAdvisorAccess => _ref.read(internalAdvisorAccessProvider);
+  bool get passwordRecoveryPending =>
+      _ref.read(passwordRecoveryStateProvider).asData?.value.isPending ?? false;
 }
 
 String _resolveInitialLocation({
@@ -95,6 +99,7 @@ String? computeAppRedirect({
   DeepLinkMode? deepLinkMode,
   bool isDebugBuild = kDebugMode,
   bool hasInternalAdvisorAccess = false,
+  bool passwordRecoveryPending = false,
 }) {
   final Uri requestUri = uri ?? Uri(path: location);
   final String effectiveLocation = location.isEmpty
@@ -110,6 +115,16 @@ String? computeAppRedirect({
   final RouteAccessDecision decision = RouteAccessPolicy.classify(
     effectiveLocation,
   );
+
+  // Only SDK-verified state grants recovery. A URL mode is merely a hint.
+  // Keep the recovery form reachable before ordinary signed-in/onboarding rules.
+  if (passwordRecoveryPending) {
+    if (effectiveLocation == RoutePaths.login) return null;
+    return Uri(
+      path: RoutePaths.login,
+      queryParameters: const <String, String>{'mode': 'recovery'},
+    ).toString();
+  }
 
   if (decision.accessClass == RouteAccessClass.authentication) {
     if (RouteAccessPolicy.isAuthenticationCallback(effectiveDeepLinkMode)) {
@@ -217,6 +232,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         location: state.matchedLocation,
         uri: state.uri,
         hasInternalAdvisorAccess: refresh.hasInternalAdvisorAccess,
+        passwordRecoveryPending: refresh.passwordRecoveryPending,
       );
     },
     routes: <RouteBase>[

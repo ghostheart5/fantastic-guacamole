@@ -1,0 +1,275 @@
+{
+  "project": "chronospark-app",
+  "temporaryKeyId": "1f4879bb-4d01-4f85-86a4-37a1270c2e9b",
+  "fisSdk": "w:0.6.24",
+  "jsSdk": "12.18.0",
+  "testPolicy": "13 enabled retained APIs, strict subset of proposed22",
+  "scope": "FIS and Remote Config protocol only; no native SDK, FCM delivery, telemetry or device proof",
+  "status": "FAILED",
+  "results": [
+    {
+      "platform": "android",
+      "appId": "1:956622397052:android:3ecf5fcda0f2e1ef9133f9",
+      "policy": "baseline25",
+      "startedAt": "2026-09-05T12:58:56.408Z",
+      "pass": true,
+      "createOutcome": "CREATED_RECOVERABLE",
+      "create": {
+        "status": 200,
+        "reasons": [],
+        "validTokens": true
+      },
+      "disposableFidSha256": "14afa53f9283fd180791983a1f1c828e21315138e81b8fee276dd3c7902ffdb0",
+      "token": {
+        "status": 200,
+        "reasons": [],
+        "validToken": true
+      },
+      "remoteConfig": {
+        "status": 200,
+        "reasons": [],
+        "state": "UPDATE",
+        "parsedJson": true,
+        "entryCount": 8,
+        "valuesActivated": false
+      },
+      "cleanup": {
+        "status": 200,
+        "accepted": true,
+        "reasons": []
+      },
+      "finishedAt": "2026-09-05T12:58:57.311Z"
+    },
+    {
+      "platform": "web",
+      "appId": "1:956622397052:web:31f23707a15bf8f19133f9",
+      "policy": "baseline25",
+      "startedAt": "2026-09-05T12:58:57.311Z",
+      "pass": true,
+      "createOutcome": "CREATED_RECOVERABLE",
+      "create": {
+        "status": 200,
+        "reasons": [],
+        "validTokens": true
+      },
+      "disposableFidSha256": "925c41cc66798d9303029499548d210ffb961b01fc03be2240a0fe430e5b7d39",
+      "token": {
+        "status": 200,
+        "reasons": [],
+        "validToken": true
+      },
+      "remoteConfig": {
+        "status": 200,
+        "reasons": [],
+        "state": "UPDATE",
+        "parsedJson": true,
+        "entryCount": 8,
+        "valuesActivated": false
+      },
+      "cleanup": {
+        "status": 200,
+        "accepted": true,
+        "reasons": []
+      },
+      "finishedAt": "2026-09-05T12:58:57.775Z"
+    },
+    {
+      "platform": "ios",
+      "appId": "1:956622397052:ios:4a522f3f234d24959133f9",
+      "policy": "baseline25",
+      "startedAt": "2026-09-05T12:58:57.775Z",
+      "pass": true,
+      "createOutcome": "CREATED_RECOVERABLE",
+      "create": {
+        "status": 200,
+        "reasons": [],
+        "validTokens": true
+      },
+      "disposableFidSha256": "32d0743b6efcd1b2285432764530a79928cd1fc12ee18f569e9558256faf452d",
+      "token": {
+        "status": 200,
+        "reasons": [],
+        "validToken": true
+      },
+      "remoteConfig": {
+        "status": 200,
+        "reasons": [],
+        "state": "UPDATE",
+        "parsedJson": true,
+        "entryCount": 8,
+        "valuesActivated": false
+      },
+      "cleanup": {
+        "status": 200,
+        "accepted": true,
+        "reasons": []
+      },
+      "finishedAt": "2026-09-05T12:58:58.429Z"
+    },
+    {
+      "platform": "macos",
+      "appId": "1:956622397052:ios:ae0e18f5cc5a6c459133f9",
+      "policy": "baseline25",
+      "startedAt": "2026-09-05T12:58:58.429Z",
+      "pass": true,
+      "createOutcome": "CREATED_RECOVERABLE",
+      "create": {
+        "status": 200,
+        "reasons": [],
+        "validTokens": true
+      },
+      "disposableFidSha256": "c4505af481e97e20499fb738c9317f52fdf48dbceac80f58bdfa91ccdc6e2531",
+      "token": {
+        "status": 200,
+        "reasons": [],
+        "validToken": true
+      },
+      "remoteConfig": {
+        "status": 200,
+        "reasons": [],
+        "state": "UPDATE",
+        "parsedJson": true,
+        "entryCount": 8,
+        "valuesActivated": false
+      },
+      "cleanup": {
+        "status": 200,
+        "accepted": true,
+        "reasons": []
+      },
+      "finishedAt": "2026-09-05T12:58:59.057Z"
+    },
+    {
+      "platform": "android",
+      "appId": "1:956622397052:android:3ecf5fcda0f2e1ef9133f9",
+      "policy": "temporary13Subset",
+      "startedAt": "2026-09-05T12:58:59.058Z",
+      "pass": true,
+      "createOutcome": "CREATED_RECOVERABLE",
+      "create": {
+        "status": 200,
+        "reasons": [],
+        "validTokens": true
+      },
+      "disposableFidSha256": "46e1fc2bd3bf725e14548c882f7138f879d3d20bb5af5e5ecec191763ee0a834",
+      "token": {
+        "status": 200,
+        "reasons": [],
+        "validToken": true
+      },
+      "remoteConfig": {
+        "status": 200,
+        "reasons": [],
+        "state": "UPDATE",
+        "parsedJson": true,
+        "entryCount": 8,
+        "valuesActivated": false
+      },
+      "cleanup": {
+        "status": 200,
+        "accepted": true,
+        "reasons": []
+      },
+      "finishedAt": "2026-09-05T12:58:59.638Z"
+    },
+    {
+      "platform": "web",
+      "appId": "1:956622397052:web:31f23707a15bf8f19133f9",
+      "policy": "temporary13Subset",
+      "startedAt": "2026-09-05T12:58:59.638Z",
+      "pass": true,
+      "createOutcome": "CREATED_RECOVERABLE",
+      "create": {
+        "status": 200,
+        "reasons": [],
+        "validTokens": true
+      },
+      "disposableFidSha256": "e523c25d801826153aa9909bd5177c66225995a9f356c59b9a7b08744738bb0f",
+      "token": {
+        "status": 200,
+        "reasons": [],
+        "validToken": true
+      },
+      "remoteConfig": {
+        "status": 200,
+        "reasons": [],
+        "state": "UPDATE",
+        "parsedJson": true,
+        "entryCount": 8,
+        "valuesActivated": false
+      },
+      "cleanup": {
+        "status": 200,
+        "accepted": true,
+        "reasons": []
+      },
+      "finishedAt": "2026-09-05T12:59:00.258Z"
+    },
+    {
+      "platform": "ios",
+      "appId": "1:956622397052:ios:4a522f3f234d24959133f9",
+      "policy": "temporary13Subset",
+      "startedAt": "2026-09-05T12:59:00.258Z",
+      "pass": true,
+      "createOutcome": "CREATED_RECOVERABLE",
+      "create": {
+        "status": 200,
+        "reasons": [],
+        "validTokens": true
+      },
+      "disposableFidSha256": "9367fa8c334b4061abbe3719a3a67525c4cab5d9b47743573b209da5202f6d8b",
+      "token": {
+        "status": 200,
+        "reasons": [],
+        "validToken": true
+      },
+      "remoteConfig": {
+        "status": 200,
+        "reasons": [],
+        "state": "UPDATE",
+        "parsedJson": true,
+        "entryCount": 8,
+        "valuesActivated": false
+      },
+      "cleanup": {
+        "status": 200,
+        "accepted": true,
+        "reasons": []
+      },
+      "finishedAt": "2026-09-05T12:59:00.721Z"
+    },
+    {
+      "platform": "macos",
+      "appId": "1:956622397052:ios:ae0e18f5cc5a6c459133f9",
+      "policy": "temporary13Subset",
+      "startedAt": "2026-09-05T12:59:00.721Z",
+      "pass": false,
+      "createOutcome": "CREATED_RECOVERABLE",
+      "create": {
+        "status": 200,
+        "reasons": [],
+        "validTokens": true
+      },
+      "disposableFidSha256": "10af11354625596222d46662e2f14cf0e9616c50f003347e69463b811cae41f4",
+      "token": {
+        "status": 404,
+        "reasons": [],
+        "validToken": false
+      },
+      "cleanup": {
+        "status": 200,
+        "accepted": true,
+        "reasons": []
+      },
+      "finishedAt": "2026-09-05T12:59:01.096Z"
+    }
+  ],
+  "startedAt": "2026-09-05T12:58:56.406Z",
+  "cleanup": {
+    "created": 8,
+    "accepted": 8,
+    "pending": 0,
+    "uncertainCreations": 0
+  },
+  "finishedAt": "2026-09-05T12:59:01.096Z"
+}
