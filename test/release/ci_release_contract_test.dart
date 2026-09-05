@@ -693,7 +693,11 @@ void main() {
       acceleration['run'],
       contains('test -r /dev/kvm && test -w /dev/kvm'),
     );
-    expect(acceleration['run'], contains('-accel-check'));
+    expect(acceleration['run'], isNot(contains('-accel-check')));
+    expect(
+      (emulatorStep['with'] as YamlMap)['pre-emulator-launch-script'],
+      contains('-accel-check'),
+    );
     expect(
       (emulatorStep['with'] as YamlMap)['disable-linux-hw-accel'],
       isFalse,

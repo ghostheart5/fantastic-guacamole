@@ -80,7 +80,6 @@ jobs:
           test -c /dev/kvm
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
-          "$ANDROID_HOME/emulator/emulator" -accel-check
 
       - name: Build, install, and execute exact-source QA smoke
         timeout-minutes: 50
@@ -97,6 +96,7 @@ jobs:
           # Never silently fall back to software emulation: it caused system
           # ANRs and killed the Maestro driver before any flow could execute.
           disable-linux-hw-accel: false
+          pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check'
           disable-animations: true
           disable-spellchecker: true
           script: >-
