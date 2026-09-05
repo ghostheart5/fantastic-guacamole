@@ -1,7 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
-import 'package:fantastic_guacamole/data/services/contracts/password_recovery_auth.dart';
 import 'package:fantastic_guacamole/data/services/supabase_password_recovery.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
