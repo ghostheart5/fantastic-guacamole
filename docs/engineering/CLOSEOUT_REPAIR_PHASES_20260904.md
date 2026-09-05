@@ -23,7 +23,7 @@ This is the new nine-phase closeout plan, not the binder priorities or earlier
 
 | Phase | Work and required exit evidence | Status |
 | --- | --- | --- |
-| 1. Source, security and release records | Session-bound deletion recency; durable duplicate-cron repair; focused source and disposable database verification; consistent release/age/auth records without invented owner decisions | **INCOMPLETE: source repairs locally checked; database execution blocked** |
+| 1. Source, security and release records | Session-bound deletion recency; durable duplicate-cron repair; focused source and disposable database verification; consistent release/age/auth records without invented owner decisions | **COMPLETE for source/disposable-backend scope on `1f07020e`; production and device proof remain later gates** |
 | 2. Firebase and backend hardening | Exact API-key consumer mapping; staged restriction/App Check applicability; approved redirect and secret decisions; approved deployment/migration with independent readback | Not started in this closeout run |
 | 3. Account and data recovery | Authorized disposable two-account/two-session isolation and deletion/reconciliation; Storage cleanup; isolated timed database and object restore; agreed RTO/RPO | Not started |
 | 4. Disabled product capabilities | Approved release scope; real provider safety/cost/privacy, Play billing lifecycle/reconciliation, two-device sync/conflict/recovery, consent/telemetry/alerts and kill-switch proof for anything enabled | Not started; containment preserved |
@@ -40,6 +40,63 @@ must be supplied or verified, never invented. Public content/support/deletion
 work remains in scope even though the domain setup itself is excluded.
 
 ## Phase 1 checkpoint
+
+### Completed GitHub validation - 2026-09-05 04:38 UTC
+
+The user-approved 19-file repair/status commit was pushed without force to the
+existing feature branch:
+`1f07020e309c10b1b3942349cd436948811f2759`.
+[Supabase Database Gate run 33944999190](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/33944999190),
+attempt 1, completed successfully in 2m14s. Its independently read-back `headSha`
+and downloaded `exact-commit.json` both match that full commit; run ID/attempt
+also match. No PR was opened, and no other workflow ran for this source commit.
+
+- **PASS:** seven Edge entrypoints type-checked; all 83 Edge tests across ten
+  files completed with zero failures, errors or skips. The downloaded JUnit
+  includes all ten cases in the new `account_deletion_auth_test.ts` file.
+- **PASS:** disposable backend startup and complete migration replay. The log
+  explicitly shows `20260905041637_consolidate_subscription_expiry_schedule.sql`
+  applied successfully.
+- **PASS:** eight SQL contract files / 326 assertions; `Result: PASS`. The new
+  `subscription_expiry_schedule.test.sql` is explicitly present and passed all
+  nine planned assertions. This is real disposable PostgreSQL execution, not a
+  static migration-policy check or production-data test.
+- **PASS with warnings:** `supabase db lint --local --schema public --fail-on error`
+  and the overall job succeeded. Four `warning extra` unused-parameter findings
+  were reported for the existing `public.finish_monetization_provider_recheck`
+  function: `p_recheck_id`, `p_lease_id`, `p_provider_event_time`, `p_resolution`.
+  Independent source triage confirms its body deliberately raises an exception
+  requiring authoritative reconciliation; execution is revoked, and billing
+  remains contained off. The provider-recheck worker/token mechanism is existing
+  Phase 4 work, not a new Phase 1 regression. These warnings must not be described
+  as warning-free schema lint or removed by weakening the fail-closed stub.
+- **PASS:** independent local readback using `verify_database_evidence.ps1` on
+  the downloaded exact-commit manifest and JUnit, plus separate job-log review
+  proving SQL execution after that workflow's early Edge-only evidence step.
+
+Evidence retained locally under `artifacts/phase1-closeout/33944999190/`; raw
+generated artifacts remain outside the commit. SHA-256 fingerprints:
+
+| Evidence | SHA-256 |
+| --- | --- |
+| `artifacts/database-evidence/exact-commit.json` | `A775A5C058DB788A34930C30E57FF64FEF6BFE43B82718B02C12B43EF7CFE759` |
+| `coverage/edge-function-tests.junit.xml` | `C884E0A2BD4350291F7BC275D1CC1616C3B91D2E07AA43B339EA30D159C77C30` |
+| `database-job.redacted.log` | `E0A35BD041C89DD26BF31FC85D25909F41A03475492DD26E84C8B2200C2DA129` |
+
+The full job log has local startup credentials and terminal formatting redacted.
+The 203 earlier untracked artifact files were preserved. No full Flutter suite
+was rerun; the earlier 14 focused client deletion passes remain host evidence.
+No migration/function was deployed, no production setting changed, and no phone
+was used. Local Docker remains broken, but GitHub execution clears the Phase 1
+database-validation blocker. Do not rerun this passing workflow merely to test
+the documentation-only result record; the validated executable source is the
+commit explicitly identified above.
+
+Next is Phase 2 backend/Firebase hardening. Its production/configuration changes
+retain their separate approval and live-readback gates; completion of Phase 1
+does not establish live deletion, full-product capability or release readiness.
+
+### Preserved pre-run checkpoint
 
 Base checkout: `ChronoSpark-app-only-priority2`, branch
 `fix/app-only-readiness-priority2-20260902`, base HEAD

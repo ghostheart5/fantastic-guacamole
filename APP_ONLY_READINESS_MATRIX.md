@@ -8,8 +8,11 @@ public product claim.
 ## Current closeout notice - 2026-09-04
 
 Execution status: [nine-phase closeout repair plan](docs/engineering/CLOSEOUT_REPAIR_PHASES_20260904.md).
-Phase 1's disposable database execution gate remains pending; the frozen
-candidate evidence below is not a pass for those source changes.
+Phase 1's source/disposable-backend gate passed on `1f07020e` in
+[database run 33944999190](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/33944999190):
+83 Edge tests and 326 SQL assertions passed. Schema lint passed its error gate
+with four recorded existing billing-function warnings. These changes are not
+deployed or included in the older signed candidate described below.
 
 The baseline, Gate 1, and older priority evidence below are historical snapshots,
 not the current candidate's missing-work list. The current evidence is recorded
