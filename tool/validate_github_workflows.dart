@@ -36,11 +36,13 @@ _requiredPrimaryCiGatesByJob = <String, List<({String label, String command})>>{
   'flutter-tests': <({String label, String command})>[
     (
       label: 'full Flutter coverage test',
-      command: 'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1',
+      command:
+          'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1',
     ),
     (
       label: 'QA compile-time configuration',
-      command: 'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/qa-config-tests.jsonl --manifest artifacts/flutter-test-evidence/qa-config-tests-manifest.json --timeout-seconds 600 -- test/config/env_mode_resolution_test.dart --no-pub --dart-define-from-file=tool/qa_defines.json',
+      command:
+          'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/qa-config-tests.jsonl --manifest artifacts/flutter-test-evidence/qa-config-tests-manifest.json --timeout-seconds 600 -- test/config/env_mode_resolution_test.dart --no-pub --dart-define-from-file=tool/qa_defines.json',
     ),
     (
       label: 'coverage enforcement',
@@ -56,7 +58,8 @@ _requiredPrimaryCiGatesByJob = <String, List<({String label, String command})>>{
   'windows-goldens': <({String label, String command})>[
     (
       label: 'Windows golden comparison',
-      command: 'dart run tool/run_flutter_tests.dart --report artifacts/windows-golden-evidence/golden-tests.jsonl --manifest artifacts/windows-golden-evidence/golden-tests-manifest.json --timeout-seconds 1200 -- test/features/auth/login_screen_golden_test.dart test/features/home/first_use_context_offer_card_test.dart test/features/nexus/nexus_screen_golden_test.dart test/features/settings/settings_screen_test.dart --no-pub --concurrency=1',
+      command:
+          'dart run tool/run_flutter_tests.dart --report artifacts/windows-golden-evidence/golden-tests.jsonl --manifest artifacts/windows-golden-evidence/golden-tests-manifest.json --timeout-seconds 1200 -- test/features/auth/login_screen_golden_test.dart test/features/home/first_use_context_offer_card_test.dart test/features/nexus/nexus_screen_golden_test.dart test/features/settings/settings_screen_test.dart --no-pub --concurrency=1',
     ),
   ],
 };

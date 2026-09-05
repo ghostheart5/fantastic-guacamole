@@ -208,13 +208,15 @@ void main() {
   test('coverage policy recursively counts app and host integration tests', () {
     final String guard = read('scripts/coverage_guard.ps1');
     expect(
-      RegExp(r"Get-ChildItem -Path \$appIntegrationTestsPath .* -Recurse")
-          .hasMatch(guard),
+      RegExp(
+        r"Get-ChildItem -Path \$appIntegrationTestsPath .* -Recurse",
+      ).hasMatch(guard),
       isTrue,
     );
     expect(
-      RegExp(r"Get-ChildItem -Path \$hostIntegrationTestsPath .* -Recurse")
-          .hasMatch(guard),
+      RegExp(
+        r"Get-ChildItem -Path \$hostIntegrationTestsPath .* -Recurse",
+      ).hasMatch(guard),
       isTrue,
     );
   });
@@ -353,10 +355,9 @@ void main() {
   test('secret-bearing and publishing jobs use protected environments', () {
     final Set<String> protectedJobs = <String>{};
     for (final File file
-        in Directory('.github/workflows')
-            .listSync()
-            .whereType<File>()
-            .where((File file) => file.path.endsWith('.yml'))) {
+        in Directory('.github/workflows').listSync().whereType<File>().where(
+          (File file) => file.path.endsWith('.yml'),
+        )) {
       final String fileName = file.uri.pathSegments.last;
       final YamlMap document = loadYaml(file.readAsStringSync()) as YamlMap;
       final YamlMap workflowPermissions = document['permissions'] as YamlMap;
@@ -419,8 +420,9 @@ void main() {
       expect(commands(build), isNot(contains(fatalAnalyzeCommand)));
       expect(commands(build), isNot(contains(edgeFunctionGateCommand)));
       expect(
-        commands(build)
-            .where((String value) => value.startsWith('flutter test')),
+        commands(
+          build,
+        ).where((String value) => value.startsWith('flutter test')),
         isEmpty,
         reason: 'The exact-SHA quality gate owns generic test execution.',
       );
@@ -539,9 +541,9 @@ void main() {
       namedStep(deploy, 'Deploy public site')['uses'],
       matches(RegExp(r'^actions/deploy-pages@[0-9a-f]{40}$')),
     );
-    final String buildCommands = steps(build)
-        .map((YamlMap step) => step['run']?.toString() ?? '')
-        .join('\n');
+    final String buildCommands = steps(
+      build,
+    ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n');
     expect(buildCommands, contains('No verified web app is published here'));
     expect(buildCommands, isNot(contains('flutter build')));
     expect(buildCommands, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
@@ -615,10 +617,9 @@ void main() {
       expect(guard, contains("'android.permission.ACCESS_FINE_LOCATION'"));
       expect(firebase, contains("iosBundleId: 'com.ghostheart5.chronospark'"));
       expect(firebase, isNot(contains('com.example.chronospark')));
-      final List<String> firebaseProjectIds = RegExp(r"projectId: '([^']+)'")
-          .allMatches(firebase)
-          .map((Match match) => match.group(1)!)
-          .toList();
+      final List<String> firebaseProjectIds = RegExp(
+        r"projectId: '([^']+)'",
+      ).allMatches(firebase).map((Match match) => match.group(1)!).toList();
       expect(firebaseProjectIds, hasLength(5));
       expect(firebaseProjectIds.toSet(), <String>{
         FirebaseIdentity.expectedProjectId,
@@ -726,9 +727,9 @@ void main() {
     expect(maestro['timeout-minutes'], 85);
     expect(runtimeUpload['timeout-minutes'], 5);
     expect(
-      steps(goldens)
-          .map((YamlMap step) => step['run']?.toString() ?? '')
-          .join('\n'),
+      steps(
+        goldens,
+      ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n'),
       isNot(contains('git push')),
     );
     expect(

@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('QA mock profile cannot contact production-facing services', () {
-    final Map<String, dynamic> defines = jsonDecode(
-      File('tool/qa_defines.json').readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final Map<String, dynamic> defines =
+        jsonDecode(File('tool/qa_defines.json').readAsStringSync())
+            as Map<String, dynamic>;
 
     expect(defines['CHRONOSPARK_APP_FLAVOR'], 'qa');
     expect(defines['CHRONOSPARK_ENABLE_MOCK_LOGIN'], isTrue);
@@ -69,13 +69,16 @@ void main() {
     final String maestroRunner = File(
       'scripts/run_maestro_android_evidence.ps1',
     ).readAsStringSync();
-    final String maestroSignIn = File('.maestro/subflows/sign-in.yaml')
-        .readAsStringSync();
-    final String featureFlags = File('lib/config/src/feature_flags.dart')
-        .readAsStringSync();
+    final String maestroSignIn = File(
+      '.maestro/subflows/sign-in.yaml',
+    ).readAsStringSync();
+    final String featureFlags = File(
+      'lib/config/src/feature_flags.dart',
+    ).readAsStringSync();
     final String env = File('lib/config/env.dart').readAsStringSync();
-    final String authGate = File('lib/features/auth/screens/auth_gate.dart')
-        .readAsStringSync();
+    final String authGate = File(
+      'lib/features/auth/screens/auth_gate.dart',
+    ).readAsStringSync();
 
     for (final String key in <String>[
       'CHRONOSPARK_MOCK_LOGIN_EMAIL',
