@@ -71,6 +71,16 @@ jobs:
           echo "$install_root/maestro/bin" >> "$GITHUB_PATH"
           "$install_root/maestro/bin/maestro" --version
 
+      - name: Enable and verify hardware acceleration
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          # This is the disposable hosted runner, not a developer workstation.
+          # Grant only the current runner user access to the existing KVM device.
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+
       - name: Build, install, and execute exact-source QA smoke
         timeout-minutes: 50
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
@@ -83,6 +93,10 @@ jobs:
           ram-size: 4096M
           heap-size: 512M
           emulator-port: 5554
+          # Never silently fall back to software emulation: it caused system
+          # ANRs and killed the Maestro driver before any flow could execute.
+          disable-linux-hw-accel: false
+          pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check'
           disable-animations: true
           disable-spellchecker: true
           script: >-
