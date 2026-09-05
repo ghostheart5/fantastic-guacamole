@@ -893,6 +893,106 @@ void main() {
       },
     );
 
+    test(
+      'deleteCurrentAccount rejects sessionless re-authentication instead of reusing the old token',
+      () async {
+        int tokenCalls = 0;
+        int deleteCalls = 0;
+        final MockClient client = MockClient((http.Request request) async {
+          if (request.url.path.endsWith('/auth/v1/token')) {
+            tokenCalls += 1;
+            final Map<String, dynamic> response = _authResponseJson(
+              email: 'planner@chronospark.app',
+            );
+            if (tokenCalls > 1) response.remove('access_token');
+            return http.Response(
+              jsonEncode(response),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          deleteCalls += 1;
+          return http.Response('{}', 500);
+        });
+        final AuthService service = AuthService(
+          supabaseClient: _supabaseClient(client),
+          store: SecureStore(backend: InMemorySecureStoreBackend()),
+          httpClient: client,
+          accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+        );
+        await service.signIn(
+          email: 'planner@chronospark.app',
+          password: 'correct-pass',
+        );
+
+        await expectLater(
+          () => service.deleteCurrentAccount(password: 'correct-pass'),
+          throwsA(
+            isA<FirebaseAuthException>().having(
+              (error) => error.code,
+              'code',
+              'auth-unavailable',
+            ),
+          ),
+        );
+        expect(tokenCalls, 2);
+        expect(deleteCalls, 0);
+        expect(service.currentUser?.id, 'user-1');
+      },
+    );
+
+    test(
+      'deleteCurrentAccount rejects a changed re-authenticated identity before deleting or cleaning data',
+      () async {
+        int tokenCalls = 0;
+        int deleteCalls = 0;
+        int cleanupCalls = 0;
+        final MockClient client = MockClient((http.Request request) async {
+          if (request.url.path.endsWith('/auth/v1/token')) {
+            tokenCalls += 1;
+            return http.Response(
+              jsonEncode(
+                _authResponseJsonVariant(
+                  email: 'planner@chronospark.app',
+                  userId: tokenCalls == 1 ? 'user-1' : 'different-user',
+                  accessToken: tokenCalls == 1 ? 'old-token' : 'other-token',
+                ),
+              ),
+              200,
+              headers: <String, String>{'content-type': 'application/json'},
+            );
+          }
+          deleteCalls += 1;
+          return http.Response('{}', 500);
+        });
+        final AuthService service = AuthService(
+          supabaseClient: _supabaseClient(client),
+          store: SecureStore(backend: InMemorySecureStoreBackend()),
+          httpClient: client,
+          accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+          onAccountDeleted: (_) async => cleanupCalls += 1,
+        );
+        await service.signIn(
+          email: 'planner@chronospark.app',
+          password: 'correct-pass',
+        );
+
+        await expectLater(
+          () => service.deleteCurrentAccount(password: 'correct-pass'),
+          throwsA(
+            isA<FirebaseAuthException>().having(
+              (error) => error.code,
+              'code',
+              'auth-unavailable',
+            ),
+          ),
+        );
+        expect(tokenCalls, 2);
+        expect(deleteCalls, 0);
+        expect(cleanupCalls, 0);
+      },
+    );
+
     test('signIn maps invalid-email auth backend errors', () async {
       final MockClient client = MockClient((http.Request request) async {
         return http.Response(
@@ -1004,13 +1104,20 @@ void main() {
         final SecureStore store = SecureStore(backend: backend);
         await store.writeString('session-cache', 'present');
         await store.writeString('device-global-key', 'preserved');
+        int tokenCalls = 0;
         int deleteCalls = 0;
         int cleanupCalls = 0;
         String? cleanedAccountId;
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
+            tokenCalls += 1;
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+              jsonEncode(
+                _authResponseJsonVariant(
+                  email: 'planner@chronospark.app',
+                  accessToken: tokenCalls == 1 ? 'old-token' : 'reauth-token',
+                ),
+              ),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -1018,7 +1125,7 @@ void main() {
           if (request.url.toString() ==
               'https://api.chronospark.app/account/delete') {
             deleteCalls += 1;
-            expect(request.headers['authorization'], 'Bearer access-token');
+            expect(request.headers['authorization'], 'Bearer reauth-token');
             // The authenticated deletion endpoint derives ownership solely
             // from the bearer token. Redundant identity fields must not be
             // sent because they can conflict with the authenticated subject.
@@ -1430,6 +1537,7 @@ Map<String, dynamic> _deletionResponseJson({required bool completed}) {
 
 Map<String, dynamic> _authResponseJsonVariant({
   String accessToken = 'access-token',
+  String userId = 'user-1',
   String? email = 'planner@chronospark.app',
   Map<String, dynamic>? userMetadata,
 }) {
@@ -1439,7 +1547,7 @@ Map<String, dynamic> _authResponseJsonVariant({
     'expires_in': 3600,
     'refresh_token': 'refresh-token',
     'user': <String, dynamic>{
-      'id': 'user-1',
+      'id': userId,
       'aud': 'authenticated',
       'email': email,
       'created_at': '2026-07-05T00:00:00.000Z',

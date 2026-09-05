@@ -5,6 +5,38 @@ Gate 1 working-tree evidence. It is not an exact-commit release approval and
 does not authorize a release, deployment, store action, external service, or
 public product claim.
 
+## Current closeout notice - 2026-09-04
+
+Execution status: [nine-phase closeout repair plan](docs/engineering/CLOSEOUT_REPAIR_PHASES_20260904.md).
+Phase 1's disposable database execution gate remains pending; the frozen
+candidate evidence below is not a pass for those source changes.
+
+The baseline, Gate 1, and older priority evidence below are historical snapshots,
+not the current candidate's missing-work list. The current evidence is recorded
+in the [Phase 5/6 checkpoint](docs/engineering/SAFE_QUICK_PHASE_5_6_STATUS_20260904.md)
+and [Phase 7 backend checkpoint](docs/engineering/SAFE_QUICK_PHASE_7_STATUS_20260904.md).
+
+- Frozen app source `61c7331dda9e82201a0561dbcd79aa0b37118446` has passing
+  exact-source CI `33939436515`: 2,352 Flutter tests and 15 configuration tests,
+  static checks, goldens, integration, and the 71.7% coverage gate.
+- Signed build `33940078212` passed. Its verified AAB and physical-phone smoke
+  plus one save/restart/complete/restart task journey supersede earlier
+  build-blocked and no-device-smoke statements. They do not complete the full
+  physical UAT, accessibility, performance, or human-review gates.
+- Live backend configuration/source readback and the guarded duplicate-cron
+  pause are recorded in Phase 7. Firebase alert preferences persisted; actual
+  delivery and other remaining service/runtime gates are not proved by that.
+- The current source declares English and Spanish (`en`, `es`). Spanish
+  usability, legal translation, and distress-language comprehension still need
+  qualified human review. The approved bundled age policy is adults **18+**;
+  current Play declarations still require owner verification against that policy.
+
+The newer nine-phase closeout plan is separate from binder priorities and the
+older 13-phase safe-quick plan. Domain work is excluded from that closeout work
+at the user's request, not marked complete. Reuse the recorded passes for their
+exact source/artifact/scenarios; do not rerun them because a historical checkbox
+below remains open. Any changed release source needs its own final verification.
+
 ## Contract identity
 
 | Field | Value |
@@ -29,8 +61,8 @@ Current safe-quick repair sequence: see
 [Phase 5 and Phase 6 checkpoint](docs/engineering/SAFE_QUICK_PHASE_5_6_STATUS_20260904.md).
 As of 2026-09-04, **Phase 5 is INCOMPLETE / DEFERRED** at the user's request;
 the domain and DNS are configured, but HTTPS and the remaining public-service
-exit checks are not complete. **Phase 6 has started with a source preflight;
-the signed production-candidate build is BLOCKED**, not passed. These phase
+exit checks are not complete. **Phase 6 signed candidate and focused physical
+smoke are PASS; the full device and release gates remain incomplete.** These phase
 numbers refer to the safe-quick repair plan, not the older binder priorities
 or the launch-readiness checkpoint numbers.
 
@@ -97,7 +129,8 @@ not exact-commit CI, deployment, store, or production-service evidence.
 - [ ] After the human Login-golden decision and a commit, run one complete CI
   pass and preserve exact-SHA evidence.
 
-Remote-safe validation recorded on 2026-09-04:
+Earlier remote-safe validation recorded on 2026-09-04 (superseded for current
+CI/build status by the current closeout notice above):
 
 - One complete local source run executed 2,339 tests: 2,328 passed, nine
   remote-safe failures were repaired and then passed as focused reruns, zero

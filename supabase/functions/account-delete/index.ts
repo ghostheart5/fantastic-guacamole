@@ -138,7 +138,9 @@ Deno.serve(async (req: Request) => {
         : json(req, { error: "deletion_request_not_found" }, 404);
     }
 
-    if (!hasRecentSignIn(user.lastSignInAt, { recentSignInSeconds })) {
+    if (
+      !hasRecentSignIn(user.sessionSignInAtSeconds, { recentSignInSeconds })
+    ) {
       return json(req, { error: "recent_sign_in_required" }, 428);
     }
     const result = await processDeletionRequest({

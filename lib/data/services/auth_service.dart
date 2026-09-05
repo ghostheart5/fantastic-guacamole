@@ -447,13 +447,22 @@ class AuthService implements AuthServiceContract {
     AccountDeletionResult? acceptedResult;
 
     try {
-      await _auth.auth.signInWithPassword(email: email, password: password);
-
-      final String? accessToken = _auth.auth.currentSession?.accessToken;
+      final sb.AuthResponse reauthentication = await _auth.auth
+          .signInWithPassword(email: email, password: password);
+      final sb.Session? reauthenticatedSession = reauthentication.session;
+      final String? accessToken = reauthenticatedSession?.accessToken;
       if (accessToken == null || accessToken.trim().isEmpty) {
         throw FirebaseAuthException(
           code: 'auth-unavailable',
           message: 'Sign-in token missing after re-authentication.',
+        );
+      }
+      if (reauthentication.user?.id != user.id ||
+          reauthenticatedSession?.user.id != user.id ||
+          _auth.auth.currentUser?.id != user.id) {
+        throw FirebaseAuthException(
+          code: 'auth-unavailable',
+          message: 'Account changed during re-authentication. Please retry.',
         );
       }
 
