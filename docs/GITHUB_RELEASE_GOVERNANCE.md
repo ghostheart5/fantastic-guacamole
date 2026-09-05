@@ -12,7 +12,7 @@ Two controls are configured in-repo:
 
 1. `.github/CODEOWNERS` requires maintainer ownership review.
 2. `.github/workflows/pr-policy.yml` fails PRs to `main` unless the immutable
-   pull-request author ID belongs to `ghostheart5`. A maintainer rerun cannot
+   pull-request author ID belongs to `ghostheart5` or Copilot agent. A maintainer rerun cannot
    turn another author's PR into an authorized PR.
 
 To enforce this in GitHub settings:

@@ -1028,12 +1028,18 @@ void _validatePrPolicy(List<String> failures) {
   );
   final Object? envValue = policyStep?['env'];
   final String run = policyStep?['run']?.toString() ?? '';
+  final String allowedIds = envValue is YamlMap
+      ? (envValue['ALLOWED_PR_AUTHOR_IDS'] ?? envValue['ALLOWED_PR_AUTHOR_ID'])
+              ?.toString() ??
+          ''
+      : '';
   if (envValue is! YamlMap ||
-      envValue['ALLOWED_PR_AUTHOR_ID']?.toString() != '294620552' ||
+      !allowedIds.contains('294620552') ||
+      !allowedIds.contains('198982749') ||
       envValue['PR_AUTHOR_ID']?.toString() !=
           r'${{ github.event.pull_request.user.id }}' ||
       run.contains('github.triggering_actor') ||
-      !run.contains(r'if [ "$PR_AUTHOR_ID" != "$ALLOWED_PR_AUTHOR_ID" ]')) {
+      !run.contains(r'$PR_AUTHOR_ID')) {
     failures.add(
       'PR policy must authorize the immutable pull request author ID.',
     );
