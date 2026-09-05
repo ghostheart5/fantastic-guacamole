@@ -50,8 +50,9 @@ final class _PlannerConversationContext {
     final String subject = isFollowUp && priorSubject.isNotEmpty
         ? priorSubject
         : normalizedInput.isEmpty
-        ? 'finding one useful next move'
-        : SmartPlannerQueryController._condense(normalizedInput, maxLength: 72);
+            ? 'finding one useful next move'
+            : SmartPlannerQueryController._condense(normalizedInput,
+                maxLength: 72);
     return _PlannerConversationContext(
       input: normalizedInput,
       searchText: <String>[
@@ -82,8 +83,7 @@ final class _PlannerConversationContext {
         input,
         maxLength: 72,
       );
-      final String connectedTo =
-          focus ??
+      final String connectedTo = focus ??
           (priorSubject.isEmpty ? 'your earlier plan' : '"$priorSubject"');
       return 'You are following up on $connectedTo: $followUp.';
     }
@@ -116,16 +116,16 @@ final class _PlannerConversationContext {
 
 final class _PlannerEvidence {
   const _PlannerEvidence.empty()
-    : activeTasks = const <TaskEntity>[],
-      activeGoals = const <GoalEntity>[],
-      focusTask = null,
-      focusGoal = null,
-      taskReadSucceeded = true,
-      goalReadSucceeded = true,
-      focusTaskIsUrgent = false,
-      personContext = const _PlannerPersonContextEvidence.unavailable(),
-      operatingReceipt = const _PlannerOperatingReceiptEvidence.unavailable(),
-      plannerMemory = const _PlannerMemoryEvidence.empty();
+      : activeTasks = const <TaskEntity>[],
+        activeGoals = const <GoalEntity>[],
+        focusTask = null,
+        focusGoal = null,
+        taskReadSucceeded = true,
+        goalReadSucceeded = true,
+        focusTaskIsUrgent = false,
+        personContext = const _PlannerPersonContextEvidence.unavailable(),
+        operatingReceipt = const _PlannerOperatingReceiptEvidence.unavailable(),
+        plannerMemory = const _PlannerMemoryEvidence.empty();
 
   _PlannerEvidence({
     required List<TaskEntity> activeTasks,
@@ -138,8 +138,8 @@ final class _PlannerEvidence {
     required this.personContext,
     required this.operatingReceipt,
     required this.plannerMemory,
-  }) : activeTasks = List<TaskEntity>.unmodifiable(activeTasks),
-       activeGoals = List<GoalEntity>.unmodifiable(activeGoals);
+  })  : activeTasks = List<TaskEntity>.unmodifiable(activeTasks),
+        activeGoals = List<GoalEntity>.unmodifiable(activeGoals);
 
   factory _PlannerEvidence.resolve({
     required List<TaskEntity> tasks,
@@ -153,19 +153,17 @@ final class _PlannerEvidence {
     required OperatingDecisionReceipt? operatingReceipt,
     required List<MemoryEntity> plannerMemories,
   }) {
-    final List<TaskEntity> activeTasks = tasks
-        .where((TaskEntity task) => task.isActive)
-        .toList(growable: true);
-    final List<GoalEntity> activeGoals = goals
-        .where((GoalEntity goal) => goal.isActive)
-        .toList(growable: true);
+    final List<TaskEntity> activeTasks =
+        tasks.where((TaskEntity task) => task.isActive).toList(growable: true);
+    final List<GoalEntity> activeGoals =
+        goals.where((GoalEntity goal) => goal.isActive).toList(growable: true);
     final _PlannerPersonContextEvidence resolvedPersonContext =
         _PlannerPersonContextEvidence.resolve(
-          personContext,
-          now: now,
-          accountScopeId: accountScopeId,
-          decisionText: searchText,
-        );
+      personContext,
+      now: now,
+      accountScopeId: accountScopeId,
+      decisionText: searchText,
+    );
     final Set<String> terms = _plannerTerms(searchText);
     activeTasks.sort(
       (TaskEntity left, TaskEntity right) =>
@@ -176,24 +174,20 @@ final class _PlannerEvidence {
           _compareGoals(left, right, terms: terms, now: now),
     );
 
-    final TaskEntity? matchedTask = activeTasks.isEmpty
-        ? null
-        : activeTasks.first;
-    final GoalEntity? matchedGoal = activeGoals.isEmpty
-        ? null
-        : activeGoals.first;
-    final int taskMatch = matchedTask == null
-        ? 0
-        : _taskTextMatch(matchedTask, terms);
+    final TaskEntity? matchedTask =
+        activeTasks.isEmpty ? null : activeTasks.first;
+    final GoalEntity? matchedGoal =
+        activeGoals.isEmpty ? null : activeGoals.first;
+    final int taskMatch =
+        matchedTask == null ? 0 : _taskTextMatch(matchedTask, terms);
     final bool hasCloseTaskTie = activeTasks
             .where(
               (TaskEntity task) => _taskTextMatch(task, terms) == taskMatch,
             )
             .length >
         1;
-    final int goalMatch = matchedGoal == null
-        ? 0
-        : _goalTextMatch(matchedGoal, terms);
+    final int goalMatch =
+        matchedGoal == null ? 0 : _goalTextMatch(matchedGoal, terms);
 
     TaskEntity? focusTask;
     GoalEntity? focusGoal;
@@ -238,9 +232,8 @@ final class _PlannerEvidence {
       }
     }
 
-    final DateTime? focusTime = focusTask == null
-        ? null
-        : focusTask.dueDate ?? focusTask.scheduledFor;
+    final DateTime? focusTime =
+        focusTask == null ? null : focusTask.dueDate ?? focusTask.scheduledFor;
     return _PlannerEvidence(
       activeTasks: activeTasks,
       activeGoals: activeGoals,
@@ -255,8 +248,7 @@ final class _PlannerEvidence {
         now: now,
       ),
       plannerMemory: _PlannerMemoryEvidence.resolve(plannerMemories, now: now),
-      focusTaskIsUrgent:
-          focusTime != null &&
+      focusTaskIsUrgent: focusTime != null &&
           !focusTime.isAfter(now.add(const Duration(days: 1))),
     );
   }
@@ -339,26 +331,26 @@ final class _PlannerEvidence {
   }
 
   Map<String, Object?> get requestContext => <String, Object?>{
-    'storedEvidenceUsed': hasMatchedStoredEvidence,
-    'storedEvidenceAvailable': hasStoredEvidence,
-    'positiveEvidenceRelevance': hasPositiveGrounding,
-    'activeTaskCount': activeTasks.length,
-    'activeGoalCount': activeGoals.length,
-    'focusedEvidenceKind': focusTask != null
-        ? 'task'
-        : focusGoal != null
-        ? 'goal'
-        : operatingReceipt.focus != null
-        ? 'operating_receipt'
-        : personContext.planningFocus != null
-        ? 'person_context'
-        : 'none',
-    'taskEvidenceReadSucceeded': taskReadSucceeded,
-    'goalEvidenceReadSucceeded': goalReadSucceeded,
-    ...operatingReceipt.requestContext,
-    ...plannerMemory.requestContext,
-    ...personContext.requestContext,
-  };
+        'storedEvidenceUsed': hasMatchedStoredEvidence,
+        'storedEvidenceAvailable': hasStoredEvidence,
+        'positiveEvidenceRelevance': hasPositiveGrounding,
+        'activeTaskCount': activeTasks.length,
+        'activeGoalCount': activeGoals.length,
+        'focusedEvidenceKind': focusTask != null
+            ? 'task'
+            : focusGoal != null
+                ? 'goal'
+                : operatingReceipt.focus != null
+                    ? 'operating_receipt'
+                    : personContext.planningFocus != null
+                        ? 'person_context'
+                        : 'none',
+        'taskEvidenceReadSucceeded': taskReadSucceeded,
+        'goalEvidenceReadSucceeded': goalReadSucceeded,
+        ...operatingReceipt.requestContext,
+        ...plannerMemory.requestContext,
+        ...personContext.requestContext,
+      };
 
   List<String> verifiedEvidence(DateTime observedAt) {
     final List<String> evidence = <String>[];
@@ -424,8 +416,8 @@ enum _PlannerOperatingReceiptStatus { unavailable, expired, unmatched, matched }
 
 final class _PlannerOperatingReceiptEvidence {
   const _PlannerOperatingReceiptEvidence.unavailable()
-    : status = _PlannerOperatingReceiptStatus.unavailable,
-      receipt = null;
+      : status = _PlannerOperatingReceiptStatus.unavailable,
+        receipt = null;
 
   const _PlannerOperatingReceiptEvidence._(this.status, this.receipt);
 
@@ -477,49 +469,50 @@ final class _PlannerOperatingReceiptEvidence {
       status == _PlannerOperatingReceiptStatus.unmatched;
 
   String get adaptationSummary => switch (status) {
-    _PlannerOperatingReceiptStatus.matched =>
-      'Used a recent saved planning recommendation only after a positive relevance match.',
-    _PlannerOperatingReceiptStatus.unmatched =>
-      'A recent saved planning recommendation was available but not used because it did not match this check-in.',
-    _PlannerOperatingReceiptStatus.expired =>
-      'The saved planning recommendation had expired and was not used.',
-    _PlannerOperatingReceiptStatus.unavailable =>
-      'No recent saved planning recommendation was available.',
-  };
+        _PlannerOperatingReceiptStatus.matched =>
+          'Used a recent saved planning recommendation only after a positive relevance match.',
+        _PlannerOperatingReceiptStatus.unmatched =>
+          'A recent saved planning recommendation was available but not used because it did not match this check-in.',
+        _PlannerOperatingReceiptStatus.expired =>
+          'The saved planning recommendation had expired and was not used.',
+        _PlannerOperatingReceiptStatus.unavailable =>
+          'No recent saved planning recommendation was available.',
+      };
 
   Map<String, Object?> get requestContext => <String, Object?>{
-    'operatingReceiptStatus': status.name,
-    'operatingReceiptUsed': focus != null,
-    'operatingReceiptId': focus?.decisionId,
-  };
+        'operatingReceiptStatus': status.name,
+        'operatingReceiptUsed': focus != null,
+        'operatingReceiptId': focus?.decisionId,
+      };
 
   List<String> verifiedEvidence() => switch (status) {
-    _PlannerOperatingReceiptStatus.matched => <String>[
-      'A saved planning recommendation matched this check-in: "${SmartPlannerQueryController._safeEvidenceTitle(receipt!.recommendedAction)}"; generated ${receipt!.generatedAt.toUtc().toIso8601String()}; expires ${receipt!.expiresAt.toUtc().toIso8601String()}.',
-    ],
-    _PlannerOperatingReceiptStatus.unmatched => const <String>[
-      'A recent saved planning recommendation was checked but not attached because it had no positive relevance match.',
-    ],
-    _PlannerOperatingReceiptStatus.expired => const <String>[
-      'The available saved planning recommendation had expired and was not used.',
-    ],
-    _PlannerOperatingReceiptStatus.unavailable => const <String>[
-      'No recent saved planning recommendation was available for this check-in.',
-    ],
-  };
+        _PlannerOperatingReceiptStatus.matched => <String>[
+            'A saved planning recommendation matched this check-in: "${SmartPlannerQueryController._safeEvidenceTitle(receipt!.recommendedAction)}"; generated ${receipt!.generatedAt.toUtc().toIso8601String()}; expires ${receipt!.expiresAt.toUtc().toIso8601String()}.',
+          ],
+        _PlannerOperatingReceiptStatus.unmatched => const <String>[
+            'A recent saved planning recommendation was checked but not attached because it had no positive relevance match.',
+          ],
+        _PlannerOperatingReceiptStatus.expired => const <String>[
+            'The available saved planning recommendation had expired and was not used.',
+          ],
+        _PlannerOperatingReceiptStatus.unavailable => const <String>[
+            'No recent saved planning recommendation was available for this check-in.',
+          ],
+      };
 
   List<String> clarificationEvidence() => switch (status) {
-    _PlannerOperatingReceiptStatus.matched ||
-    _PlannerOperatingReceiptStatus.unmatched => const <String>[
-      'A recent saved planning recommendation was checked and was not attached while clarification is needed.',
-    ],
-    _PlannerOperatingReceiptStatus.expired => const <String>[
-      'The available saved planning recommendation had expired and was not used.',
-    ],
-    _PlannerOperatingReceiptStatus.unavailable => const <String>[
-      'No recent saved planning recommendation was available for this check-in.',
-    ],
-  };
+        _PlannerOperatingReceiptStatus.matched ||
+        _PlannerOperatingReceiptStatus.unmatched =>
+          const <String>[
+            'A recent saved planning recommendation was checked and was not attached while clarification is needed.',
+          ],
+        _PlannerOperatingReceiptStatus.expired => const <String>[
+            'The available saved planning recommendation had expired and was not used.',
+          ],
+        _PlannerOperatingReceiptStatus.unavailable => const <String>[
+            'No recent saved planning recommendation was available for this check-in.',
+          ],
+      };
 }
 
 final class _PlannerMemoryEvidence {
@@ -556,9 +549,9 @@ final class _PlannerMemoryEvidence {
       : 'Recalled ${memories.length} consented Smart Planner guidance preference(s) through the exact surface and purpose boundary.';
 
   Map<String, Object?> get requestContext => <String, Object?>{
-    'plannerMemoryPurpose': MemoryPurpose.guidancePreference.name,
-    'plannerMemorySignalsUsed': memories.length,
-  };
+        'plannerMemoryPurpose': MemoryPurpose.guidancePreference.name,
+        'plannerMemorySignalsUsed': memories.length,
+      };
 
   List<String> verifiedEvidence() {
     if (memories.isEmpty) {
@@ -579,25 +572,25 @@ const int _maxPlannerPersonContextSignals = 3;
 
 const Map<PersonContextBehaviorField, Object?> _plannerNoContextBaseline =
     <PersonContextBehaviorField, Object?>{
-      PersonContextBehaviorField.supportingEvidence: 'none',
-      PersonContextBehaviorField.planningScope: 'request-only',
-      PersonContextBehaviorField.rankingPriority: 'saved-work-order',
-      PersonContextBehaviorField.capacityLimit: 'current-check-in',
-      PersonContextBehaviorField.responseWording: 'default',
-      PersonContextBehaviorField.hardBoundary: 'none',
-      PersonContextBehaviorField.scheduledCommitment: 'saved-work-only',
-    };
+  PersonContextBehaviorField.supportingEvidence: 'none',
+  PersonContextBehaviorField.planningScope: 'request-only',
+  PersonContextBehaviorField.rankingPriority: 'saved-work-order',
+  PersonContextBehaviorField.capacityLimit: 'current-check-in',
+  PersonContextBehaviorField.responseWording: 'default',
+  PersonContextBehaviorField.hardBoundary: 'none',
+  PersonContextBehaviorField.scheduledCommitment: 'saved-work-only',
+};
 
 enum _PlannerPersonContextStatus { unavailable, knownEmpty, available }
 
 final class _PlannerPersonContextEvidence {
   const _PlannerPersonContextEvidence.unavailable({
     this.behaviorRevision = 'person-context-unavailable',
-  }) : status = _PlannerPersonContextStatus.unavailable,
-       signals = const <_PlannerPersonContextSignal>[],
-       availableSignalCount = 0,
-       appliedOutput = _plannerNoContextBaseline,
-       trace = null;
+  })  : status = _PlannerPersonContextStatus.unavailable,
+        signals = const <_PlannerPersonContextSignal>[],
+        availableSignalCount = 0,
+        appliedOutput = _plannerNoContextBaseline,
+        trace = null;
 
   const _PlannerPersonContextEvidence._({
     required this.status,
@@ -652,46 +645,43 @@ final class _PlannerPersonContextEvidence {
     }
     final PersonContextBehaviorTrace evaluated =
         PersonContextBehaviorPolicy.evaluate(
-          signals: view.signals,
-          surface: PersonContextSurface.smartPlanner,
-          purposes: view.purposes,
-          relevance: relevance,
-          now: now,
-          noContextBaseline: _plannerNoContextBaseline,
-          maxUsedSignals: _maxPlannerPersonContextSignals,
-        );
+      signals: view.signals,
+      surface: PersonContextSurface.smartPlanner,
+      purposes: view.purposes,
+      relevance: relevance,
+      now: now,
+      noContextBaseline: _plannerNoContextBaseline,
+      maxUsedSignals: _maxPlannerPersonContextSignals,
+    );
     final Map<String, PersonContextSignal> signalById =
         <String, PersonContextSignal>{
-          for (final PersonContextSignal signal in view.signals)
-            signal.id: signal,
-        };
+      for (final PersonContextSignal signal in view.signals) signal.id: signal,
+    };
     final PersonContextBehaviorApplication application =
         PersonContextBehaviorPolicy.apply(
-          trace: evaluated,
-          effects: evaluated.used
-              .map(
-                (PersonContextBehaviorDecision decision) =>
-                    PersonContextBehaviorEffect(
-                      signalId: decision.signalId,
-                      field: decision.permittedField,
-                      value: signalById[decision.signalId]!.value,
-                    ),
-              )
-              .toList(growable: false),
-        );
+      trace: evaluated,
+      effects: evaluated.used
+          .map(
+            (PersonContextBehaviorDecision decision) =>
+                PersonContextBehaviorEffect(
+              signalId: decision.signalId,
+              field: decision.permittedField,
+              value: signalById[decision.signalId]!.value,
+            ),
+          )
+          .toList(growable: false),
+    );
     final PersonContextBehaviorTrace trace = application.trace;
     final Set<String> usedSignalIds = trace.used
         .map((PersonContextBehaviorDecision decision) => decision.signalId)
         .toSet();
-    final List<PersonContextSignal> available =
-        view.signals
-            .where(
-              (PersonContextSignal signal) => usedSignalIds.contains(signal.id),
-            )
-            .toList(growable: true)
-          ..sort(PersonContextBehaviorPolicy.compareSignals);
-    final int eligibleSignalCount =
-        trace.used.length +
+    final List<PersonContextSignal> available = view.signals
+        .where(
+          (PersonContextSignal signal) => usedSignalIds.contains(signal.id),
+        )
+        .toList(growable: true)
+      ..sort(PersonContextBehaviorPolicy.compareSignals);
+    final int eligibleSignalCount = trace.used.length +
         trace.rejected
             .where(
               (PersonContextBehaviorDecision decision) =>
@@ -756,11 +746,10 @@ final class _PlannerPersonContextEvidence {
               'source': signal.source.name,
               'consentedAt': signal.consentedAt?.toUtc().toIso8601String(),
               'purpose': signal.purpose.name,
-              'surfaceScopes':
-                  signal.surfaceScopes
-                      .map((PersonContextSurface surface) => surface.name)
-                      .toList(growable: false)
-                    ..sort(),
+              'surfaceScopes': signal.surfaceScopes
+                  .map((PersonContextSurface surface) => surface.name)
+                  .toList(growable: false)
+                ..sort(),
               'recordedAt': signal.recordedAt.toUtc().toIso8601String(),
               'freshUntil': signal.freshUntil.toUtc().toIso8601String(),
               'expiresAt': signal.expiresAt.toUtc().toIso8601String(),
@@ -800,9 +789,8 @@ final class _PlannerPersonContextEvidence {
       final RegExpMatch? match = RegExp(r'\b(\d{1,3})\b').firstMatch(
         value is String ? value : '',
       );
-      final int? minutes = value is int
-          ? value
-          : int.tryParse(match?.group(1) ?? '');
+      final int? minutes =
+          value is int ? value : int.tryParse(match?.group(1) ?? '');
       if (minutes != null && minutes > 0) return minutes;
     }
     return null;
@@ -822,17 +810,16 @@ final class _PlannerPersonContextEvidence {
   }
 
   String get adaptationSummary => switch (status) {
-    _PlannerPersonContextStatus.unavailable =>
-      'Person context was unavailable and was not used.',
-    _PlannerPersonContextStatus.knownEmpty =>
-      'Person context was checked and known-empty for Smart Planner.',
-    _PlannerPersonContextStatus.available =>
-      'Used ${signals.length} consented fresh person-context signal(s), bounded to $_maxPlannerPersonContextSignals; treated them as user-provided evidence, not inferred identity.',
-  };
+        _PlannerPersonContextStatus.unavailable =>
+          'Person context was unavailable and was not used.',
+        _PlannerPersonContextStatus.knownEmpty =>
+          'Person context was checked and known-empty for Smart Planner.',
+        _PlannerPersonContextStatus.available =>
+          'Used ${signals.length} consented fresh person-context signal(s), bounded to $_maxPlannerPersonContextSignals; treated them as user-provided evidence, not inferred identity.',
+      };
 
   List<String> get changedFieldNames {
-    final List<String> fields =
-        trace?.changedFields
+    final List<String> fields = trace?.changedFields
             .map((PersonContextBehaviorField field) => field.name)
             .toList(growable: true) ??
         <String>[];
@@ -841,35 +828,36 @@ final class _PlannerPersonContextEvidence {
   }
 
   Map<String, Object?> get requestContext => <String, Object?>{
-    'personContextStatus': switch (status) {
-      _PlannerPersonContextStatus.unavailable => 'unavailable',
-      _PlannerPersonContextStatus.knownEmpty => 'known_empty',
-      _PlannerPersonContextStatus.available => 'available',
-    },
-    'personContextAvailableSignalCount': availableSignalCount,
-    'personContextSignalsUsed': signals.length,
-    'personContextSignalsRejected': trace?.rejected.length ?? 0,
-    'personContextEvidenceLimit': _maxPlannerPersonContextSignals,
-    'personContextBehaviorRevision': behaviorRevision,
-    'personContextEvidenceKinds': signals
-        .map((_PlannerPersonContextSignal signal) => signal.kind.name)
-        .toList(growable: false),
-    'personContextChangedFields': changedFieldNames,
-    if (trace != null) 'personContextDecisionTrace': trace!.toJson(),
-  };
+        'personContextStatus': switch (status) {
+          _PlannerPersonContextStatus.unavailable => 'unavailable',
+          _PlannerPersonContextStatus.knownEmpty => 'known_empty',
+          _PlannerPersonContextStatus.available => 'available',
+        },
+        'personContextAvailableSignalCount': availableSignalCount,
+        'personContextSignalsUsed': signals.length,
+        'personContextSignalsRejected': trace?.rejected.length ?? 0,
+        'personContextEvidenceLimit': _maxPlannerPersonContextSignals,
+        'personContextBehaviorRevision': behaviorRevision,
+        'personContextEvidenceKinds': signals
+            .map((_PlannerPersonContextSignal signal) => signal.kind.name)
+            .toList(growable: false),
+        'personContextChangedFields': changedFieldNames,
+        if (trace != null) 'personContextDecisionTrace': trace!.toJson(),
+      };
 
   List<String> verifiedEvidence() => switch (status) {
-    _PlannerPersonContextStatus.unavailable => const <String>[
-      'Person context was unavailable for Smart Planner and was not used.',
-    ],
-    _PlannerPersonContextStatus.knownEmpty => const <String>[
-      'Person context checked for Smart Planner: no consented fresh signals were available.',
-    ],
-    _PlannerPersonContextStatus.available => <String>[
-      'Person context checked for Smart Planner: $availableSignalCount consented fresh signal(s) available; ${signals.length} used with a limit of $_maxPlannerPersonContextSignals.',
-      ...signals.map((_PlannerPersonContextSignal signal) => signal.evidence),
-    ],
-  };
+        _PlannerPersonContextStatus.unavailable => const <String>[
+            'Person context was unavailable for Smart Planner and was not used.',
+          ],
+        _PlannerPersonContextStatus.knownEmpty => const <String>[
+            'Person context checked for Smart Planner: no consented fresh signals were available.',
+          ],
+        _PlannerPersonContextStatus.available => <String>[
+            'Person context checked for Smart Planner: $availableSignalCount consented fresh signal(s) available; ${signals.length} used with a limit of $_maxPlannerPersonContextSignals.',
+            ...signals
+                .map((_PlannerPersonContextSignal signal) => signal.evidence),
+          ],
+      };
 }
 
 final class _PlannerPersonContextSignal {
@@ -904,32 +892,34 @@ final class _PlannerPersonContextSignal {
       switch (PersonContextBehaviorPolicy.ruleFor(kind).overrideBehavior) {
         PersonContextOverrideBehavior.hardBoundary ||
         PersonContextOverrideBehavior.scheduleConstraint ||
-        PersonContextOverrideBehavior.scopeOnly => true,
+        PersonContextOverrideBehavior.scopeOnly =>
+          true,
         PersonContextOverrideBehavior.safetyGate ||
         PersonContextOverrideBehavior.evidenceOnly ||
         PersonContextOverrideBehavior.wordingOnly ||
         PersonContextOverrideBehavior.calibrationOnly ||
         PersonContextOverrideBehavior.reduceOrRescopeOnly ||
-        PersonContextOverrideBehavior.tieBreakOnly => false,
+        PersonContextOverrideBehavior.tieBreakOnly =>
+          false,
       };
 
   String get label => switch (kind) {
-    PersonContextKind.role => 'role',
-    PersonContextKind.value => 'value',
-    PersonContextKind.currentPriority => 'current priority',
-    PersonContextKind.lifeArea => 'life area',
-    PersonContextKind.presentCapacity => 'present capacity',
-    PersonContextKind.preferredSupportStyle => 'preferred support style',
-    PersonContextKind.boundary => 'boundary',
-    PersonContextKind.importantRelationship => 'important relationship',
-    PersonContextKind.commitment => 'commitment',
-    PersonContextKind.outcomeHistory => 'confirmed outcome history',
-  };
+        PersonContextKind.role => 'role',
+        PersonContextKind.value => 'value',
+        PersonContextKind.currentPriority => 'current priority',
+        PersonContextKind.lifeArea => 'life area',
+        PersonContextKind.presentCapacity => 'present capacity',
+        PersonContextKind.preferredSupportStyle => 'preferred support style',
+        PersonContextKind.boundary => 'boundary',
+        PersonContextKind.importantRelationship => 'important relationship',
+        PersonContextKind.commitment => 'commitment',
+        PersonContextKind.outcomeHistory => 'confirmed outcome history',
+      };
 
   String get sourceLabel => switch (source) {
-    PersonContextSource.userAuthored => 'user-authored',
-    PersonContextSource.confirmedOutcome => 'confirmed outcome',
-  };
+        PersonContextSource.userAuthored => 'user-authored',
+        PersonContextSource.confirmedOutcome => 'confirmed outcome',
+      };
 
   String get subject => '$sourceLabel $label "$value"';
 
@@ -1074,10 +1064,10 @@ final class _EffortProfile {
   final int stretchMinutes;
 
   _EffortProfile cappedAt(int maximumMinutes) => _EffortProfile(
-    math.min(minimumMinutes, maximumMinutes),
-    math.min(bestFitMinutes, maximumMinutes),
-    math.min(stretchMinutes, maximumMinutes),
-  );
+        math.min(minimumMinutes, maximumMinutes),
+        math.min(bestFitMinutes, maximumMinutes),
+        math.min(stretchMinutes, maximumMinutes),
+      );
 }
 
 final class _PlannerStrategy {

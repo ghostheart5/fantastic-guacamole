@@ -114,11 +114,11 @@ void main() {
         replacementKind: DecisionOutcomeKind.accepted,
         reason: 'The user corrected it.',
       );
-      final DecisionOutcomeEntity correction = (await outcomes.load())
-          .singleWhere(
-            (DecisionOutcomeEntity value) =>
-                value.kind == DecisionOutcomeKind.corrected,
-          );
+      final DecisionOutcomeEntity correction =
+          (await outcomes.load()).singleWhere(
+        (DecisionOutcomeEntity value) =>
+            value.kind == DecisionOutcomeKind.corrected,
+      );
       expect(correction.correctedOutcomeKind, original.kind.name);
       expect(correction.correction, DecisionOutcomeKind.accepted.name);
 
@@ -308,24 +308,25 @@ void main() {
     expect(learning.state!.observations, isEmpty);
   });
 
-  test('queued decision work is discarded after an account transition', () async {
+  test('queued decision work is discarded after an account transition',
+      () async {
     final _MemoryPrefs prefs = _MemoryPrefs();
     final Map<String, DecisionOutcomeRepository> outcomes =
         <String, DecisionOutcomeRepository>{
-          'account-a': DecisionOutcomeRepository(
-            prefs,
-            AccountStorageScope.authenticated('account-a'),
-          ),
-          'account-b': DecisionOutcomeRepository(
-            prefs,
-            AccountStorageScope.authenticated('account-b'),
-          ),
-        };
+      'account-a': DecisionOutcomeRepository(
+        prefs,
+        AccountStorageScope.authenticated('account-a'),
+      ),
+      'account-b': DecisionOutcomeRepository(
+        prefs,
+        AccountStorageScope.authenticated('account-b'),
+      ),
+    };
     final Map<String, _MemoryLearningRepository> learning =
         <String, _MemoryLearningRepository>{
-          'account-a': _MemoryLearningRepository(),
-          'account-b': _MemoryLearningRepository(),
-        };
+      'account-a': _MemoryLearningRepository(),
+      'account-b': _MemoryLearningRepository(),
+    };
     final ProviderContainer container = ProviderContainer(
       overrides: [
         accountStorageScopeProvider.overrideWith(
@@ -355,7 +356,9 @@ void main() {
       modelVersion: 'decision-v1',
       recommendationConfidence: .6,
     );
-    container.read(_mutableDecisionScopeProvider.notifier).switchTo('account-b');
+    container
+        .read(_mutableDecisionScopeProvider.notifier)
+        .switchTo('account-b');
     await queued;
 
     expect(await outcomes['account-a']!.load(), isEmpty);
@@ -368,15 +371,16 @@ void main() {
 DecisionOutcomeEntity _outcomeForKind(
   DecisionOutcomeKind kind,
   DateTime recordedAt,
-) => DecisionOutcomeEntity(
-  decisionId: 'multi-kind-decision',
-  kind: kind,
-  surface: 'nexus',
-  recordedAt: recordedAt,
-  modelVersion: 'decision-v1',
-  recommendationConfidence: .6,
-  subjectId: 'task-1',
-);
+) =>
+    DecisionOutcomeEntity(
+      decisionId: 'multi-kind-decision',
+      kind: kind,
+      surface: 'nexus',
+      recordedAt: recordedAt,
+      modelVersion: 'decision-v1',
+      recommendationConfidence: .6,
+      subjectId: 'task-1',
+    );
 
 OperatingDecisionReceipt _receipt() {
   final DateTime generatedAt = DateTime.now().toUtc();
@@ -442,10 +446,10 @@ class _MemoryPrefs implements SharedPrefsStore {
 }
 
 final NotifierProvider<_MutableDecisionScope, AccountStorageScope>
-_mutableDecisionScopeProvider =
+    _mutableDecisionScopeProvider =
     NotifierProvider<_MutableDecisionScope, AccountStorageScope>(
-      _MutableDecisionScope.new,
-    );
+  _MutableDecisionScope.new,
+);
 
 final class _MutableDecisionScope extends Notifier<AccountStorageScope> {
   @override
