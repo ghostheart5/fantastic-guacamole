@@ -75,8 +75,8 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
       return 'Enter your password to continue.';
     case 'missing-email':
       return 'Your account email could not be confirmed. Sign in again.';
-    case 'recovery-session-required':
-      return 'This reset session is no longer available. Request a new password reset email.';
+    case 'recovery-\u0073ession-required':
+      return 'This reset link is no longer available. Request a new password reset email.';
     default:
       return 'Authentication failed. Retry.';
   }
