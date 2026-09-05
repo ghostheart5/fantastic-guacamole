@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
@@ -66,6 +67,7 @@ typedef EntitlementAuthorityRefresh = Future<void> Function({bool force});
 final entitlementAuthorityRefreshProvider =
     Provider<EntitlementAuthorityRefresh>((Ref ref) {
       return ({bool force = false}) async {
+        if (Env.isLocalMode) return;
         final repository = ref.read(paywallRepositoryProvider);
         if (repository is ISubscriptionAuthorityRefresher) {
           await (repository as ISubscriptionAuthorityRefresher)
@@ -99,6 +101,9 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
   @override
   Future<EntitlementState> build() async {
     ref.onDispose(() => _expiryTimer?.cancel());
+    if (Env.isLocalMode) {
+      return const EntitlementState(isPremium: false, source: 'local_profile');
+    }
     // Rebuilds whenever the signed-in account changes, which is what resets
     // access on sign-out and on account switch.
     final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
@@ -151,6 +156,9 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
     SubscriptionState subscription, {
     String? expectedUserId,
   }) async {
+    if (Env.isLocalMode) {
+      throw StateError('Purchases are unavailable for local profiles.');
+    }
     final User? user = await ref.read(authUserProvider.future);
     final String? userId = user?.id;
     if (expectedUserId != null && userId != expectedUserId) {

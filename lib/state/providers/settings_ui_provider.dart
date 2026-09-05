@@ -54,6 +54,7 @@ class SettingsUiActions {
     if (!localGranted) {
       return false;
     }
+    if (!Env.cloudServicesEnabled) return localGranted;
     final String? issue = await const FirebaseMessagingBootstrap()
         .requestPermissionAndToken(isMockMode: Env.isMockMode);
     if (issue != null) {

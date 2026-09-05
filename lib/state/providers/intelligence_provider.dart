@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/state/providers/local_profile_auth_provider.dart';
 
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
@@ -40,6 +42,9 @@ class MockSignInNotifier extends Notifier<bool> {
 }
 
 final authUserProvider = StreamProvider<User?>((ref) {
+  if (Env.isLocalMode) {
+    return ref.watch(localProfileAuthServiceProvider).authStateChanges();
+  }
   final bool hasMockSignIn = ref.watch(mockSignInProvider);
   if (hasMockSignIn) {
     final MockLoginConfigState config = ref.read(mockLoginConfigProvider);
@@ -89,7 +94,9 @@ final intelligenceStateProvider = Provider<IntelligenceState>((ref) {
   final bool hasAuthenticatedUser = ref
       .watch(authUserProvider)
       .maybeWhen(
-        data: (User? user) => user?.emailVerified ?? false,
+        data: (User? user) =>
+            user != null &&
+            (user.emailVerified || (Env.isLocalMode && user.isLocalProfile)),
         orElse: () => false,
       );
 

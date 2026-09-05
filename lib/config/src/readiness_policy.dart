@@ -40,6 +40,9 @@ abstract final class _ReadinessPolicy {
     }
 
     final List<String> issues = <String>[];
+    if (!BackendConfiguration.isValid) {
+      issues.add('Backend mode must be cloud or local.');
+    }
     if (_BuildSettings.enableCrashReporting) {
       issues.add(
         'Crash reporting must remain disabled until telemetry consent passes.',
@@ -62,6 +65,10 @@ abstract final class _ReadinessPolicy {
     if (_FeatureFlags.enableTesterFullAccess) {
       issues.add('Tester full-access override is enabled.');
     }
+    // Local production retains every production safety rule above. Cloud
+    // account services and callback registration are not its capabilities.
+    // Storage and profile initialization are checked by their runtime gates.
+    if (!Env.cloudServicesEnabled) return issues;
     if (!_ServiceEndpoints.resolveIsValidSupabaseUrl(
       _ServiceEndpoints.supabaseUrl,
     )) {

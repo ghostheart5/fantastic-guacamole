@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
@@ -44,6 +45,11 @@ final voiceServiceProvider = Provider<VoiceService>((ref) {
   return const VoiceService();
 });
 
+// Platform speech engines may send audio to an external service.
+final voiceInputEnabledProvider = Provider<bool>((ref) {
+  return Env.cloudServicesEnabled;
+});
+
 final speechRecognitionServiceProvider = Provider<SpeechRecognitionService>((
   ref,
 ) {
@@ -82,6 +88,15 @@ class VoiceController extends Notifier<VoiceState> {
   /// an action — the caller reads [VoiceState.recognizedText] and the user
   /// must explicitly tap send.
   Future<void> startListening() async {
+    if (!ref.read(voiceInputEnabledProvider)) {
+      state = state.copyWith(
+        isAvailable: false,
+        isListening: false,
+        error:
+            'Voice input is unavailable in local mode. Type your message instead.',
+      );
+      return;
+    }
     if (state.isListening) {
       return;
     }

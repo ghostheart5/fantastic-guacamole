@@ -409,7 +409,7 @@ class _PersonalizationSection extends ConsumerWidget {
             onChanged: (bool value) =>
                 _save(context, ref, profile.copyWith(useMemoryContext: value)),
           ),
-          if (LaunchContainment.externalAiEnabled)
+          if (Env.externalAiEnabled)
             _NeonToggleTile(
               title: 'Allow external AI assistance',
               value: profile.externalAiAllowed,

@@ -25,7 +25,7 @@ class RemoteConfigService {
   }
 
   Future<void> _applyFirebaseSnapshotIfAvailable() async {
-    if (_firebaseSnapshotApplied) {
+    if (!Env.cloudServicesEnabled || _firebaseSnapshotApplied) {
       return;
     }
     final bool firebaseInitialized = Firebase.apps.isNotEmpty;

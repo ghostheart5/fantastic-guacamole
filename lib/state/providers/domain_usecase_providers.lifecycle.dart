@@ -62,11 +62,11 @@ final getUserLevelUseCaseProvider = Provider<GetUserLevel>((ref) {
 // --- Settings and workspace.
 
 final getSettingsUseCaseProvider = Provider<GetSettings>((ref) {
-  return GetSettings(ref.read(domainSettingsRepositoryProvider));
+  return GetSettings(ref.watch(domainSettingsRepositoryProvider));
 });
 
 final updateSettingsUseCaseProvider = Provider<UpdateSettings>((ref) {
-  return UpdateSettings(ref.read(domainSettingsRepositoryProvider));
+  return UpdateSettings(ref.watch(domainSettingsRepositoryProvider));
 });
 
 final getWorkspaceUseCaseProvider = Provider<GetWorkspace>((ref) {
@@ -94,11 +94,11 @@ final removeCalendarEntryUseCaseProvider = Provider<RemoveCalendarEntry>((ref) {
 // --- SI state.
 
 final hydrateSiStateUseCaseProvider = Provider<HydrateSiState>((ref) {
-  return HydrateSiState(ref.read(domainSiRepositoryProvider));
+  return HydrateSiState(ref.watch(domainSiRepositoryProvider));
 });
 
 final updateSiStateUseCaseProvider = Provider<UpdateSiState>((ref) {
-  return UpdateSiState(ref.read(domainSiRepositoryProvider));
+  return UpdateSiState(ref.watch(domainSiRepositoryProvider));
 });
 
 // --- Learning loop.
@@ -111,19 +111,19 @@ final applyLearningFeedbackUseCaseProvider = Provider<ApplyLearningFeedback>((
   ref,
 ) {
   return ApplyLearningFeedback(
-    ref.read(domainLearningRepositoryProvider),
-    siRepo: ref.read(domainSiRepositoryProvider),
+    ref.watch(domainLearningRepositoryProvider),
+    siRepo: ref.watch(domainSiRepositoryProvider),
   );
 });
 
 final updateLearningStateUseCaseProvider = Provider<UpdateLearningState>((ref) {
-  return UpdateLearningState(ref.read(domainLearningRepositoryProvider));
+  return UpdateLearningState(ref.watch(domainLearningRepositoryProvider));
 });
 
 final skipTaskUseCaseProvider = Provider<SkipTask>((ref) {
   return SkipTask(
-    ref.read(domainTaskRepositoryProvider),
-    ref.read(domainLearningRepositoryProvider),
-    siRepo: ref.read(domainSiRepositoryProvider),
+    ref.watch(domainTaskRepositoryProvider),
+    ref.watch(domainLearningRepositoryProvider),
+    siRepo: ref.watch(domainSiRepositoryProvider),
   );
 });

@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final creditServiceProvider = Provider<CreditService>((ref) {
   return CreditService(
+    spendingEnabled: Env.creditSpendingEnabled,
     prefs: AccountScopedSharedPrefsStore(
       delegate: ref.read(sharedPrefsStoreProvider),
       scope: ref.watch(accountStorageScopeProvider),
@@ -38,7 +39,7 @@ final creditServiceProvider = Provider<CreditService>((ref) {
 });
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
-  if (!LaunchContainment.creditSpendingEnabled) {
+  if (!Env.creditSpendingEnabled) {
     final DateTime now = DateTime.now();
     return AiCreditWallet(
       balance: 0,

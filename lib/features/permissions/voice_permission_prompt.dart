@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_denied_recovery.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_explainer.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_rationale_sheet.dart';
@@ -22,6 +23,7 @@ class VoicePermissionPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!Env.cloudServicesEnabled) return const SizedBox.shrink();
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     final PermissionExplainer explainer = PermissionExplainers.forKind(
       PermissionKind.microphone,

@@ -51,6 +51,21 @@ void main() {
       final Object firstIdentityRepository = container.read(
         identityRepositoryProvider,
       );
+      final Object firstDomainIdentityRepository = container.read(
+        domainIdentityRepositoryProvider,
+      );
+      final Object firstGetIdentityProfile = container.read(
+        getIdentityProfileUseCaseProvider,
+      );
+      final Object firstSaveIdentityProfile = container.read(
+        saveIdentityProfileUseCaseProvider,
+      );
+      final Object firstCreateTask = container.read(createTaskUseCaseProvider);
+      final Object firstUpdateTask = container.read(updateTaskUseCaseProvider);
+      final Object firstDeleteTask = container.read(deleteTaskUseCaseProvider);
+      final Object firstApplyLearning = container.read(
+        applyLearningFeedbackUseCaseProvider,
+      );
       final Object firstFirebaseBridgeRepository = container.read(
         firebaseSupabaseBridgeRepositoryProvider,
       );
@@ -114,6 +129,34 @@ void main() {
       expect(
         container.read(identityRepositoryProvider),
         isNot(same(firstIdentityRepository)),
+      );
+      expect(
+        container.read(domainIdentityRepositoryProvider),
+        isNot(same(firstDomainIdentityRepository)),
+      );
+      expect(
+        container.read(getIdentityProfileUseCaseProvider),
+        isNot(same(firstGetIdentityProfile)),
+      );
+      expect(
+        container.read(saveIdentityProfileUseCaseProvider),
+        isNot(same(firstSaveIdentityProfile)),
+      );
+      expect(
+        container.read(createTaskUseCaseProvider),
+        isNot(same(firstCreateTask)),
+      );
+      expect(
+        container.read(updateTaskUseCaseProvider),
+        isNot(same(firstUpdateTask)),
+      );
+      expect(
+        container.read(deleteTaskUseCaseProvider),
+        isNot(same(firstDeleteTask)),
+      );
+      expect(
+        container.read(applyLearningFeedbackUseCaseProvider),
+        isNot(same(firstApplyLearning)),
       );
       expect(
         container.read(firebaseSupabaseBridgeRepositoryProvider),

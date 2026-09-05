@@ -213,7 +213,9 @@ class Logger {
     StackTrace? stackTrace,
     bool fatal = false,
   }) {
-    if (!_supportsCrashlytics || Firebase.apps.isEmpty) {
+    if (!Env.cloudServicesEnabled ||
+        !_supportsCrashlytics ||
+        Firebase.apps.isEmpty) {
       return;
     }
     final String safeCode = _safeCode(code);

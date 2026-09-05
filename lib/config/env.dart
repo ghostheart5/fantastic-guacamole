@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/app_flavor.dart';
+import 'package:fantastic_guacamole/config/backend_mode.dart';
 import 'package:fantastic_guacamole/config/firebase_identity.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:flutter/foundation.dart';
@@ -20,39 +21,56 @@ abstract final class Env {
   static String get appFlavor => _BuildSettings.appFlavor;
   static bool get enableVerboseLogs => _BuildSettings.enableVerboseLogs;
   static bool get enableCrashReporting =>
+      cloudServicesEnabled &&
       LaunchContainment.crashReportingEnabled &&
       _BuildSettings.enableCrashReporting;
   static bool get enableAnalytics =>
-      LaunchContainment.analyticsEnabled && _BuildSettings.enableAnalytics;
+      cloudServicesEnabled &&
+      LaunchContainment.analyticsEnabled &&
+      _BuildSettings.enableAnalytics;
   static String get appLinksAndroidSha256 =>
       _BuildSettings.appLinksAndroidSha256;
   static String get appLinksIosTeamId => _BuildSettings.appLinksIosTeamId;
   static AppFlavor get flavor => _BuildSettings.flavor;
   static bool get isProduction => _BuildSettings.isProduction;
+  static bool get isLocalMode => BackendConfiguration.isLocal;
+  static bool get cloudServicesEnabled =>
+      BackendConfiguration.cloudServicesEnabled;
 
-  static bool get enableMockLogin => _FeatureFlags.enableMockLogin;
-  static bool get enableMockMode => _FeatureFlags.enableMockMode;
-  static bool get enablePaywallDisabled => _FeatureFlags.enablePaywallDisabled;
+  static bool get enableMockLogin =>
+      cloudServicesEnabled && _FeatureFlags.enableMockLogin;
+  static bool get enableMockMode =>
+      cloudServicesEnabled && _FeatureFlags.enableMockMode;
+  static bool get enablePaywallDisabled =>
+      cloudServicesEnabled && _FeatureFlags.enablePaywallDisabled;
   static bool get enableTesterFullAccess =>
-      _FeatureFlags.enableTesterFullAccess;
+      cloudServicesEnabled && _FeatureFlags.enableTesterFullAccess;
   static bool get enableRuntimeFeatureFlags =>
-      _FeatureFlags.enableRuntimeFeatureFlags;
+      cloudServicesEnabled && _FeatureFlags.enableRuntimeFeatureFlags;
   static String get remoteConfigDefaultsJson =>
       _FeatureFlags.remoteConfigDefaultsJson;
   static bool get enableCloudSync =>
-      LaunchContainment.cloudSyncEnabled && _FeatureFlags.enableCloudSync;
-  static bool get enableCloudRestore => LaunchContainment.cloudRestoreEnabled;
+      cloudServicesEnabled &&
+      LaunchContainment.cloudSyncEnabled &&
+      _FeatureFlags.enableCloudSync;
+  static bool get enableCloudRestore =>
+      cloudServicesEnabled && LaunchContainment.cloudRestoreEnabled;
   static bool get subscriptionsEnabled =>
-      LaunchContainment.subscriptionsEnabled;
-  static bool get externalAiEnabled => LaunchContainment.externalAiEnabled;
+      cloudServicesEnabled && LaunchContainment.subscriptionsEnabled;
+  static bool get externalAiEnabled =>
+      cloudServicesEnabled && LaunchContainment.externalAiEnabled;
   static bool get creditSpendingEnabled =>
-      LaunchContainment.creditSpendingEnabled;
+      cloudServicesEnabled && LaunchContainment.creditSpendingEnabled;
   static bool get paidCreditPlansEnabled =>
-      LaunchContainment.paidCreditPlansEnabled;
-  static bool get isMockMode => _FeatureFlags.isMockMode;
-  static bool get isPaywallDisabled => _FeatureFlags.isPaywallDisabled;
-  static bool get isMockLoginEnabled => _FeatureFlags.isMockLoginEnabled;
-  static bool get hasTesterFullAccess => _FeatureFlags.hasTesterFullAccess;
+      cloudServicesEnabled && LaunchContainment.paidCreditPlansEnabled;
+  static bool get isMockMode =>
+      cloudServicesEnabled && _FeatureFlags.isMockMode;
+  static bool get isPaywallDisabled =>
+      cloudServicesEnabled && _FeatureFlags.isPaywallDisabled;
+  static bool get isMockLoginEnabled =>
+      cloudServicesEnabled && _FeatureFlags.isMockLoginEnabled;
+  static bool get hasTesterFullAccess =>
+      cloudServicesEnabled && _FeatureFlags.hasTesterFullAccess;
 
   static String get aiProxyEndpoint => _ServiceEndpoints.aiProxyEndpoint;
   static String get aiReportEndpoint => _ServiceEndpoints.aiReportEndpoint;
@@ -68,8 +86,9 @@ abstract final class Env {
   static String get receiptVerifyEndpoint =>
       _ServiceEndpoints.receiptVerifyEndpoint;
   static bool get isSupabaseConfigured =>
-      _ServiceEndpoints.isSupabaseConfigured;
+      cloudServicesEnabled && _ServiceEndpoints.isSupabaseConfigured;
   static bool get isAiProxyConfigured =>
+      cloudServicesEnabled &&
       LaunchContainment.externalAiEnabled &&
       _ServiceEndpoints.isAiProxyConfigured;
 

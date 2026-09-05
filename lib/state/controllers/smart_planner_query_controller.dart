@@ -476,14 +476,19 @@ class SmartPlannerQueryController
     final double planningEnergy = boundedEnergy ?? 0.5;
     final _PlannerTopic topic = _detectTopic(conversation.searchText);
     final _PlannerStrategy strategy = _strategyFor(topic);
-    final _EffortProfile effort = _effortFor(planningEnergy);
+    final _EffortProfile energyEffort = _effortFor(planningEnergy);
+    final int? capacityLimitMinutes =
+        evidence.personContext.capacityLimitMinutes;
+    final _EffortProfile effort = capacityLimitMinutes == null
+        ? energyEffort
+        : energyEffort.cappedAt(capacityLimitMinutes);
     final DateTime observedAt = _ref.read(smartPlannerClockProvider)().toUtc();
     final EmotionalSafetyAssessment emotionalSafety =
         EmotionalSafetyPolicy.assess(conversation.searchText);
     final bool supportivePause = emotionalSafety.requiresSupportivePause;
     final List<String> adaptations = <String>[
       if (boundedEnergy != null)
-        _energyAdaptation(boundedEnergy, effort)
+        _energyAdaptation(boundedEnergy, energyEffort)
       else
         'No current energy check-in was provided; option sizes use a neutral planning fallback.',
       if (emotion != null)
@@ -496,6 +501,8 @@ class SmartPlannerQueryController
       evidence.operatingReceipt.adaptationSummary,
       evidence.plannerMemory.adaptationSummary,
       evidence.personContext.adaptationSummary,
+      if (capacityLimitMinutes != null)
+        'Applied your reported capacity limit of $capacityLimitMinutes minutes: no option exceeds it.',
       if (conversation.historyTurnsUsed > 0)
         'Used ${conversation.historyTurnsUsed} recent conversation turn(s) to keep this response connected to your earlier request.',
       'Kept every option reversible and left saving to an explicit Creator confirmation.',

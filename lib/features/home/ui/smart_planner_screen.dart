@@ -723,6 +723,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     ).plannerRoutine;
     final List<PlannerOptionKind> kinds = PlannerOptionKind.values;
     final int current = kinds.indexOf(response.recommendedKind);
+    final PlannerOptionKind rejected = response.recommendedKind;
     final PlannerOptionKind next = kinds[(current + 1) % kinds.length];
     setState(() {
       _plannerResponse = response.recommend(
@@ -736,8 +737,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       DecisionOutcomeKind.rejected,
       detail:
           'Rejected the current receipt approach by choosing Different approach.',
-      optionChosen: next.name,
-      optionSizeMinutes: response.optionByKind[next]?.estimatedMinutes,
+      optionChosen: rejected.name,
+      optionSizeMinutes: response.optionByKind[rejected]?.estimatedMinutes,
       recommendationHelped: false,
     );
   }

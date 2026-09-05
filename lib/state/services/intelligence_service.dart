@@ -39,6 +39,7 @@ class IntelligenceService {
         appFlavor: Env.appFlavor,
         isProduction: isProduction,
         isSupabaseConfigured: Env.isSupabaseConfigured,
+        isLocalMode: Env.isLocalMode,
       ),
       flags: FeatureFlagsState(
         verboseLogs: Env.enableVerboseLogs,

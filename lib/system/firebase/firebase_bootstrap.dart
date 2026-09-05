@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -29,7 +30,7 @@ class FirebaseBootstrap {
     required bool isMockMode,
     bool Function()? shouldContinue,
   }) async {
-    if (isMockMode) {
+    if (!Env.cloudServicesEnabled || isMockMode) {
       return null;
     }
     if (shouldContinue?.call() == false) {

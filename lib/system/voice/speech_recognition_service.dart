@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -41,6 +42,7 @@ class PluginSpeechRecognitionService implements SpeechRecognitionService {
 
   @override
   Future<bool> initialize() async {
+    if (!Env.cloudServicesEnabled) return false;
     if (_initialized) {
       return true;
     }
