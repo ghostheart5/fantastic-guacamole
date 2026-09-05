@@ -14,8 +14,8 @@ import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
 
-CANDIDATE_SHA = "61c7331dda9e82201a0561dbcd79aa0b37118446"
-CI_RUN = "33939436515"
+CANDIDATE_SHA = "85f04ed879c63adae876e46050b50e37097b65a1"
+CI_RUN = "33990630158"
 # Existing repository upload-identity pin; independent Play readback remains open.
 UPLOAD_SHA1 = "8A24D7BAACAB52F0A3777DD047C907962E82FAA5"
 PACKAGE = "com.ghostheart5.chronospark"
