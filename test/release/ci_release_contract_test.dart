@@ -678,6 +678,26 @@ void main() {
     );
     final String runtimeScript = (emulatorStep['with'] as YamlMap)['script']
         .toString();
+    final YamlMap acceleration = namedStep(
+      maestro,
+      'Enable and verify hardware acceleration',
+    );
+    expect(
+      steps(maestro).indexOf(acceleration),
+      lessThan(steps(maestro).indexOf(emulatorStep)),
+    );
+    expect(acceleration['timeout-minutes'], 2);
+    expect(acceleration['run'], contains('test -c /dev/kvm'));
+    expect(acceleration['run'], contains('sudo setfacl'));
+    expect(
+      acceleration['run'],
+      contains('test -r /dev/kvm && test -w /dev/kvm'),
+    );
+    expect(acceleration['run'], contains('-accel-check'));
+    expect(
+      (emulatorStep['with'] as YamlMap)['disable-linux-hw-accel'],
+      isFalse,
+    );
     expect(runtimeScript, contains('run_maestro_android_evidence.ps1'));
     expect(runtimeScript, contains('-DeviceSerial emulator-5554'));
     expect(runtimeScript, contains(r'-ExpectedCommit "${{ github.sha }}"'));
