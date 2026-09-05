@@ -1,6 +1,18 @@
 # Production-access application draft
 
-The Console confirms the closed-test release, tester-count, and 14-day requirements are complete. Submission still requires owner-authored answers based on actual evidence.
+The [2026-08-31 Console readback](console-readback-2026-08-31.md) recorded the
+closed-test release, tester-count, and 14-day requirements as complete. This is
+historical evidence, not a fresh Console eligibility check. Verify current
+production-access status before submission; do not restart completed testing
+solely because this draft is unfinished. Submission still requires owner-authored
+answers based on actual evidence.
+
+Current candidate evidence is in the
+[signed-build/device checkpoint](../../docs/engineering/SAFE_QUICK_PHASE_5_6_STATUS_20260904.md)
+and [backend checkpoint](../../docs/engineering/SAFE_QUICK_PHASE_7_STATUS_20260904.md).
+Passing CI and focused phone journeys do not substitute for participant feedback,
+full UAT, policy approval, or live Console acceptance. Domain work is separately
+deferred and excluded from the current closeout repair scope.
 
 ## Step 1: About the closed test
 
@@ -24,7 +36,11 @@ OWNER INPUT REQUIRED. Summarize actual feedback and name the real collection met
 
 ### Target audience
 
-People age 16 and over who want a structured way to plan tasks, examine tradeoffs, and choose a next action. The app is not directed to children and is not medical, legal, financial, or emergency guidance.
+Adults age **18 and over** who want a structured way to plan tasks, examine
+tradeoffs, and choose a next action. The app is not directed to children and is
+not medical, legal, financial, or emergency guidance. This matches the approved
+bundled privacy policy and terms; verify the saved Console selection is **18+**
+before submission. Do not retain the historical 16-17 selection.
 
 ### Value proposition
 
@@ -33,6 +49,11 @@ ChronoSpark separates task creation, scheduling, bounded guidance, evidence revi
 ### Expected first-year installs
 
 OWNER INPUT REQUIRED. Choose a range based on a real distribution and support plan, not the 177-country availability count.
+
+The availability count is historical Console context, not approval for the
+current release's countries, track, or support coverage. Those remain owner
+decisions. Current source supports English and Spanish; Spanish usability,
+legal, and distress-language human review must precede a validated launch claim.
 
 ## Step 3: Production readiness
 

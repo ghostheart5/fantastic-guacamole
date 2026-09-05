@@ -1,5 +1,28 @@
 # ChronoSpark Known Limitations
 
+## Current evidence and remaining limits - 2026-09-04
+
+Use the [current signed-candidate/device checkpoint](docs/engineering/SAFE_QUICK_PHASE_5_6_STATUS_20260904.md)
+and [live backend checkpoint](docs/engineering/SAFE_QUICK_PHASE_7_STATUS_20260904.md)
+for current status. Source `61c7331dda9e82201a0561dbcd79aa0b37118446` passed
+exact-source CI (2,352 Flutter tests, 15 configuration tests, static checks,
+goldens, integration, and coverage); signed build `33940078212`, physical smoke,
+and one task save/restart/complete/restart journey passed. These do not establish
+full device, service-runtime, human, safety, or production readiness.
+
+The current source supports `en` and `es`; Spanish is not an absent/disabled
+locale. Qualified Spanish usability, legal, and distress-language review remains
+open. Bundled policy is adults 18+; Play declarations must match it. Domain work
+is excluded from the current closeout scope and remains separately deferred.
+
+The older app-only baseline and priority statements below preserve their original
+evidence boundaries. References to uncommitted work, missing exact-source CI,
+missing signing, or no device smoke must not override the newer checkpoints.
+Containment is still not completion: AI, billing, sync/restore and telemetry
+require their own gates before any separately approved enablement.
+
+## Historical app-only baseline and priority limitations
+
 [`APP_ONLY_READINESS_MATRIX.md`](APP_ONLY_READINESS_MATRIX.md) separates the
 professor-report baseline at
 `6118ba6df289ca89472ba804307a85be00a0c0f2` from provisional Gate 1 working-tree
@@ -55,7 +78,8 @@ Professor baseline verdict:
 - Exact-build physical-device, TalkBack, keyboard, rotation, offline,
   performance, and human-UAT evidence remains incomplete.
 - Crisis and non-crisis distress handling still requires qualified review.
-- Spanish coverage is not complete enough for a launch claim.
+- Spanish source support exists; a fully validated Spanish launch claim still
+  requires human language, legal, and distress-journey review.
 
 ## Excluded external systems
 
@@ -75,9 +99,12 @@ Launch containment remains active: cloud sync/restore, subscriptions, paid credi
 - Account deletion outcomes are typed on the client, but deployed deletion recovery and verified billing-principal reattachment remain external gates.
 - Crisis and non-crisis distress handling require qualified review.
 - Whole-person domains and the canonical decision authority are improved locally but do not establish synthetic emotional intelligence or whole-person understanding.
-- Spanish coverage is not complete enough for a launch claim.
+- Spanish source support exists; a fully validated Spanish launch claim still
+  requires human language, legal, and distress-journey review.
 - Host accessibility checks pass, but real-device screen-reader, visual, performance, exact-artifact, and human UAT evidence is incomplete.
 - Production Firebase, Supabase, provider, billing, monitoring, backup, and retention settings remain external verification gates.
-- Google Play listing, signing, submission, rollout, and publication are excluded and must not be performed in this project.
+- Google Play listing, signing, submission, rollout, and publication were excluded
+  from the app-only audit contract. Later signed-artifact evidence is linked
+  above; no checklist or audit result authorizes submission or rollout.
 
 Strong Nexus, Creator, SI V2, Trajectory, governed-memory, account-boundary, RLS, deletion-state-machine, and deterministic-learning foundations must be preserved while these limitations are repaired.

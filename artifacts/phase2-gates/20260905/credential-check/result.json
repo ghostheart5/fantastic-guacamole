@@ -1,0 +1,28 @@
+{
+  "project_ref": "qpwhuckyirnqtmvhpede",
+  "function": "phase2-credential-check-20260905",
+  "function_id": "216f1fcc-8dfc-49fc-a2b3-9d710776c10a",
+  "deployed_versions": [1, 2],
+  "authorization": "existing project secret key validated server-side; no public or user-key authorization",
+  "unauthenticated_status": 403,
+  "provider_request_count": 2,
+  "generating_request_count": 0,
+  "final_check": {
+    "pass": false,
+    "checked_at": "2026-09-05T15:02:37.776Z",
+    "upstream_status": 400,
+    "rejection": "insufficient_provider_credits",
+    "request_id": "req_011CekVgWyDgNarwkKJ4BY2A",
+    "organization_id": "481a4381-f1cb-43b2-a749-0d2a408395ac",
+    "workspace_id": "wrkspc_015MTvox1RzbTyqFSYqZxUqe"
+  },
+  "cleanup": {
+    "deleted": true,
+    "absent_from_independent_inventory": true,
+    "endpoint_status": 404,
+    "existing_seven_functions_unchanged": true,
+    "verified_by_utc": "2026-09-05T15:03:22Z"
+  },
+  "funds_added": false,
+  "phase_2_complete": false
+}

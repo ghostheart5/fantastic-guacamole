@@ -1,0 +1,72 @@
+{
+  "status": "PASS_SAVED_CONFIGURATION_ONLY",
+  "readbackUtc": "2026-09-05T14:10:48.223Z",
+  "readbackMethod": "Firebase Console accessibility table after full page reload; exact normalized set comparison",
+  "sourceHead": "0c2449016a36a0cb3ff3e431cbf799cb291c7aea",
+  "target": {
+    "projectId": "chronospark-app",
+    "projectNumber": "956622397052",
+    "firebaseAppId": "1:956622397052:android:3ecf5fcda0f2e1ef9133f9",
+    "packageName": "com.ghostheart5.chronospark",
+    "playDeveloperId": "7769568821533010883",
+    "playAppId": "4976364997895633041"
+  },
+  "approval": "Owner explicitly approved adding exactly four missing public fingerprints to the existing production Android app while preserving every existing fingerprint and key restriction.",
+  "publicCertificateSource": {
+    "path": "C:\\Users\\keegan radetski\\Downloads\\certificates (2).zip",
+    "sha256": "A90795C642CD0C3F9071D4FB3B493FCD8B74BBDF6DC0361B4FF21B05E8C7E7AC",
+    "contents": ["deployment_cert.der", "hybrid_classical_cert.der", "hybrid_pqc_cert.der"],
+    "privateKeysIncluded": false,
+    "independentHelperHashVerification": "PASS"
+  },
+  "before": [
+    "21331D8FDA42FF612DBF33B17863D388E9DB24FC",
+    "8A24D7BAACAB52F0A3777DD047C907962E82FAA5",
+    "5D729D1CFA46C52FFE1E10F2E76491DF3A1AE6B8",
+    "1FD0CCEE20E2015826A664E9411AD730420C71FA5CD777D409E2A2B21475B1EC",
+    "D88ECFC61A95B58B533E3896378A2D70894D6EF274D8C56C9F90A77C544E8D79",
+    "D4CA4797BD928AF685299C88E68CE85BEECA59FE571A871D832030B9F743157C"
+  ],
+  "approvedAdditions": [
+    "02AAEC19CEA32F4515ADBDBAFC5C9B4C336C0AC0",
+    "B83E421ACC081168EA6F7A1672532659DC87B00D69779E86E4B802064FB7D7DB",
+    "CE03D3932FE9EDE28DDC7D50CE77DAF171E3CC5E",
+    "6FF01E7366A89872ED2FB96A495C71F692BC57E5E3C27B071FBD442B156390F9"
+  ],
+  "after": [
+    "21331D8FDA42FF612DBF33B17863D388E9DB24FC",
+    "8A24D7BAACAB52F0A3777DD047C907962E82FAA5",
+    "5D729D1CFA46C52FFE1E10F2E76491DF3A1AE6B8",
+    "02AAEC19CEA32F4515ADBDBAFC5C9B4C336C0AC0",
+    "CE03D3932FE9EDE28DDC7D50CE77DAF171E3CC5E",
+    "1FD0CCEE20E2015826A664E9411AD730420C71FA5CD777D409E2A2B21475B1EC",
+    "D88ECFC61A95B58B533E3896378A2D70894D6EF274D8C56C9F90A77C544E8D79",
+    "D4CA4797BD928AF685299C88E68CE85BEECA59FE571A871D832030B9F743157C",
+    "B83E421ACC081168EA6F7A1672532659DC87B00D69779E86E4B802064FB7D7DB",
+    "6FF01E7366A89872ED2FB96A495C71F692BC57E5E3C27B071FBD442B156390F9"
+  ],
+  "checks": {
+    "sameProjectPackageAndAppId": true,
+    "beforeCount": 6,
+    "afterCount": 10,
+    "uniqueCount": 10,
+    "allOriginalsPreserved": true,
+    "allApprovedAdditionsPresent": true,
+    "exactSavedSet": true
+  },
+  "scope": {
+    "removedFingerprints": 0,
+    "apiKeysOrRestrictionsEdited": false,
+    "signingIdentityChanged": false,
+    "privateKeysAccessed": false,
+    "appTestsBuildsOrDevicesUsed": false,
+    "paidProviderRequestsMade": false,
+    "commitOrPushPerformed": false
+  },
+  "limitations": [
+    "Saved registration does not prove enforcement propagation or native SDK, auth or notification behavior.",
+    "Final-candidate signing parity and staged API application-restriction compatibility remain unverified by this operation.",
+    "Phase 2 remains incomplete; provider credential revocation/replacement evidence and additional application hardening remain open.",
+    "No production-ready claim."
+  ]
+}

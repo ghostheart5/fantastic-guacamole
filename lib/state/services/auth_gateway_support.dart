@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 export 'package:fantastic_guacamole/data/models/auth_models.dart';
 export 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
+export 'package:fantastic_guacamole/data/services/contracts/password_recovery_auth.dart';
 
 AuthServiceContract createAuthService({
   required SecureStore store,

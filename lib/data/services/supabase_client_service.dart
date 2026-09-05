@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/config/auth_callback.dart';
+import 'package:fantastic_guacamole/data/services/supabase_password_recovery.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:flutter/foundation.dart';
@@ -39,7 +41,17 @@ class SupabaseClientService {
       await sb.Supabase.initialize(
         url: Env.supabaseUrl,
         publishableKey: Env.supabaseAnonKey,
+        authOptions: sb.FlutterAuthClientOptions(
+          detectSessionInUriPredicate: (Uri uri) {
+            if (!isTrustedAuthCallback(uri)) return false;
+            // Subscribe before the SDK exchanges the cold-start callback.
+            // Its auth stream replays only the latest event, not history.
+            SupabasePasswordRecovery.forClient(sb.Supabase.instance.client);
+            return true;
+          },
+        ),
       );
+      SupabasePasswordRecovery.forClient(sb.Supabase.instance.client);
       return null;
     } on Object catch (error) {
       Logger.errorCategory(

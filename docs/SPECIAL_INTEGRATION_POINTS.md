@@ -34,14 +34,18 @@ This file maps runtime integrations to canonical homes in this repository.
 ## External console linkage checklist
 
 - Supabase:
-	- Enable Auth providers: Google and GitHub.
-	- Add redirect URL(s) matching your app callback route.
-	- Supabase redirect allowlist:
-	  - `chronospark://auth-callback`
-	  - `http://localhost:3000`
-	  - `http://localhost:8080`
-	  - `https://chronospark.ai`
-	  - `https://www.chronospark.ai`
+	- Enable only owner-approved Auth providers after their configuration is verified.
+	- Retain `chronospark://auth-callback` as the Android callback and current
+	  production Site URL. Signup, confirmation resend and password-reset email
+	  requests currently depend on that Site URL when no explicit redirect is sent.
+	- Add other redirect URLs only for verified, owner-approved callback consumers.
+	  Do not copy old domain/localhost examples into production. The existing
+	  `https://chronospark.app/app/auth/callback` entry remains preserved while
+	  domain work is deferred; its presence is not working-link evidence.
+	- Do not add GitHub Pages informational/legal pages as authentication callbacks.
+	  The current Pages site is not a verified web authentication client.
+	- Live allowlist inventory and pending legacy-consumer decisions are recorded in
+	  `docs/engineering/PHASE_2_BACKEND_HARDENING_20260904.md`.
 	- Authentication -> Providers:
 	  - Google: paste Google Cloud OAuth Client ID and Client Secret.
 	  - GitHub: paste GitHub OAuth App Client ID and Client Secret.
@@ -52,8 +56,15 @@ This file maps runtime integrations to canonical homes in this repository.
 	- Ensure Android/iOS app IDs in Firebase match package/bundle IDs used by this app.
 - Google OAuth:
 	- Create OAuth app/client in Google Cloud and connect it in Supabase Auth > Providers > Google.
-	- Add the same callback URL used by `CHRONOSPARK_OAUTH_REDIRECT_URL`.
+	- Use the Supabase Auth provider callback shown in its dashboard, not the app's
+	  custom-scheme redirect. For the current project this is
+	  `https://qpwhuckyirnqtmvhpede.supabase.co/auth/v1/callback`.
 - GitHub OAuth:
 	- Create OAuth App in GitHub Developer Settings.
-	- Set Authorization callback URL to your app callback URL.
+	- Set Authorization callback URL to the Supabase Auth provider callback above.
 	- Paste GitHub Client ID/Secret into Supabase Auth > Providers > GitHub.
+
+The provider callback returns control to Supabase; the approved app redirect then
+returns control to ChronoSpark. Do not swap these two destinations. Confirm the
+callback displayed by Supabase before any separately approved provider change.
+Reference: [Supabase GitHub OAuth callback setup](https://supabase.com/docs/guides/auth/social-login/auth-github).

@@ -70,7 +70,16 @@ class BackupService {
   final KeyedMutationCoordinator _mutationCoordinator;
   static const String _secureProfileStateKey = 'profile_state_v2';
 
-  Future<Map<String, dynamic>> createFullBackup() async {
+  Future<Map<String, dynamic>> createFullBackup() {
+    // Capture every domain within the same account-storage mutation boundary.
+    // Otherwise a concurrent restore can produce a mixed old/new backup.
+    return runAccountStorageMutation(
+      _createFullBackup,
+      coordinator: _mutationCoordinator,
+    );
+  }
+
+  Future<Map<String, dynamic>> _createFullBackup() async {
     _requireCompleteLocalContinuity();
     final List<TaskEntity> tasks = await taskRepository.getAllTasks();
     final List<GoalEntity> goals = _readGoalsForBackup();
@@ -430,14 +439,18 @@ class BackupService {
   }
 
   Map<String, dynamic>? _decodeProfile(String? raw) {
-    if (raw == null || raw.trim().isEmpty) {
+    if (raw == null) {
       return null;
     }
     try {
-      return _asStringKeyMap(jsonDecode(raw));
+      final Map<String, dynamic>? profile = _asStringKeyMap(jsonDecode(raw));
+      if (profile != null) return profile;
     } on FormatException {
-      return null;
+      // Never include the stored profile or parser source in diagnostics.
     }
+    // Null means intentional absence to restore. Corruption must not be
+    // converted into a valid-looking backup that deletes the saved profile.
+    throw const FormatException('Stored profile is invalid; backup cancelled.');
   }
 
   Future<String?> _readProfile() async {

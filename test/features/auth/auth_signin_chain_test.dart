@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
+import 'package:fantastic_guacamole/data/services/contracts/password_recovery_auth.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
@@ -185,6 +186,27 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
+    expect(find.text('APP_READY'), findsOneWidget);
+  });
+
+  testWidgets('verified recovery keeps a signed-in user out of the app', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAuthService service = _FakeAuthService();
+    addTearDown(service.dispose);
+
+    await pumpGate(tester, service);
+    await service.signIn(email: 'user@chronospark.app', password: 'Correct1!');
+    await tester.pump();
+    service.beginPasswordRecovery();
+    await tester.pump();
+
+    expect(find.text('APP_READY'), findsNothing);
+    expect(find.text('Recovery link accepted'), findsOneWidget);
+    expect(find.text('Choose a new password'), findsOneWidget);
+
+    service.clearPasswordRecovery();
+    await tester.pump();
     expect(find.text('APP_READY'), findsOneWidget);
   });
 
@@ -545,18 +567,51 @@ const IntelligenceState _configuredIntelligenceState = IntelligenceState(
 
 /// Drives the auth-state stream the way a real backend would: sign-in and
 /// sign-out push emissions rather than the gate polling for a user.
-class _FakeAuthService implements AuthServiceContract {
+class _FakeAuthService implements AuthServiceContract, PasswordRecoveryAuth {
   _FakeAuthService({this.failWith});
 
   final String? failWith;
   final StreamController<User?> _authState =
       StreamController<User?>.broadcast();
+  final StreamController<PasswordRecoveryState> _recoveryState =
+      StreamController<PasswordRecoveryState>.broadcast();
+  PasswordRecoveryState _recovery = const PasswordRecoveryState.inactive();
 
   User? _current;
   int signInCalls = 0;
   final List<String> passwordResetCalls = <String>[];
 
-  void dispose() => unawaited(_authState.close());
+  void dispose() {
+    unawaited(_authState.close());
+    unawaited(_recoveryState.close());
+  }
+
+  void beginPasswordRecovery() {
+    _recovery = const PasswordRecoveryState.pending('user-1', 1);
+    _recoveryState.add(_recovery);
+  }
+
+  void clearPasswordRecovery() {
+    _recovery = const PasswordRecoveryState.inactive();
+    _recoveryState.add(_recovery);
+  }
+
+  @override
+  PasswordRecoveryState get passwordRecoveryState => _recovery;
+
+  @override
+  Stream<PasswordRecoveryState> get passwordRecoveryChanges =>
+      _recoveryState.stream;
+
+  @override
+  Future<void> completePasswordRecovery({required String newPassword}) async {
+    clearPasswordRecovery();
+  }
+
+  @override
+  Future<void> cancelPasswordRecovery() async {
+    clearPasswordRecovery();
+  }
 
   void emitStreamError(Object error) => _authState.addError(error);
 

@@ -75,6 +75,8 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
       return 'Enter your password to continue.';
     case 'missing-email':
       return 'Your account email could not be confirmed. Sign in again.';
+    case 'recovery-\u0073ession-required':
+      return 'This reset link is no longer available. Request a new password reset email.';
     default:
       return 'Authentication failed. Retry.';
   }
@@ -223,65 +225,99 @@ class _AuthGateState extends ConsumerState<AuthGate> {
           );
         }
 
-        return StreamBuilder<User?>(
-          stream: authService.authStateChanges(),
-          builder: (BuildContext context, AsyncSnapshot<User?> snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              if (allowMockAccess) {
-                return _AuthScreen(
-                  authService: authService,
-                  startupError: startupMessage,
-                  deepLinkMode: widget.deepLinkMode,
-                  onboardingLocation: onboardingLocation,
-                  enableMockLogin: true,
-                  onMockSignIn: _activatePrimaryMockSignIn,
-                  onSecondaryMockSignIn: _activateSecondaryMockSignIn,
-                );
-              }
-              return const _AuthLoadingShell();
-            }
-            if (snapshot.hasError) {
-              return _AuthStatusMessage(
-                title: 'Authentication unavailable',
-                message:
-                    'Auth service reported an error. Retry the connection.',
-                onRetry: _retryAuthInitialization,
-                retryEnabled: true,
-              );
-            }
+        final PasswordRecoveryAuth? recoveryAuth =
+            authService is PasswordRecoveryAuth
+            ? authService as PasswordRecoveryAuth
+            : null;
+        return StreamBuilder<PasswordRecoveryState>(
+          stream: recoveryAuth?.passwordRecoveryChanges,
+          initialData:
+              recoveryAuth?.passwordRecoveryState ??
+              const PasswordRecoveryState.inactive(),
+          builder: (context, recoverySnapshot) {
+            final PasswordRecoveryState recoveryState =
+                recoverySnapshot.data ?? const PasswordRecoveryState.inactive();
+            return StreamBuilder<User?>(
+              stream: authService.authStateChanges(),
+              initialData: authService.currentUser,
+              builder: (BuildContext context, AsyncSnapshot<User?> snapshot) {
+                final User? user = snapshot.data;
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    user == null &&
+                    !recoveryState.isPending) {
+                  if (allowMockAccess) {
+                    return _AuthScreen(
+                      authService: authService,
+                      startupError: startupMessage,
+                      deepLinkMode: widget.deepLinkMode,
+                      onboardingLocation: onboardingLocation,
+                      enableMockLogin: true,
+                      onMockSignIn: _activatePrimaryMockSignIn,
+                      onSecondaryMockSignIn: _activateSecondaryMockSignIn,
+                    );
+                  }
+                  return const _AuthLoadingShell();
+                }
+                if (snapshot.hasError) {
+                  return _AuthStatusMessage(
+                    title: 'Authentication unavailable',
+                    message:
+                        'Auth service reported an error. Retry the connection.',
+                    onRetry: _retryAuthInitialization,
+                    retryEnabled: true,
+                  );
+                }
 
-            final User? user = snapshot.data;
-            if (startupMessage != null && startupMessage.trim().isNotEmpty) {
-              return _AuthScreen(
-                authService: authService,
-                startupError: startupMessage,
-                deepLinkMode: widget.deepLinkMode,
-                onboardingLocation: onboardingLocation,
-                enableMockLogin: allowMockAccess,
-                onMockSignIn: _activatePrimaryMockSignIn,
-                onSecondaryMockSignIn: _activateSecondaryMockSignIn,
-              );
-            }
-            if (user == null) {
-              return _AuthScreen(
-                authService: authService,
-                startupError: startupMessage,
-                deepLinkMode: widget.deepLinkMode,
-                onboardingLocation: onboardingLocation,
-                enableMockLogin: allowMockAccess,
-                onMockSignIn: _activatePrimaryMockSignIn,
-                onSecondaryMockSignIn: _activateSecondaryMockSignIn,
-              );
-            }
-            if (!user.emailVerified) {
-              return _VerifyEmailScreen(
-                authService: authService,
-                email: user.email ?? '',
-              );
-            }
-            return _scopeIsReadyFor(accountScope, user.id)
-                ? widget.child
-                : const _AuthLoadingShell();
+                if (recoveryState.isPending && recoveryAuth != null) {
+                  return _AuthScreen(
+                    key: ValueKey<String>(
+                      'recovery-${recoveryState.userId}-${recoveryState.revision}',
+                    ),
+                    authService: authService,
+                    startupError: startupMessage,
+                    deepLinkMode: DeepLinkMode.recovery,
+                    onboardingLocation: onboardingLocation,
+                    enableMockLogin: false,
+                    onMockSignIn: _activatePrimaryMockSignIn,
+                    onSecondaryMockSignIn: _activateSecondaryMockSignIn,
+                    recoveryAuth: recoveryAuth,
+                    recoveryState: recoveryState,
+                  );
+                }
+                if (startupMessage != null &&
+                    startupMessage.trim().isNotEmpty) {
+                  return _AuthScreen(
+                    authService: authService,
+                    startupError: startupMessage,
+                    deepLinkMode: widget.deepLinkMode,
+                    onboardingLocation: onboardingLocation,
+                    enableMockLogin: allowMockAccess,
+                    onMockSignIn: _activatePrimaryMockSignIn,
+                    onSecondaryMockSignIn: _activateSecondaryMockSignIn,
+                  );
+                }
+                if (user == null) {
+                  return _AuthScreen(
+                    authService: authService,
+                    startupError: startupMessage,
+                    deepLinkMode: widget.deepLinkMode,
+                    onboardingLocation: onboardingLocation,
+                    enableMockLogin: allowMockAccess,
+                    onMockSignIn: _activatePrimaryMockSignIn,
+                    onSecondaryMockSignIn: _activateSecondaryMockSignIn,
+                  );
+                }
+                if (!user.emailVerified) {
+                  return _VerifyEmailScreen(
+                    authService: authService,
+                    email: user.email ?? '',
+                  );
+                }
+                return _scopeIsReadyFor(accountScope, user.id)
+                    ? widget.child
+                    : const _AuthLoadingShell();
+              },
+            );
           },
         );
       },
@@ -417,6 +453,7 @@ bool _scopeIsReadyFor(AccountStorageScope scope, String userId) {
 
 class _AuthScreen extends ConsumerStatefulWidget {
   const _AuthScreen({
+    super.key,
     required this.authService,
     required this.startupError,
     required this.deepLinkMode,
@@ -424,6 +461,8 @@ class _AuthScreen extends ConsumerStatefulWidget {
     required this.enableMockLogin,
     required this.onMockSignIn,
     required this.onSecondaryMockSignIn,
+    this.recoveryAuth,
+    this.recoveryState = const PasswordRecoveryState.inactive(),
   });
 
   final AuthServiceContract authService;
@@ -433,6 +472,8 @@ class _AuthScreen extends ConsumerStatefulWidget {
   final bool enableMockLogin;
   final VoidCallback onMockSignIn;
   final VoidCallback onSecondaryMockSignIn;
+  final PasswordRecoveryAuth? recoveryAuth;
+  final PasswordRecoveryState recoveryState;
 
   @override
   ConsumerState<_AuthScreen> createState() => _AuthScreenState();
@@ -450,7 +491,6 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
   bool _obscuredRecoveryConfirm = true;
   bool _signUpMode = false;
   bool _submitting = false;
-  bool _dismissRecoveryMode = false;
   bool _returningToWelcome = false;
 
   @override
@@ -476,7 +516,7 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final bool inRecoveryMode =
-        widget.deepLinkMode == DeepLinkMode.recovery && !_dismissRecoveryMode;
+        widget.recoveryState.isPending && widget.recoveryAuth != null;
     if (inRecoveryMode) {
       return _buildRecoveryScreen(context);
     }
@@ -557,7 +597,9 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
 
     if (mode == DeepLinkMode.recovery) {
       _showMessage(
-        'Password reset link received. Set your new password below.',
+        widget.recoveryState.isPending
+            ? 'Password reset verified. Set your new password below.'
+            : 'Reset link received. Secure verification is required; request a new email if this link has expired.',
       );
       return;
     }
@@ -689,159 +731,171 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       return;
     }
 
-    await widget.authService.updatePassword(newPassword: password);
-    final User? refreshedUser = await widget.authService.reloadCurrentUser();
-    if (!mounted) {
-      return;
-    }
-    if (refreshedUser != null) {
-      _showMessage('Password updated. Redirecting to your workspace...');
-      return;
-    }
-    setState(() => _dismissRecoveryMode = true);
-    _showMessage('Password updated. Sign in with your new password.');
+    final PasswordRecoveryAuth? recoveryAuth = widget.recoveryAuth;
+    if (recoveryAuth == null) throw recoverySessionRequired();
+    await recoveryAuth.completePasswordRecovery(newPassword: password);
+    if (!mounted) return;
+    _recoveryPasswordController.clear();
+    _recoveryConfirmController.clear();
+    _showMessage('Password updated.');
   }
 
   Widget _buildRecoveryScreen(BuildContext context) {
-    return _AuthGlassShell(
-      backgroundAssetPath: AppAssets.bgTemporalRecovery,
-      maxWidth: 620,
-      child: TemporalGlassSurface(
-        accent: AppColors.neonCyan,
-        opacity: 0.94,
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const TemporalStatusRow(
-              icon: Icons.link_rounded,
-              text: 'Recovery link accepted',
-              color: AppColors.neonCyan,
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'ACCOUNT RECOVERY',
-              style: TextStyle(
-                color: AppColors.neonViolet,
-                fontSize: AppSizes.fontBody,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
+    return PopScope<Object?>(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? _) {
+        if (!didPop) unawaited(_runAuthAction(_cancelRecovery));
+      },
+      child: _AuthGlassShell(
+        backgroundAssetPath: AppAssets.bgTemporalRecovery,
+        maxWidth: 620,
+        child: TemporalGlassSurface(
+          accent: AppColors.neonCyan,
+          opacity: 0.94,
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const TemporalStatusRow(
+                icon: Icons.link_rounded,
+                text: 'Recovery link accepted',
+                color: AppColors.neonCyan,
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Choose a new password',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0,
+              const SizedBox(height: 18),
+              const Text(
+                'ACCOUNT RECOVERY',
+                style: TextStyle(
+                  color: AppColors.neonViolet,
+                  fontSize: AppSizes.fontBody,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Set a new strong password for your ChronoSpark account.',
-              style: TextStyle(color: Colors.white70, height: 1.45),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _recoveryPasswordController,
-              obscureText: _obscuredRecoveryPassword,
-              enableSuggestions: false,
-              autocorrect: false,
-              style: const TextStyle(color: Colors.white, letterSpacing: 0),
-              decoration: _authFieldDecoration(
-                label: 'New Password',
-                icon: Icons.key_rounded,
-                accent: AppColors.neonCyan,
-                trailing: IconButton(
-                  tooltip: _obscuredRecoveryPassword
-                      ? 'Show password'
-                      : 'Hide password',
-                  constraints: const BoxConstraints.tightFor(
-                    width: AppSizes.touchTarget,
-                    height: AppSizes.touchTarget,
-                  ),
-                  onPressed: () => setState(
-                    () =>
-                        _obscuredRecoveryPassword = !_obscuredRecoveryPassword,
-                  ),
-                  icon: Icon(
-                    _obscuredRecoveryPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
+              const SizedBox(height: 6),
+              Text(
+                'Choose a new password',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Set a new strong password for your ChronoSpark account.',
+                style: TextStyle(color: Colors.white70, height: 1.45),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _recoveryPasswordController,
+                obscureText: _obscuredRecoveryPassword,
+                enableSuggestions: false,
+                autocorrect: false,
+                style: const TextStyle(color: Colors.white, letterSpacing: 0),
+                decoration: _authFieldDecoration(
+                  label: 'New Password',
+                  icon: Icons.key_rounded,
+                  accent: AppColors.neonCyan,
+                  trailing: IconButton(
+                    tooltip: _obscuredRecoveryPassword
+                        ? 'Show password'
+                        : 'Hide password',
+                    constraints: const BoxConstraints.tightFor(
+                      width: AppSizes.touchTarget,
+                      height: AppSizes.touchTarget,
+                    ),
+                    onPressed: () => setState(
+                      () => _obscuredRecoveryPassword =
+                          !_obscuredRecoveryPassword,
+                    ),
+                    icon: Icon(
+                      _obscuredRecoveryPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _recoveryConfirmController,
-              obscureText: _obscuredRecoveryConfirm,
-              enableSuggestions: false,
-              autocorrect: false,
-              style: const TextStyle(color: Colors.white, letterSpacing: 0),
-              decoration: _authFieldDecoration(
-                label: 'Confirm Password',
-                icon: Icons.key_rounded,
-                accent: AppColors.neonViolet,
-                trailing: IconButton(
-                  tooltip: _obscuredRecoveryConfirm
-                      ? 'Show password confirmation'
-                      : 'Hide password confirmation',
-                  constraints: const BoxConstraints.tightFor(
-                    width: AppSizes.touchTarget,
-                    height: AppSizes.touchTarget,
-                  ),
-                  onPressed: () => setState(
-                    () => _obscuredRecoveryConfirm = !_obscuredRecoveryConfirm,
-                  ),
-                  icon: Icon(
-                    _obscuredRecoveryConfirm
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
+              const SizedBox(height: 14),
+              TextField(
+                controller: _recoveryConfirmController,
+                obscureText: _obscuredRecoveryConfirm,
+                enableSuggestions: false,
+                autocorrect: false,
+                style: const TextStyle(color: Colors.white, letterSpacing: 0),
+                decoration: _authFieldDecoration(
+                  label: 'Confirm Password',
+                  icon: Icons.key_rounded,
+                  accent: AppColors.neonViolet,
+                  trailing: IconButton(
+                    tooltip: _obscuredRecoveryConfirm
+                        ? 'Show password confirmation'
+                        : 'Hide password confirmation',
+                    constraints: const BoxConstraints.tightFor(
+                      width: AppSizes.touchTarget,
+                      height: AppSizes.touchTarget,
+                    ),
+                    onPressed: () => setState(
+                      () =>
+                          _obscuredRecoveryConfirm = !_obscuredRecoveryConfirm,
+                    ),
+                    icon: Icon(
+                      _obscuredRecoveryConfirm
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 18),
-            const TemporalDivider(color: AppColors.neonViolet),
-            const SizedBox(height: 18),
-            TemporalActionButton(
-              label: 'Update Password',
-              icon: Icons.verified_user_outlined,
-              onPressed: _submitting
-                  ? null
-                  : () => _runAuthAction(_handleRecoveryUpdatePassword),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.neonCyan,
-                  minimumSize: const Size.fromHeight(AppSizes.touchTarget),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+              const SizedBox(height: 18),
+              const TemporalDivider(color: AppColors.neonViolet),
+              const SizedBox(height: 18),
+              TemporalActionButton(
+                label: 'Update Password',
+                icon: Icons.verified_user_outlined,
                 onPressed: _submitting
                     ? null
-                    : () => setState(() => _dismissRecoveryMode = true),
-                icon: const Icon(Icons.arrow_back_rounded),
-                label: const Text('Back to Sign In'),
+                    : () => _runAuthAction(_handleRecoveryUpdatePassword),
               ),
-            ),
-            const SizedBox(height: 8),
-            const TemporalStatusRow(
-              icon: Icons.shield_outlined,
-              text:
-                  'ChronoSpark never displays or stores your password in readable form.',
-            ),
-          ],
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.neonCyan,
+                    minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: _submitting
+                      ? null
+                      : () => _runAuthAction(_cancelRecovery),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  label: const Text('Back to Sign In'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const TemporalStatusRow(
+                icon: Icons.shield_outlined,
+                text:
+                    'ChronoSpark never displays or stores your password in readable form.',
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _cancelRecovery() async {
+    final PasswordRecoveryAuth? recoveryAuth = widget.recoveryAuth;
+    if (recoveryAuth == null) throw recoverySessionRequired();
+    await recoveryAuth.cancelPasswordRecovery();
+    if (!mounted) return;
+    _recoveryPasswordController.clear();
+    _recoveryConfirmController.clear();
   }
 
   Future<void> _runAuthAction(Future<void> Function() action) async {
