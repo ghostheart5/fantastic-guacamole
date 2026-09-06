@@ -7,7 +7,7 @@ $output = Join-Path $source 'test-results/hosted-campaign'
 if (Test-Path -LiteralPath $output) { throw 'Evidence directory already exists' }
 New-Item -ItemType Directory -Path $output | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $output 'controls') | Out-Null
-foreach ($control in @('run_campaign.ps1','verify_campaign.py','baseline.json','expanded.json')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $control) -Destination (Join-Path $output 'controls') }
+foreach ($control in @('run_campaign.ps1','verify_campaign.py','baseline.json','expanded.json','run_journeys.ps1','prepare_flow.py')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $control) -Destination (Join-Path $output 'controls') }
 $manifest = [ordered]@{schemaVersion=1; status='running'; sourceCommit=$expected; harnessCommit=$env:GITHUB_SHA; runId=$env:GITHUB_RUN_ID; attempt=$env:GITHUB_RUN_ATTEMPT; startedAt=(Get-Date).ToUniversalTime().ToString('o'); steps=@(); apk=$null; error=$null; finishedAt=$null; sourceCleanAfter=$false}
 $exitCode = 1
 function Save-Manifest { $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $output 'campaign-manifest.json') -Encoding utf8 }
@@ -35,7 +35,7 @@ try {
   & adb -s emulator-5554 shell cat /proc/meminfo | Set-Content -LiteralPath (Join-Path $output 'guest-memory.txt')
   & free -m | Set-Content -LiteralPath (Join-Path $output 'host-memory.txt')
   Save-Manifest
-  Run-Stage 'journeys' @('-File','./scripts/run_maestro_android_evidence.ps1','-Suite','qa-journeys','-BuildProfile','qa','-DeviceSerial','emulator-5554','-ExpectedCommit',$expected,'-ExecutionTimeoutSeconds','2400','-KeepRawLogcat','-ArtifactsRoot','test-results/hosted-campaign/maestro')
+  Run-Stage 'journeys' @('-File',(Join-Path $PSScriptRoot 'run_journeys.ps1'),'-SourceRoot',$source)
   $apk = Join-Path $source 'build/app/outputs/flutter-apk/app-debug.apk'
   $hash = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
   Copy-Item -LiteralPath $apk -Destination (Join-Path $output 'qa.apk')

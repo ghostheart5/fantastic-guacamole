@@ -72,6 +72,16 @@ def verify(root, controls):
     apk = root / 'qa.apk'
     apk_hash = digest(apk)
     require(apk_hash == m['apk']['sha256'] and apk.stat().st_size == m['apk']['bytes'], 'Retained APK mismatch')
+    require(apk_hash == 'af2f8d4ffb8b2af3e80f4b06b873ed4b40d3fb5e333af35bf1c8e53cad899d38', 'Recheck did not retain original hosted APK')
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('campaign_flow_preparation', controls / 'prepare_flow.py')
+    preparation = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(preparation)
+    original = (root / 'controls/original-priority8-learned-lifecycle.yaml').read_text(encoding='utf-8')
+    executed = (root / 'controls/executed-priority8-learned-lifecycle.yaml').read_text(encoding='utf-8')
+    require(executed == preparation.adjusted(original), 'Execution flow has unexpected changes')
+    override = read(root / 'flow-override.json')
+    require(override['originalCanonicalSha256'] == preparation.digest(original) and override['executionCanonicalSha256'] == preparation.digest(executed), 'Flow override receipt mismatch')
     result = {'status':'passed', 'sourceCommit':SOURCE, 'harnessCommit':m['harnessCommit'], 'runId':m['runId'], 'attempt':m['attempt'], 'apkSha256':apk_hash}
     result['journeys'] = maestro(root / 'maestro', FLOWS, apk_hash)
     result['baselineMonkey'] = monkey(root / 'baseline-monkey', read(controls / 'baseline.json'), apk_hash)

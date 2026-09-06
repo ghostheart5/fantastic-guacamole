@@ -1,10 +1,11 @@
-name: ChronoSpark Hosted Full Android Campaign
+name: ChronoSpark Hosted Android Recheck
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: chronospark-full-android-${{ github.ref }}
@@ -88,6 +89,18 @@ jobs:
           echo "$install_root/maestro/bin" >> "$GITHUB_PATH"
           "$install_root/maestro/bin/maestro" --version
 
+      - name: Download and verify the exact retained QA APK
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 34058223627 --repo ghostheart5/fantastic-guacamole \
+            --name chronospark-full-android-34058223627-1 --dir "$RUNNER_TEMP/prior-campaign"
+          mkdir -p build/app/outputs/flutter-apk
+          cp "$RUNNER_TEMP/prior-campaign/qa.apk" build/app/outputs/flutter-apk/app-debug.apk
+          echo "af2f8d4ffb8b2af3e80f4b06b873ed4b40d3fb5e333af35bf1c8e53cad899d38  build/app/outputs/flutter-apk/app-debug.apk" | sha256sum --check --strict
+
       - name: Enable and verify hardware acceleration
         timeout-minutes: 2
         run: |
@@ -103,7 +116,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 35
-          target: google_apis
+          target: google_atd
           arch: x86_64
           profile: pixel_6
           cores: 2
