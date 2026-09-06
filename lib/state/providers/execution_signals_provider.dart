@@ -79,6 +79,7 @@ final executionSignalsProvider = Provider<ExecutionSignals>((Ref ref) {
 
   for (final LogEntryEntity entry in entries) {
     final DateTime ts = entry.timestamp;
+    if (ts.isAfter(now)) continue;
     final String source = entry.source.trim().toLowerCase();
 
     final bool inToday = _isSameLocalDay(ts, now);

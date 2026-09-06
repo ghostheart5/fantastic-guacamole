@@ -154,6 +154,9 @@ class CreatorScreen extends ConsumerWidget {
                       initialDraftId: plannerDraft?.id,
                       initialTitle: plannerDraft?.title,
                       initialDescription: plannerDraft?.description,
+                      initialEstimatedDuration: plannerDraft == null
+                          ? null
+                          : Duration(minutes: plannerDraft.estimatedMinutes),
                       submitLabel: 'REVIEW CHANGES',
                       clearAfterSubmit: false,
                       guidedFirstTask: guidedFirstTask,

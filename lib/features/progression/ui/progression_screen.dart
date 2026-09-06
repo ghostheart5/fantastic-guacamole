@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
@@ -553,6 +554,20 @@ class _ProgressSignalsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final signals = ref.watch(progressSignalsProvider);
+    final execution = ref.watch(executionSignalsProvider);
+    final String followThrough = execution.actioned7d == 0
+        ? 'Not enough evidence'
+        : '${(execution.completionRate7d * 100).round()}% completed';
+    final double? trend = execution.actioned7d == 0
+        ? null
+        : execution.completionTrendDelta;
+    final String direction = trend == null
+        ? 'Not enough history'
+        : trend >= 0.1
+        ? 'Improving'
+        : trend <= -0.1
+        ? 'Declining'
+        : 'Steady';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,13 +595,24 @@ class _ProgressSignalsCard extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
-        _SignalRow(label: 'Follow-through', value: signals.momentum),
+        _SignalRow(label: 'Follow-through', value: followThrough),
         const SizedBox(height: 10),
         _SignalRow(label: 'Planning reliability', value: signals.consistency),
         const SizedBox(height: 10),
         _SignalRow(label: 'Recovery load', value: signals.load),
         const SizedBox(height: 10),
-        _SignalRow(label: 'Recent direction', value: signals.direction),
+        _SignalRow(label: 'Recent direction', value: direction),
+        const SizedBox(height: 12),
+        Text(
+          '${execution.completed7d} of ${execution.actioned7d} recorded outcomes '
+          'completed in the last 7 days. Direction compares that rate with '
+          'the previous 7 days.',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            height: 1.45,
+          ),
+        ),
       ],
     );
   }
@@ -602,14 +628,17 @@ class _SignalRow extends StatelessWidget {
       case 'High':
       case 'On Track':
       case 'Light':
+      case 'Improving':
         return AppColors.neonCyan;
       case 'Medium':
       case 'Balanced':
       case 'Slightly Off':
+      case 'Steady':
         return AppColors.memoryAmber;
       case 'Low':
       case 'Heavy':
       case 'Off Track':
+      case 'Declining':
         return AppColors.recallRed;
       default:
         return Colors.white70;
@@ -633,13 +662,16 @@ class _SignalRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          value,
-          style: TextStyle(
-            color: _valueColor(),
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              color: _valueColor(),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
           ),
         ),
       ],
@@ -653,6 +685,7 @@ class _NarrativeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final narrative = ref.watch(narrativeProvider);
+    final execution = ref.watch(executionSignalsProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -677,7 +710,13 @@ class _NarrativeCard extends ConsumerWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          narrative.trajectory,
+          execution.actioned7d == 0
+              ? 'No completed, skipped, or delayed outcomes were recorded in '
+                    'the last 7 days. Your next recorded action will help '
+                    'establish a baseline.'
+              : '${execution.completed7d} of ${execution.actioned7d} recorded '
+                    'outcomes completed in the last 7 days. Each recorded '
+                    'outcome adds to your follow-through evidence.',
           style: const TextStyle(
             color: Color(0xFFC6D0E2),
             fontSize: 13,
@@ -850,9 +889,8 @@ class _XpProgressChartCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final history = ref.watch(learningHistorySnapshotsProvider);
-    final List<_ProgressPoint> points = _buildProgressPoints(history);
-    final int start = points.isEmpty ? 0 : points.first.completed;
+    final logs = ref.watch(logsProvider);
+    final List<_ProgressPoint> points = _buildProgressPoints(logs.entries);
     final int end = points.isEmpty ? 0 : points.last.completed;
 
     return Column(
@@ -870,7 +908,7 @@ class _XpProgressChartCard extends ConsumerWidget {
         const SizedBox(height: 8),
         if (points.isNotEmpty) ...[
           Text(
-            'Last ${points.length} checkpoints • ${end - start >= 0 ? '+' : ''}${end - start} completed',
+            'Last 30 days • $end completed',
             style: const TextStyle(
               color: Color(0xFFC6D0E2),
               fontSize: 12,
@@ -880,19 +918,23 @@ class _XpProgressChartCard extends ConsumerWidget {
           const SizedBox(height: 12),
         ],
         if (points.isEmpty)
-          const Row(
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
+              const Icon(
                 Icons.show_chart_rounded,
                 color: AppColors.memoryAmber,
                 size: 20,
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Your momentum trend will appear after you complete an item.',
-                  style: TextStyle(
+                  logs.isLoading
+                      ? 'Loading completion history...'
+                      : logs.error != null
+                      ? 'Completion history is unavailable right now.'
+                      : 'No completions were recorded in the last 30 days.',
+                  style: const TextStyle(
                     color: Color(0xFFD7DFF0),
                     fontSize: 13,
                     height: 1.45,
@@ -913,9 +955,7 @@ class _XpProgressChartCard extends ConsumerWidget {
     );
   }
 
-  List<_ProgressPoint> _buildProgressPoints(
-    List<LearningHistorySnapshot> history,
-  ) {
+  List<_ProgressPoint> _buildProgressPoints(List<LogEntryEntity> history) {
     final DateTime now = DateTime.now();
     final DateTime windowStart = DateTime(
       now.year,
@@ -924,20 +964,24 @@ class _XpProgressChartCard extends ConsumerWidget {
     ).subtract(const Duration(days: 29));
     final Map<String, int> completedByDay = <String, int>{};
 
-    for (final LearningHistorySnapshot entry in history) {
-      final DateTime timestamp = entry.timestamp;
+    for (final LogEntryEntity entry in history) {
+      final String source = entry.source.trim().toLowerCase();
+      if (source != 'task_completed' &&
+          source != 'completed_task' &&
+          source != 'goal_completed') {
+        continue;
+      }
+      final DateTime timestamp = entry.timestamp.toLocal();
       final DateTime day = DateTime(
         timestamp.year,
         timestamp.month,
         timestamp.day,
       );
-      if (day.isBefore(windowStart)) {
+      if (day.isBefore(windowStart) || timestamp.isAfter(now)) {
         continue;
       }
       final String key = day.toIso8601String().split('T').first;
-      final int completed = entry.completed;
-      final int existing = completedByDay[key] ?? 0;
-      completedByDay[key] = math.max(existing, completed);
+      completedByDay[key] = (completedByDay[key] ?? 0) + 1;
     }
 
     if (completedByDay.isEmpty) return <_ProgressPoint>[];
@@ -950,7 +994,7 @@ class _XpProgressChartCard extends ConsumerWidget {
     int lastCompleted = 0;
     for (final MapEntry<String, int> entry in sorted) {
       final DateTime day = DateTime.parse(entry.key);
-      lastCompleted = math.max(lastCompleted, entry.value);
+      lastCompleted += entry.value;
       points.add(_ProgressPoint(day, lastCompleted));
     }
 

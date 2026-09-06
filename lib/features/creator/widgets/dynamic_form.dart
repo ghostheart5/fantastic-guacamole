@@ -25,6 +25,7 @@ class DynamicForm extends StatefulWidget {
     this.initialDraftId,
     this.initialTitle,
     this.initialDescription,
+    this.initialEstimatedDuration,
     this.submitLabel,
     this.clearAfterSubmit = true,
   });
@@ -42,6 +43,7 @@ class DynamicForm extends StatefulWidget {
   final String? initialDraftId;
   final String? initialTitle;
   final String? initialDescription;
+  final Duration? initialEstimatedDuration;
   final String? submitLabel;
   final bool clearAfterSubmit;
 
@@ -103,6 +105,7 @@ class _DynamicFormState extends State<DynamicForm> {
       if (oldWidget.initialDraftId != null && widget.initialDraftId == null) {
         _appliedDraftId = null;
         _replaceDraftText(title: '', description: '');
+        _estimatedDuration = const Duration(minutes: 30);
       } else {
         _applyDraftIfNeeded();
       }
@@ -113,6 +116,8 @@ class _DynamicFormState extends State<DynamicForm> {
     final String? draftId = widget.initialDraftId;
     if (draftId == null || draftId == _appliedDraftId) return;
     _appliedDraftId = draftId;
+    _estimatedDuration =
+        widget.initialEstimatedDuration ?? const Duration(minutes: 30);
     _replaceDraftText(
       title: widget.initialTitle?.trim() ?? '',
       description: widget.initialDescription?.trim() ?? '',
@@ -318,7 +323,12 @@ class _DynamicFormState extends State<DynamicForm> {
     const _FieldLabel(text: 'ESTIMATED DURATION'),
     const SizedBox(height: 8),
     _EstimatePicker(
-      estimates: _estimates,
+      estimates: <Duration>{
+        ..._estimates,
+        if (widget.initialEstimatedDuration != null)
+          widget.initialEstimatedDuration!,
+        _estimatedDuration,
+      }.toList()..sort(),
       selected: _estimatedDuration,
       onChanged: (Duration value) {
         setState(() => _estimatedDuration = value);

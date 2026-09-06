@@ -277,6 +277,7 @@ void main() {
               initialDraftId: 'planner-draft-1',
               initialTitle: 'Review one release decision',
               initialDescription: 'Transient Planner preview.',
+              initialEstimatedDuration: const Duration(minutes: 20),
               onSubmit: (CreatorFormData data) async => submitted = data,
             ),
           ),
@@ -308,7 +309,69 @@ void main() {
     await tester.tap(find.text('CREATE TASK'));
     await tester.pump();
     expect(submitted?.title, 'Review one release decision');
+    expect(submitted?.estimatedDuration, const Duration(minutes: 20));
   });
+
+  testWidgets(
+    'Planner estimate respects edits, draft replacement, and discard',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(900, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      String? draftId = 'first-plan';
+      int minutes = 20;
+      late StateSetter rebuild;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return SingleChildScrollView(
+                  child: DynamicForm(
+                    initialDraftId: draftId,
+                    initialTitle: 'Review the estimate',
+                    initialEstimatedDuration: draftId == null
+                        ? null
+                        : Duration(minutes: minutes),
+                    onSubmit: (_) async {},
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      final picker = find.byKey(const Key('creator-task-estimate'));
+      Duration? estimate() =>
+          tester.widget<DropdownButton<Duration>>(picker).value;
+      expect(estimate(), const Duration(minutes: 20));
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('45 minutes').last);
+      await tester.pumpAndSettle();
+      rebuild(() {});
+      await tester.pump();
+      expect(estimate(), const Duration(minutes: 45));
+      expect(
+        tester
+            .widget<DropdownButton<Duration>>(picker)
+            .items!
+            .where((item) => item.value == const Duration(minutes: 20)),
+        hasLength(1),
+      );
+      rebuild(() {
+        draftId = 'smaller-plan';
+        minutes = 7;
+      });
+      await tester.pump();
+      expect(estimate(), const Duration(minutes: 7));
+      rebuild(() => draftId = null);
+      await tester.pump();
+      expect(estimate(), const Duration(minutes: 30));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('removing a Planner preview clears its transient prefill', (
     WidgetTester tester,
