@@ -948,6 +948,7 @@ class _XpProgressChartCard extends ConsumerWidget {
             height: 110,
             width: double.infinity,
             child: CustomPaint(
+              key: const ValueKey('progression_completion_chart'),
               painter: _ProgressLineChartPainter(points: points),
             ),
           ),
@@ -1033,6 +1034,9 @@ class _ProgressLineChartPainter extends CustomPainter {
     }
 
     if (points.length < 2) {
+      if (points.isNotEmpty) {
+        canvas.drawCircle(size.center(Offset.zero), 3.5, dotPaint);
+      }
       return;
     }
 

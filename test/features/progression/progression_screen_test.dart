@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/logs_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -126,6 +127,41 @@ void main() {
     expect(find.textContaining('Rebuilding the habit'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  for (final int completionCount in <int>[1, 2]) {
+    testWidgets(
+      'paints a visible chart marker for $completionCount same-day completions',
+      (WidgetTester tester) async {
+        final DateTime now = DateTime.now();
+        await pumpProgression(
+          tester,
+          trajectory: _emptyTrajectory,
+          learningHistorySnapshots: const [],
+          savedLogs: [
+            for (int i = 0; i < completionCount; i++)
+              LogEntryEntity(
+                id: 'same-day-$i',
+                source: 'task_completed',
+                message: 'Saved completion',
+                timestamp: DateTime(now.year, now.month, now.day),
+              ),
+          ],
+        );
+
+        expect(
+          find.text('Last 30 days • $completionCount completed'),
+          findsOneWidget,
+        );
+        expect(
+          tester.renderObject(
+            find.byKey(const ValueKey('progression_completion_chart')),
+          ),
+          paints..circle(color: AppColors.neonCyan),
+          reason: 'One recorded day must still have a visible data marker.',
+        );
+      },
+    );
+  }
 
   testWidgets('fits a compact Pixel-width viewport without overflow', (
     WidgetTester tester,
