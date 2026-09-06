@@ -370,35 +370,37 @@ class _PersonContextSection extends ConsumerWidget {
                         const SizedBox(height: 8),
                         Text(copy.beforeOptIn),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<PersonContextKind>(
-                          key: const Key('person-context-kind'),
-                          initialValue: kind,
-                          decoration: InputDecoration(labelText: copy.type),
-                          items:
-                              <PersonContextKind>[
-                                    ..._aboutYouKinds,
-                                    ..._rightNowKinds,
-                                  ]
-                                  .map(
-                                    (PersonContextKind value) =>
-                                        DropdownMenuItem(
-                                          value: value,
-                                          child: Text(copy.kindLabel(value)),
-                                        ),
-                                  )
-                                  .toList(growable: false),
-                          onChanged: (PersonContextKind? value) {
-                            if (value != null) {
-                              setState(() {
-                                kind = value;
-                                selected.retainAll(
-                                  allowedPersonContextSurfacesFor(
-                                    _purposeFor(value),
-                                  ),
-                                );
-                              });
-                            }
-                          },
+                        DropdownRouteKeyboardGuard(
+                          child: DropdownButtonFormField<PersonContextKind>(
+                            key: const Key('person-context-kind'),
+                            initialValue: kind,
+                            decoration: InputDecoration(labelText: copy.type),
+                            items:
+                                <PersonContextKind>[
+                                      ..._aboutYouKinds,
+                                      ..._rightNowKinds,
+                                    ]
+                                    .map(
+                                      (PersonContextKind value) =>
+                                          DropdownMenuItem(
+                                            value: value,
+                                            child: Text(copy.kindLabel(value)),
+                                          ),
+                                    )
+                                    .toList(growable: false),
+                            onChanged: (PersonContextKind? value) {
+                              if (value != null) {
+                                setState(() {
+                                  kind = value;
+                                  selected.retainAll(
+                                    allowedPersonContextSurfacesFor(
+                                      _purposeFor(value),
+                                    ),
+                                  );
+                                });
+                              }
+                            },
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(

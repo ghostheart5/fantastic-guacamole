@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
@@ -842,23 +843,25 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          DropdownButtonFormField<int>(
-                            key: const Key('planner-memory-expiry'),
-                            initialValue: retentionDays,
-                            decoration: InputDecoration(
-                              labelText: copy.deleteAfter,
+                          DropdownRouteKeyboardGuard(
+                            child: DropdownButtonFormField<int>(
+                              key: const Key('planner-memory-expiry'),
+                              initialValue: retentionDays,
+                              decoration: InputDecoration(
+                                labelText: copy.deleteAfter,
+                              ),
+                              items: <DropdownMenuItem<int>>[
+                                for (final int days in <int>[30, 90, 180, 365])
+                                  DropdownMenuItem(
+                                    value: days,
+                                    child: Text(copy.retentionLabel(days)),
+                                  ),
+                              ],
+                              onChanged: (int? value) {
+                                if (value == null) return;
+                                setDialogState(() => retentionDays = value);
+                              },
                             ),
-                            items: <DropdownMenuItem<int>>[
-                              for (final int days in <int>[30, 90, 180, 365])
-                                DropdownMenuItem(
-                                  value: days,
-                                  child: Text(copy.retentionLabel(days)),
-                                ),
-                            ],
-                            onChanged: (int? value) {
-                              if (value == null) return;
-                              setDialogState(() => retentionDays = value);
-                            },
                           ),
                           const SizedBox(height: 12),
                           Container(

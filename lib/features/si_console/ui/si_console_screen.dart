@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -262,27 +263,31 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   children: <Widget>[
                     Text(copy.reportDisclosure),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<AiContentReportReason>(
-                      initialValue: selected,
-                      decoration: InputDecoration(labelText: copy.reasonLabel),
-                      items:
-                          <AiContentReportReason>[
-                                AiContentReportReason.unsafe,
-                                AiContentReportReason.inaccurate,
-                                AiContentReportReason.privacy,
-                                AiContentReportReason.other,
-                              ]
-                              .map(
-                                (AiContentReportReason option) =>
-                                    DropdownMenuItem<AiContentReportReason>(
-                                      value: option,
-                                      child: Text(copy.reportReason(option)),
-                                    ),
-                              )
-                              .toList(growable: false),
-                      onChanged: (AiContentReportReason? value) {
-                        if (value != null) setState(() => selected = value);
-                      },
+                    DropdownRouteKeyboardGuard(
+                      child: DropdownButtonFormField<AiContentReportReason>(
+                        initialValue: selected,
+                        decoration: InputDecoration(
+                          labelText: copy.reasonLabel,
+                        ),
+                        items:
+                            <AiContentReportReason>[
+                                  AiContentReportReason.unsafe,
+                                  AiContentReportReason.inaccurate,
+                                  AiContentReportReason.privacy,
+                                  AiContentReportReason.other,
+                                ]
+                                .map(
+                                  (AiContentReportReason option) =>
+                                      DropdownMenuItem<AiContentReportReason>(
+                                        value: option,
+                                        child: Text(copy.reportReason(option)),
+                                      ),
+                                )
+                                .toList(growable: false),
+                        onChanged: (AiContentReportReason? value) {
+                          if (value != null) setState(() => selected = value);
+                        },
+                      ),
                     ),
                   ],
                 ),

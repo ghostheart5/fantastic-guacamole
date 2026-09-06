@@ -1,0 +1,97 @@
+{
+  "baseCommit": "43b7065507e41f11e6cb31628f928e985e4307d2",
+  "files": [
+    {
+      "path": "lib/features/creator/widgets/dynamic_form.dart",
+      "canonicalSha256": "ddc0aea22256754b4d83b3d0da30d1d171b4632470c610dc1123b16be8d07520"
+    },
+    {
+      "path": "lib/features/goals/ui/goals_screen.dart",
+      "canonicalSha256": "623192a1a9a5f141a21b5b36aec310ab39f2439f91ce6169f95140bca2a3739f"
+    },
+    {
+      "path": "lib/features/home/ui/smart_planner_screen.dart",
+      "canonicalSha256": "b837095f15f5fd019ce8f8fe78b2fa044acd7300159135e62b7cbd6c69a0caeb"
+    },
+    {
+      "path": "lib/features/settings/ui/settings_screen.dart",
+      "canonicalSha256": "332826859b1b710354a6a23e6b8e2b375e1f1a72a886407d5246eb2845342c91"
+    },
+    {
+      "path": "lib/features/settings/ui/settings_screen.data_sections.dart",
+      "canonicalSha256": "b39feec54ea7a8b5548494ac3ff0afc78bcbe5b4f2da2903024dcf0403b2ec85"
+    },
+    {
+      "path": "lib/features/settings/ui/settings_screen.governance_sections.dart",
+      "canonicalSha256": "d7fe8769a869a0bc73a71e529bffd5e3aa50382d0b4fcadab225c482ff927de6"
+    },
+    {
+      "path": "lib/features/settings/ui/settings_screen.person_context.dart",
+      "canonicalSha256": "2ea8955e4fd0f9f8e9d81dd16490b6770cb0de298f9bdf3f51b70c8b3d91b4b0"
+    },
+    {
+      "path": "lib/features/si_console/ui/si_console_screen.dart",
+      "canonicalSha256": "4cc6aa7bfda1075c1da4190fa563b86ae4df5dd1eaaaa6c724bf612d81613f0c"
+    },
+    {
+      "path": "lib/features/timeline/ui/timeline_screen.dart",
+      "canonicalSha256": "1c23a95c7e5ed6055794e8abdf1f45be1d376ab7faf0932b24b64540c7b6e66d"
+    },
+    {
+      "path": "lib/features/timeline/ui/timeline_screen.widgets.dart",
+      "canonicalSha256": "d06729a92b4e3ca9e9af05d7f792698cd2ad7e4059b9d65959ae84cf96e2b0bb"
+    },
+    {
+      "path": "lib/features/trajectory_engine/ui/trajectory_engine_screen.dart",
+      "canonicalSha256": "ab758cf34ee773598a7baeb0ca2e60c268636ad891e2391974e365d4f3873149"
+    },
+    {
+      "path": "lib/features/trajectory_engine/ui/trajectory_engine_screen.overview.dart",
+      "canonicalSha256": "beb2acc0948f4824c00fa3876e00555498b3208b36a429873729d3445476ff58"
+    },
+    {
+      "path": "lib/ui/widgets/dropdown_route_keyboard_guard.dart",
+      "canonicalSha256": "8a85f254e4eb973bd956d6a74bf2b33fd6b041439fe7ac634587a88684f22904"
+    },
+    {
+      "path": "lib/ui/widgets/text_controller_scope.dart",
+      "canonicalSha256": "fc2df4fcdb69169c778cc43958ff9d88699db76f91d4a3c76097835bbec873fe"
+    },
+    {
+      "path": "scripts/android_runtime_fatal_patterns.ps1",
+      "canonicalSha256": "bfe4b33d1b29920ccd99f166792ee2a3c8e80a3ec1a44b92038c1dfd64929afc"
+    },
+    {
+      "path": "scripts/run_android_monkey_matrix.ps1",
+      "canonicalSha256": "4d0280658d5cba6c6b94859a9234ccdb194267b43c2cdfa51a50080dd8cb3617"
+    },
+    {
+      "path": "test/features/goals/goals_screen_test.dart",
+      "canonicalSha256": "a24f0ff75e3b9f17ae4e7de489cbae58733961be02f679a29a55a9ae6327f72a"
+    },
+    {
+      "path": "test/features/home/smart_planner_screen_test.dart",
+      "canonicalSha256": "a6d5a7961dcb075c3fbc2afd11c381fd600b76c18ec3e61707cff0345a8e953e"
+    },
+    {
+      "path": "test/release/android_monkey_runner_contract_test.dart",
+      "canonicalSha256": "5ce19cdfb7b8ef8411baeda278b7304ead37877e0313907f3fb213afafd62da3"
+    },
+    {
+      "path": "test/release/android_runtime_fatal_scanner_test.dart",
+      "canonicalSha256": "4c81c97924bc38ea708e67cb57da857358fe8f1cc1faa19ed89120d4f868eeb8"
+    },
+    {
+      "path": "test/release/fixtures/android_runtime_fatal_scanner_fixture.ps1",
+      "canonicalSha256": "d3b950f1dc982493706d9a9002b3e9d4c63a328711f987bb8fd8bdcd64b62d66"
+    },
+    {
+      "path": "test/ui/widgets/dropdown_route_keyboard_guard_test.dart",
+      "canonicalSha256": "06c752acc3bf3fb78112157c0bfc5b787cd52d4fce6f02e216b4ee63d51c7745"
+    },
+    {
+      "path": "test/ui/widgets/text_controller_scope_test.dart",
+      "canonicalSha256": "749821beb6d801efed4df496c97f96a1f63f669c76234185d8ced0258150afed"
+    }
+  ]
+}
