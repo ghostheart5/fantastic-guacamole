@@ -1,35 +1,52 @@
-name: Maestro Runtime Gate
+name: ChronoSpark Hosted Full Android Campaign
 
 on:
-  workflow_call:
-  push:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: maestro-runtime-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: chronospark-full-android-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   runtime:
-    name: Exact-build QA smoke
+    name: Frozen app journeys and staged stress
     runs-on: ubuntu-24.04
-    timeout-minutes: 85
+    timeout-minutes: 150
+    defaults:
+      run:
+        working-directory: app
+    env:
+      SOURCE_COMMIT: '43b7065507e41f11e6cb31628f928e985e4307d2'
+      MAESTRO_CLI_NO_ANALYTICS: '1'
+      MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED: 'true'
+      GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs=-Xmx2048m'
     steps:
-      - name: Checkout exact source
+      - name: Checkout frozen application source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          fetch-depth: 0
+          ref: '43b7065507e41f11e6cb31628f928e985e4307d2'
+          path: app
+          fetch-depth: 1
           persist-credentials: false
 
-      - name: Verify exact source commit
+      - name: Checkout campaign controls separately
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: harness
+          sparse-checkout: .github/campaigns/20260906
+          persist-credentials: false
+
+      - name: Verify frozen source and clean checkout
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test -z "$(git status --porcelain --untracked-files=no)"
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test -z "$(git status --porcelain)"
+          free -m
+          df -h .
 
       - name: Set up Java
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -81,8 +98,8 @@ jobs:
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
 
-      - name: Build, install, and execute exact-source QA smoke
-        timeout-minutes: 50
+      - name: Execute journeys and staged Monkey on accelerated Android
+        timeout-minutes: 125
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 35
@@ -93,66 +110,25 @@ jobs:
           ram-size: 4096M
           heap-size: 512M
           emulator-port: 5554
-          # Never silently fall back to software emulation: it caused system
-          # ANRs and killed the Maestro driver before any flow could execute.
           disable-linux-hw-accel: false
           pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check'
           disable-animations: true
           disable-spellchecker: true
           script: >-
-            pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1
-            -Suite qa-smoke
-            -BuildProfile qa
-            -DeviceSerial emulator-5554
-            -ExpectedCommit "${{ github.sha }}"
-            -ArtifactsRoot artifacts/maestro-ci
+            pwsh -NoProfile -File "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906/run_campaign.ps1"
+            -SourceRoot "$GITHUB_WORKSPACE/app"
 
-      - name: Verify source-bound Maestro evidence
+      - name: Verify complete source and APK bound evidence
         if: always()
-        env:
-          EXPECTED_COMMIT: ${{ github.sha }}
         run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
+          python3 "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906/verify_campaign.py" test-results/hosted-campaign
 
-          manifests = list(Path('artifacts/maestro-ci').glob('*/manifest.json'))
-          if len(manifests) != 1:
-              raise SystemExit(f'::error::Expected one Maestro manifest, found {len(manifests)}.')
-          manifest = json.loads(manifests[0].read_text(encoding='utf-8-sig'))
-          if manifest.get('git', {}).get('commit') != os.environ['EXPECTED_COMMIT']:
-              raise SystemExit('::error::Maestro manifest does not match the workflow commit.')
-          if manifest.get('git', {}).get('dirty'):
-              raise SystemExit('::error::Maestro evidence was produced from a dirty checkout.')
-          if manifest.get('status') != 'passed':
-              raise SystemExit('::error::Maestro evidence manifest did not pass.')
-          if manifest.get('apk', {}).get('builtFromCheckout') is not True:
-              raise SystemExit('::error::Hosted Maestro evidence must use an APK built from the checkout.')
-          flows = manifest.get('flows')
-          if not isinstance(flows, list) or not flows:
-              raise SystemExit('::error::Maestro evidence contains no selected flows.')
-          junit = manifest.get('junit', {})
-          if not isinstance(junit.get('testCases'), int) or junit['testCases'] <= 0:
-              raise SystemExit('::error::Maestro JUnit evidence contains zero tests.')
-          if junit['testCases'] != len(flows) or junit.get('testCaseCountMatchesFlows') is not True:
-              raise SystemExit('::error::Maestro JUnit testcase count does not match selected flows.')
-          logcat = manifest.get('logcatCapture', {})
-          if (logcat.get('status') != 'passed' or logcat.get('aliveThroughRun') is not True or
-                  not isinstance(logcat.get('outputBytes'), int) or logcat['outputBytes'] <= 0 or
-                  logcat.get('stderrBytes') != 0):
-              raise SystemExit('::error::Maestro Logcat capture evidence is incomplete.')
-          if (junit.get('failures') != 0 or junit.get('errors') != 0 or
-                  junit.get('skipped') != 0 or junit.get('status') != 'passed'):
-              raise SystemExit('::error::Maestro JUnit evidence is not a complete passing run.')
-          PY
-
-      - name: Upload complete Maestro evidence
+      - name: Upload complete campaign evidence and exact QA APK
         if: always()
-        timeout-minutes: 5
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-maestro-${{ github.sha }}-${{ github.run_attempt }}
+          name: chronospark-full-android-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
-          retention-days: 30
-          path: artifacts/maestro-ci/**
+          retention-days: 7
+          include-hidden-files: true
+          path: app/test-results/hosted-campaign/**

@@ -1,0 +1,188 @@
+{
+  "projectRoot": ".",
+  "deviceId": "emulator-5554",
+  "expectedAndroidApi": "35",
+  "maestroDirectory": ".maestro/flows",
+  "monkey": {
+    "package": "com.ghostheart5.chronospark",
+    "variants": [
+      {
+        "name": "low-smoke",
+        "seed": 2026090601,
+        "throttleMs": 120,
+        "events": 250,
+        "percentages": {}
+      },
+      {
+        "name": "low-balanced",
+        "seed": 2026090602,
+        "throttleMs": 120,
+        "events": 250,
+        "percentages": {
+          "touch": 35,
+          "motion": 20,
+          "nav": 15,
+          "majornav": 10,
+          "appswitch": 10,
+          "anyevent": 10
+        }
+      },
+      {
+        "name": "low-navigation",
+        "seed": 2026090603,
+        "throttleMs": 120,
+        "events": 250,
+        "percentages": {
+          "touch": 15,
+          "motion": 5,
+          "nav": 35,
+          "majornav": 25,
+          "appswitch": 20
+        }
+      },
+      {
+        "name": "low-touch-motion",
+        "seed": 2026090604,
+        "throttleMs": 120,
+        "events": 250,
+        "percentages": {
+          "touch": 55,
+          "motion": 35,
+          "nav": 5,
+          "appswitch": 5
+        }
+      },
+      {
+        "name": "low-lifecycle",
+        "seed": 2026090605,
+        "throttleMs": 120,
+        "events": 250,
+        "percentages": {
+          "touch": 10,
+          "nav": 10,
+          "majornav": 20,
+          "appswitch": 40,
+          "anyevent": 20
+        }
+      },
+      {
+        "name": "medium-smoke",
+        "seed": 2026090606,
+        "throttleMs": 60,
+        "events": 500,
+        "percentages": {}
+      },
+      {
+        "name": "medium-balanced",
+        "seed": 2026090607,
+        "throttleMs": 60,
+        "events": 500,
+        "percentages": {
+          "touch": 35,
+          "motion": 20,
+          "nav": 15,
+          "majornav": 10,
+          "appswitch": 10,
+          "anyevent": 10
+        }
+      },
+      {
+        "name": "medium-navigation",
+        "seed": 2026090608,
+        "throttleMs": 60,
+        "events": 500,
+        "percentages": {
+          "touch": 15,
+          "motion": 5,
+          "nav": 35,
+          "majornav": 25,
+          "appswitch": 20
+        }
+      },
+      {
+        "name": "medium-touch-motion",
+        "seed": 2026090609,
+        "throttleMs": 60,
+        "events": 500,
+        "percentages": {
+          "touch": 55,
+          "motion": 35,
+          "nav": 5,
+          "appswitch": 5
+        }
+      },
+      {
+        "name": "medium-lifecycle",
+        "seed": 2026090610,
+        "throttleMs": 60,
+        "events": 500,
+        "percentages": {
+          "touch": 10,
+          "nav": 10,
+          "majornav": 20,
+          "appswitch": 40,
+          "anyevent": 20
+        }
+      },
+      {
+        "name": "high-smoke",
+        "seed": 2026090611,
+        "throttleMs": 20,
+        "events": 1000,
+        "percentages": {}
+      },
+      {
+        "name": "high-balanced",
+        "seed": 2026090612,
+        "throttleMs": 20,
+        "events": 1000,
+        "percentages": {
+          "touch": 35,
+          "motion": 20,
+          "nav": 15,
+          "majornav": 10,
+          "appswitch": 10,
+          "anyevent": 10
+        }
+      },
+      {
+        "name": "high-navigation",
+        "seed": 2026090613,
+        "throttleMs": 20,
+        "events": 1000,
+        "percentages": {
+          "touch": 15,
+          "motion": 5,
+          "nav": 35,
+          "majornav": 25,
+          "appswitch": 20
+        }
+      },
+      {
+        "name": "high-touch-motion",
+        "seed": 2026090614,
+        "throttleMs": 20,
+        "events": 1000,
+        "percentages": {
+          "touch": 55,
+          "motion": 35,
+          "nav": 5,
+          "appswitch": 5
+        }
+      },
+      {
+        "name": "high-lifecycle",
+        "seed": 2026090615,
+        "throttleMs": 20,
+        "events": 1000,
+        "percentages": {
+          "touch": 10,
+          "nav": 10,
+          "majornav": 20,
+          "appswitch": 40,
+          "anyevent": 20
+        }
+      }
+    ]
+  }
+}
