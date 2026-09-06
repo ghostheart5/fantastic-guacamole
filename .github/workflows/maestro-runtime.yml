@@ -1,4 +1,4 @@
-name: ChronoSpark Hosted Android Recheck
+name: ChronoSpark Authenticated Android Stress
 
 on:
   workflow_dispatch:
@@ -8,12 +8,12 @@ permissions:
   actions: read
 
 concurrency:
-  group: chronospark-full-android-${{ github.ref }}
+  group: chronospark-authenticated-android-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   runtime:
-    name: Frozen app journeys and staged stress
+    name: Signed-in QA readiness and staged stress
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     defaults:
@@ -95,8 +95,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh run download 34058223627 --repo ghostheart5/fantastic-guacamole \
-            --name chronospark-full-android-34058223627-1 --dir "$RUNNER_TEMP/prior-campaign"
+          gh run download 34060313595 --repo ghostheart5/fantastic-guacamole \
+            --name chronospark-full-android-34060313595-1 --dir "$RUNNER_TEMP/prior-campaign"
           mkdir -p build/app/outputs/flutter-apk
           cp "$RUNNER_TEMP/prior-campaign/qa.apk" build/app/outputs/flutter-apk/app-debug.apk
           echo "af2f8d4ffb8b2af3e80f4b06b873ed4b40d3fb5e333af35bf1c8e53cad899d38  build/app/outputs/flutter-apk/app-debug.apk" | sha256sum --check --strict
@@ -111,7 +111,7 @@ jobs:
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
 
-      - name: Execute journeys and staged Monkey on accelerated Android
+      - name: Execute authenticated low medium and high stress
         timeout-minutes: 125
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
@@ -128,19 +128,19 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           script: >-
-            pwsh -NoProfile -File "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906/run_campaign.ps1"
+            pwsh -NoProfile -File "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906/run_authenticated.ps1"
             -SourceRoot "$GITHUB_WORKSPACE/app"
 
       - name: Verify complete source and APK bound evidence
         if: always()
         run: |
-          python3 "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906/verify_campaign.py" test-results/hosted-campaign
+          python3 "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906/verify_authenticated.py" test-results/hosted-campaign
 
       - name: Upload complete campaign evidence and exact QA APK
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-full-android-${{ github.run_id }}-${{ github.run_attempt }}
+          name: chronospark-authenticated-stress-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 7
           include-hidden-files: true
