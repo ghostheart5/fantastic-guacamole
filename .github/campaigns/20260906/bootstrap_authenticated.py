@@ -50,17 +50,22 @@ def run(source, output, name, serial):
         cases = junit.findall('.//testcase')
         require(len(cases)==1 and not any(junit.findall('.//'+tag) for tag in ('failure','error','skipped')),
                 'Incomplete or nonpassing QA sign-in JUnit')
-        focus = adb('shell','dumpsys','window','windows').decode('utf-8',errors='replace')
-        require(re.search(r'mCurrentFocus=.*com\.ghostheart5\.chronospark',focus),'ChronoSpark is not the foreground window')
+        focus_bytes = adb('shell','dumpsys','window','displays')
+        (folder/'window-displays.txt').write_bytes(focus_bytes)
+        focus = focus_bytes.decode('utf-8',errors='replace')
+        receipt['foregroundOwnsWindow'] = bool(re.search(r'mCurrentFocus=.*com\.ghostheart5\.chronospark',focus))
+        receipt['windowStateSha256'] = sha(focus_bytes)
         remote = '/sdcard/chronospark-authenticated-'+name+'.xml'
         adb('shell','uiautomator','dump',remote)
         xml = adb('exec-out','cat',remote)
         (folder/'nexus.xml').write_bytes(xml)
-        require(nexus_visible(xml),'Visible enabled Nexus was not observed before stress')
+        receipt['freshNexusVisible'] = nexus_visible(xml)
         png = adb('exec-out','screencap','-p')
         require(png.startswith(b'\x89PNG\r\n\x1a\n'),'Invalid actual screenshot')
         (folder/'nexus.png').write_bytes(png)
         adb('shell','rm',remote)
+        require(receipt['foregroundOwnsWindow'],'ChronoSpark is not the foreground window')
+        require(receipt['freshNexusVisible'],'Visible enabled Nexus was not observed before stress')
         if name=='final-readback':
             (folder/'final-logcat.log').write_bytes(adb('logcat','-d','-v','threadtime'))
         receipt.update({'status':'passed','freshNexusVisible':True,'xmlSha256':sha(xml),'screenshotSha256':sha(png),

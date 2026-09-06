@@ -33,6 +33,9 @@ def fatal_matches(text):
 def readiness(folder,bootstrap,base):
     receipt=read(folder/'receipt.json')
     require(receipt['status']=='passed' and receipt['freshNexusVisible'] and receipt['maestroExitCode']==0,'UI readiness did not pass')
+    require(receipt['foregroundOwnsWindow'],'Foreground readiness did not pass')
+    require(base.digest(folder/'window-displays.txt')==receipt['windowStateSha256'],'Window-state evidence hash mismatch')
+    require(re.search(r'mCurrentFocus=.*com\.ghostheart5\.chronospark',(folder/'window-displays.txt').read_text(encoding='utf-8')),'Actual display-state focus is not ChronoSpark')
     xml=(folder/'nexus.xml').read_bytes()
     require(bootstrap.nexus_visible(xml),'Actual hierarchy does not show Nexus and navigation')
     for name,key in (('nexus.xml','xmlSha256'),('nexus.png','screenshotSha256'),('junit.xml','junitSha256')):
