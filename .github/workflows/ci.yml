@@ -307,6 +307,9 @@ jobs:
       - name: Run bounded Windows golden comparisons
         run: dart run tool/run_flutter_tests.dart --report artifacts/windows-golden-evidence/golden-tests.jsonl --manifest artifacts/windows-golden-evidence/golden-tests-manifest.json --timeout-seconds 1200 -- test/features/auth/login_screen_golden_test.dart test/features/home/first_use_context_offer_card_test.dart test/features/nexus/nexus_screen_golden_test.dart test/features/settings/settings_screen_test.dart --no-pub --concurrency=1
 
+      - name: Run Windows Maestro launcher contract
+        run: dart run tool/run_flutter_tests.dart --report artifacts/windows-golden-evidence/maestro-launcher-tests.jsonl --manifest artifacts/windows-golden-evidence/maestro-launcher-tests-manifest.json --timeout-seconds 600 -- test/release/maestro_android_runner_fixture_test.dart --no-pub --concurrency=1
+
       - name: Upload Windows golden evidence
         if: always()
         timeout-minutes: 5

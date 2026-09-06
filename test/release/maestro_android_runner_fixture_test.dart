@@ -218,9 +218,10 @@ Invoke-NativeTimedLogged -Executable (Get-Process -Id \$PID).Path -Arguments @('
     expect(receipt['Output'], <String>['started']);
   });
 
-  test(
-    'Windows batch wrapper preserves the actual eleven-flow argument shape',
-    () {
+  // cmd.exe batch semantics are exercised explicitly by the Windows CI lane.
+  // Do not register an inapplicable skipped test in the Linux host suite.
+  if (Platform.isWindows) {
+    test('Windows batch wrapper preserves the actual eleven-flow argument shape', () {
       final File probe = File('${temporaryDirectory.path}/batch argv probe.ps1')
         ..writeAsStringSync(r'''
 [Console]::Out.WriteLine((ConvertTo-Json -InputObject @($args) -Compress))
@@ -272,9 +273,8 @@ Invoke-NativeTimedLogged -Executable ${psLiteral(wrapper.path)} -Arguments @(${a
         (receipt['ErrorOutput'] as List<dynamic>).join('\n'),
         contains('batch stderr preserved'),
       );
-    },
-    skip: !Platform.isWindows,
-  );
+    });
+  }
 
   test('a failed Git lookup is not recorded as an empty branch', () {
     final ProcessResult result = runHelperFixture('invalid-git', '''
