@@ -29,6 +29,55 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  for (final bool preference in <bool>[false, true]) {
+    testWidgets(
+      '${preference ? 'preference' : 'priority'} dialog survives dismissal while keyboard closes',
+      (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(420, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        addTearDown(tester.view.resetViewInsets);
+        final ProviderContainer container = _container(
+          firstUseContextOfferSeen: false,
+        );
+        addTearDown(container.dispose);
+        await _pumpPlanner(tester, container);
+        await _requestGuidance(tester);
+        final Finder open = find.byKey(
+          Key(
+            preference
+                ? 'planner-remember-preference'
+                : 'first-use-context-add',
+          ),
+        );
+        await _scrollTo(tester, open);
+        await tester.tap(open);
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.enterText(
+          find.byKey(
+            Key(
+              preference
+                  ? 'planner-memory-preference-field'
+                  : 'first-use-context-value',
+            ),
+          ),
+          'Lifecycle test draft',
+        );
+        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.takeException(), isNull);
+
+        await tester.binding.handlePopRoute();
+        tester.view.viewInsets = const FakeViewPadding();
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.takeException(), isNull);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.takeException(), isNull);
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(SmartPlannerScreen), findsOneWidget);
+      },
+    );
+  }
+
   testWidgets(
     'Spanish distress input pauses before Planner intelligence executes',
     (WidgetTester tester) async {

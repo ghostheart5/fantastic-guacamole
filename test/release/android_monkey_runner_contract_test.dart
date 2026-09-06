@@ -106,6 +106,18 @@ void main() {
       expect(runner, contains(r'logcatExitCode = $logcatResult.ExitCode'));
       expect(runner, contains(r'logcatTimedOut = $logcatResult.TimedOut'));
       expect(runner, contains(r'logcatCollected = $logcatCollected'));
+      expect(runner, contains(r'fullLogcatPath = $fullLogcatPath'));
+      expect(runner, contains(r'fullLogcatSha256 = $fullLogcatSha256'));
+      expect(
+        runner,
+        contains(
+          r'fullLogcatBytes = (Get-Item -LiteralPath $fullLogcatPath).Length',
+        ),
+      );
+      expect(
+        runner,
+        contains(r'$logcatText | Set-Content -LiteralPath $fullLogcatPath'),
+      );
     },
   );
 

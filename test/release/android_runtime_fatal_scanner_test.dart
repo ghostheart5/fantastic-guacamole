@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'runtime scanners reject provider failures and preserve benign logs',
+    'runtime scanners reject provider and framework failures, preserving benign logs',
     () {
       final ProcessResult result = Process.runSync(
         Platform.isWindows ? 'powershell.exe' : 'pwsh',
@@ -22,7 +22,7 @@ void main() {
       final Map<String, dynamic> receipt =
           jsonDecode(result.stdout as String) as Map<String, dynamic>;
       expect(receipt['status'], 'passed');
-      expect(receipt['passed'], 15);
+      expect(receipt['passed'], 32);
       expect(receipt['failed'], 0);
     },
   );

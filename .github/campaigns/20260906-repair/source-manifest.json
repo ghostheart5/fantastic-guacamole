@@ -1,0 +1,65 @@
+{
+  "baseCommit": "43b7065507e41f11e6cb31628f928e985e4307d2",
+  "files": [
+    {
+      "path": "lib/features/goals/ui/goals_screen.dart",
+      "canonicalSha256": "623192a1a9a5f141a21b5b36aec310ab39f2439f91ce6169f95140bca2a3739f"
+    },
+    {
+      "path": "lib/features/home/ui/smart_planner_screen.dart",
+      "canonicalSha256": "d52201fc92e02baff63f72a5ea171b4383ff731439f17cb71146a8b8d269477a"
+    },
+    {
+      "path": "lib/features/settings/ui/settings_screen.dart",
+      "canonicalSha256": "2ea3d13cfe55f367b04f5ba4527339241f1626989818560f8f29e292b4fe5d3d"
+    },
+    {
+      "path": "lib/features/settings/ui/settings_screen.data_sections.dart",
+      "canonicalSha256": "b39feec54ea7a8b5548494ac3ff0afc78bcbe5b4f2da2903024dcf0403b2ec85"
+    },
+    {
+      "path": "lib/features/settings/ui/settings_screen.governance_sections.dart",
+      "canonicalSha256": "b07027773845d4e524b27d3ed1e71b50115d4d5cfb434001d47415b5e5f7f3bb"
+    },
+    {
+      "path": "lib/features/settings/ui/settings_screen.person_context.dart",
+      "canonicalSha256": "945217a121ff9efe131f41d6375f67058c8e55e19cb602fc2a19626cbcb650f3"
+    },
+    {
+      "path": "lib/ui/widgets/text_controller_scope.dart",
+      "canonicalSha256": "fc2df4fcdb69169c778cc43958ff9d88699db76f91d4a3c76097835bbec873fe"
+    },
+    {
+      "path": "scripts/android_runtime_fatal_patterns.ps1",
+      "canonicalSha256": "bfe4b33d1b29920ccd99f166792ee2a3c8e80a3ec1a44b92038c1dfd64929afc"
+    },
+    {
+      "path": "scripts/run_android_monkey_matrix.ps1",
+      "canonicalSha256": "4d0280658d5cba6c6b94859a9234ccdb194267b43c2cdfa51a50080dd8cb3617"
+    },
+    {
+      "path": "test/features/goals/goals_screen_test.dart",
+      "canonicalSha256": "a24f0ff75e3b9f17ae4e7de489cbae58733961be02f679a29a55a9ae6327f72a"
+    },
+    {
+      "path": "test/features/home/smart_planner_screen_test.dart",
+      "canonicalSha256": "a6d5a7961dcb075c3fbc2afd11c381fd600b76c18ec3e61707cff0345a8e953e"
+    },
+    {
+      "path": "test/release/android_monkey_runner_contract_test.dart",
+      "canonicalSha256": "5ce19cdfb7b8ef8411baeda278b7304ead37877e0313907f3fb213afafd62da3"
+    },
+    {
+      "path": "test/release/android_runtime_fatal_scanner_test.dart",
+      "canonicalSha256": "4c81c97924bc38ea708e67cb57da857358fe8f1cc1faa19ed89120d4f868eeb8"
+    },
+    {
+      "path": "test/release/fixtures/android_runtime_fatal_scanner_fixture.ps1",
+      "canonicalSha256": "d3b950f1dc982493706d9a9002b3e9d4c63a328711f987bb8fd8bdcd64b62d66"
+    },
+    {
+      "path": "test/ui/widgets/text_controller_scope_test.dart",
+      "canonicalSha256": "749821beb6d801efed4df496c97f96a1f63f669c76234185d8ced0258150afed"
+    }
+  ]
+}

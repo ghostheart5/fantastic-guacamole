@@ -345,127 +345,135 @@ class _PersonContextSection extends ConsumerWidget {
 
   Future<void> _add(BuildContext context, WidgetRef ref) async {
     final PersonContextSafetyCopy copy = PersonContextSafetyCopy.of(context);
-    final TextEditingController textController = TextEditingController();
     PersonContextKind kind = PersonContextKind.currentPriority;
     final Set<PersonContextSurface> selected = <PersonContextSurface>{};
     final _PersonContextDraft? draft = await showDialog<_PersonContextDraft>(
       context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (BuildContext context, StateSetter setState) {
-          final String grouping = _aboutYouKinds.contains(kind)
-              ? copy.aboutYou
-              : copy.rightNow;
-          return AlertDialog(
-            title: Text(copy.addTitle),
-            content: SizedBox(
-              width: 560,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(copy.exactOnly),
-                    const SizedBox(height: 8),
-                    Text(copy.beforeOptIn),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<PersonContextKind>(
-                      key: const Key('person-context-kind'),
-                      initialValue: kind,
-                      decoration: InputDecoration(labelText: copy.type),
-                      items:
-                          <PersonContextKind>[
-                                ..._aboutYouKinds,
-                                ..._rightNowKinds,
-                              ]
-                              .map(
-                                (PersonContextKind value) => DropdownMenuItem(
-                                  value: value,
-                                  child: Text(copy.kindLabel(value)),
-                                ),
-                              )
-                              .toList(growable: false),
-                      onChanged: (PersonContextKind? value) {
-                        if (value != null) {
-                          setState(() {
-                            kind = value;
-                            selected.retainAll(
-                              allowedPersonContextSurfacesFor(
-                                _purposeFor(value),
-                              ),
-                            );
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Text('$grouping · ${copy.purposeLabel(_purposeFor(kind))}'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      key: const Key('person-context-value'),
-                      controller: textController,
-                      minLines: 2,
-                      maxLines: 5,
-                      maxLength: PersonContextSignal.maxValueLength,
-                      decoration: InputDecoration(
-                        labelText: copy.exactTextToRemember,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(copy.whereMayUse),
-                    Text(copy.settingsReviewDisclosure),
-                    ...allowedPersonContextSurfacesFor(_purposeFor(kind)).map(
-                      (PersonContextSurface surface) => CheckboxListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(copy.surfaceLabel(surface)),
-                        value: selected.contains(surface),
-                        onChanged: (bool? checked) {
-                          setState(() {
-                            if (checked ?? false) {
-                              selected.add(surface);
-                            } else {
-                              selected.remove(surface);
+      builder: (BuildContext dialogContext) => TextControllerScope(
+        builder: (dialogContext, controllers) {
+          final textController = controllers[0];
+          return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              final String grouping = _aboutYouKinds.contains(kind)
+                  ? copy.aboutYou
+                  : copy.rightNow;
+              return AlertDialog(
+                title: Text(copy.addTitle),
+                content: SizedBox(
+                  width: 560,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(copy.exactOnly),
+                        const SizedBox(height: 8),
+                        Text(copy.beforeOptIn),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<PersonContextKind>(
+                          key: const Key('person-context-kind'),
+                          initialValue: kind,
+                          decoration: InputDecoration(labelText: copy.type),
+                          items:
+                              <PersonContextKind>[
+                                    ..._aboutYouKinds,
+                                    ..._rightNowKinds,
+                                  ]
+                                  .map(
+                                    (PersonContextKind value) =>
+                                        DropdownMenuItem(
+                                          value: value,
+                                          child: Text(copy.kindLabel(value)),
+                                        ),
+                                  )
+                                  .toList(growable: false),
+                          onChanged: (PersonContextKind? value) {
+                            if (value != null) {
+                              setState(() {
+                                kind = value;
+                                selected.retainAll(
+                                  allowedPersonContextSurfacesFor(
+                                    _purposeFor(value),
+                                  ),
+                                );
+                              });
                             }
-                          });
-                        },
-                      ),
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$grouping · ${copy.purposeLabel(_purposeFor(kind))}',
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          key: const Key('person-context-value'),
+                          controller: textController,
+                          minLines: 2,
+                          maxLines: 5,
+                          maxLength: PersonContextSignal.maxValueLength,
+                          decoration: InputDecoration(
+                            labelText: copy.exactTextToRemember,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(copy.whereMayUse),
+                        Text(copy.settingsReviewDisclosure),
+                        ...allowedPersonContextSurfacesFor(
+                          _purposeFor(kind),
+                        ).map(
+                          (PersonContextSurface surface) => CheckboxListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(copy.surfaceLabel(surface)),
+                            value: selected.contains(surface),
+                            onChanged: (bool? checked) {
+                              setState(() {
+                                if (checked ?? false) {
+                                  selected.add(surface);
+                                } else {
+                                  selected.remove(surface);
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        Text(
+                          copy.freshnessAndExpiry(
+                            _freshnessFor(kind),
+                            _expiryFor(kind),
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      copy.freshnessAndExpiry(
-                        _freshnessFor(kind),
-                        _expiryFor(kind),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text(copy.cancel),
-              ),
-              FilledButton(
-                key: const Key('person-context-confirm-add'),
-                onPressed: () {
-                  final String text = textController.text.trim();
-                  if (text.isEmpty || selected.isEmpty) return;
-                  Navigator.of(dialogContext).pop(
-                    _PersonContextDraft(
-                      kind: kind,
-                      value: text,
-                      surfaces: selected,
-                    ),
-                  );
-                },
-                child: Text(copy.saveWithConsent),
-              ),
-            ],
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: Text(copy.cancel),
+                  ),
+                  FilledButton(
+                    key: const Key('person-context-confirm-add'),
+                    onPressed: () {
+                      final String text = textController.text.trim();
+                      if (text.isEmpty || selected.isEmpty) return;
+                      Navigator.of(dialogContext).pop(
+                        _PersonContextDraft(
+                          kind: kind,
+                          value: text,
+                          surfaces: selected,
+                        ),
+                      );
+                    },
+                    child: Text(copy.saveWithConsent),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
     );
-    textController.dispose();
     if (draft == null) return;
     final DateTime now = ref.read(personContextClockProvider)().toUtc();
     final int existingCount =
@@ -503,58 +511,62 @@ class _PersonContextSection extends ConsumerWidget {
     PersonContextSignal signal,
   ) async {
     final PersonContextSafetyCopy copy = PersonContextSafetyCopy.of(context);
-    final TextEditingController valueController = TextEditingController(
-      text: signal.value,
-    );
-    final TextEditingController reasonController = TextEditingController();
     final _PersonContextCorrectionDraft? draft =
         await showDialog<_PersonContextCorrectionDraft>(
           context: context,
-          builder: (BuildContext dialogContext) => AlertDialog(
-            title: Text(copy.correctTitle),
-            content: SizedBox(
-              width: 520,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextField(
-                    controller: valueController,
-                    maxLength: PersonContextSignal.maxValueLength,
-                    minLines: 2,
-                    maxLines: 5,
-                    decoration: InputDecoration(labelText: copy.exactText),
+          builder: (BuildContext dialogContext) => TextControllerScope(
+            initialTexts: <String>[signal.value, ''],
+            builder: (dialogContext, controllers) {
+              final valueController = controllers[0];
+              final reasonController = controllers[1];
+              return AlertDialog(
+                title: Text(copy.correctTitle),
+                content: SizedBox(
+                  width: 520,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextField(
+                        controller: valueController,
+                        maxLength: PersonContextSignal.maxValueLength,
+                        minLines: 2,
+                        maxLines: 5,
+                        decoration: InputDecoration(labelText: copy.exactText),
+                      ),
+                      TextField(
+                        controller: reasonController,
+                        maxLength: PersonContextCorrection.maxReasonLength,
+                        decoration: InputDecoration(
+                          labelText: copy.correctionReason,
+                        ),
+                      ),
+                    ],
                   ),
-                  TextField(
-                    controller: reasonController,
-                    maxLength: PersonContextCorrection.maxReasonLength,
-                    decoration: InputDecoration(
-                      labelText: copy.correctionReason,
-                    ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: Text(copy.cancel),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      final String value = valueController.text.trim();
+                      final String reason = reasonController.text.trim();
+                      if (value.isEmpty || reason.isEmpty) return;
+                      Navigator.of(dialogContext).pop(
+                        _PersonContextCorrectionDraft(
+                          value: value,
+                          reason: reason,
+                        ),
+                      );
+                    },
+                    child: Text(copy.saveCorrection),
                   ),
                 ],
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text(copy.cancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final String value = valueController.text.trim();
-                  final String reason = reasonController.text.trim();
-                  if (value.isEmpty || reason.isEmpty) return;
-                  Navigator.of(dialogContext).pop(
-                    _PersonContextCorrectionDraft(value: value, reason: reason),
-                  );
-                },
-                child: Text(copy.saveCorrection),
-              ),
-            ],
+              );
+            },
           ),
         );
-    valueController.dispose();
-    reasonController.dispose();
     if (draft == null) return;
     final DateTime now = ref.read(personContextClockProvider)().toUtc();
     try {

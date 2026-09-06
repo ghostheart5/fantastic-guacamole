@@ -1,11 +1,10 @@
-name: ChronoSpark Authenticated Android Stress
+name: ChronoSpark Repair Android Validation
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: chronospark-authenticated-android-${{ github.ref }}
@@ -13,14 +12,14 @@ concurrency:
 
 jobs:
   runtime:
-    name: Signed-in QA readiness and staged stress
+    name: Repaired dialogs and runtime gates
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     defaults:
       run:
         working-directory: app
     env:
-      SOURCE_COMMIT: '43b7065507e41f11e6cb31628f928e985e4307d2'
+      SOURCE_COMMIT: ${{ github.sha }}
       MAESTRO_CLI_NO_ANALYTICS: '1'
       MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED: 'true'
       GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs=-Xmx2048m'
@@ -28,7 +27,7 @@ jobs:
       - name: Checkout frozen application source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          ref: '43b7065507e41f11e6cb31628f928e985e4307d2'
+          ref: ${{ github.sha }}
           path: app
           fetch-depth: 1
           persist-credentials: false
@@ -38,7 +37,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: harness
-          sparse-checkout: .github/campaigns/20260906
+          sparse-checkout: .github/campaigns/20260906-repair
           persist-credentials: false
 
       - name: Verify frozen source and clean checkout
@@ -89,17 +88,9 @@ jobs:
           echo "$install_root/maestro/bin" >> "$GITHUB_PATH"
           "$install_root/maestro/bin/maestro" --version
 
-      - name: Download and verify the exact retained QA APK
-        timeout-minutes: 5
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh run download 34060313595 --repo ghostheart5/fantastic-guacamole \
-            --name chronospark-full-android-34060313595-1 --dir "$RUNNER_TEMP/prior-campaign"
-          mkdir -p build/app/outputs/flutter-apk
-          cp "$RUNNER_TEMP/prior-campaign/qa.apk" build/app/outputs/flutter-apk/app-debug.apk
-          echo "af2f8d4ffb8b2af3e80f4b06b873ed4b40d3fb5e333af35bf1c8e53cad899d38  build/app/outputs/flutter-apk/app-debug.apk" | sha256sum --check --strict
+      - name: Build QA APK from the repaired source
+        timeout-minutes: 30
+        run: flutter build apk --debug --no-pub --dart-define-from-file=tool/qa_defines.json
 
       - name: Enable and verify hardware acceleration
         timeout-minutes: 2
@@ -111,7 +102,7 @@ jobs:
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
 
-      - name: Execute authenticated low medium and high stress
+      - name: Execute authenticated stress and complete journeys
         timeout-minutes: 125
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
@@ -128,19 +119,19 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           script: >-
-            pwsh -NoProfile -File "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906/run_authenticated.ps1"
+            pwsh -NoProfile -File "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-repair/run_repair_campaign.ps1"
             -SourceRoot "$GITHUB_WORKSPACE/app"
 
       - name: Verify complete source and APK bound evidence
         if: always()
         run: |
-          python3 "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906/verify_authenticated.py" test-results/hosted-campaign
+          python3 "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-repair/verify_repair_campaign.py" test-results/hosted-campaign
 
       - name: Upload complete campaign evidence and exact QA APK
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-authenticated-stress-${{ github.run_id }}-${{ github.run_attempt }}
+          name: chronospark-repair-validation-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 7
           include-hidden-files: true
