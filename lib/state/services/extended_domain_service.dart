@@ -5,7 +5,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_extended_domain_reposito
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 
 class ExtendedDomainService implements IExtendedDomainRepository {
-  ExtendedDomainService(this._preferences);
+  ExtendedDomainService(this._preferences, {this.isCurrent});
 
   static const String _keyPlannerMessages = 'extended_domain.planner_messages';
   static const String _keySiQueries = 'extended_domain.si_queries';
@@ -16,6 +16,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   static const String _keySettings = 'extended_domain.settings';
 
   final SharedPrefsStore _preferences;
+  final bool Function()? isCurrent;
   Future<void>? _initialization;
 
   final List<PlannerMessage> _plannerMessages = <PlannerMessage>[];
@@ -29,6 +30,9 @@ class ExtendedDomainService implements IExtendedDomainRepository {
 
   Future<void> _initialize() async {
     await _preferences.init();
+    // An account transition can dispose this repository while preferences are
+    // opening. A canceled hydration must not read the old account afterward.
+    if (isCurrent?.call() == false) return;
 
     _replaceAll(
       _plannerMessages,

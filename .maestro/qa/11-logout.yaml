@@ -1,8 +1,12 @@
-# EMULATOR ONLY. Leaves QA identity data intact for A -> B -> A readback.
+# EMULATOR ONLY. Exit QA Tester A, without real account sign-out credentials.
 appId: com.ghostheart5.chronospark
+tags: [qa, auth]
 ---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in-qa.yaml
 - runFlow:
-    file: open-from-nexus.yaml
+    file: ../subflows/open-from-nexus.yaml
     env:
       TARGET: "Settings"
 - scrollUntilVisible:
@@ -20,8 +24,9 @@ appId: com.ghostheart5.chronospark
     text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
     enabled: true
 - tapOn: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
-- runFlow: skip-onboarding.yaml
 - extendedWaitUntil:
-    visible: "TESTER ACCESS.*TEST LOGIN"
+    visible: "(?:CONTINUE TO LOGIN|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN)"
     timeout: 20000
+# The original session-teardown assertion is retained.
 - assertNotVisible: "Open navigation map"
+- assertNotVisible: "Could not log out\\. Please try again\\."

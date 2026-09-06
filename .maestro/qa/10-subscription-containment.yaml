@@ -1,0 +1,20 @@
+# EMULATOR ONLY: resets the explicitly selected isolated QA app-data sandbox.
+appId: com.ghostheart5.chronospark
+tags: [qa, billing, containment]
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in-qa.yaml
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
+- assertVisible: "(?s).*SETTINGS.*"
+- assertVisible: "Appearance & permissions\\n.*"
+# Subscriptions are disabled at source for both QA and the signed candidate.
+# Settings omits the entire plan-and-credits card at the top of the screen.
+- assertNotVisible: "(?s)SUBSCRIPTION.*Manage plan"
+- assertNotVisible: "PLAN & CREDITS"
+- assertNotVisible: "View credits"
+- assertNotVisible: "UNLOCKED FOR TESTING"
+- assertNotVisible: "Simulate unlock"

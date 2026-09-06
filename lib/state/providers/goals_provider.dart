@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
@@ -40,6 +41,11 @@ final goalProgressProvider = FutureProvider.family<GoalProgressView, String>((
 class GoalsNotifier extends Notifier<List<GoalEntity>> {
   @override
   List<GoalEntity> build() {
+    // The provider graph can refresh before AppRoot removes the old screen.
+    // Fenced storage must produce no account content or reminder work.
+    if (!ref.watch(accountStorageScopeProvider).isWritable) {
+      return const <GoalEntity>[];
+    }
     // Completed goals are retained in storage (CompleteGoal no longer deletes)
     // but stay out of the active list, preserving the previous UI behaviour.
     final List<GoalEntity> goals = ref

@@ -157,6 +157,10 @@ $script:TranscriptStarted = $true
 
 try {
     $cfg = Read-Config
+    if ($AllowConnectedDevice -and -not $SkipSimulator -and
+        [string]$cfg.deviceId -notmatch '^emulator-\d+$') {
+        throw 'Flutter integration tests install test binaries and require an explicitly selected disposable emulator.'
+    }
     $projectRoot = Find-FlutterProject $cfg.projectRoot
     $script:ProjectRoot = $projectRoot
     $dirtyEntries = @(git -C $projectRoot status --porcelain=v1 --untracked-files=all)
@@ -178,7 +182,7 @@ try {
             'Edge Function gate',
             'Robot tests and coverage guard',
             'Flutter integration tests',
-            'Maestro QA smoke',
+            'Maestro QA journeys',
             'Android monkey matrix'
         )
         Write-Host 'Preflight passed. No test, build, install, or device-input stage was executed.' -ForegroundColor Green
@@ -228,9 +232,9 @@ try {
 
     $maestroPassed = $false
     if ($SkipMaestro) {
-        Add-NotRunStage '11. Maestro QA smoke' '-SkipMaestro was selected.'
+        Add-NotRunStage '11. Maestro QA journeys' '-SkipMaestro was selected.'
     } elseif (-not $AllowConnectedDevice) {
-        Add-NotRunStage '11. Maestro QA smoke' '-AllowConnectedDevice was not selected.'
+        Add-NotRunStage '11. Maestro QA journeys' '-AllowConnectedDevice was not selected.'
     } else {
         $maestro = Resolve-CommandPath 'maestro'
         $maestroDir = if ($cfg.maestroDirectory) { Join-Path $projectRoot $cfg.maestroDirectory } else { Join-Path $projectRoot 'maestro' }
@@ -238,14 +242,15 @@ try {
             $maestroArguments = @(
                 '-NoProfile','-ExecutionPolicy','Bypass','-File',
                 (Join-Path $projectRoot 'scripts\run_maestro_android_evidence.ps1'),
-                '-Suite','qa-smoke','-BuildProfile','qa',
+                '-Suite','qa-journeys','-BuildProfile','qa',
+                '-ExecutionTimeoutSeconds','2400',
                 '-DeviceSerial',[string]$cfg.deviceId
             )
             if ($AllowDirtyTree) { $maestroArguments += '-AllowDirtyTree' }
-            Invoke-Stage '11. Maestro QA smoke' $powerShell $maestroArguments $projectRoot
+            Invoke-Stage '11. Maestro QA journeys' $powerShell $maestroArguments $projectRoot
             $maestroPassed = $script:Results[$script:Results.Count - 1].Status -eq 'passed'
         } else {
-            Add-NotRunStage '11. Maestro QA smoke' 'Maestro CLI or configured flow directory was not found.'
+            Add-NotRunStage '11. Maestro QA journeys' 'Maestro CLI or configured flow directory was not found.'
         }
     }
 

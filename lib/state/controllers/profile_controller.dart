@@ -159,6 +159,10 @@ class ProfileController extends Notifier<ProfileState> {
   @override
   ProfileState build() {
     final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+    if (!scope.isWritable) {
+      _initialization = null;
+      return ProfileState();
+    }
     final LegacyScopeOwnership legacyOwnership = ref.watch(
       accountLegacyOwnershipProvider,
     );

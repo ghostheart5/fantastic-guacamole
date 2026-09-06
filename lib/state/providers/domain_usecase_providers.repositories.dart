@@ -101,12 +101,15 @@ final domainLearningRepositoryProvider = Provider<ILearningRepository>((ref) {
 final extendedDomainRepositoryProvider = Provider<IExtendedDomainRepository>((
   ref,
 ) {
+  final scope = ref.watch(accountStorageScopeProvider);
   return ExtendedDomainService(
     AccountScopedSharedPrefsStore(
       delegate: ref.read(sharedPrefsStoreProvider),
-      scope: ref.watch(accountStorageScopeProvider),
+      scope: scope,
       legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
     ),
+    isCurrent: () =>
+        ref.mounted && identical(ref.read(accountStorageScopeProvider), scope),
   );
 });
 
@@ -159,63 +162,65 @@ final saveExtendedAppSettingUseCaseProvider = Provider<SaveExtendedAppSetting>((
 });
 
 final extendedDomainBootstrapProvider = FutureProvider<void>((ref) async {
-  final IExtendedDomainRepository repository = ref.read(
+  final scope = ref.watch(accountStorageScopeProvider);
+  if (!scope.isWritable) return;
+  final IExtendedDomainRepository repository = ref.watch(
     extendedDomainRepositoryProvider,
   );
-  await repository.initialize();
+  bool isCurrent() =>
+      ref.mounted && identical(ref.read(accountStorageScopeProvider), scope);
 
+  await repository.initialize();
+  if (!isCurrent()) return;
+
+  // Keep every seed bound to this repository. Looking up a use-case provider
+  // after an await could resolve the next account's repository instead.
   if (repository.getPlannerMessages().isEmpty) {
-    await ref
-        .read(savePlannerMessageUseCaseProvider)
-        .call(
-          const PlannerMessage(
-            id: 'bootstrap.planner.welcome',
-            label: 'Welcome to Smart Planner',
-          ),
-        );
+    await SavePlannerMessage(repository)(
+      const PlannerMessage(
+        id: 'bootstrap.planner.welcome',
+        label: 'Welcome to Smart Planner',
+      ),
+    );
+    if (!isCurrent()) return;
   }
 
   if (repository.getSiQueries().isEmpty) {
-    await ref
-        .read(saveSiQueryExtendedUseCaseProvider)
-        .call(
-          const SiQuery(
-            id: 'bootstrap.si.query.health',
-            label: 'System health check',
-          ),
-        );
+    await SaveSiQueryExtended(repository)(
+      const SiQuery(
+        id: 'bootstrap.si.query.health',
+        label: 'System health check',
+      ),
+    );
+    if (!isCurrent()) return;
   }
 
   if (repository.getReflectionEntries().isEmpty) {
-    await ref
-        .read(saveReflectionEntryUseCaseProvider)
-        .call(
-          const ReflectionEntry(
-            id: 'bootstrap.reflection.entry.day0',
-            label: 'Getting started reflection',
-          ),
-        );
+    await SaveReflectionEntry(repository)(
+      const ReflectionEntry(
+        id: 'bootstrap.reflection.entry.day0',
+        label: 'Getting started reflection',
+      ),
+    );
+    if (!isCurrent()) return;
   }
 
   if (repository.getAnalyticsMetrics().isEmpty) {
-    await ref
-        .read(saveAnalyticsMetricUseCaseProvider)
-        .call(
-          const AnalyticsMetric(
-            id: 'bootstrap.analytics.productivity',
-            label: 'Productivity baseline',
-          ),
-        );
+    await SaveAnalyticsMetric(repository)(
+      const AnalyticsMetric(
+        id: 'bootstrap.analytics.productivity',
+        label: 'Productivity baseline',
+      ),
+    );
+    if (!isCurrent()) return;
   }
 
   if (repository.getSettings().isEmpty) {
-    await ref
-        .read(saveExtendedAppSettingUseCaseProvider)
-        .call(
-          const AppSetting(
-            id: 'bootstrap.settings.planner.enabled',
-            label: 'Planner enabled',
-          ),
-        );
+    await SaveExtendedAppSetting(repository)(
+      const AppSetting(
+        id: 'bootstrap.settings.planner.enabled',
+        label: 'Planner enabled',
+      ),
+    );
   }
 });

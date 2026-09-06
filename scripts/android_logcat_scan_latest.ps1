@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'android_runtime_fatal_patterns.ps1')
 
 $log = Get-ChildItem -Path logs -Filter 'android-logcat-*.log' -ErrorAction SilentlyContinue |
   Sort-Object LastWriteTime -Descending |
@@ -22,7 +23,7 @@ $patterns = @(
   'SocketException',
   'TimeoutException',
   'Failed assertion'
-)
+) + @(Get-ChronoSparkFatalDiagnosticPatterns)
 
 $hits = Select-String -Path $log.FullName -Pattern $patterns -CaseSensitive:$false -Context 2,4 |
   Select-Object -First 100
@@ -39,3 +40,4 @@ $hits | Select-Object -First 20 | ForEach-Object {
   Write-Host $_.Line
   $_.Context.PostContext | ForEach-Object { Write-Host $_ }
 }
+exit 1

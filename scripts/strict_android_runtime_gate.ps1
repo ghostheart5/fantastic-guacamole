@@ -16,6 +16,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'android_runtime_fatal_patterns.ps1')
 $notRunExitCode = 2
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $root
@@ -438,7 +439,7 @@ $appFatalPatterns = @(
   "Unable to start.*$([regex]::Escape($PackageName))",
   'E/flutter',
   'FATAL EXCEPTION'
-)
+) + @(Get-ChronoSparkFatalDiagnosticPatterns)
 $appHits = @(Select-String `
   -LiteralPath $runtimeLog `
   -Pattern $appFatalPatterns `

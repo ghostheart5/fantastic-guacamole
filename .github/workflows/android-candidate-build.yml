@@ -2,6 +2,19 @@ name: Android Candidate Build Only
 
 on:
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Reviewed full app commit SHA with successful CI
+        required: true
+        type: string
+      ci_run:
+        description: Successful CI workflow_dispatch run for that exact source
+        required: true
+        type: string
+      policy_sha256:
+        description: Reviewed effective internal policy SHA256 including verified private cohort
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -11,11 +24,11 @@ concurrency:
   group: android-candidate-build-only
   cancel-in-progress: false
 
-# Deliberately frozen app source. Workflow tooling has separate provenance.
-# Changing this pair requires a reviewed source candidate with its own green CI.
+# No default candidate: repaired source and its evidence must be selected explicitly.
 env:
-  CANDIDATE_SHA: 61c7331dda9e82201a0561dbcd79aa0b37118446
-  CANDIDATE_CI_RUN: '33939436515'
+  CANDIDATE_SHA: ${{ inputs.source_sha }}
+  CANDIDATE_CI_RUN: ${{ inputs.ci_run }}
+  CANDIDATE_POLICY_SHA256: ${{ inputs.policy_sha256 }}
 
 jobs:
   source-gate:
@@ -28,6 +41,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$CANDIDATE_CI_RUN" =~ ^[1-9][0-9]*$ ]]
+          [[ "$CANDIDATE_POLICY_SHA256" =~ ^[a-f0-9]{64}$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_CI_RUN" > "$RUNNER_TEMP/candidate-ci.json"
           jq -e --arg sha "$CANDIDATE_SHA" --arg repo "$GITHUB_REPOSITORY" '
             .head_sha == $sha and .repository.full_name == $repo and
@@ -77,6 +93,8 @@ jobs:
 
       - name: Build and verify contained candidate using existing signing identity
         env:
+          GH_TOKEN: ${{ github.token }}
+          CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: ${{ secrets.CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}

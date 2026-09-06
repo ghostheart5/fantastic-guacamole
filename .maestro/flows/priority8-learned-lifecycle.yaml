@@ -12,16 +12,9 @@ tags:
 - launchApp:
     clearState: true
 
-# Public onboarding -> authentication.
-- extendedWaitUntil:
-    visible: "CHRONOSPARK"
-    timeout: 60000
-- assertVisible: "A living decision system"
-- tapOn: "CONTINUE TO LOGIN"
-- extendedWaitUntil:
-    visible: "ENTER SYSTEM"
-    timeout: 10000
-- runFlow: ../subflows/sign-in.yaml
+# QA may show Welcome after clear-state. The local helper follows the visible
+# welcome handoff and then requires isolated tester access; no real credentials.
+- runFlow: ../subflows/sign-in-qa.yaml
 
 # First-run Creator -> Timeline. Completing this seed leaves the later
 # Planner-created task as the only open scheduled task in the journey.
@@ -64,14 +57,13 @@ tags:
       text: "REVIEW CHANGES"
     direction: DOWN
     timeout: 10000
+# Match the Creator smoke flow: finish picker/IME layout transitions before
+# resolving the button's tap position, then require the real preview handoff.
+- waitForAnimationToEnd:
+    timeout: 5000
 - tapOn:
     text: "REVIEW CHANGES"
     retryTapIfNoChange: true
-- scrollUntilVisible:
-    element:
-      text: "CONFIRM CREATOR CHANGES"
-    direction: UP
-    timeout: 10000
 - extendedWaitUntil:
     visible: "CONFIRM CREATOR CHANGES"
     timeout: 10000
@@ -104,8 +96,20 @@ tags:
     env:
       TARGET: "Smart Planner"
 - assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
-- tapOn: "Not set"
+- scrollUntilVisible:
+    element:
+      text: "What would you like help planning right now\\?"
+    direction: DOWN
+    timeout: 15000
+# Require the editable child and typed-text readback, not the whole check-in card.
+- tapOn: "What would you like help planning right now\\?"
+- assertVisible:
+    text: "What would you like help planning right now\\?"
+    focused: true
 - inputText: "Finish the Priority 8 release evidence today"
+- assertVisible:
+    text: "Finish the Priority 8 release evidence today"
+    focused: true
 - scrollUntilVisible:
     element:
       text: "GET GUIDANCE"
@@ -143,9 +147,13 @@ tags:
       text: "REVIEW CHANGES"
     direction: DOWN
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 5000
 - tapOn:
     text: "REVIEW CHANGES"
     retryTapIfNoChange: true
+# The longer Planner preview retains the form's scroll offset. Review its
+# heading before scrolling down to the explicit confirmation control.
 - scrollUntilVisible:
     element:
       text: "CONFIRM CREATOR CHANGES"
@@ -172,6 +180,11 @@ tags:
 - extendedWaitUntil:
     visible: "TIMELINE"
     timeout: 10000
+# The fresh QA Planner's best-fit title is deterministic. Require its scheduled
+# row and completion so the earlier seed outcome cannot satisfy this handoff.
+- extendedWaitUntil:
+    visible: "(?s).*Complete one useful cycle.*Task is scheduled for a planned work time.*"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       text: "Complete"
@@ -179,7 +192,7 @@ tags:
     timeout: 10000
 - tapOn: "Complete"
 - extendedWaitUntil:
-    visible: "(?s).*Task Completed.*marked complete.*"
+    visible: "(?s).*Task Completed.*Complete one useful cycle marked complete.*"
     timeout: 20000
 - tapOn: "Back to Nexus"
 
@@ -190,10 +203,11 @@ tags:
 - assertVisible: ".*completed outcome.*"
 
 # Process restart: preserve app data, then prove the account-scoped ledger
-# retained the same completed task-lifecycle outcome.
+# retained a completed task-lifecycle outcome. Task-specific subject identity
+# is checked by the persistence integration regression; this UI row is generic.
 - stopApp
 - launchApp
-- runFlow: ../subflows/sign-in.yaml
+- runFlow: ../subflows/sign-in-qa.yaml
 - extendedWaitUntil:
     visible: "NEXUS"
     timeout: 30000

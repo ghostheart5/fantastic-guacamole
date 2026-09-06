@@ -131,10 +131,27 @@ void main() {
 
     expect(maestroRunner, contains(r'[int]$ExecutionTimeoutSeconds = 900'));
     expect(maestroRunner, contains('function Invoke-NativeTimedLogged'));
-    expect(maestroRunner, contains(r'-EncodedCommand $encodedCommand'));
+    expect(maestroRunner, contains("'native_command_entry.ps1'"));
+    expect(maestroRunner, contains('-NoProfile -NonInteractive -File'));
     expect(
       maestroRunner,
-      contains(r'$process.WaitForExit($TimeoutSeconds * 1000)'),
+      contains(r'$startInfo.RedirectStandardInput = $true'),
+    );
+    expect(maestroRunner, contains(r'$payloadJson = [ordered]@{'));
+    expect(maestroRunner, contains('ConvertTo-Json -Compress'));
+    expect(maestroRunner, isNot(contains('-EncodedCommand')));
+    expect(
+      maestroRunner,
+      contains(r'$process.StandardInput.BaseStream.WriteAsync($payloadBytes'),
+    );
+    expect(maestroRunner, contains(r'$inputTask.Wait($TimeoutSeconds * 1000)'));
+    expect(
+      maestroRunner,
+      contains(r'($TimeoutSeconds * 1000) - $deadline.ElapsedMilliseconds'),
+    );
+    expect(
+      maestroRunner,
+      contains(r'$process.WaitForExit([int]$remainingMilliseconds)'),
     );
     expect(maestroRunner, contains('function Stop-NativeProcessTree'));
     expect(maestroRunner, contains(r'$killer.WaitForExit(5000)'));

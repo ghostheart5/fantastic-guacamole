@@ -109,7 +109,9 @@ class PersonalizationProfileController
       scope: ref.watch(accountStorageScopeProvider),
       legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
     );
-    unawaited(_load());
+    if (ref.watch(accountStorageScopeProvider).isWritable) {
+      unawaited(_load());
+    }
     return const PersonalizationProfile();
   }
 

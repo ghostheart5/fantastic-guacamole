@@ -19,18 +19,50 @@ tags:
     timeout: 15000
 - tapOn: "Data & account\\n.*"
 
+# Require one real account-mode control before selecting the matching branch.
+# A missing selector must not silently skip every account assertion.
+- scrollUntilVisible:
+    element:
+      text: "(?:Exit Tester Mode|Log Out)\\. .*"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "(?:Exit Tester Mode|Log Out)\\. .*"
+    enabled: true
+
 # Tester mode must expose only tester-safe account controls.
 - runFlow:
     when:
-      visible: "Exit Tester Mode\\n.*"
+      visible: "Exit Tester Mode\\. .*"
     commands:
-      - assertVisible: "Clear Local Data\\n.*"
-      - assertVisible: "Reset Tester Data\\n.*"
-      - assertNotVisible: "Delete Account\\n.*"
+      - scrollUntilVisible:
+          element:
+            text: "Clear Local Data\\. .*"
+          direction: DOWN
+          timeout: 15000
+      - assertVisible:
+          text: "Clear Local Data\\. .*"
+          enabled: true
+      - scrollUntilVisible:
+          element:
+            text: "Reset Tester Data\\. .*"
+          direction: DOWN
+          timeout: 15000
+      - assertVisible:
+          text: "Reset Tester Data\\. .*"
+          enabled: true
+      - assertNotVisible: "Delete Account\\. .*"
 
 # A real-account build must retain both sign-out and account deletion access.
 - runFlow:
     when:
-      visible: "Log Out\\n.*"
+      visible: "Log Out\\. .*"
     commands:
-      - assertVisible: "Delete Account\\n.*"
+      - scrollUntilVisible:
+          element:
+            text: "Delete Account\\. .*"
+          direction: DOWN
+          timeout: 15000
+      - assertVisible:
+          text: "Delete Account\\. .*"
+          enabled: true

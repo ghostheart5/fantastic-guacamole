@@ -232,9 +232,9 @@ class SmartPlannerQueryController
     final EmotionalSafetyAssessment emotionalSafety = assessEmotionalSafety(
       prompt,
     );
+    await _requireReleaseCapabilities();
     final ({double? energy, EmotionalState? emotion}) authorized =
         _authorizedCheckIn(energy: energy, emotion: emotion);
-    await _requireReleaseCapabilities();
     final _PlannerConversationContext conversation =
         _PlannerConversationContext.resolve(
           input: prompt,
