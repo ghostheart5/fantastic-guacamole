@@ -54,7 +54,12 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   }
   async function json(url, init = {}) {
     const result = await response(url, init);
-    require(result.ok, `Billing preflight request failed (${result.status})`);
+    if (!result.ok) {
+      const body = await result.json().catch(() => null);
+      const reason = body?.error?.errors?.[0]?.reason ?? body?.error?.status;
+      const safeReason = typeof reason === 'string' && /^[A-Za-z0-9_.-]{1,80}$/.test(reason) ? `: ${reason}` : '';
+      throw new PreflightError(`${new URL(url).hostname} preflight failed (${result.status}${safeReason})`);
+    }
     return await result.json();
   }
   const guard = await response(endpoint, { headers });
