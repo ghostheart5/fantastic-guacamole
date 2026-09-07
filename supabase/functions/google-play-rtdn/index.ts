@@ -143,6 +143,7 @@ async function finishUnboundTerminalEvent(
   tokenHash: string,
   status: string,
   active: boolean,
+  providerConfirmedTerminal: boolean,
 ): Promise<boolean> {
   const handled = await unboundTerminalReconciliationWasHandled(
     result,
@@ -162,6 +163,7 @@ async function finishUnboundTerminalEvent(
       const rows = await response.json();
       return Array.isArray(rows) ? rows.length > 0 : null;
     },
+    providerConfirmedTerminal,
   );
   if (handled) {
     await updateEvent(messageId, {
@@ -298,6 +300,7 @@ async function reconcileSubscriptionAuthority(input: {
     purchaseTokenHash,
     state.status,
     state.active,
+    true,
   );
 }
 
@@ -399,6 +402,10 @@ async function processVoided(
     messageId,
     await sha256Hex(purchaseToken),
     "revoked",
+    false,
+    // A voided notification alone cannot close an absent binding. Client
+    // verification may still be binding this token using an earlier snapshot.
+    // Keep Pub/Sub retrying until revocation is durably reconciled.
     false,
   );
 }
