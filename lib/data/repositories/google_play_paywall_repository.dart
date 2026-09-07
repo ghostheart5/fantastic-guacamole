@@ -968,19 +968,31 @@ class GooglePlayPaywallRepository
       }
 
       final String? currentUserId = _supabaseClient?.auth.currentUser?.id;
+      // Android emits empty product IDs when checkout closes without a purchase.
+      // Resolve only one outstanding purchase, still owned by this account.
+      String productId = purchase.productID;
+      if (productId.isEmpty &&
+          (purchase.status == PurchaseStatus.canceled ||
+              purchase.status == PurchaseStatus.error)) {
+        final candidates = _pendingPurchases.values.toList(growable: false);
+        if (candidates.length != 1 ||
+            candidates.single.userId != currentUserId ||
+            candidates.single.completer.isCompleted) {
+          continue;
+        }
+        productId = candidates.single.productId;
+      }
       final String? currentFingerprint = _billingAccountFingerprint(
         currentUserId,
       );
-      final String? persistedOwner = await _pendingOwnerFingerprint(
-        purchase.productID,
-      );
+      final String? persistedOwner = await _pendingOwnerFingerprint(productId);
       final bool discardedForAccountChange =
           _failPendingPurchasesForOtherAccounts(
-            productId: purchase.productID,
+            productId: productId,
             currentUserId: currentUserId,
           );
       final String operationKey = _purchaseOperationKey(
-        purchase.productID,
+        productId,
         currentUserId,
       );
       final _PendingPurchase? pending = _pendingPurchases[operationKey];
@@ -1046,7 +1058,7 @@ class GooglePlayPaywallRepository
               purchase,
               expectedUserId: expectedUserId,
             );
-        final String? planId = _planIdForProduct(purchase.productID);
+        final String? planId = _planIdForProduct(productId);
         final bool accountIsCurrent = _isCurrentBillingAccount(expectedUserId);
         if (verification != null && planId != null && accountIsCurrent) {
           bool acknowledged =
@@ -1122,7 +1134,7 @@ class GooglePlayPaywallRepository
           _completePendingPurchase(pending, _state);
           _completePendingRestore(restore, _restoreOutcome(_state));
           _approvalPending.remove(operationKey);
-          await _clearPendingOwner(purchase.productID, expectedUserId);
+          await _clearPendingOwner(productId, expectedUserId);
         } else {
           if (!accountIsCurrent) {
             final StateError error = StateError(
@@ -1146,6 +1158,7 @@ class GooglePlayPaywallRepository
         _removePendingPurchase(operationKey, pending);
       } else if (purchase.status == PurchaseStatus.error) {
         Logger.error('IAP purchase error', purchase.error);
+        await _clearPendingOwner(productId, currentUserId);
         _completePendingPurchaseError(
           pending,
           purchase.error ?? StateError('Purchase failed.'),
@@ -1160,21 +1173,20 @@ class GooglePlayPaywallRepository
         );
         _approvalPending.remove(operationKey);
         _removePendingPurchase(operationKey, pending);
-        await _clearPendingOwner(purchase.productID, currentUserId);
       } else if (purchase.status == PurchaseStatus.canceled) {
+        await _clearPendingOwner(productId, currentUserId);
         final SubscriptionState canceled = _transactionOutcomeState(
           status: 'purchase_canceled',
-          attemptedPlanId: _planIdForProduct(purchase.productID),
+          attemptedPlanId: _planIdForProduct(productId),
         );
         _completePendingPurchase(pending, canceled);
         _completePendingRestore(restore, _restoreOutcome(canceled));
         _approvalPending.remove(operationKey);
         _removePendingPurchase(operationKey, pending);
-        await _clearPendingOwner(purchase.productID, currentUserId);
       } else if (purchase.status == PurchaseStatus.pending) {
-        final String? planId = _planIdForProduct(purchase.productID);
+        final String? planId = _planIdForProduct(productId);
         final SubscriptionState purchasePending = _purchasePendingState(planId);
-        await _rememberPendingOwner(purchase.productID, currentUserId);
+        await _rememberPendingOwner(productId, currentUserId);
         _approvalPending.add(operationKey);
         _completePendingPurchase(pending, purchasePending);
         _completePendingRestore(restore, purchasePending);

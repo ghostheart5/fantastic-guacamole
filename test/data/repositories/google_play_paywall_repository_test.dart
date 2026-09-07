@@ -1093,6 +1093,187 @@ void main() {
     await controller.close();
   });
 
+  for (final status in <PurchaseStatus>[
+    PurchaseStatus.canceled,
+    PurchaseStatus.error,
+  ]) {
+    test(
+      'empty-product $status clears its owner before immediate retry',
+      () async {
+        final controller = StreamController<List<PurchaseDetails>>.broadcast();
+        final client = await _authorityClient((request) async {
+          fail('A failed purchase must not verify or grant access.');
+        });
+        final store = SecureStore(backend: InMemorySecureStoreBackend());
+        var starts = 0;
+        final billing = _FakeBillingClient(
+          purchaseStreamController: controller,
+          productResponse: ProductDetailsResponse(
+            productDetails: <ProductDetails>[
+              ProductDetails(
+                id: 'chronospark_premium_monthly',
+                title: 'Monthly',
+                description: 'Monthly',
+                price: 'USD 4.99',
+                rawPrice: 4.99,
+                currencyCode: 'USD',
+              ),
+            ],
+            notFoundIDs: const <String>[],
+          ),
+          onBuyNonConsumable: (param) async {
+            starts++;
+            controller.add(<PurchaseDetails>[
+              PurchaseDetails(
+                  productID: '',
+                  verificationData: PurchaseVerificationData(
+                    localVerificationData: '',
+                    serverVerificationData: '',
+                    source: 'google_play',
+                  ),
+                  transactionDate: null,
+                  status: status,
+                )
+                ..error = IAPError(
+                  source: 'google_play',
+                  code: 'billing-error',
+                  message: 'Declined',
+                ),
+            ]);
+            return true;
+          },
+        );
+        final repository = GooglePlayPaywallRepository(
+          billingClient: billing,
+          paywallTestingModeOverride: false,
+          sharedPreferencesLoader: SharedPreferences.getInstance,
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+          supabaseClient: client,
+          secureStore: store,
+        );
+        try {
+          for (var attempt = 0; attempt < 2; attempt++) {
+            final purchase = repository
+                .startSubscription('monthly')
+                .timeout(const Duration(seconds: 2));
+            if (status == PurchaseStatus.error) {
+              await Logger.withMutedErrors(
+                () => expectLater(purchase, throwsA(isA<IAPError>())),
+              );
+            } else {
+              final state = await purchase;
+              expect(state.status, 'purchase_canceled');
+              expect(state.isActive, isFalse);
+            }
+            expect(
+              await store.readString(
+                'paywall_pending_purchase_owner_v1.chronospark_premium_monthly',
+              ),
+              isNull,
+            );
+          }
+          expect(starts, 2);
+          expect(billing.completePurchaseCalls, 0);
+        } finally {
+          repository.dispose();
+          await controller.close();
+          await client.dispose();
+        }
+      },
+    );
+  }
+
+  for (final scenario in <String>[
+    'other account',
+    'ambiguous',
+    'empty success',
+  ]) {
+    test('empty-product callback preserves ownership for $scenario', () async {
+      final controller = StreamController<List<PurchaseDetails>>.broadcast();
+      final client = await _authorityClient(
+        (request) async => http.Response('[]', 200),
+      );
+      final store = SecureStore(backend: InMemorySecureStoreBackend());
+      final billing = _FakeBillingClient(
+        purchaseStreamController: controller,
+        productResponse: ProductDetailsResponse(
+          productDetails: <ProductDetails>[
+            ProductDetails(
+              id: 'chronospark_premium_monthly',
+              title: 'Monthly',
+              description: 'Monthly',
+              price: 'USD 4.99',
+              rawPrice: 4.99,
+              currencyCode: 'USD',
+            ),
+          ],
+          notFoundIDs: const <String>[],
+        ),
+        onBuyNonConsumable: (param) async => true,
+      );
+      final repository = GooglePlayPaywallRepository(
+        billingClient: billing,
+        paywallTestingModeOverride: false,
+        sharedPreferencesLoader: SharedPreferences.getInstance,
+        receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+        supabaseClient: client,
+        secureStore: store,
+        httpClient: MockClient((request) async {
+          fail('An empty-product success must not verify a purchase.');
+        }),
+      );
+      var completed = false;
+      repository.startSubscription('monthly').then((_) {
+        completed = true;
+      }).ignore();
+      await pumpEventQueue(times: 10);
+      if (scenario == 'ambiguous') {
+        repository.startSubscription('annual').ignore();
+        await pumpEventQueue(times: 10);
+      } else if (scenario == 'other account') {
+        await client.auth.signInWithPassword(
+          email: 'user-2@example.com',
+          password: 'password',
+        );
+      }
+      try {
+        for (final status
+            in scenario == 'empty success'
+                ? <PurchaseStatus>[PurchaseStatus.purchased]
+                : <PurchaseStatus>[
+                    PurchaseStatus.canceled,
+                    PurchaseStatus.error,
+                  ]) {
+          controller.add(<PurchaseDetails>[
+            PurchaseDetails(
+              productID: '',
+              verificationData: PurchaseVerificationData(
+                localVerificationData: '',
+                serverVerificationData: '',
+                source: 'google_play',
+              ),
+              transactionDate: null,
+              status: status,
+            ),
+          ]);
+          await pumpEventQueue(times: 10);
+          expect(completed, isFalse);
+          expect(
+            await store.readString(
+              'paywall_pending_purchase_owner_v1.chronospark_premium_monthly',
+            ),
+            sha256.convert(utf8.encode('user-1')).toString(),
+          );
+          expect(billing.completePurchaseCalls, 0);
+        }
+      } finally {
+        repository.dispose();
+        await controller.close();
+        await client.dispose();
+      }
+    });
+  }
+
   test(
     'startSubscription rejects missing or implausible server expiry',
     () async {
