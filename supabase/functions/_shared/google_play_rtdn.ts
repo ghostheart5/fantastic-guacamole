@@ -281,8 +281,10 @@ export async function unboundTerminalReconciliationWasHandled(
   status: string,
   active: boolean,
   hasBinding: () => Promise<boolean | null>,
+  providerConfirmedTerminal = false,
 ): Promise<boolean> {
   if (
+    !providerConfirmedTerminal ||
     result?.reason !== "binding_not_found" || active ||
     !["expired", "revoked"].includes(status)
   ) return false;
