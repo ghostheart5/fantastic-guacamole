@@ -143,6 +143,24 @@ void main() {
     );
     expect(repository.getGoals(), hasLength(2));
   });
+
+  test('saving after a cold close preserves existing goals', () async {
+    await repository.saveGoal(goal('existing'));
+    await storage.close();
+    await repository.saveGoal(goal('new'));
+    expect(
+      repository.getGoals().map((value) => value.id),
+      containsAll(<String>['existing', 'new']),
+    );
+    expect(repository.getGoals(), hasLength(2));
+  });
+
+  test('deleting after a cold close preserves unrelated goals', () async {
+    await repository.saveGoals([goal('keep'), goal('remove')]);
+    await storage.close();
+    await repository.deleteGoal('remove');
+    expect(repository.getGoals().single.id, 'keep');
+  });
 }
 
 class _DirectHiveStore implements HiveStore {

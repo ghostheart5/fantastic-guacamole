@@ -68,6 +68,7 @@ class GoalRepository implements IGoalRepository {
   Future<void> saveGoal(GoalEntity goal) {
     _requireWritableScope();
     return _enqueueWrite(() async {
+      await _store.open();
       final List<GoalEntity> existing = getGoals().toList(growable: true);
       final int index = existing.indexWhere(
         (GoalEntity item) => item.id == goal.id,
@@ -89,6 +90,7 @@ class GoalRepository implements IGoalRepository {
   }
 
   Future<void> _saveGoalsUnlocked(List<GoalEntity> goals) async {
+    await _store.open();
     await _quarantineCorruptPayloadIfNeeded();
     await _store.put(
       _key,
@@ -100,6 +102,7 @@ class GoalRepository implements IGoalRepository {
   Future<void> deleteGoal(String id) {
     _requireWritableScope();
     return _enqueueWrite(() async {
+      await _store.open();
       final List<GoalEntity> next = getGoals()
           .where((GoalEntity goal) => goal.id != id)
           .toList(growable: false);

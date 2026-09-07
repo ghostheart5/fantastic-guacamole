@@ -47,6 +47,9 @@
 - 3013 adds a Creator entry to a Daily Rhythms library using existing account-scoped habit and occurrence services. Completion and skip record one outcome per cadence period; rename, pause/resume, and confirmed removal use existing mutations. Target completion means the entire configured period target is met.
 - Twenty focused Creator, Daily Rhythms, provider, and coordinator tests pass locally, including account changes during dialogs, failed writes, duplicate-outcome prevention, and completion/skip controls. Focused static analysis and 28 Maestro YAML contracts pass. Hosted and Play-delivered validation of 3013 remain required.
 - Planner test input now retries only the focused field up to three times, clears the short request between attempts, and still requires exact readback before submitting. No submitted application mutation is retried.
+- Later cold-start readback showed the saved goal absent from Nexus. The auth boundary marked storage ready without opening the account-scoped goal box; its synchronous reader then returned an empty list. 3013 now prepares that box before opening the account gate and checks the auth generation again after preparation. Goal saves/deletes open storage before reading existing records, preventing cold writes from replacing unrelated goals with an empty snapshot. Twenty-nine focused repository and account-boundary tests pass, including real close/reopen persistence and failed initialization remaining locked. Static analysis passes.
+- The first 3013 gate runs against `7a9cf10b` were superseded before signing when this cold-start defect was identified. Backend run 34162908349 passed; CI 34162906941 and Maestro 34162909670 were canceled. Their partial checks are not the final 3013 gate.
+- The new Maestro Creator journey covers rhythm creation, pause/resume, completion readback, disabled duplicate controls, and saved-goal availability after process restart.
 
 ## Minor observations retained for follow-up
 

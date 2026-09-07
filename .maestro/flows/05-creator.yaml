@@ -81,6 +81,7 @@ tags:
     file: ../subflows/open-from-nexus.yaml
     env:
       TARGET: "Creator"
+- tapOn: "Task"
 - tapOn: "Daily Rhythm"
 - tapOn: "Title *"
 - inputText: "Maestro review rhythm"
@@ -125,3 +126,46 @@ tags:
 - assertVisible:
     text: "Skip this day"
     enabled: false
+
+# Reopen a saved goal on a cold process. Its account box must be prepared
+# before synchronous goal readers populate the next task's linking control.
+- back
+- scrollUntilVisible:
+    element:
+      text: "Daily Rhythm"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Daily Rhythm"
+- tapOn: "Goal"
+- tapOn: "Title *"
+- eraseText: 50
+- inputText: "Maestro preserved goal"
+- runFlow: ../subflows/reveal-creator-review.yaml
+- tapOn: "REVIEW CHANGES"
+- extendedWaitUntil:
+    visible: "CONFIRM CREATOR CHANGES"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "CONFIRM SELECTED"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "CONFIRM SELECTED"
+- extendedWaitUntil:
+    visible: "(?s).*Confirmed and saved exactly once.*"
+    timeout: 10000
+- stopApp
+- launchApp
+- runFlow: ../subflows/sign-in.yaml
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Creator"
+- scrollUntilVisible:
+    element:
+      text: "No linked goal"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "No linked goal"
+- assertVisible: "Maestro preserved goal"
+- back
