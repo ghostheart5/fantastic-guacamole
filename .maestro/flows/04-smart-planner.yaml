@@ -56,5 +56,13 @@ tags:
     timeout: 30000
 - runFlow: ../subflows/answer-planner-saved-context.yaml
 - assertVisible: "Use this plan"
+# The follow-up keyboard can leave the lower response actions off screen.
+# Scroll to the evidence action before asserting it exists.
+- scrollUntilVisible:
+    element:
+      text: "Evidence"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible: "Evidence"
 - assertNotVisible: "External AI"
