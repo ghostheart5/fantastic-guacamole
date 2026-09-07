@@ -105,7 +105,8 @@ tags:
     direction: UP
     timeout: 10000
 - tapOn: "Manage Daily Rhythms"
-- assertVisible: "Maestro review rhythm"
+# Android merges the card's title, cadence, and status into one readable node.
+- assertVisible: "(?s)Maestro review rhythm\\n1 time per day.*"
 - tapOn: "Pause"
 - assertVisible: "Resume"
 - assertVisible:
@@ -114,15 +115,14 @@ tags:
 - tapOn: "Resume"
 - tapOn: "Mark target completed"
 - extendedWaitUntil:
-    visible: "Completed this day"
+    visible: "(?s)Maestro review rhythm\\n1 time per day.*\\nCompleted this day\\n.*"
     timeout: 10000
 - assertVisible:
     text: "Mark target completed"
     enabled: false
 - back
 - tapOn: "Manage Daily Rhythms"
-- assertVisible: "Maestro review rhythm"
-- assertVisible: "Completed this day"
+- assertVisible: "(?s)Maestro review rhythm\\n1 time per day.*\\nCompleted this day\\n.*"
 - assertVisible:
     text: "Skip this day"
     enabled: false
