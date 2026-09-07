@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
@@ -23,6 +24,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../support/golden_harness.dart';
 
@@ -95,6 +97,7 @@ void main() {
     PersonContextRepository? personContextRepository,
     List<DecisionOutcomeEntity>? decisionOutcomes,
     bool? learningPaused,
+    bool billingAccess = false,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -107,6 +110,15 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        if (billingAccess)
+          appAccessProvider.overrideWithValue(
+            const AppAccessState(
+              hasPremiumAccess: true,
+              hasTesterFullAccess: false,
+              paywallDisabled: false,
+              internalBillingTest: true,
+            ),
+          ),
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
@@ -223,6 +235,43 @@ void main() {
       expect(attempts, 2);
     },
   );
+
+  for (final entry in ['Manage plan', 'View credits']) {
+    testWidgets('$entry preserves Settings for Android Back', (tester) async {
+      useTallSurface(tester);
+      final container = createContainer(billingAccess: true);
+      final router = GoRouter(
+        initialLocation: '/settings',
+        routes: [
+          GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+          GoRoute(
+            path: '/paywall',
+            builder: (_, _) =>
+                const Scaffold(body: Text('Subscription destination')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text(entry));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Subscription destination'), findsOneWidget);
+      expect(router.canPop(), isTrue);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('SETTINGS'), findsOneWidget);
+      expect(find.text('Test subscription active'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('hides plans and credits while subscriptions are contained', (
     WidgetTester tester,

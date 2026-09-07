@@ -1,7 +1,7 @@
 # Internal Google Play billing test preparation
 
 Prepared 2026-09-07 UTC. Target: signed Android release candidate
-`4.1.0+2026083011`, package `com.ghostheart5.chronospark`, existing upload key and
+`4.1.0+2026083012`, package `com.ghostheart5.chronospark`, existing upload key and
 existing Google Play internal-testing track. Stop before the AAB build stage.
 This checkpoint does not approve a public release or paid AI-credit launch.
 
