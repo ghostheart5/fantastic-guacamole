@@ -206,7 +206,8 @@ def elf_alignment(data):
     return min(loads)
 
 
-def manifest_identity(xml, version):
+def manifest_identity(xml, version, billing_test=False):
+    require(type(billing_test) is bool, "Billing profile must be explicitly true or false")
     manifest = ET.fromstring(xml)
     android = "{http://schemas.android.com/apk/res/android}"
     require(manifest.get("package") == PACKAGE, "AAB package mismatch")
@@ -218,6 +219,11 @@ def manifest_identity(xml, version):
     app = manifest.find("application")
     require(app is not None and app.get(android + "debuggable", "false") == "false",
             "Debuggable AAB rejected")
+    require(app.get(android + "testOnly", "false") == "false", "Test-only AAB rejected")
+    billing_permission = any(node.get(android + "name") == "com.android.vending.BILLING"
+                             for node in manifest.findall("uses-permission"))
+    require(billing_permission == billing_test,
+            "Compiled billing permission does not match the selected billing profile")
     return int(sdk.get(android + "targetSdkVersion"))
 
 
@@ -318,7 +324,7 @@ def build(root, bundletool):
     require("PAGE_ALIGNMENT_16K" in config and "PAGE_ALIGNMENT_4K" not in config,
             "Bundle does not request 16 KB ZIP alignment")
     manifest = command(bundle + ["dump", "manifest", "--bundle=" + str(aab), "--module=base"], root, True)
-    target = manifest_identity(manifest, (version[1], version[2]))
+    target = manifest_identity(manifest, (version[1], version[2]), billing_test=billing_test)
     native = {}
     with zipfile.ZipFile(aab) as archive:
         require(len(archive.namelist()) == len(set(archive.namelist())), "Duplicate archive entries")
@@ -343,6 +349,7 @@ def build(root, bundletool):
         "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"], "aabSha256": digest,
         "uploadSignerSha256": signer, "package": PACKAGE,
         "versionName": version[1], "versionCode": int(version[2]), "targetSdk": target,
+        "compiledBillingPermission": billing_test,
         "buildFlags": {**FLAGS, "CHRONOSPARK_INTERNAL_BILLING_TEST": str(billing_test).lower(),
                        "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": "private cohort" if billing_test else ""},
         "assistantPolicy": policy_receipt, "native64BitLoadAlignment": native,

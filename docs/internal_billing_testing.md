@@ -50,6 +50,12 @@ false. The explicit `billing_test=true` candidate input adds:
   members on production Android/cloud builds only.
 - A mandatory Google-verified test purchase marker in both request and response.
 
+The same compiled Dart flag selects a release manifest overlay that restores
+`com.android.vending.BILLING`. Ordinary contained builds continue to remove it.
+Local, non-release, invalid and conflicting native billing definitions are
+rejected. The candidate gate checks the final merged bundle manifest: billing
+permission must be present exactly when the internal billing profile is selected.
+
 Missing, malformed or mismatched cohorts, local mode, non-Android platforms and
 billing bypasses fail closed. Account changes rebuild the repository and its
 use cases. No license test grants an automatic premium entitlement.

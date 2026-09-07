@@ -174,11 +174,12 @@ def elf(load_alignment=16384, offset=0, address=0):
     return data
 
 
-def manifest(package=PACKAGE, code="2026083003", target="36", debug="false"):
+def manifest(package=PACKAGE, code="2026083003", target="36", debug="false", test_only="false", billing=False):
+    permission = '<uses-permission android:name="com.android.vending.BILLING"/>' if billing else ''
     return (f'<manifest xmlns:android="http://schemas.android.com/apk/res/android" '
             f'package="{package}" android:versionName="4.1.0" android:versionCode="{code}">'
             f'<uses-sdk android:targetSdkVersion="{target}"/>'
-            f'<application android:debuggable="{debug}"/></manifest>')
+            f'{permission}<application android:debuggable="{debug}" android:testOnly="{test_only}"/></manifest>')
 
 
 class CandidateVerifierTests(unittest.TestCase):
@@ -225,9 +226,18 @@ class CandidateVerifierTests(unittest.TestCase):
 
     def test_bad_manifest_identity_rejected(self):
         for options in ({"package": "other.app"}, {"code": "1"},
-                        {"target": "35"}, {"debug": "true"}):
+                        {"target": "35"}, {"debug": "true"}, {"test_only": "true"}):
             with self.subTest(options=options), self.assertRaises(ValueError):
                 manifest_identity(manifest(**options), ("4.1.0", "2026083003"))
+
+    def test_internal_billing_manifest_requires_compiled_permission(self):
+        self.assertEqual(manifest_identity(manifest(billing=True), ("4.1.0", "2026083003"), billing_test=True), 36)
+        with self.assertRaisesRegex(ValueError, "Compiled billing permission"):
+            manifest_identity(manifest(), ("4.1.0", "2026083003"), billing_test=True)
+
+    def test_ordinary_candidate_rejects_unexpected_billing_permission(self):
+        with self.assertRaisesRegex(ValueError, "Compiled billing permission"):
+            manifest_identity(manifest(billing=True), ("4.1.0", "2026083003"))
 
     def test_java_verifier_rejects_unsigned_payload_without_creating_a_key(self):
         self.assertIsNotNone(shutil.which("java"), "Java required; do not skip signature rejection")
