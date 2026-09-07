@@ -10,8 +10,10 @@ appId: com.ghostheart5.chronospark
             notVisible: "REVIEW CHANGES"
           commands:
             - swipe:
-                start: "95%, 85%"
-                end: "95%, 25%"
+                # Stay above the Android keyboard when the title is focused.
+                # A gesture beginning at 85% is swallowed by the open IME.
+                start: "95%, 55%"
+                end: "95%, 20%"
                 duration: 500
             - waitForAnimationToEnd:
                 timeout: 3000
