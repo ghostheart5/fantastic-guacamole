@@ -22,11 +22,18 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
 
   @override
   Future<bool> build() async {
-    final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+    // A token refresh may emit a new scope object for the same account. Avoid
+    // reloading its completed flag: a transient loading state would send an
+    // already-onboarded user back through the route guard. Account changes and
+    // unsafe storage still invalidate immediately through the selected key.
+    final String? account = ref.watch(
+      accountStorageScopeProvider.select(
+        (scope) => scope.isWritable ? scope.v2Namespace : null,
+      ),
+    );
     final LegacyScopeOwnership legacyOwnership = ref.watch(
       accountLegacyOwnershipProvider,
     );
-    final String? account = scope.isWritable ? scope.v2Namespace : null;
     if (account == null) return false;
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
