@@ -36,6 +36,20 @@ export function verifyCatalog(products, databasePlans) {
   }
 }
 
+export function verifyRtdnTestDelivery(events, now = Date.now()) {
+  require(Array.isArray(events) && events.length === 1, 'Send a fresh Google Play RTDN test notification before building');
+  const event = events[0];
+  const received = Date.parse(event.received_at);
+  const processed = Date.parse(event.processed_at);
+  require(event.package_name === PACKAGE && event.event_type === 'test' &&
+    event.state === 'processed' && event.failure_code === null,
+  'Latest Google Play RTDN test did not process successfully');
+  require(Number.isFinite(received) && Number.isFinite(processed) &&
+    received > now - 24 * 60 * 60 * 1000 && received <= processed && processed <= now,
+  'Google Play RTDN test evidence must be processed within the last 24 hours');
+  return { receivedAt: new Date(received).toISOString(), processedAt: new Date(processed).toISOString() };
+}
+
 export async function verifyInternalBillingBackend(env = process.env, request = fetch) {
   function setting(name) {
     const value = env[name]?.trim();
@@ -104,17 +118,23 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
     }
   }
   verifyCatalog(products, databasePlans);
-  const subscription = setting('RTDN_PUBSUB_SUBSCRIPTION');
-  require(/^projects\/[a-z0-9-]+\/subscriptions\/[A-Za-z0-9._~-]+$/.test(subscription), 'Invalid RTDN subscription resource');
-  const cloud = await googleToken('https://www.googleapis.com/auth/cloud-platform');
-  const pubsub = await json(`https://pubsub.googleapis.com/v1/${subscription}`, { headers: { Authorization: `Bearer ${cloud}` } });
-  require(pubsub.pushConfig?.pushEndpoint === `${root}/functions/v1/google-play-rtdn` &&
-    pubsub.pushConfig?.oidcToken?.audience === setting('RTDN_AUDIENCE') &&
-    pubsub.pushConfig?.oidcToken?.serviceAccountEmail === setting('RTDN_SERVICE_ACCOUNT_EMAIL'), 'RTDN push authentication mismatch');
+  // Billing credentials do not need Pub/Sub infrastructure access. Verify the
+  // authenticated delivery path instead, using service-controlled event evidence.
+  // This empty unauthenticated probe must fail before any event can be written.
+  const unauthenticated = await response(`${root}/functions/v1/google-play-rtdn`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+  });
+  await unauthenticated.body?.cancel();
+  require(unauthenticated.status === 401, 'RTDN endpoint must reject unauthenticated delivery');
+  const events = await json(`${root}/rest/v1/google_play_rtdn_events?package_name=eq.${PACKAGE}&event_type=eq.test&order=received_at.desc&limit=1&select=package_name,event_type,state,failure_code,received_at,processed_at`, { headers });
+  const testDelivery = verifyRtdnTestDelivery(events);
   return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1',
     catalog: PLANS.map(({ product, base, period, micros }) => ({ product, base, period, currency: 'USD', priceMicros: micros })),
-    serviceAccountIdentitySha256, rtdnPushConfigured: true, verifiedAt: new Date().toISOString(),
-    boundary: 'Configuration only; device purchases and subscription lifecycle remain to be tested.' };
+    serviceAccountIdentitySha256,
+    googleServiceAccountConfigSha256: createHash('sha256').update(env.GOOGLE_SERVICE_ACCOUNT_JSON).digest('hex'),
+    rtdn: { unauthenticatedDeliveryRejected: true, testDelivery },
+    verifiedAt: new Date().toISOString(),
+    boundary: 'Configuration and authenticated test notification only; device purchases and subscription lifecycle remain to be tested.' };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

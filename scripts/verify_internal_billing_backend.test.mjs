@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { verifyCatalog, verifyInternalBillingBackend } from './verify_internal_billing_backend.mjs';
+import { verifyCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
 
 function catalog() {
   const products = [['monthly', 'P1M', '4'], ['annual', 'P1Y', '39']].map(([base, period, units]) => ({
@@ -55,4 +55,23 @@ test('preflight rejects an old verifier before touching Google credentials', asy
     return new Response('', { status: 405, headers: { 'x-chronospark-contract': 'verify-receipt-v2' } });
   }), /lacks the license-test guard/);
   assert.equal(calls, 1);
+});
+
+test('RTDN gate requires a recent processed test for the exact app', () => {
+  const now = Date.parse('2026-09-07T05:00:00Z');
+  const event = {
+    package_name: 'com.ghostheart5.chronospark', event_type: 'test',
+    state: 'processed', failure_code: null,
+    received_at: '2026-09-07T04:00:00Z', processed_at: '2026-09-07T04:00:01Z',
+  };
+  assert.equal(verifyRtdnTestDelivery([event], now).processedAt, '2026-09-07T04:00:01.000Z');
+  assert.throws(() => verifyRtdnTestDelivery([], now));
+  for (const overrides of [
+    { package_name: 'other.app' }, { event_type: 'subscription' },
+    { state: 'failed' }, { failure_code: 'unauthorized' },
+    { received_at: '2026-09-06T04:00:00Z' }, { processed_at: null },
+    { processed_at: '2026-09-07T03:00:00Z' }, { processed_at: '2026-09-08T04:00:00Z' },
+  ]) {
+    assert.throws(() => verifyRtdnTestDelivery([{ ...event, ...overrides }], now));
+  }
 });

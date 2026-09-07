@@ -32,6 +32,11 @@ The receipt verifier was updated to version 12 with the license-test guard;
 all five deployed bundle source files matched the local source after LF
 normalization. Database RLS and service-controlled entitlements remain in use.
 
+The existing backend service account has approved ChronoSpark-only app/quality
+read access, financial read access, and order/subscription management. It has no
+account-wide, administrator, release, or store-editing permissions. The Google
+Play Android Developer API is enabled in the existing Cloud project.
+
 ## Build controls
 
 The ordinary candidate profile keeps all public launch-containment switches
@@ -55,8 +60,12 @@ It does not advertise an AI-credit benefit or a usable wallet in this profile.
 The candidate requires a reviewed full source SHA, successful exact-source CI,
 the effective private policy SHA256 and the explicit billing profile. Before
 signing, `verify_internal_billing_backend.mjs` checks the live verifier guard,
-both approved Play base plans/prices, the matching backend catalog and RTDN OIDC
-configuration. Its report contains no credentials or purchase tokens.
+both approved Play base plans/prices and the matching backend catalog. RTDN must
+reject an unauthenticated request and have a successfully processed Google Play
+test notification within the last 24 hours. Send a fresh Console test if that
+evidence has expired. The billing identity does not need Pub/Sub infrastructure
+permissions. The report contains no credentials or purchase tokens; these checks
+do not establish purchase or renewal behavior.
 
 The candidate workflow can run the same read-only checks with
 `billing_test=true` and `preflight_only=true`, from the existing approved tooling

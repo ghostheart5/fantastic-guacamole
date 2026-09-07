@@ -41,8 +41,10 @@ void main() {
           .toSet();
       expect(
         excluded,
-        <String>{'build/**'},
-        reason: 'Source roots must not be silently excluded from analysis.',
+        <String>{'build/**', 'test-results/**'},
+        reason:
+            'Only build output and retained test evidence may be excluded; '
+            'maintained source roots must remain analyzed.',
       );
 
       final Set<String> cannotIgnore = (analyzer['cannot-ignore'] as YamlList)
