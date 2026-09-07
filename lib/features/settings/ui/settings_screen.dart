@@ -302,7 +302,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
 
-              if (Env.subscriptionsEnabled) ...<Widget>[
+              if (Env.subscriptionsEnabled ||
+                  access.internalBillingTest) ...<Widget>[
                 _PlanAndCreditsCard(
                   planStatus: access.subscriptionStatusLabel,
                   planDetail: access.subscriptionStatusDetail,

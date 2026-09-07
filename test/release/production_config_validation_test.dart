@@ -57,6 +57,56 @@ void main() {
     );
   });
 
+  test(
+    'internal billing profile requires an explicit cohort and no bypasses',
+    () {
+      final values = <String, String>{
+        ...validValues(),
+        'CHRONOSPARK_INTERNAL_BILLING_TEST': 'true',
+        'CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS': List.filled(
+          64,
+          'a',
+        ).join(),
+        'CHRONOSPARK_APP_FLAVOR': 'prod',
+        'CHRONOSPARK_BACKEND_MODE': 'cloud',
+        'CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS': 'false',
+        'CHRONOSPARK_ENABLE_MOCK_LOGIN': 'false',
+        'CHRONOSPARK_ENABLE_MOCK_MODE': 'false',
+        'CHRONOSPARK_PAYWALL_DISABLED': 'false',
+        'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS': 'false',
+      };
+      expect(
+        validateProductionConfiguration(
+          values,
+          target: ProductionTarget.android,
+        ),
+        isEmpty,
+      );
+      for (final key in [
+        'CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS',
+        'CHRONOSPARK_APP_FLAVOR',
+        'CHRONOSPARK_BACKEND_MODE',
+        'CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS',
+        'CHRONOSPARK_PAYWALL_DISABLED',
+        'CHRONOSPARK_ENABLE_MOCK_MODE',
+        'CHRONOSPARK_ENABLE_MOCK_LOGIN',
+        'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
+      ]) {
+        expect(
+          validateProductionConfiguration({
+            ...values,
+            key: '',
+          }, target: ProductionTarget.android),
+          isNotEmpty,
+        );
+      }
+      expect(
+        validateProductionConfiguration(values, target: ProductionTarget.ios),
+        isNotEmpty,
+      );
+    },
+  );
+
   test('Android validation does not require an Apple team ID', () {
     final Map<String, String> values = validValues()
       ..remove('CHRONOSPARK_IOS_TEAM_ID');

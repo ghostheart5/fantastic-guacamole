@@ -5,11 +5,58 @@ import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'license testing uses repository authority without advertising AI credits',
+    () async {
+      final repository = _FakePaywallRepository();
+      final container = ProviderContainer(
+        overrides: [
+          internalBillingTestEnabledProvider.overrideWithValue(true),
+          appPaywallRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      final config = await container.read(paywallConfigProvider.future);
+      expect(config.title, 'Google Play billing test');
+      expect(config.body, contains('AI and credit spending are unavailable'));
+      expect(config.isUnlocked, isFalse);
+      expect(config.plans.every((p) => p.aiCreditsIncluded == 0), isTrue);
+      await container.read(paywallActionsProvider).startSubscription('monthly');
+      expect(repository.lastStartedPlanId, 'monthly');
+      expect(repository.refreshCalls, 1);
+    },
+  );
+
+  test(
+    'paywall use cases follow repository replacement after account change',
+    () async {
+      final first = _FakePaywallRepository();
+      final next = _FakePaywallRepository();
+      final container = ProviderContainer(
+        overrides: [
+          internalBillingTestEnabledProvider.overrideWithValue(true),
+          appPaywallRepositoryProvider.overrideWithValue(first),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(startSubscriptionUseCaseProvider);
+      container.updateOverrides([
+        internalBillingTestEnabledProvider.overrideWithValue(true),
+        appPaywallRepositoryProvider.overrideWithValue(next),
+      ]);
+      await container.read(paywallActionsProvider).startSubscription('monthly');
+      expect(first.lastStartedPlanId, isNull);
+      expect(next.lastStartedPlanId, 'monthly');
+    },
+  );
+
   test(
     'paywallConfigProvider ignores repository state during containment',
     () async {

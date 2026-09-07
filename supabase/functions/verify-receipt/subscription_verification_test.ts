@@ -8,6 +8,7 @@ import {
   classifyVerificationReconciliation,
   existingPurchaseProofPolicy,
   googlePlayAcknowledgementState,
+  isGooglePlayTestPurchase,
   readLatestSuccessfulOrderId,
   readLinkedPurchaseToken,
   readPurchaseLineage,
@@ -17,6 +18,17 @@ import {
 } from "../_shared/subscription_verification.ts";
 
 const nowMs = Date.parse("2026-08-27T00:00:00.000Z");
+
+Deno.test("license test proof must be the Google response object", () => {
+  if (!isGooglePlayTestPurchase({ testPurchase: {} })) {
+    throw new Error("Google test purchase was rejected");
+  }
+  for (const marker of [undefined, null, false, true, "true", [], 1]) {
+    if (isGooglePlayTestPurchase({ testPurchase: marker })) {
+      throw new Error("unverified test purchase marker was accepted");
+    }
+  }
+});
 const products = new Set([
   "chronospark_premium_monthly",
   "chronospark_premium_annual",

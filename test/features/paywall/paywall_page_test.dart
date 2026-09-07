@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +32,7 @@ void main() {
     ),
     Locale locale = const Locale('en'),
     PaywallPrompt? prompt,
+    bool billingTest = false,
   }) async {
     // Restore Purchases and Show all plans sit below the
     // fold at the default 800x600 test viewport, and PaywallPage's ListView
@@ -51,6 +53,7 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        internalBillingTestEnabledProvider.overrideWithValue(billingTest),
         sharedPrefsStoreProvider.overrideWithValue(prefs),
         creditServiceProvider.overrideWithValue(credit),
         intelligenceStateProvider.overrideWithValue(_baseIntelligence),
@@ -115,6 +118,27 @@ void main() {
     );
     expect(button.onPressed, isNull);
   });
+
+  testWidgets(
+    'license-test screen enables billing without offering usable credits',
+    (tester) async {
+      await pumpPaywall(tester, config: _twoPlanConfig, billingTest: true);
+      expect(find.text('Subscription testing'), findsOneWidget);
+      expect(find.text('License test'), findsOneWidget);
+      expect(find.text('CREDITS LEFT'), findsNothing);
+      final restore = tester.widget<OutlinedButton>(
+        find.ancestor(
+          of: find.text('Restore Purchases'),
+          matching: find.byType(OutlinedButton),
+        ),
+      );
+      expect(restore.onPressed, isNotNull);
+      final choices = tester.widgetList<FilledButton>(
+        find.byType(FilledButton),
+      );
+      expect(choices.any((button) => button.onPressed != null), isTrue);
+    },
+  );
 
   testWidgets('active subscription disables every plan purchase action', (
     WidgetTester tester,

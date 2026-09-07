@@ -32,6 +32,19 @@ def policy_hash(defines):
 
 
 class InternalPolicyTests(unittest.TestCase):
+    def test_billing_profile_requires_explicit_selection_and_matching_private_cohort(self):
+        defines = assemble_candidate_defines({name: "synthetic-setting" for name in SETTINGS},
+            json.dumps(policy_template()), "a" * 64, billing_test=True)
+        receipt = validate_candidate_defines(defines, policy_hash(defines), billing_test=True)
+        self.assertTrue(receipt["billingRequiresVerifiedTestPurchase"])
+        self.assertNotIn("a" * 64, json.dumps(receipt))
+        self.assertEqual(defines["CHRONOSPARK_PAYWALL_DISABLED"], "false")
+        with self.assertRaises(ValueError):
+            validate_candidate_defines(defines, policy_hash(defines))
+        defines["CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"] = "b" * 64
+        with self.assertRaises(ValueError):
+            validate_candidate_defines(defines, policy_hash(defines), billing_test=True)
+
     def test_candidate_contains_enabled_local_policy_and_only_private_cohort_receipt(self):
         defines = assembled()
         receipt = validate_candidate_defines(defines, policy_hash(defines))
@@ -117,7 +130,7 @@ class InternalPolicyTests(unittest.TestCase):
             (root / "tool").mkdir()
             (root / "lib/config").mkdir(parents=True)
             (root / "android/app/google-services.json").write_text("{}")
-            (root / "pubspec.yaml").write_text("version: 4.1.0+2026083004\n")
+            (root / "pubspec.yaml").write_text("version: 4.1.0+2026083007\n")
             (root / candidate.POLICY_PATH).write_text(json.dumps(policy_template()))
             features = ("externalAiEnabled", "subscriptionsEnabled", "creditSpendingEnabled",
                         "cloudSyncEnabled", "cloudRestoreEnabled", "analyticsEnabled", "crashReportingEnabled")

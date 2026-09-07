@@ -21,6 +21,7 @@ import {
   classifyPurchaseBinding,
   classifyVerificationReconciliation,
   existingPurchaseProofPolicy,
+  isGooglePlayTestPurchase,
   readPurchaseLineage,
   verifyExistingPurchaseRecoveryBinding,
   verifyExternalAccountBinding,
@@ -55,10 +56,12 @@ interface VerifyRequest {
   productId: string;
   purchaseToken: string;
   purchaseType: "subscription";
+  requireTestPurchase?: boolean;
 }
 
 interface VerifyResponse {
   valid: boolean;
+  testPurchase?: boolean;
   acknowledged?: boolean;
   retryable?: boolean;
   expiryTimeMs?: number;
@@ -89,6 +92,7 @@ function cors(req: Request): Record<string, string> {
     "Vary": "Origin",
     "X-Content-Type-Options": "nosniff",
     "X-ChronoSpark-Contract": "verify-receipt-v2",
+    "X-ChronoSpark-Test-Purchase-Guard": "v1",
   };
 }
 
@@ -159,6 +163,8 @@ Deno.serve(async (req: Request) => {
     if (
       !ALLOWED_PRODUCT_IDS.has(productId) ||
       body.purchaseType !== "subscription" ||
+      (body.requireTestPurchase !== undefined &&
+        typeof body.requireTestPurchase !== "boolean") ||
       !purchaseToken || purchaseToken.length > MAX_PURCHASE_TOKEN_LENGTH
     ) {
       return jsonResponse(
@@ -214,6 +220,15 @@ Deno.serve(async (req: Request) => {
       }, 503);
     }
     const play = decodedPlay as Record<string, unknown>;
+    const testPurchase = isGooglePlayTestPurchase(play);
+    if (body.requireTestPurchase === true && !testPurchase) {
+      return jsonResponse(req, {
+        valid: false,
+        testPurchase: false,
+        productId,
+        error: "license_test_purchase_required",
+      }, 409);
+    }
     const providerState = googleSubscriptionState(
       play.subscriptionState,
       null,
@@ -418,6 +433,7 @@ Deno.serve(async (req: Request) => {
     }
     return jsonResponse(req, {
       valid: true,
+      testPurchase,
       acknowledged: true,
       expiryTimeMs: lineItem.expiryTimeMs,
       status: responseStatus,

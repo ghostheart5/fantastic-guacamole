@@ -1,5 +1,12 @@
 # Internal assistant candidate inputs
 
+The 2026-09-07 [internal billing preparation](../docs/internal_billing_testing.md)
+adds an explicit `billing_test` input (default false) and requires version code
+at least 2026083007. This later profile uses real license-test billing for the
+same verified private cohort while public paid-AI containment stays closed.
+The historical repair notes below describe the original assistant-only profile;
+retained tooling/source-proof worktrees are not synchronized by this change.
+
 The tracked policy intentionally has an empty cohort. It is not a buildable
 allowlist and does not enable any account on its own. A privately verified cohort
 is supplied separately. Existing builds without this policy remain off.

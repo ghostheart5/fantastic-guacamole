@@ -1,0 +1,76 @@
+# Internal Google Play billing test preparation
+
+Prepared 2026-09-07 UTC. Target: signed Android release candidate
+`4.1.0+2026083007`, package `com.ghostheart5.chronospark`, existing upload key and
+existing Google Play internal-testing track. Stop before the AAB build stage.
+This checkpoint does not approve a public release or paid AI-credit launch.
+
+## Approved catalog and verified external setup
+
+| Product | Base plan | Auto-renewal | US price |
+| --- | --- | --- | --- |
+| `chronospark_premium_monthly` | `monthly` | Monthly | USD 4.99 |
+| `chronospark_premium_annual` | `annual` | Yearly | USD 39.99 |
+
+Both base plans were activated and read back in Play Console. Initial
+availability is United States only, without trials or introductory offers.
+Google's default grace and automatic account-hold settings were retained.
+The dedicated `ChronoSpark billing test` license-tester list contains the one
+approved Google account; the list is selected and the settings were saved.
+The purchasing account and test payment method still require device verification.
+
+The backend catalog migration `20260907032502_align_internal_billing_catalog`
+was applied and read back. Prices are 4,990,000 and 39,990,000 USD micros.
+Legacy allowance metadata now matches the existing authoritative grants:
+300/monthly paid period and 360/annual paid period. This does not add a monthly
+annual-plan refill, change wallets, or authorize credit spending. Final commercial
+credit quantities and costs remain a separate product decision.
+
+A Google Play test RTDN arrived on 2026-09-07 at 03:04:37 UTC and was processed
+without a failure code. This verifies test-event delivery, not renewal behavior.
+The receipt verifier was updated to version 12 with the license-test guard;
+all five deployed bundle source files matched the local source after LF
+normalization. Database RLS and service-controlled entitlements remain in use.
+
+## Build controls
+
+The ordinary candidate profile keeps all public launch-containment switches
+false. The explicit `billing_test=true` candidate input adds:
+
+- `CHRONOSPARK_INTERNAL_BILLING_TEST=true`.
+- A private verified account cohort matching the reviewed assistant-policy
+  cohort, compiled as `CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS`.
+- Real Google Play purchasing and receipt verification for authenticated cohort
+  members on production Android/cloud builds only.
+- A mandatory Google-verified test purchase marker in both request and response.
+
+Missing, malformed or mismatched cohorts, local mode, non-Android platforms and
+billing bypasses fail closed. Account changes rebuild the repository and its
+use cases. No license test grants an automatic premium entitlement.
+
+The internal paywall explicitly identifies subscription testing, asks for a
+Google test payment method and states that AI and credit spending are unavailable.
+It does not advertise an AI-credit benefit or a usable wallet in this profile.
+
+The candidate requires a reviewed full source SHA, successful exact-source CI,
+the effective private policy SHA256 and the explicit billing profile. Before
+signing, `verify_internal_billing_backend.mjs` checks the live verifier guard,
+both approved Play base plans/prices, the matching backend catalog and RTDN OIDC
+configuration. Its report contains no credentials or purchase tokens.
+
+CI can run the same read-only checks with `verify_internal_billing=true`.
+No AAB, Play upload, purchase or production rollout is part of that check.
+
+## Remaining device evidence after an authorized build
+
+Update through the existing internal-testing track to preserve the Moto's local
+data. Confirm package, version code, signed-in app account, purchasing Google
+account and a Google test payment method before the first purchase.
+
+Exercise monthly and annual purchase success, decline, pending/cancelled flow,
+acknowledgement, restore, relaunch, account isolation, accelerated renewal,
+cancellation through expiry, grace, hold and recovery. Correlate each transition
+with server entitlement and RTDN records; repeated events must not duplicate
+grants. AI credit spending and paid AI readiness are separate blocked gates.
+
+Host tests and the processed test RTDN do not establish this lifecycle evidence.

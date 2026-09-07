@@ -181,12 +181,23 @@ void main() {
         'cloudServicesEnabled && LaunchContainment.paidCreditPlansEnabled',
       ),
     );
-    expect(repositories, contains('if (!Env.paidCreditPlansEnabled)'));
-    expect(provider, contains('if (!Env.paidCreditPlansEnabled)'));
+    final String billingAvailability = File(
+      'lib/state/providers/billing_availability_provider.dart',
+    ).readAsStringSync();
+    expect(billingAvailability, contains('Env.paidCreditPlansEnabled ||'));
     expect(
-      page,
-      contains('paidCreditPlansEnabled: Env.paidCreditPlansEnabled'),
+      billingAvailability,
+      contains('ref.watch(internalBillingTestEnabledProvider)'),
     );
+    expect(
+      repositories,
+      contains('if (!ref.watch(subscriptionPurchasingEnabledProvider))'),
+    );
+    expect(
+      provider,
+      contains('if (!ref.watch(subscriptionPurchasingEnabledProvider))'),
+    );
+    expect(page, contains('paidCreditPlansEnabled: purchasingEnabled'));
     expect(page, isNot(contains('config.plans.any')));
   });
 }

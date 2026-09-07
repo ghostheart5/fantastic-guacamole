@@ -1,5 +1,6 @@
 // Package imports.
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
@@ -164,7 +165,7 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>((
 });
 
 final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
-  if (!Env.paidCreditPlansEnabled) {
+  if (!ref.watch(subscriptionPurchasingEnabledProvider)) {
     return const ContainedPaywallRepository();
   }
   final bool forceLocalTestingPaywall =
@@ -177,6 +178,7 @@ final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
       defaultTargetPlatform == TargetPlatform.android &&
       !forceLocalTestingPaywall) {
     final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
+      requireTestPurchase: ref.watch(internalBillingTestEnabledProvider),
       secureStore: ref.watch(accountSecureStoreProvider),
       supabaseClient: ref.watch(supabaseClientProvider),
     );

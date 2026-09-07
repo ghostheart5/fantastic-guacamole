@@ -16,7 +16,7 @@ import zipfile
 
 # Dispatch must identify a newly reviewed immutable source and its green CI.
 # Never silently fall back to the previous candidate.
-MINIMUM_VERSION_CODE = 2026083004
+MINIMUM_VERSION_CODE = 2026083007
 # Existing repository upload-identity pin; independent Play readback remains open.
 UPLOAD_SHA1 = "8A24D7BAACAB52F0A3777DD047C907962E82FAA5"
 PACKAGE = "com.ghostheart5.chronospark"
@@ -29,6 +29,8 @@ FLAGS = {
     "CHRONOSPARK_APP_FLAVOR": "prod",
     "CHRONOSPARK_BACKEND_MODE": "cloud",
     "CHRONOSPARK_ENFORCE_PROD_READINESS": "true",
+    "CHRONOSPARK_INTERNAL_BILLING_TEST": "false",
+    "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": "",
     **{name: "false" for name in (
         "CHRONOSPARK_VERBOSE_LOGS", "CHRONOSPARK_ENABLE_MOCK_LOGIN",
         "CHRONOSPARK_ENABLE_MOCK_MODE", "CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS",
@@ -91,7 +93,8 @@ def validate_internal_policy(policy):
     return {**policy, COHORT_KEY: ",".join(sorted(digests))}
 
 
-def assemble_candidate_defines(settings, policy_text, verified_cohort):
+def assemble_candidate_defines(settings, policy_text, verified_cohort, billing_test=False):
+    require(type(billing_test) is bool, "Billing profile must be explicitly true or false")
     policy = strict_json(policy_text)
     require(type(policy) is dict and policy.get(COHORT_KEY) == "",
             "Reviewed policy must use the private verified cohort input")
@@ -101,18 +104,24 @@ def assemble_candidate_defines(settings, policy_text, verified_cohort):
         require(type(settings.get(name)) is str and bool(settings[name].strip()),
                 f"Missing setting: {name}")
     return {**FLAGS, **{name: settings[name] for name in SETTINGS},
+            "CHRONOSPARK_INTERNAL_BILLING_TEST": "true" if billing_test else "false",
+            "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": policy[COHORT_KEY] if billing_test else "",
             "CHRONOSPARK_REMOTE_CONFIG_JSON": json.dumps(policy, sort_keys=True, separators=(",", ":"))}
 
 
-def validate_candidate_defines(defines, expected_policy_sha256):
+def validate_candidate_defines(defines, expected_policy_sha256, billing_test=False):
+    require(type(billing_test) is bool, "Billing profile must be explicitly true or false")
     require(type(defines) is dict and set(defines) ==
             set(FLAGS) | set(SETTINGS) | {"CHRONOSPARK_REMOTE_CONFIG_JSON"},
             "Final candidate defines contain missing or unknown settings")
+    policy = validate_internal_policy(strict_json(defines["CHRONOSPARK_REMOTE_CONFIG_JSON"]))
+    expected_flags = {**FLAGS,
+        "CHRONOSPARK_INTERNAL_BILLING_TEST": "true" if billing_test else "false",
+        "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": policy[COHORT_KEY] if billing_test else ""}
     require(all(type(defines[key]) is str and defines[key] == value
-                for key, value in FLAGS.items()), "Final candidate flags violate production containment")
+                for key, value in expected_flags.items()), "Final candidate flags violate production containment")
     require(all(type(defines[key]) is str and bool(defines[key].strip()) for key in SETTINGS),
             "Final candidate service settings are missing")
-    policy = validate_internal_policy(strict_json(defines["CHRONOSPARK_REMOTE_CONFIG_JSON"]))
     canonical = json.dumps(policy, sort_keys=True, separators=(",", ":"))
     require(defines["CHRONOSPARK_REMOTE_CONFIG_JSON"] == canonical,
             "Final candidate policy must use canonical encoding")
@@ -123,7 +132,9 @@ def validate_candidate_defines(defines, expected_policy_sha256):
             "cohortCount": len(policy[COHORT_KEY].split(",")),
             "enabledLocalCapabilities": ["smartPlannerV2", "siConsoleV2", "governedMemory", "safetyCritic"],
             "rolledBackCapabilities": ["plannerExplanation"],
-            "consentRequired": True, "runtimeFlagsEnabled": False}
+            "consentRequired": True, "runtimeFlagsEnabled": False,
+            "internalBillingTest": billing_test,
+            "billingRequiresVerifiedTestPurchase": billing_test}
 
 
 def validate_ci_evidence(evidence, source_sha, ci_run, repository):
@@ -214,6 +225,9 @@ def build(root, bundletool):
     root = root.resolve()
     tooling = Path(__file__).resolve().parent
     require(os.environ.get("GITHUB_ACTIONS") == "true", "Runner-only script")
+    billing_profile = os.environ.get("CANDIDATE_BILLING_TEST", "false")
+    require(billing_profile in ("true", "false"), "Unknown billing build profile")
+    billing_test = billing_profile == "true"
     source_sha = os.environ.get("CANDIDATE_SHA", "")
     ci_run = os.environ.get("CANDIDATE_CI_RUN", "")
     require(re.fullmatch(r"[a-f0-9]{40}", source_sha) and re.fullmatch(r"[1-9][0-9]*", ci_run),
@@ -254,6 +268,12 @@ def build(root, bundletool):
     command(["flutter", "pub", "get"], root)
     command(["git", "diff", "--exit-code"], root)
     command(["pwsh", "-NoProfile", "-File", "scripts/release_guard.ps1"], root)
+    billing_receipt = None
+    if billing_test:
+        billing_receipt = strict_json(command(
+            ["node", "scripts/verify_internal_billing_backend.mjs"], root, True))
+        require(billing_receipt.get("verified") is True and
+                billing_receipt.get("licenseTestGuard") == "v1", "Live billing preflight failed")
     key = root / "android/app/upload-keystore.jks"
     props = root / "android/key.properties"
     defines = Path(os.environ["RUNNER_TEMP"]) / "chronospark-candidate-defines.json"
@@ -261,11 +281,11 @@ def build(root, bundletool):
     os.umask(0o077)
     try:
         assembled = assemble_candidate_defines(os.environ, (root / POLICY_PATH).read_text(encoding="utf-8"),
-                                              os.environ.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS", ""))
+                                              os.environ.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS", ""), billing_test)
         defines.write_text(json.dumps(assembled), encoding="utf-8")
         # Read back and validate exactly the file passed to Flutter, before touching keys.
         policy_receipt = validate_candidate_defines(strict_json(defines.read_text(encoding="utf-8")),
-                                                   os.environ.get("CANDIDATE_POLICY_SHA256", ""))
+                                                   os.environ.get("CANDIDATE_POLICY_SHA256", ""), billing_test)
         command(["dart", "run", "scripts/validate_production_config.dart", "--platform=android",
                  "--google-services=android/app/google-services.json", "--defines=" + str(defines)], root)
         require(strict_json(defines.read_text(encoding="utf-8")) == assembled,
@@ -323,7 +343,10 @@ def build(root, bundletool):
         "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"], "aabSha256": digest,
         "uploadSignerSha256": signer, "package": PACKAGE,
         "versionName": version[1], "versionCode": int(version[2]), "targetSdk": target,
-        "buildFlags": FLAGS, "assistantPolicy": policy_receipt, "native64BitLoadAlignment": native,
+        "buildFlags": {**FLAGS, "CHRONOSPARK_INTERNAL_BILLING_TEST": str(billing_test).lower(),
+                       "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": "private cohort" if billing_test else ""},
+        "assistantPolicy": policy_receipt, "native64BitLoadAlignment": native,
+        "internalBillingBackend": billing_receipt,
         "nativeSymbols": "Not generated by this candidate; completeness remains open",
         "boundary": "BUILD ONLY - NOT RELEASE APPROVAL",
         "notVerified": ["Play upload certificate authority", "Play version-code monotonicity",

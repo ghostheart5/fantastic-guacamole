@@ -15,6 +15,11 @@ on:
         description: Reviewed effective internal policy SHA256 including verified private cohort
         required: true
         type: string
+      billing_test:
+        description: Enable real Google Play license-test billing for the verified private cohort
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -29,10 +34,11 @@ env:
   CANDIDATE_SHA: ${{ inputs.source_sha }}
   CANDIDATE_CI_RUN: ${{ inputs.ci_run }}
   CANDIDATE_POLICY_SHA256: ${{ inputs.policy_sha256 }}
+  CANDIDATE_BILLING_TEST: ${{ inputs.billing_test && 'true' || 'false' }}
 
 jobs:
   source-gate:
-    if: github.repository == 'ghostheart5/fantastic-guacamole' && github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902'
+    if: github.repository == 'ghostheart5/fantastic-guacamole' && (github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902' || github.ref == 'refs/heads/fix/aab-prebuild-cleanup-20260905')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -95,6 +101,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: ${{ secrets.CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          RTDN_PUBSUB_SUBSCRIPTION: ${{ secrets.RTDN_PUBSUB_SUBSCRIPTION }}
+          RTDN_AUDIENCE: ${{ secrets.RTDN_AUDIENCE }}
+          RTDN_SERVICE_ACCOUNT_EMAIL: ${{ secrets.RTDN_SERVICE_ACCOUNT_EMAIL }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}

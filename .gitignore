@@ -83,7 +83,8 @@ windows/flutter/ephemeral/
 linux/flutter/ephemeral/
 
 # VS Code
-.vscode/
+.vscode/*
+!.vscode/settings.json
 
 # Firebase local cache/state
 .firebase/
