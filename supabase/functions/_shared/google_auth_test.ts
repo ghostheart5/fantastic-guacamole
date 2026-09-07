@@ -66,11 +66,11 @@ Deno.test("runtime Google OAuth request uses the JWT bearer grant and a valid si
       throw new Error("Invalid signed Google assertion");
     }
     exchanges++;
-    return Response.json({ access_token: "synthetic-access-token" });
+    return Response.json({ access_token: "test-token" });
   };
   try {
     if (
-      await getGoogleAccessToken(account) !== "synthetic-access-token" ||
+      await getGoogleAccessToken(account) !== "test-token" ||
       exchanges !== 1
     ) {
       throw new Error("OAuth exchange did not complete");
