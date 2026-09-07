@@ -74,3 +74,54 @@ tags:
 - extendedWaitUntil:
     visible: "(?s).*Maestro smoke task.*Task is scheduled for a planned work time.*SCHEDULED.*"
     timeout: 15000
+
+# A saved rhythm must remain reachable, and its period outcome must survive
+# closing the library. This runs only on the disposable hosted QA account.
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Creator"
+- tapOn: "Daily Rhythm"
+- tapOn: "Title *"
+- inputText: "Maestro review rhythm"
+- runFlow: ../subflows/reveal-creator-review.yaml
+- tapOn: "REVIEW CHANGES"
+- extendedWaitUntil:
+    visible: "CONFIRM CREATOR CHANGES"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "CONFIRM SELECTED"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "CONFIRM SELECTED"
+- extendedWaitUntil:
+    visible: "(?s).*Confirmed and saved exactly once.*"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Manage Daily Rhythms"
+    direction: UP
+    timeout: 10000
+- tapOn: "Manage Daily Rhythms"
+- assertVisible: "Maestro review rhythm"
+- tapOn: "Pause"
+- assertVisible: "Resume"
+- assertVisible:
+    text: "Mark target completed"
+    enabled: false
+- tapOn: "Resume"
+- tapOn: "Mark target completed"
+- extendedWaitUntil:
+    visible: "Completed this day"
+    timeout: 10000
+- assertVisible:
+    text: "Mark target completed"
+    enabled: false
+- back
+- tapOn: "Manage Daily Rhythms"
+- assertVisible: "Maestro review rhythm"
+- assertVisible: "Completed this day"
+- assertVisible:
+    text: "Skip this day"
+    enabled: false

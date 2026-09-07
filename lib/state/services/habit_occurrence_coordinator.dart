@@ -79,7 +79,7 @@ class HabitOccurrenceCoordinator {
       }
 
       final DateTime now = _clock();
-      final String occurrenceKey = _occurrenceKey(habit.cadence, now);
+      final String occurrenceKey = occurrenceKeyFor(habit.cadence, now);
       final String resolvedOperationId = operationId?.trim().isNotEmpty == true
           ? operationId!.trim()
           : 'habit:$normalizedId:$occurrenceKey:${outcome.name}';
@@ -150,7 +150,8 @@ class HabitOccurrenceCoordinator {
     await outcomeRepository.record(candidate);
   }
 
-  static String _occurrenceKey(HabitCadence cadence, DateTime timestamp) {
+  /// Shared cadence identity for recording and displaying the current period.
+  static String occurrenceKeyFor(HabitCadence cadence, DateTime timestamp) {
     final DateTime local = timestamp.toLocal();
     final DateTime slot = switch (cadence) {
       HabitCadence.daily => DateTime(local.year, local.month, local.day),

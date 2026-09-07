@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
+import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
@@ -56,6 +57,18 @@ class CreatorScreen extends ConsumerWidget {
                   onBack: () => goToAppView(context, ref, AppView.nexus),
                 ),
                 const SizedBox(height: 18),
+                if (!guidedFirstTask && !handshake.isReviewing) ...[
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DailyRhythmsScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.repeat_rounded),
+                    label: const Text('Manage Daily Rhythms'),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 const TemporalDivider(color: AppColors.memoryAmber),
                 const SizedBox(height: 18),
                 if (plannerDraft != null) ...[

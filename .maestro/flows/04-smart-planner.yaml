@@ -31,7 +31,10 @@ tags:
 - assertVisible:
     text: "What would you like help planning right now\\?"
     focused: true
-- inputText: "Finish the release evidence today"
+- runFlow:
+    file: ../subflows/enter-planner-request.yaml
+    env:
+      REQUEST: "Finish the release evidence today"
 # Scroll the complete editable field into view without sending Android Back,
 # which can pop this route when Maestro has already dismissed the IME.
 - scrollUntilVisible:

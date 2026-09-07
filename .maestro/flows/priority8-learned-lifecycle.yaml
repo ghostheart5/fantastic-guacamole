@@ -106,7 +106,10 @@ tags:
 - assertVisible:
     text: "What would you like help planning right now\\?"
     focused: true
-- inputText: "Finish the Priority 8 release evidence today"
+- runFlow:
+    file: ../subflows/enter-planner-request.yaml
+    env:
+      REQUEST: "Finish the Priority 8 release evidence today"
 - scrollUntilVisible:
     element:
       text: "Finish the Priority 8 release evidence today"
