@@ -10,6 +10,7 @@ final class _PlannerConversationContext {
     required this.continuesPriorSubject,
     required this.subject,
     required this.priorSubject,
+    required this.priorTimeLimitMinutes,
     required this.historyTurnsUsed,
     required this.isFollowUp,
   });
@@ -78,19 +79,25 @@ final class _PlannerConversationContext {
     final List<String> boundedPrior = priorUserTurns.length > 4
         ? priorUserTurns.sublist(priorUserTurns.length - 4)
         : priorUserTurns;
-    final String priorSubject = boundedPrior.isEmpty
-        ? ''
-        : SmartPlannerQueryController._condense(
-            boundedPrior.last,
-            maxLength: 72,
-          );
+    String priorSubjectText = '';
+    int? priorTimeLimitMinutes;
+    for (final turn in boundedPrior) {
+      if (priorSubjectText.isEmpty || !_referencesPriorPlannerSubject(turn)) {
+        priorSubjectText = turn;
+        priorTimeLimitMinutes = _explicitPlanningTimeLimit(turn);
+      } else {
+        priorTimeLimitMinutes =
+            _explicitPlanningTimeLimit(turn) ?? priorTimeLimitMinutes;
+      }
+    }
+    final String priorSubject = SmartPlannerQueryController._condense(
+      priorSubjectText,
+      maxLength: 72,
+    );
     final bool continuesPriorSubject =
         isFollowUp &&
         (declinesCurrentChoice ||
-            RegExp(
-              r'\b(it|that|this|those|these|earlier|previous)\b|^can you make the\b',
-              caseSensitive: false,
-            ).hasMatch(normalizedInput));
+            _referencesPriorPlannerSubject(normalizedInput));
     final String subject = continuesPriorSubject && priorSubject.isNotEmpty
         ? priorSubject
         : normalizedInput.isEmpty || declinesCurrentChoice
@@ -112,6 +119,7 @@ final class _PlannerConversationContext {
       continuesPriorSubject: continuesPriorSubject,
       subject: subject,
       priorSubject: priorSubject,
+      priorTimeLimitMinutes: priorTimeLimitMinutes,
       historyTurnsUsed: boundedPrior.length,
       isFollowUp: isFollowUp,
     );
@@ -125,8 +133,15 @@ final class _PlannerConversationContext {
   final bool continuesPriorSubject;
   final String subject;
   final String priorSubject;
+  final int? priorTimeLimitMinutes;
   final int historyTurnsUsed;
   final bool isFollowUp;
+
+  // A concrete new request starts a new time budget. A referential follow-up
+  // can retain its subject's budget, but an explicit current limit wins.
+  int? get explicitTimeLimitMinutes =>
+      _explicitPlanningTimeLimit(input) ??
+      (continuesPriorSubject ? priorTimeLimitMinutes : null);
 
   String whatIHeard({
     required bool contextWasProvided,
@@ -172,6 +187,31 @@ final class _PlannerConversationContext {
 
 const String _savedContextQuestion =
     'Which saved task or goal, if any, should this plan support?';
+
+bool _referencesPriorPlannerSubject(String input) => RegExp(
+  r'\b(it|that|this|those|these|earlier|previous)\b|^can you make the\b',
+  caseSensitive: false,
+).hasMatch(input);
+
+int? _explicitPlanningTimeLimit(String input) {
+  // Recognize explicit numeric work windows, not arbitrary numbers in titles
+  // or durations reported as past activity. This does not infer capacity.
+  final matches = RegExp(
+    r'\b(?:in|within|for|(?:i|we)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than)\s+'
+    r'(\d+(?:\.\d+)?)\s*(minutes?|mins?|hours?|hrs?)\b',
+    caseSensitive: false,
+  ).allMatches(input);
+  int? limit;
+  for (final match in matches) {
+    final double? amount = double.tryParse(match.group(1)!);
+    if (amount == null || !amount.isFinite || amount <= 0) continue;
+    final bool hours = match.group(2)!.toLowerCase().startsWith('h');
+    final int minutes = (amount * (hours ? 60 : 1)).floor();
+    if (minutes < 1 || minutes > 1440) continue;
+    limit = limit == null ? minutes : math.min(limit, minutes);
+  }
+  return limit;
+}
 
 bool _declinesSavedChoice(String input) => RegExp(
   r'^(none|neither|no|no thanks|none of them|not now)[.!]?$',

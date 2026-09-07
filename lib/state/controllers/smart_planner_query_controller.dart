@@ -483,9 +483,14 @@ class SmartPlannerQueryController
     final _EffortProfile energyEffort = _effortFor(planningEnergy);
     final int? capacityLimitMinutes =
         evidence.personContext.capacityLimitMinutes;
-    final _EffortProfile effort = capacityLimitMinutes == null
+    final int? requestTimeLimitMinutes = conversation.explicitTimeLimitMinutes;
+    final List<int> limits = <int>[
+      ?capacityLimitMinutes,
+      ?requestTimeLimitMinutes,
+    ];
+    final _EffortProfile effort = limits.isEmpty
         ? energyEffort
-        : energyEffort.cappedAt(capacityLimitMinutes);
+        : energyEffort.cappedAt(limits.reduce(math.min));
     final DateTime observedAt = _ref.read(smartPlannerClockProvider)().toUtc();
     final EmotionalSafetyAssessment emotionalSafety =
         EmotionalSafetyPolicy.assess(conversation.searchText);
@@ -508,6 +513,8 @@ class SmartPlannerQueryController
       evidence.personContext.adaptationSummary,
       if (capacityLimitMinutes != null)
         'Applied your reported capacity limit of $capacityLimitMinutes minutes: no option exceeds it.',
+      if (requestTimeLimitMinutes != null)
+        'Applied your requested time limit of $requestTimeLimitMinutes minutes: no option exceeds it. This limit was not saved.',
       if (conversation.historyTurnsUsed > 0)
         'Used ${conversation.historyTurnsUsed} recent conversation turn(s) to keep this response connected to your earlier request.',
       'Kept every option reversible and left saving to an explicit Creator confirmation.',
@@ -599,6 +606,7 @@ class SmartPlannerQueryController
         boundedEnergy,
         emotion,
         evidence,
+        requestTimeLimitMinutes: requestTimeLimitMinutes,
       ),
       nextStep: selected.description,
       usefulQuestion: strategy.question,
@@ -859,9 +867,13 @@ class SmartPlannerQueryController
     PlannerOptionKind kind,
     double? energy,
     EmotionalState? emotion,
-    _PlannerEvidence evidence,
-  ) {
-    final String base = _recommendationReason(kind, energy, emotion);
+    _PlannerEvidence evidence, {
+    int? requestTimeLimitMinutes,
+  }) {
+    final String base =
+        requestTimeLimitMinutes != null && energy == null && emotion == null
+        ? 'Kept every option within your requested $requestTimeLimitMinutes-minute limit; no energy or emotional check-in was used.'
+        : _recommendationReason(kind, energy, emotion);
     final TaskEntity? task = evidence.focusTask;
     if (task != null) {
       return '$base It is grounded in saved task "${_safeEvidenceTitle(task.title)}" at priority ${task.priority}/5.';

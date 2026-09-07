@@ -1443,6 +1443,19 @@ void main() {
         independent.plannerResponse.adaptationReceipt.adjustments,
         contains(contains('capacity limit of 10 minutes')),
       );
+      for (final limit in [5, 30]) {
+        final limited = await controller.requestFollowUpResult(
+          input: 'Help me organize my desk in $limit minutes',
+          energy: 0.9,
+          emotion: null,
+          reflection: '',
+          history: history,
+        );
+        expect(
+          limited.plannerResponse.options.map((o) => o.estimatedMinutes),
+          everyElement(lessThanOrEqualTo(limit < 10 ? limit : 10)),
+        );
+      }
       final saved = await controller.requestFollowUpResult(
         input:
             'Use the saved planning recommendation to prepare release evidence',
@@ -1482,6 +1495,122 @@ void main() {
             'saved planning recommendation "Capture one actionable task',
           ),
         ),
+      );
+    },
+  );
+
+  test(
+    'explicit request time limits cap every option without saved context',
+    () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      for (final input in [
+        'Help me organize my desk in 10 minutes',
+        'Help me organize my desk for 10 min',
+        'I only have 10 minutes to organize my desk',
+        'I have only 10 minutes to organize my desk',
+      ]) {
+        final response = controller.buildPlannerResponse(
+          input: input,
+          energy: null,
+          emotion: null,
+          contextWasProvided: true,
+        );
+        expect(response.options, hasLength(3));
+        expect(
+          response.options.map((option) => option.estimatedMinutes),
+          everyElement(lessThanOrEqualTo(10)),
+          reason: input,
+        );
+        expect(
+          response.adaptationReceipt.adjustments,
+          contains(contains('requested time limit of 10 minutes')),
+        );
+        expect(
+          response.recommendationReason,
+          isNot(contains('No current capacity')),
+        );
+      }
+    },
+  );
+
+  test(
+    'follow-up time limits stay with the subject and explicit changes win',
+    () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      const history = [
+        {'role': 'user', 'content': 'Organize my desk in 10 minutes'},
+        {'role': 'assistant', 'content': 'Choose one useful cycle.'},
+      ];
+      PlannerV2Response response(String input) =>
+          controller.buildPlannerResponse(
+            input: input,
+            energy: null,
+            emotion: null,
+            contextWasProvided: true,
+            history: history,
+            isFollowUp: true,
+          );
+      expect(
+        response(
+          'Make that more specific',
+        ).options.map((o) => o.estimatedMinutes),
+        everyElement(lessThanOrEqualTo(10)),
+      );
+      expect(
+        response(
+          'I have 5 minutes for that',
+        ).options.map((o) => o.estimatedMinutes),
+        everyElement(lessThanOrEqualTo(5)),
+      );
+      expect(
+        response('Help me write a letter').recommendedOption.estimatedMinutes,
+        greaterThan(10),
+      );
+      expect(
+        response(
+          'I spent 5 minutes on my desk yesterday',
+        ).recommendedOption.estimatedMinutes,
+        greaterThan(5),
+      );
+      expect(
+        response(
+          'I do not have 10 minutes available',
+        ).recommendedOption.estimatedMinutes,
+        greaterThan(10),
+      );
+    },
+  );
+
+  test(
+    'repeated referential follow-ups preserve the target and latest time limit',
+    () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final response = container
+          .read(smartPlannerQueryControllerProvider)
+          .buildPlannerResponse(
+            input: 'Can you make that more specific?',
+            energy: null,
+            emotion: null,
+            contextWasProvided: true,
+            isFollowUp: true,
+            history: const [
+              {'role': 'user', 'content': 'Organize my desk in 10 minutes'},
+              {'role': 'assistant', 'content': 'Choose one useful cycle.'},
+              {'role': 'user', 'content': 'I have 5 minutes for that'},
+              {'role': 'assistant', 'content': 'Keep it bounded.'},
+              {'role': 'user', 'content': 'Make that easier'},
+              {'role': 'assistant', 'content': 'Use the smallest step.'},
+            ],
+          );
+      expect(response.nextStep, contains('Organize my desk'));
+      expect(
+        response.options.map((o) => o.estimatedMinutes),
+        everyElement(lessThanOrEqualTo(5)),
       );
     },
   );
