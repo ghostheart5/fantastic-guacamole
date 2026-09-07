@@ -7,12 +7,6 @@ on:
   pull_request:
     branches: ["main"]
   workflow_dispatch:
-    inputs:
-      verify_internal_billing:
-        description: Run read-only production billing preflight for the internal-test candidate
-        required: true
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -362,38 +356,3 @@ jobs:
               exit 1
             fi
           done
-
-  internal-billing-preflight:
-    if: github.event_name == 'workflow_dispatch' && inputs.verify_internal_billing && github.repository == 'ghostheart5/fantastic-guacamole' && github.ref == 'refs/heads/fix/aab-prebuild-cleanup-20260905'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    environment: production
-    steps:
-      - name: Checkout reviewed preflight source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-
-      - name: Verify live billing configuration without building or purchasing
-        env:
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
-          CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          RTDN_PUBSUB_SUBSCRIPTION: ${{ secrets.RTDN_PUBSUB_SUBSCRIPTION }}
-          RTDN_AUDIENCE: ${{ secrets.RTDN_AUDIENCE }}
-          RTDN_SERVICE_ACCOUNT_EMAIL: ${{ secrets.RTDN_SERVICE_ACCOUNT_EMAIL }}
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          node scripts/verify_internal_billing_backend.mjs > "$RUNNER_TEMP/internal-billing-preflight.json"
-          cat "$RUNNER_TEMP/internal-billing-preflight.json" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Save configuration verification evidence
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: internal-billing-preflight-${{ github.sha }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/internal-billing-preflight.json
-          if-no-files-found: error
-          retention-days: 7

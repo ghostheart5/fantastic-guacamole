@@ -8,15 +8,20 @@ on:
         required: true
         type: string
       ci_run:
-        description: Successful CI workflow_dispatch run for that exact source
-        required: true
+        description: Required for build; successful CI workflow_dispatch run for that exact source
+        required: false
         type: string
       policy_sha256:
-        description: Reviewed effective internal policy SHA256 including verified private cohort
-        required: true
+        description: Required for build; reviewed effective internal policy SHA256 including verified private cohort
+        required: false
         type: string
       billing_test:
         description: Enable real Google Play license-test billing for the verified private cohort
+        required: true
+        default: false
+        type: boolean
+      preflight_only:
+        description: Only verify live billing configuration; do not build or sign an AAB
         required: true
         default: false
         type: boolean
@@ -38,7 +43,7 @@ env:
 
 jobs:
   source-gate:
-    if: github.repository == 'ghostheart5/fantastic-guacamole' && (github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902' || github.ref == 'refs/heads/fix/aab-prebuild-cleanup-20260905')
+    if: '!inputs.preflight_only && github.repository == ''ghostheart5/fantastic-guacamole'' && github.ref == ''refs/heads/fix/app-only-readiness-priority2-20260902'''
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -56,6 +61,47 @@ jobs:
             .path == ".github/workflows/ci.yml" and
             .event == "workflow_dispatch" and .status == "completed" and
             .conclusion == "success"' "$RUNNER_TEMP/candidate-ci.json"
+
+  billing-preflight-only:
+    if: inputs.preflight_only && inputs.billing_test && github.repository == 'ghostheart5/fantastic-guacamole' && github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Require an immutable reviewed source
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[a-f0-9]{40}$ ]]
+
+      - name: Checkout reviewed app preflight
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+
+      - name: Verify billing configuration without building or purchasing
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          RTDN_PUBSUB_SUBSCRIPTION: ${{ secrets.RTDN_PUBSUB_SUBSCRIPTION }}
+          RTDN_AUDIENCE: ${{ secrets.RTDN_AUDIENCE }}
+          RTDN_SERVICE_ACCOUNT_EMAIL: ${{ secrets.RTDN_SERVICE_ACCOUNT_EMAIL }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          node scripts/verify_internal_billing_backend.mjs > "$RUNNER_TEMP/internal-billing-preflight.json"
+          cat "$RUNNER_TEMP/internal-billing-preflight.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save configuration verification evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: internal-billing-preflight-${{ env.CANDIDATE_SHA }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/internal-billing-preflight.json
+          if-no-files-found: error
+          retention-days: 7
 
   build-only:
     needs: source-gate

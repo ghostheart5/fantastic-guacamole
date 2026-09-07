@@ -58,8 +58,13 @@ signing, `verify_internal_billing_backend.mjs` checks the live verifier guard,
 both approved Play base plans/prices, the matching backend catalog and RTDN OIDC
 configuration. Its report contains no credentials or purchase tokens.
 
-CI can run the same read-only checks with `verify_internal_billing=true`.
-No AAB, Play upload, purchase or production rollout is part of that check.
+The candidate workflow can run the same read-only checks with
+`billing_test=true` and `preflight_only=true`, from the existing approved tooling
+branch `fix/app-only-readiness-priority2-20260902`. The source SHA remains explicit.
+GitHub's production environment does not permit the repair branch; its protection
+rules are preserved. CI and policy-hash inputs are mandatory for an actual build,
+and unused only in this read-only preflight. No AAB, Play upload, purchase or
+production rollout is part of that check.
 
 ## Remaining device evidence after an authorized build
 
