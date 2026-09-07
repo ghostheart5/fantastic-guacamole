@@ -119,6 +119,7 @@ tags:
 - extendedWaitUntil:
     visible: "(?s)Planning guidance ready.*"
     timeout: 30000
+- runFlow: ../subflows/answer-planner-saved-context.yaml
 - assertVisible: "Use this plan"
 - tapOn: "Use this plan"
 
