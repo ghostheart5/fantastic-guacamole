@@ -40,8 +40,12 @@ builds, a matching product, a supported status and authoritative expiry.
 test purchase does not set that field.
 
 Contract headers are `X-ChronoSpark-Contract: verify-receipt-v2` and
-`X-ChronoSpark-Test-Purchase-Guard: v1`. Candidate preflight checks the deployed
-guard along with catalog prices and RTDN push authentication.
+`X-ChronoSpark-Test-Purchase-Guard: v1`. The
+`X-ChronoSpark-Google-Credential-SHA256` header hashes the normalized runtime
+credential so preflight can verify that GitHub tested the same credential used
+by the deployed endpoint. No credential value is returned. Candidate preflight
+checks this match, catalog prices, rejected unauthenticated RTDN requests and a
+processed Google Play test notification from the last 24 hours.
 
 Official references: [Google Play billing tests](https://developer.android.com/google/play/billing/test)
 and [SubscriptionPurchaseV2](https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2).

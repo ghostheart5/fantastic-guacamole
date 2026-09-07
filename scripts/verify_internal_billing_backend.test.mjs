@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { verifyCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
+import { googleCredentialFingerprint, verifyCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
 
 function catalog() {
   const products = [['monthly', 'P1M', '4'], ['annual', 'P1Y', '39']].map(([base, period, units]) => ({
@@ -74,4 +74,13 @@ test('RTDN gate requires a recent processed test for the exact app', () => {
   ]) {
     assert.throws(() => verifyRtdnTestDelivery([{ ...event, ...overrides }], now));
   }
+});
+
+test('credential comparison ignores JSON metadata and PEM whitespace but detects identity or key changes', () => {
+  const account = { client_email: 'synthetic@example.invalid', private_key: '-----BEGIN PRIVATE KEY-----\nU1lOVEhFVElD\n-----END PRIVATE KEY-----\n' };
+  const fingerprint = googleCredentialFingerprint(account);
+  assert.equal(googleCredentialFingerprint({ ...account, project_id: 'unused', private_key: account.private_key.replaceAll('\n', '\r\n') }), fingerprint);
+  assert.notEqual(googleCredentialFingerprint({ ...account, client_email: 'other@example.invalid' }), fingerprint);
+  assert.notEqual(googleCredentialFingerprint({ ...account, private_key: 'DIFFERENT' }), fingerprint);
+  assert.throws(() => googleCredentialFingerprint({ client_email: account.client_email }));
 });

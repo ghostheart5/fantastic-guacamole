@@ -28,7 +28,8 @@ credit quantities and costs remain a separate product decision.
 
 A Google Play test RTDN arrived on 2026-09-07 at 03:04:37 UTC and was processed
 without a failure code. This verifies test-event delivery, not renewal behavior.
-The receipt verifier was updated to version 12 with the license-test guard;
+The receipt verifier was updated to version 13 with the license-test guard and
+a normalized credential fingerprint for preflight/deployment comparison;
 all five deployed bundle source files matched the local source after LF
 normalization. Database RLS and service-controlled entitlements remain in use.
 
@@ -60,6 +61,7 @@ It does not advertise an AI-credit benefit or a usable wallet in this profile.
 The candidate requires a reviewed full source SHA, successful exact-source CI,
 the effective private policy SHA256 and the explicit billing profile. Before
 signing, `verify_internal_billing_backend.mjs` checks the live verifier guard,
+matching normalized Google credentials in GitHub and the deployed verifier,
 both approved Play base plans/prices and the matching backend catalog. RTDN must
 reject an unauthenticated request and have a successfully processed Google Play
 test notification within the last 24 hours. Send a fresh Console test if that

@@ -12,6 +12,14 @@ function require(condition, message) {
   if (!condition) throw new PreflightError(message);
 }
 
+export function googleCredentialFingerprint(account) {
+  require(typeof account?.client_email === 'string' && !!account.client_email &&
+    typeof account.private_key === 'string' && !!account.private_key, 'Invalid Google service-account configuration');
+  const key = account.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
+  require(!!key, 'Invalid Google service-account key');
+  return createHash('sha256').update(JSON.stringify([account.client_email, key])).digest('hex');
+}
+
 export function verifyCatalog(products, databasePlans) {
   require(Array.isArray(products) && products.length === 2, 'Expected exactly two Play subscriptions');
   require(Array.isArray(databasePlans) && databasePlans.length === 2, 'Expected two backend subscription plans');
@@ -85,6 +93,9 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   const account = JSON.parse(setting('GOOGLE_SERVICE_ACCOUNT_JSON'));
   require(account.token_uri === 'https://oauth2.googleapis.com/token' &&
     typeof account.client_email === 'string' && typeof account.private_key === 'string', 'Invalid Google service-account configuration');
+  const credentialFingerprint = googleCredentialFingerprint(account);
+  require(guard.headers.get('x-chronospark-google-credential-sha256') === credentialFingerprint,
+    'Hosted preflight credential does not match the deployed receipt verifier');
   async function googleToken(scope) {
     const now = Math.floor(Date.now() / 1000);
     const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -131,7 +142,7 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1',
     catalog: PLANS.map(({ product, base, period, micros }) => ({ product, base, period, currency: 'USD', priceMicros: micros })),
     serviceAccountIdentitySha256,
-    googleServiceAccountConfigSha256: createHash('sha256').update(env.GOOGLE_SERVICE_ACCOUNT_JSON).digest('hex'),
+    googleCredentialFingerprint: credentialFingerprint, deployedGoogleCredentialMatched: true,
     rtdn: { unauthenticatedDeliveryRejected: true, testDelivery },
     verifiedAt: new Date().toISOString(),
     boundary: 'Configuration and authenticated test notification only; device purchases and subscription lifecycle remain to be tested.' };

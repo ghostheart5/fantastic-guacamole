@@ -9,6 +9,7 @@ import {
 import {
   getGoogleAccessToken,
   type GoogleServiceAccount,
+  googleServiceAccountCredentialFingerprint,
   sha256Hex,
 } from "../_shared/google_auth.ts";
 import { googleSubscriptionState } from "../_shared/google_play_rtdn.ts";
@@ -93,6 +94,11 @@ function cors(req: Request): Record<string, string> {
     "X-Content-Type-Options": "nosniff",
     "X-ChronoSpark-Contract": "verify-receipt-v2",
     "X-ChronoSpark-Test-Purchase-Guard": "v1",
+    ...(googleCredentialFingerprint
+      ? {
+        "X-ChronoSpark-Google-Credential-SHA256": googleCredentialFingerprint,
+      }
+      : {}),
   };
 }
 
@@ -119,6 +125,13 @@ function readServiceAccount(): GoogleServiceAccount | null {
     return null;
   }
 }
+
+// Hash only the normalized runtime credential. No key or account value leaves
+// the function; the build preflight checks that it verified this same identity.
+const googleCredentialFingerprint =
+  await googleServiceAccountCredentialFingerprint(
+    readServiceAccount(),
+  );
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
