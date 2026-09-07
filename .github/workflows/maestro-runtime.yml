@@ -37,7 +37,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: harness
-          sparse-checkout: .github/campaigns/20260906-notification-repair
+          sparse-checkout: .github/campaigns/20260906-launcher-repair
           persist-credentials: false
 
       - name: Verify frozen source and clean checkout
@@ -88,6 +88,12 @@ jobs:
           echo "$install_root/maestro/bin" >> "$GITHUB_PATH"
           "$install_root/maestro/bin/maestro" --version
 
+      - name: Validate launcher and flow contracts before Android
+        timeout-minutes: 5
+        run: |
+          flutter test --no-pub test/release/maestro_android_runner_fixture_test.dart test/release/qa_profile_contract_test.dart
+          dart run tool/validate_maestro_flows.dart
+
       - name: Build QA APK from the repaired source
         timeout-minutes: 30
         run: flutter build apk --debug --no-pub --dart-define-from-file=tool/qa_defines.json
@@ -119,13 +125,13 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           script: >-
-            pwsh -NoProfile -File "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-notification-repair/run_repair_campaign.ps1"
+            pwsh -NoProfile -File "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-launcher-repair/run_repair_campaign.ps1"
             -SourceRoot "$GITHUB_WORKSPACE/app"
 
       - name: Verify complete source and APK bound evidence
         if: always()
         run: |
-          python3 "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-notification-repair/verify_repair_campaign.py" test-results/hosted-campaign
+          python3 "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-launcher-repair/verify_repair_campaign.py" test-results/hosted-campaign
 
       - name: Upload complete campaign evidence and exact QA APK
         if: always()

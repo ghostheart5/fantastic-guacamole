@@ -83,6 +83,32 @@ if (\$LASTEXITCODE -ne 0) { throw 'Fixture detach failed.' }
     expect(output(result)['commit'], matches(RegExp(r'^[a-f0-9]{40}$')));
   });
 
+  test('native launcher uses the selected PowerShell working directory', () {
+    final Directory selectedDirectory = Directory(
+      '${temporaryDirectory.path}/selected source',
+    )..createSync();
+    File('${selectedDirectory.path}/relative-probe.ps1').writeAsStringSync('''
+[Console]::Out.WriteLine((Get-Content -LiteralPath 'source-marker.txt' -Raw))
+exit 0
+''');
+    File(
+      '${selectedDirectory.path}/source-marker.txt',
+    ).writeAsStringSync('selected checkout');
+    final File log = File('${temporaryDirectory.path}/working-directory.log');
+    final ProcessResult result = runHelperFixture('working-directory', '''
+[Environment]::CurrentDirectory = ${psLiteral(temporaryDirectory.path)}
+Set-Location -LiteralPath ${psLiteral(selectedDirectory.path)}
+if ([Environment]::CurrentDirectory -eq (Get-Location).ProviderPath) { throw 'Fixture must have distinct process and PowerShell directories.' }
+Invoke-NativeTimedLogged -Executable (Get-Process -Id \$PID).Path -Arguments @('-NoProfile', '-NonInteractive', '-File', 'relative-probe.ps1') -LogPath ${psLiteral(log.path)} -TimeoutSeconds 30 | ConvertTo-Json -Compress -Depth 4
+''');
+    expect(result.exitCode, 0, reason: result.stderr as String);
+    final Map<String, dynamic> receipt = output(result);
+    expect(receipt['ExitCode'], 0, reason: receipt.toString());
+    expect(receipt['TimedOut'], isFalse);
+    expect(receipt['Output'], <String>['selected checkout']);
+    expect(receipt['ErrorOutput'], isEmpty);
+  });
+
   test('keeps native stderr in the log but out of parsed device output', () {
     final File probe = File('${temporaryDirectory.path}/native-probe.ps1')
       ..writeAsStringSync('''

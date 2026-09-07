@@ -275,6 +275,9 @@ function Invoke-NativeTimedLogged {
         }
         $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
         $startInfo.FileName = $powerShellPath
+        # Set-Location updates PowerShell's location, not the process directory
+        # inherited by Process.Start. Resolve relative tools in this checkout.
+        $startInfo.WorkingDirectory = (Get-Location).ProviderPath
         $startInfo.UseShellExecute = $false
         $startInfo.CreateNoWindow = $true
         $startInfo.RedirectStandardInput = $true
