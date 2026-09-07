@@ -332,7 +332,7 @@ jobs:
 
   test:
     name: Analyze & Test
-    if: always()
+    if: ${{ always() && !cancelled() }}
     needs: [static-policy, flutter-tests, linux-integration, windows-goldens]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
