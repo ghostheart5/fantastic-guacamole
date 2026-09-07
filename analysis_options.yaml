@@ -3,6 +3,8 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - build/**
+    # Retained test evidence includes incomplete source copies and old checkouts.
+    - test-results/**
   cannot-ignore:
     - avoid_void_async
     - dead_code

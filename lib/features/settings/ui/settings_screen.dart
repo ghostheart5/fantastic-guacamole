@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -37,6 +38,7 @@ import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/ui/widgets/text_controller_scope.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -300,7 +302,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
 
-              if (Env.subscriptionsEnabled) ...<Widget>[
+              if (Env.subscriptionsEnabled ||
+                  access.internalBillingTest) ...<Widget>[
                 _PlanAndCreditsCard(
                   planStatus: access.subscriptionStatusLabel,
                   planDetail: access.subscriptionStatusDetail,
@@ -758,7 +761,7 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       context.go(routes.login);
-    } on Exception {
+    } on Object {
       if (!context.mounted) {
         return;
       }
@@ -962,7 +965,7 @@ class SettingsScreen extends ConsumerWidget {
       await service.deleteCurrentAccount(password: '');
       if (context.mounted) context.go(login);
     } on Object {
-      // The persisted deletion record keeps partial data closed and exposes
+      // The persisted deletion recovery record keeps partial data closed and exposes
       // an explicit retry from the profile entry screen, including on restart.
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1094,55 +1097,58 @@ class SettingsScreen extends ConsumerWidget {
       return;
     }
 
-    final TextEditingController passwordController = TextEditingController();
     bool obscurePassword = true;
     final String? password = await showDialog<String>(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (BuildContext _, StateSetter setState) {
-            return AlertDialog(
-              title: Text(copy.confirmDeleteTitle),
-              content: TextField(
-                controller: passwordController,
-                obscureText: obscurePassword,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: copy.accountPassword,
-                  suffixIcon: IconButton(
-                    tooltip: obscurePassword
-                        ? copy.showPassword
-                        : copy.hidePassword,
-                    onPressed: () => setState(() {
-                      obscurePassword = !obscurePassword;
-                    }),
-                    icon: Icon(
-                      obscurePassword ? Icons.visibility_off : Icons.visibility,
+      builder: (BuildContext dialogContext) => TextControllerScope(
+        builder: (dialogContext, controllers) {
+          final passwordController = controllers.single;
+          return StatefulBuilder(
+            builder: (BuildContext _, StateSetter setState) {
+              return AlertDialog(
+                title: Text(copy.confirmDeleteTitle),
+                content: TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: copy.accountPassword,
+                    suffixIcon: IconButton(
+                      tooltip: obscurePassword
+                          ? copy.showPassword
+                          : copy.hidePassword,
+                      onPressed: () => setState(() {
+                        obscurePassword = !obscurePassword;
+                      }),
+                      icon: Icon(
+                        obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
                     ),
                   ),
+                  onSubmitted: (String value) {
+                    Navigator.of(dialogContext).pop(value.trim());
+                  },
                 ),
-                onSubmitted: (String value) {
-                  Navigator.of(dialogContext).pop(value.trim());
-                },
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(copy.cancel),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(
-                    dialogContext,
-                  ).pop(passwordController.text.trim()),
-                  child: Text(copy.deleteAccount),
-                ),
-              ],
-            );
-          },
-        );
-      },
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: Text(copy.cancel),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(
+                      dialogContext,
+                    ).pop(passwordController.text.trim()),
+                    child: Text(copy.deleteAccount),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
     );
-    passwordController.dispose();
 
     final String secret = password?.trim() ?? '';
     if (secret.isEmpty || !context.mounted) {

@@ -490,9 +490,9 @@ void _validatePrimaryCiDocument(YamlMap document, List<String> failures) {
     return;
   }
   if (aggregateValue['name'] != 'Analyze & Test' ||
-      aggregateValue['if'] != 'always()') {
+      aggregateValue['if'] != r'${{ always() && !cancelled() }}') {
     failures.add(
-      'Primary CI aggregate must be named Analyze & Test and run with if: always().',
+      'Primary CI aggregate must be named Analyze & Test and run after dependencies unless cancelled.',
     );
   }
   if (_isFailOpenStep(aggregateValue)) {

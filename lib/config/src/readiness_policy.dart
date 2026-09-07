@@ -40,6 +40,18 @@ abstract final class _ReadinessPolicy {
     }
 
     final List<String> issues = <String>[];
+    final bool billingTest = InternalBillingTestConfig.compiled.requested;
+    if (billingTest &&
+        (!InternalBillingTestConfig.compiled.hasValidCohort ||
+            !Env.cloudServicesEnabled ||
+            !_BuildSettings.isProduction ||
+            isWeb ||
+            (targetPlatform ?? defaultTargetPlatform) !=
+                TargetPlatform.android)) {
+      issues.add(
+        'Internal billing testing requires production Android, cloud services and a verified account cohort.',
+      );
+    }
     if (!BackendConfiguration.isValid) {
       issues.add('Backend mode must be cloud or local.');
     }
@@ -79,12 +91,19 @@ abstract final class _ReadinessPolicy {
     )) {
       issues.add('Supabase publishable key is missing or malformed.');
     }
-    if (LaunchContainment.subscriptionsEnabled) {
+    if (LaunchContainment.subscriptionsEnabled || billingTest) {
       _validateHttpsEndpoint(
         _ServiceEndpoints.receiptVerifyEndpoint,
         label: 'Receipt verification endpoint',
         issues: issues,
       );
+      if (billingTest &&
+          _ServiceEndpoints.receiptVerifyEndpoint !=
+              '${_ServiceEndpoints.supabaseUrl.replaceFirst(RegExp(r'/$'), '')}/functions/v1/verify-receipt') {
+        issues.add(
+          'Billing testing requires the receipt-verification function on the configured Supabase project.',
+        );
+      }
     }
     if (LaunchContainment.externalAiEnabled) {
       _validateHttpsEndpoint(

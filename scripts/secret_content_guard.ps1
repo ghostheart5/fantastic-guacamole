@@ -7,10 +7,8 @@ $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try {
   $failures = New-Object System.Collections.Generic.List[string]
-  $repositoryFiles = @(git ls-files --cached --others --exclude-standard)
-  if ($LASTEXITCODE -ne 0) {
-    throw 'git repository file discovery failed.'
-  }
+  . (Join-Path $PSScriptRoot 'repository_scan_files.ps1')
+  $repositoryFiles = @(Get-RepositoryScanFiles -RepositoryRoot $root)
 
   $textExtensions = @(
     '.dart', '.yaml', '.yml', '.json', '.toml', '.md', '.html', '.txt',
@@ -21,7 +19,7 @@ try {
   $files = $repositoryFiles | Where-Object {
     $extension = [IO.Path]::GetExtension($_).ToLowerInvariant()
     $leafName = [IO.Path]::GetFileName($_)
-    (($textExtensions -contains $extension) -or $leafName -eq '.env.example') -and (Test-Path $_)
+    (($textExtensions -contains $extension) -or $leafName -eq '.env.example') -and (Test-Path -LiteralPath $_ -PathType Leaf)
   }
 
   $patterns = @(

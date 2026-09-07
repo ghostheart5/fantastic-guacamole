@@ -11,10 +11,8 @@ try {
 
   Write-Host 'Running security secret guard checks...'
 
-  $repositoryFiles = @(git ls-files --cached --others --exclude-standard)
-  if ($LASTEXITCODE -ne 0) {
-    throw 'git repository file discovery failed.'
-  }
+  . (Join-Path $PSScriptRoot 'repository_scan_files.ps1')
+  $repositoryFiles = @(Get-RepositoryScanFiles -RepositoryRoot $root)
 
   $forbiddenRepositoryPaths = @(
     'android/key.properties',

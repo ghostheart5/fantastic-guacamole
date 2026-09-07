@@ -181,9 +181,10 @@ elseif ($BuildNumber -ne $currentBuildNumber) {
 Write-Host "Building production AAB (versionName=$BuildName, versionCode=$BuildNumber)..."
 Write-Host "Source commit: $sourceCommit"
 
-$dartDefineFile = Join-Path $env:TEMP ("chronospark-dart-defines-{0}.json" -f $BuildNumber)
+$dartDefineFile = Join-Path $env:TEMP ("chronospark-dart-defines-{0}-{1}.json" -f $BuildNumber, [guid]::NewGuid().ToString('N'))
 $dartDefines = [ordered]@{
     CHRONOSPARK_APP_FLAVOR = 'prod'
+    CHRONOSPARK_BACKEND_MODE = 'cloud'
     CHRONOSPARK_ENFORCE_PROD_READINESS = 'true'
     CHRONOSPARK_VERBOSE_LOGS = 'false'
     CHRONOSPARK_ENABLE_MOCK_LOGIN = 'false'
@@ -213,7 +214,12 @@ $flutterArgs = @(
 
 $flutterExitCode = 1
 try {
-    $dartDefines | ConvertTo-Json | Set-Content -Path $dartDefineFile -Encoding UTF8 -NoNewline
+    [System.IO.File]::WriteAllText($dartDefineFile, ($dartDefines | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+    $powerShellCommand = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+    & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'release_guard.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'Release source guard failed. No bundle was produced.' }
+    & dart run scripts/validate_production_config.dart --platform=android "--defines=$dartDefineFile" --google-services=android/app/google-services.json
+    if ($LASTEXITCODE -ne 0) { throw 'Production configuration guard failed. No bundle was produced.' }
     Copy-Item -LiteralPath $resolvedSigningPropertiesPath -Destination $temporarySigningPropertiesPath -ErrorAction Stop
     Copy-Item -LiteralPath $resolvedSigningKeystorePath -Destination $temporarySigningKeystorePath -ErrorAction Stop
     & flutter @flutterArgs

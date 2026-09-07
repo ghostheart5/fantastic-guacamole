@@ -1,12 +1,13 @@
 # ChronoSpark Google Play Release Checklist
 
-Quick release gate audit: [GOOGLE_PLAY_READINESS_AUDIT.md](GOOGLE_PLAY_READINESS_AUDIT.md)
+Current work: [September 5 internal/closed-testing prebuild review](engineering/AAB_PREBUILD_REVIEW_20260905.md).
+The [July readiness audit](GOOGLE_PLAY_READINESS_AUDIT.md) is historical only.
 
-## Current candidate - 2026-09-04
+## Previous signed candidate - 2026-09-04
 
 Use the [signed-candidate/device checkpoint](engineering/SAFE_QUICK_PHASE_5_6_STATUS_20260904.md)
 and [backend checkpoint](engineering/SAFE_QUICK_PHASE_7_STATUS_20260904.md) for
-current evidence. Frozen app source `61c7331dda9e82201a0561dbcd79aa0b37118446`
+historical evidence. Frozen app source `61c7331dda9e82201a0561dbcd79aa0b37118446`
 passed CI `33939436515` (2,352 Flutter tests, 15 configuration tests, static,
 golden, integration and coverage gates). Signed build `33940078212`, focused
 physical smoke and one task lifecycle passed. Full UAT and release approval are

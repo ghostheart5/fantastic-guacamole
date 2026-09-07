@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,51 @@ void main() {
   ).readAsStringSync();
   final String runAllTests = File('run-all-tests.ps1').readAsStringSync();
   final String prePushHook = File('.githooks/pre-push').readAsStringSync();
+
+  test(
+    'integration preflight rejects physical device before installing',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'cs_device_guard_',
+      );
+      try {
+        final config = File('${directory.path}/config.json');
+        config.writeAsStringSync(
+          jsonEncode(<String, Object>{
+            'projectRoot': '.',
+            'deviceId': '192.0.2.10:5555',
+          }),
+        );
+        final result = await Process.run(
+          Platform.isWindows ? 'powershell' : 'pwsh',
+          <String>[
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            File('run-all-tests.ps1').absolute.path,
+            '-Config',
+            config.path,
+            '-AllowConnectedDevice',
+            '-PreflightOnly',
+            '-AllowDirtyTree',
+          ],
+        ).timeout(const Duration(seconds: 30));
+        expect(
+          result.exitCode,
+          1,
+          reason: '${result.stdout}\n${result.stderr}',
+        );
+        expect(
+          result.stdout,
+          contains('explicitly selected disposable emulator'),
+        );
+        expect(result.stdout, isNot(contains('Preflight passed')));
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    },
+  );
 
   test(
     'strict gate routes every Flutter test category through the wrapper',

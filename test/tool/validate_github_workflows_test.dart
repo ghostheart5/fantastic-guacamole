@@ -151,7 +151,8 @@ void main() {
 
   test('rejects an aggregate that can skip dependency failures', () {
     final String fixture = canonicalCi.replaceFirst(
-      '    if: always()\n    needs:',
+      r'    if: ${{ always() && !cancelled() }}'
+          '\n    needs:',
       '    if: success()\n    needs:',
     );
     expect(fixture, isNot(canonicalCi));
@@ -159,7 +160,7 @@ void main() {
     expect(
       workflow_validator.validatePrimaryCiSource(fixture),
       contains(
-        'Primary CI aggregate must be named Analyze & Test and run with if: always().',
+        'Primary CI aggregate must be named Analyze & Test and run after dependencies unless cancelled.',
       ),
     );
   });

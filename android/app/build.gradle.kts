@@ -28,7 +28,8 @@ encodedDartDefines
         val key = decoded.substring(0, separator)
         val value = decoded.substring(separator + 1)
         val previous = dartDefines.put(key, value)
-        if (key == "CHRONOSPARK_BACKEND_MODE" && previous != null && previous != value) {
+        if (key in setOf("CHRONOSPARK_BACKEND_MODE", "CHRONOSPARK_INTERNAL_BILLING_TEST") &&
+            previous != null && previous != value) {
             error("Conflicting values supplied for Dart define $key.")
         }
     }
@@ -43,6 +44,15 @@ val isLocalBackend = backendMode == "local"
 // which covers assembleRelease, bundleRelease, and their variants.
 val isReleaseBuild = gradle.startParameter.taskNames.any {
     it.contains("Release", ignoreCase = true)
+}
+
+val internalBillingValue = dartDefines["CHRONOSPARK_INTERNAL_BILLING_TEST"] ?: "false"
+require(internalBillingValue == "true" || internalBillingValue == "false") {
+    "CHRONOSPARK_INTERNAL_BILLING_TEST must be true or false."
+}
+val isInternalBillingTest = internalBillingValue == "true"
+require(!isInternalBillingTest || (!isLocalBackend && isReleaseBuild)) {
+    "Internal billing requires a cloud release build."
 }
 
 if (isLocalBackend) {
@@ -108,6 +118,10 @@ android {
         // Internet access for Flutter tooling; production/profile are offline.
         sourceSets.getByName("release").manifest.srcFile("src/local/AndroidManifest.xml")
         sourceSets.getByName("profile").manifest.srcFile("src/local/AndroidManifest.xml")
+    } else if (isInternalBillingTest) {
+        // Only the compiled billing-test profile restores the permission that
+        // main deliberately removes from ordinary contained builds.
+        sourceSets.getByName("release").manifest.srcFile("src/internalBilling/AndroidManifest.xml")
     }
 
     compileOptions {
@@ -169,7 +183,7 @@ dependencies {
     // Billing Library version is intentionally NOT pinned here.
     // in_app_purchase_android manages its own billing dependency; an explicit
     // pin either duplicates or overrides what the plugin expects, which can
-    // cause a Play upload rejection (v6 is below the v7+ floor) or a
+    // cause a Play upload rejection when the policy floor changes or a
     // runtime NoSuchMethodError in release builds only.
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }

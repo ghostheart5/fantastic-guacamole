@@ -1,0 +1,32 @@
+# EMULATOR ONLY. Exit QA Tester A, without real account sign-out credentials.
+appId: com.ghostheart5.chronospark
+tags: [qa, auth]
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in-qa.yaml
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Data & account\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Data & account\\n.*"
+- scrollUntilVisible:
+    element:
+      text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+    enabled: true
+- tapOn: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+- extendedWaitUntil:
+    visible: "(?:CONTINUE TO LOGIN|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN)"
+    timeout: 20000
+# The original session-teardown assertion is retained.
+- assertNotVisible: "Open navigation map"
+- assertNotVisible: "Could not log out\\. Please try again\\."

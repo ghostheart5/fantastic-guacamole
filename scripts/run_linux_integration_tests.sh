@@ -3,7 +3,16 @@
 set -uo pipefail
 shopt -s nullglob globstar
 
-test_files=(integration_test/**/*_test.dart)
+test_files=()
+for test_file in integration_test/**/*_test.dart; do
+  # This fixture clears real Android preferences and requires a disposable
+  # emulator. The Android integration gate runs it; Linux cannot exercise it.
+  if [[ "$test_file" == integration_test/planner_learning_identity_test.dart ]]; then
+    echo "Android emulator coverage (not selected on Linux): $test_file"
+    continue
+  fi
+  test_files+=("$test_file")
+done
 evidence_root="${CHRONOSPARK_INTEGRATION_EVIDENCE_DIR:-artifacts/integration-evidence}"
 timeout_seconds="${CHRONOSPARK_INTEGRATION_TIMEOUT_SECONDS:-600}"
 total_timeout_seconds="${CHRONOSPARK_INTEGRATION_TOTAL_TIMEOUT_SECONDS:-1800}"

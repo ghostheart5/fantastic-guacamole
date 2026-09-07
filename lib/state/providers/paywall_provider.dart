@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart'
     show appPaywallRepositoryProvider;
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart'
@@ -99,36 +100,36 @@ AiCreditWallet serverAiCreditWallet(Map<String, dynamic> row) {
 }
 
 final paywallRepositoryProvider = Provider<IPaywallRepository>((ref) {
-  return ref.read(appPaywallRepositoryProvider);
+  return ref.watch(appPaywallRepositoryProvider);
 });
 
 final getAvailablePlansUseCaseProvider = Provider<GetAvailablePlans>((ref) {
-  return GetAvailablePlans(ref.read(paywallRepositoryProvider));
+  return GetAvailablePlans(ref.watch(paywallRepositoryProvider));
 });
 
 final startSubscriptionUseCaseProvider = Provider<StartSubscription>((ref) {
-  return StartSubscription(ref.read(paywallRepositoryProvider));
+  return StartSubscription(ref.watch(paywallRepositoryProvider));
 });
 
 final restorePurchasesUseCaseProvider = Provider<RestorePurchases>((ref) {
-  return RestorePurchases(ref.read(paywallRepositoryProvider));
+  return RestorePurchases(ref.watch(paywallRepositoryProvider));
 });
 
 final cancelSubscriptionUseCaseProvider = Provider<CancelSubscription>((ref) {
-  return CancelSubscription(ref.read(paywallRepositoryProvider));
+  return CancelSubscription(ref.watch(paywallRepositoryProvider));
 });
 
 final getPaywallConfigUseCaseProvider = Provider<GetPaywallConfig>((ref) {
-  return GetPaywallConfig(ref.read(paywallRepositoryProvider));
+  return GetPaywallConfig(ref.watch(paywallRepositoryProvider));
 });
 
 final getUserSubscriptionStateUseCaseProvider =
     Provider<GetUserSubscriptionState>((ref) {
-      return GetUserSubscriptionState(ref.read(paywallRepositoryProvider));
+      return GetUserSubscriptionState(ref.watch(paywallRepositoryProvider));
     });
 
 final checkEntitlementUseCaseProvider = Provider<CheckEntitlement>((ref) {
-  return CheckEntitlement(ref.read(paywallRepositoryProvider));
+  return CheckEntitlement(ref.watch(paywallRepositoryProvider));
 });
 
 final paywallActionsProvider = Provider<PaywallActions>((ref) {
@@ -138,19 +139,40 @@ final paywallActionsProvider = Provider<PaywallActions>((ref) {
 final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
   ref,
 ) async {
-  return ref.read(paywallRepositoryProvider).getUserSubscriptionState();
+  return ref.watch(paywallRepositoryProvider).getUserSubscriptionState();
 });
 
 final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
-  if (!LaunchContainment.paidCreditPlansEnabled) {
+  if (!ref.watch(subscriptionPurchasingEnabledProvider)) {
     return const ContainedPaywallRepository().getPaywallConfig();
   }
-  final List<PaywallPlan> plans = await ref
-      .read(getAvailablePlansUseCaseProvider)
-      .call();
-  final SubscriptionState subscription = await ref
-      .read(paywallRepositoryProvider)
+  final bool billingTest = ref.watch(internalBillingTestEnabledProvider);
+  final plansUseCase = ref.watch(getAvailablePlansUseCaseProvider);
+  final repository = ref.watch(paywallRepositoryProvider);
+  final List<PaywallPlan> plans = await plansUseCase.call();
+  final SubscriptionState subscription = await repository
       .getUserSubscriptionState();
+  if (billingTest) {
+    return PaywallEntity(
+      featureId: 'premium',
+      title: 'Google Play billing test',
+      body:
+          'Test purchases, renewals, cancellation and restoration. Select a Google Play test payment method; cancel if a real payment method appears. AI and credit spending are unavailable in this build.',
+      plans: plans
+          .map(
+            (plan) => PaywallPlan(
+              id: plan.id,
+              title: plan.title,
+              priceLabel: plan.priceLabel,
+              description: plan.description,
+              isAvailable: plan.isAvailable,
+              isFeatured: plan.isFeatured,
+            ),
+          )
+          .toList(growable: false),
+      isUnlocked: subscription.isActive,
+    );
+  }
   return PaywallEntity(
     featureId: 'premium',
     title: subscription.isTesting
@@ -170,7 +192,7 @@ class PaywallActions {
   final Ref _ref;
 
   Future<SubscriptionState> startSubscription(String planId) async {
-    if (!LaunchContainment.paidCreditPlansEnabled) {
+    if (!_ref.read(subscriptionPurchasingEnabledProvider)) {
       throw const LaunchContainedException('Subscriptions');
     }
     final SubscriptionState purchased = await _ref
@@ -180,7 +202,7 @@ class PaywallActions {
   }
 
   Future<SubscriptionState> restorePurchases() async {
-    if (!LaunchContainment.paidCreditPlansEnabled) {
+    if (!_ref.read(subscriptionPurchasingEnabledProvider)) {
       throw const LaunchContainedException('Purchase restoration');
     }
     final SubscriptionState restored = await _ref
@@ -249,7 +271,7 @@ class PaywallPrompt {
 }
 
 final paywallEnabledProvider = Provider<bool>((ref) {
-  if (!LaunchContainment.paidCreditPlansEnabled) {
+  if (!ref.watch(subscriptionPurchasingEnabledProvider)) {
     return false;
   }
   final bool localEnabled = ref.watch(appAccessProvider).paywallEnabled;

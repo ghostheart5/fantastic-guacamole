@@ -158,6 +158,7 @@ class GooglePlayPaywallRepository
     Future<SharedPreferences> Function()? sharedPreferencesLoader,
     http.Client? httpClient,
     bool? paywallTestingModeOverride,
+    bool requireTestPurchase = false,
     String? receiptVerifyEndpoint,
     SecureStore? secureStore,
     sb.SupabaseClient? supabaseClient,
@@ -167,6 +168,9 @@ class GooglePlayPaywallRepository
            sharedPreferencesLoader ?? SharedPreferences.getInstance,
        _httpClient = httpClient ?? http.Client(),
        _paywallTestingMode = paywallTestingModeOverride ?? paywallTestingMode,
+       // Named public parameter intentionally maps to a private field.
+       // ignore: prefer_initializing_formals
+       _requireTestPurchase = requireTestPurchase,
        // Named public parameter intentionally maps to a private field.
        // ignore: prefer_initializing_formals
        _secureStore = secureStore,
@@ -190,6 +194,7 @@ class GooglePlayPaywallRepository
   final Future<SharedPreferences> Function() _sharedPreferencesLoader;
   final http.Client _httpClient;
   final bool _paywallTestingMode;
+  final bool _requireTestPurchase;
   final SecureStore? _secureStore;
   final sb.SupabaseClient? _supabaseClient;
   final Duration _authorityRequestTimeout;
@@ -246,7 +251,7 @@ class GooglePlayPaywallRepository
       description: 'Monthly subscription billed through Google Play.',
       aiCreditsIncluded: 300,
       benefits: <String>[
-        'Increases external-assistant credit allowance to 300 credits per month',
+        '300 credits after a verified purchase or paid renewal',
       ],
       isAvailable: false,
     ),
@@ -257,7 +262,7 @@ class GooglePlayPaywallRepository
       description: 'Annual subscription billed through Google Play.',
       aiCreditsIncluded: 360,
       benefits: <String>[
-        'Increases external-assistant credit allowance to 360 credits per month',
+        '360 credits after a verified purchase or paid renewal',
       ],
       isAvailable: false,
     ),

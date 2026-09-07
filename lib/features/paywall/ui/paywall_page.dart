@@ -1,5 +1,4 @@
 import 'package:fantastic_guacamole/config/app_config.dart';
-import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
@@ -10,6 +9,7 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
@@ -650,6 +650,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     );
     final PaywallPrompt? prompt = ref.watch(paywallPromptProvider);
     final bool isPremium = ref.watch(appAccessProvider).hasPremiumAccess;
+    final bool billingTest = ref.watch(internalBillingTestEnabledProvider);
+    final bool purchasingEnabled = ref.watch(
+      subscriptionPurchasingEnabledProvider,
+    );
     final List<PaywallPlan> prioritizedPlans = _prioritizePlans(
       configAsync.asData?.value.plans ?? const <PaywallPlan>[],
     );
@@ -691,7 +695,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final bool anyError = configError || subscriptionError || walletError;
     final bool hasActiveSubscription = subscription?.isActive == true;
     final bool canRestore = resolvePaywallRestoreAvailability(
-      paidCreditPlansEnabled: LaunchContainment.paidCreditPlansEnabled,
+      paidCreditPlansEnabled: purchasingEnabled,
     );
     final String localizedConfigTitle = copy.configTitle(config.title);
 
@@ -704,9 +708,13 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
             padding: const EdgeInsets.all(20),
             children: [
               TemporalScreenHeader(
-                title: copy.plansAndCredits,
+                title: billingTest
+                    ? 'Subscription testing'
+                    : copy.plansAndCredits,
                 subtitle: copy.subscriptionSubtitle(localizedConfigTitle),
-                eyebrow: paywallTestingMode
+                eyebrow: billingTest
+                    ? 'GOOGLE PLAY LICENSE TEST'
+                    : paywallTestingMode
                     ? copy.unlockedForTesting
                     : copy.temporalCommerce,
                 onBack: () {
@@ -730,13 +738,14 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 const SizedBox(height: 14),
               ],
               _HeroCard(
+                badgeLabel: billingTest ? 'License test' : null,
                 title: localizedConfigTitle,
                 body: copy.configBody(config.body),
                 isPremium:
                     isPremium ||
                     paywallTestingMode ||
                     subscription?.isActive == true,
-                wallet: wallet,
+                wallet: billingTest ? null : wallet,
                 copy: copy,
               ),
               if (prompt != null) ...[
@@ -817,7 +826,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                             fontSize: 13,
                           ),
                         ),
-                        if (plan.aiCreditsIncluded > 0) ...[
+                        if (!billingTest && plan.aiCreditsIncluded > 0) ...[
                           const SizedBox(height: 6),
                           Text(
                             copy.creditsAfterVerification(
@@ -845,7 +854,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                             Expanded(
                               child: FilledButton(
                                 onPressed:
-                                    LaunchContainment.paidCreditPlansEnabled &&
+                                    purchasingEnabled &&
                                         plan.isAvailable &&
                                         !hasActiveSubscription
                                     ? () => _unlock(plan.id)
@@ -927,6 +936,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
 
 class _HeroCard extends StatelessWidget {
   const _HeroCard({
+    this.badgeLabel,
     required this.title,
     required this.body,
     required this.isPremium,
@@ -935,6 +945,7 @@ class _HeroCard extends StatelessWidget {
   });
 
   final String title;
+  final String? badgeLabel;
   final String body;
   final bool isPremium;
   final AiCreditWallet? wallet;
@@ -969,9 +980,10 @@ class _HeroCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                isPremium
-                    ? copy.subscriptionActiveLabel
-                    : copy.creditAllowanceLabel,
+                badgeLabel ??
+                    (isPremium
+                        ? copy.subscriptionActiveLabel
+                        : copy.creditAllowanceLabel),
                 style: TextStyle(
                   color: isPremium ? AppColors.neonCyan : AppColors.neonViolet,
                   fontSize: 11,

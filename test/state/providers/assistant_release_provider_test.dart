@@ -1,13 +1,18 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/services/remote_config_service.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
   test(
     'non-production tester access enables assistant release surfaces',
     () async {
@@ -84,6 +89,9 @@ ProviderContainer _container({
 }) {
   return ProviderContainer(
     overrides: [
+      accountStorageScopeProvider.overrideWithValue(
+        AccountStorageScope.authenticated('assistant-provider-test'),
+      ),
       remoteConfigServiceProvider.overrideWithValue(
         RemoteConfigService(initialValues: releaseValues),
       ),

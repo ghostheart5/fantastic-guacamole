@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show soundEnabledProvider;
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
@@ -139,6 +140,9 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
 
   @override
   List<TimelineEventEntity> build() {
+    if (!ref.watch(accountStorageScopeProvider).isWritable) {
+      return const <TimelineEventEntity>[];
+    }
     return ref.read(getTimelineEventsUseCaseProvider).call();
   }
 

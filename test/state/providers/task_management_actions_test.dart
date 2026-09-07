@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -6,6 +7,7 @@ import 'package:fantastic_guacamole/domain/usecases/delete_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_task.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -118,6 +120,9 @@ void main() {
 ProviderContainer _buildContainer(_MemoryTaskRepository repository) {
   return ProviderContainer(
     overrides: [
+      accountStorageScopeProvider.overrideWithValue(
+        AccountStorageScope.authenticated('task-management-test'),
+      ),
       domainTaskRepositoryProvider.overrideWithValue(repository),
       getTasksUseCaseProvider.overrideWithValue(GetTasks(repository)),
       updateTaskUseCaseProvider.overrideWithValue(UpdateTask(repository)),

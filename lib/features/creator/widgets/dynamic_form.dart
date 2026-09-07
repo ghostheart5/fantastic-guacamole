@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
@@ -25,6 +26,7 @@ class DynamicForm extends StatefulWidget {
     this.initialDraftId,
     this.initialTitle,
     this.initialDescription,
+    this.initialEstimatedDuration,
     this.submitLabel,
     this.clearAfterSubmit = true,
   });
@@ -42,6 +44,7 @@ class DynamicForm extends StatefulWidget {
   final String? initialDraftId;
   final String? initialTitle;
   final String? initialDescription;
+  final Duration? initialEstimatedDuration;
   final String? submitLabel;
   final bool clearAfterSubmit;
 
@@ -103,6 +106,7 @@ class _DynamicFormState extends State<DynamicForm> {
       if (oldWidget.initialDraftId != null && widget.initialDraftId == null) {
         _appliedDraftId = null;
         _replaceDraftText(title: '', description: '');
+        _estimatedDuration = const Duration(minutes: 30);
       } else {
         _applyDraftIfNeeded();
       }
@@ -113,6 +117,8 @@ class _DynamicFormState extends State<DynamicForm> {
     final String? draftId = widget.initialDraftId;
     if (draftId == null || draftId == _appliedDraftId) return;
     _appliedDraftId = draftId;
+    _estimatedDuration =
+        widget.initialEstimatedDuration ?? const Duration(minutes: 30);
     _replaceDraftText(
       title: widget.initialTitle?.trim() ?? '',
       description: widget.initialDescription?.trim() ?? '',
@@ -318,7 +324,12 @@ class _DynamicFormState extends State<DynamicForm> {
     const _FieldLabel(text: 'ESTIMATED DURATION'),
     const SizedBox(height: 8),
     _EstimatePicker(
-      estimates: _estimates,
+      estimates: <Duration>{
+        ..._estimates,
+        if (widget.initialEstimatedDuration != null)
+          widget.initialEstimatedDuration!,
+        _estimatedDuration,
+      }.toList()..sort(),
       selected: _estimatedDuration,
       onChanged: (Duration value) {
         setState(() => _estimatedDuration = value);
@@ -437,36 +448,38 @@ class _CreatorTypePicker extends StatelessWidget {
         border: Border.all(color: _accentFor(selected).withValues(alpha: 0.3)),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<CreatorFormKind>(
-          value: selected,
-          isExpanded: true,
-          dropdownColor: AppColors.bgSecondary,
-          iconEnabledColor: _accentFor(selected),
-          onChanged: enabled
-              ? (CreatorFormKind? value) {
-                  if (value != null) onChanged(value);
-                }
-              : null,
-          items: CreatorFormKind.values
-              .map(
-                (CreatorFormKind type) => DropdownMenuItem<CreatorFormKind>(
-                  value: type,
-                  child: Row(
-                    children: <Widget>[
-                      Icon(_iconFor(type), size: 18, color: _accentFor(type)),
-                      const SizedBox(width: 10),
-                      Text(
-                        type.label,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
+        child: DropdownRouteKeyboardGuard(
+          child: DropdownButton<CreatorFormKind>(
+            value: selected,
+            isExpanded: true,
+            dropdownColor: AppColors.bgSecondary,
+            iconEnabledColor: _accentFor(selected),
+            onChanged: enabled
+                ? (CreatorFormKind? value) {
+                    if (value != null) onChanged(value);
+                  }
+                : null,
+            items: CreatorFormKind.values
+                .map(
+                  (CreatorFormKind type) => DropdownMenuItem<CreatorFormKind>(
+                    value: type,
+                    child: Row(
+                      children: <Widget>[
+                        Icon(_iconFor(type), size: 18, color: _accentFor(type)),
+                        const SizedBox(width: 10),
+                        Text(
+                          type.label,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              )
-              .toList(growable: false),
+                )
+                .toList(growable: false),
+          ),
         ),
       ),
     );
@@ -495,25 +508,27 @@ class _GoalLinkPicker extends StatelessWidget {
         : null;
     return _DropdownShell(
       accent: AppColors.neonViolet,
-      child: DropdownButton<String?>(
-        key: const Key('creator-task-goal-link'),
-        value: selected,
-        isExpanded: true,
-        dropdownColor: AppColors.bgSecondary,
-        iconEnabledColor: AppColors.neonViolet,
-        onChanged: onChanged,
-        items: <DropdownMenuItem<String?>>[
-          const DropdownMenuItem<String?>(
-            value: null,
-            child: Text('No linked goal'),
-          ),
-          ...active.map(
-            (GoalEntity goal) => DropdownMenuItem<String?>(
-              value: goal.id,
-              child: Text(goal.title, overflow: TextOverflow.ellipsis),
+      child: DropdownRouteKeyboardGuard(
+        child: DropdownButton<String?>(
+          key: const Key('creator-task-goal-link'),
+          value: selected,
+          isExpanded: true,
+          dropdownColor: AppColors.bgSecondary,
+          iconEnabledColor: AppColors.neonViolet,
+          onChanged: onChanged,
+          items: <DropdownMenuItem<String?>>[
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('No linked goal'),
             ),
-          ),
-        ],
+            ...active.map(
+              (GoalEntity goal) => DropdownMenuItem<String?>(
+                value: goal.id,
+                child: Text(goal.title, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -534,23 +549,25 @@ class _EstimatePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return _DropdownShell(
       accent: AppColors.neonCyan,
-      child: DropdownButton<Duration>(
-        key: const Key('creator-task-estimate'),
-        value: selected,
-        isExpanded: true,
-        dropdownColor: AppColors.bgSecondary,
-        iconEnabledColor: AppColors.neonCyan,
-        onChanged: (Duration? value) {
-          if (value != null) onChanged(value);
-        },
-        items: estimates
-            .map(
-              (Duration value) => DropdownMenuItem<Duration>(
-                value: value,
-                child: Text(_durationLabel(value)),
-              ),
-            )
-            .toList(growable: false),
+      child: DropdownRouteKeyboardGuard(
+        child: DropdownButton<Duration>(
+          key: const Key('creator-task-estimate'),
+          value: selected,
+          isExpanded: true,
+          dropdownColor: AppColors.bgSecondary,
+          iconEnabledColor: AppColors.neonCyan,
+          onChanged: (Duration? value) {
+            if (value != null) onChanged(value);
+          },
+          items: estimates
+              .map(
+                (Duration value) => DropdownMenuItem<Duration>(
+                  value: value,
+                  child: Text(_durationLabel(value)),
+                ),
+              )
+              .toList(growable: false),
+        ),
       ),
     );
   }

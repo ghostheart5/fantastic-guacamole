@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,21 +11,28 @@ class AppAccessState {
     required this.hasTesterFullAccess,
     required this.paywallDisabled,
     this.isLocalMode = false,
+    this.internalBillingTest = false,
   });
 
   final bool hasPremiumAccess;
   final bool hasTesterFullAccess;
   final bool paywallDisabled;
   final bool isLocalMode;
+  final bool internalBillingTest;
 
   bool get paywallEnabled =>
       !isLocalMode &&
-      LaunchContainment.subscriptionsEnabled &&
+      (LaunchContainment.subscriptionsEnabled || internalBillingTest) &&
       !paywallDisabled &&
       !hasTesterFullAccess;
 
   String get subscriptionStatusLabel {
     if (isLocalMode) return 'Local profile';
+    if (internalBillingTest) {
+      return hasPremiumAccess
+          ? 'Test subscription active'
+          : 'Billing test ready';
+    }
     if (!LaunchContainment.subscriptionsEnabled) {
       return 'Plans unavailable';
     }
@@ -38,6 +46,9 @@ class AppAccessState {
   }
 
   String get subscriptionStatusDetail {
+    if (internalBillingTest) {
+      return 'Google Play license testing. Use a test payment method. AI and credit spending remain unavailable.';
+    }
     if (isLocalMode) {
       return 'Your profile and plans are stored on this device. No subscription is required.';
     }
@@ -85,6 +96,7 @@ final appAccessProvider = Provider<AppAccessState>((ref) {
       ref.watch(entitlementProvider).asData?.value.isPremium ?? false;
 
   return AppAccessState(
+    internalBillingTest: ref.watch(internalBillingTestEnabledProvider),
     hasPremiumAccess: testerFullAccess || entitled,
     hasTesterFullAccess: testerFullAccess,
     paywallDisabled: intelligence.flags.paywallDisabled,

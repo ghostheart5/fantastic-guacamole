@@ -738,3 +738,11 @@ export function buildSubscriptionReconciliationArgs(
     },
   };
 }
+/** Google alone supplies this marker; client assertions are never proof. */
+export function isGooglePlayTestPurchase(
+  play: Record<string, unknown>,
+): boolean {
+  const marker = play.testPurchase;
+  return marker !== null && typeof marker === "object" &&
+    !Array.isArray(marker);
+}

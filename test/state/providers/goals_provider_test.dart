@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -41,6 +43,9 @@ void main() {
       final _RecordingProfile profile = _RecordingProfile();
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('goal-actions-test'),
+          ),
           domainGoalRepositoryProvider.overrideWithValue(goals),
           domainTaskRepositoryProvider.overrideWithValue(
             _FakeTaskRepository(<TaskEntity>[

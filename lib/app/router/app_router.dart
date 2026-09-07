@@ -5,7 +5,7 @@ import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
-import 'package:fantastic_guacamole/config/launch_containment.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
@@ -53,6 +53,10 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
     );
     _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
     _ref.listen(internalAdvisorAccessProvider, (_, _) => notifyListeners());
+    _ref.listen(
+      subscriptionPurchasingEnabledProvider,
+      (_, _) => notifyListeners(),
+    );
     _ref.listen(passwordRecoveryStateProvider, (_, _) => notifyListeners());
   }
 
@@ -62,6 +66,8 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
   bool get onboardingComplete => _ref.read(onboardingCompleteGuardProvider);
   bool get welcomeComplete => _ref.read(onboardingWelcomeCompleteGuardProvider);
   bool get hasInternalAdvisorAccess => _ref.read(internalAdvisorAccessProvider);
+  bool get canOpenSubscriptions =>
+      _ref.read(subscriptionPurchasingEnabledProvider);
   bool get passwordRecoveryPending =>
       _ref.read(passwordRecoveryStateProvider).asData?.value.isPending ?? false;
 }
@@ -358,7 +364,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.paywall,
         redirect: (_, _) =>
-            LaunchContainment.subscriptionsEnabled ? null : RoutePaths.settings,
+            refresh.canOpenSubscriptions ? null : RoutePaths.settings,
         builder: (BuildContext context, GoRouterState state) =>
             const PaywallPage(),
       ),

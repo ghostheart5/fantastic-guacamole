@@ -4,11 +4,14 @@ import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart'
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/state/logs_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +30,7 @@ void main() {
     FutureOr<List<Task>> Function(Ref ref)? tasksOverride,
     List<TimelineEventEntity>? timelineOverdue,
     List<LearningHistorySnapshot>? learningHistorySnapshots,
+    List<LogEntryEntity> savedLogs = const [],
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = physicalSize
@@ -46,6 +50,7 @@ void main() {
           LegacyScopeOwnership.provenNotOwned,
         ),
         trajectorySummaryProvider.overrideWithValue(trajectory),
+        logsProvider.overrideWith(() => _SavedLogs(savedLogs)),
         weeklySummaryProvider.overrideWith(
           weeklySummaryOverride ?? (Ref ref) async => _summaryText,
         ),
@@ -76,6 +81,9 @@ void main() {
     await pumpProgression(tester, trajectory: _emptyTrajectory);
 
     expect(find.text('PROGRESSION'), findsOneWidget);
+    expect(find.text('Not enough evidence'), findsOneWidget);
+    expect(find.text('Not enough history'), findsOneWidget);
+    expect(find.text('Off Track'), findsNothing);
     expect(
       tester.takeException(),
       isNull,
@@ -91,6 +99,69 @@ void main() {
     expect(find.text('PROGRESSION'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('saved completion survives empty session history after restart', (
+    WidgetTester tester,
+  ) async {
+    await pumpProgression(
+      tester,
+      trajectory: _emptyTrajectory,
+      learningHistorySnapshots: const [],
+      savedLogs: [
+        LogEntryEntity(
+          id: 'persisted-completion',
+          source: 'task_completed',
+          message: 'Completed the installation test',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 1)),
+        ),
+      ],
+    );
+    expect(find.text('100% completed'), findsOneWidget);
+    expect(find.text('Not enough history'), findsOneWidget);
+    expect(find.text('Last 30 days • 1 completed'), findsOneWidget);
+    expect(find.text('Off Track'), findsNothing);
+    expect(
+      find.text('Your momentum trend will appear after you complete an item.'),
+      findsNothing,
+    );
+    expect(find.textContaining('Rebuilding the habit'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final int completionCount in <int>[1, 2]) {
+    testWidgets(
+      'paints a visible chart marker for $completionCount same-day completions',
+      (WidgetTester tester) async {
+        final DateTime now = DateTime.now();
+        await pumpProgression(
+          tester,
+          trajectory: _emptyTrajectory,
+          learningHistorySnapshots: const [],
+          savedLogs: [
+            for (int i = 0; i < completionCount; i++)
+              LogEntryEntity(
+                id: 'same-day-$i',
+                source: 'task_completed',
+                message: 'Saved completion',
+                timestamp: DateTime(now.year, now.month, now.day),
+              ),
+          ],
+        );
+
+        expect(
+          find.text('Last 30 days • $completionCount completed'),
+          findsOneWidget,
+        );
+        expect(
+          tester.renderObject(
+            find.byKey(const ValueKey('progression_completion_chart')),
+          ),
+          paints..circle(color: AppColors.neonCyan),
+          reason: 'One recorded day must still have a visible data marker.',
+        );
+      },
+    );
+  }
 
   testWidgets('fits a compact Pixel-width viewport without overflow', (
     WidgetTester tester,
@@ -239,23 +310,86 @@ void main() {
       await pumpProgression(
         tester,
         trajectory: _activeTrajectory,
-        learningHistorySnapshots: [
-          LearningHistorySnapshot(
-            timestamp: now.subtract(const Duration(days: 2)),
-            completed: 2,
-          ),
-          LearningHistorySnapshot(
-            timestamp: now.subtract(const Duration(days: 1)),
-            completed: 5,
-          ),
+        savedLogs: [
+          for (int i = 0; i < 5; i++)
+            LogEntryEntity(
+              id: 'saved-$i',
+              source: i == 0
+                  ? 'completed_task'
+                  : i == 1
+                  ? 'goal_completed'
+                  : 'task_completed',
+              message: 'Saved completion',
+              timestamp: now.subtract(Duration(days: i < 2 ? 2 : 1)),
+            ),
         ],
       );
 
       expect(find.text('COMPLETION MOMENTUM'), findsOneWidget);
       expect(find.text('XP PROGRESSION'), findsNothing);
-      expect(find.text('Last 3 checkpoints • +3 completed'), findsOneWidget);
+      expect(find.text('Last 30 days • 5 completed'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'recorded skips show declining follow-through, not false success',
+    (WidgetTester tester) async {
+      final now = DateTime.now();
+      await pumpProgression(
+        tester,
+        trajectory: _activeTrajectory,
+        savedLogs: [
+          LogEntryEntity(
+            id: 'previous',
+            source: 'task_completed',
+            message: 'Done',
+            timestamp: now.subtract(const Duration(days: 8)),
+          ),
+          LogEntryEntity(
+            id: 'current',
+            source: 'task_skipped',
+            message: 'Skipped',
+            timestamp: now.subtract(const Duration(hours: 1)),
+          ),
+        ],
+      );
+      expect(find.text('0% completed'), findsOneWidget);
+      expect(find.text('Declining'), findsOneWidget);
+      expect(find.text('Last 30 days • 1 completed'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('old and future completions do not populate the current chart', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    await pumpProgression(
+      tester,
+      trajectory: _activeTrajectory,
+      savedLogs: [
+        LogEntryEntity(
+          id: 'old',
+          source: 'task_completed',
+          message: 'Old',
+          timestamp: now.subtract(const Duration(days: 31)),
+        ),
+        LogEntryEntity(
+          id: 'future',
+          source: 'task_completed',
+          message: 'Future',
+          timestamp: now.add(const Duration(days: 1)),
+        ),
+      ],
+    );
+    expect(
+      find.text('No completions were recorded in the last 30 days.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Last 30 days •'), findsNothing);
+    expect(find.text('Not enough evidence'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'share progress falls back to clipboard + SnackBar when the share sheet is unavailable',
@@ -328,6 +462,13 @@ void main() {
 
 const String _summaryText =
     'SYSTEM GUIDANCE REPORT\n\nRecommendation: complete one grounded action.';
+
+class _SavedLogs extends LogsController {
+  _SavedLogs(this.entries);
+  final List<LogEntryEntity> entries;
+  @override
+  LogsState build() => LogsState(entries: entries, isLoading: false);
+}
 
 const TrajectorySummaryView _emptyTrajectory = TrajectorySummaryView(
   pendingTasks: 0,

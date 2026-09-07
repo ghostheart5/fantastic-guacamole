@@ -42,6 +42,20 @@ final assistantReleaseDecisionProvider =
         final AccountStorageScope scope = ref.watch(
           accountStorageScopeProvider,
         );
+        if (!scope.isAuthenticated || scope.v2Namespace == null) {
+          return ref
+              .read(assistantReleaseControllerProvider)
+              .decide(
+                config: AssistantReleaseConfig.failClosed(
+                  'authenticated_account_required',
+                ),
+                request: AssistantReleaseRequest(
+                  accountScopeId: scope.v2Namespace ?? 'v2.unsafe',
+                  capability: capability,
+                  betaOptIn: false,
+                ),
+              );
+        }
         final AssistantReleaseConfig config = await ref.watch(
           assistantReleaseConfigProvider.future,
         );

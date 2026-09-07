@@ -7,8 +7,12 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
@@ -18,13 +22,19 @@ import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dar
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../helpers/fake_task_repository.dart';
 
 final _authenticatedStateProvider = NotifierProvider<_TestBoolNotifier, bool>(
   _TestBoolNotifier.new,
@@ -34,6 +44,19 @@ final _welcomeCompleteStateProvider = NotifierProvider<_TestBoolNotifier, bool>(
 );
 final _onboardingCompleteStateProvider =
     NotifierProvider<_TestBoolNotifier, bool>(_TestBoolNotifier.new);
+final _accountStateProvider = NotifierProvider<_TestAccountNotifier, String>(
+  _TestAccountNotifier.new,
+);
+final _invalidateAccountProvider = Provider<void Function()>((ref) {
+  return () => invalidateAccountOwnedProviders(ref);
+});
+
+class _TestAccountNotifier extends Notifier<String> {
+  @override
+  String build() => 'router-test-account';
+
+  void set(String account) => state = account;
+}
 
 class _TestBoolNotifier extends Notifier<bool> {
   @override
@@ -68,6 +91,128 @@ void main() {
   tearDown(() => NotificationScheduler.tappedPayloadListenable.value = null);
 
   group('appRouterProvider integration', () {
+    testWidgets(
+      'returning to Nexus after completion refreshes real context without framework errors',
+      (tester) async {
+        final repository = FakeTaskRepository([
+          TaskEntity(
+            id: 'context-task',
+            title: 'Context completion task',
+            createdAt: DateTime(2026, 9, 5),
+          ),
+        ]);
+        final store = SecureStore(backend: InMemorySecureStoreBackend());
+        await store
+            .forAccount(
+              AccountStorageScope.authenticated('router-test-account'),
+            )
+            .writeString(
+              'profile_state_v2',
+              '{"name":"Context account","xp":0}',
+            );
+        final harness = await _pumpRealRouter(
+          tester,
+          authenticated: true,
+          welcomeComplete: true,
+          onboardingComplete: true,
+          taskRepository: repository,
+          secureStore: store,
+        );
+        addTearDown(harness.dispose);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        harness.router.go(RoutePaths.creator);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.byType(NexusScreen, skipOffstage: false), findsNothing);
+        // Existing provider futures run on the widget test's fake clock, while
+        // TaskActions also awaits a real compute isolate for neural learning.
+        // Drain provider continuations and yield to that isolate until the
+        // actual action completes; neither side effect is replaced in this test.
+        bool completionFinished = false;
+        final completion = harness.container
+            .read(taskActionsProvider)
+            .completeTask('context-task', notify: false)
+            .then((_) => completionFinished = true);
+        final deadline = Stopwatch()..start();
+        while (!completionFinished && deadline.elapsed.inSeconds < 10) {
+          await tester.pump(const Duration(milliseconds: 20));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+        }
+        expect(completionFinished, isTrue);
+        await completion;
+        expect(
+          (await repository.getTaskById('context-task'))!.isCompleted,
+          isTrue,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        harness.router.go(RoutePaths.nexus);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(tester.takeException(), isNull);
+        expect(find.byType(NexusScreen), findsOneWidget);
+        expect(
+          harness.container
+              .read(consentedHumanContextProvider)
+              .siState
+              .completedToday,
+          1,
+        );
+        expect(harness.container.read(profileProvider).xp, greaterThan(0));
+        await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+      },
+    );
+
+    testWidgets(
+      'A B A account refresh builds real Nexus and Settings without framework errors',
+      (tester) async {
+        final store = SecureStore(backend: InMemorySecureStoreBackend());
+        for (final account in ['router-test-account', 'router-account-b']) {
+          await store
+              .forAccount(
+                AccountStorageScope.authenticated(account),
+                legacyOwnership: LegacyScopeOwnership.provenNotOwned,
+              )
+              .writeString('profile_state_v2', '{"name":"$account","xp":0}');
+        }
+        final harness = await _pumpRealRouter(
+          tester,
+          authenticated: true,
+          welcomeComplete: true,
+          onboardingComplete: true,
+          mutableAccount: true,
+          secureStore: store,
+        );
+        addTearDown(harness.dispose);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        for (final account in ['router-account-b', 'router-test-account']) {
+          harness.router.go(RoutePaths.creator);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+          harness.container.read(_accountStateProvider.notifier).set(account);
+          harness.container.read(_invalidateAccountProvider)();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+          harness.router.go(RoutePaths.nexus);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+          expect(tester.takeException(), isNull);
+          expect(harness.container.read(profileProvider).name, account);
+          harness.router.go(RoutePaths.settings);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+          expect(tester.takeException(), isNull);
+          _expectUri(harness, RoutePaths.settings);
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+
     testWidgets('selects initial location for all guard combinations', (
       WidgetTester tester,
     ) async {
@@ -743,12 +888,29 @@ Future<_RouterHarness> _pumpRealRouter(
   required bool welcomeComplete,
   required bool onboardingComplete,
   bool internalAdvisorAccess = false,
+  bool mutableAccount = false,
+  SecureStore? secureStore,
+  ITaskRepository? taskRepository,
 }) async {
   final ProviderContainer container = ProviderContainer(
     overrides: [
-      accountStorageScopeProvider.overrideWithValue(
-        AccountStorageScope.authenticated('router-test-account'),
+      accountStorageScopeProvider.overrideWith(
+        (ref) => AccountStorageScope.authenticated(
+          mutableAccount
+              ? ref.watch(_accountStateProvider)
+              : 'router-test-account',
+        ),
       ),
+      if (secureStore != null) ...[
+        secureStoreProvider.overrideWithValue(secureStore),
+        sensitivePrefsStoreProvider.overrideWithValue(
+          const SharedPrefsStoreAdapter(),
+        ),
+      ],
+      if (taskRepository != null) ...[
+        domainTaskRepositoryProvider.overrideWithValue(taskRepository),
+        hiveStoreProvider.overrideWithValue(_MemoryHiveStore()),
+      ],
       accountLegacyOwnershipProvider.overrideWithValue(
         LegacyScopeOwnership.provenNotOwned,
       ),
@@ -804,6 +966,71 @@ class _RouterHarness {
     _disposed = true;
     container.dispose();
   }
+}
+
+// Native disk calls do not run inside the widget binding's fake async clock.
+// Keep the real task action, durable occurrence repository, profile and context
+// providers while supplying only their Hive storage boundary in memory.
+class _MemoryHiveStore implements HiveStore {
+  final Map<String, Box<dynamic>> _boxes = {};
+
+  @override
+  Future<void> init() async {}
+  @override
+  bool isBoxOpen(String key) => _boxes.containsKey(key);
+  @override
+  Future<Box<T>> openBox<T>(String key) async =>
+      _boxes.putIfAbsent(key, _MemoryBox<T>.new) as Box<T>;
+  @override
+  Box<T> box<T>(String key) => _boxes[key]! as Box<T>;
+  @override
+  Future<void> clearBox(String key) async {
+    await _boxes[key]?.clear();
+  }
+
+  @override
+  Future<void> closeBox(String key) async {
+    _boxes.remove(key);
+  }
+}
+
+class _MemoryBox<T> implements Box<T> {
+  final Map<dynamic, T> _values = {};
+
+  @override
+  T? get(dynamic key, {T? defaultValue}) => _values[key] ?? defaultValue;
+  @override
+  bool containsKey(dynamic key) => _values.containsKey(key);
+  @override
+  Iterable<dynamic> get keys => _values.keys;
+  @override
+  bool get isNotEmpty => _values.isNotEmpty;
+  @override
+  Map<dynamic, T> toMap() => Map.of(_values);
+  @override
+  Future<void> put(dynamic key, T value) async {
+    _values[key] = value;
+  }
+
+  @override
+  Future<void> putAll(Map<dynamic, T> values) async {
+    _values.addAll(values);
+  }
+
+  @override
+  Future<void> delete(dynamic key) async {
+    _values.remove(key);
+  }
+
+  @override
+  Future<int> clear() async {
+    final count = _values.length;
+    _values.clear();
+    return count;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _GuardCase {

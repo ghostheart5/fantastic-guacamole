@@ -1,3 +1,4 @@
+# EMULATOR ONLY. Leaves QA identity data intact for A -> B -> A readback.
 appId: com.ghostheart5.chronospark
 ---
 - runFlow:
@@ -6,16 +7,21 @@ appId: com.ghostheart5.chronospark
       TARGET: "Settings"
 - scrollUntilVisible:
     element:
-      text: "Data & account\n.*"
+      text: "Data & account\\n.*"
     direction: DOWN
     timeout: 15000
-- tapOn: "Data & account\n.*"
+- tapOn: "Data & account\\n.*"
 - scrollUntilVisible:
     element:
-      text: "Exit Tester Mode\n.*"
+      text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
     direction: DOWN
     timeout: 15000
-- tapOn: "Exit Tester Mode\n.*"
+- assertVisible:
+    text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+    enabled: true
+- tapOn: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+- runFlow: skip-onboarding.yaml
 - extendedWaitUntil:
     visible: "TESTER ACCESS.*TEST LOGIN"
     timeout: 20000
+- assertNotVisible: "Open navigation map"

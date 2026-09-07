@@ -20,8 +20,29 @@ tags:
 
 # Exercise a real local Planner input/output cycle. The QA profile keeps
 # external AI contained, so this proves deterministic on-device guidance.
-- tapOn: "Not set"
+- scrollUntilVisible:
+    element:
+      text: "What would you like help planning right now\\?"
+    direction: DOWN
+    timeout: 15000
+# The failed selector matched the whole check-in card. The exact observed
+# editable child has this hint and was clickable at [107,1658][973,1950].
+- tapOn: "What would you like help planning right now\\?"
+- assertVisible:
+    text: "What would you like help planning right now\\?"
+    focused: true
 - inputText: "Finish the release evidence today"
+- assertVisible:
+    text: "Finish the release evidence today"
+    focused: true
+- hideKeyboard
+# Fail promptly if keyboard dismissal unexpectedly navigates away.
+- scrollUntilVisible:
+    element:
+      text: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
+    direction: UP
+    timeout: 15000
+- assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
 - scrollUntilVisible:
     element:
       text: "GET GUIDANCE"

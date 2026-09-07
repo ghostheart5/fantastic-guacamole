@@ -5,7 +5,7 @@
 appId: com.ghostheart5.chronospark
 ---
 - extendedWaitUntil:
-    visible: "(?:CONTINUE TO LOGIN|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)"
+    visible: "(?:CONTINUE TO LOGIN|Start login|SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)"
     timeout: 30000
 
 - runFlow:
@@ -13,6 +13,15 @@ appId: com.ghostheart5.chronospark
       visible: "CONTINUE TO LOGIN"
     commands:
       - tapOn: "CONTINUE TO LOGIN"
+      - waitForAnimationToEnd:
+          timeout: 5000
+
+# The login guide only reveals the form; it grants no privacy consent.
+- runFlow:
+    when:
+      visible: "Start login"
+    commands:
+      - tapOn: "Start login"
       - waitForAnimationToEnd:
           timeout: 5000
 

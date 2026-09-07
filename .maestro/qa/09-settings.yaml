@@ -1,0 +1,43 @@
+# EMULATOR ONLY. Require actual QA controls; no conditional branch may skip them.
+appId: com.ghostheart5.chronospark
+tags: [qa, core, settings]
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in-qa.yaml
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Data & account\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Data & account\\n.*"
+- scrollUntilVisible:
+    element:
+      text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+    enabled: true
+- scrollUntilVisible:
+    element:
+      text: "Clear Local Data\\. Remove saved planning data, offline actions, notifications, and local intelligence from this device\\."
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "Clear Local Data\\. Remove saved planning data, offline actions, notifications, and local intelligence from this device\\."
+    enabled: true
+- scrollUntilVisible:
+    element:
+      text: "Reset Tester Data\\. Erase local test content and restart onboarding\\."
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "Reset Tester Data\\. Erase local test content and restart onboarding\\."
+    enabled: true
+- assertNotVisible: "Delete Account\\. .*"
+- assertNotVisible: "Log Out\\. .*"

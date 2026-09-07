@@ -4,7 +4,16 @@ tags:
   - priority8
   - readback
 ---
+- stopApp
 - launchApp
+- extendedWaitUntil:
+    visible: "(?s).*(?:CONTINUE TO LOGIN|Start login|TESTER ACCESS.*TEST LOGIN|NEXUS|SETTINGS).*"
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible: "(?s).*SETTINGS.*"
+    commands:
+      - runFlow: ../subflows/sign-in-qa.yaml
 
 - extendedWaitUntil:
     visible: "(?s).*(?:TESTER ACCESS.*TEST LOGIN|NEXUS|SETTINGS).*"

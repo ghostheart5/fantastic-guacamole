@@ -9,6 +9,19 @@ export interface GoogleServiceAccount {
   private_key?: string;
 }
 
+export async function googleServiceAccountCredentialFingerprint(
+  account: GoogleServiceAccount | null,
+): Promise<string | null> {
+  if (
+    typeof account?.client_email !== "string" || !account.client_email ||
+    typeof account.private_key !== "string" || !account.private_key
+  ) return null;
+  const key = account.private_key
+    .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
+  if (!key) return null;
+  return await sha256Hex(JSON.stringify([account.client_email, key]));
+}
+
 function base64Url(value: string | Uint8Array): string {
   const bytes = typeof value === "string"
     ? new TextEncoder().encode(value)

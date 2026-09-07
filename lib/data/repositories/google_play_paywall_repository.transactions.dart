@@ -242,10 +242,11 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
               'Content-Type': 'application/json',
               if (accessToken != null) 'Authorization': 'Bearer $accessToken',
             },
-            body: jsonEncode(<String, String>{
+            body: jsonEncode(<String, Object>{
               'productId': purchase.productID,
               'purchaseToken': purchase.verificationData.serverVerificationData,
               'purchaseType': 'subscription',
+              if (_requireTestPurchase) 'requireTestPurchase': true,
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -267,6 +268,12 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
         (dynamic key, dynamic value) => MapEntry(key.toString(), value),
       );
       if (body['valid'] != true) {
+        return null;
+      }
+      if (_requireTestPurchase && body['testPurchase'] != true) {
+        Logger.error(
+          'This build requires a verified Google Play test purchase.',
+        );
         return null;
       }
       if (body['productId'] != purchase.productID) {

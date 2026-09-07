@@ -1,0 +1,16 @@
+# QA-only authentication. Never falls through to real account credentials.
+appId: com.ghostheart5.chronospark
+---
+- runFlow: skip-onboarding.yaml
+- extendedWaitUntil:
+    visible: "(?:TESTER ACCESS.*TEST LOGIN|NEXUS)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "TESTER ACCESS.*TEST LOGIN"
+    commands:
+      - tapOn: "TESTER ACCESS.*TEST LOGIN"
+- extendedWaitUntil:
+    visible: "NEXUS"
+    timeout: 30000
+- assertNotVisible: "ENTER SYSTEM"

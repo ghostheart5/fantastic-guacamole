@@ -248,6 +248,9 @@ void main() {
     () {
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          accountStorageScopeProvider.overrideWith(
+            (Ref ref) => ref.watch(_mutableAccountStorageScopeProvider),
+          ),
           domainGoalRepositoryProvider.overrideWith(
             (Ref ref) => ref.watch(_mutableGoalRepositoryProvider),
           ),
@@ -265,9 +268,16 @@ void main() {
       );
       addTearDown(container.dispose);
 
+      expect(container.read(goalsProvider), isEmpty);
+      container
+          .read(_mutableAccountStorageScopeProvider.notifier)
+          .authenticate();
       expect(container.read(goalsProvider).single.title, 'Account A goal');
 
       container.read(_mutableGoalRepositoryProvider.notifier).switchAccount();
+      container
+          .read(_mutableAccountStorageScopeProvider.notifier)
+          .authenticate('account-b');
 
       expect(container.read(goalsProvider).single.title, 'Account B goal');
     },
@@ -285,8 +295,8 @@ class _MutableAccountStorageScopeNotifier
   @override
   AccountStorageScope build() => const AccountStorageScope.signedOut();
 
-  void authenticate() {
-    state = AccountStorageScope.authenticated('account-a');
+  void authenticate([String account = 'account-a']) {
+    state = AccountStorageScope.authenticated(account);
   }
 }
 

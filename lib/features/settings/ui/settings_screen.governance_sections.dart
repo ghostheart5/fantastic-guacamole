@@ -26,36 +26,39 @@ class _MemoryGovernanceSection extends ConsumerWidget {
     WidgetRef ref,
     MemoryEntity memory,
   ) async {
-    final TextEditingController controller = TextEditingController(
-      text: memory.text,
-    );
     final String? next = await showDialog<String>(
       context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('Correct remembered preference'),
-        content: TextField(
-          key: const Key('memory-correction-field'),
-          controller: controller,
-          maxLength: 280,
-          minLines: 2,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            helperText: 'Only this exact preference text will be replaced.',
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save correction'),
-          ),
-        ],
+      builder: (BuildContext dialogContext) => TextControllerScope(
+        initialTexts: <String>[memory.text],
+        builder: (dialogContext, controllers) {
+          final controller = controllers[0];
+          return AlertDialog(
+            title: const Text('Correct remembered preference'),
+            content: TextField(
+              key: const Key('memory-correction-field'),
+              controller: controller,
+              maxLength: 280,
+              minLines: 2,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                helperText: 'Only this exact preference text will be replaced.',
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () =>
+                    Navigator.of(dialogContext).pop(controller.text),
+                child: const Text('Save correction'),
+              ),
+            ],
+          );
+        },
       ),
     );
-    controller.dispose();
     if (next == null) return;
     try {
       await ref
@@ -331,36 +334,38 @@ class _PreferenceDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: DropdownButtonFormField<T>(
-        initialValue: value,
-        isExpanded: true,
-        dropdownColor: const Color(0xFF0B111C),
-        style: const TextStyle(color: Colors.white70, fontSize: 13),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.white54),
-          enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(
-              color: AppColors.neonCyan.withValues(alpha: 0.2),
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        items: items
-            .map(
-              (T item) => DropdownMenuItem<T>(
-                value: item,
-                child: Text(
-                  item.toString().split('.').last,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+      child: DropdownRouteKeyboardGuard(
+        child: DropdownButtonFormField<T>(
+          initialValue: value,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF0B111C),
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: const TextStyle(color: Colors.white54),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(
+                color: AppColors.neonCyan.withValues(alpha: 0.2),
               ),
-            )
-            .toList(growable: false),
-        onChanged: (T? next) {
-          if (next != null) onChanged(next);
-        },
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          items: items
+              .map(
+                (T item) => DropdownMenuItem<T>(
+                  value: item,
+                  child: Text(
+                    item.toString().split('.').last,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (T? next) {
+            if (next != null) onChanged(next);
+          },
+        ),
       ),
     );
   }

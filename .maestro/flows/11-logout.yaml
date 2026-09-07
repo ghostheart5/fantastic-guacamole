@@ -21,13 +21,16 @@ tags:
 
 - scrollUntilVisible:
     element:
-      text: "(?:Exit Tester Mode|Log Out)\\n.*"
+      text: "(?:Exit Tester Mode|Log Out)\\. .*"
     direction: DOWN
     timeout: 15000
-- tapOn: "(?:Exit Tester Mode|Log Out)\\n.*"
+- assertVisible:
+    text: "(?:Exit Tester Mode|Log Out)\\. .*"
+    enabled: true
+- tapOn: "(?:Exit Tester Mode|Log Out)\\. .*"
 
 - extendedWaitUntil:
-    visible: "(?:Continue to login|ENTER SYSTEM)"
+    visible: "(?:CONTINUE TO LOGIN|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN)"
     timeout: 20000
 
 # Signing out must not leave the app surface reachable behind the gate.

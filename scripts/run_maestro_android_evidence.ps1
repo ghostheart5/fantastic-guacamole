@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('qa-smoke', 'safe', 'custom', 'destructive')]
+    [ValidateSet('qa-smoke', 'qa-journeys', 'safe', 'custom', 'destructive')]
     [string]$Suite = 'qa-smoke',
 
     [ValidateSet('qa', 'debug', 'release')]
@@ -24,8 +24,22 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'android_runtime_fatal_patterns.ps1')
 $projectRoot = Split-Path -Parent $PSScriptRoot
-Set-Location -LiteralPath $projectRoot
+
+function Get-GitEvidenceText {
+    param(
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    $output = @(& git -C $RepositoryRoot @Arguments)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Git evidence lookup failed: $($Arguments -join ' ')"
+    }
+    # A detached HEAD legitimately produces no branch-name output.
+    return ($output -join "`n").Trim()
+}
 
 function Resolve-CommandPath {
     param(
@@ -88,9 +102,25 @@ function Get-SelectedFlows {
                 '.maestro/flows/08-progression.yaml'
             )
         }
+        'qa-journeys' {
+            # Preserve this order: readback must observe the lifecycle's data.
+            return @(
+                '.maestro/flows/04-smart-planner.yaml',
+                '.maestro/flows/05-creator.yaml',
+                '.maestro/flows/06-si-console.yaml',
+                '.maestro/flows/07-timeline.yaml',
+                '.maestro/flows/08-progression.yaml',
+                '.maestro/qa/09-settings.yaml',
+                '.maestro/qa/10-subscription-containment.yaml',
+                '.maestro/qa/11-logout.yaml',
+                '.maestro/flows/priority8-account-isolation.yaml',
+                '.maestro/flows/priority8-learned-lifecycle.yaml',
+                '.maestro/flows/priority8-learned-lifecycle-readback.yaml'
+            )
+        }
         'safe' {
             return @(Get-ChildItem -LiteralPath '.maestro/flows' -Filter '*.yaml' |
-                Where-Object { $_.Name -ne '12-account-deletion.yaml' } |
+                Where-Object { $_.Name -match '^\d{2}-' -and $_.Name -ne '12-account-deletion.yaml' } |
                 Sort-Object Name |
                 ForEach-Object { $_.FullName })
         }
@@ -103,6 +133,46 @@ function Get-SelectedFlows {
             }
             return @($CustomFlows)
         }
+    }
+}
+
+function Assert-QAJourneyTarget {
+    param(
+        [Parameter(Mandatory)][string]$Profile,
+        [Parameter(Mandatory)][string]$Serial
+    )
+    if ($Profile -ne 'qa' -or $Serial -notmatch '^emulator-\d+$') {
+        throw 'QA account journeys require a QA build on an explicitly selected disposable emulator.'
+    }
+}
+
+function New-MaestroSequenceConfig {
+    param(
+        [Parameter(Mandatory)][string[]]$Flows,
+        [Parameter(Mandatory)][string]$OutputPath
+    )
+
+    # CLI path order is not a Maestro ordering contract. Keep all selected
+    # testcases and give the runtime an explicit, fail-fast workspace sequence.
+    $names = @($Flows | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_) })
+    if ($names.Count -eq 0 -or
+        @($names | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0 -or
+        @($names | Sort-Object -Unique).Count -ne $names.Count) {
+        throw 'Maestro sequence requires nonempty, unique flow filenames.'
+    }
+    $configuration = [ordered]@{
+        executionOrder = [ordered]@{
+            continueOnFailure = $false
+            flowsOrder = $names
+        }
+    }
+    # JSON is valid YAML and preserves scalar escaping without a YAML writer.
+    $configuration | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $OutputPath -Encoding utf8
+    return [ordered]@{
+        path = [System.IO.Path]::GetFullPath($OutputPath)
+        sha256 = (Get-FileHash -LiteralPath $OutputPath -Algorithm SHA256).Hash
+        continueOnFailure = $false
+        flowsOrder = $names
     }
 }
 
@@ -190,42 +260,52 @@ function Invoke-NativeTimedLogged {
     )
 
     $process = $null
+    $processStarted = $false
     try {
         $powerShellPath = (Get-Process -Id $PID).Path
         $payloadJson = [ordered]@{
             executable = $Executable
             arguments = @($Arguments)
         } | ConvertTo-Json -Compress
-        $payloadBase64 = [Convert]::ToBase64String(
-            [System.Text.Encoding]::UTF8.GetBytes($payloadJson)
-        )
-        $invokeCommand = @"
-`$payloadJson = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$payloadBase64'))
-`$payload = `$payloadJson | ConvertFrom-Json
-`$target = [string]`$payload.executable
-`$targetArguments = @(`$payload.arguments | ForEach-Object { [string]`$_ })
-& `$target @targetArguments
-exit `$LASTEXITCODE
-"@
-        $encodedCommand = [Convert]::ToBase64String(
-            [System.Text.Encoding]::Unicode.GetBytes($invokeCommand)
-        )
+        # Keep executable and argument data off the wrapper command line. A fixed,
+        # reviewable entry script receives JSON over stdin and invokes an array.
+        $entryPath = Join-Path $PSScriptRoot 'native_command_entry.ps1'
+        if (-not (Test-Path -LiteralPath $entryPath -PathType Leaf)) {
+            throw 'The native command entry script is missing.'
+        }
         $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
         $startInfo.FileName = $powerShellPath
+        # Set-Location updates PowerShell's location, not the process directory
+        # inherited by Process.Start. Resolve relative tools in this checkout.
+        $startInfo.WorkingDirectory = (Get-Location).ProviderPath
         $startInfo.UseShellExecute = $false
         $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardInput = $true
         $startInfo.RedirectStandardOutput = $true
         $startInfo.RedirectStandardError = $true
-        $startInfo.Arguments = "-NoProfile -NonInteractive -EncodedCommand $encodedCommand"
+        $startInfo.Arguments = '-NoProfile -NonInteractive -File "' + $entryPath + '"'
 
         $process = [System.Diagnostics.Process]::new()
         $process.StartInfo = $startInfo
         if (-not $process.Start()) {
             throw "Unable to start native command: $Executable"
         }
+        $processStarted = $true
+        $deadline = [System.Diagnostics.Stopwatch]::StartNew()
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
         $stderrTask = $process.StandardError.ReadToEndAsync()
-        $completed = $process.WaitForExit($TimeoutSeconds * 1000)
+        # Windows PowerShell 5.1 lacks ProcessStartInfo.StandardInputEncoding.
+        # Explicit bytes keep Unicode data intact on that supported runtime.
+        $payloadBytes = [System.Text.Encoding]::UTF8.GetBytes($payloadJson)
+        $inputTask = $process.StandardInput.BaseStream.WriteAsync($payloadBytes, 0, $payloadBytes.Length)
+        $completed = $false
+        if ($inputTask.Wait($TimeoutSeconds * 1000)) {
+            # Close the byte stream directly. Flushing the unused StreamWriter
+            # can append its encoding preamble after the JSON in UTF-8 hosts.
+            $process.StandardInput.BaseStream.Close()
+            $remainingMilliseconds = [Math]::Max(0, ($TimeoutSeconds * 1000) - $deadline.ElapsedMilliseconds)
+            $completed = $process.WaitForExit([int]$remainingMilliseconds)
+        }
         if (-not $completed) {
             Stop-NativeProcessTree -Process $process
             if (-not $process.WaitForExit(5000)) {
@@ -251,15 +331,28 @@ exit `$LASTEXITCODE
             ExitCode = if ($completed) { $process.ExitCode } else { -1 }
             TimedOut = -not $completed
             Output = @(
-                $combined |
-                    ForEach-Object { $_ -split '\r?\n' } |
+                $stdout -split '\r?\n' |
+                    Where-Object { $_ -ne '' }
+            )
+            ErrorOutput = @(
+                $stderr -split '\r?\n' |
                     Where-Object { $_ -ne '' }
             )
         }
     }
     finally {
         if ($process) {
-            $process.Dispose()
+            try {
+                # An input/output exception after Start must not orphan the
+                # command we own, including its batch-file descendants.
+                if ($processStarted -and -not $process.HasExited) {
+                    Stop-NativeProcessTree -Process $process
+                    $null = $process.WaitForExit(5000)
+                }
+            }
+            finally {
+                $process.Dispose()
+            }
         }
     }
 }
@@ -395,6 +488,13 @@ function Get-MaestroJUnitSummary {
     }
 }
 
+# Dot-sourcing exposes the evidence helpers without starting a device run.
+if ($MyInvocation.InvocationName -eq '.') {
+    return
+}
+
+Set-Location -LiteralPath $projectRoot
+
 if (-not [string]::IsNullOrWhiteSpace($ValidateJUnitOnlyPath)) {
     $junitValidation = Get-MaestroJUnitSummary -Path $ValidateJUnitOnlyPath
     $junitValidation | ConvertTo-Json -Depth 3
@@ -459,10 +559,11 @@ if ($missingEnvironment.Count -gt 0) {
     throw "Missing required environment variable(s): $($missingEnvironment -join ', '). Values were not read or printed."
 }
 
-$commit = (& git rev-parse HEAD).Trim()
-$shortCommit = (& git rev-parse --short HEAD).Trim()
-$branch = (& git branch --show-current).Trim()
+$commit = Get-GitEvidenceText -RepositoryRoot $projectRoot -Arguments @('rev-parse', 'HEAD')
+$shortCommit = Get-GitEvidenceText -RepositoryRoot $projectRoot -Arguments @('rev-parse', '--short', 'HEAD')
+$branch = Get-GitEvidenceText -RepositoryRoot $projectRoot -Arguments @('branch', '--show-current')
 $dirtyEntries = @(& git status --porcelain=v1)
+if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect source snapshot status.' }
 if (-not $AllowDirtyTree -and $dirtyEntries.Count -gt 0) {
     throw "Maestro evidence requires a clean source snapshot. Found $($dirtyEntries.Count) dirty path(s)."
 }
@@ -473,6 +574,11 @@ $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $runRoot = Join-Path $ArtifactsRoot "$timestamp-$shortCommit-$Suite"
 $runRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $runRoot))
 New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
+$sequenceConfiguration = $null
+if ($Suite -eq 'qa-journeys') {
+    $sequenceConfiguration = New-MaestroSequenceConfig -Flows $resolvedFlows `
+        -OutputPath (Join-Path $runRoot 'maestro-sequence-config.yaml')
+}
 
 [void](Invoke-NativeLogged `
     -Executable $adb `
@@ -502,6 +608,14 @@ else {
         throw "Multiple Android devices are connected. Select one with -DeviceSerial. Devices: $serials"
     }
     $serial = ($deviceRows[0] -split '\s+')[0]
+}
+
+$containsQAAccountJourney = @($resolvedFlows | Where-Object {
+    $_ -match '[\\/]\.maestro[\\/]qa[\\/]' -or
+    (Split-Path -Leaf $_) -match '^priority8-'
+}).Count -gt 0
+if ($Suite -eq 'qa-journeys' -or $containsQAAccountJourney) {
+    Assert-QAJourneyTarget -Profile $BuildProfile -Serial $serial
 }
 
 $deviceModelResult = Invoke-NativeLogged `
@@ -536,6 +650,7 @@ $preflight = [ordered]@{
     androidVersion = ($androidVersionResult.Output -join '').Trim()
     androidApi = ($androidApiResult.Output -join '').Trim()
     flows = $flowNames
+    executionOrder = $sequenceConfiguration
     destructive = $containsDeletion
     credentialsRequired = @($requiredEnvironment | Sort-Object -Unique)
     credentialValuesRecorded = $false
@@ -684,6 +799,9 @@ $maestroArguments = @(
 if (-not $containsDeletion) {
     $maestroArguments += @('--exclude-tags', 'destructive')
 }
+if ($sequenceConfiguration) {
+    $maestroArguments += @('--config', $sequenceConfiguration.path)
+}
 $maestroArguments += $resolvedFlows
 
 $startedAt = (Get-Date).ToUniversalTime()
@@ -747,7 +865,7 @@ $fatalPatterns = @(
     'MissingPluginException',
     'Failed assertion',
     ('Unable to start.*' + [regex]::Escape($PackageName))
-)
+) + @(Get-ChronoSparkFatalDiagnosticPatterns)
 $fatalHits = @(Select-String -LiteralPath $sanitizedLogcat -Pattern $fatalPatterns -CaseSensitive:$false -Context 2, 4)
 $scanPath = Join-Path $runRoot 'adb-logcat-scan.txt'
 if ($fatalHits.Count -eq 0) {
@@ -799,6 +917,7 @@ $manifest = [ordered]@{
         api = $preflight.androidApi
     }
     flows = $flowNames
+    executionOrder = $sequenceConfiguration
     destructive = $containsDeletion
     startedAt = $startedAt.ToString('o')
     finishedAt = $finishedAt.ToString('o')

@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
@@ -86,6 +88,7 @@ void main() {
   });
 
   ProviderContainer createContainer({
+    MockAuthService? authService,
     PersonContextSpine? personContext,
     AccountStorageScope? accountScope,
     Object? personContextError,
@@ -104,6 +107,8 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        if (authService != null)
+          authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
         accountLegacyOwnershipProvider.overrideWithValue(
           LegacyScopeOwnership.provenNotOwned,
@@ -180,6 +185,44 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
   }
+
+  testWidgets(
+    'sign-out cleanup StateError shows retry and preserves the signed-in account',
+    (tester) async {
+      useTallSurface(tester);
+      int attempts = 0;
+      final auth = MockAuthService(
+        onBeforeSignedOut: (_) async {
+          attempts++;
+          throw StateError('Reminder cancellation failed');
+        },
+      );
+      await auth.signInWithGoogle();
+      final accountId = auth.currentUser!.id;
+      final container = createContainer(authService: auth);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SettingsScreen()),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.tap(find.text('Data & account'));
+      await tester.pump(const Duration(milliseconds: 300));
+      final label = find.text('Close Profile').evaluate().isNotEmpty
+          ? 'Close Profile'
+          : 'Log Out';
+      await invokeNavTile(tester, label);
+      expect(tester.takeException(), isNull);
+      expect(find.text('Could not log out. Please try again.'), findsOneWidget);
+      expect(auth.currentUser?.id, accountId);
+      expect(attempts, 1);
+      await invokeNavTile(tester, label);
+      expect(tester.takeException(), isNull);
+      expect(auth.currentUser?.id, accountId);
+      expect(attempts, 2);
+    },
+  );
 
   testWidgets('hides plans and credits while subscriptions are contained', (
     WidgetTester tester,

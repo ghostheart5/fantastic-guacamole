@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/text_controller_scope.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -73,232 +74,236 @@ class GoalsScreen extends ConsumerWidget {
   }
 
   Future<void> _showAddSheet(BuildContext context, WidgetRef ref) async {
-    final titleCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
     DateTime? targetDate;
     bool isSaving = false;
     String? saveError;
 
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-        ),
-        builder: (ctx) => StatefulBuilder(
-          builder: (ctx, setSheetState) => AnimatedPadding(
-            duration: const Duration(milliseconds: 160),
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(ctx).bottom,
-            ),
-            child: TemporalGlassSurface(
-              accent: AppColors.memoryAmber,
-              opacity: 0.96,
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Center(
-                      child: SizedBox(
-                        width: 52,
-                        child: Divider(thickness: 3, color: Colors.white38),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'GOALS · NEW DIRECTION',
-                      style: TextStyle(
-                        color: AppColors.memoryAmber,
-                        fontSize: 11,
-                        letterSpacing: 0,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Add a goal',
-                      style: Theme.of(ctx).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Name the future you want to direct.',
-                      style: TextStyle(color: Colors.white70, height: 1.4),
-                    ),
-                    const SizedBox(height: 18),
-                    _SheetField(controller: titleCtrl, hint: 'Goal title'),
-                    const SizedBox(height: 12),
-                    _SheetField(
-                      controller: descCtrl,
-                      hint: 'Description (optional)',
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 12),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: DateTime.now().add(
-                            const Duration(days: 30),
-                          ),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 730),
-                          ),
-                          builder: (context, child) => Theme(
-                            data: Theme.of(context).copyWith(
-                              colorScheme: const ColorScheme.dark(
-                                primary: AppColors.memoryAmber,
-                                onPrimary: Colors.black,
-                                surface: Color(0xFF0B111C),
-                                onSurface: Colors.white70,
-                              ),
-                            ),
-                            child: child ?? const SizedBox.shrink(),
-                          ),
-                        );
-                        if (picked != null) {
-                          setSheetState(() => targetDate = picked);
-                        }
-                      },
-                      child: Container(
-                        constraints: const BoxConstraints(minHeight: 52),
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.bgSecondary.withValues(alpha: 0.84),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.memoryAmber.withValues(
-                              alpha: 0.38,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          children: <Widget>[
-                            const Icon(
-                              Icons.calendar_month_outlined,
-                              color: AppColors.memoryAmber,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                targetDate != null
-                                    ? 'Target: ${targetDate!.day}/${targetDate!.month}/${targetDate!.year}'
-                                    : 'Set target date (optional)',
-                                style: TextStyle(
-                                  color: targetDate != null
-                                      ? AppColors.memoryAmber
-                                      : Colors.white54,
-                                  fontSize: 13,
-                                  letterSpacing: 0,
-                                ),
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: Colors.white70,
-                            ),
-                          ],
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (ctx) => TextControllerScope(
+        initialTexts: const <String>['', ''],
+        builder: (ctx, controllers) {
+          final titleCtrl = controllers[0];
+          final descCtrl = controllers[1];
+          return StatefulBuilder(
+            builder: (ctx, setSheetState) => AnimatedPadding(
+              duration: const Duration(milliseconds: 160),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+              ),
+              child: TemporalGlassSurface(
+                accent: AppColors.memoryAmber,
+                opacity: 0.96,
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Center(
+                        child: SizedBox(
+                          width: 52,
+                          child: Divider(thickness: 3, color: Colors.white38),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (saveError != null) ...<Widget>[
+                      const SizedBox(height: 14),
+                      const Text(
+                        'GOALS · NEW DIRECTION',
+                        style: TextStyle(
+                          color: AppColors.memoryAmber,
+                          fontSize: 11,
+                          letterSpacing: 0,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
                       Text(
-                        saveError!,
-                        style: const TextStyle(
-                          color: AppColors.recallRed,
-                          fontSize: 12,
+                        'Add a goal',
+                        style: Theme.of(ctx).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
                           letterSpacing: 0,
                         ),
                       ),
-                      const SizedBox(height: 10),
-                    ],
-                    const TemporalDivider(color: AppColors.memoryAmber),
-                    const SizedBox(height: 16),
-                    TemporalActionButton(
-                      label: 'ADD GOAL',
-                      icon: Icons.add_circle_outline_rounded,
-                      accent: AppColors.neonCyan,
-                      onPressed: isSaving
-                          ? null
-                          : () async {
-                              final title = titleCtrl.text.trim();
-                              if (title.isEmpty) {
-                                setSheetState(
-                                  () => saveError = 'Enter a goal title first.',
-                                );
-                                return;
-                              }
-                              setSheetState(() {
-                                isSaving = true;
-                                saveError = null;
-                              });
-                              try {
-                                await ref
-                                    .read(goalsProvider.notifier)
-                                    .add(
-                                      title: title,
-                                      description: descCtrl.text.trim().isEmpty
-                                          ? null
-                                          : descCtrl.text.trim(),
-                                      targetDate: targetDate,
-                                    );
-                                if (ctx.mounted) {
-                                  Navigator.pop(ctx);
-                                }
-                              } on Object {
-                                if (ctx.mounted) {
-                                  setSheetState(() {
-                                    isSaving = false;
-                                    saveError =
-                                        'Goal could not be saved. Please try again.';
-                                  });
-                                }
-                              }
-                            },
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.neonCyan,
-                          minimumSize: const Size.fromHeight(48),
-                          shape: RoundedRectangleBorder(
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Name the future you want to direct.',
+                        style: TextStyle(color: Colors.white70, height: 1.4),
+                      ),
+                      const SizedBox(height: 18),
+                      _SheetField(controller: titleCtrl, hint: 'Goal title'),
+                      const SizedBox(height: 12),
+                      _SheetField(
+                        controller: descCtrl,
+                        hint: 'Description (optional)',
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: DateTime.now().add(
+                              const Duration(days: 30),
+                            ),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 730),
+                            ),
+                            builder: (context, child) => Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: AppColors.memoryAmber,
+                                  onPrimary: Colors.black,
+                                  surface: Color(0xFF0B111C),
+                                  onSurface: Colors.white70,
+                                ),
+                              ),
+                              child: child ?? const SizedBox.shrink(),
+                            ),
+                          );
+                          if (picked != null) {
+                            setSheetState(() => targetDate = picked);
+                          }
+                        },
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 52),
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.bgSecondary.withValues(
+                              alpha: 0.84,
+                            ),
                             borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.memoryAmber.withValues(
+                                alpha: 0.38,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              const Icon(
+                                Icons.calendar_month_outlined,
+                                color: AppColors.memoryAmber,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  targetDate != null
+                                      ? 'Target: ${targetDate!.day}/${targetDate!.month}/${targetDate!.year}'
+                                      : 'Set target date (optional)',
+                                  style: TextStyle(
+                                    color: targetDate != null
+                                        ? AppColors.memoryAmber
+                                        : Colors.white54,
+                                    fontSize: 13,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Colors.white70,
+                              ),
+                            ],
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (saveError != null) ...<Widget>[
+                        Text(
+                          saveError!,
+                          style: const TextStyle(
+                            color: AppColors.recallRed,
+                            fontSize: 12,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      const TemporalDivider(color: AppColors.memoryAmber),
+                      const SizedBox(height: 16),
+                      TemporalActionButton(
+                        label: 'ADD GOAL',
+                        icon: Icons.add_circle_outline_rounded,
+                        accent: AppColors.neonCyan,
                         onPressed: isSaving
                             ? null
-                            : () => Navigator.of(ctx).pop(),
-                        child: const Text('CANCEL'),
+                            : () async {
+                                final title = titleCtrl.text.trim();
+                                if (title.isEmpty) {
+                                  setSheetState(
+                                    () =>
+                                        saveError = 'Enter a goal title first.',
+                                  );
+                                  return;
+                                }
+                                setSheetState(() {
+                                  isSaving = true;
+                                  saveError = null;
+                                });
+                                try {
+                                  await ref
+                                      .read(goalsProvider.notifier)
+                                      .add(
+                                        title: title,
+                                        description:
+                                            descCtrl.text.trim().isEmpty
+                                            ? null
+                                            : descCtrl.text.trim(),
+                                        targetDate: targetDate,
+                                      );
+                                  if (ctx.mounted) {
+                                    Navigator.pop(ctx);
+                                  }
+                                } on Object {
+                                  if (ctx.mounted) {
+                                    setSheetState(() {
+                                      isSaving = false;
+                                      saveError =
+                                          'Goal could not be saved. Please try again.';
+                                    });
+                                  }
+                                }
+                              },
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.neonCyan,
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: isSaving
+                              ? null
+                              : () => Navigator.of(ctx).pop(),
+                          child: const Text('CANCEL'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
-      );
-    } finally {
-      titleCtrl.dispose();
-      descCtrl.dispose();
-    }
+          );
+        },
+      ),
+    );
   }
 }
 

@@ -35,7 +35,7 @@ class PaywallRepository implements IPaywallRepository {
         aiCreditsIncluded: 300,
         freeTrialDays: 0,
         benefits: <String>[
-          'Increases external-assistant credit allowance to 300 credits per month',
+          '300 credits after a verified purchase or paid renewal',
         ],
       ),
       PaywallPlan(
@@ -46,7 +46,7 @@ class PaywallRepository implements IPaywallRepository {
         aiCreditsIncluded: 360,
         freeTrialDays: 0,
         benefits: <String>[
-          'Increases external-assistant credit allowance to 360 credits per month',
+          '360 credits after a verified purchase or paid renewal',
         ],
       ),
     ];

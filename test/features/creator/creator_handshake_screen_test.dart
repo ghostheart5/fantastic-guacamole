@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
+import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
@@ -16,6 +17,7 @@ import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_draft_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -28,6 +30,88 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  testWidgets('Planner duration survives form, review, and confirmed save', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _ScreenTaskRepository();
+    final container = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('planner-duration-screen-test'),
+        ),
+        domainTaskRepositoryProvider.overrideWithValue(repository),
+        domainGoalRepositoryProvider.overrideWithValue(
+          const _ScreenGoalRepository(),
+        ),
+        domainHabitRepositoryProvider.overrideWithValue(
+          const _ScreenHabitRepository(),
+        ),
+        domainNoteRepositoryProvider.overrideWithValue(
+          const _ScreenNoteRepository(),
+        ),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(adaptiveGuidanceProvider.future);
+    await container
+        .read(adaptiveGuidanceProvider.notifier)
+        .record(GuidanceMilestone.firstItem);
+    await container
+        .read(adaptiveGuidanceProvider.notifier)
+        .record(GuidanceMilestone.firstSchedule);
+    container
+        .read(creatorDraftPreviewProvider.notifier)
+        .stage(
+          CreatorDraftPreview.fromPlannerOption(
+            const PlannerOption(
+              kind: PlannerOptionKind.bestFit,
+              title: 'Twenty minute Planner task',
+              description: 'Preserve the reviewed estimate.',
+              estimatedMinutes: 20,
+              tradeoff: 'One bounded action.',
+            ),
+          ),
+        );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: CreatorScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    final estimate = tester.widget<DropdownButton<Duration>>(
+      find.byKey(const Key('creator-task-estimate')),
+    );
+    expect(estimate.value, const Duration(minutes: 20));
+    expect(repository.saveCalls, 0);
+    await tester.ensureVisible(find.text('REVIEW CHANGES'));
+    await tester.tap(find.text('REVIEW CHANGES'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(
+      find.textContaining('Estimated duration: Not present → 20 minutes'),
+      findsOneWidget,
+    );
+    expect(repository.saveCalls, 0);
+    final confirm = find.byKey(const Key('creator-confirm-selected'));
+    await tester.ensureVisible(confirm);
+    await tester.tap(confirm);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      repository.tasks.values.single.estimatedDuration,
+      const Duration(minutes: 20),
+    );
+    expect(repository.saveCalls, 1);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Creator shows bound diff, confirms once, and exposes undo', (

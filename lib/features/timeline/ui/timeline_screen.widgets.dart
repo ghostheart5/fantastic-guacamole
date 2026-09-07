@@ -516,27 +516,29 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
                     onChanged: (String value) => draftTitle = value,
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String?>(
-                    key: const Key('timeline-task-goal-field'),
-                    initialValue: selectedGoalId,
-                    decoration: const InputDecoration(labelText: 'Goal'),
-                    items: <DropdownMenuItem<String?>>[
-                      const DropdownMenuItem<String?>(
-                        child: Text('No linked goal'),
-                      ),
-                      ...goals.map(
-                        (GoalEntity goal) => DropdownMenuItem<String?>(
-                          value: goal.id,
-                          child: Text(
-                            goal.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                  DropdownRouteKeyboardGuard(
+                    child: DropdownButtonFormField<String?>(
+                      key: const Key('timeline-task-goal-field'),
+                      initialValue: selectedGoalId,
+                      decoration: const InputDecoration(labelText: 'Goal'),
+                      items: <DropdownMenuItem<String?>>[
+                        const DropdownMenuItem<String?>(
+                          child: Text('No linked goal'),
+                        ),
+                        ...goals.map(
+                          (GoalEntity goal) => DropdownMenuItem<String?>(
+                            value: goal.id,
+                            child: Text(
+                              goal.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                    onChanged: (String? value) =>
-                        setDialogState(() => selectedGoalId = value),
+                      ],
+                      onChanged: (String? value) =>
+                          setDialogState(() => selectedGoalId = value),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -1091,31 +1093,33 @@ class _TimelineControls extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 9),
-                  DropdownButtonFormField<_TimelineFilter>(
-                    initialValue: filter,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'Activity type',
-                      prefixIcon: const Icon(Icons.filter_alt_outlined),
-                      isDense: true,
-                      filled: true,
-                      fillColor: Colors.black.withValues(alpha: .18),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
+                  DropdownRouteKeyboardGuard(
+                    child: DropdownButtonFormField<_TimelineFilter>(
+                      initialValue: filter,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Activity type',
+                        prefixIcon: const Icon(Icons.filter_alt_outlined),
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.black.withValues(alpha: .18),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
+                      items: _TimelineFilter.values
+                          .map(
+                            (_TimelineFilter value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(_filterLabel(value)),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (_TimelineFilter? value) {
+                        if (value != null) onFilterChanged(value);
+                      },
                     ),
-                    items: _TimelineFilter.values
-                        .map(
-                          (_TimelineFilter value) => DropdownMenuItem(
-                            value: value,
-                            child: Text(_filterLabel(value)),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (_TimelineFilter? value) {
-                      if (value != null) onFilterChanged(value);
-                    },
                   ),
                 ],
               ),

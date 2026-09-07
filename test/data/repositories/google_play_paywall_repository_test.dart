@@ -22,6 +22,85 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  for (final Object? proof in <Object?>[null, false, 'true', true]) {
+    test('license-test purchase requires server proof ($proof)', () async {
+      final controller = StreamController<List<PurchaseDetails>>.broadcast();
+      final client = await _authorityClient((request) async {
+        fail('Purchase verification must not substitute an authority refresh.');
+      });
+      final billing = _FakeBillingClient(
+        purchaseStreamController: controller,
+        productResponse: ProductDetailsResponse(
+          productDetails: <ProductDetails>[
+            ProductDetails(
+              id: 'chronospark_premium_monthly',
+              title: 'Monthly',
+              description: 'Monthly plan',
+              price: r'$4.99',
+              rawPrice: 4.99,
+              currencyCode: 'USD',
+            ),
+          ],
+          notFoundIDs: const <String>[],
+        ),
+        onBuyNonConsumable: (param) async {
+          controller.add([
+            PurchaseDetails(
+              purchaseID: 'license-test-order',
+              productID: param.productDetails.id,
+              verificationData: PurchaseVerificationData(
+                localVerificationData: '',
+                serverVerificationData: 'synthetic-token',
+                source: 'google_play',
+              ),
+              transactionDate: DateTime.now().millisecondsSinceEpoch.toString(),
+              status: PurchaseStatus.purchased,
+            )..pendingCompletePurchase = true,
+          ]);
+          return true;
+        },
+      );
+      final repository = GooglePlayPaywallRepository(
+        billingClient: billing,
+        paywallTestingModeOverride: false,
+        requireTestPurchase: true,
+        supabaseClient: client,
+        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+        receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+        httpClient: MockClient((request) async {
+          final requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(requestBody['requireTestPurchase'], isTrue);
+          return http.Response(
+            jsonEncode({
+              'valid': true,
+              'acknowledged': true,
+              'testPurchase': ?proof,
+              'productId': 'chronospark_premium_monthly',
+              'status': 'active',
+              'expiryTimeMs': DateTime.now()
+                  .add(const Duration(minutes: 5))
+                  .millisecondsSinceEpoch,
+            }),
+            200,
+          );
+        }),
+      );
+      final result = await Logger.withMutedErrors(
+        () => repository.startSubscription('monthly'),
+      );
+      expect(result.isActive, proof == true);
+      expect(
+        result.isTesting,
+        isFalse,
+        reason: 'License tests must never activate the mock bypass.',
+      );
+      expect(billing.completePurchaseCalls, proof == true ? 1 : 0);
+      repository.dispose();
+      await controller.close();
+      await client.dispose();
+    });
+  }
+
   test(
     'getAvailablePlans maps live Google Play prices when products resolve',
     () async {

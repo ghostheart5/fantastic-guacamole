@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:fantastic_guacamole/config/backend_mode.dart';
 import 'package:fantastic_guacamole/config/firebase_identity.dart';
+import 'package:fantastic_guacamole/config/internal_billing_test.dart';
 
 enum ProductionTarget { all, android, ios }
 
@@ -20,6 +21,41 @@ List<String> validateProductionConfiguration(
   ProductionTarget target = ProductionTarget.all,
 }) {
   final List<String> failures = <String>[];
+  final String billingFlag =
+      values['CHRONOSPARK_INTERNAL_BILLING_TEST'] ?? 'false';
+  if (billingFlag != 'true' && billingFlag != 'false') {
+    failures.add('CHRONOSPARK_INTERNAL_BILLING_TEST must be true or false.');
+  }
+  final String billingCohort =
+      values['CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS'] ?? '';
+  if (billingFlag == 'true') {
+    for (final name in <String>[
+      'CHRONOSPARK_ENABLE_MOCK_LOGIN',
+      'CHRONOSPARK_ENABLE_MOCK_MODE',
+      'CHRONOSPARK_PAYWALL_DISABLED',
+      'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
+    ]) {
+      if (values[name] != 'false') {
+        failures.add('Internal billing testing requires $name=false.');
+      }
+    }
+    if (!InternalBillingTestConfig(
+          requested: true,
+          accountDigests: billingCohort,
+        ).hasValidCohort ||
+        target != ProductionTarget.android ||
+        values['CHRONOSPARK_APP_FLAVOR'] != 'prod' ||
+        values['CHRONOSPARK_BACKEND_MODE'] != 'cloud' ||
+        values['CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS'] != 'false') {
+      failures.add(
+        'Internal billing testing requires an explicit production Android cloud build, a verified cohort and frozen runtime flags.',
+      );
+    }
+  } else if (billingCohort.isNotEmpty) {
+    failures.add(
+      'A billing cohort is only valid in the explicit internal billing test profile.',
+    );
+  }
   final BackendMode? mode = BackendConfiguration.parse(
     values['CHRONOSPARK_BACKEND_MODE'] ?? 'cloud',
   );
@@ -30,7 +66,7 @@ List<String> validateProductionConfiguration(
     if (target == ProductionTarget.ios) {
       return <String>['Local production currently supports Android only.'];
     }
-    return validateLocalProductionConfiguration(values);
+    return [...failures, ...validateLocalProductionConfiguration(values)];
   }
   final List<String> requiredVariables = <String>[
     ...commonRequiredProductionVariables,

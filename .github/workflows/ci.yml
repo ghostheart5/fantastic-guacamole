@@ -85,6 +85,11 @@ jobs:
       - name: Validate GitHub workflow controls
         run: dart run tool/validate_github_workflows.dart
 
+      - name: Test internal billing build controls
+        run: |
+          python3 -B -m unittest discover -s scripts -p test_android_candidate_build.py
+          node --test scripts/verify_internal_billing_backend.test.mjs
+
       - name: Parse maintained PowerShell sources
         shell: pwsh
         run: ./scripts/powershell_parse_gate.ps1
@@ -99,6 +104,10 @@ jobs:
       - name: Run secret content guard
         shell: pwsh
         run: ./scripts/secret_content_guard.ps1
+
+      - name: Verify secret scanner filename handling
+        shell: pwsh
+        run: ./scripts/secret_guard_contract.ps1
 
       - name: Analyze project source
         run: flutter analyze --fatal-infos
@@ -303,6 +312,12 @@ jobs:
       - name: Run bounded Windows golden comparisons
         run: dart run tool/run_flutter_tests.dart --report artifacts/windows-golden-evidence/golden-tests.jsonl --manifest artifacts/windows-golden-evidence/golden-tests-manifest.json --timeout-seconds 1200 -- test/features/auth/login_screen_golden_test.dart test/features/home/first_use_context_offer_card_test.dart test/features/nexus/nexus_screen_golden_test.dart test/features/settings/settings_screen_test.dart --no-pub --concurrency=1
 
+      - name: Run Windows Maestro launcher contract
+        # The fixtures launch Windows PowerShell 5.1. Inherit its module paths,
+        # not PowerShell 7's incompatible PSModulePath from the default shell.
+        shell: powershell
+        run: dart run tool/run_flutter_tests.dart --report artifacts/windows-golden-evidence/maestro-launcher-tests.jsonl --manifest artifacts/windows-golden-evidence/maestro-launcher-tests-manifest.json --timeout-seconds 600 -- test/release/maestro_android_runner_fixture_test.dart --no-pub --concurrency=1
+
       - name: Upload Windows golden evidence
         if: always()
         timeout-minutes: 5
@@ -317,7 +332,7 @@ jobs:
 
   test:
     name: Analyze & Test
-    if: always()
+    if: ${{ always() && !cancelled() }}
     needs: [static-policy, flutter-tests, linux-integration, windows-goldens]
     runs-on: ubuntu-24.04
     timeout-minutes: 5

@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -42,6 +44,7 @@ void main() {
   Future<ProviderContainer> pumpNexusScreen(
     WidgetTester tester, {
     required double width,
+    MockAuthService? authService,
     List<Task>? tasks,
     List<TimelineEventEntity>? timeline,
     bool observedVitals = true,
@@ -56,6 +59,8 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        if (authService != null)
+          authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('nexus-golden-test-account'),
         ),
@@ -208,6 +213,33 @@ void main() {
       );
     });
   });
+
+  testWidgets(
+    'sign-out cleanup StateError shows retry and preserves the signed-in account',
+    (tester) async {
+      int attempts = 0;
+      final auth = MockAuthService(
+        onBeforeSignedOut: (_) async {
+          attempts++;
+          throw StateError('Reminder cancellation failed');
+        },
+      );
+      await auth.signInWithGoogle();
+      final accountId = auth.currentUser!.id;
+      await pumpNexusScreen(tester, width: 500, authService: auth);
+      await tester.tap(find.byIcon(Icons.logout_rounded));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.takeException(), isNull);
+      expect(find.text('Could not log out. Please try again.'), findsOneWidget);
+      expect(auth.currentUser?.id, accountId);
+      expect(attempts, 1);
+      await tester.tap(find.byIcon(Icons.logout_rounded));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.takeException(), isNull);
+      expect(auth.currentUser?.id, accountId);
+      expect(attempts, 2);
+    },
+  );
 
   group('NexusScreen responsive typography', () {
     testWidgets('uses ultra-compact values below 340px', (
