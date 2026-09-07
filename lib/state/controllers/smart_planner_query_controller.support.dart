@@ -4,6 +4,10 @@ final class _PlannerConversationContext {
   const _PlannerConversationContext({
     required this.input,
     required this.searchText,
+    required this.evidenceSearchText,
+    required this.savedContextDeclined,
+    required this.answeredSavedContextQuestion,
+    required this.continuesPriorSubject,
     required this.subject,
     required this.priorSubject,
     required this.historyTurnsUsed,
@@ -21,12 +25,37 @@ final class _PlannerConversationContext {
     final String normalizedInput = input.trim() == _defaultPlanningPrompt
         ? ''
         : input.trim();
+    bool awaitingSavedChoice = false;
+    bool savedContextDeclined = false;
+    for (final turn in history) {
+      final content = turn['content']?.trim() ?? '';
+      if (turn['role'] == 'assistant') {
+        awaitingSavedChoice = content.contains(_savedContextQuestion);
+      } else if (turn['role'] == 'user' && awaitingSavedChoice) {
+        savedContextDeclined = _declinesSavedChoice(content);
+        awaitingSavedChoice = false;
+      }
+    }
+    final bool declinesCurrentChoice =
+        isFollowUp &&
+        awaitingSavedChoice &&
+        _declinesSavedChoice(normalizedInput);
+    savedContextDeclined = savedContextDeclined || declinesCurrentChoice;
+    // An explicit request to use saved evidence opts back in for this turn.
+    if (RegExp(
+      r'\b(saved (task|goal)|saved planning recommendation)\b',
+      caseSensitive: false,
+    ).hasMatch(normalizedInput)) {
+      savedContextDeclined = false;
+    }
     final List<String> priorUserTurns = history
         .where((Map<String, String> turn) => turn['role'] == 'user')
         .map((Map<String, String> turn) => turn['content']?.trim() ?? '')
         .where(
           (String content) =>
-              content.isNotEmpty && content != _defaultPlanningPrompt,
+              content.isNotEmpty &&
+              content != _defaultPlanningPrompt &&
+              !_declinesSavedChoice(content),
         )
         .map(
           (String content) =>
@@ -55,9 +84,16 @@ final class _PlannerConversationContext {
             boundedPrior.last,
             maxLength: 72,
           );
-    final String subject = isFollowUp && priorSubject.isNotEmpty
+    final bool continuesPriorSubject =
+        isFollowUp &&
+        (declinesCurrentChoice ||
+            RegExp(
+              r'\b(it|that|this|those|these|earlier|previous)\b|^can you make the\b',
+              caseSensitive: false,
+            ).hasMatch(normalizedInput));
+    final String subject = continuesPriorSubject && priorSubject.isNotEmpty
         ? priorSubject
-        : normalizedInput.isEmpty
+        : normalizedInput.isEmpty || declinesCurrentChoice
         ? 'one task you choose for today'
         : SmartPlannerQueryController._condense(normalizedInput, maxLength: 72);
     return _PlannerConversationContext(
@@ -66,6 +102,14 @@ final class _PlannerConversationContext {
         ...boundedPrior,
         normalizedInput,
       ].where((String value) => value.isNotEmpty).join(' '),
+      evidenceSearchText: <String>[
+        if (continuesPriorSubject) priorSubject,
+        if (!declinesCurrentChoice) normalizedInput,
+      ].where((value) => value.isNotEmpty).join(' '),
+      savedContextDeclined: savedContextDeclined,
+      answeredSavedContextQuestion:
+          isFollowUp && awaitingSavedChoice && normalizedInput.isNotEmpty,
+      continuesPriorSubject: continuesPriorSubject,
       subject: subject,
       priorSubject: priorSubject,
       historyTurnsUsed: boundedPrior.length,
@@ -75,6 +119,10 @@ final class _PlannerConversationContext {
 
   final String input;
   final String searchText;
+  final String evidenceSearchText;
+  final bool savedContextDeclined;
+  final bool answeredSavedContextQuestion;
+  final bool continuesPriorSubject;
   final String subject;
   final String priorSubject;
   final int historyTurnsUsed;
@@ -85,7 +133,7 @@ final class _PlannerConversationContext {
     required _PlannerEvidence evidence,
   }) {
     final String? focus = evidence.focusSubject;
-    if (isFollowUp) {
+    if (isFollowUp && continuesPriorSubject && !savedContextDeclined) {
       final String followUp = SmartPlannerQueryController._condense(
         input,
         maxLength: 72,
@@ -122,9 +170,18 @@ final class _PlannerConversationContext {
   }
 }
 
+const String _savedContextQuestion =
+    'Which saved task or goal, if any, should this plan support?';
+
+bool _declinesSavedChoice(String input) => RegExp(
+  r'^(none|neither|no|no thanks|none of them|not now)[.!]?$',
+  caseSensitive: false,
+).hasMatch(input.trim());
+
 final class _PlannerEvidence {
   const _PlannerEvidence.empty()
-    : activeTasks = const <TaskEntity>[],
+    : savedContextDeclined = false,
+      activeTasks = const <TaskEntity>[],
       activeGoals = const <GoalEntity>[],
       focusTask = null,
       focusGoal = null,
@@ -146,6 +203,7 @@ final class _PlannerEvidence {
     required this.personContext,
     required this.operatingReceipt,
     required this.plannerMemory,
+    this.savedContextDeclined = false,
   }) : activeTasks = List<TaskEntity>.unmodifiable(activeTasks),
        activeGoals = List<GoalEntity>.unmodifiable(activeGoals);
 
@@ -160,6 +218,7 @@ final class _PlannerEvidence {
     required String accountScopeId,
     required OperatingDecisionReceipt? operatingReceipt,
     required List<MemoryEntity> plannerMemories,
+    bool savedContextDeclined = false,
   }) {
     final List<TaskEntity> activeTasks = tasks
         .where((TaskEntity task) => task.isActive)
@@ -253,17 +312,18 @@ final class _PlannerEvidence {
     return _PlannerEvidence(
       activeTasks: activeTasks,
       activeGoals: activeGoals,
-      focusTask: focusTask,
-      focusGoal: focusGoal,
+      focusTask: savedContextDeclined ? null : focusTask,
+      focusGoal: savedContextDeclined ? null : focusGoal,
       taskReadSucceeded: taskReadSucceeded,
       goalReadSucceeded: goalReadSucceeded,
       personContext: resolvedPersonContext,
       operatingReceipt: _PlannerOperatingReceiptEvidence.resolve(
-        operatingReceipt,
+        savedContextDeclined ? null : operatingReceipt,
         searchText: searchText,
         now: now,
       ),
       plannerMemory: _PlannerMemoryEvidence.resolve(plannerMemories, now: now),
+      savedContextDeclined: savedContextDeclined,
       focusTaskIsUrgent:
           focusTime != null &&
           !focusTime.isAfter(now.add(const Duration(days: 1))),
@@ -280,6 +340,7 @@ final class _PlannerEvidence {
   final _PlannerPersonContextEvidence personContext;
   final _PlannerOperatingReceiptEvidence operatingReceipt;
   final _PlannerMemoryEvidence plannerMemory;
+  final bool savedContextDeclined;
 
   bool get hasStoredEvidence =>
       activeTasks.isNotEmpty || activeGoals.isNotEmpty;
@@ -287,9 +348,10 @@ final class _PlannerEvidence {
   bool get hasMatchedStoredEvidence => focusTask != null || focusGoal != null;
 
   bool get hasPositiveGrounding =>
-      hasMatchedStoredEvidence ||
-      operatingReceipt.focus != null ||
-      personContext.planningFocus != null;
+      !savedContextDeclined &&
+      (hasMatchedStoredEvidence ||
+          operatingReceipt.focus != null ||
+          personContext.planningFocus != null);
 
   bool get hasAvailableGroundingEvidence =>
       hasStoredEvidence ||
@@ -297,9 +359,14 @@ final class _PlannerEvidence {
       personContext.planningFocus != null;
 
   bool get requiresClarification =>
-      hasAvailableGroundingEvidence && !hasPositiveGrounding;
+      !savedContextDeclined &&
+      hasAvailableGroundingEvidence &&
+      !hasPositiveGrounding;
 
   String get domainAdaptationSummary {
+    if (savedContextDeclined) {
+      return 'You chose to plan independently; saved tasks, goals, and recommendations were not attached. Consented capacity limits still apply.';
+    }
     if (hasMatchedStoredEvidence) {
       return 'Used only saved task or goal evidence with a positive text relevance match.';
     }
@@ -313,6 +380,7 @@ final class _PlannerEvidence {
   }
 
   String? get focusSubject {
+    if (savedContextDeclined) return null;
     final TaskEntity? task = focusTask;
     if (task != null) {
       return 'saved task "${SmartPlannerQueryController._safeEvidenceTitle(task.title)}"';
@@ -329,6 +397,7 @@ final class _PlannerEvidence {
   }
 
   String? get mattersMost {
+    if (savedContextDeclined) return null;
     final TaskEntity? task = focusTask;
     if (task != null) {
       return 'Making a credible next move on saved task "${SmartPlannerQueryController._safeEvidenceTitle(task.title)}" without exceeding your reported capacity.';
@@ -359,7 +428,7 @@ final class _PlannerEvidence {
         ? 'goal'
         : operatingReceipt.focus != null
         ? 'operating_receipt'
-        : personContext.planningFocus != null
+        : !savedContextDeclined && personContext.planningFocus != null
         ? 'person_context'
         : 'none',
     'taskEvidenceReadSucceeded': taskReadSucceeded,
@@ -370,6 +439,13 @@ final class _PlannerEvidence {
   };
 
   List<String> verifiedEvidence(DateTime observedAt) {
+    if (savedContextDeclined) {
+      return <String>[
+        domainAdaptationSummary,
+        ...plannerMemory.verifiedEvidence(),
+        ...personContext.verifiedEvidence(),
+      ];
+    }
     final List<String> evidence = <String>[];
     if (!taskReadSucceeded || !goalReadSucceeded) {
       evidence.add(
@@ -458,14 +534,8 @@ final class _PlannerOperatingReceiptEvidence {
       );
     }
     final Set<String> queryTerms = _plannerTerms(searchText);
-    final Set<String> receiptTerms = _plannerTerms(
-      <String>[
-        receipt.recommendedAction,
-        receipt.rationale,
-        receipt.whyItMatters,
-        ...receipt.evidence.map((OperatingEvidence item) => item.description),
-      ].join(' '),
-    );
+    // Explanatory boilerplate is not the subject of a saved recommendation.
+    final Set<String> receiptTerms = _plannerTerms(receipt.recommendedAction);
     final bool matched = queryTerms.any(receiptTerms.contains);
     return _PlannerOperatingReceiptEvidence._(
       matched

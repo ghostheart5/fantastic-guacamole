@@ -1311,6 +1311,181 @@ void main() {
     },
   );
 
+  test(
+    'declining saved context advances and keeps the next request independent',
+    () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'release',
+          title: 'Prepare release evidence',
+          createdAt: DateTime.utc(2026, 8, 20),
+        ),
+      ]);
+      final container = plannerContainer(
+        tasks: tasks,
+        operatingReceipt: _operatingReceipt(),
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      final initial = await controller.requestPlanningGuidance(
+        energy: null,
+        emotion: null,
+        notes: '',
+        history: const [],
+        previousSavedNotes: null,
+      );
+      expect(initial.plannerResponse.isClarification, isTrue);
+      for (final answer in ['None', 'No thanks', 'Neither.']) {
+        final history = [
+          {'role': 'user', 'content': initial.prompt},
+          {'role': 'assistant', 'content': initial.message},
+        ];
+        final declined = await controller.requestFollowUpResult(
+          input: answer,
+          energy: null,
+          emotion: null,
+          reflection: '',
+          history: history,
+        );
+        expect(
+          declined.plannerResponse.isClarification,
+          isFalse,
+          reason: answer,
+        );
+        expect(declined.plannerResponse.options, hasLength(3));
+        expect(
+          declined.plannerResponse.nextStep,
+          contains('one task you choose for today'),
+        );
+        history.addAll([
+          {'role': 'user', 'content': answer},
+          {'role': 'assistant', 'content': declined.message},
+        ]);
+        final explicit = await controller.requestFollowUpResult(
+          input: 'Help me organize my desk for 10 minutes today',
+          energy: null,
+          emotion: null,
+          reflection: '',
+          history: history,
+        );
+        expect(explicit.plannerResponse.isClarification, isFalse);
+        expect(explicit.plannerResponse.nextStep, contains('organize my desk'));
+        expect(explicit.message, isNot(contains('Prepare release evidence')));
+        expect(explicit.request.context['storedEvidenceUsed'], isFalse);
+      }
+      expect(tasks.writeCalls, 0);
+    },
+  );
+
+  test('a concrete follow-up replaces the previous planning target', () async {
+    final container = plannerContainer(operatingReceipt: _operatingReceipt());
+    addTearDown(container.dispose);
+    final result = await container
+        .read(smartPlannerQueryControllerProvider)
+        .requestFollowUpResult(
+          input: 'Help me organize my desk for 10 minutes today',
+          energy: null,
+          emotion: null,
+          reflection: '',
+          history: const [
+            {'role': 'user', 'content': 'Prepare release evidence'},
+            {
+              'role': 'assistant',
+              'content':
+                  'Which saved task or goal, if any, should this plan support?',
+            },
+          ],
+        );
+    expect(result.plannerResponse.isClarification, isFalse);
+    expect(result.plannerResponse.nextStep, contains('organize my desk'));
+    expect(result.request.context['operatingReceiptUsed'], isFalse);
+    expect(
+      result.message,
+      isNot(
+        contains('saved planning recommendation "Prepare release evidence"'),
+      ),
+    );
+  });
+
+  test(
+    'independent planning retains consented capacity and can opt back into saved work',
+    () async {
+      final container = plannerContainer(
+        operatingReceipt: _operatingReceipt(),
+        personContext: contextView([
+          contextSignal(
+            id: 'capacity',
+            kind: PersonContextKind.presentCapacity,
+            value: 'I have 10 minutes available.',
+          ),
+        ]),
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      const history = [
+        {
+          'role': 'assistant',
+          'content':
+              'Which saved task or goal, if any, should this plan support?',
+        },
+        {'role': 'user', 'content': 'None'},
+        {'role': 'assistant', 'content': 'Choose a task for today.'},
+      ];
+      final independent = await controller.requestFollowUpResult(
+        input: 'Help me organize my desk',
+        energy: 0.9,
+        emotion: null,
+        reflection: '',
+        history: history,
+      );
+      expect(independent.plannerResponse.isClarification, isFalse);
+      expect(
+        independent.plannerResponse.adaptationReceipt.adjustments,
+        contains(contains('capacity limit of 10 minutes')),
+      );
+      final saved = await controller.requestFollowUpResult(
+        input:
+            'Use the saved planning recommendation to prepare release evidence',
+        energy: null,
+        emotion: null,
+        reflection: '',
+        history: history,
+      );
+      expect(saved.request.context['operatingReceiptUsed'], isTrue);
+    },
+  );
+
+  test(
+    'generic receipt rationale does not replace a concrete request',
+    () async {
+      final container = plannerContainer(
+        operatingReceipt: _operatingReceipt(
+          recommendedAction: 'Capture one actionable task in Creator.',
+          rationale: 'Create a useful action for today.',
+        ),
+      );
+      addTearDown(container.dispose);
+      final result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestFollowUpResult(
+            input: 'Help me organize my desk for 10 minutes today',
+            energy: null,
+            emotion: null,
+            reflection: '',
+            history: const [],
+          );
+      expect(result.request.context['operatingReceiptUsed'], isFalse);
+      expect(
+        result.message,
+        isNot(
+          contains(
+            'saved planning recommendation "Capture one actionable task',
+          ),
+        ),
+      );
+    },
+  );
+
   test('Planner request path has no hidden write or stateful model hooks', () {
     final String source = File(
       'lib/state/controllers/smart_planner_query_controller.dart',
@@ -1463,11 +1638,14 @@ class _ImmediateBetaOptIn extends AssistantBetaOptInNotifier {
   Future<bool> build() async => false;
 }
 
-OperatingDecisionReceipt _operatingReceipt() => OperatingDecisionReceipt(
+OperatingDecisionReceipt _operatingReceipt({
+  String recommendedAction = 'Prepare release evidence',
+  String rationale = 'The current launch gate needs verified local evidence.',
+}) => OperatingDecisionReceipt(
   decisionId: 'receipt-release',
   subjectId: null,
-  recommendedAction: 'Prepare release evidence',
-  rationale: 'The current launch gate needs verified local evidence.',
+  recommendedAction: recommendedAction,
+  rationale: rationale,
   whyItMatters: 'A verified release decision is the current priority.',
   consequenceOfDelay: 'The release decision remains unresolved.',
   generatedAt: DateTime.utc(2026, 8, 29, 17),

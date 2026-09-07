@@ -259,7 +259,7 @@ class SmartPlannerQueryController
       );
     }
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
-      searchText: conversation.searchText,
+      searchText: conversation.evidenceSearchText,
     );
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.planningGuidance,
@@ -349,7 +349,8 @@ class SmartPlannerQueryController
       );
     }
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
-      searchText: conversation.searchText,
+      searchText: conversation.evidenceSearchText,
+      savedContextDeclined: conversation.savedContextDeclined,
     );
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.followUp,
@@ -477,7 +478,7 @@ class SmartPlannerQueryController
   }) {
     final double? boundedEnergy = energy?.clamp(0.0, 1.0).toDouble();
     final double planningEnergy = boundedEnergy ?? 0.5;
-    final _PlannerTopic topic = _detectTopic(conversation.searchText);
+    final _PlannerTopic topic = _detectTopic(conversation.evidenceSearchText);
     final _PlannerStrategy strategy = _strategyFor(topic);
     final _EffortProfile energyEffort = _effortFor(planningEnergy);
     final int? capacityLimitMinutes =
@@ -501,7 +502,8 @@ class SmartPlannerQueryController
       if (emotion != null)
         'Used only your selected emotion; no emotion was inferred from your text.',
       evidence.domainAdaptationSummary,
-      evidence.operatingReceipt.adaptationSummary,
+      if (!evidence.savedContextDeclined)
+        evidence.operatingReceipt.adaptationSummary,
       evidence.plannerMemory.adaptationSummary,
       evidence.personContext.adaptationSummary,
       if (capacityLimitMinutes != null)
@@ -511,7 +513,9 @@ class SmartPlannerQueryController
       'Kept every option reversible and left saving to an explicit Creator confirmation.',
     ];
 
-    if (supportivePause || evidence.requiresClarification) {
+    if (supportivePause ||
+        (evidence.requiresClarification &&
+            !conversation.answeredSavedContextQuestion)) {
       return PlannerV2Response.clarification(
         whatIHeard: conversation.clarificationSummary(
           contextWasProvided: contextWasProvided,
@@ -538,7 +542,7 @@ class SmartPlannerQueryController
         ],
         question: supportivePause
             ? _requiredSupportiveCopy(supportiveQuestion, 'supportiveQuestion')
-            : 'Which saved task or goal, if any, should this plan support?',
+            : _savedContextQuestion,
         adaptationReceipt: PlannerAdaptationReceipt(
           userSetEnergy: boundedEnergy,
           userSelectedEmotion: emotion,
@@ -609,6 +613,7 @@ class SmartPlannerQueryController
 
   Future<_PlannerEvidence> _loadPlannerEvidence({
     required String searchText,
+    bool savedContextDeclined = false,
   }) async {
     final String accountScopeIdBefore = _accountScopeId;
     final int boundaryGenerationBefore = _ref
@@ -671,6 +676,7 @@ class SmartPlannerQueryController
       accountScopeId: accountScopeIdBefore,
       operatingReceipt: operatingReceipt,
       plannerMemories: plannerMemories,
+      savedContextDeclined: savedContextDeclined,
     );
   }
 
