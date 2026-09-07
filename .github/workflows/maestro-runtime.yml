@@ -5,6 +5,15 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Disposable hosted emulator suite'
+        required: true
+        default: qa-smoke
+        type: choice
+        options:
+          - qa-smoke
+          - qa-journeys
 
 permissions:
   contents: read
@@ -15,7 +24,7 @@ concurrency:
 
 jobs:
   runtime:
-    name: Exact-build QA smoke
+    name: Exact-build QA runtime
     runs-on: ubuntu-24.04
     timeout-minutes: 85
     steps:
@@ -83,6 +92,8 @@ jobs:
 
       - name: Build, install, and execute exact-source QA smoke
         timeout-minutes: 50
+        env:
+          QA_SUITE: ${{ inputs.suite || 'qa-smoke' }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 35
@@ -101,7 +112,7 @@ jobs:
           disable-spellchecker: true
           script: >-
             pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1
-            -Suite qa-smoke
+            -Suite "$QA_SUITE"
             -BuildProfile qa
             -DeviceSerial emulator-5554
             -ExpectedCommit "${{ github.sha }}"
@@ -111,6 +122,7 @@ jobs:
         if: always()
         env:
           EXPECTED_COMMIT: ${{ github.sha }}
+          EXPECTED_SUITE: ${{ inputs.suite || 'qa-smoke' }}
         run: |
           python3 - <<'PY'
           import json
@@ -132,6 +144,9 @@ jobs:
           flows = manifest.get('flows')
           if not isinstance(flows, list) or not flows:
               raise SystemExit('::error::Maestro evidence contains no selected flows.')
+          expected_count = {'qa-smoke': 5, 'qa-journeys': 11}[os.environ['EXPECTED_SUITE']]
+          if len(flows) != expected_count:
+              raise SystemExit('::error::Maestro selected flow count does not match the requested suite.')
           junit = manifest.get('junit', {})
           if not isinstance(junit.get('testCases'), int) or junit['testCases'] <= 0:
               raise SystemExit('::error::Maestro JUnit evidence contains zero tests.')
