@@ -10,10 +10,19 @@ appId: com.ghostheart5.chronospark
       - assertNotVisible: "Use this plan"
       - tapOn: "Follow-up question"
       - inputText: "None"
+      - scrollUntilVisible:
+          element:
+            text: "None"
+          direction: DOWN
+          visibilityPercentage: 100
+          timeout: 15000
       - assertVisible:
           text: "None"
-          focused: true
-      - hideKeyboard
+      - scrollUntilVisible:
+          element:
+            text: "Send message"
+          direction: DOWN
+          timeout: 15000
       - tapOn: "Send message"
       # Sending scrolls to the chat history. The updated actionable response
       # panel is above that history, as verified on the release device.

@@ -32,18 +32,16 @@ tags:
     text: "What would you like help planning right now\\?"
     focused: true
 - inputText: "Finish the release evidence today"
-- hideKeyboard
-# IME resizing can clip the lower part of this multiline field even while
-# its complete text and caret are visible. Check the input after dismissal.
-- assertVisible:
-    text: "Finish the release evidence today"
-# Fail promptly if keyboard dismissal unexpectedly navigates away.
+# Scroll the complete editable field into view without sending Android Back,
+# which can pop this route when Maestro has already dismissed the IME.
 - scrollUntilVisible:
     element:
-      text: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
-    direction: UP
+      text: "Finish the release evidence today"
+    direction: DOWN
+    visibilityPercentage: 100
     timeout: 15000
-- assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
+- assertVisible:
+    text: "Finish the release evidence today"
 - scrollUntilVisible:
     element:
       text: "GET GUIDANCE"

@@ -107,7 +107,12 @@ tags:
     text: "What would you like help planning right now\\?"
     focused: true
 - inputText: "Finish the Priority 8 release evidence today"
-- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Finish the Priority 8 release evidence today"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible:
     text: "Finish the Priority 8 release evidence today"
 - scrollUntilVisible:
