@@ -69,10 +69,10 @@ export async function getGoogleAccessToken(
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body:
-      `grant_type=urn%3Aietf%3Aparams%3Aoauth2%3Agrant-type%3Ajwt-bearer&assertion=${
-        encodeURIComponent(jwt)
-      }`,
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
   });
   if (!response.ok) throw new Error("google_oauth_failed");
   const data = await response.json();
