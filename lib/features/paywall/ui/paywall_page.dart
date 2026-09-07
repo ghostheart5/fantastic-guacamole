@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/config/app_config.dart';
-import 'package:fantastic_guacamole/config/launch_containment.dart';
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
@@ -691,7 +691,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final bool anyError = configError || subscriptionError || walletError;
     final bool hasActiveSubscription = subscription?.isActive == true;
     final bool canRestore = resolvePaywallRestoreAvailability(
-      paidCreditPlansEnabled: LaunchContainment.paidCreditPlansEnabled,
+      paidCreditPlansEnabled: Env.paidCreditPlansEnabled,
     );
     final String localizedConfigTitle = copy.configTitle(config.title);
 
@@ -845,7 +845,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                             Expanded(
                               child: FilledButton(
                                 onPressed:
-                                    LaunchContainment.paidCreditPlansEnabled &&
+                                    Env.paidCreditPlansEnabled &&
                                         plan.isAvailable &&
                                         !hasActiveSubscription
                                     ? () => _unlock(plan.id)
