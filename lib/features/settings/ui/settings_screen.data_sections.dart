@@ -425,37 +425,40 @@ Future<void> _importBackupRecoveryKey(
   BuildContext context,
   WidgetRef ref,
 ) async {
-  final TextEditingController controller = TextEditingController();
   final String? recoveryKey = await showDialog<String>(
     context: context,
-    builder: (BuildContext dialogContext) => AlertDialog(
-      title: const Text('Restore backup key'),
-      content: TextField(
-        key: const Key('backup-recovery-key-input'),
-        controller: controller,
-        autocorrect: false,
-        enableSuggestions: false,
-        keyboardType: TextInputType.visiblePassword,
-        minLines: 3,
-        maxLines: 5,
-        decoration: const InputDecoration(
-          labelText: 'Recovery key',
-          hintText: 'Paste the key from your previous device',
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-          child: const Text('Continue'),
-        ),
-      ],
+    builder: (BuildContext dialogContext) => TextControllerScope(
+      builder: (dialogContext, controllers) {
+        final controller = controllers[0];
+        return AlertDialog(
+          title: const Text('Restore backup key'),
+          content: TextField(
+            key: const Key('backup-recovery-key-input'),
+            controller: controller,
+            autocorrect: false,
+            enableSuggestions: false,
+            keyboardType: TextInputType.visiblePassword,
+            minLines: 3,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Recovery key',
+              hintText: 'Paste the key from your previous device',
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
     ),
   );
-  controller.dispose();
   if (!context.mounted || recoveryKey == null || recoveryKey.trim().isEmpty) {
     return;
   }

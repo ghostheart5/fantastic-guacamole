@@ -18,7 +18,21 @@ $cases = @(
     @{ Name = 'categorized information'; Text = 'I/flutter: [INFO][logger.categorized_error]'; Fatal = $false },
     @{ Name = 'unrelated detailed error category'; Text = 'I/flutter: [ERROR][logger.categorized_error] [Audio] optional initialization unavailable'; Fatal = $false },
     @{ Name = 'ordinary text'; Text = 'I/flutter: Provider failure is mentioned in fixture instructions'; Fatal = $false },
-    @{ Name = 'stack is not counted again'; Text = 'I/flutter: [STACK][logger.categorized_error] stack detail'; Fatal = $false }
+    @{ Name = 'stack is not counted again'; Text = 'I/flutter: [STACK][logger.categorized_error] stack detail'; Fatal = $false },
+    @{ Name = 'observed disposed controller'; Text = '09-06 22:29:37.437  8299  8299 I flutter : [2026-09-06 22:29:37]FLUTTER_ERROR_MARKER >>> [ERROR][startup.flutter_framework_error] Flutter framework error. | A TextEditingController was used after being disposed.'; Fatal = $true },
+    @{ Name = 'framework code-only release'; Text = 'I/flutter: [ERROR][startup.flutter_framework_error]'; Fatal = $true },
+    @{ Name = 'platform debug marker'; Text = 'I/flutter: PLATFORM_ERROR_MARKER >>> [ERROR][startup.platform_dispatcher_error] Uncaught error'; Fatal = $true },
+    @{ Name = 'platform code-only release CRLF'; Text = "I/flutter: [ERROR][startup.platform_dispatcher_error]`r`n"; Fatal = $true },
+    @{ Name = 'zone code-only release'; Text = 'I/flutter: [ERROR][startup.uncaught_zone_error]'; Fatal = $true },
+    @{ Name = 'global error boundary'; Text = 'I/flutter: [ERROR][error_boundary.global_error] Global error captured'; Fatal = $true },
+    @{ Name = 'threadtime Flutter error'; Text = '09-06 22:29:37.437  8299  8299 E flutter : Unhandled Exception'; Fatal = $true },
+    @{ Name = 'brief Flutter error'; Text = 'E/flutter ( 8299): Unhandled Exception'; Fatal = $true },
+    @{ Name = 'optional TTS unavailability'; Text = 'I/flutter: [ERROR][voice.initialization_unavailable] VoiceService is unavailable. | PlatformException(TTS_UNAVAILABLE)'; Fatal = $false },
+    @{ Name = 'native emulator audio error'; Text = '09-06 22:29:37.437  367  8632 E android.hardware.audio: unavailable'; Fatal = $false },
+    @{ Name = 'framework informational message'; Text = 'I/flutter: [INFO][startup.flutter_framework_error] fixture description'; Fatal = $false },
+    @{ Name = 'framework stack does not count again'; Text = 'I/flutter: [STACK][startup.flutter_framework_error] stack detail'; Fatal = $false },
+    @{ Name = 'debug marker closing delimiter'; Text = 'I/flutter: FLUTTER_ERROR_MARKER <<<'; Fatal = $false },
+    @{ Name = 'similarly named diagnostic'; Text = 'I/flutter: [ERROR][startup.flutter_framework_error_recovered]'; Fatal = $false }
 )
 $results = [System.Collections.Generic.List[object]]::new()
 foreach ($case in $cases) {
@@ -74,7 +88,10 @@ try {
         @{ Name = 'CLI rejects categorized provider error'; Text = $diagnostic; Exit = 1 },
         @{ Name = 'CLI rejects code-only release error'; Text = 'I/flutter: [ERROR][logger.categorized_error]'; Exit = 1 },
         @{ Name = 'CLI preserves existing fatal marker rejection'; Text = 'E/flutter: Failed assertion'; Exit = 1 },
-        @{ Name = 'CLI accepts benign provider lifecycle'; Text = 'I/flutter: [Riverpod] DISPOSE -> FutureProvider<void>'; Exit = 0 }
+        @{ Name = 'CLI accepts benign provider lifecycle'; Text = 'I/flutter: [Riverpod] DISPOSE -> FutureProvider<void>'; Exit = 0 },
+        @{ Name = 'CLI rejects framework code at info log priority'; Text = 'I/flutter: [ERROR][startup.flutter_framework_error]'; Exit = 1 },
+        @{ Name = 'CLI rejects uncaught zone code'; Text = 'I/flutter: [ERROR][startup.uncaught_zone_error]'; Exit = 1 },
+        @{ Name = 'CLI accepts optional TTS failure'; Text = 'I/flutter: [ERROR][voice.initialization_unavailable] optional engine unavailable'; Exit = 0 }
     )
     foreach ($case in $cliCases) {
         $actual = Invoke-ScannerFixture -ScannerPath $scanner -LogText $case.Text
@@ -85,7 +102,7 @@ try {
     if ($BaselineScannerPath) {
         $baseline = (Resolve-Path -LiteralPath $BaselineScannerPath).Path
         $baselineMisses = 0
-        foreach ($case in $cliCases | Where-Object { $_.Exit -eq 1 }) {
+        foreach ($case in $cliCases | Select-Object -First 3) {
             if ((Invoke-ScannerFixture -ScannerPath $baseline -LogText $case.Text) -eq 0) { $baselineMisses++ }
         }
         if ($baselineMisses -ne 3) { throw 'Preserved baseline did not reproduce all three false-green exit cases.' }

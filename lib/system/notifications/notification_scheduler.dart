@@ -302,32 +302,15 @@ class NotificationScheduler implements NotificationSchedulerPort {
 
   @override
   Future<bool> cancel(String id, {String? accountScope}) async {
-    if (!_initialized) {
-      Logger.log(
-        'Notifications',
-        'Skipped cancel because scheduler is not initialized.',
-      );
-      RuntimeDiagnostics.record(
-        'Skipped notification cancel because scheduler is not initialized.',
-      );
-      return false;
-    }
+    // OS reminders survive process restarts. Cancellation must also work when
+    // optional notification startup was skipped or failed, and needs neither
+    // notification permission nor scheduling initialization.
     await _plugin.cancel(id: _notificationId(_platformKey(id, accountScope)));
     return true;
   }
 
   @override
   Future<bool> cancelAll() async {
-    if (!_initialized) {
-      Logger.log(
-        'Notifications',
-        'Skipped cancel-all because scheduler is not initialized.',
-      );
-      RuntimeDiagnostics.record(
-        'Skipped notification cancel-all because scheduler is not initialized.',
-      );
-      return false;
-    }
     await _plugin.cancelAll();
     return true;
   }

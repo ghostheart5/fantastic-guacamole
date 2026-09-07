@@ -505,6 +505,9 @@ foreach ($variant in $variants) {
         -not $logcatResult.TimedOut -and
         @($logcatResult.Output).Count -gt 0
     $logcatText = $logcatResult.Output -join "`n"
+    $fullLogcatPath = Join-Path $runRoot "$name-full-logcat.log"
+    $logcatText | Set-Content -LiteralPath $fullLogcatPath -Encoding utf8
+    $fullLogcatSha256 = (Get-FileHash -LiteralPath $fullLogcatPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $escapedPackage = [regex]::Escape($packageName)
     $fatalPatterns = @(
         "(?im)^.*// (?:CRASH|ANR):\s*$escapedPackage.*$",
@@ -612,6 +615,9 @@ foreach ($variant in $variants) {
         logcatExitCode = $logcatResult.ExitCode
         logcatTimedOut = $logcatResult.TimedOut
         logcatCollected = $logcatCollected
+        fullLogcatPath = $fullLogcatPath
+        fullLogcatSha256 = $fullLogcatSha256
+        fullLogcatBytes = (Get-Item -LiteralPath $fullLogcatPath).Length
         fatalMarkerCount = $fatalEvidence.Count
         relaunchStopExitCode = $relaunchStopResult.ExitCode
         relaunchProcessAbsent = $relaunchProcessAbsent

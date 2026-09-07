@@ -63,6 +63,39 @@ void main() {
   );
 
   test(
+    'failed reminder isolation retains the open profile and data until retry succeeds',
+    () async {
+      bool failCleanup = true;
+      final closed = <String>[];
+      final instance = service(
+        close: (id) async {
+          closed.add(id);
+          if (failCleanup) throw StateError('Reminder cancellation failed');
+        },
+      );
+      final profile = await instance.createProfile();
+      final scoped = store.forAccount(
+        AccountStorageScope.authenticated(profile.id),
+      );
+      await scoped.writeString('private', 'retained task history');
+      await expectLater(instance.signOut(), throwsStateError);
+      expect(instance.currentUser?.id, profile.id);
+      final restarted = service();
+      await restarted.initialize();
+      expect(restarted.currentUser?.id, profile.id);
+      expect(await scoped.readString('private'), 'retained task history');
+
+      failCleanup = false;
+      await instance.signOut();
+      expect(instance.currentUser, isNull);
+      expect(closed, [profile.id, profile.id]);
+      expect(await scoped.readString('private'), 'retained task history');
+      await instance.dispose();
+      await restarted.dispose();
+    },
+  );
+
+  test(
     'deletion journal survives failure and restart, blocks open/create, and retries same profile',
     () async {
       final first = service(

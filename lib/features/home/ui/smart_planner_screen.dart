@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
@@ -28,6 +29,7 @@ import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/ui/widgets/text_controller_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -367,69 +369,72 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   Future<void> _addFirstUseGoalContext() async {
     final _SmartPlannerConsentCopy copy = _SmartPlannerConsentCopy.of(context);
-    final TextEditingController controller = TextEditingController();
     bool consent = false;
     final String? exactText = await showDialog<String>(
       context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (BuildContext context, StateSetter setDialogState) =>
-            AlertDialog(
-              title: Text(copy.priorityTitle),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(copy.priorityIntroduction),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('first-use-context-value'),
-                      controller: controller,
-                      maxLength: 280,
-                      minLines: 2,
-                      maxLines: 4,
-                      onChanged: (_) => setDialogState(() {}),
-                      decoration: InputDecoration(
-                        labelText: copy.priorityLabel,
-                        hintText: copy.priorityHint,
-                        border: const OutlineInputBorder(),
-                      ),
+      builder: (BuildContext dialogContext) => TextControllerScope(
+        builder: (dialogContext, controllers) {
+          final controller = controllers[0];
+          return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setDialogState) =>
+                AlertDialog(
+                  title: Text(copy.priorityTitle),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(copy.priorityIntroduction),
+                        const SizedBox(height: 12),
+                        TextField(
+                          key: const Key('first-use-context-value'),
+                          controller: controller,
+                          maxLength: 280,
+                          minLines: 2,
+                          maxLines: 4,
+                          onChanged: (_) => setDialogState(() {}),
+                          decoration: InputDecoration(
+                            labelText: copy.priorityLabel,
+                            hintText: copy.priorityHint,
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          copy.priorityDisclosure,
+                          style: const TextStyle(height: 1.45),
+                        ),
+                        CheckboxListTile(
+                          key: const Key('first-use-context-consent'),
+                          contentPadding: EdgeInsets.zero,
+                          value: consent,
+                          title: Text(copy.priorityConsent),
+                          onChanged: (bool? value) =>
+                              setDialogState(() => consent = value ?? false),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      copy.priorityDisclosure,
-                      style: const TextStyle(height: 1.45),
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: Text(copy.useOnlyThisTime),
                     ),
-                    CheckboxListTile(
-                      key: const Key('first-use-context-consent'),
-                      contentPadding: EdgeInsets.zero,
-                      value: consent,
-                      title: Text(copy.priorityConsent),
-                      onChanged: (bool? value) =>
-                          setDialogState(() => consent = value ?? false),
+                    FilledButton(
+                      key: const Key('first-use-context-confirm'),
+                      onPressed: consent && controller.text.trim().isNotEmpty
+                          ? () => Navigator.of(
+                              dialogContext,
+                            ).pop(controller.text.trim())
+                          : null,
+                      child: Text(copy.saveWithConsent),
                     ),
                   ],
                 ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(copy.useOnlyThisTime),
-                ),
-                FilledButton(
-                  key: const Key('first-use-context-confirm'),
-                  onPressed: consent && controller.text.trim().isNotEmpty
-                      ? () => Navigator.of(
-                          dialogContext,
-                        ).pop(controller.text.trim())
-                      : null,
-                  child: Text(copy.saveWithConsent),
-                ),
-              ],
-            ),
+          );
+        },
       ),
     );
-    controller.dispose();
     if (exactText == null || !mounted) return;
     final DateTime now = ref.read(personContextClockProvider)().toUtc();
     try {
@@ -802,13 +807,15 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   Future<void> _rememberPreference() async {
     final _SmartPlannerConsentCopy copy = _SmartPlannerConsentCopy.of(context);
-    final TextEditingController preferenceController = TextEditingController();
     int retentionDays = 90;
     bool consentConfirmed = false;
-    final _PreferenceMemoryChoice? choice =
-        await showDialog<_PreferenceMemoryChoice>(
-          context: context,
-          builder: (BuildContext dialogContext) => StatefulBuilder(
+    final _PreferenceMemoryChoice?
+    choice = await showDialog<_PreferenceMemoryChoice>(
+      context: context,
+      builder: (BuildContext dialogContext) => TextControllerScope(
+        builder: (dialogContext, controllers) {
+          final preferenceController = controllers[0];
+          return StatefulBuilder(
             builder:
                 (
                   BuildContext context,
@@ -836,23 +843,25 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          DropdownButtonFormField<int>(
-                            key: const Key('planner-memory-expiry'),
-                            initialValue: retentionDays,
-                            decoration: InputDecoration(
-                              labelText: copy.deleteAfter,
+                          DropdownRouteKeyboardGuard(
+                            child: DropdownButtonFormField<int>(
+                              key: const Key('planner-memory-expiry'),
+                              initialValue: retentionDays,
+                              decoration: InputDecoration(
+                                labelText: copy.deleteAfter,
+                              ),
+                              items: <DropdownMenuItem<int>>[
+                                for (final int days in <int>[30, 90, 180, 365])
+                                  DropdownMenuItem(
+                                    value: days,
+                                    child: Text(copy.retentionLabel(days)),
+                                  ),
+                              ],
+                              onChanged: (int? value) {
+                                if (value == null) return;
+                                setDialogState(() => retentionDays = value);
+                              },
                             ),
-                            items: <DropdownMenuItem<int>>[
-                              for (final int days in <int>[30, 90, 180, 365])
-                                DropdownMenuItem(
-                                  value: days,
-                                  child: Text(copy.retentionLabel(days)),
-                                ),
-                            ],
-                            onChanged: (int? value) {
-                              if (value == null) return;
-                              setDialogState(() => retentionDays = value);
-                            },
                           ),
                           const SizedBox(height: 12),
                           Container(
@@ -900,9 +909,10 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                     ],
                   );
                 },
-          ),
-        );
-    preferenceController.dispose();
+          );
+        },
+      ),
+    );
     if (choice == null || !mounted) {
       if (choice == null && mounted) {
         setState(() {

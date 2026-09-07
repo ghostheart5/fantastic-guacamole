@@ -539,20 +539,22 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
             style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _subjectId,
-            decoration: const InputDecoration(
-              labelText: 'Commitment to change',
+          DropdownRouteKeyboardGuard(
+            child: DropdownButtonFormField<String>(
+              initialValue: _subjectId,
+              decoration: const InputDecoration(
+                labelText: 'Commitment to change',
+              ),
+              items: widget.baseline.tasks
+                  .map(
+                    (TrajectoryTaskNode task) => DropdownMenuItem<String>(
+                      value: task.id,
+                      child: Text(task.title, overflow: TextOverflow.ellipsis),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (String? value) => setState(() => _subjectId = value),
             ),
-            items: widget.baseline.tasks
-                .map(
-                  (TrajectoryTaskNode task) => DropdownMenuItem<String>(
-                    value: task.id,
-                    child: Text(task.title, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: (String? value) => setState(() => _subjectId = value),
           ),
           const SizedBox(height: 10),
           SegmentedButton<TrajectoryCustomAdjustment>(
