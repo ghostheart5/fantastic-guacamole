@@ -7,9 +7,10 @@ Deno.test("credential fingerprint ignores JSON metadata and PEM whitespace", asy
       "-----BEGIN PRIVATE KEY-----\nU1lOVEhFVElD\n-----END PRIVATE KEY-----\n",
   };
   const fingerprint = await googleServiceAccountCredentialFingerprint(account);
+  const reformattedKey = account.private_key.replaceAll("\n", "\r\n");
   const reformatted = await googleServiceAccountCredentialFingerprint({
     ...account,
-    private_key: account.private_key.replaceAll("\n", "\r\n"),
+    private_key: reformattedKey,
   });
   if (!fingerprint || fingerprint !== reformatted) {
     throw new Error("Equivalent credentials did not match");
