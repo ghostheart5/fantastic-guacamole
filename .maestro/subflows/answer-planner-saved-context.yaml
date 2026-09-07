@@ -15,7 +15,11 @@ appId: com.ghostheart5.chronospark
           focused: true
       - hideKeyboard
       - tapOn: "Send message"
-      - extendedWaitUntil:
-          visible: "Use this plan"
+      # The independent response is longer than the viewport. Reveal its
+      # action before asserting it; waiting alone never scrolls the chat.
+      - scrollUntilVisible:
+          element:
+            text: "Use this plan"
+          direction: DOWN
           timeout: 30000
       - assertNotVisible: "(?s).*ONE CLARIFYING QUESTION.*"
