@@ -78,7 +78,7 @@ jobs:
               'download/index.html': ('Install only from a verified path',),
               'support/index.html': ('Working contact path', 'ghostheart131517@gmail.com'),
               'privacy/index.html': ('Privacy Policy', 'Current release containment'),
-              'terms/index.html': ('Terms of Service', 'Subscriptions, AI-credit purchases, and credit spending are not enabled'),
+              'terms/index.html': ('Terms of Service', 'Internal billing-test builds enable Google Play subscription testing', 'Internal-test enrollment alone does not make purchases free.', 'AI-credit purchases and credit spending remain unavailable'),
               'delete-account/index.html': ('Delete a ChronoSpark Account',),
               'app/index.html': ('No verified web app is published here',),
               'robots.txt': ('Sitemap:',),
