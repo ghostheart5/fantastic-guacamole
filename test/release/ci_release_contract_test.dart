@@ -122,7 +122,7 @@ void main() {
       contains('test/**/failures/**'),
     );
     expect(aggregate['name'], 'Analyze & Test');
-    expect(aggregate['if'], 'always()');
+    expect(aggregate['if'], r'${{ always() && !cancelled() }}');
     expect((aggregate['needs'] as YamlList).toSet(), <Object?>{
       'static-policy',
       'flutter-tests',
