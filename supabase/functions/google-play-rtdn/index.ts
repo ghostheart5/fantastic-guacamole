@@ -15,6 +15,7 @@ import {
   reconciliationWasHandled,
   resolveSubscriptionAuthorityPurchase,
   terminalNotificationMatchesSubscriptionState,
+  unboundTerminalReconciliationWasHandled,
   validatePaidRenewalAuthority,
 } from "../_shared/google_play_rtdn.ts";
 import {
@@ -136,6 +137,46 @@ async function fetchSubscription(
   return await response.json() as Record<string, unknown>;
 }
 
+async function finishUnboundTerminalEvent(
+  result: Record<string, unknown> | null,
+  messageId: string,
+  tokenHash: string,
+  status: string,
+  active: boolean,
+  providerConfirmedTerminal: boolean,
+): Promise<boolean> {
+  const handled = await unboundTerminalReconciliationWasHandled(
+    result,
+    status,
+    active,
+    async () => {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/purchase_bindings?token_hash=eq.${
+          encodeURIComponent(tokenHash)
+        }&select=token_hash&limit=1`,
+        { headers: serviceHeaders() },
+      );
+      if (!response.ok) {
+        await response.body?.cancel();
+        return null;
+      }
+      const rows = await response.json();
+      return Array.isArray(rows) ? rows.length > 0 : null;
+    },
+    providerConfirmedTerminal,
+  );
+  if (handled) {
+    await updateEvent(messageId, {
+      payload: {
+        source: "google_play_rtdn",
+        resolution: "unbound_terminal_purchase",
+        providerStatus: status,
+      },
+    });
+  }
+  return handled;
+}
+
 async function reconcileSubscriptionAuthority(input: {
   messageId: string;
   eventTime: Date;
@@ -252,8 +293,15 @@ async function reconcileSubscriptionAuthority(input: {
     throw new Error("play_subscription_acknowledgement_retryable");
   }
   const result = authority.value;
-  if (!reconciliationWasHandled(result)) return false;
-  return true;
+  if (reconciliationWasHandled(result)) return true;
+  return await finishUnboundTerminalEvent(
+    result,
+    input.messageId,
+    purchaseTokenHash,
+    state.status,
+    state.active,
+    true,
+  );
 }
 
 async function processSubscription(
@@ -348,7 +396,18 @@ async function processVoided(
       refundType: voided.refundType,
     },
   });
-  return reconciliationWasHandled(result);
+  if (reconciliationWasHandled(result)) return true;
+  return await finishUnboundTerminalEvent(
+    result,
+    messageId,
+    await sha256Hex(purchaseToken),
+    "revoked",
+    false,
+    // A voided notification alone cannot close an absent binding. Client
+    // verification may still be binding this token using an earlier snapshot.
+    // Keep Pub/Sub retrying until revocation is durably reconciled.
+    false,
+  );
 }
 
 Deno.serve(async (req: Request) => {

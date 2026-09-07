@@ -272,3 +272,21 @@ export function reconciliationWasHandled(
   return result?.applied === true || result?.duplicate === true ||
     result?.handled === true;
 }
+
+// A terminal provider purchase that never had an owner has no entitlement to
+// reconcile. Confirm absence separately: binding_not_found can also mean a
+// product mismatch, and a failed lookup must remain retryable.
+export async function unboundTerminalReconciliationWasHandled(
+  result: Record<string, unknown> | null,
+  status: string,
+  active: boolean,
+  hasBinding: () => Promise<boolean | null>,
+  providerConfirmedTerminal = false,
+): Promise<boolean> {
+  if (
+    !providerConfirmedTerminal ||
+    result?.reason !== "binding_not_found" || active ||
+    !["expired", "revoked"].includes(status)
+  ) return false;
+  return await hasBinding() === false;
+}
