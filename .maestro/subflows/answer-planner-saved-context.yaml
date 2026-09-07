@@ -1,0 +1,25 @@
+appId: com.ghostheart5.chronospark
+---
+# A fresh QA profile may have a generic saved recommendation. It must not
+# replace an unrelated explicit request. Exercise the user's choice to keep
+# planning independently, then require actionable guidance as before.
+- runFlow:
+    when:
+      visible: "(?s).*Which saved task or goal, if any, should this plan support\\?.*"
+    commands:
+      - assertNotVisible: "Use this plan"
+      - tapOn: "Follow-up question"
+      - inputText: "None"
+      - assertVisible:
+          text: "None"
+          focused: true
+      - hideKeyboard
+      - tapOn: "Send message"
+      # Sending scrolls to the chat history. The updated actionable response
+      # panel is above that history, as verified on the release device.
+      - scrollUntilVisible:
+          element:
+            text: "Use this plan"
+          direction: UP
+          timeout: 30000
+      - assertNotVisible: "(?s).*ONE CLARIFYING QUESTION.*"

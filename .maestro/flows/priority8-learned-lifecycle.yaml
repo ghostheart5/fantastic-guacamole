@@ -107,9 +107,9 @@ tags:
     text: "What would you like help planning right now\\?"
     focused: true
 - inputText: "Finish the Priority 8 release evidence today"
+- hideKeyboard
 - assertVisible:
     text: "Finish the Priority 8 release evidence today"
-    focused: true
 - scrollUntilVisible:
     element:
       text: "GET GUIDANCE"
@@ -119,6 +119,7 @@ tags:
 - extendedWaitUntil:
     visible: "(?s)Planning guidance ready.*"
     timeout: 30000
+- runFlow: ../subflows/answer-planner-saved-context.yaml
 - assertVisible: "Use this plan"
 - tapOn: "Use this plan"
 
