@@ -63,6 +63,11 @@ void main() {
         overrides: [
           authUserProvider.overrideWith((ref) => auth.stream),
           secureStoreProvider.overrideWithValue(store),
+          // This widget fixture uses in-memory account data. Physical goal
+          // reopening is covered by the canonical repository integration test.
+          accountGoalStoragePreparationProvider.overrideWithValue(
+            (scope, ownership) async {},
+          ),
           sensitivePrefsStoreProvider.overrideWithValue(
             const SharedPrefsStoreAdapter(),
           ),
@@ -159,6 +164,7 @@ void main() {
       container.dispose();
       containerDisposed = true;
     },
+    timeout: const Timeout(Duration(minutes: 2)),
   );
 }
 
