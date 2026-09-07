@@ -13,6 +13,65 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'paywall and plans expire together without restore or navigation',
+    () async {
+      final repository = _FakePaywallRepository(
+        subscription: SubscriptionState(
+          isActive: true,
+          status: 'canceled',
+          source: 'supabase_authority',
+          renewalDate: DateTime.now().add(const Duration(milliseconds: 400)),
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          internalBillingTestEnabledProvider.overrideWithValue(true),
+          appPaywallRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(paywallConfigProvider, (_, _) {});
+      expect(
+        (await container.read(paywallConfigProvider.future)).isUnlocked,
+        isTrue,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      expect(
+        (await container.read(paywallSubscriptionProvider.future)).isActive,
+        isFalse,
+      );
+      expect(
+        (await container.read(paywallConfigProvider.future)).isUnlocked,
+        isFalse,
+      );
+    },
+  );
+
+  test('plans follow refreshed subscription after pause and resume', () async {
+    final repository = _FakePaywallRepository();
+    final container = ProviderContainer(
+      overrides: [
+        internalBillingTestEnabledProvider.overrideWithValue(true),
+        appPaywallRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(paywallConfigProvider, (_, _) {});
+    for (final active in [false, true, false, true]) {
+      repository._subscription = SubscriptionState(
+        isActive: active,
+        status: active ? 'active' : 'paused',
+        source: 'supabase_authority',
+      );
+      container.invalidate(paywallSubscriptionProvider);
+      expect(
+        (await container.read(paywallConfigProvider.future)).isUnlocked,
+        active,
+      );
+    }
+  });
+
+  test(
     'license testing uses repository authority without advertising AI credits',
     () async {
       final repository = _FakePaywallRepository();

@@ -30,6 +30,7 @@ import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/subscription_status_refresh_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -215,6 +216,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(subscriptionStatusRefreshProvider);
     ref.watch(extended_domain.extendedDomainBootstrapProvider);
     final int extendedSettingsCount = ref
         .watch(extended_domain.appSettingsProvider)

@@ -30,6 +30,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'smart_planner_query_controller.support.dart';
 
+const String _defaultPlanningPrompt =
+    'Give me a practical planning check-in for my current energy and emotional state.';
+
 final smartPlannerQueryControllerProvider =
     Provider<SmartPlannerQueryController>((Ref ref) {
       return SmartPlannerQueryController(ref);
@@ -226,7 +229,7 @@ class SmartPlannerQueryController
     String? supportiveQuestion,
   }) async {
     final String prompt = notes.trim().isEmpty
-        ? 'Give me a practical planning check-in for my current energy and emotional state.'
+        ? _defaultPlanningPrompt
         : notes.trim();
     _requireNonCrisisRoute(prompt);
     final EmotionalSafetyAssessment emotionalSafety = assessEmotionalSafety(

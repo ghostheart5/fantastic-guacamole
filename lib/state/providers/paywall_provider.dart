@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
@@ -139,7 +141,27 @@ final paywallActionsProvider = Provider<PaywallActions>((ref) {
 final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
   ref,
 ) async {
-  return ref.watch(paywallRepositoryProvider).getUserSubscriptionState();
+  final subscription = await ref
+      .watch(paywallRepositoryProvider)
+      .getUserSubscriptionState();
+  if (!ref.mounted) return subscription;
+  final expiry = subscription.renewalDate;
+  if (subscription.isActive && expiry != null) {
+    final remaining = expiry.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      return SubscriptionState(
+        isActive: false,
+        status: 'expired',
+        source: subscription.source,
+        planId: subscription.planId,
+        renewalDate: expiry,
+        isTesting: subscription.isTesting,
+      );
+    }
+    final timer = Timer(remaining, ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return subscription;
 });
 
 final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
@@ -148,10 +170,9 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
   }
   final bool billingTest = ref.watch(internalBillingTestEnabledProvider);
   final plansUseCase = ref.watch(getAvailablePlansUseCaseProvider);
-  final repository = ref.watch(paywallRepositoryProvider);
+  final subscriptionFuture = ref.watch(paywallSubscriptionProvider.future);
   final List<PaywallPlan> plans = await plansUseCase.call();
-  final SubscriptionState subscription = await repository
-      .getUserSubscriptionState();
+  final SubscriptionState subscription = await subscriptionFuture;
   if (billingTest) {
     return PaywallEntity(
       featureId: 'premium',

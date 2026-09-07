@@ -16,11 +16,18 @@ final class _PlannerConversationContext {
     String? reflection,
     required bool isFollowUp,
   }) {
-    final String normalizedInput = input.trim();
+    // The generated request is an instruction to Planner, not a user-authored
+    // planning target. Keep it out of options and subsequent conversation turns.
+    final String normalizedInput = input.trim() == _defaultPlanningPrompt
+        ? ''
+        : input.trim();
     final List<String> priorUserTurns = history
         .where((Map<String, String> turn) => turn['role'] == 'user')
         .map((Map<String, String> turn) => turn['content']?.trim() ?? '')
-        .where((String content) => content.isNotEmpty)
+        .where(
+          (String content) =>
+              content.isNotEmpty && content != _defaultPlanningPrompt,
+        )
         .map(
           (String content) =>
               SmartPlannerQueryController._condense(content, maxLength: 180),
@@ -28,6 +35,7 @@ final class _PlannerConversationContext {
         .toList(growable: true);
     final String normalizedReflection = reflection?.trim() ?? '';
     if (normalizedReflection.isNotEmpty &&
+        normalizedReflection != _defaultPlanningPrompt &&
         !priorUserTurns.contains(normalizedReflection) &&
         normalizedReflection != normalizedInput) {
       priorUserTurns.insert(
@@ -50,7 +58,7 @@ final class _PlannerConversationContext {
     final String subject = isFollowUp && priorSubject.isNotEmpty
         ? priorSubject
         : normalizedInput.isEmpty
-        ? 'finding one useful next move'
+        ? 'one task you choose for today'
         : SmartPlannerQueryController._condense(normalizedInput, maxLength: 72);
     return _PlannerConversationContext(
       input: normalizedInput,

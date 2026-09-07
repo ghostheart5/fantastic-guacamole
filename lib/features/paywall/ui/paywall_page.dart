@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/state/providers/billing_availability_provide
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/providers/subscription_status_refresh_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -425,6 +426,7 @@ class PaywallPage extends ConsumerStatefulWidget {
 
 class _PaywallPageState extends ConsumerState<PaywallPage> {
   String? _statusMessage;
+  SubscriptionState? _lastResolvedSubscription;
   bool _showAllPlans = false;
 
   @override
@@ -620,6 +622,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(subscriptionStatusRefreshProvider);
     final _PaywallCopy copy = _PaywallCopy(
       ChronoSparkLocalizations.of(context),
     );
@@ -638,11 +641,21 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       (previous, next) =>
           _logProviderError('paywallConfigProvider', previous, next),
     );
-    ref.listen<AsyncValue<SubscriptionState>>(
-      paywallSubscriptionProvider,
-      (previous, next) =>
-          _logProviderError('paywallSubscriptionProvider', previous, next),
-    );
+    ref.listen<AsyncValue<SubscriptionState>>(paywallSubscriptionProvider, (
+      previous,
+      next,
+    ) {
+      _logProviderError('paywallSubscriptionProvider', previous, next);
+      final subscription = next.asData?.value;
+      if (subscription == null) return;
+      final wasActive = _lastResolvedSubscription?.isActive ?? false;
+      _lastResolvedSubscription = subscription;
+      if (wasActive && !subscription.isActive && _statusMessage != null) {
+        // A historical activation/restore receipt must not contradict a
+        // subsequently expired, paused, or revoked subscription.
+        setState(() => _statusMessage = null);
+      }
+    });
     ref.listen<AsyncValue<AiCreditWallet>>(
       aiCreditWalletProvider,
       (previous, next) =>

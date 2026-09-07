@@ -1267,6 +1267,50 @@ void main() {
     expect(result.evidence, contains(contains('request_timeout')));
   });
 
+  test(
+    'empty check-in and follow-up do not turn generated prompt into a task',
+    () async {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      final initial = await controller.requestPlanningGuidance(
+        energy: null,
+        emotion: null,
+        notes: '',
+        history: const [],
+        previousSavedNotes: null,
+      );
+      final followUp = await controller.requestFollowUpResult(
+        input: 'Make this smaller',
+        energy: null,
+        emotion: null,
+        reflection: '',
+        history: [
+          {'role': 'user', 'content': initial.prompt},
+          {'role': 'assistant', 'content': initial.message},
+        ],
+      );
+      for (final response in [
+        initial.plannerResponse,
+        followUp.plannerResponse,
+      ]) {
+        for (final option in response.options) {
+          expect(option.description, isNot(contains('Give me a practical')));
+          expect(
+            option.description,
+            isNot(contains('current energy and emotion')),
+          );
+          expect(option.description.trim(), isNotEmpty);
+        }
+        expect(response.nextStep, isNot(contains('Give me a practical')));
+      }
+      expect(
+        initial.plannerResponse.nextStep,
+        contains('one task you choose for today'),
+      );
+    },
+  );
+
   test('Planner request path has no hidden write or stateful model hooks', () {
     final String source = File(
       'lib/state/controllers/smart_planner_query_controller.dart',

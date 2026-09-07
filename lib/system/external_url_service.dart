@@ -25,10 +25,8 @@ class ExternalUrlService {
           ];
     for (final LaunchMode candidate in modes.toSet()) {
       try {
-        final bool supported = await canLaunchUrl(uri);
-        if (!supported) {
-          continue;
-        }
+        // Android package visibility can make canLaunchUrl return false even
+        // when launch succeeds. Attempt the action and handle actual failure.
         final bool launched = await launchUrl(uri, mode: candidate);
         if (launched) {
           return true;
