@@ -1,0 +1,18 @@
+appId: com.ghostheart5.chronospark
+---
+# Keep gestures outside the multiline notes field. Five bounded attempts,
+# followed by a mandatory assertion; a missing review control must still fail.
+- repeat:
+    times: 5
+    commands:
+      - runFlow:
+          when:
+            notVisible: "REVIEW CHANGES"
+          commands:
+            - swipe:
+                start: "95%, 85%"
+                end: "95%, 25%"
+                duration: 500
+            - waitForAnimationToEnd:
+                timeout: 3000
+- assertVisible: "REVIEW CHANGES"

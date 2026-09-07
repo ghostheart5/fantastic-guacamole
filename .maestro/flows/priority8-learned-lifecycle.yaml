@@ -148,13 +148,11 @@ tags:
     visible: "OK"
     timeout: 10000
 - tapOn: "OK"
-- scrollUntilVisible:
-    element:
-      text: "REVIEW CHANGES"
-    direction: DOWN
-    timeout: 10000
 - waitForAnimationToEnd:
     timeout: 5000
+# A long Planner notes field can occupy the viewport center and consume the
+# default scrollUntilVisible gesture. Scroll the outer form's side gutter.
+- runFlow: ../subflows/reveal-creator-review.yaml
 - tapOn:
     text: "REVIEW CHANGES"
     retryTapIfNoChange: true
