@@ -1,5 +1,5 @@
 // Read-only preflight for a license-test candidate; no purchase or release API.
-import { createSign } from 'node:crypto';
+import { createHash, createSign } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 const PACKAGE = 'com.ghostheart5.chronospark';
@@ -89,11 +89,19 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
     return token.access_token;
   }
   const publisher = await googleToken('https://www.googleapis.com/auth/androidpublisher');
+  const serviceAccountIdentitySha256 = createHash('sha256').update(account.client_email).digest('hex');
   const products = [];
   for (const plan of PLANS) {
-    products.push(await json(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE}/subscriptions/${plan.product}`, {
-      headers: { Authorization: `Bearer ${publisher}` },
-    }));
+    try {
+      products.push(await json(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE}/subscriptions/${plan.product}`, {
+        headers: { Authorization: `Bearer ${publisher}` },
+      }));
+    } catch (error) {
+      if (error instanceof PreflightError) {
+        throw new PreflightError(`${error.message}; service-account identity SHA256 ${serviceAccountIdentitySha256}`);
+      }
+      throw error;
+    }
   }
   verifyCatalog(products, databasePlans);
   const subscription = setting('RTDN_PUBSUB_SUBSCRIPTION');
@@ -105,7 +113,7 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
     pubsub.pushConfig?.oidcToken?.serviceAccountEmail === setting('RTDN_SERVICE_ACCOUNT_EMAIL'), 'RTDN push authentication mismatch');
   return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1',
     catalog: PLANS.map(({ product, base, period, micros }) => ({ product, base, period, currency: 'USD', priceMicros: micros })),
-    rtdnPushConfigured: true, verifiedAt: new Date().toISOString(),
+    serviceAccountIdentitySha256, rtdnPushConfigured: true, verifiedAt: new Date().toISOString(),
     boundary: 'Configuration only; device purchases and subscription lifecycle remain to be tested.' };
 }
 
