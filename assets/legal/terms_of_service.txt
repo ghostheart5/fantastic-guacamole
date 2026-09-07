@@ -1,6 +1,6 @@
 Terms of Service
 
-Last updated: September 4, 2026
+Last updated: September 7, 2026
 
 These terms govern use of ChronoSpark. By using the app, you agree to these terms and the Privacy Policy.
 
@@ -26,7 +26,7 @@ Deterministic recommendations and evidence summaries remain guidance, not author
 
 Purchases
 
-Subscriptions, AI-credit purchases, and credit spending are not enabled for the current release candidate. If enabled in a future Google Play release, the price, billing period, renewal terms, and cancellation controls shown by Google Play will govern that purchase. Uninstalling the app or deleting a ChronoSpark account does not cancel store billing.
+Subscription availability depends on the build and account eligibility shown in the app. Internal billing-test builds enable Google Play subscription testing for eligible license testers; use a Google Play test payment method, which is not charged. Internal-test enrollment alone does not make purchases free. For an enabled subscription, Google Play shows the price, billing period, renewal terms, and cancellation controls before purchase. AI-credit purchases and credit spending remain unavailable in the current release candidate and billing-test builds. Uninstalling the app or deleting a ChronoSpark account does not cancel store billing.
 
 Availability and changes
 
