@@ -71,8 +71,10 @@ tags:
 - tapOn: "CONFIRM SELECTED"
 
 # The confirmed creation routes to Timeline and the task must actually be there.
+# The selected clock time can already be past; both copy branches represent an
+# open scheduled task. Keep the task title and SCHEDULED marker mandatory.
 - extendedWaitUntil:
-    visible: "(?s).*Maestro smoke task.*Task is scheduled for a planned work time.*SCHEDULED.*"
+    visible: "(?s).*Maestro smoke task.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*SCHEDULED.*"
     timeout: 15000
 
 # A saved rhythm must remain reachable, and its period outcome must survive

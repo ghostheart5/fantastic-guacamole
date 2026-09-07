@@ -74,7 +74,7 @@ tags:
     timeout: 10000
 - tapOn: "CONFIRM SELECTED"
 - extendedWaitUntil:
-    visible: "(?s).*Priority 8 journey seed.*Task is scheduled for a planned work time.*"
+    visible: "(?s).*Priority 8 journey seed.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 15000
 - scrollUntilVisible:
     element:
@@ -190,7 +190,7 @@ tags:
 # The fresh QA Planner's best-fit title is deterministic. Require its scheduled
 # row and completion so the earlier seed outcome cannot satisfy this handoff.
 - extendedWaitUntil:
-    visible: "(?s).*Complete one useful cycle.*Task is scheduled for a planned work time.*"
+    visible: "(?s).*Complete one useful cycle.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 15000
 - scrollUntilVisible:
     element:

@@ -54,5 +54,5 @@ appId: com.ghostheart5.chronospark
     timeout: 10000
 - tapOn: "CONFIRM SELECTED"
 - extendedWaitUntil:
-    visible: "(?s).*${TASK_TITLE}.*Task is scheduled for a planned work time.*"
+    visible: "(?s).*${TASK_TITLE}.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 20000
