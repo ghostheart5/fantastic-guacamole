@@ -32,10 +32,11 @@ tags:
     text: "What would you like help planning right now\\?"
     focused: true
 - inputText: "Finish the release evidence today"
+- hideKeyboard
+# IME resizing can clip the lower part of this multiline field even while
+# its complete text and caret are visible. Check the input after dismissal.
 - assertVisible:
     text: "Finish the release evidence today"
-    focused: true
-- hideKeyboard
 # Fail promptly if keyboard dismissal unexpectedly navigates away.
 - scrollUntilVisible:
     element:
