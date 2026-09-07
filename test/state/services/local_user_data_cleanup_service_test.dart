@@ -14,7 +14,6 @@ import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/services/local_user_data_cleanup_service.dart';
-import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
@@ -46,7 +45,7 @@ void main() {
         secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
         preferences: _MemoryPreferences(),
         sensitivePreferences: _MemoryPreferences(),
-        notifications: NotificationScheduler(),
+        notifications: _RecordingScheduler(),
       );
 
       expect(await service.hasUnownedAccountData(), isTrue);
@@ -139,7 +138,7 @@ void main() {
         secureStore: secureStore,
         preferences: preferences,
         sensitivePreferences: sensitivePreferences,
-        notifications: NotificationScheduler(),
+        notifications: _RecordingScheduler(),
       );
 
       await service.clearForAccountSwitch('account-a');
@@ -270,7 +269,7 @@ void main() {
       secureStore: secureStore,
       preferences: preferences,
       sensitivePreferences: sensitivePreferences,
-      notifications: NotificationScheduler(),
+      notifications: _RecordingScheduler(),
     );
 
     await service.clearForAccountSwitch('account-b');
@@ -334,7 +333,7 @@ void main() {
       secureStore: secureStore,
       preferences: preferences,
       sensitivePreferences: _MemoryPreferences(),
-      notifications: NotificationScheduler(),
+      notifications: _RecordingScheduler(),
     );
 
     await expectLater(service.clearUnownedLegacyData(), throwsStateError);
@@ -361,7 +360,7 @@ void main() {
       secureStore: secureStore,
       preferences: preferences,
       sensitivePreferences: _MemoryPreferences(),
-      notifications: NotificationScheduler(),
+      notifications: _RecordingScheduler(),
     );
 
     await service.clearUnownedLegacyData();
@@ -446,7 +445,7 @@ void main() {
       secureStore: secureStore,
       preferences: preferences,
       sensitivePreferences: _MemoryPreferences(),
-      notifications: NotificationScheduler(),
+      notifications: _RecordingScheduler(),
       mutationCoordinator: coordinator,
     );
 
@@ -487,7 +486,7 @@ void main() {
       secureStore: secureStore,
       preferences: _MemoryPreferences(),
       sensitivePreferences: sensitive,
-      notifications: NotificationScheduler(),
+      notifications: _RecordingScheduler(),
     );
 
     expect(await service.hasUnownedAccountData(), isTrue);

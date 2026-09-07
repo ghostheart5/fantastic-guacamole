@@ -760,7 +760,7 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       context.go(routes.login);
-    } on Exception {
+    } on Object {
       if (!context.mounted) {
         return;
       }

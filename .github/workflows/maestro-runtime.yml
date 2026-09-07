@@ -37,7 +37,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: harness
-          sparse-checkout: .github/campaigns/20260906-dropdown-repair
+          sparse-checkout: .github/campaigns/20260906-notification-repair
           persist-credentials: false
 
       - name: Verify frozen source and clean checkout
@@ -119,13 +119,13 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           script: >-
-            pwsh -NoProfile -File "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-dropdown-repair/run_repair_campaign.ps1"
+            pwsh -NoProfile -File "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-notification-repair/run_repair_campaign.ps1"
             -SourceRoot "$GITHUB_WORKSPACE/app"
 
       - name: Verify complete source and APK bound evidence
         if: always()
         run: |
-          python3 "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-dropdown-repair/verify_repair_campaign.py" test-results/hosted-campaign
+          python3 "$GITHUB_WORKSPACE/harness/.github/campaigns/20260906-notification-repair/verify_repair_campaign.py" test-results/hosted-campaign
 
       - name: Upload complete campaign evidence and exact QA APK
         if: always()

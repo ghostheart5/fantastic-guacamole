@@ -123,7 +123,7 @@ class _NexusHeader extends ConsumerWidget {
     try {
       await ref.read(authServiceProvider).signOut();
       if (context.mounted) context.go(routes.login);
-    } on Exception {
+    } on Object {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not log out. Please try again.')),
