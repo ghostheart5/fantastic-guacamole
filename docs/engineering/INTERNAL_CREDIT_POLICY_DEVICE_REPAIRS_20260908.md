@@ -22,7 +22,40 @@ Build 4.1.0+2026083020, source 4c06f1b03d740646bfae0a7038c4c62cfdb893fc, was sig
 
 Focused corrected Flutter tests: 43 pass, plus the new pending-notice regression (17 paywall tests pass). Edge Function gate: 131 pass, zero failures/errors/skips. New contracts cover enabled internal allowance disclosure, separate purchased balances, credit outcomes, and concurrent consumption readback including rejected voided/mismatched proofs. Live verify-receipt v22 and google-play-rtdn v20 source files exactly match their deployed correction bundles.
 
-Final-source CI, corrected signed build, Play delivery and final device acceptance are pending. These checks do not certify public monetization, monthly wall-clock expiry on a phone, or a new level-20 endurance run. No monkey tests or real payment methods were used.
+Final-source CI, the corrected signed build and Play delivery passed. Final 3021 device acceptance remains pending because the connected Moto is securely locked and still has version 3020. These checks do not certify public monetization, monthly wall-clock expiry on a phone, or a new level-20 endurance run. No monkey tests or real payment methods were used.
+
+## Final source and internal delivery
+
+- Frozen app source: `c5564ef2c920047a3aa1a335b46eb58b4d8d17b6`, version `4.1.0+2026083021`.
+- [CI 34290932918](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/34290932918) passed: 2,597 Flutter tests, 41 golden tests, 15 QA configuration tests, 16 Maestro launcher tests, and eight integration tests (startup 1, auth 6, persistence recovery 1). All manifests report zero failures, errors and skips. These launcher checks are not a claim of a new full physical-device Maestro journey run.
+- Format, source/domain contracts and coverage gates passed. Passing these gates is not 100% code coverage or a guarantee that every app behavior is defect-free.
+- [Signed build 34291917333](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/34291917333) passed against that exact successful CI source. Local signature verification, the existing upload signer, package, version, target SDK 36, minimum SDK 24, billing permission, private two-account cohort, policy hash and disabled mock/bypass flags were independently checked. The build also verified live subscription/pack prices and backend configuration.
+- AAB: `artifacts/releases/4.1.0-2026083021-internal-billing-verified/app-release.aab`, 77,926,855 bytes. SHA-256: `3dfd59e1560b22e5db70cc505dcf519efcf589e68cf962e273e3646ac7ccbbf4`.
+- Google Play internal release 23, `2026083021 (4.1.0) - credit purchase repairs`, was published September 8, 2026, at 6:54 PM Central. Independent track readback showed **Available to internal testers**, latest version 2026083021. Mapping and native debug symbols were attached; the review reported no lost supported devices. No production release was created.
+
+## Configured customer policy
+
+| Offer | USD price | Credits |
+| --- | --- | --- |
+| Free | $0 | 20 per monthly allowance window |
+| Premium monthly | $7.99/month | 300 per month |
+| Premium annual | $69.99/year | 300 per month, not all upfront |
+| Optional pack | $2.99 once | 100 purchased credits |
+| Optional pack | $7.99 once | 300 purchased credits |
+
+Included credits expire each monthly window and are spent first. Purchased credits do not expire and survive subscription expiry. No automatic top-ups or overage charges are configured. Core local planning and progress remain available at zero credits. External AI requires consent and a confirmed credit quote. Public paid AI and billing remain contained; this is the private internal billing cohort, not a public revenue launch.
+
+## Remaining device acceptance
+
+The Moto remains connected at the authorized wireless endpoint, but Android reports a secure lock screen. The user has been asked to unlock it. The latest package readback is still 2026083020, installed by Google Play. Do not uninstall, clear data, claim 3021 is installed, or mark the following pending checks passed:
+
+1. Update through Play and read back version 3021, preserving the main profile's level 20 and 36,125 XP.
+2. Verify the separate wallet buckets, monthly allowance and non-expiring pack disclosures on the final UI.
+3. Restore old consumed-pack markers, repeat a free test pack purchase, and verify the completed-credit message without a false subscription change.
+4. Verify delayed approval/rejection messages and retry recovery, distinguishing automatic Google callbacks from explicit Restore Purchases recovery.
+5. Cold-start/restore, local Planner/SI smoke and app-specific crash checks.
+
+The zero-credit, spending-order, expiry-preservation and backend purchase tests above were observed on 3020 with the deployed corrected backend; they are not substituted for these pending final-UI checks.
 
 ## Additional device and server evidence
 
