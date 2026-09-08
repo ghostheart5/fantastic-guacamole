@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
+import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -39,6 +40,7 @@ void main() {
     bool creditTest = false,
     bool pendingRestoreTest = false,
     FutureOr<SubscriptionState> Function(Ref ref)? subscriptionOverride,
+    FutureOr<AiCreditWallet> Function(Ref ref)? walletOverride,
   }) async {
     // Restore Purchases and Show all plans sit below the
     // fold at the default 800x600 test viewport, and PaywallPage's ListView
@@ -73,6 +75,8 @@ void main() {
         internalCreditTestEnabledProvider.overrideWithValue(creditTest),
         sharedPrefsStoreProvider.overrideWithValue(prefs),
         creditServiceProvider.overrideWithValue(credit),
+        if (walletOverride != null)
+          aiCreditWalletProvider.overrideWith(walletOverride),
         intelligenceStateProvider.overrideWithValue(_baseIntelligence),
         paywallConfigProvider.overrideWith(
           configOverride ?? (Ref ref) async => config,
@@ -138,6 +142,50 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.textContaining('Restore pending.'), findsNothing);
       expect(find.text('Subscription active'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'verified purchased balance clears pending without premium access',
+    (tester) async {
+      var wallet = AiCreditWallet(
+        balance: 100,
+        purchasedCredits: 100,
+        tier: 'free',
+        allowance: 20,
+        resetAt: DateTime(2026, 10, 8),
+        updatedAt: DateTime(2026, 9, 8),
+      );
+      final container = await pumpPaywall(
+        tester,
+        config: _twoPlanConfig,
+        billingTest: true,
+        creditTest: true,
+        pendingRestoreTest: true,
+        walletOverride: (ref) async => wallet,
+      );
+      await tester.tap(find.text('Restore Purchases'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsOneWidget);
+      container.invalidate(aiCreditWalletProvider);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsOneWidget);
+      wallet = wallet.copyWith(balance: 400, purchasedCredits: 400);
+      container.invalidate(aiCreditWalletProvider);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsNothing);
+      expect(
+        find.text('Purchased credits: 400 · Do not expire'),
+        findsOneWidget,
+      );
+      expect(
+        container.read(paywallSubscriptionProvider).requireValue.isActive,
+        isFalse,
+      );
       expect(tester.takeException(), isNull);
     },
   );

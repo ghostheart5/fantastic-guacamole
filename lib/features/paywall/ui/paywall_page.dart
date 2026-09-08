@@ -459,6 +459,7 @@ class PaywallPage extends ConsumerStatefulWidget {
 
 class _PaywallPageState extends ConsumerState<PaywallPage> {
   String? _statusMessage;
+  AiCreditWallet? _lastResolvedWallet;
   SubscriptionState? _lastResolvedSubscription;
   bool _showAllPlans = false;
 
@@ -689,11 +690,25 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         setState(() => _statusMessage = null);
       }
     });
-    ref.listen<AsyncValue<AiCreditWallet>>(
-      aiCreditWalletProvider,
-      (previous, next) =>
-          _logProviderError('aiCreditWalletProvider', previous, next),
-    );
+    ref.listen<AsyncValue<AiCreditWallet>>(aiCreditWalletProvider, (
+      previous,
+      next,
+    ) {
+      _logProviderError('aiCreditWalletProvider', previous, next);
+        final before = _lastResolvedWallet;
+        final after = next.asData?.value;
+        if (after != null) _lastResolvedWallet = after;
+      final copy = _PaywallCopy(ChronoSparkLocalizations.of(context));
+      if (before != null &&
+          after != null &&
+          after.purchasedCredits > before.purchasedCredits &&
+          (_statusMessage == copy.purchasePending ||
+              _statusMessage == copy.restorePending)) {
+        // A later verified wallet supersedes the historical action notice.
+        // Show the balance without claiming which pending order completed.
+        setState(() => _statusMessage = null);
+      }
+    });
     final PaywallPrompt? prompt = ref.watch(paywallPromptProvider);
     final bool isPremium = ref.watch(appAccessProvider).hasPremiumAccess;
     final bool billingTest = ref.watch(internalBillingTestEnabledProvider);
