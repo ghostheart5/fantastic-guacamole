@@ -695,9 +695,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       next,
     ) {
       _logProviderError('aiCreditWalletProvider', previous, next);
-        final before = _lastResolvedWallet;
-        final after = next.asData?.value;
-        if (after != null) _lastResolvedWallet = after;
+      final before = _lastResolvedWallet;
+      final after = next.asData?.value;
+      if (after != null) _lastResolvedWallet = after;
       final copy = _PaywallCopy(ChronoSparkLocalizations.of(context));
       if (before != null &&
           after != null &&
