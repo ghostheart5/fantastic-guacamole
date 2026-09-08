@@ -239,7 +239,7 @@ void main() {
     },
   );
 
-  testWidgets('paid server wallet labels its allowance and period truthfully', (
+  testWidgets('paid wallet distinguishes included and purchased credits', (
     tester,
   ) async {
     useTallSurface(tester);
@@ -247,7 +247,8 @@ void main() {
       billingAccess: true,
       wallet: serverAiCreditWallet({
         'tier': 'premium_monthly',
-        'balance': 299,
+        'balance': 399,
+        'purchased_credits': 100,
         'period_credits': 300,
         'period_ends_at': '2026-09-08T04:39:00Z',
       }),
@@ -259,12 +260,13 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('299 of 300 available'), findsOneWidget);
+    expect(find.text('399 credits available'), findsOneWidget);
     expect(
-      find.textContaining('Premium allowance · period ends'),
+      find.textContaining('299 included · 100 purchased (do not expire)'),
       findsOneWidget,
     );
     expect(find.textContaining('Free allowance'), findsNothing);
+    expect(find.textContaining('Monthly allowance: 300'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -323,7 +325,7 @@ void main() {
     expect(find.text('PREFERENCES & ACCOUNT'), findsOneWidget);
     expect(find.text('PLAN & CREDITS'), findsNothing);
     expect(find.text('SUBSCRIPTION'), findsNothing);
-    expect(find.text('20 of 20 available'), findsNothing);
+    expect(find.text('20 credits available'), findsNothing);
     expect(find.text('Manage plan'), findsNothing);
     expect(find.text('View credits'), findsNothing);
 

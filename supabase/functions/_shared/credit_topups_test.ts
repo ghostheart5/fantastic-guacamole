@@ -64,7 +64,9 @@ Deno.test("credit purchase grants once before consume and retries safely after c
     retry.valid === true && retry.duplicate === true &&
       retry.creditsGranted === 100,
   );
-  assert(events.join(",") === "verify,grant,consume,verify,grant,consume");
+  assert(
+    events.join(",") === "verify,grant,consume,verify,verify,grant,consume",
+  );
   proof.consumptionState = 1;
   const completedRetry = await verifyCreditTopup(input, transport);
   assert(
@@ -144,5 +146,55 @@ Deno.test("pending canceled real and other-account credit receipts never grant",
     assert(
       await validateTopupProof({ ...p, ...patch }, "owner", true) !== null,
     );
+  }
+});
+
+Deno.test("concurrent consumption needs fresh matching Google completion proof", async () => {
+  for (
+    const patch of [{}, { purchaseState: 1 }, { orderId: "GPA.other" }, {
+      obfuscatedExternalAccountId: "other",
+    }, { purchaseType: undefined }]
+  ) {
+    const proof = {
+      purchaseState: 0,
+      quantity: 1,
+      purchaseType: 0,
+      consumptionState: 0,
+      obfuscatedExternalAccountId: await sha256Hex("owner"),
+      orderId: "GPA.test",
+    };
+    let reads = 0, grants = 0;
+    const transport: typeof fetch = (url) => {
+      if (String(url).endsWith("/grant_verified_credit_topup")) {
+        grants++;
+        return Promise.resolve(
+          Response.json({ granted: true, duplicate: true }),
+        );
+      }
+      if (String(url).endsWith(":consume")) {
+        return Promise.resolve(new Response(null, { status: 409 }));
+      }
+      reads++;
+      return Promise.resolve(
+        Response.json(
+          reads === 1 ? proof : { ...proof, consumptionState: 1, ...patch },
+        ),
+      );
+    };
+    const result = await verifyCreditTopup({
+      config: {
+        supabaseUrl: "https://backend.invalid",
+        secretKey: "test",
+        publishableKey: "test",
+      },
+      userId: "owner",
+      packageName: "com.ghostheart5.chronospark",
+      productId: "chronospark_credits_100",
+      token: "token",
+      accessToken: "access",
+      requireTest: true,
+    }, transport);
+    assert(reads === 2 && grants === 1);
+    assert(result.valid === (Object.keys(patch).length === 0));
   }
 });

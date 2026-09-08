@@ -93,7 +93,22 @@ export async function verifyCreditTopup(input: {
     });
     if (!consumed.ok) {
       await consumed.body?.cancel();
-      return { valid: false, retryable: true, error: "consumption_pending" };
+      // RTDN and the client may both verify before either consumes. Confirm
+      // Google's current state instead of treating the losing consume as a
+      // failed purchase. Never infer completion from an error message alone.
+      const current = await fetcher(url, { headers });
+      if (!current.ok) {
+        await current.body?.cancel();
+        return { valid: false, retryable: true, error: "consumption_pending" };
+      }
+      const proof = await current.json();
+      if (
+        proof.consumptionState !== 1 || proof.orderId !== purchase.orderId ||
+        await validateTopupProof(proof, input.userId, input.requireTest) !==
+          null
+      ) {
+        return { valid: false, retryable: true, error: "consumption_pending" };
+      }
     }
     await consumed.body?.cancel();
   }

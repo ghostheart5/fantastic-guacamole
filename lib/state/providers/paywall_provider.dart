@@ -191,6 +191,7 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
               title: plan.title,
               priceLabel: plan.priceLabel,
               description: plan.description,
+              aiCreditsIncluded: creditsEnabled ? plan.aiCreditsIncluded : 0,
               isAvailable: plan.isAvailable,
               isFeatured: plan.isFeatured,
             ),
@@ -224,6 +225,10 @@ class PaywallActions {
     final SubscriptionState purchased = await _ref
         .read(startSubscriptionUseCaseProvider)
         .call(planId);
+    // A subscription read cannot confirm or reject a one-time credit purchase.
+    // Preserve its transaction outcome; the page refreshes wallet and access
+    // independently after this operation.
+    if (planId.startsWith('credits_')) return purchased;
     return _refreshAuthority(purchased);
   }
 

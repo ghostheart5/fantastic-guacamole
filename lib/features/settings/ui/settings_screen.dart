@@ -232,13 +232,14 @@ class SettingsScreen extends ConsumerWidget {
     final bool usesAiCredits = ref.watch(aiProxyAvailableProvider);
     final String creditLabel = usesAiCredits ? 'AI credits' : 'Smart credits';
     final String creditValue = walletAsync.when(
-      data: (wallet) => '${wallet.balance} of ${wallet.allowance} available',
+      data: (wallet) => '${wallet.balance} credits available',
       loading: () => 'Loading balance',
       error: (_, _) => 'Balance unavailable',
     );
     final String creditDetail = walletAsync.when(
       data: (wallet) =>
-          '${wallet.tier == 'premium' ? 'Premium allowance · period ends' : 'Free allowance · resets'} ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
+          '${wallet.balance - wallet.purchasedCredits} included · ${wallet.purchasedCredits} purchased (do not expire). '
+          'Monthly allowance: ${wallet.allowance} · resets ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
       loading: () => 'Reading this account’s credit wallet.',
       error: (_, _) => 'Open credits to retry and review usage.',
     );

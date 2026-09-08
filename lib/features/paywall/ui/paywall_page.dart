@@ -697,6 +697,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final PaywallPrompt? prompt = ref.watch(paywallPromptProvider);
     final bool isPremium = ref.watch(appAccessProvider).hasPremiumAccess;
     final bool billingTest = ref.watch(internalBillingTestEnabledProvider);
+    final bool creditTest = ref.watch(internalCreditTestEnabledProvider);
     final bool purchasingEnabled = ref.watch(
       subscriptionPurchasingEnabledProvider,
     );
@@ -791,7 +792,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     isPremium ||
                     paywallTestingMode ||
                     subscription?.isActive == true,
-                wallet: billingTest ? null : wallet,
+                wallet: billingTest && !creditTest ? null : wallet,
                 copy: copy,
               ),
               if (prompt != null) ...[
@@ -872,7 +873,8 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                             fontSize: 13,
                           ),
                         ),
-                        if (!billingTest && plan.aiCreditsIncluded > 0) ...[
+                        if ((!billingTest || creditTest) &&
+                            plan.aiCreditsIncluded > 0) ...[
                           const SizedBox(height: 6),
                           Text(
                             plan.isCreditPack

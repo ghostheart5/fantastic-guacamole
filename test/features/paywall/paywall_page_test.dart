@@ -36,6 +36,7 @@ void main() {
     Locale locale = const Locale('en'),
     PaywallPrompt? prompt,
     bool billingTest = false,
+    bool creditTest = false,
     bool pendingRestoreTest = false,
     FutureOr<SubscriptionState> Function(Ref ref)? subscriptionOverride,
   }) async {
@@ -69,6 +70,7 @@ void main() {
           ),
         ],
         internalBillingTestEnabledProvider.overrideWithValue(billingTest),
+        internalCreditTestEnabledProvider.overrideWithValue(creditTest),
         sharedPrefsStoreProvider.overrideWithValue(prefs),
         creditServiceProvider.overrideWithValue(credit),
         intelligenceStateProvider.overrideWithValue(_baseIntelligence),
@@ -268,6 +270,58 @@ void main() {
     expect(find.textContaining('Preview Premium'), findsNothing);
     expect(find.textContaining('Deeper memory'), findsNothing);
     expect(find.textContaining('advanced agents'), findsNothing);
+  });
+
+  testWidgets('internal credit testing shows allowance and pack expiry terms', (
+    WidgetTester tester,
+  ) async {
+    await pumpPaywall(
+      tester,
+      billingTest: true,
+      creditTest: true,
+      config: const PaywallEntity(
+        // This fixture represents the enabled internal credit policy.
+        featureId: 'premium',
+        title: 'Google Play billing test',
+        body: 'Synthetic credit tests are available.',
+        plans: [
+          PaywallPlan(
+            id: 'monthly',
+            title: 'Monthly',
+            priceLabel: '\$7.99',
+            description: 'Monthly',
+            aiCreditsIncluded: 300,
+          ),
+          PaywallPlan(
+            id: 'annual',
+            title: 'Annual',
+            priceLabel: '\$69.99',
+            description: 'Annual',
+            aiCreditsIncluded: 300,
+          ),
+          PaywallPlan(
+            id: 'credits_100',
+            title: '100 extra AI credits',
+            priceLabel: '\$2.99',
+            description: 'Optional pack',
+            aiCreditsIncluded: 100,
+          ),
+        ],
+        isUnlocked: false,
+      ),
+    );
+    expect(find.text('Monthly AI allowance: 300 credits'), findsNWidgets(2));
+    expect(find.text('CREDITS LEFT'), findsOneWidget);
+    await tester.tap(find.text('Show all plans'));
+    await tester.pump();
+    expect(
+      find.text('100 credits · One-time purchase · Do not expire'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Optional purchase. No automatic refill or recurring charge.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
