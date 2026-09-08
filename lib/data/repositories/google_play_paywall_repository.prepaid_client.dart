@@ -63,29 +63,40 @@ class PrepaidTestBillingClient implements BillingClient {
   @override
   Future<ProductDetailsResponse> queryProductDetails(Set<String> ids) async {
     await _ready;
-    final result = await _manager.runWithClient(
-      (client) => client.queryProductDetails(
-        productList: [
-          for (final id in ids)
-            gp.ProductWrapper(
-              productId: id,
-              productType: id.startsWith('chronospark_credits_')
-                  ? gp.ProductType.inapp
-                  : gp.ProductType.subs,
-            ),
-        ],
-      ),
-    );
+    final products = <ProductDetails>[];
+    IAPError? error;
+    // Google queries are homogeneous by product type, as in Flutter's adapter.
+    for (final type in [gp.ProductType.subs, gp.ProductType.inapp]) {
+      final matching = ids
+          .where(
+            (id) =>
+                id.startsWith('chronospark_credits_') ==
+                (type == gp.ProductType.inapp),
+          )
+          .toList();
+      if (matching.isEmpty) continue;
+      final result = await _manager.runWithClient(
+        (client) => client.queryProductDetails(
+          productList: [
+            for (final id in matching)
+              gp.ProductWrapper(productId: id, productType: type),
+          ],
+        ),
+      );
+      if (result.responseCode != gp.BillingResponse.ok) {
+        error ??= _error(result.billingResult);
+      } else {
+        products.addAll(
+          result.productDetailsList.expand(
+            GooglePlayProductDetails.fromProductDetails,
+          ),
+        );
+      }
+    }
     return ProductDetailsResponse(
-      productDetails: result.productDetailsList
-          .expand(GooglePlayProductDetails.fromProductDetails)
-          .toList(),
-      notFoundIDs: ids
-          .difference(result.productDetailsList.map((p) => p.productId).toSet())
-          .toList(),
-      error: result.responseCode == gp.BillingResponse.ok
-          ? null
-          : _error(result.billingResult),
+      productDetails: products,
+      notFoundIDs: ids.difference(products.map((p) => p.id).toSet()).toList(),
+      error: error,
     );
   }
 

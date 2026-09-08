@@ -22,6 +22,28 @@ void main() {
   tearDown(() => manager.dispose());
 
   test(
+    'subscriptions and consumables use separate homogeneous queries',
+    () async {
+      await adapter.queryProductDetails({
+        'chronospark_premium_monthly',
+        'chronospark_credits_100',
+        'chronospark_credits_300',
+      });
+      expect(native.productQueries, hasLength(2));
+      expect(native.productQueries[0].map((p) => p.productType).toSet(), {
+        gp.ProductType.subs,
+      });
+      expect(native.productQueries[1].map((p) => p.productType).toSet(), {
+        gp.ProductType.inapp,
+      });
+      expect(native.productQueries[1].map((p) => p.productId).toSet(), {
+        'chronospark_credits_100',
+        'chronospark_credits_300',
+      });
+    },
+  );
+
+  test(
     'checkout forwards the selected prepaid offer and account binding',
     () async {
       final product = GooglePlayProductDetails.fromProductDetails(
@@ -161,6 +183,20 @@ class _NativeClient extends gp.BillingClient {
   String? launchedProduct;
   String? launchedOffer;
   String? launchedAccount;
+  final productQueries = <List<gp.ProductWrapper>>[];
+  @override
+  Future<gp.ProductDetailsResponseWrapper> queryProductDetails({
+    required List<gp.ProductWrapper> productList,
+  }) async {
+    productQueries.add(productList);
+    return const gp.ProductDetailsResponseWrapper(
+      billingResult: gp.BillingResultWrapper(
+        responseCode: gp.BillingResponse.ok,
+      ),
+      productDetailsList: [],
+    );
+  }
+
   @override
   Future<gp.BillingResultWrapper> launchBillingFlow({
     required String product,

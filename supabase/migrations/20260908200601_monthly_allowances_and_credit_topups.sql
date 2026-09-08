@@ -697,3 +697,281 @@ begin
 end;
 $function$
 ;
+
+-- A recreated free bootstrap may use the versioned monthly policy.
+CREATE OR REPLACE FUNCTION public.bind_verified_purchase_token(p_purchase_token_hash text, p_user_id uuid, p_product_id text, p_bound_at timestamp with time zone, p_predecessor_token_hash text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_binding public.purchase_bindings;
+  v_predecessor public.purchase_bindings;
+  v_principal public.billing_principals;
+  v_user_principal public.billing_principals;
+  v_bootstrap_wallet public.monetization_wallets;
+  v_principal_id uuid;
+  v_reserved_usage public.ai_usage_requests;
+  v_bootstrap_is_free_only boolean := false;
+  v_inserted boolean := false;
+  v_lineage_enriched boolean := false;
+begin
+  if p_purchase_token_hash is null
+    or p_purchase_token_hash !~ '^[0-9a-f]{64}$'
+    or p_user_id is null
+    or p_product_id is null
+    or p_product_id not in (
+      'chronospark_premium_monthly', 'chronospark_premium_annual'
+    )
+    or p_bound_at is null
+    or (
+      p_predecessor_token_hash is not null
+      and (
+        p_predecessor_token_hash !~ '^[0-9a-f]{64}$'
+        or p_predecessor_token_hash = p_purchase_token_hash
+      )
+    ) then
+    raise exception 'invalid purchase binding';
+  end if;
+
+  if p_predecessor_token_hash is null
+    or p_purchase_token_hash < p_predecessor_token_hash then
+    perform pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(p_purchase_token_hash, 0)
+    );
+    if p_predecessor_token_hash is not null then
+      perform pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended(p_predecessor_token_hash, 0)
+      );
+    end if;
+  else
+    perform pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(p_predecessor_token_hash, 0)
+    );
+    perform pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(p_purchase_token_hash, 0)
+    );
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('chronospark:principal:' || p_user_id::text, 0)
+  );
+
+  select * into v_binding from public.purchase_bindings
+  where token_hash = p_purchase_token_hash for update;
+  if found then
+    if v_binding.product_id <> p_product_id then
+      return jsonb_build_object('bound', false, 'reason', 'binding_mismatch');
+    end if;
+    v_principal_id := v_binding.billing_principal_id;
+  end if;
+
+  if p_predecessor_token_hash is not null then
+    select * into v_predecessor from public.purchase_bindings
+    where token_hash = p_predecessor_token_hash for update;
+    if not found then
+      return jsonb_build_object(
+        'bound', false, 'reason', 'predecessor_unresolved'
+      );
+    end if;
+    if v_principal_id is not null
+      and v_principal_id <> v_predecessor.billing_principal_id then
+      return jsonb_build_object(
+        'bound', false, 'reason', 'predecessor_principal_mismatch'
+      );
+    end if;
+    v_principal_id := v_predecessor.billing_principal_id;
+    if exists (
+      with recursive ancestry(token_hash, path) as (
+        select p_predecessor_token_hash, array[p_predecessor_token_hash]
+        union all
+        select binding.predecessor_token_hash,
+          ancestry.path || binding.predecessor_token_hash
+        from ancestry
+        join public.purchase_bindings binding
+          on binding.token_hash = ancestry.token_hash
+        where binding.predecessor_token_hash is not null
+          and not binding.predecessor_token_hash = any(ancestry.path)
+      )
+      select 1 from ancestry where token_hash = p_purchase_token_hash
+    ) then
+      return jsonb_build_object('bound', false, 'reason', 'lineage_cycle');
+    end if;
+    if v_binding.token_hash is not null then
+      if v_binding.predecessor_token_hash is null then
+        update public.purchase_bindings
+        set predecessor_token_hash = p_predecessor_token_hash
+        where token_hash = p_purchase_token_hash
+          and predecessor_token_hash is null
+        returning * into v_binding;
+        v_lineage_enriched := found;
+      elsif v_binding.predecessor_token_hash <> p_predecessor_token_hash then
+        return jsonb_build_object('bound', false, 'reason', 'lineage_mismatch');
+      end if;
+    end if;
+  end if;
+
+  if v_principal_id is null then
+    select * into v_user_principal from public.billing_principals
+    where current_user_id = p_user_id and retired_at is null for update;
+    if found then
+      v_principal_id := v_user_principal.billing_principal_id;
+    else
+      insert into public.billing_principals (
+        current_user_id, attached_at, updated_at
+      ) values (p_user_id, p_bound_at, now())
+      returning billing_principal_id into v_principal_id;
+    end if;
+  end if;
+
+  select * into v_principal from public.billing_principals
+  where billing_principal_id = v_principal_id for update;
+  if not found then
+    return jsonb_build_object('bound', false, 'reason', 'principal_unresolved');
+  end if;
+  if v_principal.retired_at is not null then
+    return jsonb_build_object('bound', false, 'reason', 'principal_retired');
+  end if;
+  if v_principal.current_user_id is not null
+    and v_principal.current_user_id <> p_user_id then
+    return jsonb_build_object('bound', false, 'reason', 'binding_owned');
+  end if;
+
+  select * into v_user_principal from public.billing_principals
+  where current_user_id = p_user_id and retired_at is null for update;
+  if found and v_user_principal.billing_principal_id <> v_principal_id then
+    v_bootstrap_is_free_only := not exists (
+      select 1 from public.purchase_bindings
+      where billing_principal_id = v_user_principal.billing_principal_id
+    ) and not exists (
+      select 1 from public.monetization_allowance_grants
+      where billing_principal_id = v_user_principal.billing_principal_id
+    ) and not exists (
+      select 1 from public.monetization_purchases
+      where billing_principal_id = v_user_principal.billing_principal_id
+    ) and not exists (
+      select 1 from public.monetization_subscription_statuses
+      where billing_principal_id = v_user_principal.billing_principal_id
+    ) and not exists (
+      select 1 from public.monetization_entitlement_events
+      where billing_principal_id = v_user_principal.billing_principal_id
+    ) and not exists (
+      select 1 from public.monetization_provider_recheck_queue
+      where billing_principal_id = v_user_principal.billing_principal_id
+    ) and not exists (
+      select 1 from public.monetization_credit_transactions
+      where billing_principal_id = v_user_principal.billing_principal_id
+        and (
+          type not in (
+            'initial_allowance', 'allowance_reset', 'spend', 'refund'
+          )
+          or source not in ('system', 'ai_proxy')
+        )
+    );
+
+    select * into v_bootstrap_wallet from public.monetization_wallets
+    where billing_principal_id = v_user_principal.billing_principal_id
+    for update;
+
+    if v_bootstrap_wallet.billing_principal_id is null then
+      v_bootstrap_is_free_only := v_bootstrap_is_free_only
+        and not exists (
+          select 1 from public.monetization_credit_transactions
+          where billing_principal_id = v_user_principal.billing_principal_id
+        )
+        and not exists (
+          select 1 from public.ai_usage_requests
+          where billing_principal_id = v_user_principal.billing_principal_id
+            and state <> 'denied'
+        );
+    else
+      v_bootstrap_is_free_only := v_bootstrap_is_free_only
+        and v_bootstrap_wallet.balance between 0 and 20
+        and v_bootstrap_wallet.allowance_remaining between 0 and 20
+        and v_bootstrap_wallet.balance = v_bootstrap_wallet.allowance_remaining
+        and v_bootstrap_wallet.bonus_balance = 0
+        and v_bootstrap_wallet.refunded_credit_debt = 0
+        and not exists (select 1 from public.credit_topup_purchases where billing_principal_id=v_user_principal.billing_principal_id)
+        and v_bootstrap_wallet.period_credits = 20
+        and v_bootstrap_wallet.tier = 'free'
+        and v_bootstrap_wallet.lifetime_earned >= 20
+        and v_bootstrap_wallet.lifetime_spent >= 0
+        and exists (
+          select 1 from public.monetization_credit_transactions
+          where billing_principal_id = v_user_principal.billing_principal_id
+            and type = 'initial_allowance'
+            and amount = 20
+            and balance_after = 20
+            and source = 'system'
+            and description in ('Initial daily allowance','Initial monthly allowance')
+            and metadata = '{}'::jsonb
+        );
+    end if;
+
+    if not v_bootstrap_is_free_only then
+      return jsonb_build_object(
+        'bound', false, 'reason', 'user_principal_mismatch'
+      );
+    end if;
+
+    for v_reserved_usage in
+      select * from public.ai_usage_requests
+      where billing_principal_id = v_user_principal.billing_principal_id
+        and state = 'reserved'
+      order by created_at
+      for update
+    loop
+      perform public.settle_ai_usage_for_principal(
+        v_user_principal.billing_principal_id,
+        v_reserved_usage.request_key,
+        false,
+        null,
+        null,
+        null,
+        'principal_reattached',
+        '{}'::jsonb
+      );
+    end loop;
+    update public.ai_usage_requests
+    set user_id = null, response_payload = '{}'::jsonb,
+      provider_request_id = null
+    where billing_principal_id = v_user_principal.billing_principal_id;
+    update public.billing_principals
+    set current_user_id = null, retired_at = now(), detached_at = now(),
+      updated_at = now()
+    where billing_principal_id = v_user_principal.billing_principal_id;
+  end if;
+
+  if v_principal.current_user_id is null then
+    update public.billing_principals
+    set current_user_id = p_user_id, attached_at = p_bound_at,
+      updated_at = now()
+    where billing_principal_id = v_principal_id;
+  end if;
+
+  if v_binding.token_hash is null then
+    insert into public.purchase_bindings (
+      token_hash, user_id, product_id, created_at,
+      predecessor_token_hash, billing_principal_id
+    ) values (
+      p_purchase_token_hash, p_user_id, p_product_id, p_bound_at,
+      p_predecessor_token_hash, v_principal_id
+    ) returning * into v_binding;
+    v_inserted := true;
+  end if;
+
+  return jsonb_build_object(
+    'bound', true,
+    'reason', case
+      when v_inserted then 'bound'
+      when v_lineage_enriched then 'lineage_enriched'
+      else 'already_bound'
+    end,
+    'duplicate', not v_inserted,
+    'userId', p_user_id,
+    'billingPrincipalId', v_principal_id,
+    'predecessorTokenHash', v_binding.predecessor_token_hash
+  );
+end;
+$function$
+;

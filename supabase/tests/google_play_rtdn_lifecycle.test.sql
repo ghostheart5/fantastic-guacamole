@@ -98,11 +98,11 @@ select is(
 );
 select results_eq(
   $$select balance, allowance_remaining, lifetime_spent,
-      period_ends_at = now() + interval '31 days'
+      period_ends_at = now() - interval '1 minute'
     from public.monetization_wallets
     where user_id = '44000000-0000-4000-8000-000000000001'$$,
   $$values (296, 296, 4, true)$$,
-  'extended grace advances the wallet boundary without replenishing credits'
+  'extended grace retains spent balance without extending the funded allowance window'
 );
 select is(
   (public.reconcile_google_play_subscription(
@@ -363,7 +363,7 @@ select is(
 );
 select results_eq(
   $$select s.status, s.is_active, w.tier, w.balance,
-      w.allowance_remaining, w.period_ends_at > now()
+      w.allowance_remaining, w.period_ends_at <= now()
     from public.monetization_subscription_statuses s
     join public.monetization_wallets w using (user_id)
     where s.user_id = '44000000-0000-4000-8000-000000000005'$$,

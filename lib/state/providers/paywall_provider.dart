@@ -67,7 +67,7 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
       throw StateError('An authenticated session is required for AI credits.');
     }
     final row = Map<String, dynamic>.from(
-      await client!.rpc('get_credit_wallet_v2') as Map,
+      await client!.rpc<Map<String, dynamic>>('get_credit_wallet_v2'),
     );
     return serverAiCreditWallet(row);
   }
