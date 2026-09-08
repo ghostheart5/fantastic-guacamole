@@ -40,7 +40,8 @@ create unique index monetization_allowance_grants_prepaid_token_idx
   on public.monetization_allowance_grants (purchase_token_hash)
   where grant_cause = 'prepaid_activation';
 
-create or replace function public.apply_monetization_allowance_grant(
+-- Preserve the public compatibility wrappers and their existing privileges.
+create or replace function public.apply_monetization_allowance_grant_phase8_base(
   p_billing_principal_id uuid,
   p_purchase_token_hash text,
   p_order_id text,
@@ -197,7 +198,7 @@ begin
 end;
 $$;
 
-create or replace function public.reconcile_google_play_subscription(
+create or replace function public.reconcile_google_play_subscription_phase8_base(
   p_purchase_token_hash text,
   p_product_id text,
   p_status text,

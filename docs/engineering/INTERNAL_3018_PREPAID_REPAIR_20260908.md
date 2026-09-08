@@ -8,6 +8,8 @@ RTDN cancellation handling accepts Google's already-expired terminal snapshot an
 
 Settings status copy now follows actual internal credit availability. Toggle rows merge their label and switch semantics, and a label tap changes the control once. The regression checks both label and switch taps and the accessible name.
 
-Local checks: 99 Edge Function tests, six catalog checks, 24 Settings/credit-panel tests, targeted Dart analysis, and migration replay policy pass. The new 12-case database regression and full hosted candidate checks remain pending. The original toggle test needed a visible scroll position and correctly scoped semantics cleanup; the repaired test passes without weakened assertions.
+Local checks: 99 Edge Function tests, six catalog checks, 24 Settings/credit-panel tests, targeted Dart analysis, and migration replay policy pass. The new 15-case database regression and full hosted candidate checks remain pending. The original toggle test needed a visible scroll position and correctly scoped semantics cleanup; the repaired test passes without weakened assertions.
 
 No monkey or level-20 tests are part of this work. No all-pass or production-readiness claim is made.
+
+The first hosted database run (34186433691) failed. It caught replacement of the public compatibility wrappers and a test fixture that gave successive unrelated tokens the same binding timestamp. The migration now replaces only the two underlying phase8_base functions, preserving the wrappers and their grants. The fixture gives successive purchases ordered binding times, and three additional assertions ensure negative cases reach reconciliation. No failed migration was deployed. The complete database suite must pass before deployment.
