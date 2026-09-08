@@ -222,6 +222,11 @@ class _PaywallCopy {
     'Google Play confirma la frecuencia de facturación y los términos de renovación antes de la compra.',
   );
 
+  String get creditPackTerms => _select(
+    'Optional purchase. No automatic refill or recurring charge.',
+    'Compra opcional. Sin recargas automáticas ni cargos recurrentes.',
+  );
+
   String get simulateUnlock => _select('Simulate unlock', 'Simular desbloqueo');
 
   String get currentSubscriptionActive =>
@@ -885,7 +890,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                         const SizedBox(height: 6),
                         Text(
                           plan.isCreditPack
-                              ? 'Optional purchase. No automatic refill or recurring charge.'
+                              ? copy.creditPackTerms
                               : copy.billingTerms,
                           style: const TextStyle(
                             color: Colors.white54,

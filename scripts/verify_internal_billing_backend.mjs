@@ -7,6 +7,10 @@ const PLANS = [
   { id: 'premium_monthly', product: 'chronospark_premium_monthly', base: 'monthly', period: 'P1M', micros: 7990000, credits: 300 },
   { id: 'premium_yearly', product: 'chronospark_premium_annual', base: 'annual', period: 'P1Y', micros: 69990000, credits: 300 },
 ];
+const CREDIT_PACKS = [
+  { id: 'credits_100', product: 'chronospark_credits_100', credits: 100, micros: 2990000 },
+  { id: 'credits_300', product: 'chronospark_credits_300', credits: 300, micros: 7990000 },
+];
 class PreflightError extends Error {}
 function require(condition, message) {
   if (!condition) throw new PreflightError(message);
@@ -63,6 +67,29 @@ export function verifyRtdnTestDelivery(events, now = Date.now()) {
     received > now - 24 * 60 * 60 * 1000 && received <= processed && processed <= now,
   'Google Play RTDN test evidence must be processed within the last 24 hours');
   return { receivedAt: new Date(received).toISOString(), processedAt: new Date(processed).toISOString() };
+}
+
+export function verifyCreditPackCatalog(products, rows) {
+  require(Array.isArray(products) && products.length === 2 && Array.isArray(rows) && rows.length === 2,
+    'Expected exactly two active credit packs');
+  for (const expected of CREDIT_PACKS) {
+    const product = products.find((p) => p.productId === expected.product);
+    require(product?.packageName === PACKAGE, 'Credit pack package mismatch');
+    const active = (product.purchaseOptions ?? []).filter((p) => p.state === 'ACTIVE');
+    require(active.length === 1 && active[0].buyOption?.legacyCompatible === true &&
+      active[0].buyOption?.multiQuantityEnabled !== true && !active[0].rentOption,
+    'Credit pack must have one compatible single-quantity buy option');
+    const available = (active[0].regionalPricingAndAvailabilityConfigs ?? []).filter((r) => r.availability === 'AVAILABLE');
+    require(available.length === 1 && available[0].regionCode === 'US' &&
+      active[0].newRegionsConfig?.availability !== 'AVAILABLE', 'Credit packs must remain US-only');
+    const price = available[0].price;
+    require(price?.currencyCode === 'USD' && Number(price.units) * 1000000 + Number(price.nanos ?? 0) / 1000 === expected.micros,
+      'Credit pack price mismatch');
+    const row = rows.find((r) => r.id === expected.id);
+    require(row?.product_id === expected.product && row.credits === expected.credits && row.bonus_credits === 0 &&
+      row.currency_code === 'USD' && row.price_micros === expected.micros && row.is_active === true,
+    'Backend credit pack mismatch');
+  }
 }
 
 export async function verifyInternalBillingBackend(env = process.env, request = fetch) {
@@ -136,6 +163,14 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
     }
   }
   verifyCatalog(products, databasePlans);
+  const creditProducts = [];
+  for (const pack of CREDIT_PACKS) {
+    creditProducts.push(await json(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE}/onetimeproducts/${pack.product}`, {
+      headers: { Authorization: `Bearer ${publisher}` },
+    }));
+  }
+  const creditRows = await json(`${root}/rest/v1/monetization_credit_packages?is_active=eq.true&select=id,product_id,credits,bonus_credits,currency_code,price_micros,is_active`, {headers});
+  verifyCreditPackCatalog(creditProducts, creditRows);
   // Billing credentials do not need Pub/Sub infrastructure access. Verify the
   // authenticated delivery path instead, using service-controlled event evidence.
   // This empty unauthenticated probe must fail before any event can be written.
@@ -148,6 +183,7 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   const testDelivery = verifyRtdnTestDelivery(events);
   return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1',
     catalog: PLANS.map(({ product, base, period, micros }) => ({ product, base, period, currency: 'USD', priceMicros: micros })),
+    creditPacks: CREDIT_PACKS.map(({product, credits, micros}) => ({product, credits, currency: 'USD', priceMicros: micros})),
     serviceAccountIdentitySha256,
     googleCredentialFingerprint: credentialFingerprint, deployedGoogleCredentialMatched: true,
     rtdn: { unauthenticatedDeliveryRejected: true, testDelivery },

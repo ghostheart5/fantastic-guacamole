@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { googleCredentialFingerprint, verifyCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
+import { googleCredentialFingerprint, verifyCatalog, verifyCreditPackCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
 
 function catalog() {
   const products = [['monthly', 'P1M', '7'], ['annual', 'P1Y', '69']].map(([base, period, units]) => ({
@@ -18,6 +18,29 @@ function catalog() {
   }));
   return { products, rows };
 }
+
+test('credit pack gate rejects price, quantity, availability and backend drift', () => {
+  const packs = [{id:'credits_100', credits:100, units:'2', micros:2990000}, {id:'credits_300',credits:300,units:'7',micros:7990000}];
+  const products = packs.map((p) => ({packageName:'com.ghostheart5.chronospark',productId:`chronospark_${p.id}`,
+    purchaseOptions:[{state:'ACTIVE',buyOption:{legacyCompatible:true,multiQuantityEnabled:false},
+      regionalPricingAndAvailabilityConfigs:[{regionCode:'US',availability:'AVAILABLE',price:{currencyCode:'USD',units:p.units,nanos:990000000}}]}]}));
+  const rows = packs.map((p) => ({id:p.id, product_id:`chronospark_${p.id}`,credits:p.credits,bonus_credits:0,
+    price_micros:p.micros,currency_code:'USD',is_active:true}));
+  assert.doesNotThrow(() => verifyCreditPackCatalog(products, rows));
+  for (const mutate of [
+    (p) => p[0].purchaseOptions[0].buyOption.multiQuantityEnabled=true,
+    (p) => p[0].purchaseOptions[0].buyOption.legacyCompatible=false,
+    (p) => p[0].purchaseOptions[0].state='DRAFT',
+    (p) => p[0].purchaseOptions[0].regionalPricingAndAvailabilityConfigs[0].price.units='1',
+    (p) => p[0].purchaseOptions[0].regionalPricingAndAvailabilityConfigs[0].regionCode='CA',
+    (p) => p[0].purchaseOptions[0].newRegionsConfig={availability:'AVAILABLE'},
+    (_,r) => r[0].credits=200,
+  ]) {
+    const p=structuredClone(products), r=structuredClone(rows);
+    mutate(p,r);
+    assert.throws(() => verifyCreditPackCatalog(p,r));
+  }
+});
 
 test('approved monthly and annual catalog matches both authorities', () => {
   const { products, rows } = catalog();
