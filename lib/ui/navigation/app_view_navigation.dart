@@ -7,9 +7,9 @@ void goToAppView(BuildContext context, WidgetRef ref, AppView view) {
   try {
     final String routePath = routePathForAppView(view);
     final GoRouter router = GoRouter.of(context);
-    if (router.routeInformationProvider.value.uri.path != routePath) {
-      router.go(routePath);
-    }
+    // An explicit destination must also clear imperative callback/redirect
+    // matches. The reported URI alone does not describe that route stack.
+    router.go(routePath);
     return;
   } on Object {
     // Some widget tests and local previews mount feature widgets without a

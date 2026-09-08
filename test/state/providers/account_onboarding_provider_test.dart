@@ -58,6 +58,12 @@ void main() {
           .read(scope.notifier)
           .set(AccountStorageScope.authenticated('refresh-user'));
       expect(
+        container.read(accountOnboardingCompleteProvider).asData?.value,
+        isTrue,
+        reason:
+            'Returning to a completed account must not briefly reopen setup.',
+      );
+      expect(
         await container.read(accountOnboardingCompleteProvider.future),
         isTrue,
       );
@@ -68,6 +74,45 @@ void main() {
       );
       expect(
         await container.read(accountOnboardingCompleteProvider.future),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'stored completion survives legacy-ownership refresh without loading',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final ownership =
+          NotifierProvider<_OwnershipNotifier, LegacyScopeOwnership>(
+            _OwnershipNotifier.new,
+          );
+      final container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('completed-account'),
+          ),
+          accountLegacyOwnershipProvider.overrideWith(
+            (ref) => ref.watch(ownership),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(accountOnboardingCompleteProvider.future);
+      await container
+          .read(accountOnboardingCompleteProvider.notifier)
+          .complete();
+      for (final value in LegacyScopeOwnership.values) {
+        container.read(ownership.notifier).set(value);
+        expect(
+          container.read(accountOnboardingCompleteProvider).asData?.value,
+          isTrue,
+        );
+      }
+      await container.read(accountOnboardingCompleteProvider.notifier).reset();
+      container.read(ownership.notifier).set(LegacyScopeOwnership.provenOwned);
+      expect(
+        container.read(accountOnboardingCompleteProvider).asData?.value,
         isFalse,
       );
     },
@@ -149,4 +194,11 @@ class _ScopeNotifier extends Notifier<AccountStorageScope> {
       AccountStorageScope.authenticated('refresh-user');
 
   void set(AccountStorageScope scope) => state = scope;
+}
+
+class _OwnershipNotifier extends Notifier<LegacyScopeOwnership> {
+  @override
+  LegacyScopeOwnership build() => LegacyScopeOwnership.ambiguous;
+
+  void set(LegacyScopeOwnership value) => state = value;
 }

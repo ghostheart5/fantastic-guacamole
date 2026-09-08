@@ -293,10 +293,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     final String routePath = routePathForAppView(view);
     try {
       final GoRouter router = GoRouter.of(context);
-      final Uri currentUri = router.routeInformationProvider.value.uri;
-      if (currentUri.path != routePath || currentUri.hasQuery) {
-        router.go(routePath);
-      }
+      // Explicit Back/navigation must replace any callback or redirect stack,
+      // even when its reported URI already names the destination.
+      router.go(routePath);
       return;
     } on Object {
       // Widget tests and standalone shell previews may mount the shell without

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
@@ -12,6 +14,7 @@ final accountOnboardingCompleteProvider =
 
 class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
   static const String _keyPrefix = 'onboarding_profile_complete_v1';
+  SharedPreferences? _preferences;
 
   String _key(String scope) => '$_keyPrefix.$scope';
 
@@ -21,7 +24,7 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
   }
 
   @override
-  Future<bool> build() async {
+  FutureOr<bool> build() {
     // A token refresh may emit a new scope object for the same account. Avoid
     // reloading its completed flag: a transient loading state would send an
     // already-onboarded user back through the route guard. Account changes and
@@ -36,7 +39,28 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
     );
     if (account == null) return false;
 
+    final SharedPreferences? prefs = _preferences;
+    if (prefs != null) return _readCompletion(prefs, account, legacyOwnership);
+    return _loadCompletion(account, legacyOwnership);
+  }
+
+  Future<bool> _loadCompletion(
+    String account,
+    LegacyScopeOwnership legacyOwnership,
+  ) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    _preferences = prefs;
+    return _readCompletion(prefs, account, legacyOwnership);
+  }
+
+  bool _readCompletion(
+    SharedPreferences prefs,
+    String account,
+    LegacyScopeOwnership legacyOwnership,
+  ) {
+    // Re-read the current account's key synchronously once preferences are
+    // initialized. Ownership refresh and return sign-in must not manufacture
+    // an incomplete-setup interval. No completion value is shared across keys.
     final bool? stored = prefs.getBool(_key(account));
     if (stored != null) return stored;
 

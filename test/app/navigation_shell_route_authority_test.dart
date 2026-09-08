@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
@@ -151,6 +153,35 @@ void main() {
     _expectRouteAndVisibleView(_byRoute(RoutePaths.nexus));
     expect(harness.container.read(appFlowProvider), AppView.nexus);
   });
+
+  for (final bool systemBack in <bool>[true, false]) {
+    testWidgets(
+      'Settings Back after a route replacement (system: $systemBack)',
+      (WidgetTester tester) async {
+        final _RouteShellHarness harness = await _pumpRouteShell(
+          tester,
+          reuseShellState: true,
+        );
+        await tester.pump();
+        await tester.pump();
+      unawaited(harness.router.replace<void>(RoutePaths.settings));
+        await tester.pump();
+        await tester.pump();
+        expect(find.byType(SettingsScreen), findsOneWidget);
+        if (systemBack) {
+          await tester.binding.handlePopRoute();
+        } else {
+          await tester.tap(find.byTooltip('Back'));
+        }
+        await tester.pump();
+        await tester.pump();
+        _expectRouterUri(harness, RoutePaths.nexus);
+        expect(find.byType(NexusScreen), findsOneWidget);
+        expect(find.byType(SettingsScreen), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('saved-tab restoration affects only the default Nexus launch', (
     WidgetTester tester,
