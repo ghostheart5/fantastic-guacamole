@@ -413,7 +413,7 @@ class _PersonalizationSection extends ConsumerWidget {
             const _NeonStatusTile(
               title: 'Internal AI credit testing',
               subtitle:
-                  'When enabled, chat messages and selected context are sent to Anthropic through ChronoSpark. Successful replies use server credits. Local guidance is free. Use test content; provider retention and safety policies apply.',
+                  'Enables the synthetic credit-test actions below. Test prompts are sent to Anthropic through ChronoSpark; provider retention and safety policies apply. Local guidance is free.',
             ),
           if (ref.watch(externalAiAvailableProvider))
             _NeonToggleTile(
@@ -431,6 +431,8 @@ class _PersonalizationSection extends ConsumerWidget {
               subtitle:
                   'Unavailable while privacy, safety, and cost gates are completed.',
             ),
+          if (ref.watch(internalCreditTestEnabledProvider))
+            const InternalCreditTestPanel(),
           _NeonStatusTile(
             title: 'Why suggestions appear',
             subtitle: decision.explanation,

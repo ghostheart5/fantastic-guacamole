@@ -181,7 +181,7 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
       title: 'Google Play billing test',
       body:
           'Test purchases, renewals, cancellation and restoration. Select a Google Play test payment method; cancel if a real payment method appears. '
-          '${creditsEnabled ? 'External AI uses server-verified credits only after you enable it in Settings.' : 'AI and credit spending are unavailable in this build.'}',
+          '${creditsEnabled ? 'Settings includes synthetic credit-test actions that require external AI consent and use server-verified credits. SI Console guidance remains local.' : 'AI and credit spending are unavailable in this build.'}',
       plans: plans
           .map(
             (plan) => PaywallPlan(
