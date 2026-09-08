@@ -302,6 +302,10 @@ class _BranchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final int momentumLow = (outcome.projectedMomentum - outcome.uncertainty)
         .clamp(0, 100);
+    final String confidenceLabel = switch (outcome.confidence.band) {
+      PredictiveConfidenceBand.insufficientEvidence => 'insufficient',
+      final band => band.name,
+    };
     final int momentumHigh = (outcome.projectedMomentum + outcome.uncertainty)
         .clamp(0, 100);
     final int pressureLow = (outcome.projectedPressure - outcome.uncertainty)
@@ -370,7 +374,7 @@ class _BranchRow extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  ${outcome.confidence.band.name} evidence',
+                          'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  $confidenceLabel evidence',
                           style: const TextStyle(
                             color: Colors.white60,
                             fontSize: 11,
