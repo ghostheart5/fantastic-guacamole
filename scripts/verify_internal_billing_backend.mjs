@@ -4,8 +4,8 @@ import { pathToFileURL } from 'node:url';
 
 const PACKAGE = 'com.ghostheart5.chronospark';
 const PLANS = [
-  { id: 'premium_monthly', product: 'chronospark_premium_monthly', base: 'monthly', period: 'P1M', micros: 4990000, credits: 300 },
-  { id: 'premium_yearly', product: 'chronospark_premium_annual', base: 'annual', period: 'P1Y', micros: 39990000, credits: 360 },
+  { id: 'premium_monthly', product: 'chronospark_premium_monthly', base: 'monthly', period: 'P1M', micros: 7990000, credits: 300 },
+  { id: 'premium_yearly', product: 'chronospark_premium_annual', base: 'annual', period: 'P1Y', micros: 69990000, credits: 300 },
 ];
 class PreflightError extends Error {}
 function require(condition, message) {

@@ -1,4 +1,5 @@
 /// <reference lib="deno.ns" />
+import { CREDIT_TOPUPS, verifyCreditTopup } from "../_shared/credit_topups.ts";
 
 import {
   authenticatedUserId,
@@ -56,11 +57,14 @@ const LEGACY_ACCOUNT_BINDING_CUTOFF =
 interface VerifyRequest {
   productId: string;
   purchaseToken: string;
-  purchaseType: "subscription";
+  purchaseType: "subscription" | "inapp";
   requireTestPurchase?: boolean;
 }
 
 interface VerifyResponse {
+  consumed?: boolean;
+  creditsGranted?: number;
+  duplicate?: boolean;
   valid: boolean;
   testPurchase?: boolean;
   acknowledged?: boolean;
@@ -174,8 +178,9 @@ Deno.serve(async (req: Request) => {
     const productId = body.productId?.trim() ?? "";
     const purchaseToken = body.purchaseToken?.trim() ?? "";
     if (
-      !ALLOWED_PRODUCT_IDS.has(productId) ||
-      body.purchaseType !== "subscription" ||
+      !(body.purchaseType === "subscription"
+        ? ALLOWED_PRODUCT_IDS.has(productId)
+        : body.purchaseType === "inapp" && CREDIT_TOPUPS.has(productId)) ||
       (body.requireTestPurchase !== undefined &&
         typeof body.requireTestPurchase !== "boolean") ||
       !purchaseToken || purchaseToken.length > MAX_PURCHASE_TOKEN_LENGTH
@@ -194,6 +199,23 @@ Deno.serve(async (req: Request) => {
       }, 503);
     }
     const accessToken = await getGoogleAccessToken(serviceAccount);
+    if (body.purchaseType === "inapp") {
+      const result = await verifyCreditTopup({
+        config,
+        userId,
+        packageName: ANDROID_PACKAGE_NAME,
+        productId,
+        token: purchaseToken,
+        accessToken,
+        // Credit packs are enabled only for the internal license-test rollout.
+        requireTest: true,
+      });
+      return jsonResponse(
+        req,
+        result as unknown as VerifyResponse,
+        result.retryable === true ? 503 : 200,
+      );
+    }
     const response = await fetch(
       `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
         encodeURIComponent(ANDROID_PACKAGE_NAME)

@@ -16,7 +16,7 @@ void main() {
 
     for (final String repository in <String>[fallback, googlePlay]) {
       expect(repository, contains('aiCreditsIncluded: 300'));
-      expect(repository, contains('aiCreditsIncluded: 360'));
+      expect(repository, isNot(contains('aiCreditsIncluded: 360')));
     }
     expect(migration, contains("when 'premium_monthly' then 300"));
     expect(migration, contains("when 'premium_yearly' then 360"));
@@ -41,9 +41,9 @@ void main() {
       'lib/features/paywall/ui/paywall_page.dart',
     ).readAsStringSync();
 
-    expect(repository, contains('if (_effectiveStateForCurrentUser.isActive)'));
+    expect(repository, contains("!planId.startsWith('credits_')"));
     expect(
-      repository.indexOf('if (_effectiveStateForCurrentUser.isActive)'),
+      repository.indexOf("!planId.startsWith('credits_')"),
       lessThan(repository.indexOf('queryProductDetails(<String>{productId})')),
     );
     expect(repository, contains('Manage plan changes in Google Play.'));

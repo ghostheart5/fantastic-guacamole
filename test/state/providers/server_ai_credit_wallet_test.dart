@@ -1,7 +1,22 @@
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('purchased balances survive wallet copies and serialization', () {
+    final wallet = serverAiCreditWallet({
+      'balance': 415,
+      'purchased_credits': 400,
+      'period_credits': 20,
+      'refunded_credit_debt': 3,
+      'tier': 'free',
+    });
+    final restored = AiCreditWallet.fromJson(wallet.copyWith().toJson());
+    expect(restored.balance, 415);
+    expect(restored.purchasedCredits, 400);
+    expect(restored.refundedCreditDebt, 3);
+    expect(restored.allowance, 20);
+  });
   test('maps the RLS-protected server wallet into the UI model', () {
     final wallet = serverAiCreditWallet(<String, dynamic>{
       'balance': 287,

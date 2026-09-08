@@ -66,20 +66,9 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
     if (client?.auth.currentUser == null) {
       throw StateError('An authenticated session is required for AI credits.');
     }
-    final Map<String, dynamic>? row = await client!
-        .from('monetization_wallets')
-        .select('balance,tier,period_credits,period_ends_at,updated_at')
-        .maybeSingle();
-    if (row == null) {
-      final DateTime now = DateTime.now();
-      return AiCreditWallet(
-        balance: 20,
-        tier: 'free',
-        allowance: 20,
-        resetAt: now.add(const Duration(days: 1)),
-        updatedAt: now,
-      );
-    }
+    final row = Map<String, dynamic>.from(
+      await client!.rpc('get_credit_wallet_v2') as Map,
+    );
     return serverAiCreditWallet(row);
   }
   return ref.read(creditServiceProvider).loadWallet(premium: premium);
@@ -88,6 +77,12 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
 AiCreditWallet serverAiCreditWallet(Map<String, dynamic> row) {
   final DateTime now = DateTime.now();
   return AiCreditWallet(
+    purchasedCredits: ((row['purchased_credits'] as num?)?.toInt() ?? 0)
+        .clamp(0, 1 << 31)
+        .toInt(),
+    refundedCreditDebt: ((row['refunded_credit_debt'] as num?)?.toInt() ?? 0)
+        .clamp(0, 1 << 31)
+        .toInt(),
     balance: ((row['balance'] as num?)?.toInt() ?? 0).clamp(0, 1 << 31).toInt(),
     tier:
         const {
@@ -261,6 +256,9 @@ class PaywallActions {
 }
 
 bool requiresPaywallAuthorityRefresh(SubscriptionState result) {
+  if (result.status == 'credits_added') {
+    return false;
+  }
   if (result.isActive) {
     return true;
   }

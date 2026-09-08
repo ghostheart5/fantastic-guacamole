@@ -28,6 +28,8 @@ part 'google_play_paywall_repository.persistence.dart';
 part 'google_play_paywall_repository.prepaid_client.dart';
 
 const Map<String, String> _kProductIds = <String, String>{
+  'credits_100': 'chronospark_credits_100',
+  'credits_300': 'chronospark_credits_300',
   'monthly': 'chronospark_premium_monthly',
   'annual': 'chronospark_premium_annual',
   'monthly_prepaid_test': 'chronospark_premium_monthly',
@@ -261,7 +263,7 @@ class GooglePlayPaywallRepository
       description: 'Monthly subscription billed through Google Play.',
       aiCreditsIncluded: 300,
       benefits: <String>[
-        '300 credits after a verified purchase or paid renewal',
+        '300 credits each month; unused monthly credits expire',
       ],
       isAvailable: false,
     ),
@@ -270,12 +272,24 @@ class GooglePlayPaywallRepository
       title: 'Annual plan',
       priceLabel: 'Price unavailable',
       description: 'Annual subscription billed through Google Play.',
-      aiCreditsIncluded: 360,
+      aiCreditsIncluded: 300,
       benefits: <String>[
-        '360 credits after a verified purchase or paid renewal',
+        '300 credits each month, billed annually; unused monthly credits expire',
       ],
       isAvailable: false,
     ),
+    for (final amount in [100, 300])
+      PaywallPlan(
+        id: 'credits_$amount',
+        title: '$amount extra AI credits',
+        priceLabel: 'Price unavailable',
+        description: 'One-time purchase. Credits do not expire.',
+        aiCreditsIncluded: amount,
+        benefits: const [
+          'No automatic top-ups. Purchased credits do not expire.',
+        ],
+        isAvailable: false,
+      ),
     if (_requireTestPurchase)
       const PaywallPlan(
         id: 'monthly_prepaid_test',
@@ -295,6 +309,10 @@ class GooglePlayPaywallRepository
     if (prepaid && !_requireTestPurchase) return null;
     final productId = _kProductIds[planId];
     if (productId == null) return null;
+    if (planId.startsWith('credits_')) {
+      final matches = products.where((p) => p.id == productId).toList();
+      return matches.length == 1 ? matches.single : null;
+    }
     return selectGooglePlayBasePlan(
       products,
       productId: productId,
@@ -438,7 +456,8 @@ class GooglePlayPaywallRepository
         'Purchases are temporarily unavailable. Please update and try again soon.',
       );
     }
-    if (_effectiveStateForCurrentUser.isActive) {
+    if (_effectiveStateForCurrentUser.isActive &&
+        !planId.startsWith('credits_')) {
       throw StateError(
         'Your current subscription is already active. Manage plan changes in Google Play.',
       );
@@ -1091,6 +1110,31 @@ class GooglePlayPaywallRepository
           purchase.status == PurchaseStatus.restored) {
         final String? expectedUserId =
             pending?.userId ?? restore?.userId ?? currentUserId;
+        if (productId.startsWith('chronospark_credits_')) {
+          final verified = await _verifiedCreditTopupFromServer(
+            purchase,
+            expectedUserId: expectedUserId,
+          );
+          if (!_isCurrentBillingAccount(expectedUserId)) {
+            _completePendingPurchaseError(
+              pending,
+              StateError('The signed-in account changed during billing.'),
+            );
+          } else {
+            final outcome = _transactionOutcomeState(
+              status: verified ? 'credits_added' : 'verification_failed',
+              attemptedPlanId: null,
+            );
+            _completePendingPurchase(pending, outcome);
+            _completePendingRestore(restore, outcome);
+            if (verified) {
+              _approvalPending.remove(operationKey);
+              await _clearPendingOwner(productId, expectedUserId);
+            }
+          }
+          _removePendingPurchase(operationKey, pending);
+          continue;
+        }
         final _VerifiedSubscription? verification =
             await _verifiedSubscriptionFromServer(
               purchase,

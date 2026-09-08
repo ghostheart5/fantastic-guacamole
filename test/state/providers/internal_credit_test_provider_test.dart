@@ -43,7 +43,21 @@ ProviderContainer createCreditContainer(
       internalCreditTestEnabledProvider.overrideWithValue(cohort),
       accountStorageScopeProvider.overrideWith((ref) => ref.watch(testAccount)),
       personalizationProfileProvider.overrideWith(() => _Profile(consent)),
-      internalCreditTestTransportProvider.overrideWithValue(transport),
+      internalCreditTestTransportProvider.overrideWithValue((body) async {
+        if (body['quoteOnly'] == true) {
+          return (
+            status: 200,
+            data: <String, dynamic>{
+              'requestId': body['requestId'],
+              'quote': <String, dynamic>{
+                'credits': (body['prompt'] as String).length > 120 ? 4 : 3,
+                'proof': 'signed-test-quote',
+              },
+            },
+          );
+        }
+        return transport(body);
+      }),
       aiCreditWalletProvider.overrideWith(
         (ref) async => AiCreditWallet(
           balance: balance?.call() ?? 20,
@@ -63,7 +77,7 @@ CreditTestReply success(Map<String, dynamic> body) => (
   status: 200,
   data: {
     'requestId': body['requestId'],
-    'creditsCharged': (body['prompt'] as String).length > 120 ? 2 : 1,
+    'creditsCharged': (body['quote'] as Map)['credits'],
     'remainingCredits': 18,
     'message': 'Group fictional tools by purpose.',
   },
@@ -86,7 +100,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Test 1 credit'), findsNothing);
+    expect(find.text('Quote short test'), findsNothing);
   });
 
   testWidgets('consent-off controls cannot send a request', (tester) async {
@@ -108,14 +122,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Test 1 credit'),
+      find.widgetWithText(FilledButton, 'Quote short test'),
     );
     expect(button.onPressed, isNull);
     expect(calls, 0);
   });
 
   testWidgets(
-    'visible two-credit action updates server balance at 320dp and 200 percent text',
+    'visible quoted action updates server balance at 320dp and 200 percent text',
     (tester) async {
       tester.view.physicalSize = const Size(640, 960);
       tester.view.devicePixelRatio = 2;
@@ -124,7 +138,7 @@ void main() {
       var balance = 20;
       final container = createCreditContainer((body) async {
         expect((body['prompt'] as String).length, greaterThan(120));
-        balance -= 2;
+        balance -= 4;
         return (
           status: 200,
           data: {...success(body).data, 'remainingCredits': balance},
@@ -148,12 +162,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Test 2 credits'));
-      await tester.tap(find.text('Test 2 credits'));
+      await tester.ensureVisible(find.text('Quote longer test'));
+      await tester.tap(find.text('Quote longer test'));
       await tester.pumpAndSettle();
-      expect(find.text('Server credit balance: 18'), findsOneWidget);
+      expect(balance, 20);
+      await tester.ensureVisible(find.text('Confirm · 4 credits'));
+      await tester.tap(find.text('Confirm · 4 credits'));
+      await tester.pumpAndSettle();
+      expect(find.text('Server credit balance: 16'), findsOneWidget);
       expect(
-        find.textContaining('Server confirmed: 2 credit(s) used'),
+        find.textContaining('Server confirmed: 4 credit(s) used'),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
@@ -204,14 +222,17 @@ void main() {
       addTearDown(container.dispose);
       final controller = container.read(internalCreditTestProvider.notifier);
       await controller.run();
+      expect(calls, isEmpty);
+      await controller.run(confirm: true);
       expect(
         container.read(internalCreditTestProvider).message,
-        contains('1 credit(s) used'),
+        contains('3 credit(s) used'),
       );
       await controller.run(twoCredits: true);
+      await controller.run(confirm: true);
       expect(
         container.read(internalCreditTestProvider).message,
-        contains('2 credit(s) used'),
+        contains('4 credit(s) used'),
       );
       await controller.run(replay: true);
       expect(
@@ -231,6 +252,8 @@ void main() {
           'personality',
           'allowExternalAi',
           'requestId',
+          'maxTokens',
+          'quote',
         });
       }
     },
@@ -249,8 +272,9 @@ void main() {
       });
       addTearDown(container.dispose);
       final controller = container.read(internalCreditTestProvider.notifier);
-      final first = controller.run();
-      await controller.run(twoCredits: true);
+      await controller.run();
+      final first = controller.run(confirm: true);
+      await controller.run(confirm: true);
       expect(calls, 1);
       container.read(testAccount.notifier).switchAccount();
       await container.pump();
@@ -274,6 +298,9 @@ void main() {
       );
       addTearDown(container.dispose);
       await container.read(internalCreditTestProvider.notifier).run();
+      await container
+          .read(internalCreditTestProvider.notifier)
+          .run(confirm: true);
       expect(
         container.read(internalCreditTestProvider).message,
         contains('Insufficient credits'),
@@ -298,6 +325,9 @@ void main() {
     );
     addTearDown(container.dispose);
     await container.read(internalCreditTestProvider.notifier).run();
+    await container
+        .read(internalCreditTestProvider.notifier)
+        .run(confirm: true);
     expect(
       container.read(internalCreditTestProvider).message,
       isNot(contains('Server confirmed')),

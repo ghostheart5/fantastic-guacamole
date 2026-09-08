@@ -35,7 +35,7 @@ class PaywallRepository implements IPaywallRepository {
         aiCreditsIncluded: 300,
         freeTrialDays: 0,
         benefits: <String>[
-          '300 credits after a verified purchase or paid renewal',
+          '300 credits each month; unused monthly credits expire',
         ],
       ),
       PaywallPlan(
@@ -43,10 +43,10 @@ class PaywallRepository implements IPaywallRepository {
         title: 'Annual plan',
         priceLabel: 'Price unavailable',
         description: 'Annual subscription billed through Google Play.',
-        aiCreditsIncluded: 360,
+        aiCreditsIncluded: 300,
         freeTrialDays: 0,
         benefits: <String>[
-          '360 credits after a verified purchase or paid renewal',
+          '300 credits each month, billed annually; unused monthly credits expire',
         ],
       ),
     ];

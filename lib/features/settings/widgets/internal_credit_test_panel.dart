@@ -51,7 +51,7 @@ class InternalCreditTestPanel extends ConsumerWidget {
                 onPressed: allowed
                     ? () => ref.read(internalCreditTestProvider.notifier).run()
                     : null,
-                child: const Text('Test 1 credit'),
+                child: const Text('Quote short test'),
               ),
               FilledButton.tonal(
                 onPressed: allowed
@@ -59,8 +59,19 @@ class InternalCreditTestPanel extends ConsumerWidget {
                           .read(internalCreditTestProvider.notifier)
                           .run(twoCredits: true)
                     : null,
-                child: const Text('Test 2 credits'),
+                child: const Text('Quote longer test'),
               ),
+              if (state.quotedRequest != null)
+                FilledButton(
+                  onPressed: allowed
+                      ? () => ref
+                            .read(internalCreditTestProvider.notifier)
+                            .run(confirm: true)
+                      : null,
+                  child: Text(
+                    'Confirm · ${(state.quotedRequest!['quote'] as Map)['credits']} credits',
+                  ),
+                ),
               OutlinedButton(
                 onPressed: allowed && state.lastRequest != null
                     ? () => ref

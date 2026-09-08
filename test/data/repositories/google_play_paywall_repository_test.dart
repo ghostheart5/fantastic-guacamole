@@ -22,6 +22,91 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  for (final consumed in [false, true]) {
+    test(
+      'credit pack requires server consumption and never unlocks premium ($consumed)',
+      () async {
+        final controller = StreamController<List<PurchaseDetails>>.broadcast();
+        final client = await _authorityClient((request) async {
+          fail('A credit pack must not substitute subscription authority.');
+        });
+        final billing = _FakeBillingClient(
+          purchaseStreamController: controller,
+          productResponse: ProductDetailsResponse(
+            productDetails: [
+              ProductDetails(
+                id: 'chronospark_credits_100',
+                title: '100 credits',
+                description: 'One-time pack',
+                price: r'$2.99',
+                rawPrice: 2.99,
+                currencyCode: 'USD',
+              ),
+            ],
+            notFoundIDs: const [],
+          ),
+          onBuyNonConsumable: (param) async {
+            controller.add([
+              PurchaseDetails(
+                purchaseID: 'synthetic-topup',
+                productID: param.productDetails.id,
+                verificationData: PurchaseVerificationData(
+                  localVerificationData: '',
+                  serverVerificationData: 'synthetic-topup-token',
+                  source: 'google_play',
+                ),
+                transactionDate: '1',
+                status: PurchaseStatus.purchased,
+              )..pendingCompletePurchase = true,
+            ]);
+            return true;
+          },
+        );
+        final repository = GooglePlayPaywallRepository(
+          billingClient: billing,
+          paywallTestingModeOverride: false,
+          requireTestPurchase: true,
+          supabaseClient: client,
+          secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+          httpClient: MockClient((request) async {
+            final body = jsonDecode(request.body) as Map;
+            expect(body['purchaseType'], 'inapp');
+            expect(body['requireTestPurchase'], isTrue);
+            expect(body['productId'], 'chronospark_credits_100');
+            return http.Response(
+              jsonEncode({
+                'valid': true,
+                'consumed': consumed,
+                'testPurchase': true,
+                'productId': 'chronospark_credits_100',
+                'creditsGranted': 100,
+              }),
+              200,
+            );
+          }),
+        );
+        final result = await repository.startSubscription('credits_100');
+        expect(
+          result.status,
+          consumed ? 'credits_added' : 'verification_failed',
+        );
+        expect(result.isActive, isFalse);
+        expect(result.planId, isNull);
+        expect(result.isTesting, isFalse);
+        expect((await repository.checkEntitlement()).isEntitled, isFalse);
+        expect(
+          billing.completePurchaseCalls,
+          0,
+          reason: 'The backend consumes credit packs.',
+        );
+        repository.dispose();
+        await controller.close();
+        await client.dispose();
+      },
+    );
+  }
+
   for (final Object? proof in <Object?>[null, false, 'true', true]) {
     test('license-test purchase requires server proof ($proof)', () async {
       final controller = StreamController<List<PurchaseDetails>>.broadcast();
@@ -283,7 +368,7 @@ void main() {
         () => repository.getAvailablePlans(),
       );
 
-      expect(plans, hasLength(2));
+      expect(plans, hasLength(4));
       expect(
         plans.firstWhere((PaywallPlan plan) => plan.id == 'monthly').priceLabel,
         'Price unavailable',

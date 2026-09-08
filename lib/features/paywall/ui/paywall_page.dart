@@ -36,6 +36,10 @@ String resolvePaywallPurchaseResultMessage(
 }) {
   final _PaywallCopy copy = _PaywallCopy(localizations);
   switch (subscription.status) {
+    case 'credits_added':
+      return localizations.isSpanish
+          ? 'Créditos añadidos a tu cuenta.'
+          : 'Purchased credits added to your account.';
     case 'purchase_pending':
       return copy.purchasePending;
     case 'purchase_canceled':
@@ -62,6 +66,10 @@ String resolvePaywallRestoreResultMessage(
 }) {
   final _PaywallCopy copy = _PaywallCopy(localizations);
   switch (subscription.status) {
+    case 'credits_added':
+      return localizations.isSpanish
+          ? 'Créditos añadidos a tu cuenta.'
+          : 'Purchased credits added to your account.';
     case 'purchase_pending':
       return copy.restorePending;
     case 'verification_failed':
@@ -185,8 +193,28 @@ class _PaywallCopy {
       _select('Subscription active', 'Suscripción activa');
 
   String creditsAfterVerification(int credits) => _select(
-    'Credits after a verified purchase or paid renewal: $credits',
-    'Créditos tras una compra verificada o una renovación pagada: $credits',
+    'Monthly AI allowance: $credits credits',
+    'Saldo mensual de IA: $credits créditos',
+  );
+
+  String creditPack(int credits) => _select(
+    '$credits credits · One-time purchase · Do not expire',
+    '$credits créditos · Compra única · No caducan',
+  );
+
+  String purchasedBalance(int credits) => _select(
+    'Purchased credits: $credits · Do not expire',
+    'Créditos comprados: $credits · No caducan',
+  );
+
+  String refundedCreditNotice(int credits) => _select(
+    '$credits refunded credits were already used. A new credit pack first replaces these credits. No automatic charge.',
+    'Ya usaste $credits créditos reembolsados. Un nuevo paquete repone primero esos créditos. No hay cargos automáticos.',
+  );
+
+  String get emptyCreditBalance => _select(
+    'Your AI credits are used up. Buy an optional pack or wait for the monthly refill. Tasks, goals, history and local planning remain available.',
+    'Agotaste tus créditos de IA. Compra un paquete opcional o espera la recarga mensual. Las tareas, metas, historial y planificación local siguen disponibles.',
   );
 
   String get billingTerms => _select(
@@ -457,7 +485,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .startSubscription(planId);
-      if (subscription.isActive) {
+      if (subscription.isActive && subscription.status != 'credits_added') {
         await ref
             .read(entitlementProvider.notifier)
             .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
@@ -544,7 +572,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .restorePurchases();
-      if (subscription.isActive) {
+      if (subscription.isActive && subscription.status != 'credits_added') {
         await ref
             .read(entitlementProvider.notifier)
             .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
@@ -842,9 +870,11 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                         if (!billingTest && plan.aiCreditsIncluded > 0) ...[
                           const SizedBox(height: 6),
                           Text(
-                            copy.creditsAfterVerification(
-                              plan.aiCreditsIncluded,
-                            ),
+                            plan.isCreditPack
+                                ? copy.creditPack(plan.aiCreditsIncluded)
+                                : copy.creditsAfterVerification(
+                                    plan.aiCreditsIncluded,
+                                  ),
                             style: const TextStyle(
                               color: AppColors.neonCyan,
                               fontSize: 12,
@@ -854,7 +884,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                         ],
                         const SizedBox(height: 6),
                         Text(
-                          copy.billingTerms,
+                          plan.isCreditPack
+                              ? 'Optional purchase. No automatic refill or recurring charge.'
+                              : copy.billingTerms,
                           style: const TextStyle(
                             color: Colors.white54,
                             fontSize: 12,
@@ -869,13 +901,15 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                                 onPressed:
                                     purchasingEnabled &&
                                         plan.isAvailable &&
-                                        !hasActiveSubscription
+                                        (!hasActiveSubscription ||
+                                            plan.isCreditPack)
                                     ? () => _unlock(plan.id)
                                     : null,
                                 child: Text(
                                   paywallTestingMode
                                       ? copy.simulateUnlock
-                                      : hasActiveSubscription
+                                      : hasActiveSubscription &&
+                                            !plan.isCreditPack
                                       ? copy.currentSubscriptionActive
                                       : copy.choosePlan,
                                 ),
@@ -1026,6 +1060,20 @@ class _HeroCard extends StatelessWidget {
             ),
           ),
           if (wallet case final AiCreditWallet safeWallet) ...[
+            Text(
+              copy.purchasedBalance(safeWallet.purchasedCredits),
+              style: const TextStyle(color: Colors.white70),
+            ),
+            if (safeWallet.refundedCreditDebt > 0)
+              Text(
+                copy.refundedCreditNotice(safeWallet.refundedCreditDebt),
+                style: const TextStyle(color: Colors.amber),
+              ),
+            if (safeWallet.isExhausted)
+              Text(
+                copy.emptyCreditBalance,
+                style: const TextStyle(color: Colors.white70),
+              ),
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
@@ -1065,14 +1113,8 @@ class _HeroCard extends StatelessWidget {
   }
 
   String _formatReset(DateTime resetAt) {
-    final Duration remaining = resetAt.difference(DateTime.now());
-    if (remaining.inHours <= 0) {
-      return copy.soon;
-    }
-    if (remaining.inDays > 0) {
-      return '${remaining.inDays}d';
-    }
-    return '${remaining.inHours}h';
+    final local = resetAt.toLocal();
+    return '${local.month}/${local.day}/${local.year}';
   }
 }
 

@@ -126,8 +126,8 @@ select results_eq(
   $$select balance, allowance_remaining, period_credits, tier
     from public.monetization_wallets
     where user_id = '83838383-8383-4383-8383-838383838383'$$,
-  $$values (360, 360, 360, 'premium_yearly'::text)$$,
-  'annual authority fills exactly the supported 360-credit allowance'
+  $$values (300, 300, 300, 'premium_yearly'::text)$$,
+  'annual authority fills exactly the supported 300-credit allowance'
 );
 select results_eq(
   $$select grant_cause, credits
@@ -136,8 +136,8 @@ select results_eq(
       select billing_principal_id from public.purchase_bindings
       where token_hash = repeat('3', 64)
     )$$,
-  $$values ('initial_activation'::text, 360)$$,
-  'annual activation records one causal 360-credit grant'
+  $$values ('initial_activation'::text, 300)$$,
+  'annual activation records one causal 300-credit grant'
 );
 
 select is(
@@ -915,7 +915,7 @@ select is(
       'source', 'google_play_rtdn', 'notificationType', 2
     )
   )->>'creditsGranted')::integer,
-  360,
+  300,
   'legitimate later renewal still refills the active annual successor'
 );
 select results_eq(
@@ -926,7 +926,7 @@ select results_eq(
       select billing_principal_id from public.purchase_bindings
       where token_hash = repeat('f', 64)
     )$$,
-  $$values (3, 360)$$,
+  $$values (3, 300)$$,
   'later renewal adds one causal grant and the annual allowance'
 );
 

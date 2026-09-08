@@ -1,6 +1,54 @@
 part of 'google_play_paywall_repository.dart';
 
 extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
+  Future<bool> _verifiedCreditTopupFromServer(
+    PurchaseDetails purchase, {
+    required String? expectedUserId,
+  }) async {
+    if (!_hasReceiptVerification ||
+        expectedUserId == null ||
+        !_isCurrentBillingAccount(expectedUserId)) {
+      return false;
+    }
+    final token = _supabaseClient?.auth.currentSession?.accessToken;
+    if (token == null) {
+      return false;
+    }
+    try {
+      final response = await _httpClient
+          .post(
+            parseSecureHttpsEndpoint(_receiptVerifyEndpoint)!,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'productId': purchase.productID,
+              'purchaseToken': purchase.verificationData.serverVerificationData,
+              'purchaseType': 'inapp',
+              if (_requireTestPurchase) 'requireTestPurchase': true,
+            }),
+          )
+          .timeout(_authorityRequestTimeout);
+      if (response.statusCode != 200 ||
+          !_isCurrentBillingAccount(expectedUserId)) {
+        return false;
+      }
+      final data = jsonDecode(response.body);
+      final expectedCredits = purchase.productID == 'chronospark_credits_100'
+          ? 100
+          : 300;
+      return data is Map &&
+          data['valid'] == true &&
+          data['consumed'] == true &&
+          data['productId'] == purchase.productID &&
+          data['creditsGranted'] == expectedCredits &&
+          (!_requireTestPurchase || data['testPurchase'] == true);
+    } on Object {
+      return false;
+    }
+  }
+
   String _purchaseOperationKey(String productId, String? userId) {
     return '${userId ?? '__unscoped__'}::$productId';
   }

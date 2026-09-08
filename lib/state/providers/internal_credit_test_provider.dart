@@ -42,10 +42,12 @@ class InternalCreditTestState {
     this.busy = false,
     this.message = 'Ready for a synthetic credit test.',
     this.lastRequest,
+    this.quotedRequest,
   });
   final bool busy;
   final String message;
   final Map<String, dynamic>? lastRequest;
+  final Map<String, dynamic>? quotedRequest;
 }
 
 final internalCreditTestProvider =
@@ -67,7 +69,11 @@ class InternalCreditTestController extends Notifier<InternalCreditTestState> {
     return const InternalCreditTestState();
   }
 
-  Future<void> run({bool twoCredits = false, bool replay = false}) async {
+  Future<void> run({
+    bool twoCredits = false,
+    bool replay = false,
+    bool confirm = false,
+  }) async {
     if (state.busy) return;
     if (!ref.read(internalCreditTestEnabledProvider) ||
         !ref.read(accountStorageScopeProvider).isWritable ||
@@ -77,14 +83,17 @@ class InternalCreditTestController extends Notifier<InternalCreditTestState> {
       );
       return;
     }
-    final previous = state.lastRequest;
-    if (replay && previous == null) return;
-    final body = replay
+    final previous = confirm ? state.quotedRequest : state.lastRequest;
+    if ((replay || confirm) && previous == null) {
+      return;
+    }
+    final body = replay || confirm
         ? previous!
         : <String, dynamic>{
             'prompt': twoCredits
                 ? 'This is a synthetic credit test with no personal information. In one short sentence, describe a useful way to arrange a fictional gardening tool shelf. Do not refer to any real person or app data.'
                 : 'In one short sentence, describe how to organize a fictional tool shelf.',
+            'maxTokens': 256,
             'history': const <Map<String, String>>[],
             'context': const <String, dynamic>{},
             'personality': 'planner',
@@ -96,17 +105,50 @@ class InternalCreditTestController extends Notifier<InternalCreditTestState> {
     final account = ref.read(accountStorageScopeProvider).v2Namespace;
     state = InternalCreditTestState(
       busy: true,
-      message: 'Waiting for the server result…',
+      message: 'Waiting for the server result...',
       lastRequest: Map.unmodifiable(body),
     );
     var message =
         'Result not confirmed. Refresh the balance, then retry the same request.';
     try {
+      if (!replay && !confirm) {
+        final reply = await ref.read(internalCreditTestTransportProvider)({
+          ...body,
+          'quoteOnly': true,
+        });
+        final quote = reply.data['quote'];
+        if (!ref.mounted ||
+            generation != _generation ||
+            account != ref.read(accountStorageScopeProvider).v2Namespace) {
+          return;
+        }
+        if (reply.status == 200 &&
+            quote is Map &&
+            quote['credits'] is int &&
+            (quote['credits'] as int) > 0 &&
+            (quote['credits'] as int) <= 100 &&
+            quote['proof'] is String) {
+          state = InternalCreditTestState(
+            message:
+                'This test will use ${quote['credits']} credits. Confirm to send it, or choose another quote. Quote expires in five minutes.',
+            quotedRequest: Map.unmodifiable({
+              ...body,
+              'quote': Map<String, dynamic>.from(quote),
+            }),
+          );
+        } else {
+          state = const InternalCreditTestState(
+            message:
+                'A credit quote could not be confirmed. No credits were spent.',
+          );
+        }
+        return;
+      }
       final reply = await ref.read(internalCreditTestTransportProvider)(body);
       final data = reply.data;
       final charged = data['creditsCharged'];
       final remaining = data['remainingCredits'];
-      final expectedCost = (body['prompt'] as String).length > 120 ? 2 : 1;
+      final expectedCost = (body['quote'] as Map?)?['credits'];
       if (reply.status == 200 &&
           data['requestId'] == body['requestId'] &&
           charged is num &&
@@ -119,6 +161,10 @@ class InternalCreditTestController extends Notifier<InternalCreditTestState> {
             'Server confirmed: ${charged.toInt()} credit(s) used. Balance: ${remaining.toInt()}.\n${data['message']}';
       } else if (reply.status == 402) {
         message = 'Insufficient credits. The server rejected this request.';
+      } else if (reply.status == 409 &&
+          data['error'] == 'credit_quote_required') {
+        message =
+            'The quote expired or changed. Request a new quote before confirming.';
       } else if (reply.status == 409 && data['error'] == 'request_completed') {
         message =
             'The server already completed this request. No second charge was made.';

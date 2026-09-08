@@ -256,14 +256,7 @@ void main() {
   ) async {
     await pumpPaywall(tester, config: _twoPlanConfig);
 
-    expect(
-      find.text('Credits after a verified purchase or paid renewal: 300'),
-      findsOneWidget,
-    );
-    expect(
-      find.text('Credits after a verified purchase or paid renewal: 360'),
-      findsOneWidget,
-    );
+    expect(find.text('Monthly AI allowance: 300 credits'), findsNWidgets(2));
     expect(find.textContaining('credits per month'), findsNothing);
     expect(
       find.textContaining(
@@ -299,12 +292,7 @@ void main() {
       );
       expect(find.text('Mensual'), findsOneWidget);
       expect(find.text('Anual'), findsOneWidget);
-      expect(
-        find.text(
-          'Créditos tras una compra verificada o una renovación pagada: 300',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Saldo mensual de IA: 300 créditos'), findsNWidgets(2));
       expect(
         find.text(
           'Google Play confirma la frecuencia de facturación y los términos de renovación antes de la compra.',
@@ -575,7 +563,7 @@ const PaywallEntity _twoPlanConfig = PaywallEntity(
       title: 'Annual',
       priceLabel: '399/yr',
       description: 'Test annual plan',
-      aiCreditsIncluded: 360,
+      aiCreditsIncluded: 300,
       benefits: <String>[
         'Increases external-assistant credit allowance to 360 credits per month',
       ],

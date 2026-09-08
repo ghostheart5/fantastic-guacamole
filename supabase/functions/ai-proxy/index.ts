@@ -1,7 +1,11 @@
+import {
+  createCreditQuote,
+  quotedCreditCost,
+  verifyCreditQuote,
+} from "../_shared/ai_credit_quote.ts";
 /// <reference lib="deno.ns" />
 
 import {
-  aiCreditCost,
   aiReservationFailureStatus,
   validatedAiRequestId,
 } from "../_shared/ai_billing.ts";
@@ -37,6 +41,8 @@ const ALLOWED_ORIGINS = new Set(
 );
 
 interface ProxyRequest {
+  quoteOnly?: boolean;
+  quote?: unknown;
   prompt?: string;
   message?: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
@@ -48,6 +54,7 @@ interface ProxyRequest {
 }
 
 interface ProxyResponse {
+  quote?: unknown;
   message?: string;
   model?: string;
   inputTokens?: number;
@@ -167,12 +174,49 @@ Deno.serve(async (req: Request) => {
       }, 400);
     }
 
-    const cost = aiCreditCost(prompt);
+    const recentHistory = history.slice(-6);
+    const messages = recentHistory.at(-1)?.role === "user" &&
+        recentHistory.at(-1)?.content === prompt
+      ? recentHistory
+      : [...recentHistory, { role: "user" as const, content: prompt }];
+    const upstreamBody: Record<string, unknown> = {
+      model: DEFAULT_MODEL,
+      max_tokens: maxTokens,
+      messages,
+    };
+    upstreamBody.system = system;
+    const cost = quotedCreditCost(upstreamBody);
+    if (body.quoteOnly === true) {
+      return jsonResponse(req, {
+        requestId,
+        quote: await createCreditQuote(
+          config.secretKey,
+          userId,
+          requestId,
+          upstreamBody,
+        ),
+      });
+    }
+    if (
+      !await verifyCreditQuote(
+        config.secretKey,
+        userId,
+        requestId,
+        upstreamBody,
+        body.quote,
+      )
+    ) {
+      return jsonResponse(
+        req,
+        { requestId, error: "credit_quote_required" },
+        409,
+      );
+    }
     const reserved = await serviceRpc(config, "reserve_ai_usage", {
       p_user_id: userId,
       p_request_key: requestId,
       p_credit_amount: cost,
-      p_prompt_hash: await sha256Hex(prompt),
+      p_prompt_hash: await sha256Hex(JSON.stringify(upstreamBody)),
     });
     if (!reserved) {
       return jsonResponse(req, {
@@ -206,17 +250,6 @@ Deno.serve(async (req: Request) => {
     }
     reservation = { userId, requestId };
 
-    const recentHistory = history.slice(-6);
-    const messages = recentHistory.at(-1)?.role === "user" &&
-        recentHistory.at(-1)?.content === prompt
-      ? recentHistory
-      : [...recentHistory, { role: "user" as const, content: prompt }];
-    const upstreamBody: Record<string, unknown> = {
-      model: DEFAULT_MODEL,
-      max_tokens: maxTokens,
-      messages,
-    };
-    upstreamBody.system = system;
     const upstream = await fetch(ANTHROPIC_API, {
       method: "POST",
       // Leave time to refund a reservation before the edge request expires.
@@ -240,8 +273,22 @@ Deno.serve(async (req: Request) => {
     const message = typeof data?.content?.[0]?.text === "string"
       ? data.content[0].text.trim()
       : "";
-    const inputTokens = Number(data?.usage?.input_tokens ?? 0);
-    const outputTokens = Number(data?.usage?.output_tokens ?? 0);
+    const inputTokens = data?.usage?.input_tokens;
+    const outputTokens = data?.usage?.output_tokens;
+    if (
+      !Number.isSafeInteger(inputTokens) || inputTokens <= 0 ||
+      !Number.isSafeInteger(outputTokens) || outputTokens < 0 ||
+      outputTokens > maxTokens
+    ) {
+      await settleReservation(userId, requestId, false, {
+        failureCode: "invalid_provider_usage",
+      });
+      reservation = null;
+      return jsonResponse(req, {
+        requestId,
+        error: "invalid_upstream_response",
+      }, 502);
+    }
     if (!message) {
       await settleReservation(userId, requestId, false, {
         inputTokens,

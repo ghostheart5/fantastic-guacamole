@@ -67,7 +67,12 @@ class PrepaidTestBillingClient implements BillingClient {
       (client) => client.queryProductDetails(
         productList: [
           for (final id in ids)
-            gp.ProductWrapper(productId: id, productType: gp.ProductType.subs),
+            gp.ProductWrapper(
+              productId: id,
+              productType: id.startsWith('chronospark_credits_')
+                  ? gp.ProductType.inapp
+                  : gp.ProductType.subs,
+            ),
         ],
       ),
     );
@@ -89,18 +94,22 @@ class PrepaidTestBillingClient implements BillingClient {
     await _ready;
     final product = purchaseParam.productDetails;
     if (product is! GooglePlayProductDetails ||
-        product.subscriptionIndex == null) {
+        (!product.id.startsWith('chronospark_credits_') &&
+            product.subscriptionIndex == null)) {
       throw StateError(
         'A verified Google Play subscription offer is required.',
       );
     }
-    final offer = product
-        .productDetails
-        .subscriptionOfferDetails![product.subscriptionIndex!];
+    final offerToken = product.id.startsWith('chronospark_credits_')
+        ? null
+        : product
+              .productDetails
+              .subscriptionOfferDetails![product.subscriptionIndex!]
+              .offerIdToken;
     final result = await _manager.runWithClientNonRetryable(
       (client) => client.launchBillingFlow(
         product: product.id,
-        offerToken: offer.offerIdToken,
+        offerToken: offerToken,
         accountId: purchaseParam.applicationUserName,
       ),
     );
@@ -121,9 +130,16 @@ class PrepaidTestBillingClient implements BillingClient {
         'Google Play purchase query failed: ${result.billingResult.responseCode.name}',
       );
     }
-    return result.purchasesList
-        .expand(GooglePlayPurchaseDetails.fromPurchase)
-        .toList();
+    final topups = await _manager.runWithClient(
+      (client) => client.queryPurchases(gp.ProductType.inapp),
+    );
+    if (topups.billingResult.responseCode != gp.BillingResponse.ok) {
+      throw StateError('Google Play credit purchase query failed.');
+    }
+    return [
+      ...result.purchasesList,
+      ...topups.purchasesList,
+    ].expand(GooglePlayPurchaseDetails.fromPurchase).toList();
   }
 
   @override

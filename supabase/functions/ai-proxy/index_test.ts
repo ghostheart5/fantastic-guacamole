@@ -38,6 +38,7 @@ for (
     let debits = 0;
     let refunds = 0;
     let providerCalls = 0;
+    let charged = 0;
     const json = (value: unknown) => Response.json(value);
     globalThis.fetch = ((url, init) => {
       const path = String(url);
@@ -51,7 +52,8 @@ for (
         if (state !== "new") {
           return Promise.resolve(json({ duplicate: true, state, balance }));
         }
-        balance--;
+        charged = JSON.parse(String(init?.body)).p_credit_amount;
+        balance -= charged;
         debits++;
         state = "reserved";
         return Promise.resolve(json({ allowed: true, balance }));
@@ -62,12 +64,12 @@ for (
           throw new Error("failure settled as success or out of sequence");
         }
         state = "refunded";
-        balance++;
+        balance += charged;
         refunds++;
         return Promise.resolve(json({ state, balance }));
       }
       if (path === "https://api.anthropic.com/v1/messages") {
-        if (state !== "reserved" || balance !== 19) {
+        if (state !== "reserved" || balance !== 20 - charged) {
           throw new Error("upstream invoked before reservation");
         }
         providerCalls++;
@@ -96,26 +98,32 @@ for (
       throw new Error("unexpected transport target");
     }) as typeof fetch;
     try {
-      const request = () =>
+      const input = {
+        requestId: `synthetic-provider-${failure}`,
+        prompt: "Arrange a fictional tool shelf.",
+        personality: "planner",
+        context: {},
+        allowExternalAi: true,
+      };
+      const request = (extra: Record<string, unknown>) =>
         new Request("https://local.example/ai-proxy", {
           method: "POST",
           headers: { authorization: "Bearer synthetic-session" },
-          body: JSON.stringify({
-            requestId: `synthetic-provider-${failure}`,
-            prompt: "Arrange a fictional tool shelf.",
-            personality: "planner",
-            context: {},
-            allowExternalAi: true,
-          }),
+          body: JSON.stringify({ ...input, ...extra }),
         });
-      const response = await handler(request());
+      const quoted = await handler(request({ quoteOnly: true }));
+      const { quote } = await quoted.json();
+      if (quoted.status !== 200 || debits || providerCalls || balance !== 20) {
+        throw new Error("quote spent credits or called provider");
+      }
+      const response = await handler(request({ quote }));
       const body = await response.text();
       if (response.status < 500 || body.includes("do-not-expose")) {
         throw new Error(
           `provider failure not safely reported: ${response.status} ${body}`,
         );
       }
-      const duplicate = await handler(request());
+      const duplicate = await handler(request({ quote }));
       await duplicate.body?.cancel();
       if (
         duplicate.status !== 409 || balance !== 20 || debits !== 1 ||

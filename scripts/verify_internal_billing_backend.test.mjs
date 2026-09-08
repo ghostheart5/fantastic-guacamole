@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { googleCredentialFingerprint, verifyCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
 
 function catalog() {
-  const products = [['monthly', 'P1M', '4'], ['annual', 'P1Y', '39']].map(([base, period, units]) => ({
+  const products = [['monthly', 'P1M', '7'], ['annual', 'P1Y', '69']].map(([base, period, units]) => ({
     packageName: 'com.ghostheart5.chronospark', productId: `chronospark_premium_${base}`,
     basePlans: [{ basePlanId: base, state: 'ACTIVE',
       autoRenewingBasePlanType: { billingPeriodDuration: period },
@@ -13,8 +13,8 @@ function catalog() {
   }));
   const rows = products.map((p, index) => ({
     id: index === 0 ? 'premium_monthly' : 'premium_yearly', product_id: p.productId,
-    currency_code: 'USD', price_micros: index === 0 ? 4990000 : 39990000,
-    credits_per_period: index === 0 ? 300 : 360, is_active: true,
+    currency_code: 'USD', price_micros: index === 0 ? 7990000 : 69990000,
+    credits_per_period: 300, is_active: true,
   }));
   return { products, rows };
 }

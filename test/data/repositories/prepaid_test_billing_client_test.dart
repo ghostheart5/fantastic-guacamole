@@ -200,7 +200,15 @@ class _NativeClient extends gp.BillingClient {
   @override
   Future<gp.PurchasesResultWrapper> queryPurchases(
     gp.ProductType productType,
-  ) async => queryResult;
+  ) async => productType == gp.ProductType.subs
+      ? queryResult
+      : const gp.PurchasesResultWrapper(
+          responseCode: gp.BillingResponse.ok,
+          billingResult: gp.BillingResultWrapper(
+            responseCode: gp.BillingResponse.ok,
+          ),
+          purchasesList: [],
+        );
   @override
   Future<gp.BillingResultWrapper> acknowledgePurchase(
     String purchaseToken,

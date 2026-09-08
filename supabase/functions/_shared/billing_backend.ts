@@ -51,9 +51,10 @@ export async function serviceRpc(
   config: BillingBackendConfig,
   name: string,
   body: JsonObject,
+  fetcher: typeof fetch = fetch,
 ): Promise<JsonObject | null> {
   if (!config.supabaseUrl || !config.secretKey) return null;
-  const response = await fetch(
+  const response = await fetcher(
     `${config.supabaseUrl}/rest/v1/rpc/${encodeURIComponent(name)}`,
     {
       method: "POST",

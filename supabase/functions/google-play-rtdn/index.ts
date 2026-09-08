@@ -1,4 +1,5 @@
 /// <reference lib="deno.ns" />
+import { CREDIT_TOPUPS, verifyCreditTopup } from "../_shared/credit_topups.ts";
 
 import { respondToGooglePlayRefundReview } from "../_shared/google_play_refund_review.ts";
 
@@ -392,6 +393,15 @@ async function processVoided(
     ? voided.purchaseToken
     : "";
   if (!purchaseToken || purchaseToken.length > 4096) return false;
+  if (voided.productType === 2) {
+    const result = await serviceRpc("revoke_verified_credit_topup", {
+      p_token_hash: await sha256Hex(purchaseToken),
+      p_product_id: null,
+      p_order_id: typeof voided.orderId === "string" ? voided.orderId : null,
+    });
+    // A trusted voided token can be tombstoned before its product is known.
+    return result?.handled === true;
+  }
   const result = await serviceRpc("reconcile_google_play_voided_purchase", {
     p_purchase_token_hash: await sha256Hex(purchaseToken),
     p_provider_event_time: eventTime.toISOString(),
@@ -453,6 +463,8 @@ Deno.serve(async (req: Request) => {
     }
     const eventType = notification.subscriptionNotification
       ? "subscription"
+      : notification.oneTimeProductNotification
+      ? "one_time_product"
       : notification.voidedPurchaseNotification
       ? "voided_purchase"
       : notification.pendingRefundReviewNotification
@@ -473,6 +485,70 @@ Deno.serve(async (req: Request) => {
       });
     }
     eventClaimed = true;
+
+    if (eventType === "one_time_product") {
+      const event = notification.oneTimeProductNotification as Record<
+        string,
+        unknown
+      >;
+      const sku = String(event.sku ?? ""),
+        token = String(event.purchaseToken ?? "");
+      if (
+        !CREDIT_TOPUPS.has(sku) || !token || token.length > 4096 ||
+        ![1, 2].includes(Number(event.notificationType))
+      ) {
+        throw new Error("invalid_credit_notification");
+      }
+      const accessToken = await getGoogleAccessToken(serviceAccount);
+      const url =
+        `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
+          encodeURIComponent(ANDROID_PACKAGE_NAME)
+        }/purchases/products/${encodeURIComponent(sku)}/tokens/${
+          encodeURIComponent(token)
+        }`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) {
+        await response.body?.cancel();
+        throw new Error("credit_provider_retry");
+      }
+      const purchase = await response.json() as Record<string, unknown>;
+      if (purchase.purchaseState === 1) {
+        const revoked = await serviceRpc("revoke_verified_credit_topup", {
+          p_token_hash: await sha256Hex(token),
+          p_product_id: sku,
+          p_order_id: purchase.orderId ?? null,
+        });
+        if (revoked?.handled !== true) throw new Error("credit_revoke_retry");
+      } else if (purchase.purchaseState === 0) {
+        const owner = await serviceRpc("credit_topup_owner", {
+          p_fingerprint: purchase.obfuscatedExternalAccountId ?? "",
+        });
+        if (typeof owner?.userId !== "string") {
+          throw new Error("credit_owner_unresolved");
+        }
+        const result = await verifyCreditTopup({
+          config: {
+            supabaseUrl: SUPABASE_URL,
+            publishableKey: "",
+            secretKey: SUPABASE_SECRET_KEY,
+          },
+          userId: owner.userId,
+          packageName: ANDROID_PACKAGE_NAME,
+          productId: sku,
+          token,
+          accessToken,
+          requireTest: true,
+        });
+        if (result.valid !== true) throw new Error("credit_grant_retry");
+      } else if (purchase.purchaseState !== 2) {
+        throw new Error("credit_state_invalid");
+      }
+      await updateEvent(messageId, { state: "processed", failure_code: null });
+      return new Response(null, { status: 204 });
+    }
 
     if (eventType === "pending_refund_review") {
       await respondToGooglePlayRefundReview(
