@@ -104,6 +104,7 @@ class _PendingRestore {
   }
 
   final String? userId;
+  final Set<String> observedProductIds = <String>{};
   final Completer<SubscriptionState> completer = Completer<SubscriptionState>();
 }
 
@@ -646,6 +647,21 @@ class GooglePlayPaywallRepository
         // without guessing at a device-dependent delay.
         await Future<void>.delayed(Duration.zero);
       }
+      if (_isCurrentBillingAccount(expectedUserId)) {
+        // Google's successful inventory includes pending INAPP purchases.
+        // A consumed pack is absent even while a subscription remains active.
+        // Clear only this account's absent pack guard, never a live purchase.
+        for (final entry in _kProductIds.entries) {
+          if (!entry.key.startsWith('credits_')) continue;
+          final operation = _purchaseOperationKey(entry.value, expectedUserId);
+          if (!pastPurchases.any((p) => p.productID == entry.value) &&
+              !pending.observedProductIds.contains(entry.value) &&
+              !_purchaseStarts.containsKey(operation)) {
+            await _clearPendingOwner(entry.value, expectedUserId);
+            _approvalPending.remove(operation);
+          }
+        }
+      }
       if (pending.completer.isCompleted) {
         return await pending.completer.future;
       }
@@ -1008,6 +1024,9 @@ class GooglePlayPaywallRepository
   }
 
   Future<void> _enqueuePurchaseUpdate(List<PurchaseDetails> purchases) {
+    _pendingRestore?.observedProductIds.addAll(
+      purchases.map((purchase) => purchase.productID),
+    );
     final Future<void> queued = _purchaseUpdateQueue
         .catchError((Object _) {})
         .then((_) => _onPurchaseUpdate(purchases));

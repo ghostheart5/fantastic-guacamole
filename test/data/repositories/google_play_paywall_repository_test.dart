@@ -22,6 +22,80 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  for (final pendingInPlay in [false, true]) {
+    test(
+      'restore clears only absent pack guards with active premium ($pendingInPlay)',
+      () async {
+        final client = await _authorityClient(
+          (request) async => http.Response(
+            jsonEncode([
+              {
+                'user_id': 'user-1',
+                'plan_id': 'premium_monthly',
+                'product_id': 'chronospark_premium_monthly',
+                'status': 'active',
+                'is_active': true,
+                'expires_at': DateTime.now()
+                    .toUtc()
+                    .add(const Duration(days: 30))
+                    .toIso8601String(),
+                'updated_at': DateTime.now().toUtc().toIso8601String(),
+              },
+            ]),
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        );
+        final store = SecureStore(backend: InMemorySecureStoreBackend());
+        const key = 'paywall_pending_purchase_owner_v1.chronospark_credits_100';
+        final owner = sha256.convert(utf8.encode('user-1')).toString();
+        await store.writeString(key, owner);
+        final controller = StreamController<List<PurchaseDetails>>.broadcast();
+        final billing = _FakeBillingClient(
+          productResponse: ProductDetailsResponse(
+            productDetails: [],
+            notFoundIDs: [],
+          ),
+          purchaseStreamController: controller,
+          onRestorePurchases: () async {
+            if (pendingInPlay) {
+              controller.add([
+                PurchaseDetails(
+                  purchaseID: 'pending-pack',
+                  productID: 'chronospark_credits_100',
+                  verificationData: PurchaseVerificationData(
+                    localVerificationData: '',
+                    serverVerificationData: 'pending-token',
+                    source: 'google_play',
+                  ),
+                  transactionDate: '1',
+                  status: PurchaseStatus.pending,
+                ),
+              ]);
+              await Future<void>.delayed(Duration.zero);
+            }
+          },
+        );
+        final repository = GooglePlayPaywallRepository(
+          billingClient: billing,
+          paywallTestingModeOverride: false,
+          supabaseClient: client,
+          secureStore: store,
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+        );
+        final result = await repository.restorePurchases();
+        expect(await store.readString(key), pendingInPlay ? owner : isNull);
+        expect(
+          result.status,
+          pendingInPlay ? 'purchase_pending' : 'restored_active',
+        );
+        repository.dispose();
+        await controller.close();
+        await client.dispose();
+      },
+    );
+  }
+
   for (final consumed in [false, true]) {
     test(
       'credit pack requires server consumption and never unlocks premium ($consumed)',
