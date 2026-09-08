@@ -59,3 +59,19 @@ Reference checked September 8, 2026: [Google Play preview-asset requirements](ht
 6. Recapture and visually review the final screenshot set from that verified build. Preserve this level-20 profile when arranging another fresh progression endurance run.
 
 No claim of an error-free future endurance run is made from host tests or the old installed build.
+
+## Authorized signed rebuild completed
+
+On September 8, 2026, the repairs and version increment were committed and pushed as `162a852620f05f85ac7580ed945605cab3b9fe67`. [Exact-source CI 34249838972](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/34249838972) passed every required job: 2,586 Linux Flutter unit/widget tests, 15 configuration tests, 41 Windows screen/golden tests, 16 Windows Maestro launcher contract tests, eight Linux app-root integration tests, static checks and the coverage gate. The earlier local Windows full-suite count was 2,587; these are separate recorded runs.
+
+[Signed build 34251400563](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/34251400563) succeeded using the existing reviewed workflow tooling `b6a05bad6a8646e022b0ffbb06720070e3bca0f8`. The AAB is `4.1.0+2026083019`, package `com.ghostheart5.chronospark`, target SDK 36. It retains the two-account internal billing policy; mock login, mock mode, tester-full-access and paywall bypass remain disabled. The build's live billing configuration preflight passed. This preflight is not a new device purchase-lifecycle test.
+
+Downloaded deliverable: `artifacts/releases/4.1.0-2026083019-internal-billing-verified/app-release.aab`, 77,868,975 bytes. SHA-256: `f9c6fae3472474696b72e0edae54621f6601c93020c3d9f84d0e07dfbb904652`.
+
+Independent local checks passed: download checksum against the build receipt; `jarsigner` verification; existing upload signer SHA-256 `D88ECFC61A95B58B533E3896378A2D70894D6EF274D8C56C9F90A77C544E8D79`; checksum-pinned bundletool validation; compiled manifest identity and Billing permission; 16 KB bundle alignment and all eight 64-bit native library load alignments. `local-verification.json`, `candidate.json`, the mapping file, manifest, signature output and CI manifests are retained beside the AAB. Native debug symbol completeness is not established by this artifact.
+
+Listing assets and the current [graphics requirements](../../public-surface/google-play/GRAPHICS_REQUIREMENTS_20260908.md) were committed and pushed separately as `21cbbccd`. Those four changed paths contain no app/build-source changes. The opaque feature graphic and existing icon are prepared locally; the eight actual level-20 phone captures remain explicitly labelled build-3018 previews.
+
+No Play upload, rollout or device installation was performed in this rebuild phase. The controlled Console tab timed out, so current Console version availability and device-category slots were not independently read back. Update the preserved Moto profile through the existing internal track, verify the eight repairs on build 3019, then capture the final phone set and applicable tablet layouts.
+
+Status: **conditionally ready for the existing Google Play internal-testing upload and repaired-device validation**.
