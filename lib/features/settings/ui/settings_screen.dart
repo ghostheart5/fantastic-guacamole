@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
@@ -227,7 +228,7 @@ class SettingsScreen extends ConsumerWidget {
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
     final walletAsync = ref.watch(aiCreditWalletProvider);
-    final bool usesAiCredits = Env.isAiProxyConfigured;
+    final bool usesAiCredits = ref.watch(aiProxyAvailableProvider);
     final String creditLabel = usesAiCredits ? 'AI credits' : 'Smart credits';
     final String creditValue = walletAsync.when(
       data: (wallet) => '${wallet.balance} of ${wallet.allowance} available',

@@ -409,7 +409,13 @@ class _PersonalizationSection extends ConsumerWidget {
             onChanged: (bool value) =>
                 _save(context, ref, profile.copyWith(useMemoryContext: value)),
           ),
-          if (Env.externalAiEnabled)
+          if (ref.watch(internalCreditTestEnabledProvider))
+            const _NeonStatusTile(
+              title: 'Internal AI credit testing',
+              subtitle:
+                  'When enabled, chat messages and selected context are sent to Anthropic through ChronoSpark. Successful replies use server credits. Local guidance is free. Use test content; provider retention and safety policies apply.',
+            ),
+          if (ref.watch(externalAiAvailableProvider))
             _NeonToggleTile(
               title: 'Allow external AI assistance',
               value: profile.externalAiAllowed,

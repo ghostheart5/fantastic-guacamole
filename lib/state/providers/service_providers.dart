@@ -9,6 +9,8 @@ import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
+import 'package:fantastic_guacamole/data/services/ai/agents/chat_agent.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -33,7 +35,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 final agentOrchestratorProvider = Provider<AgentOrchestrator>(
-  (Ref ref) => const AgentOrchestrator(),
+  (Ref ref) => AgentOrchestrator(
+    chatAgent: ChatAgent(
+      externalAiEnabled: ref.watch(externalAiAvailableProvider),
+    ),
+  ),
 );
 
 final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {

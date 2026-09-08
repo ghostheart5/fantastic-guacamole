@@ -32,7 +32,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final creditServiceProvider = Provider<CreditService>((ref) {
   return CreditService(
-    spendingEnabled: Env.creditSpendingEnabled,
+    spendingEnabled:
+        ref.watch(creditSpendingAvailableProvider) && !Env.isProduction,
     prefs: AccountScopedSharedPrefsStore(
       delegate: ref.read(sharedPrefsStoreProvider),
       scope: ref.watch(accountStorageScopeProvider),
@@ -42,7 +43,7 @@ final creditServiceProvider = Provider<CreditService>((ref) {
 });
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
-  if (!Env.creditSpendingEnabled) {
+  if (!ref.watch(creditSpendingAvailableProvider)) {
     final DateTime now = DateTime.now();
     return AiCreditWallet(
       balance: 0,
@@ -60,7 +61,7 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
     entitlementProvider.future,
   );
   final bool premium = testerAccess || entitlement.isPremium;
-  if (Env.isProduction && Env.isAiProxyConfigured) {
+  if (Env.isProduction && ref.watch(aiProxyAvailableProvider)) {
     final client = ref.watch(supabaseClientProvider);
     if (client?.auth.currentUser == null) {
       throw StateError('An authenticated session is required for AI credits.');
@@ -174,11 +175,13 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
   final List<PaywallPlan> plans = await plansUseCase.call();
   final SubscriptionState subscription = await subscriptionFuture;
   if (billingTest) {
+    final creditsEnabled = ref.watch(internalCreditTestEnabledProvider);
     return PaywallEntity(
       featureId: 'premium',
       title: 'Google Play billing test',
       body:
-          'Test purchases, renewals, cancellation and restoration. Select a Google Play test payment method; cancel if a real payment method appears. AI and credit spending are unavailable in this build.',
+          'Test purchases, renewals, cancellation and restoration. Select a Google Play test payment method; cancel if a real payment method appears. '
+          '${creditsEnabled ? 'External AI uses server-verified credits only after you enable it in Settings.' : 'AI and credit spending are unavailable in this build.'}',
       plans: plans
           .map(
             (plan) => PaywallPlan(

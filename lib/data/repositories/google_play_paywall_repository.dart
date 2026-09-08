@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
+import 'package:fantastic_guacamole/data/services/google_play_offer_selection.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
@@ -17,19 +18,27 @@ import 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.
 import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart' as gp;
+// Flutter's pinned Android plugin exposes the reconnect operation but does not
+// export its parameter type from its public barrel.
+// ignore: implementation_imports
+import 'package:in_app_purchase_android/src/billing_client_wrappers/pending_purchases_params_wrapper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 part 'google_play_paywall_repository.transactions.dart';
 part 'google_play_paywall_repository.persistence.dart';
+part 'google_play_paywall_repository.prepaid_client.dart';
 
 const Map<String, String> _kProductIds = <String, String>{
   'monthly': 'chronospark_premium_monthly',
   'annual': 'chronospark_premium_annual',
+  'monthly_prepaid_test': 'chronospark_premium_monthly',
 };
 const Map<String, String> _kServerPlanIds = <String, String>{
   'monthly': 'premium_monthly',
   'annual': 'premium_yearly',
+  'monthly_prepaid_test': 'premium_monthly',
 };
 const String _kPrefsKey = 'paywall_subscription_state_v1';
 const String _kLegacyEntitlementOwnerKey = 'entitlement_owner_user_id_v1';
@@ -163,7 +172,11 @@ class GooglePlayPaywallRepository
     SecureStore? secureStore,
     sb.SupabaseClient? supabaseClient,
     Duration authorityRequestTimeout = _kAuthorityRequestTimeout,
-  }) : _billingClient = billingClient ?? InAppPurchaseBillingClient(),
+  }) : _billingClient =
+           billingClient ??
+           (requireTestPurchase
+               ? PrepaidTestBillingClient.shared
+               : InAppPurchaseBillingClient()),
        _sharedPreferencesLoader =
            sharedPreferencesLoader ?? SharedPreferences.getInstance,
        _httpClient = httpClient ?? http.Client(),
@@ -243,8 +256,8 @@ class GooglePlayPaywallRepository
     return parseSecureHttpsEndpoint(_receiptVerifyEndpoint) != null;
   }
 
-  static const List<PaywallPlan> _plans = <PaywallPlan>[
-    PaywallPlan(
+  List<PaywallPlan> get _plans => <PaywallPlan>[
+    const PaywallPlan(
       id: 'monthly',
       title: 'Monthly plan',
       priceLabel: 'Price unavailable',
@@ -255,7 +268,7 @@ class GooglePlayPaywallRepository
       ],
       isAvailable: false,
     ),
-    PaywallPlan(
+    const PaywallPlan(
       id: 'annual',
       title: 'Annual plan',
       priceLabel: 'Price unavailable',
@@ -266,7 +279,32 @@ class GooglePlayPaywallRepository
       ],
       isAvailable: false,
     ),
+    if (_requireTestPurchase)
+      const PaywallPlan(
+        id: 'monthly_prepaid_test',
+        title: 'Prepaid payment test',
+        priceLabel: 'Price unavailable',
+        description:
+            'One month without automatic renewal. For delayed test payments.',
+        isAvailable: false,
+      ),
   ];
+
+  ProductDetails? _selectProduct(
+    Iterable<ProductDetails> products,
+    String planId,
+  ) {
+    final prepaid = planId == 'monthly_prepaid_test';
+    if (prepaid && !_requireTestPurchase) return null;
+    final productId = _kProductIds[planId];
+    if (productId == null) return null;
+    return selectGooglePlayBasePlan(
+      products,
+      productId: productId,
+      basePlanId: prepaid ? 'monthly-prepaid-test' : planId,
+      requireAndroidDetails: prepaid,
+    );
+  }
 
   @override
   Future<List<PaywallPlan>> getAvailablePlans() async {
@@ -314,14 +352,10 @@ class GooglePlayPaywallRepository
 
       return _plans
           .map((PaywallPlan plan) {
-            final String? gpId = _kProductIds[plan.id];
-            ProductDetails? detail;
-            for (final ProductDetails candidate in response.productDetails) {
-              if (candidate.id == gpId) {
-                detail = candidate;
-                break;
-              }
-            }
+            final ProductDetails? detail = _selectProduct(
+              response.productDetails,
+              plan.id,
+            );
             return PaywallPlan(
               id: plan.id,
               title: plan.title,
@@ -387,6 +421,9 @@ class GooglePlayPaywallRepository
   @override
   Future<SubscriptionState> startSubscription(String planId) async {
     await _initialization;
+    if (planId == 'monthly_prepaid_test' && !_requireTestPurchase) {
+      throw ArgumentError('Unknown plan: $planId');
+    }
     if (_paywallTestingMode) {
       _state = SubscriptionState(
         isActive: true,
@@ -464,7 +501,11 @@ class GooglePlayPaywallRepository
   }) async {
     final ProductDetailsResponse response = await _billingClient
         .queryProductDetails(<String>{productId});
-    if (response.productDetails.isEmpty) {
+    final ProductDetails? selectedProduct = _selectProduct(
+      response.productDetails,
+      planId,
+    );
+    if (selectedProduct == null) {
       throw StateError('Product $productId not found in Google Play.');
     }
     if (!_isCurrentBillingAccount(expectedUserId)) {
@@ -480,7 +521,7 @@ class GooglePlayPaywallRepository
     await _rememberPendingOwner(productId, expectedUserId);
 
     final PurchaseParam param = PurchaseParam(
-      productDetails: response.productDetails.first,
+      productDetails: selectedProduct,
       applicationUserName: _billingAccountFingerprint(expectedUserId),
     );
     late final bool purchaseStarted;
