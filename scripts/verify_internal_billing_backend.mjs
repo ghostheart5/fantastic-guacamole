@@ -165,7 +165,7 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   verifyCatalog(products, databasePlans);
   const creditProducts = [];
   for (const pack of CREDIT_PACKS) {
-    creditProducts.push(await json(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE}/onetimeproducts/${pack.product}`, {
+    creditProducts.push(await json(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE}/oneTimeProducts/${pack.product}`, {
       headers: { Authorization: `Bearer ${publisher}` },
     }));
   }
