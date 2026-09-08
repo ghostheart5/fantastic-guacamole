@@ -1,5 +1,7 @@
 # Internal 3018 final validation
 
+Follow-up: the pending-refund-review implementation and expanded provider-failure tests are completed in the [billing follow-up report](BILLING_REVIEW_AND_PROVIDER_FAILURE_COMPLETION_20260908.md). The historical observations below retain their original build and evidence boundaries.
+
 Status: the scoped automated suites, internal release/update, pending-payment instruments, credit-spending checks, and final Moto acceptance passed. Evidence limits below remain explicit; monkey and level-20 testing are excluded.
 
 ## Release identity
