@@ -1,5 +1,7 @@
 /// <reference lib="deno.ns" />
 
+import { respondToGooglePlayRefundReview } from "../_shared/google_play_refund_review.ts";
+
 import {
   getGoogleAccessToken,
   type GoogleServiceAccount,
@@ -453,6 +455,8 @@ Deno.serve(async (req: Request) => {
       ? "subscription"
       : notification.voidedPurchaseNotification
       ? "voided_purchase"
+      : notification.pendingRefundReviewNotification
+      ? "pending_refund_review"
       : notification.testNotification
       ? "test"
       : "unsupported";
@@ -469,6 +473,26 @@ Deno.serve(async (req: Request) => {
       });
     }
     eventClaimed = true;
+
+    if (eventType === "pending_refund_review") {
+      await respondToGooglePlayRefundReview(
+        notification,
+        ANDROID_PACKAGE_NAME,
+        await getGoogleAccessToken(serviceAccount),
+      );
+      await updateEvent(messageId, {
+        state: "processed",
+        failure_code: null,
+        payload: {
+          source: "google_play_rtdn",
+          reviewResponse: "accepted",
+          refundPreference: "NEUTRAL",
+          sampleContentProvided: true,
+          consumptionEvidence: "omitted_not_order_attributable",
+        },
+      });
+      return new Response(null, { status: 204 });
+    }
 
     if (eventType === "unsupported") {
       await updateEvent(messageId, {
