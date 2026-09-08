@@ -19,7 +19,16 @@ try {
 }
 
 for (
-  const failure of [401, 429, 500, 503, "network", "json", "empty"] as const
+  const failure of [
+    401,
+    429,
+    500,
+    503,
+    "network",
+    "timeout",
+    "json",
+    "empty",
+  ] as const
 ) {
   Deno.test(`AI handler refunds once after provider ${failure} and refuses duplicate debit`, async () => {
     if (!handler) throw new Error("handler was not registered");
@@ -64,6 +73,15 @@ for (
         providerCalls++;
         if (failure === "network") {
           return Promise.reject(new TypeError("synthetic network failure"));
+        }
+        if (failure === "timeout") {
+          const signal = init?.signal;
+          if (!signal) throw new Error("upstream timeout is missing");
+          return new Promise<Response>((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(signal.reason), {
+              once: true,
+            });
+          });
         }
         if (failure === "json") {
           return Promise.resolve(new Response("invalid JSON"));

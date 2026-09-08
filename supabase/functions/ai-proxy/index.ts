@@ -219,6 +219,8 @@ Deno.serve(async (req: Request) => {
     upstreamBody.system = system;
     const upstream = await fetch(ANTHROPIC_API, {
       method: "POST",
+      // Leave time to refund a reservation before the edge request expires.
+      signal: AbortSignal.timeout(25_000),
       headers: {
         "Content-Type": "application/json",
         "x-api-key": ANTHROPIC_API_KEY,
@@ -294,14 +296,17 @@ Deno.serve(async (req: Request) => {
     }
     reservation = null;
     return jsonResponse(req, responsePayload);
-  } catch {
+  } catch (error) {
     if (reservation) {
       await settleReservation(
         reservation.userId,
         reservation.requestId,
         false,
         {
-          failureCode: "unhandled_proxy_failure",
+          failureCode: error instanceof DOMException &&
+              error.name === "TimeoutError"
+            ? "provider_timeout"
+            : "unhandled_proxy_failure",
         },
       );
     }
