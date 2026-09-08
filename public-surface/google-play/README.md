@@ -2,6 +2,8 @@
 
 This directory stages launch-facing Google Play copy and graphics without changing the app, release candidate, or Play Console.
 
+For current graphic dimensions, prepared level-20 previews and remaining device captures, use [September 8 graphics preparation](GRAPHICS_REQUIREMENTS_20260908.md). The source boundary, Console inventory and release-scope text below describe the earlier August staging package and must not be read as current billing or installed-build evidence.
+
 ## Exact source boundary
 
 - Package: `com.ghostheart5.chronospark`
