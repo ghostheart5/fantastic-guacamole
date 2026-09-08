@@ -17,9 +17,7 @@ class PrepaidTestBillingClient implements BillingClient {
 
   Future<void> _configure() async {
     await _manager.runWithClientNonRetryable((_) async {});
-    await _manager.reconnectWithPendingPurchasesParams(
-      const PendingPurchasesParamsWrapper(enablePrepaidPlans: true),
-    );
+    await enableGooglePlayPrepaidPending(_manager);
   }
 
   static IAPError _error(gp.BillingResultWrapper result) => IAPError(

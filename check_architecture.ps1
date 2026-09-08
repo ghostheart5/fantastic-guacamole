@@ -387,6 +387,14 @@ $importScanRoots = @(
   (Join-Path $root 'tool')
 )
 
+# Flutter Android billing 0.5.2 omits the public reconnect parameter export.
+# One isolated compatibility import is permitted; dependency upgrades require
+# reviewing/removing this exception, not silently widening private API access.
+$pendingCompatFile = 'lib/data/services/google_play_pending_compat.dart'
+$pendingCompatImport = 'package:in_app_purchase_android/src/billing_client_wrappers/pending_purchases_params_wrapper.dart'
+$lockText = Get-Content -LiteralPath (Join-Path $root 'pubspec.lock') -Raw
+$pendingCompatVersionPinned = $lockText -match '(?ms)^  in_app_purchase_android:\r?\n(?:(?!^  [a-zA-Z_]).)*?^    version: "0\.5\.2"\r?$'
+
 $allDartFiles = @()
 foreach ($scanRoot in $importScanRoots) {
   if (Test-Path $scanRoot) {
@@ -399,7 +407,10 @@ foreach ($file in $allDartFiles) {
 
   foreach ($dartImport in $dartImports) {
     if ($dartImport.Uri -match '^package:[^/]+/src/') {
-      $violations.Add("${relativePath}:$($dartImport.LineNumber) -> importing package private src/ is not allowed") | Out-Null
+      $isPendingCompat = $relativePath -eq $pendingCompatFile -and $dartImport.Uri -eq $pendingCompatImport -and $pendingCompatVersionPinned
+      if (-not $isPendingCompat) {
+        $violations.Add("${relativePath}:$($dartImport.LineNumber) -> importing package private src/ is not allowed") | Out-Null
+      }
     }
 
     $isTestFile = $relativePath.StartsWith('test/') -or $relativePath.StartsWith('integration_test/')

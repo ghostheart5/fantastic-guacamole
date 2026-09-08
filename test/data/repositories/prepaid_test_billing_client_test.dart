@@ -1,10 +1,9 @@
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
+import 'package:fantastic_guacamole/data/services/google_play_pending_compat.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart' as gp;
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
-// ignore: implementation_imports
-import 'package:in_app_purchase_android/src/billing_client_wrappers/pending_purchases_params_wrapper.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -188,7 +187,7 @@ class _NativeClient extends gp.BillingClient {
     required gp.OnBillingServiceDisconnected onBillingServiceDisconnected,
     gp.BillingChoiceMode billingChoiceMode =
         gp.BillingChoiceMode.playBillingOnly,
-    PendingPurchasesParamsWrapper? pendingPurchasesParams,
+    GooglePlayPendingParams? pendingPurchasesParams,
   }) async {
     prepaidConfigurations.add(
       pendingPurchasesParams?.enablePrepaidPlans ?? false,
