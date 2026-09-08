@@ -164,7 +164,7 @@ void main() {
         );
         await tester.pump();
         await tester.pump();
-      unawaited(harness.router.replace<void>(RoutePaths.settings));
+        unawaited(harness.router.replace<void>(RoutePaths.settings));
         await tester.pump();
         await tester.pump();
         expect(find.byType(SettingsScreen), findsOneWidget);
