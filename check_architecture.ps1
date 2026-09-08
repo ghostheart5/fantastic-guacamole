@@ -392,7 +392,8 @@ $importScanRoots = @(
 # reviewing/removing this exception, not silently widening private API access.
 $pendingCompatFile = 'lib/data/services/google_play_pending_compat.dart'
 $pendingCompatImport = 'package:in_app_purchase_android/src/billing_client_wrappers/pending_purchases_params_wrapper.dart'
-$lockText = Get-Content -LiteralPath (Join-Path $root 'pubspec.lock') -Raw
+$compatLockPath = Join-Path $root 'pubspec.lock'
+$lockText = if (Test-Path -LiteralPath $compatLockPath) { Get-Content -LiteralPath $compatLockPath -Raw } else { '' }
 $pendingCompatVersionPinned = $lockText -match '(?ms)^  in_app_purchase_android:\r?\n(?:(?!^  [a-zA-Z_]).)*?^    version: "0\.5\.2"\r?$'
 
 $allDartFiles = @()

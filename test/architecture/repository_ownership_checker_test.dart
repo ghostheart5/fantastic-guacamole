@@ -4,6 +4,62 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'prepaid compatibility exception is limited to its file type and version',
+    () async {
+      const path = 'lib/data/services/google_play_pending_compat.dart';
+      const uri =
+          'package:in_app_purchase_android/src/billing_client_wrappers/pending_purchases_params_wrapper.dart';
+      for (final scenario in [
+        (path: path, uri: uri, version: '0.5.2', allowed: true),
+        (path: path, uri: uri, version: '0.5.3', allowed: false),
+        (path: path, uri: uri, version: '', allowed: false),
+        (
+          path: 'lib/data/services/another.dart',
+          uri: uri,
+          version: '0.5.2',
+          allowed: false,
+        ),
+        (
+          path: path,
+          uri: 'package:in_app_purchase_android/src/messages.g.dart',
+          version: '0.5.2',
+          allowed: false,
+        ),
+      ]) {
+        final root = await _createSourceFixture(
+          scenario.path,
+          "import '${scenario.uri}';\n",
+        );
+        try {
+          if (scenario.version.isNotEmpty) {
+            await File('${root.path}/pubspec.lock').writeAsString(
+              'packages:\n  in_app_purchase_android:\n    dependency: transitive\n    version: "${scenario.version}"\n',
+            );
+          }
+          final result = await _runArchitectureChecker(root: root.path);
+          final output = _combinedOutput(result);
+          expect(output, contains('Scanned 1 Dart files.'));
+          // Minimal fixtures intentionally omit unrelated required app files.
+          expect(
+            output.contains('importing package private src/ is not allowed'),
+            !scenario.allowed,
+            reason: output,
+          );
+          if (!scenario.allowed) {
+            expect(
+              _combinedOutput(result),
+              contains('importing package private src/ is not allowed'),
+            );
+          }
+        } finally {
+          await root.delete(recursive: true);
+        }
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test(
     'architecture checker scans the current repository and passes',
     () async {
       final ProcessResult result = await _runArchitectureChecker();

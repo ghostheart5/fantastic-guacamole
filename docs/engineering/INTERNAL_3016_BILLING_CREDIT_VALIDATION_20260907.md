@@ -17,6 +17,10 @@ The final focused billing/credit run passed all 103 tests. An earlier run expose
 
 Release/version guards and whitespace checks pass. Targeted Dart analysis of the initial 14 changed/new Dart files reports no issues. The architecture gate initially rejected the plugin's unexported type; after isolating the pinned compatibility exception, the architecture gate passes. Full local analysis was interrupted during a stalled run and is not claimed as passed. Hosted checks are tracked separately.
 
+The full Windows host suite completed at 2026-09-08T02:21:45Z: 2,564 tests, 2,562 passed, two failed, no errors/skips/timeouts. Both failures came from architecture fixtures without a lockfile. The checker now denies the compatibility exception when a lockfile is absent without aborting other checks. All four architecture tests pass after repair, including five exact-file/type/version exception scenarios. The original full-run failure manifest is preserved; this is full-run plus targeted-repair evidence, not a claim that the original run passed.
+
+Coverage ratchet passed: 73.2% overall and 91.4% critical coverage. Twenty-nine files absent from LCOV were conservatively counted at zero; several aspirational targets remain above measured coverage. Thresholds were unchanged. Follow-up analysis of the compatibility adapter reported no issues. New exact-source hosted CI and Maestro remain required before release acceptance.
+
 ## Remaining live acceptance
 
 1. Verify the signed new AAB, publish only to the existing internal track, and update Moto through Google Play preserving local data.
