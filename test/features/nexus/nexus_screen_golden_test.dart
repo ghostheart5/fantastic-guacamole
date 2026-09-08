@@ -46,6 +46,7 @@ void main() {
     required double width,
     MockAuthService? authService,
     List<Task>? tasks,
+    List<NoteEntity> notes = const [],
     List<TimelineEventEntity>? timeline,
     bool observedVitals = true,
     NexusDecisionModel? decisionModel,
@@ -79,9 +80,7 @@ void main() {
         tasksProvider.overrideWith(
           (Ref ref) async => tasks ?? _populatedNexusModel.aggregation.tasks,
         ),
-        notesProvider.overrideWith(
-          () => _StaticNotesNotifier(const <NoteEntity>[]),
-        ),
+        notesProvider.overrideWith(() => _StaticNotesNotifier(notes)),
         if (timeline != null)
           timelineProvider.overrideWith(
             () => _StaticTimelineNotifier(timeline),
@@ -240,6 +239,41 @@ void main() {
       expect(attempts, 2);
     },
   );
+
+  testWidgets('saved Nexus note opens its content instead of a creation form', (
+    tester,
+  ) async {
+    await pumpNexusScreen(
+      tester,
+      width: 420,
+      notes: [
+        NoteEntity(
+          id: 'demo-note',
+          title: 'Demo reflection',
+          body: 'Keep the useful next step.',
+          createdAt: DateTime.utc(2026, 9, 8),
+        ),
+      ],
+    );
+    final note = find.bySemanticsLabel('Open NOTE');
+    final semantics = tester.ensureSemantics();
+    await tester.pump();
+    await tester.scrollUntilVisible(note, 300);
+    await tester.tap(note);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SelectableText &&
+            widget.data == 'Keep the useful next step.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('REVIEW CHANGES'), findsNothing);
+    semantics.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   group('NexusScreen responsive typography', () {
     testWidgets('uses ultra-compact values below 340px', (

@@ -609,7 +609,7 @@ class _CurrentFocusSection extends StatelessWidget {
   final TimeBlock? nextBlock;
   final VoidCallback onOpenGoal;
   final VoidCallback onOpenTask;
-  final VoidCallback onOpenNote;
+  final ValueChanged<NoteEntity?> onOpenNote;
 
   @override
   Widget build(BuildContext context) {
@@ -674,7 +674,7 @@ class _CurrentFocusSection extends StatelessWidget {
                     ? 'Capture useful context without turning it into another task.'
                     : _noteDetail(currentNote),
                 accent: AppColors.memoryAmber,
-                onTap: onOpenNote,
+                onTap: () => onOpenNote(currentNote),
               ),
             ],
           ),

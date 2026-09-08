@@ -177,11 +177,11 @@ tags:
 - tapOn: "CONFIRM SELECTED"
 - scrollUntilVisible:
     element:
-      text: "CONFIRMED CREATOR RECEIPT"
+      text: "CREATION SAVED"
     direction: UP
     timeout: 10000
 - extendedWaitUntil:
-    visible: "CONFIRMED CREATOR RECEIPT"
+    visible: "CREATION SAVED"
     timeout: 15000
 - tapOn: "Open Timeline"
 - extendedWaitUntil:

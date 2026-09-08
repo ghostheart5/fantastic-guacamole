@@ -172,9 +172,9 @@ void main() {
       find.textContaining('Nothing is saved until you confirm'),
       findsOneWidget,
     );
-    expect(find.textContaining('Account binding'), findsOneWidget);
-    expect(find.textContaining('Domain version'), findsOneWidget);
-    expect(find.textContaining('Displayed diff'), findsOneWidget);
+    expect(find.textContaining('Account binding'), findsNothing);
+    expect(find.textContaining('Domain version'), findsNothing);
+    expect(find.textContaining('Displayed diff'), findsNothing);
     expect(
       find.textContaining('Title: Not present → Ship one verified change'),
       findsOneWidget,
@@ -188,7 +188,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(repository.saveCalls, 1);
-    expect(find.text('CONFIRMED CREATOR RECEIPT'), findsOneWidget);
+    expect(find.text('CREATION SAVED'), findsOneWidget);
+    expect(find.textContaining('Confirmation:'), findsNothing);
+    expect(find.textContaining('Result version:'), findsNothing);
     expect(find.textContaining('Saved exactly once'), findsOneWidget);
     expect(find.text('Undo creation'), findsOneWidget);
 
@@ -200,6 +202,24 @@ void main() {
 
     expect(repository.deleteCalls, 1);
     expect(find.text('CREATION UNDONE'), findsOneWidget);
+    container
+        .read(creatorDraftPreviewProvider.notifier)
+        .stage(
+          CreatorDraftPreview.fromPlannerOption(
+            const PlannerOption(
+              kind: PlannerOptionKind.bestFit,
+              title: 'A different unsaved plan',
+              description: 'Keep this draft separate from the prior receipt.',
+              estimatedMinutes: 10,
+              tradeoff: 'One small step.',
+            ),
+          ),
+        );
+    await tester.pump();
+    expect(find.text('PLANNER DRAFT PREVIEW'), findsOneWidget);
+    expect(find.byKey(const Key('creator-handshake-result')), findsNothing);
+    expect(find.text('Undo creation'), findsNothing);
+    expect(repository.saveCalls, 1);
   });
 
   testWidgets('operation can be deselected and confirmation becomes disabled', (

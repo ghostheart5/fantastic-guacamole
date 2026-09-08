@@ -82,6 +82,16 @@ class _ProfileBody extends ConsumerWidget {
     final actions = ref.watch(profileActionsProvider);
     final data = state.profile;
     final identity = ref.watch(identityStateProvider);
+    final int completedTasks = ref.watch(
+      trajectorySummaryProvider.select((summary) => summary.completedTasks),
+    );
+    final String progressLabel = completedTasks > 0 || data.xp > 0
+        ? 'Progress recorded'
+        : 'Ready to begin';
+    final String identityFallbackLabel =
+        LaunchContainment.inferredIdentityEnabled
+        ? 'Pattern forming'
+        : progressLabel;
     final bool hasIdentityEvidence =
         LaunchContainment.inferredIdentityEnabled &&
         ref.watch(
@@ -102,13 +112,18 @@ class _ProfileBody extends ConsumerWidget {
           name: data.name,
           level: data.level,
           hasEvidence: hasIdentityEvidence,
+          fallbackLabel: identityFallbackLabel,
         ),
         const SizedBox(height: 18),
         _ProfileMetrics(level: data.level, xp: data.xp, streak: data.streak),
         const SizedBox(height: 16),
         _NameEditor(initialName: data.name, onSave: actions.updateName),
         const SizedBox(height: 16),
-        _IdentityCard(hasEvidence: hasIdentityEvidence),
+        _IdentityCard(
+          hasEvidence: hasIdentityEvidence,
+          fallbackLabel: identityFallbackLabel,
+          completedTasks: completedTasks,
+        ),
         const SizedBox(height: 16),
         _NavButtons(
           onTimeline: () => goToAppView(context, ref, AppView.timeline),
@@ -149,11 +164,13 @@ class _IdentityConstellation extends ConsumerWidget {
     required this.name,
     required this.level,
     required this.hasEvidence,
+    required this.fallbackLabel,
   });
 
   final String name;
   final int level;
   final bool hasEvidence;
+  final String fallbackLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -165,7 +182,7 @@ class _IdentityConstellation extends ConsumerWidget {
         ? 'Discipline ${(identity.disciplineIdentity * 100).round()} percent, '
               'execution ${(identity.executionIdentity * 100).round()} percent, '
               'growth ${(identity.growthIdentity * 100).round()} percent.'
-        : 'Identity pattern is still forming.';
+        : '$fallbackLabel.';
     return Semantics(
       container: true,
       label:
@@ -253,7 +270,7 @@ class _IdentityConstellation extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${hasEvidence ? archetype : 'PATTERN FORMING'}  ·  CHRONOSPARK LEVEL $level',
+            '${hasEvidence ? archetype : fallbackLabel.toUpperCase()}  ·  CHRONOSPARK LEVEL $level',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -290,7 +307,11 @@ class _ConstellationLabel extends StatelessWidget {
     return SizedBox(
       width: 112,
       child: Text(
-        showValue ? '$label ${(value * 100).round()}%' : '$label LEARNING',
+        showValue
+            ? '$label ${(value * 100).round()}%'
+            : LaunchContainment.inferredIdentityEnabled
+            ? '$label LEARNING'
+            : label,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         textAlign: textAlign,
@@ -465,9 +486,15 @@ class _MetricDivider extends StatelessWidget {
 }
 
 class _IdentityCard extends ConsumerWidget {
-  const _IdentityCard({required this.hasEvidence});
+  const _IdentityCard({
+    required this.hasEvidence,
+    required this.fallbackLabel,
+    required this.completedTasks,
+  });
 
   final bool hasEvidence;
+  final String fallbackLabel;
+  final int completedTasks;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -485,7 +512,9 @@ class _IdentityCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'IDENTITY SIGNAL',
+            LaunchContainment.inferredIdentityEnabled
+                ? 'IDENTITY SIGNAL'
+                : 'RECORDED PROGRESS',
             style: TextStyle(
               fontSize: 10,
               letterSpacing: 0,
@@ -499,7 +528,7 @@ class _IdentityCard extends ConsumerWidget {
             runSpacing: 4,
             children: <Widget>[
               _ArchetypeLabel(
-                label: hasEvidence ? archetype : 'Pattern forming',
+                label: hasEvidence ? archetype : fallbackLabel,
                 color: AppColors.neonViolet,
               ),
               if (hasEvidence)
@@ -508,9 +537,16 @@ class _IdentityCard extends ConsumerWidget {
           ),
           if (!hasEvidence) ...<Widget>[
             const SizedBox(height: 8),
-            const Text(
-              'Complete a few tasks to reveal patterns grounded in your activity.',
-              style: TextStyle(
+            Text(
+              !LaunchContainment.inferredIdentityEnabled
+                  ? '$completedTasks completed ${completedTasks == 1 ? 'task' : 'tasks'}. '
+                        'Your level and XP reflect recorded activity. '
+                        'Identity patterns are not available in this version.'
+                  : completedTasks < 3
+                  ? 'Complete a few tasks to reveal patterns grounded in your activity.'
+                  : 'Your completions are recorded. More varied activity is needed '
+                        'before an identity pattern can be supported.',
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
                 height: 1.4,

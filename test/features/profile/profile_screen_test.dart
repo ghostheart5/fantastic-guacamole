@@ -69,11 +69,13 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(ProfileScreen), findsOneWidget);
-    expect(find.textContaining('PATTERN FORMING'), findsOneWidget);
+    expect(find.textContaining('READY TO BEGIN'), findsOneWidget);
     expect(find.text('The Executor'), findsNothing);
     expect(find.text('DISCIPLINE 10%'), findsNothing);
     expect(
-      find.textContaining('Complete a few tasks to reveal patterns'),
+      find.textContaining(
+        'Identity patterns are not available in this version.',
+      ),
       findsOneWidget,
     );
   });
@@ -109,7 +111,9 @@ void main() {
     expect(find.text('Discipline'), findsNothing);
     expect(find.text('Execution'), findsNothing);
     expect(find.text('Growth'), findsNothing);
-    expect(find.textContaining('PATTERN FORMING'), findsOneWidget);
+    expect(find.textContaining('PROGRESS RECORDED'), findsOneWidget);
+    expect(find.textContaining('12 completed tasks.'), findsOneWidget);
+    expect(find.textContaining('Complete a few tasks'), findsNothing);
   });
 
   testWidgets('renders when the account has no display name set', (

@@ -29,6 +29,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  testWidgets(
+    'one request locks immediately and renders without a second tap',
+    (tester) async {
+      late _DelayedPlannerController planner;
+      final container = _container(
+        plannerBuilder: (ref) => planner = _DelayedPlannerController(ref),
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _scrollTo(tester, find.text('GET GUIDANCE'));
+      final button = tester.widget<FilledButton>(
+        find.descendant(
+          of: find.byKey(const Key('planner-guidance-button')),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      // Two calls in the same frame exercise the pre-await race.
+      button.onPressed!();
+      button.onPressed!();
+      await tester.pump();
+      expect(planner.guidanceRequestCount, 1);
+      final busy = tester.widget<FilledButton>(
+        find.descendant(
+          of: find.byKey(const Key('planner-guidance-button')),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(busy.onPressed, isNull);
+      planner.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Use this plan'), findsOneWidget);
+      expect(planner.guidanceRequestCount, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final bool preference in <bool>[false, true]) {
     testWidgets(
       '${preference ? 'preference' : 'priority'} dialog survives dismissal while keyboard closes',

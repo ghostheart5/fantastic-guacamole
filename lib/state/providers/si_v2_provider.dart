@@ -16,6 +16,10 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -112,6 +116,12 @@ final siV2ReadGatewayProvider = Provider<SIV2ReadGateway>((Ref ref) {
 final siV2EvidenceSnapshotProvider = FutureProvider<SIV2EvidenceSnapshot>((
   Ref ref,
 ) {
+  // The gateway performs fresh reads for answers. Its cached header must also
+  // refresh when a source changes during the current account session.
+  ref.watch(tasksProvider);
+  ref.watch(goalsProvider);
+  ref.watch(milestonesProvider);
+  ref.watch(timelineProvider);
   return ref
       .watch(siV2ReadGatewayProvider)
       .read(observedAt: ref.watch(siV2ClockProvider)());

@@ -131,7 +131,8 @@ class CreatorScreen extends ConsumerWidget {
                         : null,
                   ),
                   const SizedBox(height: 16),
-                ] else if (handshake.receipt != null) ...[
+                ] else if (handshake.receipt != null &&
+                    plannerDraft == null) ...[
                   _CreatorHandshakeResultCard(
                     state: handshake,
                     onUndo:
@@ -308,18 +309,6 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
             style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
           ),
           const SizedBox(height: 10),
-          _HandshakeBindingLine(
-            label: 'Account binding',
-            value: _short(preview.accountScopeId),
-          ),
-          _HandshakeBindingLine(
-            label: 'Domain version',
-            value: _short(preview.baseDomainRevision),
-          ),
-          _HandshakeBindingLine(
-            label: 'Displayed diff',
-            value: _short(preview.displayedDiffDigest),
-          ),
           _HandshakeBindingLine(
             label: 'Expires',
             value: TimeOfDay.fromDateTime(
@@ -585,9 +574,6 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
     CreatorEntityKind.habit => 'Daily Rhythm',
     CreatorEntityKind.note => 'Note',
   };
-
-  static String _short(String value) =>
-      value.length <= 18 ? value : '${value.substring(0, 18)}…';
 }
 
 class _CreatorHandshakeResultCard extends StatelessWidget {
@@ -616,7 +602,7 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            undone ? 'CREATION UNDONE' : 'CONFIRMED CREATOR RECEIPT',
+            undone ? 'CREATION UNDONE' : 'CREATION SAVED',
             style: TextStyle(
               color: undone ? AppColors.memoryAmber : AppColors.neonCyan,
               fontSize: 11,
@@ -635,9 +621,9 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Confirmation: ${receipt.confirmationTokenId}\n'
-            'Operations: ${receipt.appliedOperationIds.length}\n'
-            'Result version: ${_CreatorHandshakePreviewCard._short(receipt.resultingDomainRevision)}',
+            '${receipt.appliedOperationIds.length} '
+            '${receipt.appliedOperationIds.length == 1 ? 'change' : 'changes'} '
+            '${undone ? 'undone' : 'saved'}.',
             style: const TextStyle(
               color: Colors.white38,
               fontSize: 10,

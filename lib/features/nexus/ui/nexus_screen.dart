@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -170,7 +171,19 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     nextBlock: nextBlock,
                     onOpenGoal: () => goToAppView(context, ref, AppView.goals),
                     onOpenTask: () => _openCreator(CreatorFormKind.task),
-                    onOpenNote: () => _openCreator(CreatorFormKind.note),
+                    onOpenNote: (note) {
+                      if (note == null) {
+                        _openCreator(CreatorFormKind.note);
+                      } else {
+                        unawaited(
+                          Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (_) => NoteDetailScreen(noteId: note.id),
+                            ),
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ),
               ),

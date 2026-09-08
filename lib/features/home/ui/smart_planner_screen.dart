@@ -206,6 +206,11 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   Future<void> _getPlanningGuidance() async {
     if (_gettingPlanningGuidance) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _gettingPlanningGuidance = true;
+      _guidanceError = null;
+    });
     try {
       await _doGetPlanningGuidance();
     } on AssistantReleaseBlockedException {
@@ -231,6 +236,10 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           context,
         ).plannerRoutine.guidanceRetry;
       });
+    } finally {
+      if (mounted && _gettingPlanningGuidance) {
+        setState(() => _gettingPlanningGuidance = false);
+      }
     }
   }
 
@@ -243,6 +252,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     if (!await _confirmEmotionalSafetyRoute(notes, planner)) {
       return;
     }
+    if (!mounted) return;
     final ({String? pauseReason, String? question}) supportiveCopy =
         _localizedSupportiveCopy(notes, planner);
 
@@ -620,6 +630,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
           response.optionByKind[response.recommendedKind]?.estimatedMinutes,
       recommendationHelped: true,
     );
+    ref.read(creatorHandshakeProvider.notifier).clearResult();
     ref.read(creatorDraftPreviewProvider.notifier).stage(draft);
     goToAppView(context, ref, AppView.creator);
   }

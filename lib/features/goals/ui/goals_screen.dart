@@ -470,99 +470,132 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
           color: AppColors.recallRed,
         ),
       ),
-      child: TemporalGlassSurface(
-        accent: goalColor,
-        opacity: 0.9,
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Container(
-                        width: 4,
-                        height: 48,
-                        margin: const EdgeInsets.only(right: 12),
-                        decoration: BoxDecoration(
-                          color: goalColor,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          widget.goal.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
-                            height: 1.35,
+      child: Semantics(
+        container: true,
+        explicitChildNodes: true,
+        child: TemporalGlassSurface(
+          accent: goalColor,
+          opacity: 0.9,
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Container(
+                          width: 4,
+                          height: 48,
+                          margin: const EdgeInsets.only(right: 12),
+                          decoration: BoxDecoration(
+                            color: goalColor,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: 'Share goal',
-                        constraints: const BoxConstraints.tightFor(
-                          width: 48,
-                          height: 48,
+                        Expanded(
+                          child: Text(
+                            widget.goal.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                              height: 1.35,
+                            ),
+                          ),
                         ),
-                        onPressed: () => _shareGoal(goalProgress),
-                        icon: Icon(
-                          Icons.ios_share_rounded,
-                          color: goalColor.withValues(alpha: 0.9),
-                          size: 20,
+                        IconButton(
+                          tooltip: 'Share goal: ${widget.goal.title}',
+                          constraints: const BoxConstraints.tightFor(
+                            width: 48,
+                            height: 48,
+                          ),
+                          onPressed: () => _shareGoal(goalProgress),
+                          icon: Icon(
+                            Icons.ios_share_rounded,
+                            color: goalColor.withValues(alpha: 0.9),
+                            size: 20,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: _expanded
-                            ? 'Collapse goal details'
-                            : 'Expand goal details',
-                        constraints: const BoxConstraints.tightFor(
-                          width: 48,
-                          height: 48,
+                        IconButton(
+                          tooltip: _expanded
+                              ? 'Collapse goal details: ${widget.goal.title}'
+                              : 'Expand goal details: ${widget.goal.title}',
+                          constraints: const BoxConstraints.tightFor(
+                            width: 48,
+                            height: 48,
+                          ),
+                          onPressed: () =>
+                              setState(() => _expanded = !_expanded),
+                          icon: Icon(
+                            _expanded ? Icons.expand_less : Icons.expand_more,
+                            color: Colors.white70,
+                            size: 24,
+                          ),
                         ),
-                        onPressed: () => setState(() => _expanded = !_expanded),
-                        icon: Icon(
-                          _expanded ? Icons.expand_less : Icons.expand_more,
+                      ],
+                    ),
+                    if (widget.goal.description != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.goal.description!,
+                        style: const TextStyle(
                           color: Colors.white70,
-                          size: 24,
+                          fontSize: 13,
+                          height: 1.4,
+                          letterSpacing: 0,
                         ),
                       ),
                     ],
-                  ),
-                  if (widget.goal.description != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      widget.goal.description!,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        height: 1.4,
-                        letterSpacing: 0,
+                    if (targetDate != null) ...<Widget>[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: <Widget>[
+                          Icon(
+                            Icons.calendar_month_outlined,
+                            color: dateColor,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Target ${targetDate.day}/${targetDate.month}/${targetDate.year}',
+                            style: TextStyle(
+                              color: dateColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                  if (targetDate != null) ...<Widget>[
-                    const SizedBox(height: 12),
+                    ],
+                    const SizedBox(height: 14),
                     Row(
                       children: <Widget>[
-                        Icon(
-                          Icons.calendar_month_outlined,
-                          color: dateColor,
-                          size: 18,
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(2),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: Colors.white10,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                goalColor,
+                              ),
+                              minHeight: 4,
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Text(
-                          'Target ${targetDate.day}/${targetDate.month}/${targetDate.year}',
+                          '$completed of $total actions',
                           style: TextStyle(
-                            color: dateColor,
-                            fontSize: 12,
+                            color: goalColor,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0,
                           ),
@@ -570,74 +603,46 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                       ],
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.white10,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              goalColor,
-                            ),
-                            minHeight: 4,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        '$completed of $total actions',
-                        style: TextStyle(
-                          color: goalColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (_expanded && linked.isNotEmpty) ...[
-              Divider(color: goalColor.withValues(alpha: 0.15), height: 1),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: linked
-                      .map(
-                        (t) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.radio_button_unchecked,
-                                size: 12,
-                                color: goalColor.withValues(alpha: 0.6),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  t.title,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                    letterSpacing: 0,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
                 ),
               ),
+              if (_expanded && linked.isNotEmpty) ...[
+                Divider(color: goalColor.withValues(alpha: 0.15), height: 1),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: linked
+                        .map(
+                          (t) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.radio_button_unchecked,
+                                  size: 12,
+                                  color: goalColor.withValues(alpha: 0.6),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    t.title,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

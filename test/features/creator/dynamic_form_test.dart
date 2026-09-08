@@ -7,6 +7,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('input labels remain accessible after text is entered', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(onSubmit: (_) async {}),
+          ),
+        ),
+      ),
+    );
+    final title = find.bySemanticsLabel(RegExp('Title, required'));
+    expect(title, findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'A saved intention');
+    await tester.pump();
+    expect(find.bySemanticsLabel(RegExp('Title, required')), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('Description \\(optional\\)')),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
   testWidgets('Creator defaults to Task with the complete task field set', (
     WidgetTester tester,
   ) async {

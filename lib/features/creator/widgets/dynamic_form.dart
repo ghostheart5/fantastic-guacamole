@@ -415,12 +415,15 @@ class _DynamicFormState extends State<DynamicForm> {
     Key? key,
     int maxLines = 1,
   }) {
-    return TextField(
-      key: key,
-      controller: controller,
-      maxLines: maxLines,
-      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
-      decoration: _inputDecoration(hint, _accentFor(_type)),
+    return Semantics(
+      label: hint == 'Title *' ? 'Title, required' : hint,
+      child: TextField(
+        key: key,
+        controller: controller,
+        maxLines: maxLines,
+        style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
+        decoration: _inputDecoration(hint, _accentFor(_type)),
+      ),
     );
   }
 }

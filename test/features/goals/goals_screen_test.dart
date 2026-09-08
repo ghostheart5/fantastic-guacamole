@@ -46,6 +46,7 @@ void main() {
   );
 
   testWidgets('renders the active goal list', (WidgetTester tester) async {
+    final semantics = tester.ensureSemantics();
     final ProviderContainer container = ProviderContainer(
       overrides: [goalsProvider.overrideWith(_GoalsNotifier.new)],
     );
@@ -61,6 +62,16 @@ void main() {
 
     expect(find.text('GOALS'), findsOneWidget);
     expect(find.text('Ship the first release'), findsOneWidget);
+    expect(find.bySemanticsLabel('Ship the first release'), findsOneWidget);
+    expect(
+      find.byTooltip('Share goal: Ship the first release'),
+      findsOneWidget,
+    );
+    expect(
+      find.byTooltip('Expand goal details: Ship the first release'),
+      findsOneWidget,
+    );
+    semantics.dispose();
   });
 }
 
