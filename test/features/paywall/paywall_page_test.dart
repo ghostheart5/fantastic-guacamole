@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/data/models/auth_models.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
+
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
@@ -33,6 +36,8 @@ void main() {
     Locale locale = const Locale('en'),
     PaywallPrompt? prompt,
     bool billingTest = false,
+    bool pendingRestoreTest = false,
+    FutureOr<SubscriptionState> Function(Ref ref)? subscriptionOverride,
   }) async {
     // Restore Purchases and Show all plans sit below the
     // fold at the default 800x600 test viewport, and PaywallPage's ListView
@@ -53,6 +58,16 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        if (pendingRestoreTest) ...[
+          authUserProvider.overrideWith(
+            (ref) => Stream.value(
+              const User(id: 'pending-test', emailVerified: true),
+            ),
+          ),
+          paywallActionsProvider.overrideWith(
+            (ref) => _PendingRestoreActions(ref),
+          ),
+        ],
         internalBillingTestEnabledProvider.overrideWithValue(billingTest),
         sharedPrefsStoreProvider.overrideWithValue(prefs),
         creditServiceProvider.overrideWithValue(credit),
@@ -61,7 +76,7 @@ void main() {
           configOverride ?? (Ref ref) async => config,
         ),
         paywallSubscriptionProvider.overrideWith(
-          (Ref ref) async => subscription,
+          subscriptionOverride ?? (Ref ref) async => subscription,
         ),
       ],
     );
@@ -89,6 +104,41 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     return container;
   }
+
+  testWidgets(
+    'completed pending restore clears its historical pending message',
+    (tester) async {
+      var authority = const SubscriptionState(
+        isActive: false,
+        status: 'expired',
+        source: 'test',
+        isTesting: false,
+      );
+      final container = await pumpPaywall(
+        tester,
+        config: _twoPlanConfig,
+        billingTest: true,
+        pendingRestoreTest: true,
+        subscriptionOverride: (ref) async => authority,
+      );
+      await tester.tap(find.text('Restore Purchases'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsOneWidget);
+      authority = const SubscriptionState(
+        isActive: true,
+        status: 'active',
+        source: 'test',
+        isTesting: false,
+      );
+      container.invalidate(paywallSubscriptionProvider);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsNothing);
+      expect(find.text('Subscription active'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('shows a spinner while config/subscription/wallet are loading', (
     WidgetTester tester,
@@ -617,4 +667,15 @@ class _MemorySharedPrefsStore implements SharedPrefsStore {
   Future<void> save(String key, String value) async {
     _store[key] = value;
   }
+}
+
+class _PendingRestoreActions extends PaywallActions {
+  _PendingRestoreActions(super.ref);
+  @override
+  Future<SubscriptionState> restorePurchases() async => const SubscriptionState(
+    isActive: false,
+    status: "purchase_pending",
+    source: "test",
+    isTesting: false,
+  );
 }

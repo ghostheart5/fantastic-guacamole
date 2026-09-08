@@ -13,10 +13,27 @@ void main() {
 
     expect(wallet.balance, 287);
     expect(wallet.allowance, 300);
-    expect(wallet.tier, 'premium_monthly');
+    expect(wallet.tier, 'premium');
     expect(wallet.resetAt.toUtc(), DateTime.utc(2026, 9, 27));
     expect(wallet.updatedAt.toUtc(), DateTime.utc(2026, 8, 27, 12));
   });
+
+  for (final tier in [
+    'premium',
+    'premium_monthly',
+    'premium_yearly',
+    'free',
+    'unknown',
+  ]) {
+    test('normalizes server tier $tier for allowance display', () {
+      final wallet = serverAiCreditWallet({
+        'tier': tier,
+        'balance': 19,
+        'period_credits': 300,
+      });
+      expect(wallet.tier, tier.startsWith('premium') ? 'premium' : 'free');
+    });
+  }
 
   test('clamps malformed server balances instead of trusting them', () {
     final wallet = serverAiCreditWallet(<String, dynamic>{

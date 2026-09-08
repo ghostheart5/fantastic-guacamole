@@ -98,6 +98,7 @@ void main() {
     List<DecisionOutcomeEntity>? decisionOutcomes,
     bool? learningPaused,
     bool billingAccess = false,
+    AiCreditWallet? wallet,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -126,13 +127,15 @@ void main() {
           LegacyScopeOwnership.provenNotOwned,
         ),
         aiCreditWalletProvider.overrideWith(
-          (Ref ref) async => AiCreditWallet(
-            balance: 20,
-            tier: 'free',
-            allowance: 20,
-            resetAt: DateTime(2026, 9),
-            updatedAt: DateTime(2026, 8, 20),
-          ),
+          (Ref ref) async =>
+              wallet ??
+              AiCreditWallet(
+                balance: 20,
+                tier: 'free',
+                allowance: 20,
+                resetAt: DateTime(2026, 9),
+                updatedAt: DateTime(2026, 8, 20),
+              ),
         ),
         settingsUiActionsProvider.overrideWith(
           (Ref ref) => _FakeSettingsUiActions(ref),
@@ -235,6 +238,35 @@ void main() {
       expect(attempts, 2);
     },
   );
+
+  testWidgets('paid server wallet labels its allowance and period truthfully', (
+    tester,
+  ) async {
+    useTallSurface(tester);
+    final container = createContainer(
+      billingAccess: true,
+      wallet: serverAiCreditWallet({
+        'tier': 'premium_monthly',
+        'balance': 299,
+        'period_credits': 300,
+        'period_ends_at': '2026-09-08T04:39:00Z',
+      }),
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('299 of 300 available'), findsOneWidget);
+    expect(
+      find.textContaining('Premium allowance · period ends'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Free allowance'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final entry in ['Manage plan', 'View credits']) {
     testWidgets('$entry preserves Settings for Android Back', (tester) async {

@@ -650,9 +650,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       if (subscription == null) return;
       final wasActive = _lastResolvedSubscription?.isActive ?? false;
       _lastResolvedSubscription = subscription;
-      if (wasActive && !subscription.isActive && _statusMessage != null) {
-        // A historical activation/restore receipt must not contradict a
-        // subsequently expired, paused, or revoked subscription.
+      if (wasActive != subscription.isActive && _statusMessage != null) {
+        // Historical action messages must not contradict later authority:
+        // pending can complete, and active access can expire or be revoked.
         setState(() => _statusMessage = null);
       }
     });

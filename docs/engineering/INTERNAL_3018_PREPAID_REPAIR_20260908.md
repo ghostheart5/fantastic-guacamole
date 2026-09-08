@@ -13,3 +13,13 @@ Local checks: 99 Edge Function tests, six catalog checks, 24 Settings/credit-pan
 No monkey or level-20 tests are part of this work. No all-pass or production-readiness claim is made.
 
 The first hosted database run (34186433691) failed. It caught replacement of the public compatibility wrappers and a test fixture that gave successive unrelated tokens the same binding timestamp. The migration now replaces only the two underlying phase8_base functions, preserving the wrappers and their grants. The fixture gives successive purchases ordered binding times, and three additional assertions ensure negative cases reach reconciliation. No failed migration was deployed. The complete database suite must pass before deployment.
+
+## Backend and device follow-up
+
+Database run 34186848696 passed all 341 pgTAP assertions plus 99 Edge tests. Before deployment, both underlying production function bodies matched the proposed definitions with only the intended prepaid additions removed. The migration was deployed; the two public wrapper definition hashes remained unchanged. Receipt v20 and RTDN v17 were deployed and all five files per handler matched the tested source. Authentication settings were retained.
+
+Fresh slow-decline notifications processed at 04:26:11Z and 04:26:14Z without errors. Restart and Restore did not activate access or grant credits. On the subsequent slow-approve purchase, restart/Restore explicitly displayed pending at 04:33:53Z while the backend remained inactive with zero credits and zero prepaid grants. It then activated with exactly one 300-credit prepaid grant. A real synthetic one-credit call reduced the balance to 299; replay and active Restore preserved 299 and one grant. At 04:39:30Z expiry had restored the configured free wallet (20 credits), with inactive access and one historical prepaid grant.
+
+Second-account synthetic spending moved its server balance from 20 to 19 with one completed request; the owner remained at zero with eleven earlier completed requests. Consent was restored off, and the owner returned directly to Nexus at level 2. SI Console returned an on-device, source-aware answer at zero credits without external-AI consent.
+
+Live completion also exposed a pending result message persisting after activation and the server's premium_monthly wallet being labeled free. The pending receipt now clears when active authority changes; server paid tiers normalize to the UI's premium tier, and paid allowance copy says period ends. The 22 paywall/wallet tests, 16 Settings tests, and targeted analysis pass. New exact-source hosted gates and final 3018 Play-device acceptance are required for these final display changes. No 3018 AAB had been built when these changes were made.

@@ -89,7 +89,14 @@ AiCreditWallet serverAiCreditWallet(Map<String, dynamic> row) {
   final DateTime now = DateTime.now();
   return AiCreditWallet(
     balance: ((row['balance'] as num?)?.toInt() ?? 0).clamp(0, 1 << 31).toInt(),
-    tier: row['tier']?.toString() ?? 'free',
+    tier:
+        const {
+          'premium',
+          'premium_monthly',
+          'premium_yearly',
+        }.contains(row['tier'])
+        ? 'premium'
+        : 'free',
     allowance: ((row['period_credits'] as num?)?.toInt() ?? 0)
         .clamp(0, 1 << 31)
         .toInt(),

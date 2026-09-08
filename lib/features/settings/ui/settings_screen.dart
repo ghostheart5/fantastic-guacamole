@@ -238,7 +238,7 @@ class SettingsScreen extends ConsumerWidget {
     );
     final String creditDetail = walletAsync.when(
       data: (wallet) =>
-          '${wallet.tier == 'premium' ? 'Premium' : 'Free'} allowance · resets ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
+          '${wallet.tier == 'premium' ? 'Premium allowance · period ends' : 'Free allowance · resets'} ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
       loading: () => 'Reading this account’s credit wallet.',
       error: (_, _) => 'Open credits to retry and review usage.',
     );
