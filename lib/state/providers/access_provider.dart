@@ -12,6 +12,7 @@ class AppAccessState {
     required this.paywallDisabled,
     this.isLocalMode = false,
     this.internalBillingTest = false,
+    this.internalCreditTest = false,
   });
 
   final bool hasPremiumAccess;
@@ -19,6 +20,7 @@ class AppAccessState {
   final bool paywallDisabled;
   final bool isLocalMode;
   final bool internalBillingTest;
+  final bool internalCreditTest;
 
   bool get paywallEnabled =>
       !isLocalMode &&
@@ -47,6 +49,9 @@ class AppAccessState {
 
   String get subscriptionStatusDetail {
     if (internalBillingTest) {
+      if (internalCreditTest) {
+        return 'Google Play license testing. Use a test payment method. Consented synthetic credit tests are available in Settings; SI Console guidance remains local.';
+      }
       return 'Google Play license testing. Use a test payment method. AI and credit spending remain unavailable.';
     }
     if (isLocalMode) {
@@ -97,6 +102,7 @@ final appAccessProvider = Provider<AppAccessState>((ref) {
 
   return AppAccessState(
     internalBillingTest: ref.watch(internalBillingTestEnabledProvider),
+    internalCreditTest: ref.watch(internalCreditTestEnabledProvider),
     hasPremiumAccess: testerFullAccess || entitled,
     hasTesterFullAccess: testerFullAccess,
     paywallDisabled: intelligence.flags.paywallDisabled,

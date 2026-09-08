@@ -120,7 +120,7 @@ Deno.test("grace-period subscriptions retain entitlement", () => {
   );
 });
 
-Deno.test("pending, hold, and pause states remain explicit", () => {
+Deno.test("canceled pending, hold, and pause states remain explicit", () => {
   const cases: Array<{
     notificationType: number;
     subscriptionState: string;
@@ -129,7 +129,7 @@ Deno.test("pending, hold, and pause states remain explicit", () => {
     {
       notificationType: 20,
       subscriptionState: "SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED",
-      status: "pending",
+      status: "expired",
     },
     {
       notificationType: 5,
@@ -340,7 +340,6 @@ Deno.test("canceled pending successor rechecks the linked predecessor", async ()
 
   for (
     const testCase of [
-      { notificationType: 20, linkedPurchaseToken: null },
       { notificationType: 2, linkedPurchaseToken: "predecessor-token" },
     ]
   ) {
@@ -357,6 +356,93 @@ Deno.test("canceled pending successor rechecks the linked predecessor", async ()
     }
     if (!rejected) {
       throw new Error("incoherent canceled-successor authority was accepted");
+    }
+  }
+});
+
+Deno.test("pending cancellation handles standalone and delayed expired purchases without access", async () => {
+  for (
+    const subscriptionState of [
+      "SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED",
+      "SUBSCRIPTION_STATE_EXPIRED",
+    ]
+  ) {
+    const purchase = { subscriptionState };
+    const resolved = await resolveSubscriptionAuthorityPurchase({
+      notificationType: 20,
+      successorPurchase: purchase,
+      successorPurchaseToken: "standalone-token",
+      linkedPurchaseToken: null,
+    }, () => {
+      throw new Error("Standalone cancellation fetched a predecessor");
+    });
+    if (
+      resolved.purchase !== purchase ||
+      resolved.source !== "notification_token" ||
+      resolved.purchaseToken !== "standalone-token"
+    ) {
+      throw new Error("Standalone terminal authority was changed");
+    }
+    const state = googleSubscriptionStateForNotification(
+      20,
+      subscriptionState,
+      null,
+    );
+    if (
+      !state.supported || state.active || state.status !== "expired" ||
+      !terminalNotificationMatchesSubscriptionState(20, subscriptionState)
+    ) {
+      throw new Error(
+        "Canceled pending purchase was not terminal and inactive",
+      );
+    }
+  }
+  const predecessor = { subscriptionState: "SUBSCRIPTION_STATE_ACTIVE" };
+  const resolved = await resolveSubscriptionAuthorityPurchase({
+    notificationType: 20,
+    successorPurchase: { subscriptionState: "SUBSCRIPTION_STATE_EXPIRED" },
+    successorPurchaseToken: "expired-successor",
+    linkedPurchaseToken: "existing-predecessor",
+  }, (token) => {
+    if (token !== "existing-predecessor") throw new Error("Wrong predecessor");
+    return Promise.resolve(predecessor);
+  });
+  if (
+    resolved.purchase !== predecessor ||
+    resolved.source !== "linked_predecessor"
+  ) {
+    throw new Error("Delayed cancellation lost predecessor authority");
+  }
+});
+
+Deno.test("pending cancellation rejects nonterminal current states", async () => {
+  for (
+    const subscriptionState of [
+      "SUBSCRIPTION_STATE_ACTIVE",
+      "SUBSCRIPTION_STATE_PENDING",
+      "SUBSCRIPTION_STATE_CANCELED",
+      "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+      "UNKNOWN",
+    ]
+  ) {
+    let rejected = false;
+    try {
+      await resolveSubscriptionAuthorityPurchase({
+        notificationType: 20,
+        successorPurchase: { subscriptionState },
+        successorPurchaseToken: "test-token",
+        linkedPurchaseToken: null,
+      }, () => {
+        throw new Error("Unexpected predecessor fetch");
+      });
+    } catch {
+      rejected = true;
+    }
+    if (
+      !rejected ||
+      terminalNotificationMatchesSubscriptionState(20, subscriptionState)
+    ) {
+      throw new Error("Nonterminal state accepted for pending cancellation");
     }
   }
 });

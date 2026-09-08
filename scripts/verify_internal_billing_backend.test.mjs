@@ -41,6 +41,28 @@ test('price, duration, product, country and backend drift stop the build', () =>
   }
 });
 
+test('only the approved US prepaid license-test plan may accompany monthly', () => {
+  const { products, rows } = catalog();
+  const prepaid = structuredClone(products[0].basePlans[0]);
+  prepaid.basePlanId = 'monthly-prepaid-test';
+  delete prepaid.autoRenewingBasePlanType;
+  prepaid.prepaidBasePlanType = { billingPeriodDuration: 'P1M' };
+  products[0].basePlans.push(prepaid);
+  assert.doesNotThrow(() => verifyCatalog(products, rows));
+  for (const mutate of [
+    (p) => p.basePlanId = 'unreviewed-plan',
+    (p) => p.prepaidBasePlanType.billingPeriodDuration = 'P1Y',
+    (p) => p.autoRenewingBasePlanType = { billingPeriodDuration: 'P1M' },
+    (p) => p.regionalConfigs[0].price.units = '9',
+    (p) => p.regionalConfigs[0].regionCode = 'CA',
+    (p) => p.otherRegionsConfig = { newSubscriberAvailability: true },
+  ]) {
+    const changed = structuredClone(products);
+    mutate(changed[0].basePlans[1]);
+    assert.throws(() => verifyCatalog(changed, rows));
+  }
+});
+
 test('preflight rejects an old verifier before touching Google credentials', async () => {
   let calls = 0;
   await assert.rejects(verifyInternalBillingBackend({

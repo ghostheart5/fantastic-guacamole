@@ -27,16 +27,23 @@ export function verifyCatalog(products, databasePlans) {
     const product = products.find((p) => p.productId === expected.product);
     require(product?.packageName === PACKAGE, 'Play package or product mismatch');
     const active = (product.basePlans ?? []).filter((p) => p.state === 'ACTIVE');
-    require(active.length === 1 && active[0].basePlanId === expected.base, 'Unexpected active base plan');
-    const base = active[0];
-    require(base.autoRenewingBasePlanType?.billingPeriodDuration === expected.period, 'Billing period mismatch');
-    const available = (base.regionalConfigs ?? []).filter((r) => r.newSubscriberAvailability === true);
-    require(available.length === 1 && available[0].regionCode === 'US', 'Test catalog must be available only in the US');
-    require(base.otherRegionsConfig?.newSubscriberAvailability !== true, 'Future-region availability is not approved');
-    const price = available[0].price;
-    const nanos = Number(price?.nanos ?? 0);
-    const micros = Number(price?.units) * 1000000 + nanos / 1000;
-    require(price?.currencyCode === 'USD' && Number.isSafeInteger(micros) && micros === expected.micros, 'Approved catalog price mismatch');
+    require(active.filter((p) => p.basePlanId === expected.base).length === 1, 'Expected approved renewing base plan');
+    const extras = active.filter((p) => p.basePlanId !== expected.base);
+    require(extras.length <= 1 && extras.every((p) => expected.base === 'monthly' &&
+      p.basePlanId === 'monthly-prepaid-test' && p.prepaidBasePlanType?.billingPeriodDuration === 'P1M' &&
+      !p.autoRenewingBasePlanType), 'Unexpected active base plan');
+    for (const base of active) {
+      if (base.basePlanId === expected.base) {
+        require(base.autoRenewingBasePlanType?.billingPeriodDuration === expected.period, 'Billing period mismatch');
+      }
+      const available = (base.regionalConfigs ?? []).filter((r) => r.newSubscriberAvailability === true);
+      require(available.length === 1 && available[0].regionCode === 'US', 'Test catalog must be available only in the US');
+      require(base.otherRegionsConfig?.newSubscriberAvailability !== true, 'Future-region availability is not approved');
+      const price = available[0].price;
+      const nanos = Number(price?.nanos ?? 0);
+      const micros = Number(price?.units) * 1000000 + nanos / 1000;
+      require(price?.currencyCode === 'USD' && Number.isSafeInteger(micros) && micros === expected.micros, 'Approved catalog price mismatch');
+    }
     const row = databasePlans.find((p) => p.id === expected.id);
     require(row?.product_id === expected.product && row.currency_code === 'USD' &&
       row.price_micros === expected.micros && row.credits_per_period === expected.credits &&

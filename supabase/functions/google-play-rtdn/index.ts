@@ -21,6 +21,7 @@ import {
 import {
   acknowledgeGooglePlaySubscription,
   applyGooglePlayAuthorityAfterAcknowledgement,
+  isGooglePlayTestPurchase,
   readLatestSuccessfulOrderId,
   readLinkedPurchaseToken,
   readPurchaseLineage,
@@ -277,6 +278,10 @@ async function reconcileSubscriptionAuthority(input: {
           subscriptionState,
           acknowledgementState: input.purchase.acknowledgementState,
           basePlanId: offerDetails?.basePlanId,
+          prepaidPlan: line.raw.prepaidPlan !== null &&
+            typeof line.raw.prepaidPlan === "object" &&
+            !Array.isArray(line.raw.prepaidPlan),
+          testPurchase: isGooglePlayTestPurchase(input.purchase),
           offerId: offerDetails?.offerId,
           cause: {
             notificationType: input.cause.notificationType,

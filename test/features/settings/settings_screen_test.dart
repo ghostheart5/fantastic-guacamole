@@ -308,6 +308,44 @@ void main() {
     expect(find.text('APPEARANCE & PERMISSIONS'), findsOneWidget);
   });
 
+  testWidgets('toggle labels name the control and toggle it exactly once', (
+    tester,
+  ) async {
+    useTallSurface(tester);
+    final container = createContainer();
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SettingsScreen()),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.tap(find.text('Appearance & permissions'));
+      await tester.pump(const Duration(milliseconds: 300));
+      final tile = find.ancestor(
+        of: find.text('Audio FX'),
+        matching: find.byType(MergeSemantics),
+      );
+      expect(tile, findsOneWidget);
+      final control = find.descendant(of: tile, matching: find.byType(Switch));
+      await Scrollable.ensureVisible(tester.element(control), alignment: 0.5);
+      await tester.pump(const Duration(milliseconds: 300));
+      final before = tester.widget<Switch>(control).value;
+      expect(find.bySemanticsLabel('Audio FX'), findsOneWidget);
+      await tester.tap(find.text('Audio FX'));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.widget<Switch>(control).value, !before);
+      await tester.tap(control);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.widget<Switch>(control).value, before);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('external AI is disclosed as unavailable instead of enabled', (
     WidgetTester tester,
   ) async {

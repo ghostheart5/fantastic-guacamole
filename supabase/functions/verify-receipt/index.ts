@@ -408,6 +408,9 @@ Deno.serve(async (req: Request) => {
             subscriptionState: play.subscriptionState,
             acknowledgementState: play.acknowledgementState,
             lineageSource: lineage?.source ?? null,
+            basePlanId: lineItem.basePlanId,
+            prepaidPlan: lineItem.prepaidPlan,
+            testPurchase: isGooglePlayTestPurchase(play),
           }),
         ),
     );
