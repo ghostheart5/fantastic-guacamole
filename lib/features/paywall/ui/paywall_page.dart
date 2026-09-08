@@ -45,6 +45,10 @@ String resolvePaywallPurchaseResultMessage(
     case 'purchase_canceled':
     case 'purchase_cancelled':
       return copy.purchaseCanceled;
+    case 'purchase_failed':
+      return localizations.isSpanish
+          ? 'Google Play informó de un error de pago. Comprueba la compra o vuelve a intentarlo.'
+          : 'Google Play reported a payment error. Check the purchase or try again.';
     case 'verification_failed':
       return copy.purchaseVerificationFailed;
     case 'acknowledgement_failed':
@@ -688,6 +692,23 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         // Historical action messages must not contradict later authority:
         // pending can complete, and active access can expire or be revoked.
         setState(() => _statusMessage = null);
+      }
+    });
+    ref.listen<AsyncValue<SubscriptionState>>(paywallPurchaseOutcomeProvider, (
+      previous,
+      next,
+    ) {
+      final outcome = next.asData?.value;
+      if (outcome == null) return;
+      setState(
+        () => _statusMessage = resolvePaywallPurchaseResultMessage(
+          outcome,
+          testingMode: false,
+          localizations: ChronoSparkLocalizations.of(context),
+        ),
+      );
+      if (outcome.status == 'credits_added') {
+        ref.invalidate(aiCreditWalletProvider);
       }
     });
     ref.listen<AsyncValue<AiCreditWallet>>(aiCreditWalletProvider, (

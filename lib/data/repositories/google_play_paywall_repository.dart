@@ -161,7 +161,10 @@ class InAppPurchaseBillingClient implements BillingClient {
 }
 
 class GooglePlayPaywallRepository
-    implements IPaywallRepository, ISubscriptionAuthorityRefresher {
+    implements
+        IPaywallRepository,
+        ISubscriptionAuthorityRefresher,
+        IPurchaseOutcomeSource {
   GooglePlayPaywallRepository({
     BillingClient? billingClient,
     Future<SharedPreferences> Function()? sharedPreferencesLoader,
@@ -213,6 +216,9 @@ class GooglePlayPaywallRepository
   final Duration _authorityRequestTimeout;
   final String _receiptVerifyEndpoint;
   late final StreamSubscription<List<PurchaseDetails>> _purchaseSub;
+  final _purchaseOutcomes = StreamController<PurchaseOutcome>.broadcast();
+  @override
+  Stream<PurchaseOutcome> get purchaseOutcomes => _purchaseOutcomes.stream;
   late final Future<void> _initialization;
 
   SubscriptionState _state = const SubscriptionState(
@@ -863,6 +869,7 @@ class GooglePlayPaywallRepository
           stackTrace,
         );
       });
+      await _purchaseOutcomes.close();
     }
   }
 
@@ -1260,6 +1267,17 @@ class GooglePlayPaywallRepository
       } else if (purchase.status == PurchaseStatus.error) {
         Logger.error('IAP purchase error', purchase.error);
         await _clearPendingOwner(productId, currentUserId);
+        if (!_disposed) {
+          _purchaseOutcomes.add(
+            PurchaseOutcome(
+              currentUserId,
+              _transactionOutcomeState(
+                status: 'purchase_failed',
+                attemptedPlanId: _planIdForProduct(productId),
+              ),
+            ),
+          );
+        }
         _completePendingPurchaseError(
           pending,
           purchase.error ?? StateError('Purchase failed.'),

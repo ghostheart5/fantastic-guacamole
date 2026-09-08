@@ -41,6 +41,7 @@ void main() {
     bool pendingRestoreTest = false,
     FutureOr<SubscriptionState> Function(Ref ref)? subscriptionOverride,
     FutureOr<AiCreditWallet> Function(Ref ref)? walletOverride,
+    Stream<SubscriptionState> outcomes = const Stream.empty(),
   }) async {
     // Restore Purchases and Show all plans sit below the
     // fold at the default 800x600 test viewport, and PaywallPage's ListView
@@ -73,6 +74,7 @@ void main() {
         ],
         internalBillingTestEnabledProvider.overrideWithValue(billingTest),
         internalCreditTestEnabledProvider.overrideWithValue(creditTest),
+        paywallPurchaseOutcomeProvider.overrideWith((ref) => outcomes),
         sharedPrefsStoreProvider.overrideWithValue(prefs),
         creditServiceProvider.overrideWithValue(credit),
         if (walletOverride != null)
@@ -187,6 +189,64 @@ void main() {
         isFalse,
       );
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'delayed payment result replaces pending without changing access',
+    (tester) async {
+      final events = StreamController<SubscriptionState>();
+      addTearDown(events.close);
+      final container = await pumpPaywall(
+        tester,
+        config: _twoPlanConfig,
+        billingTest: true,
+        creditTest: true,
+        outcomes: events.stream,
+      );
+      events.add(
+        const SubscriptionState(
+          isActive: false,
+          status: 'purchase_pending',
+          source: 'google_play',
+        ),
+      );
+      await tester.pump();
+      expect(find.textContaining('Purchase pending.'), findsOneWidget);
+      events.add(
+        const SubscriptionState(
+          isActive: false,
+          status: 'purchase_failed',
+          source: 'google_play',
+        ),
+      );
+      await tester.pump();
+      expect(find.textContaining('Purchase pending.'), findsNothing);
+      expect(
+        find.textContaining('Google Play reported a payment error.'),
+        findsOneWidget,
+      );
+      expect(
+        container.read(paywallSubscriptionProvider).requireValue.isActive,
+        isFalse,
+      );
+      events.add(
+        const SubscriptionState(
+          isActive: false,
+          status: 'credits_added',
+          source: 'google_play',
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        find.text('Purchased credits added to your account.'),
+        findsOneWidget,
+      );
+      expect(
+        container.read(paywallSubscriptionProvider).requireValue.isActive,
+        isFalse,
+      );
     },
   );
 

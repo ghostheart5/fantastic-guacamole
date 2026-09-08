@@ -108,6 +108,20 @@ final paywallRepositoryProvider = Provider<IPaywallRepository>((ref) {
   return ref.watch(appPaywallRepositoryProvider);
 });
 
+final paywallPurchaseOutcomeProvider =
+    StreamProvider.autoDispose<SubscriptionState>((ref) {
+      ref.watch(accountStorageScopeProvider);
+      final repository = ref.watch(paywallRepositoryProvider);
+      if (repository is! IPurchaseOutcomeSource) return const Stream.empty();
+      return (repository as IPurchaseOutcomeSource).purchaseOutcomes
+          .where(
+            (event) =>
+                event.userId ==
+                ref.read(supabaseClientProvider)?.auth.currentUser?.id,
+          )
+          .map((event) => event.state);
+    });
+
 final getAvailablePlansUseCaseProvider = Provider<GetAvailablePlans>((ref) {
   return GetAvailablePlans(ref.watch(paywallRepositoryProvider));
 });

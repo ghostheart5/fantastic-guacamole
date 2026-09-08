@@ -233,6 +233,10 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     _PendingPurchase? pending,
     SubscriptionState state,
   ) {
+    final userId = pending?.userId ?? _supabaseClient?.auth.currentUser?.id;
+    if (!_disposed && _isCurrentBillingAccount(userId)) {
+      _purchaseOutcomes.add(PurchaseOutcome(userId, state));
+    }
     if (pending != null && !pending.completer.isCompleted) {
       pending.completer.complete(state);
     }

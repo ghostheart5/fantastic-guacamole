@@ -83,12 +83,43 @@ void main() {
           secureStore: store,
           receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
         );
+        final paymentError = Completer<void>();
+        final outcomes = <String>[];
+        final listener = repository.purchaseOutcomes.listen((event) {
+          expect(event.userId, 'user-1');
+          outcomes.add(event.state.status);
+          if (event.state.status == 'purchase_failed') paymentError.complete();
+        });
         final result = await repository.restorePurchases();
         expect(await store.readString(key), pendingInPlay ? owner : isNull);
         expect(
           result.status,
           pendingInPlay ? 'purchase_pending' : 'restored_active',
         );
+        if (pendingInPlay) {
+          controller.add([
+            PurchaseDetails(
+                purchaseID: 'pending-pack',
+                productID: 'chronospark_credits_100',
+                verificationData: PurchaseVerificationData(
+                  localVerificationData: '',
+                  serverVerificationData: 'pending-token',
+                  source: 'google_play',
+                ),
+                transactionDate: '1',
+                status: PurchaseStatus.error,
+              )
+              ..error = IAPError(
+                source: 'google_play',
+                code: 'payment_declined',
+                message: 'Test payment rejected',
+              ),
+          ]);
+          await paymentError.future.timeout(const Duration(seconds: 5));
+          expect(outcomes, ['purchase_pending', 'purchase_failed']);
+          expect(await store.readString(key), isNull);
+        }
+        await listener.cancel();
         repository.dispose();
         await controller.close();
         await client.dispose();
