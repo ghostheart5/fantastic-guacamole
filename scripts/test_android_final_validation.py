@@ -13,6 +13,12 @@ import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    def test_emulator_library_preflight_rejects_missing_dependencies_and_empty_output(self):
+        gate.verify_emulator_library_listing("libpulse.so.0 => /usr/lib/libpulse.so.0 (0x123)\nlibc.so.6 => /usr/lib/libc.so.6 (0x456)")
+        for listing in ("", "not a dynamic executable", "libc.so.6 => /usr/lib/libc.so.6\nlibpulse.so.0 => not found"):
+            with self.subTest(listing=listing), self.assertRaises(RuntimeError):
+                gate.verify_emulator_library_listing(listing)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

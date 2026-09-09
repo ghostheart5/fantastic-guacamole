@@ -11,6 +11,11 @@ on:
         description: Successful completed Android Candidate Build Only run ID
         required: true
         type: string
+      native_only:
+        description: Run only native lanes; previous Windows evidence remains separate
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       source_sha:
@@ -21,6 +26,11 @@ on:
         description: Successful completed Android Candidate Build Only run ID
         required: true
         type: string
+      native_only:
+        description: Run only native lanes; previous Windows evidence remains separate
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -104,6 +114,7 @@ jobs:
           if-no-files-found: error
 
   windows-full:
+    if: inputs.native_only != true
     needs: candidate-gate
     runs-on: windows-2022
     timeout-minutes: 100
@@ -225,6 +236,14 @@ jobs:
       - name: Record native integration source and candidate provenance
         run: python3 tooling/scripts/android_final_validation.py source --evidence evidence/integration
 
+      - name: Install required emulator runtime library
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          sudo apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=30
+          sudo apt-get install --yes --no-install-recommends libpulse0
+          dpkg-query -W libpulse0 > evidence/integration/libpulse-package.txt
+
       - name: Set up pinned Java
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
@@ -305,6 +324,14 @@ jobs:
         with:
           channel: stable
           flutter-version: '3.44.6'
+
+      - name: Install required emulator runtime library
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          sudo apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=30
+          sudo apt-get install --yes --no-install-recommends libpulse0
+          dpkg-query -W libpulse0 > evidence/16kb/libpulse-package.txt
 
       - name: Download the gated candidate and checksum-pinned bundletool
         env:

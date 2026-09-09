@@ -200,6 +200,11 @@ def configure_avd(path):
     return settings
 
 
+def verify_emulator_library_listing(listing):
+    require("libc.so" in listing and not re.search(r"=>\s*not found\b", listing),
+            "Emulator dynamic-library preflight is incomplete or has unresolved libraries")
+
+
 def integration(commands, source, adb):
     actual = {path.name for path in (source / "integration_test").glob("*_test.dart")}
     require(actual == set(SOURCE_FILES), "Maintained native test inventory changed; review this runner")
@@ -482,6 +487,12 @@ def android(mode, source, tooling, evidence):
     commands.run("command-line-tools-version", [str(manager / "sdkmanager"), "--version"])
     commands.run("install-sdk-packages", [str(manager / "sdkmanager"), "platform-tools", "emulator",
                   "platforms;android-36", "build-tools;36.0.0", image_id], timeout=900, input_text="y\n" * 100)
+    library_root = sdk / "emulator/lib64"
+    library_path = os.pathsep.join(str(path) for path in
+                                  (library_root, library_root / "qt/lib", library_root / "gles_swiftshader"))
+    libraries = commands.run("emulator-dynamic-libraries", ["env", "LD_LIBRARY_PATH=" + library_path,
+                             "ldd", str(sdk / "emulator/qemu/linux-x86_64/qemu-system-x86_64")])
+    verify_emulator_library_listing(libraries)
     commands.run("emulator-version", [str(emulator), "-version"])
     acceleration = commands.run("acceleration-check", [str(emulator), "-accel-check"])
     require("KVM" in acceleration and "usable" in acceleration.lower(), "Usable KVM acceleration was not confirmed")

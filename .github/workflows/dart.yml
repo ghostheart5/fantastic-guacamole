@@ -19,6 +19,11 @@ on:
         description: Completed successful Android candidate run; required for post-build validation
         required: false
         type: string
+      native_only:
+        description: Revalidate native jobs while retaining the previous Windows result
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,6 +41,7 @@ jobs:
     with:
       source_sha: ${{ inputs.source_sha }}
       candidate_run: ${{ inputs.candidate_run }}
+      native_only: ${{ inputs.native_only }}
     permissions:
       contents: read
       actions: read
