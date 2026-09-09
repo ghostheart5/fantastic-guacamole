@@ -2,12 +2,40 @@ name: Extended Dart Validation
 
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Keep canonical CI or validate a completed Android candidate
+        required: true
+        type: choice
+        default: canonical-ci
+        options:
+          - canonical-ci
+          - post-build-validation
+      source_sha:
+        description: Full immutable app source SHA; required for post-build validation
+        required: false
+        type: string
+      candidate_run:
+        description: Completed successful Android candidate run; required for post-build validation
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   canonical-ci:
+    if: inputs.operation == '' || inputs.operation == 'canonical-ci'
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
+
+  post-build-validation:
+    if: inputs.operation == 'post-build-validation'
+    uses: ./.github/workflows/android-final-validation.yml
+    with:
+      source_sha: ${{ inputs.source_sha }}
+      candidate_run: ${{ inputs.candidate_run }}
+    permissions:
+      contents: read
+      actions: read

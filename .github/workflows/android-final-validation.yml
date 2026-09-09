@@ -1,6 +1,16 @@
 name: Post-build Android and Windows Validation
 
 on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Full immutable app source SHA from the completed candidate build
+        required: true
+        type: string
+      candidate_run:
+        description: Successful completed Android Candidate Build Only run ID
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       source_sha:
