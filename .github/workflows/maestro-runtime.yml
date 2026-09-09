@@ -62,12 +62,15 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$QA_SOURCE_SHA"
-          test -z "$(git status --porcelain --untracked-files=no)"
-          mkdir -p artifacts/maestro-prewarm
+          test -z "$(git status --porcelain)"
+          # Evidence must use the checked-out source's existing ignored root.
+          # The canonical runner rejects untracked files as well as edits.
+          git check-ignore -q test-results/maestro-prewarm/provenance.json
+          mkdir -p test-results/maestro-prewarm
           python3 - <<'PY'
           import json, os
           from pathlib import Path
-          Path('artifacts/maestro-prewarm/provenance.json').write_text(json.dumps({
+          Path('test-results/maestro-prewarm/provenance.json').write_text(json.dumps({
               'sourceSha': os.environ['QA_SOURCE_SHA'],
               'workflowToolingSha': os.environ['GITHUB_SHA'],
               'runId': os.environ['GITHUB_RUN_ID'],
@@ -116,9 +119,9 @@ jobs:
               if name == 'emulator' or name.startswith('qemu-system-'):
                   raise SystemExit('An emulator is already running before QA precompilation')
           PY
-          flutter build apk --debug --target-platform=android-x64 --dart-define-from-file=tool/qa_defines.json 2>&1 | tee artifacts/maestro-prewarm/build.log
-          (cd android && ./gradlew --stop) 2>&1 | tee artifacts/maestro-prewarm/gradle-stop.log
-          sha256sum build/app/outputs/flutter-apk/app-debug.apk > artifacts/maestro-prewarm/precompiled-apk.sha256
+          flutter build apk --debug --target-platform=android-x64 --dart-define-from-file=tool/qa_defines.json 2>&1 | tee test-results/maestro-prewarm/build.log
+          (cd android && ./gradlew --stop) 2>&1 | tee test-results/maestro-prewarm/gradle-stop.log
+          sha256sum build/app/outputs/flutter-apk/app-debug.apk > test-results/maestro-prewarm/precompiled-apk.sha256
           git diff --exit-code
           python3 - <<'PY'
           import datetime, hashlib, json, os, subprocess
@@ -129,7 +132,7 @@ jobs:
               raise SystemExit('Precompilation identity or APK is missing')
           with apk.open('rb') as stream:
               digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-          Path('artifacts/maestro-prewarm/completion.json').write_text(json.dumps({
+          Path('test-results/maestro-prewarm/completion.json').write_text(json.dumps({
               'completedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'sourceSha': source, 'precompiledApkSha256': digest,
               'buildExitCode': 0, 'gradleStopExitCode': 0,
@@ -137,6 +140,7 @@ jobs:
               'boundary': 'Precompilation only; the canonical runner still builds and records the APK it actually tests.'
           }, indent=2) + '\n')
           PY
+          test -z "$(git status --porcelain)"
 
       - name: Install checksum-verified Maestro CLI
         timeout-minutes: 5
@@ -249,4 +253,4 @@ jobs:
           retention-days: 30
           path: |
             artifacts/maestro-ci/**
-            artifacts/maestro-prewarm/**
+            test-results/maestro-prewarm/**
