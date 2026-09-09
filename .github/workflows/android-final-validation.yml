@@ -319,6 +319,19 @@ jobs:
             https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar --output "$BUNDLETOOL"
           echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $BUNDLETOOL" | sha256sum --check --strict
 
+      - name: Install checksum-pinned Maestro for the standalone onboarding handoff
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/maestro.zip"
+          install_root="$RUNNER_TEMP/maestro-cli"
+          curl --fail --location --silent --show-error \
+            https://github.com/mobile-dev-inc/Maestro/releases/download/cli-2.10.0/maestro.zip --output "$archive"
+          echo "29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991  $archive" | sha256sum --check --strict
+          unzip -q "$archive" -d "$install_root"
+          chmod +x "$install_root/maestro/bin/maestro"
+          echo "$install_root/maestro/bin" >> "$GITHUB_PATH"
+
       - name: Require hardware acceleration
         run: |
           set -euo pipefail
@@ -346,4 +359,4 @@ jobs:
       - name: State the retained evidence boundary
         if: always()
         run: |
-          echo 'Disposable AAB-derived test signer and fresh strict 16KB emulator only. No Play signing, authentication, microphone recording, purchases, release publication, Maestro, monkey or level-20 execution.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Disposable AAB-derived test signer and fresh strict 16KB emulator, including the standalone welcome-to-login Maestro flow only. No Play signing, authentication, microphone recording, purchases, release publication, monkey or level-20 execution.' >> "$GITHUB_STEP_SUMMARY"

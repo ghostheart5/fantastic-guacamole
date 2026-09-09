@@ -17,6 +17,7 @@ import android_candidate_build as candidate_tools
 
 PACKAGE = "com.ghostheart5.chronospark"
 BUNDLETOOL_SHA256 = "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29"
+MAESTRO_SHA256 = "29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991"
 SOURCE_FILES = (
     "app_startup_test.dart", "auth_flow_integration_test.dart",
     "persistence_recovery_test.dart", "planner_learning_identity_test.dart",
@@ -121,7 +122,7 @@ class Commands:
         start = time.monotonic()
         record = {"label": label, "argv": [str(x) for x in argv], "cwd": str(cwd) if cwd else None,
                   "startedAtUtc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                  "timeoutSeconds": timeout}
+                  "timeoutSeconds": timeout, "exitCode": None, "timedOut": False, "launchFailed": False}
         log = self.evidence / (label + ".log")
         try:
             result = subprocess.run(argv, cwd=cwd, input=input_text, encoding="utf-8",
@@ -136,6 +137,10 @@ class Commands:
                            encoding="utf-8")
             record.update(exitCode=None, timedOut=True)
             raise RuntimeError(f"Command timed out: {label}") from error
+        except OSError as error:
+            record["launchFailed"] = True
+            log.write_text(type(error).__name__ + ": command could not be launched\n", encoding="utf-8")
+            raise RuntimeError(f"Command could not be launched: {label}") from error
         finally:
             record["seconds"] = round(time.monotonic() - start, 3)
             self.records.append(record)
@@ -248,6 +253,103 @@ def verify_rendered_onboarding(path):
     raise RuntimeError("Fresh onboarding's enabled login CTA is not visibly reachable")
 
 
+def verify_one_maestro_case(path):
+    root = ET.parse(path).getroot()
+    require(root.tag in ("testsuite", "testsuites"), "Unexpected Maestro JUnit root")
+    cases = list(root.iter("testcase"))
+    require(len(cases) == 1, "Standalone onboarding requires exactly one completed Maestro testcase")
+    require(not any(node.tag in ("failure", "error", "skipped") for node in root.iter()),
+            "Standalone onboarding has a failed, errored or skipped testcase")
+    require(cases[0].get("status", "").casefold() in ("", "passed", "run", "success", "completed"),
+            "Standalone onboarding testcase status does not indicate execution")
+    for suite in root.iter():
+        if suite.tag not in ("testsuite", "testsuites"):
+            continue
+        expected = {"tests": len(list(suite.iter("testcase"))), "failures": 0, "errors": 0, "skipped": 0}
+        for name, count in expected.items():
+            if name in suite.attrib:
+                require(re.fullmatch(r"\d+", suite.attrib[name]) and int(suite.attrib[name]) == count,
+                        "Maestro JUnit counters disagree with the actual completed case")
+    return {"testCases": 1, "passed": 1, "failures": 0, "errors": 0, "skipped": 0,
+            "name": cases[0].get("name", "")}
+
+
+def verify_rendered_login(path):
+    nodes = list(ET.parse(path).iter("node"))
+    text = "\n".join(node.get("text", "") + "\n" + node.get("content-desc", "") + "\n" +
+                     node.get("resource-id", "") for node in nodes).upper()
+    require("ENTER SYSTEM" in text and ("EMAIL ADDRESS" in text or "LOGIN-EMAIL-FIELD" in text) and
+            "PASSWORD" in text and "CONTINUE TO LOGIN" not in text,
+            "Native login handoff did not render its email/password form")
+
+
+def standalone_onboarding(commands, source, adb):
+    require(adb[-2:] == ["-s", "emulator-5554"], "Onboarding data reset requires this job's owned emulator")
+    maestro = shutil.which("maestro")
+    require(maestro is not None, "Checksum-pinned Maestro was not installed")
+    flow = source / ".maestro/flows/03-onboarding-tutorial.yaml"
+    junit = commands.evidence / "standalone-onboarding-junit.xml"
+    require(flow.is_file() and not junit.exists(), "Standalone flow or fresh JUnit destination is invalid")
+    receipt = {"passed": False, "flow": str(flow.relative_to(source)), "flowSha256": digest(flow),
+               "maestroVersion": "2.10.0", "maestroArchiveSha256": MAESTRO_SHA256,
+               "deviceSerial": "emulator-5554", "timeoutSeconds": 180,
+               "clearStateBoundary": "Only the owned fresh AAB-derived emulator installation; no account login.",
+               "originalMaestroExitCode": None}
+    try:
+        version = commands.run("onboarding-maestro-version", [maestro, "--version"], timeout=60)
+        require(re.search(r"\b2\.10\.0\b", version), "Unexpected Maestro runtime version")
+        commands.run("stop-app-before-onboarding-reset", adb + ["shell", "am", "force-stop", PACKAGE])
+        require(not commands.run("verify-app-stopped-before-onboarding-reset",
+                adb + ["shell", "pidof", PACKAGE], check=False),
+                "App remained running before the owned onboarding reset")
+        commands.run("clear-onboarding-flow-log", adb + ["logcat", "-c"])
+        commands.run("standalone-onboarding-maestro", [maestro, "test", "--udid", "emulator-5554",
+                     "--no-ansi", "--format", "JUNIT", "--output", str(junit), "--debug-output",
+                     str(commands.evidence / "onboarding-maestro-debug"), "--test-output-dir",
+                     str(commands.evidence / "onboarding-maestro-artifacts"), "--test-suite-name",
+                     "ChronoSpark signed-artifact onboarding", str(flow)], cwd=source, timeout=180, check=False)
+        receipt["originalMaestroExitCode"] = commands.records[-1]["exitCode"]
+        during = commands.run("onboarding-flow-logcat", adb + ["logcat", "-d", "-v", "threadtime"], timeout=60)
+        # The app was already stopped before this log window. The immutable
+        # flow's clearState therefore needs no process-death scan exception.
+        during_failures = fatal_lines(during)
+        receipt["duringFlowFatalScan"] = {"failures": during_failures}
+        require(receipt["originalMaestroExitCode"] == 0, "Standalone onboarding Maestro command failed")
+        receipt["junit"] = verify_one_maestro_case(junit)
+        require(not during_failures, "Crash/ANR/Flutter error during standalone onboarding")
+        require(digest(flow) == receipt["flowSha256"], "Immutable onboarding flow changed during execution")
+        commands.run("clear-post-onboarding-log", adb + ["logcat", "-c"])
+        for index in range(5):
+            time.sleep(3)
+            require(re.fullmatch(r"\d+(?: \d+)*", commands.run(f"post-onboarding-process-{index}",
+                    adb + ["shell", "pidof", PACKAGE])), "App died after onboarding login handoff")
+        activities = commands.run("post-onboarding-activity", adb + ["shell", "dumpsys", "activity", "activities"])
+        require(any(PACKAGE in line and re.search(r"(?:mResumedActivity|topResumedActivity)", line)
+                    for line in activities.splitlines()), "Login handoff lost the foreground app")
+        commands.run("post-onboarding-ui-dump", adb + ["shell", "uiautomator", "dump", "/sdcard/onboarding-handoff.xml"])
+        xml = commands.evidence / "onboarding-login-handoff.xml"
+        commands.run("post-onboarding-ui-pull", adb + ["pull", "/sdcard/onboarding-handoff.xml", str(xml)])
+        verify_rendered_login(xml)
+        screenshot = commands.evidence / "onboarding-login-handoff.png"
+        with screenshot.open("wb") as stream:
+            subprocess.run(adb + ["exec-out", "screencap", "-p"], stdout=stream, check=True, timeout=30)
+        require(screenshot.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"), "Login handoff screenshot is invalid")
+        after = commands.run("post-onboarding-logcat", adb + ["logcat", "-d", "-v", "threadtime"], timeout=60)
+        failures = fatal_lines(after)
+        receipt["postFlowFatalScan"] = {"observationSeconds": 15, "fatalLines": failures,
+                                        "processExitExceptions": False}
+        require(not failures, "Runtime error after standalone onboarding login handoff")
+        receipt.update(passed=True, renderedLoginHandoffVerified=True)
+        return receipt
+    finally:
+        attempts = [item for item in commands.records if item["label"] == "standalone-onboarding-maestro"]
+        if attempts:
+            receipt["originalMaestroExitCode"] = attempts[-1].get("exitCode")
+            receipt["maestroTimedOut"] = attempts[-1].get("timedOut", False)
+            receipt["maestroLaunchFailed"] = attempts[-1].get("launchFailed", False)
+        write_json(commands.evidence / "standalone-onboarding-result.json", receipt)
+
+
 def release_16kb(commands, source, tooling, adb, sdk):
     require(commands.run("page-size", adb + ["shell", "getconf", "PAGE_SIZE"]) == "16384",
             "Guest page size is not 16384; no 4KB fallback is permitted")
@@ -357,9 +459,11 @@ def release_16kb(commands, source, tooling, adb, sdk):
     commands.run("cold-launch-ui-dump", adb + ["shell", "uiautomator", "dump", "/sdcard/validation-window.xml"])
     commands.run("cold-launch-ui-pull", adb + ["pull", "/sdcard/validation-window.xml", str(commands.evidence / "cold-launch.xml")])
     verify_rendered_onboarding(commands.evidence / "cold-launch.xml")
+    onboarding = standalone_onboarding(commands, source, adb)
     return {**candidate, "derivedApkSha256": digest(apk), "derivedApksSha256": digest(apks),
             "derivedSignerSha256": cert[1].lower(), "pageSize": 16384, "strict16KbCompatibilityDisabled": True,
             "coldLaunchObservationSeconds": 30, "renderedFreshOnboardingVerified": True,
+            "standaloneOnboarding": onboarding,
             "boundary": "AAB-derived APK with disposable test signer; no Play signing, authentication, microphone, purchase or billing proof."}
 
 

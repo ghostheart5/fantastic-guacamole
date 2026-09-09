@@ -1,9 +1,11 @@
 """Adversarial provenance/terminal checks; no devices, SDK installs or builds."""
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import warnings
 import zipfile
 
@@ -186,6 +188,114 @@ class FinalValidationTest(unittest.TestCase):
         path.write_text('<hierarchy><node content-desc="Splash screen"/></hierarchy>')
         with self.assertRaises(RuntimeError):
             gate.verify_rendered_onboarding(path)
+
+    def test_standalone_junit_requires_one_passing_executed_case(self):
+        path = self.root / "maestro.xml"
+        path.write_text('<testsuites tests="1" failures="0" errors="0" skipped="0"><testsuite tests="1" failures="0"><testcase name="03-onboarding-tutorial" status="SUCCESS"/></testsuite></testsuites>')
+        self.assertEqual(gate.verify_one_maestro_case(path)["testCases"], 1)
+
+    def test_standalone_junit_rejects_skips_errors_empty_multiple_and_false_counters(self):
+        for xml in (
+            '<testsuite tests="0"/>',
+            '<testsuite><testcase/><testcase/></testsuite>',
+            '<testsuite><testcase><skipped/></testcase></testsuite>',
+            '<testsuite><testcase><failure/></testcase></testsuite>',
+            '<testsuite><testcase><error/></testcase></testsuite>',
+            '<testsuite tests="2"><testcase/></testsuite>',
+            '<testsuite errors="1"><testcase/></testsuite>',
+            '<testsuite><testcase status="notrun"/></testsuite>',
+        ):
+            with self.subTest(xml=xml):
+                path = self.root / "maestro.xml"
+                path.write_text(xml)
+                with self.assertRaises(RuntimeError):
+                    gate.verify_one_maestro_case(path)
+
+    def test_native_login_handoff_cannot_be_a_welcome_or_blank_screen(self):
+        path = self.root / "login.xml"
+        path.write_text('<hierarchy><node text="ENTER SYSTEM"/><node content-desc="Email address"/><node content-desc="Password"/></hierarchy>')
+        gate.verify_rendered_login(path)
+        for text in ('<hierarchy/>', '<hierarchy><node text="ENTER SYSTEM"/></hierarchy>',
+                     '<hierarchy><node text="ENTER SYSTEM"/><node text="Email address Password CONTINUE TO LOGIN"/></hierarchy>'):
+            path.write_text(text)
+            with self.assertRaises(RuntimeError):
+                gate.verify_rendered_login(path)
+
+    def test_maestro_nonzero_exit_cannot_pass_via_a_successful_junit_file(self):
+        flow = self.root / ".maestro/flows/03-onboarding-tutorial.yaml"
+        flow.parent.mkdir(parents=True)
+        flow.write_text("# synthetic source marker; fake commands never execute the flow")
+
+        class FakeCommands:
+            def __init__(self, evidence):
+                self.evidence = evidence
+                self.records = []
+
+            def run(self, label, argv, **kwargs):
+                failed_maestro = label == "standalone-onboarding-maestro"
+                self.records.append({"label": label, "exitCode": 1 if failed_maestro else 0, "timedOut": False})
+                if failed_maestro:
+                    Path(argv[argv.index("--output") + 1]).write_text('<testsuite tests="1"><testcase name="03-onboarding-tutorial"/></testsuite>')
+                return "2.10.0" if label == "onboarding-maestro-version" else ""
+
+        with patch.object(gate.shutil, "which", return_value="fake-maestro"):
+            with self.assertRaisesRegex(RuntimeError, "Maestro command failed"):
+                gate.standalone_onboarding(FakeCommands(self.root), self.root,
+                                           ["fake-adb", "-s", "emulator-5554"])
+        receipt = json.loads((self.root / "standalone-onboarding-result.json").read_text())
+        self.assertFalse(receipt["passed"])
+        self.assertEqual(receipt["originalMaestroExitCode"], 1)
+
+    def test_maestro_os_launch_failure_preserves_original_failed_receipt(self):
+        flow = self.root / ".maestro/flows/03-onboarding-tutorial.yaml"
+        flow.parent.mkdir(parents=True)
+        flow.write_text("# synthetic source; no tool or device is actually launched")
+        evidence = self.root / "evidence"
+
+        def fake_process(argv, **kwargs):
+            if argv[0] == "fake-maestro" and "test" in argv:
+                raise FileNotFoundError("synthetic missing CLI")
+            return subprocess.CompletedProcess(argv, 0, "2.10.0" if "--version" in argv else "")
+
+        with patch.object(gate.shutil, "which", return_value="fake-maestro"), \
+                patch.object(gate.subprocess, "run", side_effect=fake_process):
+            with self.assertRaisesRegex(RuntimeError, "could not be launched"):
+                gate.standalone_onboarding(gate.Commands(evidence), self.root,
+                                           ["fake-adb", "-s", "emulator-5554"])
+        receipt = json.loads((evidence / "standalone-onboarding-result.json").read_text())
+        self.assertFalse(receipt["passed"])
+        self.assertIsNone(receipt["originalMaestroExitCode"])
+        self.assertTrue(receipt["maestroLaunchFailed"])
+
+    def test_onboarding_stops_before_log_window_and_rejects_any_later_process_death(self):
+        flow = self.root / ".maestro/flows/03-onboarding-tutorial.yaml"
+        flow.parent.mkdir(parents=True)
+        flow.write_text("# synthetic source; no device is actually used")
+
+        class FakeCommands:
+            def __init__(self, evidence):
+                self.evidence = evidence
+                self.records = []
+
+            def run(self, label, argv, **kwargs):
+                self.records.append({"label": label, "exitCode": 0, "timedOut": False})
+                if label == "standalone-onboarding-maestro":
+                    Path(argv[argv.index("--output") + 1]).write_text(
+                        '<testsuite tests="1"><testcase name="03-onboarding-tutorial" status="SUCCESS"/></testsuite>')
+                if label == "onboarding-flow-logcat":
+                    return f"ActivityManager: Process {gate.PACKAGE} has died"
+                return "2.10.0" if label == "onboarding-maestro-version" else ""
+
+        commands = FakeCommands(self.root)
+        with patch.object(gate.shutil, "which", return_value="fake-maestro"):
+            with self.assertRaisesRegex(RuntimeError, "Crash/ANR/Flutter error"):
+                gate.standalone_onboarding(commands, self.root, ["fake-adb", "-s", "emulator-5554"])
+        labels = [record["label"] for record in commands.records]
+        self.assertLess(labels.index("stop-app-before-onboarding-reset"), labels.index("clear-onboarding-flow-log"))
+        self.assertLess(labels.index("verify-app-stopped-before-onboarding-reset"), labels.index("clear-onboarding-flow-log"))
+        receipt = json.loads((self.root / "standalone-onboarding-result.json").read_text())
+        self.assertFalse(receipt["passed"])
+        self.assertEqual(len(receipt["duringFlowFatalScan"]["failures"]), 1)
 
 
 if __name__ == "__main__":
