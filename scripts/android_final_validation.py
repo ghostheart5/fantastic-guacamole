@@ -22,6 +22,34 @@ SOURCE_FILES = (
     "app_startup_test.dart", "auth_flow_integration_test.dart",
     "persistence_recovery_test.dart", "planner_learning_identity_test.dart",
 )
+REVIEWED_TEST_REPAIR_BASE = "66d5a8dafb718b712f58f9fa8d9a74e692bd5bf1"
+REVIEWED_TEST_REPAIR_PATHS = frozenset((
+    "check_architecture.ps1",
+    "test/architecture/repository_ownership_checker_test.dart",
+    "test/release/maestro_android_runner_fixture_test.dart",
+    ".maestro/subflows/reveal-creator-review.yaml",
+))
+
+
+def validate_test_only_delta(raw, base, target):
+    require(base == REVIEWED_TEST_REPAIR_BASE and
+            re.fullmatch(r"[a-f0-9]{40}", target or "") and target != base,
+            "Unreviewed test repair base or validation SHA")
+    fields = raw.split("\0")
+    require(fields[-1] == "" and len(fields) > 1 and len(fields) % 2 == 1,
+            "Malformed or empty test repair diff")
+    entries = []
+    for index in range(0, len(fields) - 1, 2):
+        header, path = fields[index:index + 2]
+        match = re.fullmatch(r":(100644) (100644) ([a-f0-9]{40}) ([a-f0-9]{40}) M", header)
+        require(match and path in REVIEWED_TEST_REPAIR_PATHS,
+                "Unreviewed path, file type, rename, deletion or mode change in test repair")
+        entries.append({"path": path, "beforeBlob": match[3], "afterBlob": match[4],
+                        "beforeMode": match[1], "afterMode": match[2]})
+    require(len(entries) == len(REVIEWED_TEST_REPAIR_PATHS) and
+            {entry["path"] for entry in entries} == REVIEWED_TEST_REPAIR_PATHS,
+            "The complete reviewed four-file test repair is required")
+    return entries
 
 
 def require(condition, message):
@@ -154,11 +182,30 @@ def source_receipt(source, tooling, evidence):
     commands = Commands(evidence)
     actual = commands.run("source-head", ["git", "rev-parse", "HEAD"], cwd=source)
     tooling_sha = commands.run("tooling-head", ["git", "rev-parse", "HEAD"], cwd=tooling)
-    require(actual == os.environ["SOURCE_SHA"] and tooling_sha == os.environ["GITHUB_SHA"],
+    candidate_source = os.environ["SOURCE_SHA"]
+    validation_source = os.environ.get("VALIDATION_SOURCE_SHA") or candidate_source
+    require(actual == validation_source and tooling_sha == os.environ["GITHUB_SHA"],
             "Source or validation tooling checkout mismatch")
     require(not commands.run("tracked-status", ["git", "status", "--porcelain", "--untracked-files=no"], cwd=source),
             "Tracked source is dirty")
-    result = {"sourceSha": actual, "validationToolingSha": tooling_sha,
+    test_delta = None
+    if actual != candidate_source:
+        require(os.environ.get("WINDOWS_ONLY") == "true", "Test repair source is restricted to Windows-only validation")
+        commands.run("candidate-is-ancestor", ["git", "merge-base", "--is-ancestor", candidate_source, actual], cwd=source)
+        raw = commands.run("complete-test-repair-diff", ["git", "diff", "--raw", "-z", "--abbrev=40",
+                           "--no-renames", candidate_source, actual, "--"], cwd=source)
+        test_delta = validate_test_only_delta(raw, candidate_source, actual)
+        commands.run("complete-test-repair-patch", ["git", "diff", "--binary", "--no-renames",
+                     candidate_source, actual, "--"], cwd=source)
+        for entry in test_delta:
+            entry["workingFileSha256"] = digest(source / entry["path"])
+        write_json(Path(evidence) / "reviewed-test-only-delta.json", {
+            "candidateSourceSha": candidate_source, "validationSourceSha": actual,
+            "entries": test_delta, "allOtherTrackedPathsAndModesUnchanged": True,
+            "boundary": "Clean newer tests; unchanged complete product and build tree. Not an exact candidate-source test run."})
+    result = {"sourceSha": actual, "candidateSourceSha": candidate_source,
+              "validationSourceSha": actual, "reviewedTestOnlyDelta": test_delta,
+              "validationToolingSha": tooling_sha,
               "repository": os.environ["GITHUB_REPOSITORY"],
               "validationRunId": os.environ["GITHUB_RUN_ID"],
               "validationRunAttempt": os.environ["GITHUB_RUN_ATTEMPT"],

@@ -24,6 +24,15 @@ on:
         required: false
         type: boolean
         default: false
+      windows_only:
+        description: Run only Windows after reviewed test-only repairs
+        required: false
+        type: boolean
+        default: false
+      validation_source_sha:
+        description: Optional immutable Windows test revision; complete reviewed delta required
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -42,6 +51,8 @@ jobs:
       source_sha: ${{ inputs.source_sha }}
       candidate_run: ${{ inputs.candidate_run }}
       native_only: ${{ inputs.native_only }}
+      windows_only: ${{ inputs.windows_only }}
+      validation_source_sha: ${{ inputs.validation_source_sha }}
     permissions:
       contents: read
       actions: read

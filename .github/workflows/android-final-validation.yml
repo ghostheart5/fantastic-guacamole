@@ -16,6 +16,15 @@ on:
         required: false
         type: boolean
         default: false
+      windows_only:
+        description: Run only Windows with separately reviewed tests
+        required: false
+        type: boolean
+        default: false
+      validation_source_sha:
+        description: Immutable Windows test revision; complete reviewed delta required
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       source_sha:
@@ -31,13 +40,22 @@ on:
         required: false
         type: boolean
         default: false
+      windows_only:
+        description: Run only Windows with separately reviewed tests
+        required: false
+        type: boolean
+        default: false
+      validation_source_sha:
+        description: Immutable Windows test revision; complete reviewed delta required
+        required: false
+        type: string
 
 permissions:
   contents: read
   actions: read
 
 concurrency:
-  group: android-final-validation-${{ inputs.source_sha }}
+  group: android-final-validation-${{ inputs.source_sha }}-${{ inputs.windows_only && 'windows' || 'native' }}
   cancel-in-progress: false
 
 env:
@@ -59,10 +77,18 @@ jobs:
       - name: Verify completed candidate API identity before any checkout or download
         env:
           GH_TOKEN: ${{ github.token }}
+          VALIDATION_SOURCE_SHA: ${{ inputs.validation_source_sha }}
+          NATIVE_ONLY: ${{ inputs.native_only }}
+          WINDOWS_ONLY: ${{ inputs.windows_only }}
         run: |
           set -euo pipefail
           [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
           [[ "$CANDIDATE_RUN" =~ ^[1-9][0-9]*$ ]]
+          test "$NATIVE_ONLY:$WINDOWS_ONLY" != 'true:true'
+          if [ -n "$VALIDATION_SOURCE_SHA" ]; then
+            test "$WINDOWS_ONLY" = true
+            [[ "$VALIDATION_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          fi
           mkdir -p evidence/gate
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" > evidence/gate/candidate-run.json
           jq -e --arg repo "$GITHUB_REPOSITORY" --arg id "$CANDIDATE_RUN" '
@@ -119,15 +145,18 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 100
     env:
+      VALIDATION_SOURCE_SHA: ${{ inputs.validation_source_sha || inputs.source_sha }}
+      WINDOWS_ONLY: ${{ inputs.windows_only }}
       CANDIDATE_AAB_SHA: ${{ needs.candidate-gate.outputs.aab_sha }}
       CANDIDATE_ARTIFACT_ID: ${{ needs.candidate-gate.outputs.artifact_id }}
       CANDIDATE_ARTIFACT_SHA: ${{ needs.candidate-gate.outputs.artifact_sha }}
       CANDIDATE_TOOLING_SHA: ${{ needs.candidate-gate.outputs.candidate_tooling_sha }}
     steps:
-      - name: Checkout gated immutable source
+      - name: Checkout immutable validation source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ inputs.validation_source_sha || inputs.source_sha }}
+          fetch-depth: 0
           path: source
           persist-credentials: false
 
@@ -208,6 +237,7 @@ jobs:
             source/test/**/failures/**
 
   android-integration:
+    if: inputs.windows_only != true
     needs: candidate-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 115
@@ -283,6 +313,7 @@ jobs:
           if-no-files-found: error
 
   release-16kb:
+    if: inputs.windows_only != true
     needs: candidate-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 55
