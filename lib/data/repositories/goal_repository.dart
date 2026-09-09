@@ -7,6 +7,18 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_read_health.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
+class _GoalReadSnapshot {
+  const _GoalReadSnapshot({
+    required this.raw,
+    required this.goals,
+    required this.corrupted,
+  });
+
+  final String? raw;
+  final List<GoalEntity> goals;
+  final bool corrupted;
+}
+
 class GoalRepository implements IGoalRepository, GoalReadHealth {
   GoalRepository(this._store, {this.scope});
 
@@ -32,18 +44,31 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
   bool get lastReadCorrupted => _lastReadCorrupted;
 
   @override
-  List<GoalEntity> getGoals() {
+  List<GoalEntity> getGoals() => _readGoals().goals;
+
+  _GoalReadSnapshot _readGoals({bool requireAvailableStorage = false}) {
     _requireWritableScope();
     String? raw;
     try {
       raw = _store.get(_key);
     } on StateError {
       _lastReadCorrupted = true;
-      return const <GoalEntity>[];
+      // An unavailable read has no bytes to preserve. Mutation callers must
+      // abort now; a later successful read cannot make this empty result safe.
+      if (requireAvailableStorage) rethrow;
+      return const _GoalReadSnapshot(
+        raw: null,
+        goals: <GoalEntity>[],
+        corrupted: true,
+      );
     }
     if (raw == null || raw.trim().isEmpty) {
       _lastReadCorrupted = false;
-      return const <GoalEntity>[];
+      return _GoalReadSnapshot(
+        raw: raw,
+        goals: const <GoalEntity>[],
+        corrupted: false,
+      );
     }
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
@@ -67,7 +92,7 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
           })
           .toList(growable: false);
       _lastReadCorrupted = false;
-      return goals;
+      return _GoalReadSnapshot(raw: raw, goals: goals, corrupted: false);
     } catch (error, stackTrace) {
       _lastReadCorrupted = true;
       Logger.errorCategory(
@@ -77,7 +102,11 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
         error,
         stackTrace,
       );
-      return const <GoalEntity>[];
+      return _GoalReadSnapshot(
+        raw: raw,
+        goals: const <GoalEntity>[],
+        corrupted: true,
+      );
     }
   }
 
@@ -86,7 +115,8 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
     _requireWritableScope();
     return _enqueueWrite(() async {
       await _store.open();
-      final List<GoalEntity> existing = getGoals().toList(growable: true);
+      final _GoalReadSnapshot read = _readGoals(requireAvailableStorage: true);
+      final List<GoalEntity> existing = read.goals.toList(growable: true);
       final int index = existing.indexWhere(
         (GoalEntity item) => item.id == goal.id,
       );
@@ -95,7 +125,7 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
       } else {
         existing.insert(0, goal);
       }
-      await _saveGoalsUnlocked(existing);
+      await _saveGoalsUnlocked(existing, previousRead: read);
     });
   }
 
@@ -106,12 +136,26 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
     return _enqueueWrite(() => _saveGoalsUnlocked(snapshot));
   }
 
-  Future<void> _saveGoalsUnlocked(List<GoalEntity> goals) async {
+  Future<void> _saveGoalsUnlocked(
+    List<GoalEntity> goals, {
+    _GoalReadSnapshot? previousRead,
+  }) async {
     await _store.open();
     // Bulk writes need the same preservation check as read-modify-write
     // operations, including when this repository has not read storage yet.
-    getGoals();
-    await _quarantineCorruptPayloadIfNeeded();
+    final _GoalReadSnapshot read = _readGoals(requireAvailableStorage: true);
+    if (previousRead != null && previousRead.raw != read.raw) {
+      throw StateError('Stored goals changed during this operation. Retry.');
+    }
+    await _quarantineCorruptPayloadIfNeeded(read);
+    // Quarantine may await disk I/O. Keep the decision tied to the same bytes,
+    // even if another reader changes the public health flag while it waits.
+    final _GoalReadSnapshot beforeWrite = _readGoals(
+      requireAvailableStorage: true,
+    );
+    if (beforeWrite.raw != read.raw) {
+      throw StateError('Stored goals changed during this operation. Retry.');
+    }
     await _store.put(
       _key,
       jsonEncode(goals.map((GoalEntity g) => g.toJson()).toList()),
@@ -124,10 +168,11 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
     _requireWritableScope();
     return _enqueueWrite(() async {
       await _store.open();
-      final List<GoalEntity> next = getGoals()
+      final _GoalReadSnapshot read = _readGoals(requireAvailableStorage: true);
+      final List<GoalEntity> next = read.goals
           .where((GoalEntity goal) => goal.id != id)
           .toList(growable: false);
-      await _saveGoalsUnlocked(next);
+      await _saveGoalsUnlocked(next, previousRead: read);
     });
   }
 
@@ -142,12 +187,12 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
 
   /// Copies an undecodable payload to [_corruptBackupKey] before it is
   /// overwritten, so a decode bug never becomes permanent data loss.
-  Future<void> _quarantineCorruptPayloadIfNeeded() async {
-    if (!_lastReadCorrupted) {
+  Future<void> _quarantineCorruptPayloadIfNeeded(_GoalReadSnapshot read) async {
+    if (!read.corrupted) {
       return;
     }
     try {
-      final String? raw = _store.get(_key);
+      final String? raw = read.raw;
       if (raw != null && raw.trim().isNotEmpty) {
         final String? previousBackup = _store.get(_corruptBackupKey);
         if (previousBackup != raw) {

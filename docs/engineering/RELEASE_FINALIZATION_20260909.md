@@ -133,3 +133,36 @@ origin of every late native callback. Exact-device rapid restart/account-change,
 background/permission denial and final-transcript tests remain required. No
 100-percent correctness or all-release-requirements-passed claim is justified by
 these focused receipts.
+
+## Goal read-health repair found during final re-audit
+
+The next bounded review reproduced a storage-loss path with real Hive backing:
+one injected temporary read failure let `saveGoal` derive an empty collection,
+then a later successful read cleared the health flag before the stale collection
+was written. The baseline diagnostic failed and recorded an existing goal being
+replaced despite the save reporting success. This is a deterministic repository
+failure-handling reproduction, not evidence of incident frequency on a phone.
+
+Mutation reads now fail immediately when storage is unavailable. Each operation
+retains its raw bytes, decoded goals and corruption state together, rejects bytes
+that change across reopening, quarantines the captured undecodable bytes, and
+checks the bytes again after awaited quarantine before writing. Normal corrupt
+payload preservation remains supported. This is queued repository read-consistency
+protection, not a general atomic compare-and-swap for arbitrary external writers.
+
+`EF/goal-read-health/baseline-manifest.json` preserves the original failure.
+`EF/goal-read-health/repaired-manifest.json` records 32/32 passing cases: the
+31-case committed corruption suite, including 13 new add/update/delete/bulk and
+across-await regressions, plus that original diagnostic. Each failed-read case
+checks unchanged primary bytes and safe retry. Targeted fatal-info analysis and
+independent implementation review passed. This app-only repair requires fresh
+exact-source CI before a signed build; older successful CI is not relabelled.
+
+Before this app-only correction, exact-source CI `34347797338` and database run
+`34347799955` passed on `e91255040af31cd2d852ac998666e6776dbe286a`. Approved backend
+repair run `34349014804` completed all seven stages and passed its read-only gate;
+independent live readback confirmed 50 migrations, the three deployed function
+configurations and all twelve effective grant checks. Billing preflight
+`34349228045` passed for the same source. Backend source is unchanged by the goal
+repair; the fresh candidate preflight must still reverify it. No public pages or
+Google Play release were published.
