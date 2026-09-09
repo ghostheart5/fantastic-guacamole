@@ -7,11 +7,13 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import time
 import zipfile
 import xml.etree.ElementTree as ET
+import zlib
 
 import android_candidate_build as candidate_tools
 
@@ -21,6 +23,13 @@ MAESTRO_SHA256 = "29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd9
 SOURCE_FILES = (
     "app_startup_test.dart", "auth_flow_integration_test.dart",
     "persistence_recovery_test.dart", "planner_learning_identity_test.dart",
+)
+INTEGRATION_CASES = (
+    ("app_startup_test.dart", "320x640", 1),
+    ("auth_flow_integration_test.dart", "320x640", 6),
+    ("persistence_recovery_test.dart", "320x640", 1),
+    ("planner_learning_identity_test.dart", "320x640", 1),
+    ("auth_flow_integration_test.dart", "411x891", 6),
 )
 REVIEWED_TEST_REPAIR_BASE = "66d5a8dafb718b712f58f9fa8d9a74e692bd5bf1"
 REVIEWED_TEST_REPAIR_PATHS = frozenset((
@@ -252,40 +261,181 @@ def verify_emulator_library_listing(listing):
             "Emulator dynamic-library preflight is incomplete or has unresolved libraries")
 
 
-def integration(commands, source, adb):
-    actual = {path.name for path in (source / "integration_test").glob("*_test.dart")}
-    require(actual == set(SOURCE_FILES), "Maintained native test inventory changed; review this runner")
-    results = []
-    for viewport in ("320x640", "411x891"):
-        commands.run("viewport-" + viewport, adb + ["shell", "wm", "size", viewport])
-        files = SOURCE_FILES if viewport == "320x640" else ("auth_flow_integration_test.dart",)
-        for filename in files:
-            label = Path(filename).stem + "-" + viewport
-            manifest = commands.evidence / (label + "-manifest.json")
-            commands.run(label, ["dart", "run", "tool/run_flutter_tests.dart", "--report",
-                                str(commands.evidence / (label + ".jsonl")), "--manifest", str(manifest),
-                                "--timeout-seconds", "900", "--", "integration_test/" + filename,
-                                "--no-pub", "--concurrency=1", "-d", "emulator-5554"],
-                         cwd=source, timeout=960, check=False)
-            entry = {"file": filename, "viewport": viewport,
-                     "runnerExitCode": commands.records[-1]["exitCode"], "passed": False}
+def verify_png(data):
+    require(data.startswith(b"\x89PNG\r\n\x1a\n"), "Screenshot is not a PNG")
+    offset, dimensions, image_data, ended = 8, None, False, False
+    while offset + 12 <= len(data):
+        size = struct.unpack_from(">I", data, offset)[0]
+        kind = data[offset + 4:offset + 8]
+        require(offset + 12 + size <= len(data), "Screenshot PNG is truncated")
+        payload = data[offset + 8:offset + 8 + size]
+        crc = struct.unpack_from(">I", data, offset + 8 + size)[0]
+        require(zlib.crc32(kind + payload) & 0xffffffff == crc, "Screenshot PNG CRC mismatch")
+        if dimensions is None:
+            require(kind == b"IHDR" and size == 13, "Screenshot PNG lacks its header")
+            dimensions = struct.unpack_from(">II", payload)
+            require(all(0 < value <= 4096 for value in dimensions), "Invalid screenshot dimensions")
+        image_data |= kind == b"IDAT" and size > 0
+        offset += 12 + size
+        if kind == b"IEND":
+            require(size == 0 and offset == len(data), "Invalid screenshot PNG ending")
+            ended = True
+            break
+    require(ended and image_data, "Screenshot PNG has no complete image")
+    return list(dimensions)
+
+
+def capture_guest_png(commands, adb, label, viewport):
+    path = commands.evidence / (label + ".png")
+    record = {"argv": adb + ["exec-out", "screencap", "-p"], "exitCode": None,
+              "timedOut": False, "launchFailed": False, "valid": False}
+    try:
+        with path.open("xb") as stream:
+            result = subprocess.run(record["argv"], stdout=stream, stderr=subprocess.PIPE, timeout=20)
+        record["exitCode"] = result.returncode
+        (commands.evidence / (label + ".stderr.txt")).write_bytes(result.stderr)
+        require(result.returncode == 0, "Screenshot command failed")
+        record["dimensions"] = verify_png(path.read_bytes())
+        require(record["dimensions"] == [int(value) for value in viewport.split("x")],
+                "Screenshot dimensions do not match the required viewport")
+        record["valid"] = True
+    except subprocess.TimeoutExpired as error:
+        record["timedOut"] = True
+        (commands.evidence / (label + ".stderr.txt")).write_bytes(error.stderr or b"")
+        raise RuntimeError("Screenshot command timed out") from error
+    except OSError as error:
+        record["launchFailed"] = True
+        raise RuntimeError("Screenshot could not be captured") from error
+    finally:
+        record["bytes"] = path.stat().st_size if path.exists() else 0
+        write_json(commands.evidence / (label + ".json"), record)
+    return record
+
+
+def guest_health(commands, adb, process, label):
+    result = {"passed": False, "emulatorPid": process.pid, "deviceSerial": "emulator-5554"}
+    try:
+        require(adb[-2:] == ["-s", "emulator-5554"], "Health check targets an unowned device")
+        require(process.poll() is None, "Owned emulator process exited")
+        require(commands.run(label + "-state", adb + ["get-state"], timeout=15) == "device",
+                "Owned device is not online")
+        require(commands.run(label + "-boot", adb + ["shell", "getprop", "sys.boot_completed"], timeout=15) == "1",
+                "Owned guest is not fully booted")
+        require(commands.run(label + "-shell", adb + ["shell", "echo", "CHRONOSPARK_GUEST_READY"], timeout=15) ==
+                "CHRONOSPARK_GUEST_READY", "Owned guest shell is not responsive")
+        result["passed"] = True
+    finally:
+        write_json(commands.evidence / (label + ".json"), result)
+    return result
+
+
+def integration(commands, source, adb, process, case):
+    filename, viewport, expected = case
+    label = Path(filename).stem + "-" + viewport
+    manifest = commands.evidence / (label + "-manifest.json")
+    entry = {"file": filename, "viewport": viewport, "expectedTests": expected,
+             "runnerExitCode": None, "passed": False, "failures": [],
+             "stateBoundary": "Fresh guest for this invocation; state is preserved across every test in this file."}
+    collector = None
+    begin, end = "CS_CASE_BEGIN_" + label, "CS_CASE_END_" + label
+    log_path = commands.evidence / "continuous-logcat.log"
+    stream = errors = None
+    collector_receipt = {"started": False, "exitBeforeStop": None, "stopped": False}
+    try:
+        guest_health(commands, adb, process, "pre-test-health")
+        commands.run("required-viewport", adb + ["shell", "wm", "size", viewport])
+        capture_guest_png(commands, adb, "pre-test-screen", viewport)
+        commands.run("clear-test-log", adb + ["logcat", "-c"], timeout=15)
+        stream = log_path.open("xb")
+        errors = (commands.evidence / "continuous-logcat.stderr.txt").open("xb")
+        collector = subprocess.Popen(adb + ["logcat", "-v", "threadtime"], stdout=stream, stderr=errors)
+        collector_receipt.update(started=True, pid=collector.pid)
+        commands.run("begin-test-log", adb + ["shell", "log", "-t", "ChronoSparkValidation", begin], timeout=15)
+        print(json.dumps({"event": "integration-start", "file": filename, "viewport": viewport,
+                          "expectedTests": expected}), flush=True)
+        commands.run(label, ["dart", "run", "tool/run_flutter_tests.dart", "--report",
+                            str(commands.evidence / (label + ".jsonl")), "--manifest", str(manifest),
+                            "--timeout-seconds", "900", "--", "integration_test/" + filename,
+                            "--no-pub", "--concurrency=1", "-d", "emulator-5554"],
+                     cwd=source, timeout=960, check=False)
+        entry["runnerExitCode"] = commands.records[-1]["exitCode"]
+        require(entry["runnerExitCode"] == 0, "Original canonical runner exited unsuccessfully")
+        entry["totals"] = verify_terminal(manifest)
+        require(entry["totals"]["total"] == expected, "Maintained native test count changed or tests were omitted")
+    except (RuntimeError, OSError, ValueError) as error:
+        entry["failures"].append(str(error))
+    finally:
+        # Capture immediately, even when Flutter failed. Never launch another
+        # file on this guest or turn a capture failure into passing evidence.
+        for name, capture in (
+            ("post-test-health", lambda: guest_health(commands, adb, process, "post-test-health")),
+            ("end-test-log", lambda: commands.run("end-test-log", adb + ["shell", "log", "-t",
+                                                          "ChronoSparkValidation", end], timeout=15)),
+            ("post-test-screen", lambda: capture_guest_png(commands, adb, "post-test-screen", viewport)),
+        ):
             try:
-                require(entry["runnerExitCode"] == 0, "Original canonical runner exited unsuccessfully")
-                entry["totals"] = verify_terminal(manifest)
-                entry["passed"] = True
+                capture()
             except (RuntimeError, OSError, ValueError) as error:
-                entry["failure"] = str(error)
-            results.append(entry)
-            write_json(commands.evidence / "integration-results.json", results)
-    commands.run("restore-viewport", adb + ["shell", "wm", "size", "320x640"])
-    require(all(entry["passed"] for entry in results), "One or more native integration runs failed")
-    return {"runs": results, "boundary": "Test-fake native integration, not the signed release or Play Billing."}
+                entry["failures"].append(name + ": " + str(error))
+        if collector is not None:
+            # The shell command returning does not guarantee that the separate
+            # logcat stream has drained its final marker yet.
+            drain_deadline = time.monotonic() + 2
+            while collector.poll() is None and time.monotonic() < drain_deadline:
+                try:
+                    with log_path.open("rb") as captured:
+                        captured.seek(max(0, log_path.stat().st_size - 65536))
+                        if end.encode() in captured.read():
+                            break
+                except OSError as error:
+                    entry["failures"].append("Log marker readback failed: " + type(error).__name__)
+                    break
+                time.sleep(0.05)
+            collector_receipt["exitBeforeStop"] = collector.poll()
+            try:
+                if collector.poll() is None:
+                    collector.terminate()
+                    try:
+                        collector.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        collector.kill()
+                        collector.wait(timeout=5)
+            except (OSError, subprocess.TimeoutExpired) as error:
+                entry["failures"].append("Log collector cleanup failed: " + type(error).__name__)
+            collector_receipt.update(stopped=collector.poll() is not None, finalExitCode=collector.returncode)
+        if stream is not None:
+            stream.close()
+        if errors is not None:
+            errors.close()
+        write_json(commands.evidence / "continuous-logcat-result.json", collector_receipt)
+        text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+        if (not collector_receipt["started"] or collector_receipt["exitBeforeStop"] is not None or
+                not collector_receipt["stopped"] or begin not in text or end not in text):
+            entry["failures"].append("Continuous logcat did not cover the complete invocation")
+        # Flutter intentionally installs/stops each test application. Preserve
+        # plain process lifecycle events separately; fatal/ANR/error signatures
+        # remain fatal regardless of whether tests otherwise passed.
+        lifecycle = [line for line in text.splitlines() if re.search(
+            r"Process\s+" + re.escape(PACKAGE) + r"\s+has died|Force stopping\s+" + re.escape(PACKAGE), line)]
+        fatal = fatal_lines(text, include_process_exit=False)
+        entry["ownedLogCollectorStopped"] = collector is None or collector_receipt["stopped"]
+        entry["runtimeEvidence"] = {"fatalLines": fatal, "processLifecycleLines": lifecycle,
+                                    "lifecycleBoundary": "Installation and Flutter runner teardown included; plain lifecycle lines retained for review."}
+        if fatal:
+            entry["failures"].append("Native fatal or Flutter error evidence was captured")
+        entry["passed"] = not entry["failures"] and entry.get("totals", {}).get("total") == expected
+        write_json(commands.evidence / "integration-case-result.json", entry)
+        print(json.dumps({"event": "integration-finished", "file": filename, "viewport": viewport,
+                          "passed": entry["passed"], "runnerExitCode": entry["runnerExitCode"],
+                          "totals": entry.get("totals"), "failures": entry["failures"]}), flush=True)
+    return entry
 
 
-def fatal_lines(log, package=PACKAGE):
-    patterns = [r"FATAL EXCEPTION", r"Fatal signal \d+", r"E/flutter.*(?:Unhandled Exception|\[ERROR)",
-                r"MissingPluginException", r"Failed assertion", r"ANR in\s+" + re.escape(package),
-                r"Process\s+" + re.escape(package) + r"\s+has died"]
+def fatal_lines(log, package=PACKAGE, *, include_process_exit=True):
+    patterns = [r"FATAL EXCEPTION", r"Fatal signal \d+", r"(?:E/flutter|\bE\s+flutter\s*:).*(?:Unhandled Exception|\[ERROR)",
+                r"MissingPluginException", r"Failed assertion", r"ANR in\s+" + re.escape(package)]
+    if include_process_exit:
+        patterns.append(r"Process\s+" + re.escape(package) + r"\s+has died")
     return [line for line in log.splitlines() if any(re.search(pattern, line) for pattern in patterns)]
 
 
@@ -519,6 +669,33 @@ def release_16kb(commands, source, tooling, adb, sdk):
             "boundary": "AAB-derived APK with disposable test signer; no Play signing, authentication, microphone, purchase or billing proof."}
 
 
+def execute_integration_cases(commands, source, launch_case):
+    require({path.name for path in (source / "integration_test").glob("*_test.dart")} == set(SOURCE_FILES),
+            "Maintained native test inventory changed; review this runner")
+    results = []
+    summary = {"passed": False, "mode": "integration", "expectedInvocations": 5, "expectedTests": 15,
+               "boundary": "Five fresh guests, one independent file/viewport per guest; no retries or within-file state clearing. Test fakes, not signed release or Play Billing."}
+    try:
+        for index, case in enumerate(INTEGRATION_CASES, 1):
+            label = f"{index:02d}-" + Path(case[0]).stem + "-" + case[1]
+            guest_commands = Commands(commands.evidence / label)
+            result = launch_case(case, index, guest_commands)
+            results.append({"file": case[0], "viewport": case[1], "expectedTests": case[2],
+                            "evidenceDirectory": label, **result})
+            write_json(commands.evidence / "integration-results.json", results)
+            require(result.get("ownedEmulatorStopped") is True and
+                    result.get("ownedLogCollectorStopped") is True,
+                    "Prior owned guest/collector cleanup was not proved; no further guest may start")
+        summary["passed"] = all(result["passed"] for result in results)
+        require(summary["passed"], "One or more fresh-guest integration invocations failed")
+    finally:
+        summary.update(runs=results, completedInvocations=len(results),
+                       notRun=[{"file": case[0], "viewport": case[1]} for case in INTEGRATION_CASES[len(results):]],
+                       ownedEmulatorStopped=bool(results) and all(result.get("ownedEmulatorStopped") for result in results))
+        write_json(commands.evidence / "android-result.json", summary)
+    return summary
+
+
 def android(mode, source, tooling, evidence):
     commands = Commands(evidence)
     sdk = Path(os.environ["ANDROID_HOME"])
@@ -557,14 +734,34 @@ def android(mode, source, tooling, evidence):
                 image_properties.get("Pkg.Revision") == "1" and
                 image_properties.get("SystemImage.TagId") == "google_atd",
                 "Expected API36 revision1 ATD image is unavailable")
-    owned = Path(os.environ["RUNNER_TEMP"]) / ("chronospark-" + mode)
+    if mode == "integration":
+        # Keep the host ADB identity stable while replacing guest userdata.
+        # This directory is new for this job and never contains app state.
+        shared_user_home = Path(os.environ["RUNNER_TEMP"]) / "chronospark-integration-host-user"
+        shared_user_home.mkdir(exist_ok=False)
+        def launch_case(case, ordinal, guest_commands):
+            return owned_android_guest(mode, source, tooling, guest_commands, sdk, manager,
+                                       emulator, image_id, properties, case=case, ordinal=ordinal,
+                                       shared_user_home=shared_user_home)
+        return execute_integration_cases(commands, source, launch_case)
+    result = owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator, image_id, properties)
+    require(result["passed"], "Owned Android validation failed; see its retained result")
+    return result
+
+
+def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator, image_id, properties,
+                        *, case=None, ordinal=None, shared_user_home=None):
+    suffix = mode + (f"-{ordinal:02d}" if ordinal is not None else "")
+    owned = Path(os.environ["RUNNER_TEMP"]) / ("chronospark-" + suffix)
     owned.mkdir(exist_ok=False)
     os.environ["ANDROID_AVD_HOME"] = str(owned / "avd")
-    os.environ["ANDROID_USER_HOME"] = str(owned / "user")
-    os.environ["ANDROID_EMULATOR_HOME"] = str(owned / "user")
+    user_home = shared_user_home if shared_user_home is not None else owned / "user"
+    os.environ["ANDROID_USER_HOME"] = str(user_home)
+    os.environ["ANDROID_EMULATOR_HOME"] = str(user_home)
     Path(os.environ["ANDROID_AVD_HOME"]).mkdir()
-    Path(os.environ["ANDROID_USER_HOME"]).mkdir()
-    avd_name = "ChronoSpark_Final_" + mode
+    if shared_user_home is None:
+        user_home.mkdir()
+    avd_name = "ChronoSpark_Final_" + suffix.replace("-", "_")
     avd_path = Path(os.environ["ANDROID_AVD_HOME"]) / (avd_name + ".avd")
     commands.run("create-owned-avd", [str(manager / "avdmanager"), "create", "avd", "--name", avd_name,
                   "--package", image_id, "--path", str(avd_path)], input_text="no\n")
@@ -572,9 +769,12 @@ def android(mode, source, tooling, evidence):
     launch = [str(emulator), "-avd", avd_name, "-port", "5554", "-no-window", "-no-audio",
               "-no-snapshot", "-no-boot-anim", "-accel", "on", "-gpu", "swiftshader", "-memory", "2048", "-cores", "2"]
     write_json(commands.evidence / "emulator-launch.json", {"argv": launch, "settings": settings,
-               "image": image_id, "imagePropertiesSha256": digest(properties), "ownedDirectory": str(owned)})
+               "image": image_id, "imagePropertiesSha256": digest(properties), "ownedDirectory": str(owned),
+               "ownedHostUserDirectory": str(user_home), "freshGuestData": True})
+    adb = [str(sdk / "platform-tools/adb"), "-s", "emulator-5554"]
     process = None
-    result = {"passed": False, "mode": mode}
+    result = {"passed": False, "mode": mode, "ownedEmulatorStopped": False,
+              "ownedLogCollectorStopped": True}  # No collector exists before integration is invoked.
     try:
         with (commands.evidence / "emulator.log").open("w", encoding="utf-8") as log:
             process = subprocess.Popen(launch, stdout=log, stderr=subprocess.STDOUT)
@@ -597,9 +797,15 @@ def android(mode, source, tooling, evidence):
                 commands.run("disable-" + key, adb + ["shell", "settings", "put", "global", key, "0"])
             commands.run("set-density", adb + ["shell", "wm", "density", "160"])
             commands.run("dismiss-keyguard", adb + ["shell", "wm", "dismiss-keyguard"])
-            result.update(integration(commands, source, adb) if mode == "integration" else
-                          release_16kb(commands, source, tooling, adb, sdk))
-            result["passed"] = True
+            if mode == "integration":
+                result["integrationInvoked"] = True
+                result["ownedLogCollectorStopped"] = False
+                result.update(integration(commands, source, adb, process, case))
+            else:
+                result.update(release_16kb(commands, source, tooling, adb, sdk))
+                result["passed"] = True
+    except Exception as error:
+        result.update(passed=False, failure=f"{type(error).__name__}: {error}")
     finally:
         if process is not None:
             try:
@@ -636,8 +842,18 @@ def android(mode, source, tooling, evidence):
             result["ownedEmulatorStopped"] = process.poll() is not None and not remaining and adb_stopped
             if not result["ownedEmulatorStopped"]:
                 result["passed"] = False
+        if result.get("integrationInvoked"):
+            collector_file = commands.evidence / "continuous-logcat-result.json"
+            try:
+                collector = read_json(collector_file)
+                result["ownedLogCollectorStopped"] = (collector.get("started") is False or
+                                                       collector.get("stopped") is True)
+            except (OSError, ValueError):
+                result["ownedLogCollectorStopped"] = False
+            if not result["ownedLogCollectorStopped"]:
+                result["passed"] = False
         write_json(commands.evidence / "android-result.json", result)
-        require(result.get("ownedEmulatorStopped", process is None), "Owned emulator shutdown was not confirmed")
+    return result
 
 
 def main():

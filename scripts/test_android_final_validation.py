@@ -1,6 +1,7 @@
 """Adversarial provenance/terminal checks; no devices, SDK installs or builds."""
 import hashlib
 import json
+import struct
 import subprocess
 from pathlib import Path
 import tempfile
@@ -8,11 +9,170 @@ import unittest
 from unittest.mock import patch
 import warnings
 import zipfile
+import zlib
 
 import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    def integration_source(self):
+        source = self.root / "app-source"
+        (source / "integration_test").mkdir(parents=True, exist_ok=True)
+        for filename in gate.SOURCE_FILES:
+            (source / "integration_test" / filename).touch()
+        return source
+
+    def test_fresh_guests_keep_all_five_invocations_without_retrying_a_failure(self):
+        calls = []
+        def launch(case, ordinal, commands):
+            calls.append((case, ordinal, commands.evidence))
+            return {"passed": ordinal != 2, "ownedEmulatorStopped": True, "ownedLogCollectorStopped": True}
+        commands = gate.Commands(self.root / "five-guests")
+        with self.assertRaisesRegex(RuntimeError, "invocations failed"):
+            gate.execute_integration_cases(commands, self.integration_source(), launch)
+        self.assertEqual([value[0][2] for value in calls], [1, 6, 1, 1, 6])
+        self.assertEqual(len({value[2] for value in calls}), 5)
+        result = gate.read_json(commands.evidence / "android-result.json")
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["completedInvocations"], 5)
+        self.assertEqual(result["notRun"], [])
+        self.assertFalse(result["runs"][1]["passed"])
+
+    def test_failed_owned_guest_or_collector_cleanup_prevents_next_guest(self):
+        for failed in ("ownedEmulatorStopped", "ownedLogCollectorStopped"):
+            calls = []
+            def launch(case, ordinal, commands):
+                calls.append(ordinal)
+                return {"passed": False, "ownedEmulatorStopped": True,
+                        "ownedLogCollectorStopped": True, failed: False}
+            commands = gate.Commands(self.root / failed)
+            with self.subTest(failed=failed), self.assertRaisesRegex(RuntimeError, "cleanup was not proved"):
+                gate.execute_integration_cases(commands, self.integration_source(), launch)
+            self.assertEqual(calls, [1])
+            result = gate.read_json(commands.evidence / "android-result.json")
+            self.assertFalse(result["passed"])
+            self.assertEqual(len(result["notRun"]), 4)
+
+    def test_missing_collector_cleanup_proof_blocks_further_guests(self):
+        calls = []
+        def launch(case, ordinal, commands):
+            calls.append(ordinal)
+            return {"passed": False, "ownedEmulatorStopped": True}
+        commands = gate.Commands(self.root / "missing-collector-proof")
+        with self.assertRaisesRegex(RuntimeError, "cleanup was not proved"):
+            gate.execute_integration_cases(commands, self.integration_source(), launch)
+        self.assertEqual(calls, [1])
+        result = gate.read_json(commands.evidence / "android-result.json")
+        self.assertFalse(result["passed"])
+        self.assertEqual(len(result["notRun"]), 4)
+
+    def test_health_rejects_offline_dead_or_unowned_guest_before_tests(self):
+        class Process:
+            pid = 123
+            code = None
+            def poll(self):
+                return self.code
+        process = Process()
+        commands = gate.Commands(self.root / "health")
+        for serial, state, code in (("emulator-5554", "offline", None),
+                                    ("emulator-5554", "device", 1), ("physical-device", "device", None)):
+            process.code = code
+            with patch.object(commands, "run", return_value=state) as run:
+                with self.subTest(serial=serial, state=state, code=code), self.assertRaises(RuntimeError):
+                    gate.guest_health(commands, ["adb", "-s", serial], process, "health")
+                self.assertLessEqual(run.call_count, 1)
+                self.assertFalse(gate.read_json(commands.evidence / "health.json")["passed"])
+        process.code = None
+        with patch.object(commands, "run", side_effect=["device", "1", "CHRONOSPARK_GUEST_READY"]):
+            self.assertTrue(gate.guest_health(commands, ["adb", "-s", "emulator-5554"], process, "healthy")["passed"])
+
+    def png(self):
+        def chunk(kind, payload):
+            return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
+        return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)) +
+                chunk(b"IDAT", zlib.compress(b"\x00\x00\x00\x00")) + chunk(b"IEND", b""))
+
+    def test_png_capture_requires_complete_bytes_and_original_success_exit(self):
+        self.assertEqual(gate.verify_png(self.png()), [1, 1])
+        for value in (b"", self.png()[:20], self.png()[:-1], self.png().replace(b"IDAT", b"XDAT")):
+            with self.subTest(bytes=len(value)), self.assertRaises(RuntimeError):
+                gate.verify_png(value)
+        for index, (code, data) in enumerate(((1, self.png()), (0, b""), (0, self.png()))):
+            def run(argv, **kwargs):
+                kwargs["stdout"].write(data)
+                return subprocess.CompletedProcess(argv, code, stderr=b"retained diagnostic")
+            commands = gate.Commands(self.root / ("png-" + str(index)))
+            with patch.object(gate.subprocess, "run", side_effect=run):
+                if index < 2:
+                    with self.assertRaises(RuntimeError):
+                        gate.capture_guest_png(commands, ["adb", "-s", "emulator-5554"], "screen", "1x1")
+                else:
+                    self.assertTrue(gate.capture_guest_png(commands, ["adb", "-s", "emulator-5554"], "screen", "1x1")["valid"])
+            receipt = gate.read_json(commands.evidence / "screen.json")
+            self.assertEqual(receipt["exitCode"], code)
+            self.assertEqual(receipt["valid"], index == 2)
+
+    def test_native_case_requires_six_auth_tests_and_preserves_failure_captures(self):
+        class Collector:
+            pid = 123
+            returncode = None
+            def poll(self):
+                return self.returncode
+            def terminate(self):
+                self.returncode = -15
+            def wait(self, timeout):
+                return self.returncode
+        original_open = Path.open
+        for index, (count, code, body) in enumerate(((6, 0, ""), (4, 0, ""), (6, 1, ""),
+                                                   (6, 0, "FATAL EXCEPTION: main\n"), (6, 0, ""))):
+            commands = gate.Commands(self.root / ("case-" + str(index)))
+            collector = Collector()
+            def open_file(path, mode="r", *args, **kwargs):
+                if index == 4 and path.name == "continuous-logcat.log" and mode == "rb":
+                    raise OSError("fixture readback failure")
+                return original_open(path, mode, *args, **kwargs)
+            def run(label, argv, **kwargs):
+                commands.records.append({"label": label, "exitCode": code if label.startswith("auth_flow") else 0})
+                if label.startswith("auth_flow"):
+                    receipt = self.terminal()
+                    receipt["totals"].update(total=count, passed=count)
+                    receipt["completedTests"] = count
+                    gate.write_json(commands.evidence / "auth_flow_integration_test-320x640-manifest.json", receipt)
+                if label in ("begin-test-log", "end-test-log"):
+                    with (commands.evidence / "continuous-logcat.log").open("a", encoding="utf-8") as stream:
+                        stream.write(argv[-1] + "\n" + body)
+                return ""
+            with patch.object(commands, "run", side_effect=run), patch.object(gate, "guest_health"), \
+                    patch.object(gate, "capture_guest_png") as screenshots, \
+                    patch.object(gate.subprocess, "Popen", return_value=collector), \
+                    patch.object(Path, "open", open_file):
+                result = gate.integration(commands, self.root, ["adb", "-s", "emulator-5554"], Collector(),
+                                          ("auth_flow_integration_test.dart", "320x640", 6))
+            self.assertEqual(result["passed"], index == 0)
+            self.assertEqual(result["runnerExitCode"], code)
+            self.assertEqual(screenshots.call_count, 2)
+            self.assertTrue(result["ownedLogCollectorStopped"])
+            self.assertEqual(collector.returncode, -15)
+            if index == 4:
+                self.assertTrue(any("Log marker readback failed" in failure for failure in result["failures"]))
+            self.assertTrue((commands.evidence / "integration-case-result.json").exists())
+
+    def test_integration_lifecycle_scan_keeps_native_fatals_without_false_teardown_failure(self):
+        lifecycle = "Process " + gate.PACKAGE + " has died"
+        self.assertEqual(gate.fatal_lines(lifecycle), [lifecycle])
+        self.assertEqual(gate.fatal_lines(lifecycle, include_process_exit=False), [])
+        fatal = "FATAL EXCEPTION: main; " + lifecycle
+        self.assertEqual(gate.fatal_lines(fatal, include_process_exit=False), [fatal])
+        self.assertEqual(gate.fatal_lines("ANR in " + gate.PACKAGE, include_process_exit=False), ["ANR in " + gate.PACKAGE])
+
+    def test_threadtime_flutter_errors_fail_both_runtime_scan_modes(self):
+        lines = ["09-09 13:16:30.123  5620  5655 E flutter : Unhandled Exception: StateError",
+                 "09-09 13:16:30.124  5620  5655 E flutter : [ERROR:flutter/runtime/dart_vm_initializer.cc(40)] failure"]
+        benign = "09-09 13:16:30.125  5620  5655 I flutter : integration fixture ready"
+        for include_process_exit in (True, False):
+            self.assertEqual(gate.fatal_lines("\n".join(lines + [benign]),
+                                             include_process_exit=include_process_exit), lines)
+
     def test_reviewed_test_delta_requires_all_four_paths_and_no_product_change(self):
         rows = [f":100644 100644 {'a' * 40} {'b' * 40} M\0{path}\0"
                 for path in sorted(gate.REVIEWED_TEST_REPAIR_PATHS)]
