@@ -157,10 +157,6 @@ void main() {
   });
 
   test('active product surfaces contain no retired terminology', () {
-    final RegExp retired = RegExp(
-      r'\b(?:smart[ _-]?coach|chrono[ _-]?creator|chrono[ _-]?logs|soul[ _-]?maps?|missions?|military|commands?|briefings?|command[ _-]?cent(?:er|re)|control[ _-]?room|tactical|directive|ops|intel|session[ _-]?(?:score|scoring|complete)|last[ _-]?session)\b',
-      caseSensitive: false,
-    );
     final List<String> violations = <String>[];
     final List<FileSystemEntity> roots = <FileSystemEntity>[
       Directory('lib'),
@@ -192,7 +188,9 @@ void main() {
           content = content.replaceAll('smartCoach', 'legacy_view');
         }
 
-        final RegExpMatch? match = retired.firstMatch(content);
+        final RegExpMatch? match = _retiredProductTerminology.firstMatch(
+          _contentForTerminologyReview(path, content),
+        );
         if (match != null) {
           violations.add('$path: ${match.group(0)}');
         }
@@ -201,6 +199,54 @@ void main() {
 
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
+
+  test('legal citation exception cannot hide retired product wording', () {
+    const String noticePath =
+        'assets/legal/licenses/material-icons-sdk-notice.txt';
+    const String citation = 'Directive 96/9/EC';
+    final String notice = File(noticePath).readAsStringSync();
+    expect(notice, contains(citation));
+    expect(
+      _retiredProductTerminology.hasMatch(
+        _contentForTerminologyReview(noticePath, notice),
+      ),
+      isFalse,
+    );
+    for (final String content in <String>[
+      '$notice\nDirective',
+      notice.replaceAll(citation, 'Directive 96/9/EE'),
+    ]) {
+      expect(
+        _retiredProductTerminology.hasMatch(
+          _contentForTerminologyReview(noticePath, content),
+        ),
+        isTrue,
+      );
+    }
+    expect(
+      _retiredProductTerminology.hasMatch(
+        _contentForTerminologyReview(
+          'assets/legal/privacy_policy.html',
+          citation,
+        ),
+      ),
+      isTrue,
+    );
+  });
+}
+
+final RegExp _retiredProductTerminology = RegExp(
+  r'\b(?:smart[ _-]?coach|chrono[ _-]?creator|chrono[ _-]?logs|soul[ _-]?maps?|missions?|military|commands?|briefings?|command[ _-]?cent(?:er|re)|control[ _-]?room|tactical|directive|ops|intel|session[ _-]?(?:score|scoring|complete)|last[ _-]?session)\b',
+  caseSensitive: false,
+);
+
+String _contentForTerminologyReview(String path, String content) {
+  // Preserve the verbatim third-party license (hash-checked by the license
+  // contract) while recognizing this exact legal citation, not a product name.
+  if (path == 'assets/legal/licenses/material-icons-sdk-notice.txt') {
+    return content.replaceAll('Directive 96/9/EC', 'EU database-rights law');
+  }
+  return content;
 }
 
 bool _isTextSurface(File file) {
