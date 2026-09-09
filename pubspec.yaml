@@ -96,6 +96,16 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  # Flutter's default collector only reads each dependency's primary LICENSE.
+  licenses:
+    - assets/legal/licenses/archive-4.1.0-third-party-notices.txt
+    - assets/legal/licenses/image-4.9.2-third-party-notices.txt
+    - assets/legal/licenses/fallback-root-certificates-source.txt
+    - assets/legal/licenses/platform-components-source.txt
+    - assets/legal/licenses/inter-font-OFL.txt
+    - assets/legal/licenses/space-grotesk-font-OFL.txt
+    - assets/legal/licenses/jetbrains-mono-font-OFL.txt
+    - assets/legal/licenses/material-icons-sdk-notice.txt
   assets:
     - assets/animations/level_up.json
     - assets/animations/signal_pulse.json

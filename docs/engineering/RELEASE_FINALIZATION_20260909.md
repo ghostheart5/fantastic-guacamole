@@ -48,6 +48,16 @@ in the completion evidence before accepting the candidate.
   targets were not lowered; only a fresh complete LCOV run can close them.
 - Internal billing instructions identify the current approved catalog and
   monthly allowance/top-up policy while preserving the original setup as history.
+- The dependency review found supplemental `archive` and `image` notices and
+  complete notices for the shipped Inter, JetBrains Mono, Space Grotesk and
+  Material Icons fonts missing from the retained QA APK. Bundle
+  their complete upstream texts through Flutter's
+  additional-license manifest, along with component-specific MPL source locations
+  for the pinned Dart fallback certificates and Linux platform packages. Settings
+  exposes the localized Flutter Licenses page. The candidate workflow verifies
+  every declared notice in the actual AAB and checks the pinned Dart SDK revision
+  before uploading the artifact. Native Maven/Google SDK terms remain outside the
+  Dart SBOM review; this is not blanket legal approval.
 
 ## Executed focused evidence
 
@@ -64,6 +74,8 @@ and must not be added as distinct end-to-end coverage.
 | Critical authentication/backup/paywall regression files | 165 passed | `E/finalization/critical-coverage/final-summary.json` |
 | Candidate controls | 21 passed | `EF/precommit-candidate-tests.txt` |
 | Tooling-compatible backend rollout contracts | 10 passed | `E/backend/rollout-tooling-validation.json` |
+| Eight additional notices, actual Flutter collection and localized Settings license navigation | 28 passed, zero failures/errors/skips after final typed-YAML fixes | `EF/licenses/frozen-eight-notices-manifest.json` |
+| Fail-closed AAB/APK additional-license verifier | 12 passed | `scripts/test_verify_additional_licenses.py`; exact artifact entry, full-byte preservation, bounded input and SDK mismatch cases |
 
 Intermediate test failures remain retained. A temporary test-edit encoding issue
 and offscreen/continuous-animation harness assumptions were corrected; final
@@ -88,8 +100,29 @@ backend readback, and applicable safe runtime verification. Record failures and
 unexecuted requirements directly; a passing mocked or QA check cannot stand in
 for a real purchase, deletion, credit/provider operation or Play-signed upgrade.
 
-The controlled Play Console tab still times out. Current unused version maximum,
-forms and account configuration are not freshly verified by that UI observation.
+The first repaired-source CI run (`34343325387`, source `6734c1b40abdf28dfe7d3ef7692d53b30ef83403`)
+completed successfully, including coverage, Windows golden comparisons and Linux
+integration. Its independent database run (`34343327626`) passed 142 Edge tests
+and all 349 pgTAP checks across 12 files. These precede the supplemental-notice
+repair and do not replace the required final-source runs.
+The CI coverage evidence reports 74.3% overall and 93.1% critical coverage;
+all eight layer targets and all five critical-file targets pass without lowering
+thresholds. It records 2,776 full-suite cases, 15 QA configuration cases, eight
+Linux integration cases, 41 Windows golden cases and 16 launcher cases, all with
+zero failures, errors or skips. These overlapping executions are not unique
+end-to-end scenarios.
+
+The old controlled Play Console tab timed out; a fresh tab in the same Edge
+browser recovered access. Read-only September 9 observations show internal release
+2026083021 still active and the All app bundles search for 2026083022 returning
+zero results. No draft, upload or rollout was created. Other account/form evidence
+must be read separately; these observations do not assert their acceptance.
+The saved July 8 Data Safety declaration reports ten actioned declarations, but
+Google's live URL validation rejects both its account-deletion URL and optional
+data-deletion URL with HTTP 404. The exact values and UI outcome are retained in
+`EF/play-console-readonly-20260909.json`. Completed-form status is not accuracy
+evidence. Working public routes and truthful declaration corrections remain a
+store blocker under the current publication hold; no answers were changed/saved.
 The prepared version is `4.1.0+2026083022`. Actual Play delivery, public disclosure
 parity, final device captures and store submission remain held. Existing level-20
 screenshots show historical build 3019 and must not be labelled as this candidate.

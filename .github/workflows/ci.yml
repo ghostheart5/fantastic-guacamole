@@ -88,6 +88,7 @@ jobs:
       - name: Test internal billing build controls
         run: |
           python3 -B -m unittest discover -s scripts -p test_android_candidate_build.py
+          python3 -B -m unittest discover -s scripts -p test_verify_additional_licenses.py
           node --test scripts/verify_internal_billing_backend.test.mjs scripts/verify_backend_repair_gate.test.mjs scripts/backend_repair_rollout.test.mjs
 
       - name: Parse maintained PowerShell sources

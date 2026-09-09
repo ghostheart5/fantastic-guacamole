@@ -1,0 +1,16 @@
+dbus / nm / gtk (platform component source availability)
+
+The Source Code Form for these Mozilla Public License 2.0 components is available from the following versioned official package archives:
+
+dbus 0.7.15 (MPL 2.0):
+https://pub.dev/api/archives/dbus-0.7.15.tar.gz
+
+nm 0.5.0 (MPL 2.0):
+https://pub.dev/api/archives/nm-0.5.0.tar.gz
+
+gtk 2.2.0 (MPL 2.0):
+https://pub.dev/api/archives/gtk-2.2.0.tar.gz
+
+These packages are resolved Linux platform implementations. Including their license notices does not establish executable inclusion on every target. Their corresponding MPL 2.0 license notices are included under the component names in these licenses.
+
+This notice applies to the named components only; it does not change the license of ChronoSpark or other components.

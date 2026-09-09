@@ -175,6 +175,14 @@ jobs:
           rm -f candidate/android/key.properties candidate/android/app/upload-keystore.jks
           rm -f "$RUNNER_TEMP/chronospark-candidate-defines.json"
 
+      - name: Verify complete third-party notices and pinned Dart SDK
+        run: |
+          python3 candidate/scripts/verify_additional_licenses.py \
+            --artifact candidate/build/candidate-evidence/app-release.aab \
+            --repo-root candidate \
+            --flutter-executable "$(command -v flutter)" \
+            --report candidate/build/candidate-evidence/additional-license-verification.json
+
       - name: Save verified candidate and evidence only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:

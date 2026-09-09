@@ -625,6 +625,15 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       ),
                       _NeonNavTile(
+                        title: MaterialLocalizations.of(
+                          context,
+                        ).licensesPageTitle,
+                        onTap: () => showLicensePage(
+                          context: context,
+                          applicationName: 'ChronoSpark',
+                        ),
+                      ),
+                      _NeonNavTile(
                         title: 'Support',
                         subtitle: 'Help center: ${AppUrls.support}',
                         onTap: () => unawaited(

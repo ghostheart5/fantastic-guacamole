@@ -201,6 +201,83 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
+  for (final locale in const [Locale('en'), Locale('es')]) {
+    testWidgets('Settings opens localized licenses in ${locale.languageCode}', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final container = createContainer();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: locale,
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.ensureVisible(find.text('Help & legal'));
+      await tester.pump();
+      await tester.tap(find.text('Help & legal').hitTestable());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final context = tester.element(find.byType(SettingsScreen));
+      final label = MaterialLocalizations.of(context).licensesPageTitle;
+      expect(label, locale.languageCode == 'es' ? 'Licencias' : 'Licenses');
+      await Scrollable.ensureVisible(
+        tester.element(find.text(label)),
+        alignment: 0.5,
+      );
+      await tester.pump();
+      await tester.tap(find.text(label).hitTestable());
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 5),
+      );
+
+      expect(find.byType(LicensePage), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(LicensePage),
+          matching: find.text(label),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(LicensePage),
+          matching: find.text('ChronoSpark'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(LicensePage),
+          matching: find.byType(BackButton),
+        ),
+      );
+      for (
+        int frame = 0;
+        frame < 10 && find.byType(LicensePage).evaluate().isNotEmpty;
+        frame++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(find.byType(LicensePage), findsNothing);
+    });
+  }
+
   testWidgets(
     'sign-out cleanup StateError shows retry and preserves the signed-in account',
     (tester) async {
