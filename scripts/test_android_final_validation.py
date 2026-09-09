@@ -1,9 +1,13 @@
 """Adversarial provenance/terminal checks; no devices, SDK installs or builds."""
 import hashlib
+from contextlib import ExitStack, contextmanager
 import json
+import os
+import stat
 import struct
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -15,6 +19,110 @@ import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    @contextmanager
+    def kvm_fixture(self, commands, *, accessible=(False, True), fail_label=None,
+                    acceleration="accel:\n0\nKVM (version 12) is installed and usable.\naccel"):
+        device = SimpleNamespace(st_mode=stat.S_IFCHR | 0o660, st_dev=1, st_ino=2,
+                                 st_rdev=3, st_uid=0, st_gid=993)
+        events = []
+        def run(label, argv, **kwargs):
+            events.append((label, argv))
+            if label == fail_label:
+                raise RuntimeError("synthetic command failure: " + label)
+            return acceleration if label == "guest-acceleration-check" else "# retained ACL readback"
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(Path, "lstat", return_value=device))
+            stack.enter_context(patch.object(gate.os, "getuid", return_value=1001, create=True))
+            stack.enter_context(patch.object(gate.os, "access", side_effect=accessible))
+            stack.enter_context(patch.object(gate.os, "O_CLOEXEC", 0x80000, create=True))
+            opened = stack.enter_context(patch.object(gate.os, "open", return_value=123))
+            closed = stack.enter_context(patch.object(gate.os, "close"))
+            stack.enter_context(patch.object(gate.os, "fstat", return_value=device))
+            stack.enter_context(patch.object(commands, "run", side_effect=run))
+            yield events, opened, closed
+
+    def test_each_fresh_guest_reasserts_only_current_user_kvm_acl_after_drift(self):
+        for ordinal in (1, 2):
+            commands = gate.Commands(self.root / f"kvm-{ordinal}")
+            with self.kvm_fixture(commands) as (events, opened, closed):
+                result = gate.prepare_integration_kvm(commands, Path("emulator"))
+                self.assertTrue(result["passed"])
+                self.assertFalse(result["before"]["readWriteAccessible"])
+                self.assertTrue(result["after"]["readWriteAccessible"])
+                self.assertTrue(result["readWriteOpenSucceeded"])
+                self.assertEqual([event[0] for event in events],
+                                 ["kvm-acl-before", "restore-current-user-kvm-acl",
+                                  "kvm-acl-after", "guest-acceleration-check"])
+                self.assertEqual(events[1][1], ["sudo", "-n", "setfacl", "-m", "u:1001:rw", str(Path("/dev/kvm"))])
+                opened.assert_called_once()
+                closed.assert_called_once_with(123)
+            self.assertTrue(gate.read_json(commands.evidence / "kvm-preparation.json")["passed"])
+
+    def test_failed_kvm_acl_or_still_denied_access_never_checks_acceleration(self):
+        for index, values in enumerate(({"fail_label": "restore-current-user-kvm-acl"},
+                                        {"accessible": (False, False)})):
+            commands = gate.Commands(self.root / f"kvm-denied-{index}")
+            with self.kvm_fixture(commands, **values) as (events, opened, closed):
+                with self.assertRaises(RuntimeError):
+                    gate.prepare_integration_kvm(commands, Path("emulator"))
+                self.assertNotIn("guest-acceleration-check", [event[0] for event in events])
+                opened.assert_not_called()
+                closed.assert_not_called()
+            receipt = gate.read_json(commands.evidence / "kvm-preparation.json")
+            self.assertFalse(receipt["passed"])
+            self.assertIn("failure", receipt)
+
+    def test_kvm_requires_real_device_open_and_positive_acceleration(self):
+        for index, value in enumerate(("KVM is unusable", "KVM is not installed and usable.",
+                                       "KVM permission denied", "")):
+            commands = gate.Commands(self.root / f"kvm-bad-accel-{index}")
+            with self.kvm_fixture(commands, acceleration=value) as (_, opened, closed):
+                with self.assertRaisesRegex(RuntimeError, "Usable KVM"):
+                    gate.prepare_integration_kvm(commands, Path("emulator"))
+                opened.assert_called_once()
+                closed.assert_called_once_with(123)
+            self.assertFalse(gate.read_json(commands.evidence / "kvm-preparation.json")["passed"])
+        commands = gate.Commands(self.root / "kvm-open-denied")
+        with self.kvm_fixture(commands) as (events, opened, closed):
+            opened.side_effect = PermissionError("synthetic access revoked after readback")
+            with self.assertRaises(PermissionError):
+                gate.prepare_integration_kvm(commands, Path("emulator"))
+            self.assertNotIn("guest-acceleration-check", [event[0] for event in events])
+            closed.assert_not_called()
+        self.assertFalse(gate.read_json(commands.evidence / "kvm-preparation.json")["passed"])
+
+    def test_kvm_rejects_wrong_device_type_and_recreated_open_target(self):
+        commands = gate.Commands(self.root / "kvm-identity")
+        with self.kvm_fixture(commands) as (events, _, closed):
+            with patch.object(Path, "lstat", return_value=SimpleNamespace(st_mode=stat.S_IFREG)):
+                with self.assertRaisesRegex(RuntimeError, "character device"):
+                    gate.prepare_integration_kvm(commands, Path("emulator"))
+            self.assertEqual(events, [])
+            with patch.object(gate.os, "fstat", return_value=SimpleNamespace(st_dev=1, st_ino=999, st_rdev=3)):
+                with self.assertRaisesRegex(RuntimeError, "changed between"):
+                    gate.prepare_integration_kvm(commands, Path("emulator"))
+            closed.assert_called_once_with(123)
+
+    def test_kvm_preparation_fences_integration_launch_without_changing_strict_16kb(self):
+        for mode in ("integration", "16kb"):
+            commands = gate.Commands(self.root / ("launch-" + mode))
+            events = []
+            def preparation(*args):
+                events.append("kvm")
+                raise RuntimeError("synthetic KVM denied")
+            def launch(*args, **kwargs):
+                events.append("emulator")
+                raise OSError("synthetic launch stopped; no native process")
+            with patch.dict(os.environ, {"RUNNER_TEMP": str(self.root)}), \
+                    patch.object(commands, "run"), patch.object(gate, "configure_avd", return_value={}), \
+                    patch.object(gate, "digest", return_value="f" * 64), \
+                    patch.object(gate, "prepare_integration_kvm", side_effect=preparation), \
+                    patch.object(gate.subprocess, "Popen", side_effect=launch):
+                result = gate.owned_android_guest(mode, self.root, self.root, commands, self.root,
+                                                  self.root, Path("emulator"), "fixture", self.root)
+            self.assertFalse(result["passed"])
+            self.assertEqual(events, ["kvm"] if mode == "integration" else ["emulator"])
+
     def integration_source(self):
         source = self.root / "app-source"
         (source / "integration_test").mkdir(parents=True, exist_ok=True)

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import struct
 import subprocess
 import sys
@@ -749,6 +750,49 @@ def android(mode, source, tooling, evidence):
     return result
 
 
+def prepare_integration_kvm(commands, emulator):
+    # A named-user ACL granted once at job setup was no longer effective for
+    # later fresh guests. Reassert only that same ACL at each launch boundary.
+    device = Path("/dev/kvm")
+    receipt = {"passed": False, "device": str(device), "softwareFallbackAllowed": False}
+    def snapshot():
+        info = device.lstat()
+        require(stat.S_ISCHR(info.st_mode), "KVM path is not a character device")
+        return {"deviceId": info.st_dev, "inode": info.st_ino, "rdev": info.st_rdev,
+                "mode": stat.S_IMODE(info.st_mode), "ownerUid": info.st_uid,
+                "ownerGid": info.st_gid, "readWriteAccessible": os.access(device, os.R_OK | os.W_OK)}
+    try:
+        receipt["runnerUid"] = os.getuid()
+        receipt["before"] = snapshot()
+        commands.run("kvm-acl-before", ["getfacl", "--absolute-names", "--numeric", str(device)], timeout=15)
+        commands.run("restore-current-user-kvm-acl", ["sudo", "-n", "setfacl", "-m",
+                     f"u:{receipt['runnerUid']}:rw", str(device)], timeout=15)
+        receipt["after"] = snapshot()
+        commands.run("kvm-acl-after", ["getfacl", "--absolute-names", "--numeric", str(device)], timeout=15)
+        receipt["deviceIdentityChangedDuringPreparation"] = any(
+            receipt["before"][key] != receipt["after"][key] for key in ("deviceId", "inode", "rdev"))
+        require(receipt["after"]["readWriteAccessible"], "KVM remains inaccessible after current-user ACL repair")
+        descriptor = os.open(device, os.O_RDWR | os.O_CLOEXEC)
+        try:
+            opened = os.fstat(descriptor)
+            require((opened.st_dev, opened.st_ino, opened.st_rdev) ==
+                    tuple(receipt["after"][key] for key in ("deviceId", "inode", "rdev")),
+                    "KVM device changed between permission readback and open")
+            receipt["readWriteOpenSucceeded"] = True
+        finally:
+            os.close(descriptor)
+        acceleration = commands.run("guest-acceleration-check", [str(emulator), "-accel-check"], timeout=30)
+        require(re.search(r"(?m)^KVM[^\r\n]*\bis installed and usable\.[ \t]*$", acceleration),
+                "Usable KVM acceleration was not confirmed for this fresh guest")
+        receipt["passed"] = True
+        return receipt
+    except Exception as error:
+        receipt["failure"] = f"{type(error).__name__}: {error}"
+        raise
+    finally:
+        write_json(commands.evidence / "kvm-preparation.json", receipt)
+
+
 def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator, image_id, properties,
                         *, case=None, ordinal=None, shared_user_home=None):
     suffix = mode + (f"-{ordinal:02d}" if ordinal is not None else "")
@@ -776,6 +820,8 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
     result = {"passed": False, "mode": mode, "ownedEmulatorStopped": False,
               "ownedLogCollectorStopped": True}  # No collector exists before integration is invoked.
     try:
+        if mode == "integration":
+            result["kvmPreparation"] = prepare_integration_kvm(commands, emulator)
         with (commands.evidence / "emulator.log").open("w", encoding="utf-8") as log:
             process = subprocess.Popen(launch, stdout=log, stderr=subprocess.STDOUT)
             commands.run("wait-for-device", adb + ["wait-for-device"], timeout=120)
