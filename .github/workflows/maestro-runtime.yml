@@ -2,34 +2,80 @@ name: Maestro Runtime Gate
 
 on:
   workflow_call:
+    inputs:
+      source_sha:
+        description: Immutable QA source revision; defaults to the calling revision
+        required: false
+        type: string
+      suite:
+        required: false
+        type: string
+        default: qa-smoke
   push:
     branches: ["main"]
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full immutable QA source SHA; defaults to this workflow revision
+        required: false
+        type: string
+      suite:
+        description: 'Disposable hosted emulator suite'
+        required: true
+        default: qa-smoke
+        type: choice
+        options:
+          - qa-smoke
+          - qa-journeys
 
 permissions:
   contents: read
 
 concurrency:
-  group: maestro-runtime-${{ github.workflow }}-${{ github.ref }}
+  group: maestro-runtime-${{ github.workflow }}-${{ github.ref }}-${{ inputs.suite || 'qa-smoke' }}
   cancel-in-progress: true
+
+env:
+  QA_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+  QA_SUITE: ${{ inputs.suite || 'qa-smoke' }}
 
 jobs:
   runtime:
-    name: Exact-build QA smoke
+    name: Exact-build QA runtime
     runs-on: ubuntu-24.04
     timeout-minutes: 85
     steps:
+      - name: Validate immutable QA inputs before checkout
+        run: |
+          set -euo pipefail
+          [[ "$QA_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          case "$QA_SUITE" in qa-smoke|qa-journeys) ;; *) exit 1 ;; esac
+
       - name: Checkout exact source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Verify exact source commit
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$QA_SOURCE_SHA"
           test -z "$(git status --porcelain --untracked-files=no)"
+          mkdir -p artifacts/maestro-prewarm
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path('artifacts/maestro-prewarm/provenance.json').write_text(json.dumps({
+              'sourceSha': os.environ['QA_SOURCE_SHA'],
+              'workflowToolingSha': os.environ['GITHUB_SHA'],
+              'runId': os.environ['GITHUB_RUN_ID'],
+              'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'suite': os.environ['QA_SUITE'],
+              'boundary': 'QA source and workflow tooling have separate identities; not a signed release build.'
+          }, indent=2) + '\n')
+          PY
 
       - name: Set up Java
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -52,6 +98,45 @@ jobs:
 
       - name: Ensure dependency lockfile is reproducible
         run: git diff --exit-code -- pubspec.lock
+
+      - name: Complete initial QA compilation before emulator startup
+        timeout-minutes: 22
+        run: |
+          set -euo pipefail
+          # Keep the first full Gradle compilation outside the live guest's
+          # execution window. The canonical runner still performs its own build.
+          python3 - <<'PY'
+          from pathlib import Path
+          for process in Path('/proc').glob('[0-9]*/cmdline'):
+              try:
+                  executable = process.read_bytes().split(b'\0')[0].decode(errors='replace')
+              except (OSError, ProcessLookupError):
+                  continue
+              name = Path(executable).name
+              if name == 'emulator' or name.startswith('qemu-system-'):
+                  raise SystemExit('An emulator is already running before QA precompilation')
+          PY
+          flutter build apk --debug --target-platform=android-x64 --dart-define-from-file=tool/qa_defines.json 2>&1 | tee artifacts/maestro-prewarm/build.log
+          (cd android && ./gradlew --stop) 2>&1 | tee artifacts/maestro-prewarm/gradle-stop.log
+          sha256sum build/app/outputs/flutter-apk/app-debug.apk > artifacts/maestro-prewarm/precompiled-apk.sha256
+          git diff --exit-code
+          python3 - <<'PY'
+          import datetime, hashlib, json, os, subprocess
+          from pathlib import Path
+          apk = Path('build/app/outputs/flutter-apk/app-debug.apk')
+          source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          if source != os.environ['QA_SOURCE_SHA'] or not apk.is_file():
+              raise SystemExit('Precompilation identity or APK is missing')
+          with apk.open('rb') as stream:
+              digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+          Path('artifacts/maestro-prewarm/completion.json').write_text(json.dumps({
+              'completedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'sourceSha': source, 'precompiledApkSha256': digest,
+              'buildExitCode': 0, 'gradleStopExitCode': 0,
+              'noEmulatorObservedBeforeCompilation': True,
+              'boundary': 'Precompilation only; the canonical runner still builds and records the APK it actually tests.'
+          }, indent=2) + '\n')
+          PY
 
       - name: Install checksum-verified Maestro CLI
         timeout-minutes: 5
@@ -83,6 +168,8 @@ jobs:
 
       - name: Build, install, and execute exact-source QA smoke
         timeout-minutes: 50
+        env:
+          QA_TIMEOUT_SECONDS: ${{ inputs.suite == 'qa-journeys' && '2400' || '900' }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 35
@@ -101,16 +188,18 @@ jobs:
           disable-spellchecker: true
           script: >-
             pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1
-            -Suite qa-smoke
+            -Suite "$QA_SUITE"
+            -ExecutionTimeoutSeconds "$QA_TIMEOUT_SECONDS"
             -BuildProfile qa
             -DeviceSerial emulator-5554
-            -ExpectedCommit "${{ github.sha }}"
+            -ExpectedCommit "$QA_SOURCE_SHA"
             -ArtifactsRoot artifacts/maestro-ci
 
       - name: Verify source-bound Maestro evidence
         if: always()
         env:
-          EXPECTED_COMMIT: ${{ github.sha }}
+          EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
+          EXPECTED_SUITE: ${{ inputs.suite || 'qa-smoke' }}
         run: |
           python3 - <<'PY'
           import json
@@ -132,6 +221,9 @@ jobs:
           flows = manifest.get('flows')
           if not isinstance(flows, list) or not flows:
               raise SystemExit('::error::Maestro evidence contains no selected flows.')
+          expected_count = {'qa-smoke': 5, 'qa-journeys': 11}[os.environ['EXPECTED_SUITE']]
+          if len(flows) != expected_count:
+              raise SystemExit('::error::Maestro selected flow count does not match the requested suite.')
           junit = manifest.get('junit', {})
           if not isinstance(junit.get('testCases'), int) or junit['testCases'] <= 0:
               raise SystemExit('::error::Maestro JUnit evidence contains zero tests.')
@@ -152,7 +244,9 @@ jobs:
         timeout-minutes: 5
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-maestro-${{ github.sha }}-${{ github.run_attempt }}
+          name: chronospark-maestro-${{ inputs.source_sha || github.sha }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 30
-          path: artifacts/maestro-ci/**
+          path: |
+            artifacts/maestro-ci/**
+            artifacts/maestro-prewarm/**
