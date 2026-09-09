@@ -16,6 +16,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
+import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
@@ -952,10 +953,12 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
           ref.invalidate(tasksProvider);
           break;
         case CreatorEntityKind.goal:
+          ref.invalidate(goalsReadProvider);
           ref.invalidate(goalsProvider);
           break;
         case CreatorEntityKind.habit:
           ref.invalidate(habitsProvider);
+          ref.invalidate(rhythmPlanningProvider);
           break;
         case CreatorEntityKind.note:
           ref.invalidate(notesProvider);

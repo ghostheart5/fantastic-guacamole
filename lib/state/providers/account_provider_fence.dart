@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
+import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/learning_history_provider.dart';
@@ -52,8 +53,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(stateBootstrapProvider);
   ref.invalidate(tasksProvider);
+  ref.invalidate(goalsReadProvider);
   ref.invalidate(goalsProvider);
   ref.invalidate(habitsProvider);
+  ref.invalidate(rhythmPlanningProvider);
   ref.invalidate(projectsProvider);
   ref.invalidate(routinesProvider);
   ref.invalidate(subtasksProvider);
@@ -113,7 +116,7 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(siStateAggregationProvider);
   ref.invalidate(domainSiDecisionProvider);
   ref.invalidate(momentumProvider);
-  ref.invalidate(emotionProvider);
+  ref.invalidate(emotionCheckInProvider);
   ref.invalidate(voiceControllerProvider);
   ref.invalidate(trajectoryHorizonDaysProvider);
   ref.invalidate(trajectoryCustomScenarioProvider);

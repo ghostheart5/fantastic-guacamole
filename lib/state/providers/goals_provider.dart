@@ -22,6 +22,17 @@ final goalsProvider = NotifierProvider<GoalsNotifier, List<GoalEntity>>(
 
 final goalProvider = goalsProvider;
 
+final goalsReadProvider = Provider<AsyncValue<List<GoalEntity>>>((Ref ref) {
+  if (!ref.watch(accountStorageScopeProvider).isWritable) {
+    return const AsyncData(<GoalEntity>[]);
+  }
+  try {
+    return AsyncData(ref.watch(getGoalsUseCaseProvider).call());
+  } catch (error, stack) {
+    return AsyncError(error, stack);
+  }
+});
+
 final goalProgressProvider = FutureProvider.family<GoalProgressView, String>((
   Ref ref,
   String goalId,
@@ -32,10 +43,7 @@ final goalProgressProvider = FutureProvider.family<GoalProgressView, String>((
   final List<TaskEntity> linked = tasks
       .where((TaskEntity task) => task.goalId == goalId)
       .toList(growable: false);
-  final int completed = linked
-      .where((TaskEntity task) => task.isCompleted)
-      .length;
-  return GoalProgressView(tasks: linked, completedCount: completed);
+  return GoalProgressView.fromTasks(linked);
 });
 
 class GoalsNotifier extends Notifier<List<GoalEntity>> {
@@ -48,11 +56,13 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     }
     // Completed goals are retained in storage (CompleteGoal no longer deletes)
     // but stay out of the active list, preserving the previous UI behaviour.
-    final List<GoalEntity> goals = ref
-        .watch(getGoalsUseCaseProvider)
-        .call()
-        .where((GoalEntity goal) => !goal.isCompleted)
-        .toList(growable: false);
+    final read = ref.watch(goalsReadProvider);
+    if (read.hasError) return const <GoalEntity>[];
+    final List<GoalEntity> goals =
+        (read.asData?.value ?? <GoalEntity>[])
+            .where((GoalEntity goal) => !goal.isCompleted)
+            .toList(growable: false)
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final reminders = ref.read(reminderOrchestratorServiceProvider);
     unawaited(
       Future<void>(() async {
@@ -167,6 +177,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
         .read(profileProvider.notifier)
         .awardXP(progressionXp, source: 'goal_$actionName');
     ref.invalidate(signalsBundleProvider);
+    ref.invalidate(goalsReadProvider);
     await _refreshPlannerDecision();
     ref
         .read(eventBusProvider)

@@ -1,3 +1,9 @@
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_read_health.dart';
+import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
+import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -39,11 +45,18 @@ void main() {
     _MemoryTaskRepository? tasks,
     _MemoryGoalRepository? goals,
     bool emotionConsent = true,
+    List<RhythmPlanningEntry> rhythms = const [],
+    Future<List<RhythmPlanningEntry>>? rhythmRead,
+    NoteEntity? selectedNote,
     PersonContextView? personContext,
     OperatingDecisionReceipt? operatingReceipt,
     List<MemoryEntity> plannerMemories = const <MemoryEntity>[],
   }) => ProviderContainer(
     overrides: [
+      rhythmPlanningProvider.overrideWith(
+        (ref) async => rhythmRead != null ? await rhythmRead : rhythms,
+      ),
+      selectedPlanningNoteProvider.overrideWith((ref) async => selectedNote),
       assistantReleaseConfigProvider.overrideWith(
         (Ref ref) async => AssistantReleaseConfig(
           stage: AssistantReleaseStage.general,
@@ -80,6 +93,218 @@ void main() {
         ),
       ).overrideWithValue(personContext),
     ],
+  );
+
+  for (final emotion in [
+    EmotionalState.anxious,
+    EmotionalState.fatigued,
+    EmotionalState.scattered,
+    EmotionalState.negative,
+  ]) {
+    test('urgent saved task preserves minimum for ${emotion.name}', () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'urgent',
+          title: 'Release checklist',
+          createdAt: DateTime.utc(2026, 8, 29),
+          dueDate: DateTime.utc(2026, 8, 29, 20),
+          energyRequired: 3,
+          estimatedDuration: const Duration(minutes: 45),
+        ),
+      ]);
+      final container = plannerContainer(tasks: tasks);
+      addTearDown(container.dispose);
+      final result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: .5,
+            emotion: emotion,
+            notes: 'Plan the release checklist',
+            history: const [],
+            previousSavedNotes: null,
+          );
+      expect(result.plannerResponse.recommendedKind, PlannerOptionKind.minimum);
+      expect(result.plannerResponse.recommendedOption.estimatedMinutes, 5);
+      expect(
+        result.plannerResponse.recommendationReason,
+        contains('smaller reversible start'),
+      );
+      expect(tasks.writeCalls, 0);
+    });
+  }
+
+  for (final status in RhythmPeriodStatus.values) {
+    test(
+      'rhythm period ${status.name} changes the planning response',
+      () async {
+        final rhythm = HabitEntity(
+          id: 'walk',
+          title: 'Morning walk',
+          createdAt: DateTime.utc(2026, 8, 1),
+          cadence: HabitCadence.weekly,
+          targetCount: 3,
+        );
+        final container = plannerContainer(
+          rhythms: [RhythmPlanningEntry(rhythm, '2026-08-24', status)],
+        );
+        addTearDown(container.dispose);
+        final result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: .5,
+              emotion: null,
+              notes: 'Plan my morning walk',
+              history: const [],
+              previousSavedNotes: null,
+            );
+        expect(result.request.context['focusedEvidenceKind'], 'daily_rhythm');
+        expect(
+          result.plannerResponse.isClarification,
+          status != RhythmPeriodStatus.unrecorded,
+        );
+        if (status == RhythmPeriodStatus.unrecorded) {
+          expect(
+            result.plannerResponse.nextStep,
+            contains('one remaining session'),
+          );
+          expect(
+            result.plannerResponse.verifiedEvidence.join(' '),
+            contains(
+              'Individual repetitions and session durations are unknown',
+            ),
+          );
+        } else {
+          expect(result.plannerResponse.options, isEmpty);
+          expect(result.plannerResponse.mattersMost, contains(status.name));
+        }
+      },
+    );
+  }
+
+  test(
+    'explicit selected note grounds linked work and caps every option',
+    () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'linked',
+          title: 'Release checklist',
+          createdAt: DateTime.utc(2026, 8, 1),
+          estimatedDuration: const Duration(minutes: 60),
+        ),
+      ]);
+      final container = plannerContainer(
+        tasks: tasks,
+        selectedNote: NoteEntity(
+          id: 'constraint',
+          title: 'Capacity note',
+          body: 'I only have 12 minutes',
+          taskId: 'linked',
+          createdAt: DateTime.utc(2026, 8, 1),
+        ),
+      );
+      addTearDown(container.dispose);
+      final result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: .9,
+            emotion: EmotionalState.engaged,
+            notes: 'Help me choose a step',
+            history: const [],
+            previousSavedNotes: null,
+          );
+      expect(result.request.context['selectedNoteId'], 'constraint');
+      expect(
+        result.plannerResponse.options.every(
+          (option) => option.estimatedMinutes <= 12,
+        ),
+        isTrue,
+      );
+      expect(result.plannerResponse.nextStep, contains('Release checklist'));
+      expect(
+        result.plannerResponse.verifiedEvidence.join(' '),
+        contains('explicitly selected'),
+      );
+      expect(tasks.writeCalls, 0);
+    },
+  );
+
+  test(
+    'unreadable goal evidence is never reported as an empty account',
+    () async {
+      final container = plannerContainer(goals: _UnreadableGoals());
+      addTearDown(container.dispose);
+      final result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: 'Plan my next step',
+            history: const [],
+            previousSavedNotes: null,
+          );
+      expect(result.request.context['goalEvidenceReadSucceeded'], isFalse);
+      expect(
+        result.plannerResponse.verifiedEvidence.join(' '),
+        contains('only partially available'),
+      );
+      expect(
+        result.plannerResponse.verifiedEvidence.join(' '),
+        isNot(contains('no active tasks or goals were found')),
+      );
+    },
+  );
+
+  test('Spanish selected-note capacity limits all proposed work', () async {
+    final container = plannerContainer(
+      selectedNote: NoteEntity(
+        id: 'spanish',
+        title: 'Tiempo disponible',
+        body: 'Solo tengo 8 minutos',
+        createdAt: DateTime.utc(2026, 8, 29),
+      ),
+    );
+    addTearDown(container.dispose);
+    final result = await container
+        .read(smartPlannerQueryControllerProvider)
+        .requestPlanningGuidance(
+          energy: .9,
+          emotion: null,
+          notes: 'Help me choose a step',
+          history: const [],
+          previousSavedNotes: null,
+        );
+    expect(result.plannerResponse.options, isNotEmpty);
+    expect(
+      result.plannerResponse.options.every(
+        (option) => option.estimatedMinutes <= 8,
+      ),
+      isTrue,
+    );
+  });
+
+  test(
+    'unresponsive supplementary rhythm data cannot stall planning',
+    () async {
+      final pending = Completer<List<RhythmPlanningEntry>>();
+      final container = plannerContainer(rhythmRead: pending.future);
+      addTearDown(container.dispose);
+      final result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: .5,
+            emotion: null,
+            notes: 'Organize my desk',
+            history: const [],
+            previousSavedNotes: null,
+          )
+          .timeout(const Duration(seconds: 5));
+      expect(
+        result.plannerResponse.verifiedEvidence.join(' '),
+        contains('Daily Rhythm outcomes were unavailable'),
+      );
+      expect(result.plannerResponse.options, isNotEmpty);
+      pending.complete(const []);
+    },
   );
 
   PersonContextSignal contextSignal({
@@ -1908,4 +2133,9 @@ class _MemoryGoalRepository implements IGoalRepository {
     writeCalls += 1;
     _goals.removeWhere((GoalEntity goal) => goal.id == id);
   }
+}
+
+class _UnreadableGoals extends _MemoryGoalRepository implements GoalReadHealth {
+  @override
+  bool get lastReadCorrupted => true;
 }

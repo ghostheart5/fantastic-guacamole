@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
+import 'package:fantastic_guacamole/features/notes/ui/note_actions.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -18,7 +19,9 @@ class NoteDetailScreen extends ConsumerWidget {
     final notes = ref.watch(notesProvider);
     final note = notes.isLoading || notes.hasError
         ? null
-        : notes.asData?.value.where((item) => item.id == noteId).firstOrNull;
+        : notes.asData?.value
+              .where((item) => item.id == noteId && !item.isArchived)
+              .firstOrNull;
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgCreatorIntent,
       child: Scaffold(
@@ -68,6 +71,8 @@ class NoteDetailScreen extends ConsumerWidget {
                           height: 1.5,
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      NoteActions(note: note),
                     ],
                   ),
                 ),

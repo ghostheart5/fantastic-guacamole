@@ -17,6 +17,7 @@ import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planner_explanation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
@@ -29,6 +30,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  testWidgets(
+    'changed and cleared check-ins invalidate stale visible and pending plans',
+    (tester) async {
+      late _DelayedPlannerController planner;
+      final container = _container(
+        plannerBuilder: (ref) => planner = _DelayedPlannerController(ref),
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      container.read(emotionCheckInProvider.notifier).set(EmotionalState.calm);
+      await tester.pump();
+      await _scrollTo(tester, find.text('GET GUIDANCE'));
+      await tester.tap(find.text('GET GUIDANCE'));
+      await tester.pump();
+      expect(planner.guidanceRequestCount, 1);
+      container
+          .read(emotionCheckInProvider.notifier)
+          .set(EmotionalState.anxious);
+      planner.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Use this plan'), findsNothing);
+      await _requestGuidance(tester);
+      expect(find.text('Use this plan'), findsOneWidget);
+      final clear = find.byKey(const Key('clear-emotion-check-in'));
+      await _scrollTo(tester, clear);
+      await tester.tap(clear);
+      await tester.pump();
+      expect(container.read(currentPlannerEmotionProvider), isNull);
+      expect(find.text('Use this plan'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'one request locks immediately and renders without a second tap',
     (tester) async {

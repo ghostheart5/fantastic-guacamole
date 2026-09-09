@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/domain_evidence_entry.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_read_health.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
@@ -41,7 +42,7 @@ final domainEvidenceProvider = FutureProvider<DomainEvidenceSnapshot>((
     unavailable,
   );
   final List<GoalEntity> goals = await _readOrEmpty(
-    () async => ref.read(domainGoalRepositoryProvider).getGoals(),
+    () async => readAvailableGoals(ref.read(domainGoalRepositoryProvider)),
     DomainEvidenceSource.goals,
     unavailable,
   );

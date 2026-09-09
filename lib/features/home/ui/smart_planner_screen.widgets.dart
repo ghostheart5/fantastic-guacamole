@@ -1091,3 +1091,109 @@ class _DisclaimerText extends StatelessWidget {
     );
   }
 }
+
+class _PlannerEmotionCheckIn extends ConsumerWidget {
+  const _PlannerEmotionCheckIn();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final routine = ChronoSparkLocalizations.of(context).plannerRoutine;
+    final humanContext = ref.watch(consentedHumanContextProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          routine.emotionalStateSection,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: AppColors.neonViolet,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _EmotionStateControl(
+          selected: ref.watch(currentPlannerEmotionProvider),
+          onSelect: (e) => ref.read(emotionCheckInProvider.notifier).set(e),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          routine.emotionalStateNotice(enabled: humanContext.emotionAllowed),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+        ),
+        const SizedBox(height: 12),
+        if (ref.watch(currentPlannerEmotionProvider) != null) ...[
+          SwitchListTile(
+            key: const Key('share-emotion-with-planning'),
+            value: ref.watch(emotionCheckInProvider).shareWithPlanning,
+            title: Text(
+              ChronoSparkLocalizations.of(context).isSpanish
+                  ? 'Usar también en SI y Nexus durante este registro'
+                  : 'Also use in SI and Nexus for this check-in',
+            ),
+            subtitle: Text(
+              ChronoSparkLocalizations.of(context).isSpanish
+                  ? 'Temporal. Caduca dos horas después de seleccionarlo. No se guarda en el historial.'
+                  : 'Temporary. Expires two hours after selection. Not saved to history.',
+            ),
+            onChanged: humanContext.emotionAllowed
+                ? (value) =>
+                      ref.read(emotionCheckInProvider.notifier).share(value)
+                : null,
+          ),
+          TextButton(
+            key: const Key('clear-emotion-check-in'),
+            onPressed: () => ref.read(emotionCheckInProvider.notifier).clear(),
+            child: Text(
+              ChronoSparkLocalizations.of(context).isSpanish
+                  ? 'Borrar registro emocional'
+                  : 'Clear emotional check-in',
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SelectedPlanningNoteCard extends ConsumerWidget {
+  const _SelectedPlanningNoteCard();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Column(
+    children: [
+      if (ref.watch(planningNoteSelectionProvider) != null)
+        ref
+            .watch(selectedPlanningNoteProvider)
+            .when(
+              loading: () => const LinearProgressIndicator(),
+              error: (_, _) => Text(
+                ChronoSparkLocalizations.of(context).isSpanish
+                    ? 'La nota seleccionada no está disponible.'
+                    : 'The selected note is unavailable.',
+              ),
+              data: (note) => ListTile(
+                title: Text(
+                  note == null
+                      ? (ChronoSparkLocalizations.of(context).isSpanish
+                            ? 'La nota ya no está disponible'
+                            : 'Note is no longer available')
+                      : '${ChronoSparkLocalizations.of(context).isSpanish ? 'Nota seleccionada' : 'Selected note'}: ${note.title}',
+                ),
+                subtitle: Text(
+                  ChronoSparkLocalizations.of(context).isSpanish
+                      ? 'Solo esta sesión de planificación; caduca en dos horas.'
+                      : 'Temporary planning context; expires two hours after selection.',
+                ),
+                trailing: IconButton(
+                  tooltip: ChronoSparkLocalizations.of(context).isSpanish
+                      ? 'Quitar nota del contexto'
+                      : 'Remove note from context',
+                  onPressed: () =>
+                      ref.read(planningNoteSelectionProvider.notifier).clear(),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+            ),
+    ],
+  );
+}

@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_decision_outcome_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_occurrence_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
@@ -151,22 +152,8 @@ class HabitOccurrenceCoordinator {
   }
 
   /// Shared cadence identity for recording and displaying the current period.
-  static String occurrenceKeyFor(HabitCadence cadence, DateTime timestamp) {
-    final DateTime local = timestamp.toLocal();
-    final DateTime slot = switch (cadence) {
-      HabitCadence.daily => DateTime(local.year, local.month, local.day),
-      HabitCadence.weekly => DateTime(
-        local.year,
-        local.month,
-        local.day,
-      ).subtract(Duration(days: local.weekday - DateTime.monday)),
-      HabitCadence.monthly => DateTime(local.year, local.month),
-    };
-    final String month = slot.month.toString().padLeft(2, '0');
-    if (cadence == HabitCadence.monthly) return '${slot.year}-$month';
-    final String day = slot.day.toString().padLeft(2, '0');
-    return '${slot.year}-$month-$day';
-  }
+  static String occurrenceKeyFor(HabitCadence cadence, DateTime timestamp) =>
+      RhythmPlanningContext.periodKey(cadence, timestamp);
 }
 
 Future<bool> _learningEnabled() async => false;

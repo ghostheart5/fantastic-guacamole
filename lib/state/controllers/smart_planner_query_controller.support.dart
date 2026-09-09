@@ -197,8 +197,8 @@ int? _explicitPlanningTimeLimit(String input) {
   // Recognize explicit numeric work windows, not arbitrary numbers in titles
   // or durations reported as past activity. This does not infer capacity.
   final matches = RegExp(
-    r'\b(?:in|within|for|(?:i|we)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than)\s+'
-    r'(\d+(?:\.\d+)?)\s*(minutes?|mins?|hours?|hrs?)\b',
+    r'\b(?:in|within|for|(?:i|we)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than|en|dentro de|durante|(?:solo\s+)?(?:tengo|tenemos)(?:\s+solo)?|como máximo|no más de)\s+'
+    r'(\d+(?:\.\d+)?)\s*(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
     caseSensitive: false,
   ).allMatches(input);
   int? limit;
@@ -228,6 +228,11 @@ final class _PlannerEvidence {
       taskReadSucceeded = true,
       goalReadSucceeded = true,
       focusTaskIsUrgent = false,
+      rhythms = const [],
+      focusRhythm = null,
+      selectedNote = null,
+      rhythmReadSucceeded = true,
+      noteReadSucceeded = true,
       personContext = const _PlannerPersonContextEvidence.unavailable(),
       operatingReceipt = const _PlannerOperatingReceiptEvidence.unavailable(),
       plannerMemory = const _PlannerMemoryEvidence.empty();
@@ -243,6 +248,11 @@ final class _PlannerEvidence {
     required this.personContext,
     required this.operatingReceipt,
     required this.plannerMemory,
+    this.rhythms = const [],
+    this.focusRhythm,
+    this.selectedNote,
+    this.rhythmReadSucceeded = true,
+    this.noteReadSucceeded = true,
     this.savedContextDeclined = false,
   }) : activeTasks = List<TaskEntity>.unmodifiable(activeTasks),
        activeGoals = List<GoalEntity>.unmodifiable(activeGoals);
@@ -259,6 +269,10 @@ final class _PlannerEvidence {
     required OperatingDecisionReceipt? operatingReceipt,
     required List<MemoryEntity> plannerMemories,
     bool savedContextDeclined = false,
+    List<RhythmPlanningEntry> rhythms = const [],
+    bool rhythmReadSucceeded = true,
+    NoteEntity? selectedNote,
+    bool noteReadSucceeded = true,
   }) {
     final List<TaskEntity> activeTasks = tasks
         .where((TaskEntity task) => task.isActive)
@@ -273,7 +287,19 @@ final class _PlannerEvidence {
           accountScopeId: accountScopeId,
           decisionText: searchText,
         );
-    final Set<String> terms = _plannerTerms(searchText);
+    final Set<String> terms = _plannerTerms(
+      [
+        searchText,
+        if (!savedContextDeclined && selectedNote != null) ...[
+          selectedNote.title,
+          selectedNote.body ?? '',
+          for (final task in activeTasks)
+            if (task.id == selectedNote.taskId) task.title,
+          for (final goal in activeGoals)
+            if (goal.id == selectedNote.goalId) goal.title,
+        ],
+      ].join(' '),
+    );
     activeTasks.sort(
       (TaskEntity left, TaskEntity right) =>
           _compareTasks(left, right, terms: terms, now: now),
@@ -346,9 +372,22 @@ final class _PlannerEvidence {
       }
     }
 
-    final DateTime? focusTime = focusTask == null
-        ? null
-        : focusTask.dueDate ?? focusTask.scheduledFor;
+    RhythmPlanningEntry? focusRhythm;
+    int bestRhythmMatch = math.max(taskMatch, goalMatch);
+    for (final entry in rhythms) {
+      final match = _plannerTerms(
+        '${entry.habit.title} ${entry.habit.description ?? ''}',
+      ).intersection(terms).length;
+      if (entry.habit.id == selectedNote?.habitId || match > bestRhythmMatch) {
+        focusRhythm = entry;
+        bestRhythmMatch = match;
+      }
+    }
+    if (focusRhythm != null) {
+      focusTask = null;
+      focusGoal = null;
+    }
+    final DateTime? focusTime = focusTask?.dueDate ?? focusTask?.scheduledFor;
     return _PlannerEvidence(
       activeTasks: activeTasks,
       activeGoals: activeGoals,
@@ -364,6 +403,11 @@ final class _PlannerEvidence {
       ),
       plannerMemory: _PlannerMemoryEvidence.resolve(plannerMemories, now: now),
       savedContextDeclined: savedContextDeclined,
+      rhythms: savedContextDeclined ? const [] : rhythms,
+      focusRhythm: savedContextDeclined ? null : focusRhythm,
+      selectedNote: savedContextDeclined ? null : selectedNote,
+      rhythmReadSucceeded: rhythmReadSucceeded,
+      noteReadSucceeded: noteReadSucceeded,
       focusTaskIsUrgent:
           focusTime != null &&
           !focusTime.isAfter(now.add(const Duration(days: 1))),
@@ -381,11 +425,45 @@ final class _PlannerEvidence {
   final _PlannerOperatingReceiptEvidence operatingReceipt;
   final _PlannerMemoryEvidence plannerMemory;
   final bool savedContextDeclined;
+  final List<RhythmPlanningEntry> rhythms;
+  final RhythmPlanningEntry? focusRhythm;
+  final NoteEntity? selectedNote;
+  final bool rhythmReadSucceeded;
+  final bool noteReadSucceeded;
+
+  RhythmPlanningEntry? get resolvedRhythm =>
+      focusRhythm?.needsAttention == false ? focusRhythm : null;
+  int? get noteTimeLimitMinutes => selectedNote == null
+      ? null
+      : _explicitPlanningTimeLimit(
+          '${selectedNote!.title} ${selectedNote!.body ?? ''}',
+        );
+  List<String> get supplementaryEvidence => [
+    if (!rhythmReadSucceeded)
+      'Daily Rhythm outcomes were unavailable; remaining rhythm work was not assumed.',
+    if (rhythmReadSucceeded && rhythms.isNotEmpty)
+      'Daily Rhythms: ${rhythms.where((entry) => entry.needsAttention).length} current-period targets have no recorded outcome. Individual repetitions and session durations are unknown.',
+    if (focusRhythm != null)
+      'Focused Daily Rhythm: "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"; ${focusRhythm!.habit.targetCount} per ${focusRhythm!.habit.cadence.name}; period ${focusRhythm!.periodKey}; ${focusRhythm!.status.name}.',
+    if (!noteReadSucceeded)
+      'The selected note could not be read; its contents were not used.',
+    if (selectedNote != null)
+      'Used note "${SmartPlannerQueryController._safeEvidenceTitle(selectedNote!.title)}" only because you explicitly selected it for this temporary planning session. No emotion was inferred from it.',
+    if (noteTimeLimitMinutes != null)
+      'Applied the selected note\'s explicit $noteTimeLimitMinutes-minute limit to every option.',
+  ];
 
   bool get hasStoredEvidence =>
-      activeTasks.isNotEmpty || activeGoals.isNotEmpty;
+      activeTasks.isNotEmpty ||
+      activeGoals.isNotEmpty ||
+      rhythms.isNotEmpty ||
+      selectedNote != null;
 
-  bool get hasMatchedStoredEvidence => focusTask != null || focusGoal != null;
+  bool get hasMatchedStoredEvidence =>
+      focusTask != null ||
+      focusGoal != null ||
+      focusRhythm != null ||
+      selectedNote != null;
 
   bool get hasPositiveGrounding =>
       !savedContextDeclined &&
@@ -404,6 +482,12 @@ final class _PlannerEvidence {
       !hasPositiveGrounding;
 
   String get domainAdaptationSummary {
+    if (focusRhythm != null) {
+      return 'Used the matched Daily Rhythm and its current period outcome.';
+    }
+    if (selectedNote != null) {
+      return 'Used only the note explicitly selected for this planning session, plus relevant saved evidence.';
+    }
     if (savedContextDeclined) {
       return 'You chose to plan independently; saved tasks, goals, and recommendations were not attached. Consented capacity limits still apply.';
     }
@@ -416,11 +500,17 @@ final class _PlannerEvidence {
     if (hasStoredEvidence) {
       return 'Active saved tasks or goals were present, but none had positive relevance to this check-in.';
     }
+    if (!taskReadSucceeded || !goalReadSucceeded) {
+      return 'Saved task or goal evidence was unavailable; the missing data was not treated as an empty account.';
+    }
     return 'No active saved task or goal was available to ground this check-in.';
   }
 
   String? get focusSubject {
     if (savedContextDeclined) return null;
+    if (focusRhythm != null) {
+      return 'Daily Rhythm "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"';
+    }
     final TaskEntity? task = focusTask;
     if (task != null) {
       return 'saved task "${SmartPlannerQueryController._safeEvidenceTitle(task.title)}"';
@@ -433,11 +523,16 @@ final class _PlannerEvidence {
     if (receipt != null) {
       return 'saved planning recommendation "${SmartPlannerQueryController._safeEvidenceTitle(receipt.recommendedAction)}"';
     }
-    return personContext.planningFocus?.subject;
+    return selectedNote != null
+        ? 'selected note "${SmartPlannerQueryController._safeEvidenceTitle(selectedNote!.title)}"'
+        : personContext.planningFocus?.subject;
   }
 
   String? get mattersMost {
     if (savedContextDeclined) return null;
+    if (focusRhythm != null) {
+      return 'Planning only rhythm work that is still needed in the current period.';
+    }
     final TaskEntity? task = focusTask;
     if (task != null) {
       return 'Making a credible next move on saved task "${SmartPlannerQueryController._safeEvidenceTitle(task.title)}" without exceeding your reported capacity.';
@@ -462,7 +557,12 @@ final class _PlannerEvidence {
     'positiveEvidenceRelevance': hasPositiveGrounding,
     'activeTaskCount': activeTasks.length,
     'activeGoalCount': activeGoals.length,
-    'focusedEvidenceKind': focusTask != null
+    'selectedNoteId': selectedNote?.id,
+    'rhythmEvidenceReadSucceeded': rhythmReadSucceeded,
+    'noteEvidenceReadSucceeded': noteReadSucceeded,
+    'focusedEvidenceKind': focusRhythm != null
+        ? 'daily_rhythm'
+        : focusTask != null
         ? 'task'
         : focusGoal != null
         ? 'goal'
@@ -470,6 +570,8 @@ final class _PlannerEvidence {
         ? 'operating_receipt'
         : !savedContextDeclined && personContext.planningFocus != null
         ? 'person_context'
+        : selectedNote != null
+        ? 'note'
         : 'none',
     'taskEvidenceReadSucceeded': taskReadSucceeded,
     'goalEvidenceReadSucceeded': goalReadSucceeded,
@@ -526,6 +628,7 @@ final class _PlannerEvidence {
     evidence.addAll(operatingReceipt.verifiedEvidence());
     evidence.addAll(plannerMemory.verifiedEvidence());
     evidence.addAll(personContext.verifiedEvidence());
+    evidence.addAll(supplementaryEvidence);
     return evidence;
   }
 
@@ -540,6 +643,7 @@ final class _PlannerEvidence {
       ...operatingReceipt.clarificationEvidence(),
       ...plannerMemory.verifiedEvidence(),
       ...personContext.verifiedEvidence(),
+      ...supplementaryEvidence,
     ];
     return evidence;
   }

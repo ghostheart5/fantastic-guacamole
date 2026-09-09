@@ -33,6 +33,7 @@ final eventBusBootstrapProvider = Provider<void>((Ref ref) {
       ref.invalidate(domainSiDecisionProvider);
     }),
     bus.on<GoalLifecycleEvent>().listen((GoalLifecycleEvent _) {
+      ref.invalidate(goalsReadProvider);
       ref.invalidate(goalsProvider);
       ref.invalidate(goalProgressProvider);
       ref.invalidate(signalsBundleProvider);

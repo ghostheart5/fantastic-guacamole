@@ -55,6 +55,9 @@ class UpdateNote {
   final INoteRepository _repository;
 
   Future<NoteEntity> call(NoteEntity note, {DateTime? now}) async {
+    if (note.id.trim().isEmpty || note.title.trim().isEmpty) {
+      throw ArgumentError('A note requires an identity and title.');
+    }
     final NoteEntity updated = note.copyWith(updatedAt: now ?? DateTime.now());
     await _repository.saveNote(updated);
     return updated;

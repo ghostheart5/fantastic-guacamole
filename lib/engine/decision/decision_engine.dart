@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_observation_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -319,9 +320,17 @@ class DecisionEngine {
       selectedTask: selected,
       orderedTasks: ordered,
       shouldTakeBreak: false,
-      executionMinutes: _governedExecutionMinutes(selected, personContext),
+      executionMinutes:
+          const {
+            'anxious',
+            'fatigued',
+            'scattered',
+            'negative',
+          }.contains(state.mood)
+          ? math.min(5, _governedExecutionMinutes(selected, personContext))
+          : _governedExecutionMinutes(selected, personContext),
       rationale:
-          'Selected ${selected.title} using urgency, energy fit, learned effort tolerance, and schedule feasibility.${personContext?.hasAppliedBehavior ?? false ? ' ${personContext!.explanations.join(' ')}' : ''}',
+          'Selected ${selected.title} using urgency, energy fit, learned effort tolerance, and schedule feasibility.${const {'anxious', 'fatigued', 'scattered', 'negative'}.contains(state.mood) ? ' Your shared emotional check-in limits this first step to at most five minutes; urgency does not increase that limit.' : ''}${personContext?.hasAppliedBehavior ?? false ? ' ${personContext!.explanations.join(' ')}' : ''}',
       evidence: <DecisionEvidence>[
         DecisionEvidence(
           source: 'task',

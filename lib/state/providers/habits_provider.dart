@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
 import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,6 +46,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
     if (identical(previous, next)) {
       return;
     }
+    ref.invalidate(rhythmPlanningProvider);
     await _syncReminders(next);
     state = AsyncData(next);
   }

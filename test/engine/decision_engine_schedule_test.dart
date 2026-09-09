@@ -8,6 +8,45 @@ import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final mood in ['anxious', 'fatigued', 'scattered', 'negative']) {
+    test(
+      'shared $mood check-in bounds an urgent first step without rescheduling',
+      () {
+        final now = DateTime(2026, 9, 8, 12);
+        final task = TaskEntity(
+          id: 'urgent',
+          title: 'Release checklist',
+          createdAt: now,
+          dueDate: now.add(const Duration(hours: 1)),
+          scheduledFor: now.add(const Duration(minutes: 10)),
+          estimatedDuration: const Duration(minutes: 45),
+        );
+        final state = SiStateEntity(
+          energy: .8,
+          attention: .8,
+          fatigue: .1,
+          mood: mood,
+        );
+        final result = const DecisionEngine().recommend(
+          tasks: [task],
+          state: state,
+          learning: LearningEntity(),
+          now: now,
+        );
+        expect(result.executionMinutes, lessThanOrEqualTo(5));
+        expect(result.rationale, contains('shared emotional check-in'));
+        expect(result.plan.blocks.single.start, task.scheduledFor);
+        expect(
+          result.plan.blocks.single.end.difference(
+            result.plan.blocks.single.start,
+          ),
+          const Duration(minutes: 45),
+        );
+        expect(state.energy, .8);
+        expect(state.fatigue, .1);
+      },
+    );
+  }
   test('preserves an explicit future schedule without repacking it', () {
     final DateTime now = DateTime(2026, 8, 20, 18);
     final DateTime scheduled = DateTime(2026, 8, 27, 18, 27);

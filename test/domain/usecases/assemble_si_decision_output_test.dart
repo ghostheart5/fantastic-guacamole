@@ -107,7 +107,7 @@ void main() {
     expect(draft.warnings, <String>[
       'Overwhelm risk is elevated.',
       'Goal drift detected in recent trajectory.',
-      'Task avoidance pattern detected.',
+      'At least two task skips were recorded in the last seven days; their reasons are unknown.',
       'Emotional strain detected (anxious).',
       'Timeline has 1 overdue item.',
       'Timeline risk signals active (2).',
@@ -119,7 +119,7 @@ void main() {
       'Split remaining tasks into tomorrow queue.',
       'Resolve one overdue timeline item before adding new commitments.',
       'Pre-plan upcoming deadlines now to prevent rollover pressure.',
-      'Protect 1 active habit alongside your task blocks.',
+      '1 Daily Rhythm target has no recorded outcome for the current period. Check remaining repetitions and time before reserving a block.',
     ]);
     expect(draft.signalPrompts, <String>[
       'What is creating the most friction right now?',
@@ -140,30 +140,29 @@ void main() {
     );
   });
 
-  test(
-    'explicit next task wins and plural output is grammatically correct',
-    () {
-      final SiDecisionDraft draft = build(
-        timelineOverdueCount: 2,
-        nextTaskTitle: 'Ship the verified build',
-        firstTaskTitle: 'This should not win',
-        taskCount: 2,
-        streak: 7,
-        activeHabitCount: 2,
-      );
+  test('explicit next task wins and plural output is grammatically correct', () {
+    final SiDecisionDraft draft = build(
+      timelineOverdueCount: 2,
+      nextTaskTitle: 'Ship the verified build',
+      firstTaskTitle: 'This should not win',
+      taskCount: 2,
+      streak: 7,
+      activeHabitCount: 2,
+    );
 
-      expect(draft.nextAction, 'Ship the verified build');
-      expect(draft.warnings, contains('Timeline has 2 overdue items.'));
-      expect(
-        draft.suggestedPlanAdjustments,
-        contains('Protect 2 active habits alongside your task blocks.'),
-      );
-      expect(
-        draft.progressionFeedback,
-        'Streak momentum is strong. Protect it with one decisive completion.',
-      );
-    },
-  );
+    expect(draft.nextAction, 'Ship the verified build');
+    expect(draft.warnings, contains('Timeline has 2 overdue items.'));
+    expect(
+      draft.suggestedPlanAdjustments,
+      contains(
+        '2 Daily Rhythm targets have no recorded outcome for the current period. Check remaining repetitions and time before reserving a block.',
+      ),
+    );
+    expect(
+      draft.progressionFeedback,
+      'Streak momentum is strong. Protect it with one decisive completion.',
+    );
+  });
 
   test('missing task titles retain the safe capture fallback', () {
     final SiDecisionDraft draft = build(taskCount: 1);

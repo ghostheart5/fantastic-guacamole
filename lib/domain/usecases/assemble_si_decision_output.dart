@@ -62,7 +62,8 @@ class AssembleSiDecisionOutput {
     final List<String> warnings = <String>[
       if (overwhelm) 'Overwhelm risk is elevated.',
       if (goalDrift) 'Goal drift detected in recent trajectory.',
-      if (taskAvoidance) 'Task avoidance pattern detected.',
+      if (taskAvoidance)
+        'At least two task skips were recorded in the last seven days; their reasons are unknown.',
       if (emotionalStrain) 'Emotional strain detected ($emotion).',
       if (timelineOverdueCount > 0)
         'Timeline has $timelineOverdueCount overdue item${timelineOverdueCount == 1 ? '' : 's'}.',
@@ -88,7 +89,7 @@ class AssembleSiDecisionOutput {
       if (timelineUpcomingCount >= 5)
         'Pre-plan upcoming deadlines now to prevent rollover pressure.',
       if (activeHabitCount > 0)
-        'Protect $activeHabitCount active habit${activeHabitCount == 1 ? '' : 's'} alongside your task blocks.',
+        '$activeHabitCount Daily Rhythm target${activeHabitCount == 1 ? ' has' : 's have'} no recorded outcome for the current period. Check remaining repetitions and time before reserving a block.',
     ];
 
     final List<String> signalPrompts = <String>[

@@ -5,7 +5,10 @@ import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_read_health.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -25,6 +28,8 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
+import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -236,8 +241,7 @@ class SmartPlannerQueryController
       prompt,
     );
     await _requireReleaseCapabilities();
-    final ({double? energy, EmotionalState? emotion}) authorized =
-        _authorizedCheckIn(energy: energy, emotion: emotion);
+    var authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     final _PlannerConversationContext conversation =
         _PlannerConversationContext.resolve(
           input: prompt,
@@ -261,6 +265,7 @@ class SmartPlannerQueryController
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
       searchText: conversation.evidenceSearchText,
     );
+    authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.planningGuidance,
       input: prompt,
@@ -332,8 +337,7 @@ class SmartPlannerQueryController
     final EmotionalSafetyAssessment emotionalSafety = assessEmotionalSafety(
       conversation.searchText,
     );
-    final ({double? energy, EmotionalState? emotion}) authorized =
-        _authorizedCheckIn(energy: energy, emotion: emotion);
+    var authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     if (emotionalSafety.requiresSupportivePause) {
       return _supportivePauseResult(
         kind: AssistantRequestKind.followUp,
@@ -352,6 +356,7 @@ class SmartPlannerQueryController
       searchText: conversation.evidenceSearchText,
       savedContextDeclined: conversation.savedContextDeclined,
     );
+    authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.followUp,
       input: prompt,
@@ -391,8 +396,7 @@ class SmartPlannerQueryController
     String? supportiveQuestion,
   }) {
     _requireNonCrisisRoute(input);
-    final ({double? energy, EmotionalState? emotion}) authorized =
-        _authorizedCheckIn(energy: energy, emotion: emotion);
+    var authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     final AssistantRequestEnvelope request = _requestContract(
       kind: kind,
       input: input,
@@ -447,8 +451,7 @@ class SmartPlannerQueryController
     String? supportivePauseReason,
     String? supportiveQuestion,
   }) {
-    final ({double? energy, EmotionalState? emotion}) authorized =
-        _authorizedCheckIn(energy: energy, emotion: emotion);
+    var authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     return _buildPlannerResponse(
       input: input,
       energy: authorized.energy,
@@ -487,6 +490,7 @@ class SmartPlannerQueryController
     final List<int> limits = <int>[
       ?capacityLimitMinutes,
       ?requestTimeLimitMinutes,
+      ?evidence.noteTimeLimitMinutes,
     ];
     final _EffortProfile effort = limits.isEmpty
         ? energyEffort
@@ -507,6 +511,7 @@ class SmartPlannerQueryController
       if (emotion != null)
         'Used only your selected emotion; no emotion was inferred from your text.',
       evidence.domainAdaptationSummary,
+      ...evidence.supplementaryEvidence,
       if (!evidence.savedContextDeclined)
         evidence.operatingReceipt.adaptationSummary,
       evidence.plannerMemory.adaptationSummary,
@@ -521,6 +526,7 @@ class SmartPlannerQueryController
     ];
 
     if (supportivePause ||
+        evidence.resolvedRhythm != null ||
         (evidence.requiresClarification &&
             !conversation.answeredSavedContextQuestion)) {
       return PlannerV2Response.clarification(
@@ -532,6 +538,8 @@ class SmartPlannerQueryController
                 supportivePauseReason,
                 'supportivePauseReason',
               )
+            : evidence.resolvedRhythm != null
+            ? 'This Daily Rhythm is ${evidence.resolvedRhythm!.status.name} for its current period; no repeat work was proposed.'
             : 'Connecting your request to the right evidence before proposing a plan.',
         verifiedEvidence: <String>[
           if (boundedEnergy != null)
@@ -549,6 +557,8 @@ class SmartPlannerQueryController
         ],
         question: supportivePause
             ? _requiredSupportiveCopy(supportiveQuestion, 'supportiveQuestion')
+            : evidence.resolvedRhythm != null
+            ? 'Which different commitment would you like to plan?'
             : _savedContextQuestion,
         adaptationReceipt: PlannerAdaptationReceipt(
           userSetEnergy: boundedEnergy,
@@ -634,6 +644,28 @@ class SmartPlannerQueryController
     PersonContextView? personContext;
     OperatingDecisionReceipt? operatingReceipt;
     List<MemoryEntity> plannerMemories = const <MemoryEntity>[];
+    List<RhythmPlanningEntry> rhythms = const [];
+    bool rhythmReadSucceeded = true;
+    NoteEntity? selectedNote;
+    bool noteReadSucceeded = true;
+    if (!savedContextDeclined) {
+      try {
+        rhythms = await _ref
+            .read(rhythmPlanningProvider.future)
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {
+        rhythmReadSucceeded = false;
+      }
+      if (!_ref.mounted) throw StateError('Planner request was disposed.');
+      try {
+        selectedNote = await _ref
+            .read(selectedPlanningNoteProvider.future)
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {
+        noteReadSucceeded = false;
+      }
+    }
+    if (!_ref.mounted) throw StateError('Planner request was disposed.');
     try {
       operatingReceipt = _ref.read(smartPlannerOperatingReceiptProvider);
     } on Object {
@@ -652,7 +684,7 @@ class SmartPlannerQueryController
       taskReadSucceeded = false;
     }
     try {
-      goals = _ref.read(domainGoalRepositoryProvider).getGoals();
+      goals = readAvailableGoals(_ref.read(domainGoalRepositoryProvider));
     } on Object {
       goalReadSucceeded = false;
     }
@@ -685,6 +717,10 @@ class SmartPlannerQueryController
       operatingReceipt: operatingReceipt,
       plannerMemories: plannerMemories,
       savedContextDeclined: savedContextDeclined,
+      rhythms: rhythms,
+      rhythmReadSucceeded: rhythmReadSucceeded,
+      selectedNote: selectedNote,
+      noteReadSucceeded: noteReadSucceeded,
     );
   }
 
@@ -698,11 +734,8 @@ class SmartPlannerQueryController
     if (task.energyRequired >= 4 && energy < 0.68) {
       return PlannerOptionKind.minimum;
     }
-    if (evidence.focusTaskIsUrgent && base == PlannerOptionKind.minimum) {
-      return energy >= 0.45
-          ? PlannerOptionKind.bestFit
-          : PlannerOptionKind.minimum;
-    }
+    // Urgency changes which commitment we discuss, never the user's capacity.
+    // Preserve a smaller start selected for low energy or emotional load.
     return base;
   }
 
@@ -713,6 +746,29 @@ class SmartPlannerQueryController
     required String subject,
     required _PlannerEvidence evidence,
   }) {
+    final rhythm = evidence.focusRhythm;
+    if (rhythm != null) {
+      final title = _safeEvidenceTitle(rhythm.habit.title);
+      return [
+        for (final kind in PlannerOptionKind.values)
+          PlannerOption(
+            kind: kind,
+            title: kind == PlannerOptionKind.minimum
+                ? 'Check the rhythm target'
+                : 'Plan one rhythm session',
+            description: kind == PlannerOptionKind.minimum
+                ? 'Check how many repetitions of "$title" remain toward the ${rhythm.habit.targetCount}-per-${rhythm.habit.cadence.name} target. Choose one small next step.'
+                : 'Reserve up to ${kind == PlannerOptionKind.bestFit ? effort.bestFitMinutes : effort.stretchMinutes} minutes for one remaining session of "$title", if one is still needed. Mark the period complete only when its full target is met.',
+            estimatedMinutes: kind == PlannerOptionKind.minimum
+                ? effort.minimumMinutes
+                : kind == PlannerOptionKind.bestFit
+                ? effort.bestFitMinutes
+                : effort.stretchMinutes,
+            tradeoff:
+                'Individual repetitions and session duration have not been recorded; this is a proposed block, not a measured remaining workload.',
+          ),
+      ];
+    }
     final TaskEntity? task = evidence.focusTask;
     if (task != null) {
       return _taskOptions(
@@ -874,6 +930,9 @@ class SmartPlannerQueryController
         requestTimeLimitMinutes != null && energy == null && emotion == null
         ? 'Kept every option within your requested $requestTimeLimitMinutes-minute limit; no energy or emotional check-in was used.'
         : _recommendationReason(kind, energy, emotion);
+    if (evidence.focusRhythm != null) {
+      return '$base It is grounded in a Daily Rhythm with no recorded outcome for this period; confirm remaining repetitions before acting.';
+    }
     final TaskEntity? task = evidence.focusTask;
     if (task != null) {
       return '$base It is grounded in saved task "${_safeEvidenceTitle(task.title)}" at priority ${task.priority}/5.';
@@ -1149,13 +1208,13 @@ class SmartPlannerQueryController
     EmotionalState.anxious =>
       'Favored a bounded first move because you selected anxious.',
     EmotionalState.scattered =>
-      'Reduced choice load because you selected scattered.',
+      'Recommended the smallest option because you selected scattered.',
     EmotionalState.negative =>
       'Kept the recommendation small and reversible because you selected negative.',
     EmotionalState.energized =>
-      'Made a deeper option available because you selected energized.',
+      'Considered energized alongside your reported energy when choosing an option.',
     EmotionalState.engaged =>
-      'Allowed a longer focus cycle because you selected engaged.',
+      'Considered engaged alongside your reported energy when choosing an option.',
     EmotionalState.calm => 'Preserved a steady pace because you selected calm.',
     EmotionalState.positive =>
       'Kept momentum available without assuming extra capacity because you selected positive.',

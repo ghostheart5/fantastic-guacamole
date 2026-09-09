@@ -20,6 +20,8 @@ class GoalsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goals = ref.watch(goalsProvider);
+    final goalsRead = ref.watch(goalsReadProvider);
+    final bool es = Localizations.localeOf(context).languageCode == 'es';
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgTemporalCalm,
@@ -45,7 +47,9 @@ class GoalsScreen extends ConsumerWidget {
                       width: 48,
                       height: 48,
                     ),
-                    onPressed: () async => _showAddSheet(context, ref),
+                    onPressed: goalsRead.hasError
+                        ? null
+                        : () async => _showAddSheet(context, ref),
                     icon: const Icon(
                       Icons.add_rounded,
                       color: AppColors.neonCyan,
@@ -55,7 +59,21 @@ class GoalsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: goals.isEmpty
+                child: goalsRead.hasError
+                    ? Column(
+                        children: [
+                          Text(
+                            es
+                                ? 'No se pueden leer tus metas. Los datos existentes se conservaron.'
+                                : 'Your goals could not be read. Existing data was preserved.',
+                          ),
+                          TextButton(
+                            onPressed: () => ref.invalidate(goalsReadProvider),
+                            child: Text(es ? 'Reintentar' : 'Retry'),
+                          ),
+                        ],
+                      )
+                    : goals.isEmpty
                     ? _EmptyGoals(
                         onAdd: () async => _showAddSheet(context, ref),
                       )
@@ -387,7 +405,8 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
     final String text =
         'ChronoSpark Goal\n'
         '${goal.title}\n'
-        'Progress: $completed/$total tasks complete\n'
+        'One-time actions: $completed/$total complete\n'
+        'Recurring completions: ${goalProgress.recurringCompletedCount}\n'
         '$targetLabel\n'
         'Build your goal system: ${AppUrls.website}';
 
@@ -426,9 +445,10 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
 
   @override
   Widget build(BuildContext context) {
+    final progressRead = ref.watch(goalProgressProvider(widget.goal.id));
     final goalProgress =
-        ref.watch(goalProgressProvider(widget.goal.id)).value ??
-        const GoalProgressView.empty();
+        progressRead.asData?.value ?? const GoalProgressView.empty();
+    final bool es = Localizations.localeOf(context).languageCode == 'es';
     final linked = goalProgress.tasks;
     final int total = goalProgress.totalCount;
     final int completed = goalProgress.completedCount;
@@ -515,7 +535,10 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                             width: 48,
                             height: 48,
                           ),
-                          onPressed: () => _shareGoal(goalProgress),
+                          onPressed:
+                              progressRead.isLoading || progressRead.hasError
+                              ? null
+                              : () => _shareGoal(goalProgress),
                           icon: Icon(
                             Icons.ios_share_rounded,
                             color: goalColor.withValues(alpha: 0.9),
@@ -575,33 +598,58 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                       ),
                     ],
                     const SizedBox(height: 14),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: LinearProgressIndicator(
-                              value: progress,
-                              backgroundColor: Colors.white10,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                goalColor,
+                    if (progressRead.isLoading)
+                      Text(es ? 'Cargando progreso…' : 'Loading progress…')
+                    else if (progressRead.hasError)
+                      TextButton(
+                        onPressed: () => ref.invalidate(
+                          goalProgressProvider(widget.goal.id),
+                        ),
+                        child: Text(
+                          es
+                              ? 'Progreso no disponible. Reintentar'
+                              : 'Progress unavailable. Retry',
+                        ),
+                      )
+                    else
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                backgroundColor: Colors.white10,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  goalColor,
+                                ),
+                                minHeight: 4,
                               ),
-                              minHeight: 4,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          '$completed of $total actions',
-                          style: TextStyle(
-                            color: goalColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0,
+                          const SizedBox(width: 10),
+                          Text(
+                            es
+                                ? '$completed de $total acciones únicas'
+                                : '$completed of $total one-time actions',
+                            style: TextStyle(
+                              color: goalColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    if (!progressRead.isLoading &&
+                        !progressRead.hasError &&
+                        (goalProgress.recurringCompletedCount > 0 ||
+                            goalProgress.excludedCount > 0))
+                      Text(
+                        es
+                            ? '${goalProgress.recurringCompletedCount} repeticiones completadas; ${goalProgress.excludedCount} acciones omitidas o canceladas fuera del porcentaje.'
+                            : '${goalProgress.recurringCompletedCount} recurring completions; ${goalProgress.excludedCount} skipped or canceled actions excluded from the ratio.',
+                      ),
                   ],
                 ),
               ),

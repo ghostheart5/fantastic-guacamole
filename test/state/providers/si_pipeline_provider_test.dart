@@ -219,6 +219,7 @@ void main() {
   test(
     'SI aggregation filters tasks and reports source health honestly',
     () async {
+      var goalsUnavailable = false;
       final DateTime now = DateTime.now();
       final TaskEntity actionable = TaskEntity(
         id: 'active',
@@ -258,6 +259,14 @@ void main() {
             const AdaptivePlanPolicy(),
           ),
           goalsProvider.overrideWith(() => _StaticGoals(<GoalEntity>[goal])),
+          goalsReadProvider.overrideWith(
+            (ref) => goalsUnavailable
+                ? AsyncError(
+                    StateError('goals unavailable'),
+                    StackTrace.current,
+                  )
+                : AsyncData(<GoalEntity>[goal]),
+          ),
           habitsProvider.overrideWith(
             () => _StaticHabits(<HabitEntity>[
               HabitEntity(id: 'habit-1', title: 'Review', createdAt: now),
@@ -367,6 +376,14 @@ void main() {
       expect(result.planningEvidence.executionSkippedToday, 1);
       expect(result.planningEvidence.executionDelayedToday, 1);
       expect(result.planPreview, isNotEmpty);
+      goalsUnavailable = true;
+      container.invalidate(goalsReadProvider);
+      expect(
+        (await container.read(
+          siStateAggregationProvider.future,
+        )).sourceHealth.goals,
+        SISourceStatus.error,
+      );
     },
   );
 }

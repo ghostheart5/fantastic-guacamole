@@ -4,9 +4,10 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_read_health.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
-class GoalRepository implements IGoalRepository {
+class GoalRepository implements IGoalRepository, GoalReadHealth {
   GoalRepository(this._store, {this.scope});
 
   static const String _key = 'goals_v2';
@@ -27,6 +28,7 @@ class GoalRepository implements IGoalRepository {
   /// it as one and then save would destroy recoverable data. [saveGoals]
   /// quarantines the raw payload first; this flag lets callers and tests tell
   /// the two situations apart.
+  @override
   bool get lastReadCorrupted => _lastReadCorrupted;
 
   @override
@@ -36,7 +38,7 @@ class GoalRepository implements IGoalRepository {
     try {
       raw = _store.get(_key);
     } on StateError {
-      _lastReadCorrupted = false;
+      _lastReadCorrupted = true;
       return const <GoalEntity>[];
     }
     if (raw == null || raw.trim().isEmpty) {

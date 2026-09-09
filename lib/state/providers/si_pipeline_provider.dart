@@ -8,12 +8,14 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
+import 'package:fantastic_guacamole/domain/policies/recent_skip_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/assemble_si_decision_output.dart';
 import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
@@ -114,9 +116,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
         energy: energy,
         streak: profile.streak,
         hasGoals: goals.isNotEmpty,
-        skippedTaskCount: logs
-            .where((entry) => entry.source == 'task_skipped')
-            .length,
+        skippedTaskCount: RecentSkipPolicy.count(logs, observedAt),
         emotion: emotion?.name ?? 'unknown',
         signalsSummary: signalBundle.summary,
       );
@@ -179,7 +179,11 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     noContextPlanningDecision: noContextPlanningDecision,
     sourceHealth: SISourceHealth(
       tasks: tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
-      goals: goals.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      goals: ref.watch(goalsReadProvider).hasError
+          ? SISourceStatus.error
+          : goals.isEmpty
+          ? SISourceStatus.empty
+          : SISourceStatus.ready,
       memories: memories.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
       habits: habitsHealth,
       logs: logs.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
@@ -275,7 +279,14 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
         hasMemories: aggregation.memories.isNotEmpty,
         memoryHint: _buildMemoryHint(aggregation.memories),
         streak: aggregation.profile.streak,
-        activeHabitCount: aggregation.activeHabitCount,
+        activeHabitCount:
+            ref
+                .watch(rhythmPlanningProvider)
+                .asData
+                ?.value
+                .where((entry) => entry.needsAttention)
+                .length ??
+            0,
       );
 
   return SIDecisionOutput(
