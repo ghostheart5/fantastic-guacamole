@@ -90,12 +90,13 @@ tags:
     visible: "(?s).*Task Completed.*Priority 8 journey seed marked complete.*"
     timeout: 20000
 # Timeline's back control scrolls with its header above the completed task.
+# The top boundary cannot center this header; require the whole control instead.
 - scrollUntilVisible:
     element:
       text: "Back to Nexus"
     direction: UP
     visibilityPercentage: 100
-    centerElement: true
+    centerElement: false
     timeout: 10000
 - tapOn: "Back to Nexus"
 - extendedWaitUntil:
@@ -225,7 +226,7 @@ tags:
       text: "Back to Nexus"
     direction: UP
     visibilityPercentage: 100
-    centerElement: true
+    centerElement: false
     timeout: 10000
 - tapOn: "Back to Nexus"
 
