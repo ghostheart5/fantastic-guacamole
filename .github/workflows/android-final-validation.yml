@@ -1,0 +1,339 @@
+name: Post-build Android and Windows Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full immutable app source SHA from the completed candidate build
+        required: true
+        type: string
+      candidate_run:
+        description: Successful completed Android Candidate Build Only run ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: android-final-validation-${{ inputs.source_sha }}
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: ${{ inputs.source_sha }}
+  CANDIDATE_RUN: ${{ inputs.candidate_run }}
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  candidate-gate:
+    if: github.repository == 'ghostheart5/fantastic-guacamole' && github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      aab_sha: ${{ steps.artifact-proof.outputs.aab_sha }}
+      artifact_id: ${{ steps.artifact-proof.outputs.artifact_id }}
+      artifact_sha: ${{ steps.artifact-proof.outputs.artifact_sha }}
+      candidate_tooling_sha: ${{ steps.artifact-proof.outputs.candidate_tooling_sha }}
+    steps:
+      - name: Verify completed candidate API identity before any checkout or download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$CANDIDATE_RUN" =~ ^[1-9][0-9]*$ ]]
+          mkdir -p evidence/gate
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" > evidence/gate/candidate-run.json
+          jq -e --arg repo "$GITHUB_REPOSITORY" --arg id "$CANDIDATE_RUN" '
+            (.id | tostring) == $id and .repository.full_name == $repo and
+            .head_repository.full_name == $repo and
+            .head_branch == "fix/app-only-readiness-priority2-20260902" and
+            .path == ".github/workflows/android-candidate-build.yml" and
+            .event == "workflow_dispatch" and .status == "completed" and .conclusion == "success"
+          ' evidence/gate/candidate-run.json
+          attempt=$(jq -r '.run_attempt' evidence/gate/candidate-run.json)
+          expected="chronospark-candidate-$SOURCE_SHA-$CANDIDATE_RUN-$attempt"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/artifacts?per_page=100" > evidence/gate/run-artifacts.json
+          jq -e --arg expected "$expected" --argjson run "$CANDIDATE_RUN" '
+            .artifacts | map(select(.name == $expected and .expired == false and .workflow_run.id == $run)) |
+            if length == 1 then .[0] else error("Exactly one unexpired candidate artifact is required") end
+          ' evidence/gate/run-artifacts.json > evidence/gate/candidate-artifact.json
+
+      - name: Checkout reviewed validation tooling after the API gate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+
+      - name: Download the API-selected immutable candidate artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id=$(jq -r '.id' evidence/gate/candidate-artifact.json)
+          [[ "$artifact_id" =~ ^[1-9][0-9]*$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" > "$RUNNER_TEMP/candidate.zip"
+
+      - name: Bind actual AAB bytes to source, build tooling, run and license receipt
+        id: artifact-proof
+        env:
+          CANDIDATE_ZIP: ${{ runner.temp }}/candidate.zip
+          CANDIDATE_RUN_JSON: evidence/gate/candidate-run.json
+          CANDIDATE_ARTIFACT_JSON: evidence/gate/candidate-artifact.json
+        run: python3 tooling/scripts/android_final_validation.py candidate --evidence evidence/gate
+
+      - name: Retain candidate input proof
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: final-input-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/gate/
+          retention-days: 7
+          if-no-files-found: error
+
+  windows-full:
+    needs: candidate-gate
+    runs-on: windows-2022
+    timeout-minutes: 100
+    env:
+      CANDIDATE_AAB_SHA: ${{ needs.candidate-gate.outputs.aab_sha }}
+      CANDIDATE_ARTIFACT_ID: ${{ needs.candidate-gate.outputs.artifact_id }}
+      CANDIDATE_ARTIFACT_SHA: ${{ needs.candidate-gate.outputs.artifact_sha }}
+      CANDIDATE_TOOLING_SHA: ${{ needs.candidate-gate.outputs.candidate_tooling_sha }}
+    steps:
+      - name: Checkout gated immutable source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: source
+          persist-credentials: false
+
+      - name: Checkout exact validation tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+
+      - name: Record independent Windows source and candidate provenance
+        run: python tooling/scripts/android_final_validation.py source --evidence evidence/windows
+
+      - name: Set up pinned Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+
+      - name: Resolve locked dependencies with the safe example configuration
+        working-directory: source
+        shell: pwsh
+        run: |
+          Copy-Item -LiteralPath .env.example -Destination .env
+          flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Locked dependency resolution failed.' }
+          git diff --exit-code -- pubspec.lock
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency lockfile changed.' }
+          flutter --version --machine > ../evidence/windows/flutter-version.json
+
+      - name: Run complete canonical Windows suite with fresh coverage
+        timeout-minutes: 65
+        working-directory: source
+        run: >-
+          dart run tool/run_flutter_tests.dart
+          --report ../evidence/windows/full.jsonl
+          --manifest ../evidence/windows/full-manifest.json
+          --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1
+
+      - name: Run the separate QA compile-time configuration contract
+        timeout-minutes: 12
+        working-directory: source
+        run: >-
+          dart run tool/run_flutter_tests.dart
+          --report ../evidence/windows/qa-config.jsonl
+          --manifest ../evidence/windows/qa-config-manifest.json
+          --timeout-seconds 600 -- test/config/env_mode_resolution_test.dart
+          --no-pub --concurrency=1 --dart-define-from-file=tool/qa_defines.json
+
+      - name: Verify complete terminal receipts and enforce higher coverage targets
+        shell: pwsh
+        run: |
+          python tooling/scripts/android_final_validation.py terminal --manifest evidence/windows/full-manifest.json --evidence evidence/windows/full-terminal
+          if ($LASTEXITCODE -ne 0) { throw 'Full Windows test receipt failed.' }
+          python tooling/scripts/android_final_validation.py terminal --manifest evidence/windows/qa-config-manifest.json --evidence evidence/windows/qa-terminal
+          if ($LASTEXITCODE -ne 0) { throw 'QA configuration test receipt failed.' }
+          & ./source/scripts/coverage_guard.ps1 -RepositoryRoot source -Mode target *> evidence/windows/coverage-target.log
+          if ($LASTEXITCODE -ne 0) { throw 'Higher coverage targets failed.' }
+
+      - name: Confirm source stayed unchanged
+        if: always()
+        working-directory: source
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'Tracked source changed during validation.' }
+
+      - name: Retain all Windows test, failure and coverage evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: final-windows-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            evidence/windows/
+            source/coverage/lcov.info
+            source/test/**/failures/**
+
+  android-integration:
+    needs: candidate-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    env:
+      CANDIDATE_AAB_SHA: ${{ needs.candidate-gate.outputs.aab_sha }}
+      CANDIDATE_ARTIFACT_ID: ${{ needs.candidate-gate.outputs.artifact_id }}
+      CANDIDATE_ARTIFACT_SHA: ${{ needs.candidate-gate.outputs.artifact_sha }}
+      CANDIDATE_TOOLING_SHA: ${{ needs.candidate-gate.outputs.candidate_tooling_sha }}
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx1536m -Dorg.gradle.workers.max=1 -Dorg.gradle.parallel=false -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process'
+      ORG_GRADLE_PROJECT_kotlin.compiler.execution.strategy: in-process
+    steps:
+      - name: Checkout gated immutable source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: source
+          persist-credentials: false
+
+      - name: Checkout exact validation tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+
+      - name: Record native integration source and candidate provenance
+        run: python3 tooling/scripts/android_final_validation.py source --evidence evidence/integration
+
+      - name: Set up pinned Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up pinned Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+
+      - name: Resolve locked dependencies and require KVM
+        run: |
+          set -euo pipefail
+          cp source/.env.example source/.env
+          (cd source && flutter pub get --enforce-lockfile && git diff --exit-code -- pubspec.lock)
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+
+      - name: Run all native integration files and the tall auth replay
+        timeout-minutes: 95
+        run: python3 tooling/scripts/android_final_validation.py integration --evidence evidence/integration/native
+
+      - name: Confirm source stayed unchanged
+        if: always()
+        run: git -C source diff --exit-code
+
+      - name: Retain native integration commands and terminal receipts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: final-native-integration-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/integration/
+          retention-days: 7
+          if-no-files-found: error
+
+  release-16kb:
+    needs: candidate-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      CANDIDATE_AAB_SHA: ${{ needs.candidate-gate.outputs.aab_sha }}
+      CANDIDATE_ARTIFACT_ID: ${{ needs.candidate-gate.outputs.artifact_id }}
+      CANDIDATE_ARTIFACT_SHA: ${{ needs.candidate-gate.outputs.artifact_sha }}
+      CANDIDATE_TOOLING_SHA: ${{ needs.candidate-gate.outputs.candidate_tooling_sha }}
+      CANDIDATE_ZIP: ${{ github.workspace }}/candidate.zip
+      CANDIDATE_RUN_JSON: evidence/16kb/candidate-run.json
+      CANDIDATE_ARTIFACT_JSON: evidence/16kb/candidate-artifact.json
+      BUNDLETOOL: ${{ github.workspace }}/bundletool.jar
+    steps:
+      - name: Checkout gated immutable source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: source
+          persist-credentials: false
+
+      - name: Checkout exact validation tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+
+      - name: Record release compatibility source and candidate provenance
+        run: python3 tooling/scripts/android_final_validation.py source --evidence evidence/16kb
+
+      - name: Set up pinned Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the pinned SDK for license provenance verification
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+
+      - name: Download the gated candidate and checksum-pinned bundletool
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" > "$CANDIDATE_RUN_JSON"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$CANDIDATE_ARTIFACT_ID" > "$CANDIDATE_ARTIFACT_JSON"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$CANDIDATE_ARTIFACT_ID/zip" > "$CANDIDATE_ZIP"
+          echo "$CANDIDATE_ARTIFACT_SHA  $CANDIDATE_ZIP" | sha256sum --check --strict
+          curl --fail --location --silent --show-error \
+            https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar --output "$BUNDLETOOL"
+          echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $BUNDLETOOL" | sha256sum --check --strict
+
+      - name: Require hardware acceleration
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+
+      - name: Derive and validate the release on an actual strict 16KB guest
+        timeout-minutes: 40
+        run: python3 tooling/scripts/android_final_validation.py 16kb --evidence evidence/16kb/runtime
+
+      - name: Confirm source stayed unchanged
+        if: always()
+        run: git -C source diff --exit-code
+
+      - name: Retain AAB-derived test APK, alignment, device and cold-launch evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: final-release-16kb-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/16kb/
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: State the retained evidence boundary
+        if: always()
+        run: |
+          echo 'Disposable AAB-derived test signer and fresh strict 16KB emulator only. No Play signing, authentication, microphone recording, purchases, release publication, Maestro, monkey or level-20 execution.' >> "$GITHUB_STEP_SUMMARY"
