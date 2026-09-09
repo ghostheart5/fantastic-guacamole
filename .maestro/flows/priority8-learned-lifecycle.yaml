@@ -32,7 +32,15 @@ tags:
           env:
             TARGET: "Creator"
 - assertVisible: "CREATOR"
-- tapOn: "Title *"
+# Android can merge the accessible label and visible hint in one node.
+- scrollUntilVisible:
+    element:
+      text: '^Title, required(?:\s+Title \*)?$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- tapOn: '^Title, required(?:\s+Title \*)?$'
 - inputText: "Priority 8 journey seed"
 - tapOn:
     text: "(?:Done|Enter)"
@@ -52,11 +60,7 @@ tags:
     visible: "OK"
     timeout: 10000
 - tapOn: "OK"
-- scrollUntilVisible:
-    element:
-      text: "REVIEW CHANGES"
-    direction: DOWN
-    timeout: 10000
+- runFlow: ../subflows/reveal-creator-review.yaml
 # Match the Creator smoke flow: finish picker/IME layout transitions before
 # resolving the button's tap position, then require the real preview handoff.
 - waitForAnimationToEnd:
@@ -85,6 +89,14 @@ tags:
 - extendedWaitUntil:
     visible: "(?s).*Task Completed.*Priority 8 journey seed marked complete.*"
     timeout: 20000
+# Timeline's back control scrolls with its header above the completed task.
+- scrollUntilVisible:
+    element:
+      text: "Back to Nexus"
+    direction: UP
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
 - tapOn: "Back to Nexus"
 - extendedWaitUntil:
     visible: "NEXUS"
@@ -183,6 +195,13 @@ tags:
 - extendedWaitUntil:
     visible: "CREATION SAVED"
     timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Open Timeline"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
 - tapOn: "Open Timeline"
 - extendedWaitUntil:
     visible: "TIMELINE"
@@ -201,6 +220,13 @@ tags:
 - extendedWaitUntil:
     visible: "(?s).*Task Completed.*Complete one useful cycle marked complete.*"
     timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: "Back to Nexus"
+    direction: UP
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
 - tapOn: "Back to Nexus"
 
 # The latest completion must publish an explainable, correctable change.
@@ -228,10 +254,17 @@ tags:
     direction: DOWN
     timeout: 15000
 - tapOn: "Planning & guidance\\n.*"
+# Traverse the long expanded category before requiring the actual saved row.
+- scrollUntilVisible:
+    element:
+      text: "RECENT RAW OBSERVATIONS"
+    direction: DOWN
+    timeout: 30000
 - scrollUntilVisible:
     element:
       text: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"
     direction: DOWN
-    visibilityPercentage: 20
+    visibilityPercentage: 100
+    centerElement: true
     timeout: 15000
 - assertVisible: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"

@@ -30,6 +30,81 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  testWidgets('voice failure displays localized safe feedback', (tester) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final voice = _RecordingConsentVoiceController()..failStart = true;
+    final container = _container(voiceController: voice);
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await _requestGuidance(tester);
+    final mic = find.byIcon(Icons.mic_none_rounded);
+    await _scrollTo(tester, mic);
+    await tester.tap(mic);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final agree = find.widgetWithText(FilledButton, 'Agree and dictate');
+    await tester.ensureVisible(agree);
+    await tester.tap(agree);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(voice.starts, 1);
+    expect(
+      find.text('Voice input is unavailable. Check permission and retry.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('private-platform-diagnostic'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final bool invalidateDuringConsent in <bool>[false, true]) {
+    testWidgets(
+      'voice requires provider disclosure; invalidated request=$invalidateDuringConsent',
+      (tester) async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final voice = _RecordingConsentVoiceController();
+        final container = _container(voiceController: voice);
+        addTearDown(container.dispose);
+        await _pumpPlanner(tester, container);
+        await _requestGuidance(tester);
+        final mic = find.byIcon(Icons.mic_none_rounded);
+        await _scrollTo(tester, mic);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.tap(mic);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(
+          find.textContaining('may send audio to its servers'),
+          findsOneWidget,
+        );
+        expect(voice.starts, 0);
+        final decline = find.widgetWithText(TextButton, 'Not Now');
+        await tester.ensureVisible(decline);
+        await tester.tap(decline);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(voice.starts, 0);
+        await _scrollTo(tester, mic);
+        await tester.tap(mic);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        if (invalidateDuringConsent) {
+          container.invalidate(voiceControllerProvider);
+          await tester.pump();
+        }
+        final agree = find.widgetWithText(FilledButton, 'Agree and dictate');
+        await tester.ensureVisible(agree);
+        await tester.tap(agree);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(voice.starts, invalidateDuringConsent ? 0 : 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'changed and cleared check-ins invalidate stale visible and pending plans',
     (tester) async {
@@ -1075,6 +1150,7 @@ void main() {
 
 ProviderContainer _container({
   VoiceService? voiceService,
+  VoiceController? voiceController,
   OperatingDecisionReceipt? operatingReceipt,
   List<_RecordedOutcome>? outcomes,
   AccountStorageScope? accountScope,
@@ -1095,6 +1171,10 @@ ProviderContainer _container({
   }
   return ProviderContainer(
     overrides: [
+      if (voiceController != null)
+        voiceInputEnabledProvider.overrideWithValue(true),
+      if (voiceController != null)
+        voiceControllerProvider.overrideWith(() => voiceController),
       accountStorageScopeProvider.overrideWithValue(resolvedScope),
       accountLegacyOwnershipProvider.overrideWithValue(
         LegacyScopeOwnership.provenNotOwned,
@@ -1597,4 +1677,28 @@ class _UnavailableVoiceService extends VoiceService {
 
   @override
   Future<void> stop() async {}
+}
+
+class _RecordingConsentVoiceController extends VoiceController {
+  int starts = 0;
+  bool failStart = false;
+  int revision = 0;
+
+  @override
+  int get lifecycleRevision => revision;
+
+  @override
+  VoiceState build() {
+    revision++;
+    ref.onDispose(() => revision++);
+    return const VoiceState();
+  }
+
+  @override
+  Future<void> startListening() async {
+    starts++;
+    if (failStart) {
+      state = state.copyWith(error: 'private-platform-diagnostic');
+    }
+  }
 }

@@ -4,12 +4,146 @@ import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dar
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final surface in <({Size size, double scale, bool split})>[
+    (size: const Size(320, 640), scale: 1, split: true),
+    (size: const Size(320, 640), scale: 2, split: true),
+    (size: const Size(600, 960), scale: 1, split: false),
+  ]) {
+    testWidgets(
+      'welcome brand stays composed at ${surface.size.width} and ${surface.scale}x text',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = surface.size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        final ProviderContainer container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              builder: (BuildContext context, Widget? child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(surface.scale),
+                  disableAnimations: true,
+                ),
+                child: child!,
+              ),
+              home: const OnboardingScreen(),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+
+        final Finder title = find.byKey(const Key('onboarding-brand-title'));
+        expect(title, findsOneWidget);
+        expect(
+          tester.widget<Text>(title).data,
+          surface.split ? 'CHRONO\nSPARK' : 'CHRONOSPARK',
+          reason: 'The title may only break at its two words.',
+        );
+        final SemanticsHandle semantics = tester.ensureSemantics();
+        await tester.pump();
+        try {
+          expect(find.bySemanticsLabel('CHRONOSPARK'), findsOneWidget);
+        } finally {
+          semantics.dispose();
+        }
+        final Rect titleBounds = tester.getRect(title);
+        expect(titleBounds.left, greaterThanOrEqualTo(0));
+        expect(titleBounds.right, lessThanOrEqualTo(surface.size.width));
+        final Finder button = find.widgetWithText(
+          FilledButton,
+          'CONTINUE TO LOGIN',
+        );
+        expect(button.hitTestable(), findsOneWidget);
+        expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'every 320px welcome line can scroll above the CTA at 200 percent text',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final ProviderContainer container = ProviderContainer();
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            builder: (BuildContext context, Widget? child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: const TextScaler.linear(2),
+                disableAnimations: true,
+              ),
+              child: child!,
+            ),
+            home: const OnboardingScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final Finder body = find.textContaining('Plan with purpose');
+      final Finder button = find.widgetWithText(
+        FilledButton,
+        'CONTINUE TO LOGIN',
+      );
+      final Finder scrollView = find.ancestor(
+        of: body,
+        matching: find.byType(SingleChildScrollView),
+      );
+      expect(scrollView, findsOneWidget);
+      final RenderParagraph paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: body, matching: find.byType(RichText)),
+      );
+      final lines = paragraph.getBoxesForSelection(
+        TextSelection(
+          baseOffset: 0,
+          extentOffset: tester.widget<Text>(body).data!.length,
+        ),
+      );
+      expect(lines, isNotEmpty);
+      // Large text can make a paragraph taller than the viewport. Prove each
+      // line can be read in sequence rather than requiring every line at once.
+      for (final line in lines) {
+        Rect bounds() => Rect.fromPoints(
+          paragraph.localToGlobal(line.toRect().topLeft),
+          paragraph.localToGlobal(line.toRect().bottomRight),
+        );
+        for (
+          int attempt = 0;
+          attempt < 30 && bounds().bottom > tester.getRect(button).top;
+          attempt++
+        ) {
+          await tester.drag(scrollView, const Offset(0, -80));
+          await tester.pumpAndSettle();
+        }
+        expect(bounds().top, greaterThanOrEqualTo(0));
+        expect(
+          bounds().bottom,
+          lessThanOrEqualTo(tester.getRect(button).top),
+          reason: 'Every welcome line must be readable above the fixed CTA.',
+        );
+      }
+      expect(button.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('welcome completes before the optional first-value step', (
     WidgetTester tester,
   ) async {

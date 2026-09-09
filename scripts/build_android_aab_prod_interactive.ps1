@@ -11,6 +11,11 @@ Set-StrictMode -Version Latest
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repoRoot
 
+. (Join-Path $PSScriptRoot 'external_signing_paths.ps1')
+$signingPaths = Get-ExternalSigningPaths -PropertiesPath $SigningPropertiesPath -KeystorePath $SigningKeystorePath
+$SigningPropertiesPath = $signingPaths.PropertiesPath
+$SigningKeystorePath = $signingPaths.KeystorePath
+
 $requiredEnv = @(
     'CHRONOSPARK_SUPABASE_URL',
     'CHRONOSPARK_SUPABASE_ANON_KEY',
@@ -43,10 +48,10 @@ if (-not [string]::IsNullOrWhiteSpace($BuildName)) {
 if ($BuildNumber -gt 0) {
     $guardedArgs += @('-BuildNumber', "$BuildNumber")
 }
-if ([string]::IsNullOrWhiteSpace($SigningPropertiesPath)) {
+if ([string]::IsNullOrWhiteSpace($SigningPropertiesPath) -or -not (Test-Path -LiteralPath $SigningPropertiesPath -PathType Leaf)) {
     $SigningPropertiesPath = Read-Host 'Enter the external key.properties path'
 }
-if ([string]::IsNullOrWhiteSpace($SigningKeystorePath)) {
+if ([string]::IsNullOrWhiteSpace($SigningKeystorePath) -or -not (Test-Path -LiteralPath $SigningKeystorePath -PathType Leaf)) {
     $SigningKeystorePath = Read-Host 'Enter the external upload-keystore.jks path'
 }
 $guardedArgs += @(

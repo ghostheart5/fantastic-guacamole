@@ -18,3 +18,19 @@ appId: com.ghostheart5.chronospark
             - waitForAnimationToEnd:
                 timeout: 3000
 - assertVisible: "REVIEW CHANGES"
+# Android can report a one-pixel clipped button as fully visible. Reveal more
+# of the outer form before resolving a semantic tap; stay outside notes/IME.
+- swipe:
+    start: "95%, 55%"
+    end: "95%, 20%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- scrollUntilVisible:
+    element:
+      text: "REVIEW CHANGES"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- assertVisible: "REVIEW CHANGES"

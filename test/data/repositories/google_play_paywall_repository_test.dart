@@ -1229,6 +1229,164 @@ void main() {
     },
   );
 
+  for (final String boundary in <String>[
+    'verification',
+    'acknowledgement',
+    'persistence',
+  ]) {
+    test(
+      'verified purchase cannot activate a new account during $boundary',
+      () async {
+        final bool duringPersistence = boundary == 'persistence';
+        final bool duringVerification = boundary == 'verification';
+        final Completer<void> verificationStarted = Completer<void>();
+        final Completer<void> releaseVerification = Completer<void>();
+        final Completer<void> acknowledgementStarted = Completer<void>();
+        final Completer<void> releaseAcknowledgement = Completer<void>();
+        final _GateFirstWriteBackend backend = _GateFirstWriteBackend(
+          gatedKey: 'paywall_subscription_state_v1.account.user-1',
+        );
+        final SecureStore secure = SecureStore(backend: backend);
+        final sb.SupabaseClient client = await _authorityClient(
+          (request) async => http.Response(
+            '[]',
+            200,
+            headers: <String, String>{'content-type': 'application/json'},
+          ),
+        );
+        final StreamController<List<PurchaseDetails>> controller =
+            StreamController<List<PurchaseDetails>>.broadcast();
+        final _FakeBillingClient billing = _FakeBillingClient(
+          purchaseStreamController: controller,
+          productResponse: ProductDetailsResponse(
+            productDetails: <ProductDetails>[
+              ProductDetails(
+                id: 'chronospark_premium_monthly',
+                title: 'Monthly',
+                description: 'Monthly premium',
+                price: 'USD 7.99',
+                rawPrice: 7.99,
+                currencyCode: 'USD',
+              ),
+            ],
+            notFoundIDs: const <String>[],
+          ),
+          onBuyNonConsumable: (param) async {
+            controller.add(<PurchaseDetails>[
+              PurchaseDetails(
+                purchaseID: 'account-race',
+                productID: param.productDetails.id,
+                verificationData: PurchaseVerificationData(
+                  localVerificationData: 'local-token',
+                  serverVerificationData: 'server-token',
+                  source: 'google_play',
+                ),
+                transactionDate: DateTime.now().millisecondsSinceEpoch
+                    .toString(),
+                status: PurchaseStatus.purchased,
+              )..pendingCompletePurchase = true,
+            ]);
+            return true;
+          },
+          onCompletePurchase: (_) async {
+            acknowledgementStarted.complete();
+            if (!duringPersistence) await releaseAcknowledgement.future;
+          },
+        );
+        final GooglePlayPaywallRepository repository =
+            GooglePlayPaywallRepository(
+              billingClient: billing,
+              paywallTestingModeOverride: false,
+              sharedPreferencesLoader: SharedPreferences.getInstance,
+              receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+              secureStore: secure,
+              supabaseClient: client,
+              httpClient: MockClient((request) async {
+                verificationStarted.complete();
+                if (duringVerification) await releaseVerification.future;
+                return http.Response(
+                  jsonEncode(<String, dynamic>{
+                    'valid': true,
+                    'productId': 'chronospark_premium_monthly',
+                    'status': 'active',
+                    'expiryTimeMs': DateTime.now()
+                        .toUtc()
+                        .add(const Duration(days: 30))
+                        .millisecondsSinceEpoch,
+                    'acknowledged': true,
+                  }),
+                  200,
+                );
+              }),
+            );
+        addTearDown(() async {
+          if (!releaseVerification.isCompleted) {
+            releaseVerification.complete();
+          }
+          if (!releaseAcknowledgement.isCompleted) {
+            releaseAcknowledgement.complete();
+          }
+          if (!backend.releaseFirstWrite.isCompleted) {
+            backend.releaseFirstWrite.complete();
+          }
+          repository.dispose();
+          await controller.close();
+          await client.dispose();
+        });
+        final Future<void> rejected = expectLater(
+          repository.startSubscription('monthly'),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'account boundary',
+              contains('account changed'),
+            ),
+          ),
+        );
+        await verificationStarted.future;
+        if (!duringVerification) await acknowledgementStarted.future;
+        if (duringPersistence) await backend.firstWriteStarted.future;
+        await client.auth.signInWithPassword(
+          email: 'user-2@example.com',
+          password: 'password',
+        );
+        if (duringVerification) {
+          releaseVerification.complete();
+        } else if (duringPersistence) {
+          backend.releaseFirstWrite.complete();
+        } else {
+          releaseAcknowledgement.complete();
+        }
+        await rejected;
+
+        expect(billing.completePurchaseCalls, duringVerification ? 0 : 1);
+        expect((await repository.getUserSubscriptionState()).isActive, isFalse);
+        expect(
+          (await repository.checkEntitlement(featureId: 'premium')).isEntitled,
+          isFalse,
+        );
+        expect(
+          await secure.readString(
+            'paywall_subscription_state_v1.account.user-2',
+          ),
+          isNull,
+        );
+        final String? ownerState = await secure.readString(
+          'paywall_subscription_state_v1.account.user-1',
+        );
+        if (duringPersistence) {
+          expect(
+            (jsonDecode(ownerState!)
+                as Map<String, dynamic>)['authorityUserId'],
+            'user-1',
+          );
+        } else {
+          expect(ownerState, isNull);
+        }
+      },
+    );
+  }
+
   test('canceled purchase stays explicit and inactive', () async {
     final StreamController<List<PurchaseDetails>> controller =
         StreamController<List<PurchaseDetails>>.broadcast();
@@ -3598,6 +3756,7 @@ class _FakeBillingClient implements BillingClient {
     this.onRestorePurchases,
     this.restoredPurchases = const <PurchaseDetails>[],
     this.completePurchaseError,
+    this.onCompletePurchase,
     this.queryShouldThrow = false,
   }) : _purchaseStreamController =
            purchaseStreamController ??
@@ -3609,6 +3768,7 @@ class _FakeBillingClient implements BillingClient {
   final Future<void> Function()? onRestorePurchases;
   final List<PurchaseDetails> restoredPurchases;
   final Error? completePurchaseError;
+  final Future<void> Function(PurchaseDetails purchase)? onCompletePurchase;
   final bool queryShouldThrow;
   int queryProductCalls = 0;
   int buyCalls = 0;
@@ -3632,6 +3792,7 @@ class _FakeBillingClient implements BillingClient {
   @override
   Future<void> completePurchase(PurchaseDetails purchase) async {
     completePurchaseCalls += 1;
+    await onCompletePurchase?.call(purchase);
     final Error? error = completePurchaseError;
     if (error != null) {
       throw error;

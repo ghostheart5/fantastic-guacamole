@@ -426,6 +426,23 @@ class _ObservedContinuitySummary extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final review = ref.watch(progressionReviewProvider);
+    final ProgressionReviewStatus? status = review.asData?.value.status;
+    if (review.hasError ||
+        review.isLoading ||
+        status != ProgressionReviewStatus.ready) {
+      final String availability =
+          review.hasError || status == ProgressionReviewStatus.unavailable
+          ? 'Saved continuity evidence is unavailable. Retry the progress review below.'
+          : status == ProgressionReviewStatus.empty
+          ? 'No saved planning history yet. Record an outcome to begin a continuity review.'
+          : 'Loading saved continuity evidence. Ratings will appear when it is ready.';
+      return Text(
+        availability,
+        key: const Key('progression-continuity-availability'),
+        style: const TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
+      );
+    }
     final profile = ref.watch(profileProvider);
     final trajectory = ref.watch(trajectorySummaryProvider);
     final milestoneSummary = ref.watch(milestoneSummaryProvider);
@@ -733,8 +750,7 @@ class _AdvisorSummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(weeklySummaryProvider);
-    final action = _ProgressionAdvisorAction.from(ref);
+    final summaryAsync = ref.watch(progressionReviewProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -753,30 +769,25 @@ class _AdvisorSummaryCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                summary,
+                summary.text,
                 style: const TextStyle(
                   color: Color(0xFFD7DFF0),
                   fontSize: 13,
                   height: 1.55,
                 ),
               ),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: () {
-                  _recordProgressionReview(ref);
-                  action.navigate(context, ref);
-                },
-                icon: Icon(action.icon, size: 18),
-                label: Text(action.label),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.memoryAmber,
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+              if (summary.status == ProgressionReviewStatus.unavailable) ...[
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: () => retryProgressionReview(ref),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry progress review'),
                 ),
-              ),
+              ],
+              if (summary.canAct) ...[
+                const SizedBox(height: 14),
+                _actionButton(context, ref),
+              ],
             ],
           ),
           loading: () => const Text(
@@ -787,7 +798,7 @@ class _AdvisorSummaryCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Not enough saved evidence yet. Add or complete an item, then return to see a grounded progression signal.',
+                'Progress review is unavailable. Your saved evidence could not be read. Retry when your data is available.',
                 style: TextStyle(
                   color: Color(0xFFC6D0E2),
                   fontSize: 13,
@@ -797,11 +808,10 @@ class _AdvisorSummaryCard extends ConsumerWidget {
               const SizedBox(height: 14),
               OutlinedButton.icon(
                 onPressed: () {
-                  _recordProgressionReview(ref);
-                  goToAppView(context, ref, AppView.creator);
+                  retryProgressionReview(ref);
                 },
-                icon: const Icon(Icons.add_task_rounded, size: 18),
-                label: const Text('Open Creator'),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Retry progress review'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.memoryAmber,
                   side: BorderSide(
@@ -817,6 +827,26 @@ class _AdvisorSummaryCard extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _actionButton(BuildContext context, WidgetRef ref) {
+    // Derived workload providers may themselves fail. Read them only after
+    // source health permits an action, so they cannot hide the retry control.
+    final action = _ProgressionAdvisorAction.from(ref);
+    return FilledButton.icon(
+      onPressed: () {
+        _recordProgressionReview(ref);
+        action.navigate(context, ref);
+      },
+      icon: Icon(action.icon, size: 18),
+      label: Text(action.label),
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.memoryAmber,
+        foregroundColor: Colors.black,
+        minimumSize: const Size.fromHeight(48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
   }
 }

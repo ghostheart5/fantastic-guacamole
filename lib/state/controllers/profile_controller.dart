@@ -154,10 +154,12 @@ final profileProvider = NotifierProvider<ProfileController, ProfileState>(
 
 class ProfileController extends Notifier<ProfileState> {
   Future<void>? _initialization;
+  int _initializationGeneration = 0;
   Future<void> _pendingSave = Future<void>.value();
 
   @override
   ProfileState build() {
+    final int generation = ++_initializationGeneration;
     final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
     if (!scope.isWritable) {
       _initialization = null;
@@ -176,6 +178,7 @@ class ProfileController extends Notifier<ProfileState> {
         legacyOwnership: legacyOwnership,
         secureStore: secureStore,
         hive: hive,
+        generation: generation,
       ),
     );
     return ProfileState();
@@ -201,6 +204,7 @@ class ProfileController extends Notifier<ProfileState> {
     required LegacyScopeOwnership legacyOwnership,
     required SecureStore secureStore,
     required HiveStore hive,
+    required int generation,
   }) async {
     try {
       String? raw = await secureStore.readString(_secureStateKey);
@@ -220,7 +224,11 @@ class ProfileController extends Notifier<ProfileState> {
           });
         }
       }
-      if (raw == null || !ref.mounted) return;
+      if (raw == null ||
+          !ref.mounted ||
+          generation != _initializationGeneration) {
+        return;
+      }
       state = ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (error, stackTrace) {
       Logger.errorCategory(
@@ -262,7 +270,9 @@ class ProfileController extends Notifier<ProfileState> {
     return operation;
   }
 
-  Future<void> addXP(int amount) async {
+  Future<void> addXP(int amount) => _addXP(amount);
+
+  Future<void> _addXP(int amount, {bool Function()? shouldContinue}) async {
     if (amount < 0) {
       throw ArgumentError.value(
         amount,
@@ -270,8 +280,9 @@ class ProfileController extends Notifier<ProfileState> {
         'XP award cannot be negative',
       );
     }
+    if (shouldContinue?.call() == false) return;
     await _ensureInitialized();
-    if (!ref.mounted) return;
+    if (!ref.mounted || shouldContinue?.call() == false) return;
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
       Streak(
@@ -308,6 +319,7 @@ class ProfileController extends Notifier<ProfileState> {
       lastActiveDate: updated.lastActiveDate,
     );
     await _save();
+    if (!ref.mounted || shouldContinue?.call() == false) return;
     if (streakBroke) {
       unawaited(_scheduleStreakBreakNotification(now: now));
     }
@@ -317,9 +329,18 @@ class ProfileController extends Notifier<ProfileState> {
   /// Awards XP for a meaningful domain action and records its provenance.
   /// Existing callers may continue using [addXP] for compatibility; new
   /// product flows should use this method so progression remains explainable.
-  Future<void> awardXP(int amount, {required String source}) async {
-    await addXP(amount);
-    if (!ref.mounted) return;
+  Future<void> awardXP(
+    int amount, {
+    required String source,
+    bool Function()? shouldContinue,
+  }) async {
+    if (shouldContinue?.call() == false) return;
+    if (shouldContinue == null) {
+      await addXP(amount);
+    } else {
+      await _addXP(amount, shouldContinue: shouldContinue);
+    }
+    if (!ref.mounted || shouldContinue?.call() == false) return;
     final Map<String, int> sources = <String, int>{...state.xpBySource};
     sources[source] = (sources[source] ?? 0) + amount;
     state = state.copyWith(xpBySource: Map<String, int>.unmodifiable(sources));

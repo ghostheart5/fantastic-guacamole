@@ -25,7 +25,15 @@ tags:
 
 - assertVisible: "CREATOR"
 
-- tapOn: "Title *"
+# Android can merge the accessible label and visible hint in one node.
+- scrollUntilVisible:
+    element:
+      text: '^Title, required(?:\s+Title \*)?$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- tapOn: '^Title, required(?:\s+Title \*)?$'
 - inputText: "Maestro smoke task"
 # Maestro's Android hideKeyboard sends Back even when an interrupted IME is gone.
 - tapOn:
@@ -48,11 +56,7 @@ tags:
     timeout: 10000
 - tapOn: "OK"
 
-- scrollUntilVisible:
-    element:
-      text: "REVIEW CHANGES"
-    direction: DOWN
-    timeout: 10000
+- runFlow: ../subflows/reveal-creator-review.yaml
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn:
@@ -83,9 +87,25 @@ tags:
     file: ../subflows/open-from-nexus.yaml
     env:
       TARGET: "Creator"
+- scrollUntilVisible:
+    element:
+      text: "Task"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
 - tapOn: "Task"
 - tapOn: "Daily Rhythm"
-- tapOn: "Title *"
+# Android can merge the accessible label and visible hint in one node.
+# A saved-item receipt can keep the next form below the fold.
+- scrollUntilVisible:
+    element:
+      text: '^Title, required(?:\s+Title \*)?$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- tapOn: '^Title, required(?:\s+Title \*)?$'
 - inputText: "Maestro review rhythm"
 - runFlow: ../subflows/reveal-creator-review.yaml
 - tapOn: "REVIEW CHANGES"
@@ -105,16 +125,32 @@ tags:
     element:
       text: "Manage Daily Rhythms"
     direction: UP
+    visibilityPercentage: 100
+    centerElement: true
     timeout: 10000
 - tapOn: "Manage Daily Rhythms"
 # Android merges the card's title, cadence, and status into one readable node.
 - assertVisible: "(?s)Maestro review rhythm\\n1 time per day.*"
+- scrollUntilVisible:
+    element:
+      text: "Pause"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
 - tapOn: "Pause"
 - assertVisible: "Resume"
 - assertVisible:
     text: "Mark target completed"
     enabled: false
 - tapOn: "Resume"
+- scrollUntilVisible:
+    element:
+      text: "Mark target completed"
+    direction: UP
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
 - tapOn: "Mark target completed"
 - extendedWaitUntil:
     visible: "(?s)Maestro review rhythm\\n1 time per day.*\\nCompleted this day\\n.*"
@@ -123,8 +159,22 @@ tags:
     text: "Mark target completed"
     enabled: false
 - back
+- scrollUntilVisible:
+    element:
+      text: "Manage Daily Rhythms"
+    direction: UP
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
 - tapOn: "Manage Daily Rhythms"
 - assertVisible: "(?s)Maestro review rhythm\\n1 time per day.*\\nCompleted this day\\n.*"
+- scrollUntilVisible:
+    element:
+      text: "Skip this day"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
 - assertVisible:
     text: "Skip this day"
     enabled: false
@@ -136,10 +186,20 @@ tags:
     element:
       text: "Daily Rhythm"
     direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
     timeout: 10000
 - tapOn: "Daily Rhythm"
 - tapOn: "Goal"
-- tapOn: "Title *"
+# Android can merge the accessible label and visible hint in one node.
+- scrollUntilVisible:
+    element:
+      text: '^Title, required(?:\s+Title \*)?$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- tapOn: '^Title, required(?:\s+Title \*)?$'
 - eraseText: 50
 - inputText: "Maestro preserved goal"
 - runFlow: ../subflows/reveal-creator-review.yaml
@@ -167,6 +227,8 @@ tags:
     element:
       text: "No linked goal"
     direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
     timeout: 10000
 - tapOn: "No linked goal"
 - assertVisible: "Maestro preserved goal"

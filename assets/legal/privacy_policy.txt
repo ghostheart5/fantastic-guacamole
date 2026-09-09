@@ -1,8 +1,8 @@
 Privacy Policy
 
-Last updated: September 4, 2026
+Last updated: September 9, 2026
 
-This policy describes the data ChronoSpark may process and the stricter feature containment applied to the current release candidate. A listed provider is not proof that every provider feature is enabled.
+This policy describes the data ChronoSpark may process in the contained public configuration and in eligible private internal-testing builds. Feature availability depends on the installed build and account eligibility. A listed provider is not proof that every provider feature is enabled.
 
 Age and intended audience
 
@@ -30,7 +30,7 @@ Current release containment
 
 External AI
 
-Disabled. The current release candidate does not send Planner content to an external generative-AI provider.
+Disabled in the contained public configuration. Eligible private internal testers can enable disclosed AI-credit tests. Separately gated Planner explanations send only the selected planning content described before confirmation, when that feature is available. See the external AI details below.
 
 Cloud sync
 
@@ -42,7 +42,7 @@ Disabled for the release candidate.
 
 Subscriptions and credits
 
-Disabled for the release candidate.
+Disabled in the contained public configuration. Eligible private internal-testing builds can offer Google Play subscriptions, credit top-ups, and confirmed credit spending. Purchases in this testing cohort require an eligible license tester and a Google Play test payment method; internal-track enrollment alone does not make a purchase free.
 
 Analytics
 
@@ -54,11 +54,25 @@ Disabled by default and release-contained off. Raw account identifiers must not 
 
 Local and backend storage
 
-ChronoSpark stores data on the device so core planning functions can work locally. Account and security services may use Supabase for authentication and approved account-scoped backend operations. Features described as release-disabled above must not be treated as active merely because supporting code or a provider SDK exists.
+ChronoSpark stores data on the device so core planning functions can work locally. Account and security services may use Supabase for authentication and approved account-scoped backend operations. When billing or AI-credit testing is enabled, Supabase also processes purchase-verification records, credit balances, usage, reservations, settlements, and retry metadata. These operations are separate from cloud sync and restore of planning data, which remain disabled.
 
 Service providers
 
-ChronoSpark may use Supabase for authentication and approved backend operations, Firebase Cloud Messaging for notifications, and Google Play for Android distribution and billing. Firebase Analytics and Crashlytics are release-contained off. Anthropic is the disclosed provider for a possible future external Planner explanation, but that feature is currently disabled and is not a public capability.
+ChronoSpark may use Supabase for authentication and approved backend operations, Firebase Cloud Messaging for notifications, and Google Play for Android distribution and billing. Firebase Analytics and Crashlytics are release-contained off. Anthropic is the disclosed external AI provider for enabled private testing features. This is not an unrestricted public AI service.
+
+External AI requests and your choice
+
+Where an external AI action is enabled, ChronoSpark identifies the provider, the data to be sent, and the expected credit cost before asking you to confirm. The request passes through ChronoSpark's service to Anthropic only after confirmation. You can decline and continue using local planning guidance.
+
+The internal credit-test controls submit a fixed fictional prompt, not your saved planning context, profile, or conversation history. A separately enabled Planner explanation submits selected visible plan clauses and relevant planning evidence disclosed for that request; it does not upload your whole planning library. The minimized explanation packet first goes to ChronoSpark's service for a quote. Confirming the quote permits sending that packet to Anthropic.
+
+ChronoSpark retains usage, credit-reservation, settlement, and retry records for those operations. The optional Planner explanation service may keep response content for the short replay window shown with its quote, then retain billing metadata. Provider processing is also subject to Anthropic's applicable policies. Do not include passwords, payment credentials, or other secrets in submitted content. Local SI Console guidance and core planning do not require an external AI request.
+
+Optional voice input
+
+Where voice input is available, ChronoSpark explains speech-provider processing before you agree to dictate. Your device's selected speech-recognition provider may send microphone audio to its servers for transcription under its own privacy policy. Availability, processing location, and provider retention depend on that service; ChronoSpark does not promise on-device-only transcription. You can decline and type instead. ChronoSpark does not store audio recordings or capture audio during normal planning or background use.
+
+Recognized text appears in the input field for your review and is not automatically submitted. If you choose to send or save that text, the same content and storage rules apply as for typed text. Device speech processing is separate from ChronoSpark's external AI actions and does not spend ChronoSpark AI credits.
 
 Retention and deletion
 

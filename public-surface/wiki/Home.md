@@ -18,7 +18,7 @@ The public information, privacy, terms, support, and account-deletion pages are 
 
 <https://ghostheart5.github.io/fantastic-guacamole/>
 
-The Android app is not advertised as an open public release on the website. External generative AI, subscriptions, AI-credit purchases, credit spending, cloud sync, cloud restore, analytics, and crash reporting are disabled for the current release candidate.
+The Android app is not advertised as an open public release on the website. The contained public configuration keeps external generative AI, subscriptions, credit top-ups, and credit spending disabled. Eligible private internal-testing builds can expose Google Play billing and disclosed AI-credit actions. Use an approved license-tester account and Google Play test payment methods; internal-track enrollment alone does not make purchases free. External AI actions identify Anthropic, the submitted data, and the expected credit cost before confirmation. Cloud sync, cloud restore, analytics, and crash reporting remain disabled across these configurations.
 
 English is the only verified launch language. Spanish is not advertised as supported for this release.
 

@@ -99,10 +99,18 @@ class TimelineActions {
         .record(event, awardProgression: awardProgression);
   }
 
-  Future<void> addMirroredEvent(TimelineEventEntity event) {
+  Future<void> addMirroredEvent(
+    TimelineEventEntity event, {
+    bool Function()? shouldContinue,
+  }) {
     return _ref
         .read(timelineProvider.notifier)
-        .record(event, refreshPlanner: false, awardProgression: false);
+        .record(
+          event,
+          refreshPlanner: false,
+          awardProgression: false,
+          shouldContinue: shouldContinue,
+        );
   }
 
   List<TimelineEventEntity> eventsInRange({
@@ -166,13 +174,17 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
     TimelineEventEntity event, {
     bool refreshPlanner = true,
     bool awardProgression = false,
+    bool Function()? shouldContinue,
   }) async {
+    if (shouldContinue?.call() == false) return;
     await ref.read(addTimelineEventUseCaseProvider).call(event);
+    if (!ref.mounted || shouldContinue?.call() == false) return;
     final bool isMilestoneEvent =
         event.isLevelUp || event.isGoalComplete || event.isStreak;
     if (isMilestoneEvent) {
       final bool soundEnabled = ref.read(soundEnabledProvider);
       await AudioService.playMilestone(soundEnabled);
+      if (!ref.mounted || shouldContinue?.call() == false) return;
     }
     final updated = [event, ...state];
     state = updated.length > _maxEvents
@@ -183,10 +195,12 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
       await ref
           .read(profileProvider.notifier)
           .awardXP(10, source: 'timeline_event');
+      if (!ref.mounted || shouldContinue?.call() == false) return;
     }
     if (refreshPlanner) {
       await _refreshPlannerDecision();
     }
+    if (!ref.mounted || shouldContinue?.call() == false) return;
     ref
         .read(eventBusProvider)
         .emit(

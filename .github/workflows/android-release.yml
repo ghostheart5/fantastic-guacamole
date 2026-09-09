@@ -115,7 +115,8 @@ jobs:
             > build/release-evidence/production-secret-names.txt
           for secret_name in \
             ANTHROPIC_API_KEY GOOGLE_SERVICE_ACCOUNT_JSON ANDROID_PACKAGE_NAME \
-            RTDN_AUDIENCE RTDN_SERVICE_ACCOUNT_EMAIL ACCOUNT_DELETE_RECONCILE_SECRET
+            RTDN_AUDIENCE RTDN_SERVICE_ACCOUNT_EMAIL ACCOUNT_DELETE_RECONCILE_SECRET \
+            CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS
           do
             grep -Eq "(^|[[:space:]|])${secret_name}([[:space:]|]|$)" \
               build/release-evidence/production-secret-names.txt || {

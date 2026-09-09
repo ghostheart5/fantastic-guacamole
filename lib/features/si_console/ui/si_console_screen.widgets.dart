@@ -930,6 +930,19 @@ class _InputBar extends ConsumerWidget {
     // Recognized speech populates the query box for explicit review and
     // send - it is never auto-sent or routed as a shortcut.
     ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      if (next.error != null &&
+          next.error != previous?.error &&
+          context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              ChronoSparkLocalizations.of(
+                context,
+              ).plannerRoutine.voiceInputUnavailable,
+            ),
+          ),
+        );
+      }
       final bool stoppedListening =
           (previous?.isListening ?? false) && !next.isListening;
       if (stoppedListening && next.recognizedText.trim().isNotEmpty) {
@@ -1341,9 +1354,18 @@ class _InputBar extends ConsumerWidget {
                                   .stopListening();
                               return;
                             }
-                            await ref
-                                .read(voiceControllerProvider.notifier)
-                                .startListening();
+                            final VoiceController controller = ref.read(
+                              voiceControllerProvider.notifier,
+                            );
+                            final int lifecycleRevision =
+                                controller.lifecycleRevision;
+                            await startVoiceInputWithConsent(
+                              context: context,
+                              onStart: controller.startListening,
+                              isCurrentRequest: () =>
+                                  controller.lifecycleRevision ==
+                                  lifecycleRevision,
+                            );
                           },
                           child: Container(
                             width: 48,

@@ -40,7 +40,7 @@ class PermissionExplainers {
     whyItMatters:
         'Microphone access lets you dictate thoughts after choosing a microphone control in Smart Planner or the SI Console.',
     whenUsed:
-        'Used only for user-initiated speech input. Spoken playback does not require microphone access, and audio is never captured during normal planning or background use.',
+        'Used only for user-initiated speech input. Your device\'s speech provider may send audio to its servers to transcribe it, under its own privacy policy. Review the text before choosing to send it in ChronoSpark. Spoken playback does not require microphone access, and audio is never captured during normal planning or background use.',
     primaryActionLabel: 'Allow Microphone',
   );
 
@@ -61,7 +61,7 @@ class PermissionExplainers {
     whyItMatters:
         'El acceso al micrófono te permite dictar texto después de elegir un control de micrófono en Planificador Inteligente o Consola SI.',
     whenUsed:
-        'Se usa solo para entrada de voz iniciada por ti. La reproducción hablada no requiere acceso al micrófono y nunca se captura audio durante la planificación normal ni en segundo plano.',
+        'Se usa solo para entrada de voz iniciada por ti. El proveedor de voz de tu dispositivo puede enviar audio a sus servidores para transcribirlo, según su propia política de privacidad. Revisa el texto antes de elegir enviarlo en ChronoSpark. La reproducción hablada no requiere acceso al micrófono y nunca se captura audio durante la planificación normal ni en segundo plano.',
     primaryActionLabel: 'Permitir micrófono',
     secondaryActionLabel: 'Ahora no',
   );

@@ -44,7 +44,9 @@ export async function authenticatedUserId(
     return null;
   }
   const value = await response.json();
-  return typeof value?.id === "string" ? value.id : null;
+  return typeof value?.id === "string" && value.is_anonymous !== true
+    ? value.id
+    : null;
 }
 
 export async function serviceRpc(

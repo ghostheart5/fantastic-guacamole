@@ -102,6 +102,22 @@ test('preflight rejects an old verifier before touching Google credentials', asy
   assert.equal(calls, 1);
 });
 
+test('billing preflight cannot succeed without the deployed repair gate even with a current receipt marker', async () => {
+  let calls = 0;
+  await assert.rejects(verifyInternalBillingBackend({
+    SUPABASE_PROJECT_REF: 'a'.repeat(20),
+    CHRONOSPARK_SUPABASE_URL: `https://${'a'.repeat(20)}.supabase.co`,
+    CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: `https://${'a'.repeat(20)}.supabase.co/functions/v1/verify-receipt`,
+    SUPABASE_SECRET_KEY: 'synthetic',
+  }, async () => {
+    calls++;
+    return new Response('', { status: 405, headers: {
+      'x-chronospark-contract': 'verify-receipt-v2', 'x-chronospark-test-purchase-guard': 'v1',
+    } });
+  }), /Missing SUPABASE_ACCESS_TOKEN/);
+  assert.equal(calls, 1);
+});
+
 test('RTDN gate requires a recent processed test for the exact app', () => {
   const now = Date.parse('2026-09-07T05:00:00Z');
   const event = {

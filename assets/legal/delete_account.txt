@@ -1,6 +1,6 @@
 Delete a ChronoSpark Account
 
-Last updated: August 31, 2026
+Last updated: September 9, 2026
 
 Permanent action: Account deletion removes the authentication account and eligible account-linked data after the request is verified. It cannot be undone.
 
@@ -40,7 +40,7 @@ Limited transaction, tax, fraud-prevention, security, or dispute records may be 
 
 Store billing is separate
 
-Deleting a ChronoSpark account does not cancel a Google Play purchase or subscription. Subscriptions are not enabled for the current release candidate. If a future subscription exists, cancel it separately in Google Play.
+Deleting a ChronoSpark account does not cancel a Google Play purchase or subscription. Eligible private internal-testing builds can include subscriptions and credit top-ups, even though they are disabled in the contained public configuration. Cancel any existing subscription separately in Google Play using the account that made the purchase. This also applies to test subscriptions. Limited transaction and credit-usage records may be retained for the purposes described above.
 
 Processing time
 

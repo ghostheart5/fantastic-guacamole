@@ -65,6 +65,11 @@ function Load-DotEnvFile {
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repoRoot
 
+. (Join-Path $PSScriptRoot 'external_signing_paths.ps1')
+$signingPaths = Get-ExternalSigningPaths -PropertiesPath $SigningPropertiesPath -KeystorePath $SigningKeystorePath
+$SigningPropertiesPath = $signingPaths.PropertiesPath
+$SigningKeystorePath = $signingPaths.KeystorePath
+
 $sourceCommit = (& git rev-parse HEAD).Trim()
 $dirtyEntries = @(& git status --porcelain=v1 --untracked-files=all)
 if ($dirtyEntries.Count -gt 0) {

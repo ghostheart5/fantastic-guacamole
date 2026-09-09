@@ -259,6 +259,7 @@ class GoalsScreen extends ConsumerWidget {
                         onPressed: isSaving
                             ? null
                             : () async {
+                                if (isSaving) return;
                                 final title = titleCtrl.text.trim();
                                 if (title.isEmpty) {
                                   setSheetState(
@@ -272,7 +273,7 @@ class GoalsScreen extends ConsumerWidget {
                                   saveError = null;
                                 });
                                 try {
-                                  await ref
+                                  final result = await ref
                                       .read(goalsProvider.notifier)
                                       .add(
                                         title: title,
@@ -284,6 +285,17 @@ class GoalsScreen extends ConsumerWidget {
                                       );
                                   if (ctx.mounted) {
                                     Navigator.pop(ctx);
+                                  }
+                                  if (context.mounted &&
+                                      result.hasWarnings &&
+                                      !result.accountChanged) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Goal saved. Some reminders or activity updates could not finish.',
+                                        ),
+                                      ),
+                                    );
                                   }
                                 } on Object {
                                   if (ctx.mounted) {
@@ -465,7 +477,18 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async {
         try {
-          await ref.read(goalsProvider.notifier).complete(widget.goal.id);
+          final result = await ref
+              .read(goalsProvider.notifier)
+              .complete(widget.goal.id);
+          if (context.mounted && result.hasWarnings && !result.accountChanged) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Goal completed. Some reminders or activity updates could not finish.',
+                ),
+              ),
+            );
+          }
           return true;
         } on Object {
           if (context.mounted) {

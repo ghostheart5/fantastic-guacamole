@@ -1,5 +1,7 @@
 # Default store listing: English (United States)
 
+Local copy revised September 9, 2026. Prepared for review; this file does not establish that Console or the public listing has been updated. Confirm the exact build and account eligibility before submitting.
+
 ## App name
 
 ChronoSpark: Smart Planner
@@ -42,10 +44,10 @@ DESIGNED AROUND USER CONTROL
 - Evidence and assumptions remain visible where the app has enough information.
 - Planning guidance does not replace medical, legal, financial, or emergency judgment.
 - Account and data-deletion controls are available in Settings.
-- The current release does not sell subscriptions or AI-credit purchases.
+- Purchase and external AI availability depends on the installed build and account eligibility.
 
 CURRENT RELEASE SCOPE
 
-ChronoSpark is available in English. This release focuses on planning and decision support. External generative AI, paid subscriptions, AI-credit spending, cloud sync and restore, analytics, and crash reporting are not enabled.
+ChronoSpark is available in English. The contained public configuration keeps external generative AI, subscriptions, credit top-ups, and credit spending disabled. Eligible private internal-testing builds may offer Google Play billing and disclosed AI-credit actions. External AI requests identify Anthropic, the data to be sent, and the expected credit cost before confirmation. Internal billing testers must use an approved license-tester account and Google Play test payment methods; internal-track enrollment alone does not make purchases free. Cloud sync and restore, analytics, and crash reporting remain disabled.
 
 ChronoSpark helps you understand the day, examine realistic options, and choose the next move while keeping you in control.

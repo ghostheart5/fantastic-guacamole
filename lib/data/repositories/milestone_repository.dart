@@ -20,24 +20,50 @@ class MilestoneRepository implements IMilestoneRepository {
     }
     try {
       final Object? decoded = jsonDecode(raw);
-      if (decoded is! List<dynamic>) return const <MilestoneEntity>[];
+      if (decoded is! List<dynamic>) {
+        throw const FormatException('Stored milestones must be a list.');
+      }
       final List<MilestoneEntity> milestones = decoded
-          .whereType<Map<String, dynamic>>()
-          .map(MilestoneEntity.fromJson)
+          .map((dynamic item) {
+            if (item is! Map<String, dynamic>) {
+              throw const FormatException(
+                'Stored milestone must be an object.',
+              );
+            }
+            for (final String field in <String>['id', 'title']) {
+              final dynamic value = item[field];
+              if (value is! String || value.trim().isEmpty) {
+                throw FormatException(
+                  'Stored milestone has an invalid $field.',
+                );
+              }
+            }
+            for (final String field in <String>['createdAt', 'updatedAt']) {
+              final dynamic value = item[field];
+              if (value is! String || DateTime.tryParse(value) == null) {
+                throw FormatException(
+                  'Stored milestone has an invalid $field.',
+                );
+              }
+            }
+            return MilestoneEntity.fromJson(item);
+          })
           .toList(growable: false);
       milestones.sort(
         (MilestoneEntity first, MilestoneEntity second) =>
             second.updatedAt.compareTo(first.updatedAt),
       );
       return milestones;
-    } on Object catch (error, stackTrace) {
-      Logger.errorCategory(
-        'StorageCorruption',
-        'Failed to decode milestones; returning an empty result.',
-        error,
-        stackTrace,
+    } on Object catch (_, stackTrace) {
+      Logger.recordDiagnosticCode(
+        code: 'storage.milestones_decode_failed',
+        stackTrace: stackTrace,
       );
-      return const <MilestoneEntity>[];
+      // Do not present incomplete data as a healthy empty collection. The
+      // original bytes remain untouched, and read-before-write use cases stop.
+      throw const FormatException(
+        'Stored milestones are unavailable; original data was preserved.',
+      );
     }
   }
 

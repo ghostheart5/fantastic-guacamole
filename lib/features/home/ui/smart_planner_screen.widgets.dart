@@ -978,6 +978,13 @@ class _MicButton extends ConsumerWidget {
     // Recognized speech populates the follow-up box for explicit review and
     // send - it is never auto-sent or routed as an action.
     ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      if (next.error != null &&
+          next.error != previous?.error &&
+          context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(copy.voiceInputUnavailable)));
+      }
       final bool stoppedListening =
           (previous?.isListening ?? false) && !next.isListening;
       if (stoppedListening && next.recognizedText.trim().isNotEmpty) {
@@ -995,16 +1002,16 @@ class _MicButton extends ConsumerWidget {
             await ref.read(voiceControllerProvider.notifier).stopListening();
             return;
           }
-          await ref.read(voiceControllerProvider.notifier).startListening();
-          if (!context.mounted) {
-            return;
-          }
-          final String? error = ref.read(voiceControllerProvider).error;
-          if (error != null) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(copy.voiceInputUnavailable)));
-          }
+          final VoiceController controller = ref.read(
+            voiceControllerProvider.notifier,
+          );
+          final int lifecycleRevision = controller.lifecycleRevision;
+          await startVoiceInputWithConsent(
+            context: context,
+            onStart: controller.startListening,
+            isCurrentRequest: () =>
+                controller.lifecycleRevision == lifecycleRevision,
+          );
         },
         child: Container(
           constraints: const BoxConstraints(minHeight: 48),

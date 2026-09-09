@@ -48,8 +48,23 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
       final List<GoalEntity> goals = list
-          .whereType<Map<String, dynamic>>()
-          .map(GoalEntity.fromJson)
+          .map((dynamic item) {
+            // Filtering here silently presented an incomplete collection as a
+            // healthy read, allowing the next save to erase the omitted records.
+            if (item is! Map<String, dynamic>) {
+              throw const FormatException('Stored goal must be an object.');
+            }
+            for (final String field in <String>['targetDate', 'completedAt']) {
+              final dynamic value = item[field];
+              if (value != null &&
+                  (value is! String || DateTime.tryParse(value) == null)) {
+                throw FormatException('Stored goal has an invalid $field.');
+              }
+            }
+            final GoalEntity goal = GoalEntity.fromJson(item);
+            goal.validate();
+            return goal;
+          })
           .toList(growable: false);
       _lastReadCorrupted = false;
       return goals;
@@ -93,11 +108,15 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
 
   Future<void> _saveGoalsUnlocked(List<GoalEntity> goals) async {
     await _store.open();
+    // Bulk writes need the same preservation check as read-modify-write
+    // operations, including when this repository has not read storage yet.
+    getGoals();
     await _quarantineCorruptPayloadIfNeeded();
     await _store.put(
       _key,
       jsonEncode(goals.map((GoalEntity g) => g.toJson()).toList()),
     );
+    _lastReadCorrupted = false;
   }
 
   @override
@@ -130,7 +149,13 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
     try {
       final String? raw = _store.get(_key);
       if (raw != null && raw.trim().isNotEmpty) {
-        await _store.put(_corruptBackupKey, raw);
+        final String? previousBackup = _store.get(_corruptBackupKey);
+        if (previousBackup != raw) {
+          final String backupKey = previousBackup == null
+              ? _corruptBackupKey
+              : '${_corruptBackupKey}_${DateTime.now().microsecondsSinceEpoch}';
+          await _store.put(backupKey, raw);
+        }
         Logger.errorCategory(
           'StorageCorruption',
           'Quarantined unreadable goals payload to "$_corruptBackupKey" '
@@ -144,8 +169,10 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
         error,
         stackTrace,
       );
+      // A failed backup is a failed save. Never replace recoverable bytes
+      // unless their quarantine write completed successfully.
+      rethrow;
     }
-    _lastReadCorrupted = false;
   }
 
   void _requireWritableScope() {

@@ -1382,6 +1382,112 @@ void main() {
     },
   );
 
+  for (final ({String? secure, String? legacy}) original
+      in <({String? secure, String? legacy})>[
+        (secure: null, legacy: null),
+        (secure: null, legacy: '{"name":"Legacy only"}'),
+        (secure: '{"name":"Secure only"}', legacy: null),
+        (secure: '{"name":"Secure owner"}', legacy: '{"name":"Legacy owner"}'),
+      ]) {
+    test(
+      'legacy restore rollback preserves profile presence secure=${original.secure != null} legacy=${original.legacy != null}',
+      () async {
+        final TaskEntity existing = TaskEntity(
+          id: 'existing',
+          title: 'Preserve this task',
+          createdAt: DateTime.utc(2026, 8, 1),
+        );
+        await repository.saveTask(existing);
+        if (original.legacy != null) {
+          await profileStorage.put('profile_state', original.legacy!);
+        }
+        final SecureStore secure = SecureStore(
+          backend: InMemorySecureStoreBackend(),
+        );
+        if (original.secure != null) {
+          await secure.writeString('profile_state_v2', original.secure!);
+        }
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('cloud_sync_enabled_v1', false);
+        await prefs.setString('app_theme_entity_v1', 'device-only-theme');
+        final BackupService restoring = buildService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: _WriteThenFailPrefsStorage(prefs),
+          secureProfileStore: secure,
+        );
+        final Map<String, dynamic> incoming = _fullBackup(
+          tasks: <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 'incoming',
+              'title': 'Imported task',
+              'createdAt': '2026-08-02T00:00:00.000Z',
+            },
+          ],
+          profile: <String, dynamic>{'name': 'Imported profile'},
+          settings: <String, dynamic>{'reflection_reminder_time': '20:00'},
+        )..['version'] = '3.0.0';
+
+        await expectLater(
+          restoring.restoreFullBackup(incoming),
+          throwsStateError,
+        );
+
+        expect(
+          (await repository.getAllTasks()).single.toJson(),
+          existing.toJson(),
+        );
+        expect(await secure.readString('profile_state_v2'), original.secure);
+        expect(profileStorage.get('profile_state'), original.legacy);
+        expect(prefs.getBool('cloud_sync_enabled_v1'), isFalse);
+        expect(prefs.containsKey('reflection_reminder_time'), isFalse);
+        expect(prefs.getString('app_theme_entity_v1'), 'device-only-theme');
+      },
+    );
+  }
+
+  test(
+    'legacy rollback reports task failure but still restores profile and settings',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'existing',
+          title: 'Original task',
+          createdAt: DateTime.utc(2026, 8, 1),
+        ),
+      );
+      repository.failEverySaveForId = 'existing';
+      final SecureStore secure = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      const String originalProfile = '{"name":"Original encrypted profile"}';
+      await secure.writeString('profile_state_v2', originalProfile);
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('cloud_sync_enabled_v1', false);
+      final BackupService restoring = buildService(
+        taskRepository: repository,
+        profileStorage: profileStorage,
+        prefs: _WriteThenFailPrefsStorage(prefs),
+        secureProfileStore: secure,
+      );
+      final Map<String, dynamic> incoming = _fullBackup(
+        tasks: <Map<String, dynamic>>[],
+        profile: <String, dynamic>{'name': 'Imported profile'},
+        settings: <String, dynamic>{'reflection_reminder_time': '20:00'},
+      )..['version'] = '3.0.0';
+
+      await expectLater(
+        restoring.restoreFullBackup(incoming),
+        throwsA(isA<BackupRestoreRollbackException>()),
+      );
+
+      expect(await secure.readString('profile_state_v2'), originalProfile);
+      expect(profileStorage.get('profile_state'), isNull);
+      expect(prefs.getBool('cloud_sync_enabled_v1'), isFalse);
+      expect(prefs.containsKey('reflection_reminder_time'), isFalse);
+    },
+  );
+
   test(
     'full restore rolls newly created profile and settings back to absence',
     () async {

@@ -20,6 +20,11 @@ import {
   buildServerSystemPrompt,
   containsBlockedAssistantClaim,
 } from "../_shared/ai_proxy_policy.ts";
+import {
+  internalAiAccountAllowed,
+  internalAiPreflightResponse,
+  parseInternalAiCohort,
+} from "../_shared/internal_ai_cohort.ts";
 
 const config: BillingBackendConfig = {
   supabaseUrl: Deno.env.get("SUPABASE_URL") ?? "",
@@ -32,6 +37,9 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 1024;
+const internalAiCohort = parseInternalAiCohort(
+  Deno.env.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"),
+);
 const ALLOWED_ORIGINS = new Set(
   (Deno.env.get("ALLOWED_ORIGINS") ??
     "https://chronospark.app,https://www.chronospark.app")
@@ -117,6 +125,16 @@ async function settleReservation(
 }
 
 Deno.serve(async (req: Request) => {
+  const preflight = await internalAiPreflightResponse(
+    req,
+    internalAiCohort,
+    "ai-proxy-v2",
+    Boolean(
+      config.supabaseUrl && config.publishableKey && config.secretKey &&
+        ANTHROPIC_API_KEY,
+    ),
+  );
+  if (preflight) return preflight;
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors(req) });
   }
@@ -130,6 +148,9 @@ Deno.serve(async (req: Request) => {
 
   const userId = await authenticatedUserId(req, config);
   if (!userId) return jsonResponse(req, { error: "unauthorized" }, 401);
+  if (!await internalAiAccountAllowed(userId, internalAiCohort)) {
+    return jsonResponse(req, { error: "internal_ai_access_required" }, 403);
+  }
   if (
     !await consumeDurableRateLimits(req, config, userId, {
       bucket: "ai_proxy",

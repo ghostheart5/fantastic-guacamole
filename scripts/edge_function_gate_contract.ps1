@@ -72,9 +72,42 @@ function Invoke-ContractCase {
     '-TestTimeoutSeconds', $TestTimeoutSeconds.ToString()
   )
 
-  $output = & $powerShellCommand @arguments 2>&1
-  $exitCode = $LASTEXITCODE
-  $outputText = $output -join "`n"
+  # Windows PowerShell 5.1 promotes redirected native stderr into terminating
+  # NativeCommandError records when ErrorActionPreference is Stop. Deno writes
+  # ordinary progress to stderr, so capture both streams as process data and
+  # retain the child exit code as the authority for success/failure.
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = (Get-Command $powerShellCommand -ErrorAction Stop).Source
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  if ($startInfo.PSObject.Properties.Name -contains 'ArgumentList') {
+    foreach ($argument in $arguments) {
+      $startInfo.ArgumentList.Add($argument)
+    }
+  } else {
+    $startInfo.Arguments = ($arguments | ForEach-Object {
+      '"' + $_.Replace('"', '\"') + '"'
+    }) -join ' '
+  }
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  try {
+    if (-not $process.Start()) {
+      throw "Unable to start Edge contract case: $Name"
+    }
+    $stdout = $process.StandardOutput.ReadToEndAsync()
+    $stderr = $process.StandardError.ReadToEndAsync()
+    if (-not $process.WaitForExit(180000)) {
+      try { $process.Kill($true) } catch { $process.Kill() }
+      throw "Edge contract case timed out: $Name"
+    }
+    $exitCode = $process.ExitCode
+    $outputText = $stdout.GetAwaiter().GetResult() + "`n" + $stderr.GetAwaiter().GetResult()
+  } finally {
+    $process.Dispose()
+  }
   if ($exitCode -ne $ExpectedExitCode) {
     $failures.Add(
       "$Name expected exit code $ExpectedExitCode but received $exitCode.`n$outputText"
@@ -137,6 +170,17 @@ try {
     -CaseRoot $skippedTest `
     -ExpectedExitCode 1 `
     -ExpectedMessages @('skipped test(s); skips are not allowed.')
+
+  $failedTest = New-EdgeFixture `
+    -Name 'failed-test' `
+    -TestContents @(
+      "Deno.test(`"assertion fails`", () => {`n  throw new Error(`"expected contract failure`");`n});`n"
+    )
+  Invoke-ContractCase `
+    -Name 'An actual failing assertion still fails the gate' `
+    -CaseRoot $failedTest `
+    -ExpectedExitCode 1 `
+    -ExpectedMessages @('Deno test failed for Supabase Edge Functions. Exit code: 1.')
 
   $timedOut = New-EdgeFixture `
     -Name 'timed-out' `

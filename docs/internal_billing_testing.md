@@ -1,5 +1,48 @@
 # Internal Google Play billing test preparation
 
+## Current candidate instructions - September 9, 2026
+
+Use the reviewed source commit for `4.1.0+2026083022` and the existing package
+`com.ghostheart5.chronospark`. The initial September 7 setup below is historical;
+its prices, allowance model, feature availability and version are superseded.
+
+The current approved catalog is enforced by
+`scripts/verify_internal_billing_backend.mjs` and migration
+`20260908205414_monthly_allowances_and_credit_topups.sql`:
+
+| Product | Base plan | Expected US catalog price | Included credits |
+| --- | --- | --- | --- |
+| `chronospark_premium_monthly` | `monthly` | USD 7.99/month | 300 each month |
+| `chronospark_premium_annual` | `annual` | USD 69.99/year | 300 each month |
+| `chronospark_credits_100` | One-time | USD 2.99 | 100 non-expiring credits |
+| `chronospark_credits_300` | One-time | USD 7.99 | 300 non-expiring credits |
+
+The free monthly allowance is 20 credits. Unused monthly allowances expire;
+purchased top-up credits do not. Subscription access does not make AI usage
+unlimited. A depleted wallet must prevent a chargeable action until a monthly
+refill or an explicitly purchased top-up provides enough credits. These are
+approved configuration values, not proof of a fresh Play Console readback.
+The preflight must independently match the active Play and backend catalogs.
+
+The public configuration remains contained. The signed internal profile enables
+real Google Play test billing and separately gated AI/credit behavior only for
+the verified private cohort. No premium access or wallet balance may be granted
+by a client bypass. Use a Google license tester and a Google **test** payment
+instrument; being an internal-track tester alone does not make purchases free.
+The optional Planner explanation remains unavailable until its independent
+provider, privacy, safety and evaluation readiness gates pass. Device speech
+recognition is a separate optional device-provider feature and does not spend
+ChronoSpark AI credits.
+
+Use the guarded candidate workflow on the allowed tooling branch with an exact
+app source SHA. Require successful exact-source CI and separate database/Edge
+gate receipts, then a fresh backend preflight before building. Public legal-page
+publication and Play upload are held by the current user instruction. A passing
+host suite or preflight does not establish Google purchase lifecycle behavior,
+actual credit spending, a Play-signed update, or native device acceptance.
+
+## Historical initial setup - September 7, 2026
+
 Prepared 2026-09-07 UTC. Target: signed Android release candidate
 `4.1.0+2026083013`, package `com.ghostheart5.chronospark`, existing upload key and
 existing Google Play internal-testing track. Stop before the AAB build stage.

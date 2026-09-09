@@ -10,6 +10,52 @@ import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
 void main() {
+  testWidgets(
+    'durable save warning closes the form instead of inviting a duplicate retry',
+    (tester) async {
+      final notifier = _SavedWithWarning()..saveGate = Completer<void>();
+      final container = ProviderContainer(
+        overrides: [goalsProvider.overrideWith(() => notifier)],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(_testApp(container, false));
+      await tester.tap(find.byTooltip('Add goal'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TextField &&
+              widget.decoration?.hintText == 'Goal title',
+        ),
+        'Saved once',
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.ensureVisible(find.text('ADD GOAL'));
+      await tester.pump(const Duration(milliseconds: 300));
+      // Two pointer activations can reach the same callback before its disabled
+      // state is rendered. They must still result in only one canonical save.
+      await tester.tap(find.text('ADD GOAL'));
+      await tester.tap(find.text('ADD GOAL'));
+      expect(notifier.saves, 1);
+      notifier.saveGate!.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(notifier.saves, 1);
+      expect(find.text('ADD GOAL'), findsNothing);
+      expect(
+        find.text('Goal could not be saved. Please try again.'),
+        findsNothing,
+      );
+      expect(
+        find.text(
+          'Goal saved. Some reminders or activity updates could not finish.',
+        ),
+        findsOneWidget,
+      );
+      expect(notifier.saves, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final es in [false, true]) {
     testWidgets(
       '${es ? 'Spanish' : 'English'} unavailable goals show a recoverable error',
@@ -214,4 +260,19 @@ class _GoalsNotifier extends GoalsNotifier {
       targetDate: DateTime.utc(2026, 9, 1),
     ),
   ];
+}
+
+class _SavedWithWarning extends _GoalsNotifier {
+  int saves = 0;
+  Completer<void>? saveGate;
+  @override
+  Future<GoalMutationResult> add({
+    required String title,
+    String? description,
+    DateTime? targetDate,
+  }) async {
+    saves += 1;
+    await saveGate?.future;
+    return const GoalMutationResult(warnings: <String>['reminders']);
+  }
 }

@@ -1,6 +1,6 @@
 Support
 
-Last updated: August 31, 2026
+Last updated: September 9, 2026
 
 Working contact path: Email is available for account, privacy, tester, and technical support. Do not include a password, one-time code, recovery token, payment credential, or secret key.
 
@@ -26,7 +26,13 @@ Use the in-app deletion control when you can sign in. The account-deletion page 
 
 Purchases
 
-Subscriptions and AI-credit purchases are not enabled for the current release candidate. If a future Play purchase exists, manage store billing through the Google Play account that made the purchase.
+Subscriptions, credit top-ups, and credit spending are disabled in the contained public configuration. Eligible private internal-testing builds can expose these features for the approved testing cohort. Use the Google account registered as a license tester and select a Google Play test payment method. Internal-track enrollment alone does not make purchases free. If the purchase dialog does not identify a test purchase or offer the expected test payment method, stop before purchasing and contact support.
+
+Manage or cancel an existing subscription through the Google Play account that made the purchase. Deleting the app or your ChronoSpark account does not cancel store billing. For a missing purchase or credit balance, include the app version, the affected product, and the time of the attempt; never email payment credentials. Google explains the test-payment setup in its billing-testing guidance.
+
+External AI and credits
+
+Enabled external AI actions identify Anthropic, the submitted data, and the expected credit cost before confirmation. Internal credit tests use a fixed fictional prompt; separately gated Planner explanations disclose the selected planning context they send. Local guidance remains available without sending an external AI request. If the credit balance is unavailable or insufficient, do not assume a request or top-up succeeded; check the result and contact support with the time and visible error.
 
 Response expectations
 

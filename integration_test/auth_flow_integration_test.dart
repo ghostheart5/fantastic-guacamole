@@ -37,6 +37,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    WidgetController.hitTestWarningShouldBeFatal = true;
+  });
+  tearDown(() {
+    WidgetController.hitTestWarningShouldBeFatal = false;
+  });
 
   testWidgets('auth screen exposes forgot password action', (
     WidgetTester tester,
@@ -87,7 +93,7 @@ void main() {
     await tester.ensureVisible(testerAccess);
     await tester.pump(const Duration(milliseconds: 800));
     expect(testerAccess.hitTestable(), findsOneWidget);
-    await tester.tap(testerAccess);
+    await _tapRequired(tester, testerAccess);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
@@ -120,15 +126,17 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text('CHRONOSPARK'), findsOneWidget);
+    expect(find.byKey(const Key('onboarding-brand-title')), findsOneWidget);
     expect(find.text('SKIP'), findsNothing);
-    await tester.tap(find.text('CONTINUE TO LOGIN'));
+    await _tapRequired(tester, find.text('CONTINUE TO LOGIN'));
     await tester.pump(const Duration(milliseconds: 400));
 
     final Finder firstValueQuestion = find.byKey(
       const Key('first-value-question'),
     );
     expect(firstValueQuestion, findsOneWidget);
+    await tester.ensureVisible(firstValueQuestion);
+    await tester.pump();
     await tester.enterText(
       firstValueQuestion,
       'I need one realistic next step.',
@@ -144,7 +152,8 @@ void main() {
       reason:
           'The first-value page must remain actionable after optional input.',
     );
-    await tester.tap(completeButton);
+    await _hideKeyboard(tester);
+    await _tapRequired(tester, completeButton);
     await _waitForPreference(
       tester,
       key: onboardingCompleteStorageKey,
@@ -226,6 +235,7 @@ void main() {
     final List<TaskEntity> persisted = await repository.getAllTasks();
     expect(persisted, hasLength(1));
     expect(persisted.single.isCompleted, isFalse);
+    expect(persisted.single.priority, 5);
 
     final tasks = await container.read(tasksProvider.future);
     expect(tasks, hasLength(1));
@@ -260,10 +270,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.byIcon(Icons.map_outlined));
+    await _tapRequired(tester, find.byIcon(Icons.map_outlined));
     await tester.pump(const Duration(milliseconds: 250));
     final Finder creatorButton = find.text('Creator');
-    await tester.tap(creatorButton);
+    await _tapRequired(tester, creatorButton);
     await tester.pump(const Duration(milliseconds: 600));
     expect(router.routeInformationProvider.value.uri.path, RoutePaths.creator);
     expect(find.byType(CreatorScreen), findsOneWidget);
@@ -275,10 +285,11 @@ void main() {
     await tester.enterText(titleField, 'UI journey task');
     await tester.pump();
     expect(find.byKey(const Key('creator-type-selector')), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Set priority level 4'));
+    await _hideKeyboard(tester);
+    await _tapRequired(tester, find.bySemanticsLabel('Set priority level 4'));
     final Finder scheduleControl = find.text('Schedule date and time...');
     await tester.ensureVisible(scheduleControl);
-    await tester.tap(scheduleControl);
+    await _tapRequired(tester, scheduleControl);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(DatePickerDialog), findsOneWidget);
@@ -287,7 +298,7 @@ void main() {
       matching: find.widgetWithText(TextButton, 'OK'),
     );
     expect(datePickerOk.hitTestable(), findsOneWidget);
-    await tester.tap(datePickerOk);
+    await _tapRequired(tester, datePickerOk);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(TimePickerDialog), findsOneWidget);
@@ -296,19 +307,16 @@ void main() {
       matching: find.widgetWithText(TextButton, 'OK'),
     );
     expect(timePickerOk.hitTestable(), findsOneWidget);
-    await tester.tap(timePickerOk);
+    await _tapRequired(tester, timePickerOk);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Schedule date and time...'), findsNothing);
-    FocusManager.instance.primaryFocus?.unfocus();
-    await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    await tester.pump(const Duration(milliseconds: 600));
+    await _hideKeyboard(tester);
 
     final Finder reviewButton = find.text('REVIEW CHANGES');
     await tester.ensureVisible(reviewButton);
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(reviewButton);
+    await _tapRequired(tester, reviewButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -317,15 +325,16 @@ void main() {
       const Key('creator-confirm-selected'),
     );
     await tester.ensureVisible(confirmButton);
-    await tester.tap(confirmButton);
+    await _tapRequired(tester, confirmButton);
     await tester.pump();
     await _waitForRouterPath(tester, router, RoutePaths.timeline);
-    expect(
-      (await repository.getAllTasks()).where(
-        (TaskEntity task) => task.title == 'UI journey task',
-      ),
-      isNotEmpty,
-    );
+    final List<TaskEntity> persisted = (await repository.getAllTasks())
+        .where((TaskEntity task) => task.title == 'UI journey task')
+        .toList();
+    expect(persisted, hasLength(1));
+    expect(persisted.single.priority, 4);
+    expect(persisted.single.scheduledFor, isNotNull);
+    expect(persisted.single.isCompleted, isFalse);
     final tasks = await container.read(tasksProvider.future);
     expect(tasks.where((task) => task.title == 'UI journey task'), isNotEmpty);
     final Map<String, dynamic> metrics = await _waitForMetric(
@@ -339,6 +348,25 @@ void main() {
     await tester.pump();
     container.dispose();
   });
+}
+
+Future<void> _hideKeyboard(WidgetTester tester) async {
+  FocusManager.instance.primaryFocus?.unfocus();
+  await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+  await Future<void>.delayed(const Duration(milliseconds: 500));
+  await tester.pump(const Duration(milliseconds: 600));
+}
+
+Future<void> _tapRequired(WidgetTester tester, Finder target) async {
+  expect(target, findsOneWidget);
+  await tester.ensureVisible(target);
+  await tester.pump(const Duration(milliseconds: 250));
+  expect(
+    target.hitTestable(),
+    findsOneWidget,
+    reason: 'A required interaction must be reachable before tapping.',
+  );
+  await tester.tap(target);
 }
 
 ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {

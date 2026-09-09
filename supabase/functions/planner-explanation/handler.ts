@@ -100,6 +100,7 @@ export interface PlannerExplanationStore {
 
 export interface PlannerExplanationDependencies {
   authenticate(req: Request): Promise<string | null>;
+  internalAiAllowed(userId: string): Promise<boolean>;
   consumeRateLimit(req: Request, userId: string): Promise<boolean>;
   store: PlannerExplanationStore;
   provider: ProviderClient;
@@ -171,6 +172,21 @@ export function createPlannerExplanationHandler(
     }
     if (!userId) {
       return errorResponse(req, dependencies, requestId, "unauthorized", 401);
+    }
+    let internalAiAllowed = false;
+    try {
+      internalAiAllowed = await dependencies.internalAiAllowed(userId);
+    } catch {
+      internalAiAllowed = false;
+    }
+    if (!internalAiAllowed) {
+      return errorResponse(
+        req,
+        dependencies,
+        requestId,
+        "internal_ai_access_required",
+        403,
+      );
     }
     let rateAllowed = false;
     try {

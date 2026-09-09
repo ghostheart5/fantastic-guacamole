@@ -224,6 +224,7 @@ final class _RecordingLogs extends LogsController {
     bool syncTimeline = true,
     bool refreshPlanner = true,
     bool updateSignals = false,
+    bool Function()? shouldContinue,
   }) async {
     records.add((source: source, message: message));
   }
@@ -240,6 +241,7 @@ final class _RecordingTimeline extends TimelineNotifier {
     TimelineEventEntity event, {
     bool refreshPlanner = true,
     bool awardProgression = false,
+    bool Function()? shouldContinue,
   }) async {
     events.add(event);
   }
@@ -252,7 +254,11 @@ final class _RecordingProfile extends ProfileController {
   ProfileState build() => ProfileState();
 
   @override
-  Future<void> awardXP(int amount, {required String source}) async {
+  Future<void> awardXP(
+    int amount, {
+    required String source,
+    bool Function()? shouldContinue,
+  }) async {
     awards.add(amount);
   }
 }

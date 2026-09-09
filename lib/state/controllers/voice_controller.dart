@@ -71,14 +71,42 @@ class VoiceController extends Notifier<VoiceState> {
       'Microphone permission is required for voice input.';
   static const String _unavailableMessage =
       'Speech recognition is not available on this device.';
+  static const String _startFailedMessage =
+      'Voice input could not start. Try again or type your message instead.';
+  static const String _stopFailedMessage =
+      'Voice input could not stop. Close voice input and try again.';
 
-  late final SpeechRecognitionService _speechService;
+  // Provider invalidation may create another controller using the same native
+  // service. It must not start while its predecessor is still stopping it.
+  static final Expando<Future<void>> _serviceCleanup = Expando<Future<void>>(
+    'voice service cleanup',
+  );
+
+  late SpeechRecognitionService _speechService;
+  int _generation = 0;
+  int _lifecycleRevision = 0;
+  bool _disposed = false;
+  bool _starting = false;
+  Future<void>? _listenPending;
+  Future<void>? _stopPending;
+
+  /// Capture before awaiting consent, and check again before starting capture.
+  /// Riverpod can rebuild this same notifier for a different signed-in account.
+  int get lifecycleRevision => _lifecycleRevision;
+
+  bool _isCurrent(int generation) => !_disposed && generation == _generation;
 
   @override
   VoiceState build() {
+    _disposed = false;
+    _generation++;
+    _lifecycleRevision++;
     _speechService = ref.read(speechRecognitionServiceProvider);
     ref.onDispose(() {
-      unawaited(_speechService.cancel());
+      _disposed = true;
+      _generation++;
+      _lifecycleRevision++;
+      unawaited(_beginStop(cancel: true));
     });
     return const VoiceState();
   }
@@ -88,6 +116,12 @@ class VoiceController extends Notifier<VoiceState> {
   /// an action — the caller reads [VoiceState.recognizedText] and the user
   /// must explicitly tap send.
   Future<void> startListening() async {
+    if (_disposed ||
+        _starting ||
+        _stopPending != null ||
+        _serviceCleanup[_speechService] != null) {
+      return;
+    }
     if (!ref.read(voiceInputEnabledProvider)) {
       state = state.copyWith(
         isAvailable: false,
@@ -100,66 +134,153 @@ class VoiceController extends Notifier<VoiceState> {
     if (state.isListening) {
       return;
     }
-    // Mutual exclusion: stop any active TTS so the mic cannot pick up
-    // ChronoSpark's own speech.
-    await ref.read(voiceServiceProvider).stop();
+    final int generation = ++_generation;
+    final SpeechRecognitionService speechService = _speechService;
+    _starting = true;
+    try {
+      // Stop TTS before permission and capture; every await can outlive the
+      // caller's page, account, or foreground lifecycle.
+      await ref.read(voiceServiceProvider).stop();
+      if (!_isCurrent(generation)) return;
 
-    final VoicePermissionService permissionService = ref.read(
-      voicePermissionServiceProvider,
-    );
-    final bool granted = await permissionService.requestPermission();
-    if (!granted) {
+      final VoicePermissionService permissionService = ref.read(
+        voicePermissionServiceProvider,
+      );
+      final bool granted = await permissionService.requestPermission();
+      if (!_isCurrent(generation)) return;
+      if (!granted) {
+        state = state.copyWith(
+          isAvailable: false,
+          isListening: false,
+          error: _permissionDeniedMessage,
+        );
+        return;
+      }
+
+      final bool available = await speechService.initialize();
+      if (!_isCurrent(generation)) return;
+      if (!available) {
+        state = state.copyWith(
+          isAvailable: false,
+          isListening: false,
+          error: _unavailableMessage,
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        isAvailable: true,
+        isListening: true,
+        recognizedText: '',
+        clearError: true,
+      );
+      if (!_isCurrent(generation)) return;
+
+      // Publish a settlement barrier before invoking the plugin, which can
+      // synchronously call a listener that stops or disposes this controller.
+      final Completer<void> listenSettled = Completer<void>();
+      _listenPending = listenSettled.future;
+      try {
+        await speechService.listen(
+          onResult: (String text, bool isFinal) {
+            if (!_isCurrent(generation) || !state.isListening) return;
+            state = state.copyWith(recognizedText: text);
+          },
+          onDone: () {
+            if (!_isCurrent(generation) || !state.isListening) return;
+            state = state.copyWith(isListening: false);
+          },
+        );
+      } finally {
+        listenSettled.complete();
+        _listenPending = null;
+      }
+      if (!_isCurrent(generation)) return;
+    } on Object {
+      if (!_isCurrent(generation)) return;
+      _generation++;
       state = state.copyWith(
         isAvailable: false,
         isListening: false,
-        error: _permissionDeniedMessage,
+        error: _startFailedMessage,
       );
-      return;
+      await _beginStop(cancel: true);
+    } finally {
+      _starting = false;
     }
-
-    final bool available = await _speechService.initialize();
-    if (!available) {
-      state = state.copyWith(
-        isAvailable: false,
-        isListening: false,
-        error: _unavailableMessage,
-      );
-      return;
-    }
-
-    state = state.copyWith(
-      isAvailable: true,
-      isListening: true,
-      recognizedText: '',
-      clearError: true,
-    );
-
-    await _speechService.listen(
-      onResult: (String text, bool isFinal) {
-        if (!state.isListening) {
-          return;
-        }
-        state = state.copyWith(recognizedText: text);
-      },
-      onDone: () {
-        // The plugin stopped listening on its own (bounded timeout or
-        // silence window) without the caller tapping again.
-        state = state.copyWith(isListening: false);
-      },
-    );
   }
 
-  Future<void> stopListening() async {
-    if (!state.isListening) {
-      return;
+  Future<void> stopListening() {
+    _generation++;
+    final Future<void> stopping = _beginStop();
+    if (!_disposed) {
+      state = state.copyWith(isListening: false);
     }
-    await _speechService.stop();
-    state = state.copyWith(isListening: false);
+    return stopping;
+  }
+
+  Future<void> _beginStop({bool cancel = false}) {
+    final Future<void>? existing =
+        _stopPending ?? _serviceCleanup[_speechService];
+    if (existing != null) return existing;
+    final Future<void>? pendingListen = _listenPending;
+    final int generation = _generation;
+    final SpeechRecognitionService speechService = _speechService;
+    final Completer<void> completion = Completer<void>();
+    final Future<void> stopping = completion.future;
+    _stopPending = stopping;
+    _serviceCleanup[speechService] = stopping;
+    final Future<void> operation = (() async {
+      bool failed = false;
+      try {
+        if (cancel) {
+          await speechService.cancel();
+        } else {
+          await speechService.stop();
+        }
+      } on Object {
+        failed = true;
+      }
+      // A native listen already in flight may activate after the first stop.
+      // Drain it and cancel again before allowing a new session to begin.
+      if (pendingListen != null) await pendingListen;
+      if (pendingListen != null || failed) {
+        try {
+          await speechService.cancel();
+        } on Object {
+          failed = true;
+        }
+      }
+      if (failed && _isCurrent(generation)) {
+        state = state.copyWith(isListening: false, error: _stopFailedMessage);
+      }
+    })();
+    void finish() {
+      if (identical(_stopPending, stopping)) _stopPending = null;
+      if (identical(_serviceCleanup[speechService], stopping)) {
+        _serviceCleanup[speechService] = null;
+      }
+    }
+
+    unawaited(
+      operation.then(
+        (_) {
+          finish();
+          completion.complete();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          finish();
+          completion.completeError(error, stackTrace);
+        },
+      ),
+    );
+    return stopping;
   }
 
   /// Clears the transcript once the caller has consumed it, so a stale
   /// result cannot resurface into a later listening session.
   void clearRecognizedText() {
+    if (_disposed) return;
     state = state.copyWith(recognizedText: '');
   }
 

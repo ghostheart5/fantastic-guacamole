@@ -1,6 +1,7 @@
 // Read-only preflight for a license-test candidate; no purchase or release API.
 import { createHash, createSign } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { BackendRepairPreflightError, verifyBackendRepairGate } from './verify_backend_repair_gate.mjs';
 
 const PACKAGE = 'com.ghostheart5.chronospark';
 const PLANS = [
@@ -123,6 +124,13 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   require(guard.status === 405 && guard.headers.get('x-chronospark-contract') === 'verify-receipt-v2' &&
     guard.headers.get('x-chronospark-test-purchase-guard') === 'v1', 'Deployed receipt verifier lacks the license-test guard');
 
+  let backendRepairGate;
+  try {
+    backendRepairGate = await verifyBackendRepairGate(env, request);
+  } catch (error) {
+    throw new PreflightError(error instanceof BackendRepairPreflightError ? error.message : 'Backend repair preflight failed');
+  }
+
   const databasePlans = await json(`${root}/rest/v1/monetization_subscription_plans?plan_type=eq.subscription&select=id,product_id,currency_code,price_micros,credits_per_period,is_active`, { headers });
   const account = JSON.parse(setting('GOOGLE_SERVICE_ACCOUNT_JSON'));
   require(account.token_uri === 'https://oauth2.googleapis.com/token' &&
@@ -181,7 +189,7 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   require(unauthenticated.status === 401, 'RTDN endpoint must reject unauthenticated delivery');
   const events = await json(`${root}/rest/v1/google_play_rtdn_events?package_name=eq.${PACKAGE}&event_type=eq.test&order=received_at.desc&limit=1&select=package_name,event_type,state,failure_code,received_at,processed_at`, { headers });
   const testDelivery = verifyRtdnTestDelivery(events);
-  return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1',
+  return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1', backendRepairGate,
     catalog: PLANS.map(({ product, base, period, micros }) => ({ product, base, period, currency: 'USD', priceMicros: micros })),
     creditPacks: CREDIT_PACKS.map(({product, credits, micros}) => ({product, credits, currency: 'USD', priceMicros: micros})),
     serviceAccountIdentitySha256,

@@ -15,7 +15,8 @@ from android_candidate_build import (elf_alignment, manifest_identity, signing_e
                                      SIGNING_BOOTSTRAP, PACKAGE, UPLOAD_SHA1, SETTINGS,
                                      POLICY_FIXED, COHORT_KEY, FLAGS, strict_json,
                                      assemble_candidate_defines, validate_candidate_defines,
-                                     validate_internal_policy, validate_ci_evidence, build)
+                                     validate_internal_policy, validate_ci_evidence,
+                                     validate_billing_preflight, MINIMUM_VERSION_CODE, build)
 
 
 def policy_template():
@@ -32,6 +33,26 @@ def policy_hash(defines):
 
 
 class InternalPolicyTests(unittest.TestCase):
+    def test_old_partial_or_failed_backend_preflight_is_rejected(self):
+        repair = {
+            "schemaVersion": 1,
+            "internalAiCohortMatched": True,
+            "obsoleteDebitDenied": True,
+            "canonicalCreditAuthorityIntact": True,
+            "deletionCapabilityGateway": True,
+            "migrationVersion": "20260909065846",
+        }
+        receipt = {"verified": True, "licenseTestGuard": "v1", "backendRepairGate": repair}
+        validate_billing_preflight(receipt)
+        for invalid in ({}, {"verified": True, "licenseTestGuard": "v1"},
+                        {**receipt, "verified": False}, {**receipt, "backendRepairGate": []}):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                validate_billing_preflight(invalid)
+        for key in repair:
+            for wrong in (None, False, "true", 0):
+                with self.subTest(key=key, wrong=wrong), self.assertRaises(ValueError):
+                    validate_billing_preflight({**receipt, "backendRepairGate": {**repair, key: wrong}})
+
     def test_billing_profile_requires_explicit_selection_and_matching_private_cohort(self):
         defines = assemble_candidate_defines({name: "synthetic-setting" for name in SETTINGS},
             json.dumps(policy_template()), "a" * 64, billing_test=True)
@@ -130,7 +151,7 @@ class InternalPolicyTests(unittest.TestCase):
             (root / "tool").mkdir()
             (root / "lib/config").mkdir(parents=True)
             (root / "android/app/google-services.json").write_text("{}")
-            (root / "pubspec.yaml").write_text("version: 4.1.0+2026083007\n")
+            (root / "pubspec.yaml").write_text(f"version: 4.1.0+{MINIMUM_VERSION_CODE}\n")
             (root / candidate.POLICY_PATH).write_text(json.dumps(policy_template()))
             features = ("externalAiEnabled", "subscriptionsEnabled", "creditSpendingEnabled",
                         "cloudSyncEnabled", "cloudRestoreEnabled", "analyticsEnabled", "crashReportingEnabled")
@@ -145,11 +166,23 @@ class InternalPolicyTests(unittest.TestCase):
                    **{name: "synthetic-signing-value" for name in
                       ("ANDROID_KEYSTORE_BASE64", "ANDROID_STORE_PASSWORD", "ANDROID_KEY_PASSWORD", "ANDROID_KEY_ALIAS")}}
             observed = []
+            billing_receipt = {
+                "verified": True, "licenseTestGuard": "v1",
+                "backendRepairGate": {
+                    "schemaVersion": 1, "internalAiCohortMatched": True,
+                    "obsoleteDebitDenied": True, "canonicalCreditAuthorityIntact": True,
+                    "deletionCapabilityGateway": True, "migrationVersion": "20260909065846",
+                },
+            }
             def fake_command(args, cwd, capture=False, env=None):
                 if args[:2] == ["gh", "api"]:
                     return json.dumps(ci)
                 if args == ["git", "rev-parse", "HEAD"]:
                     return source_sha if cwd == root.resolve() else tooling_sha
+                if args == ["node", "scripts/verify_internal_billing_backend.mjs"]:
+                    self.assertFalse((root / "android/app/upload-keystore.jks").exists())
+                    self.assertFalse((root / "android/key.properties").exists())
+                    return json.dumps(billing_receipt)
                 if args[0] == "dart":
                     path = Path(next(value[10:] for value in args if value.startswith("--defines=")))
                     observed.append(strict_json(path.read_text()))
@@ -162,6 +195,17 @@ class InternalPolicyTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "preflight reached"):
                     build(root, Path(folder) / "bundletool.jar")
             self.assertEqual(observed, [assembled()])
+            self.assertFalse((Path(folder) / "chronospark-candidate-defines.json").exists())
+            # The real build entrypoint must reject the older successful
+            # receipt before it can materialize a signing input or a define file.
+            del billing_receipt["backendRepairGate"]
+            with patch.dict(os.environ, {**env, "CANDIDATE_BILLING_TEST": "true"}, clear=True), \
+                 patch.object(candidate, "command", side_effect=fake_command):
+                with self.assertRaisesRegex(ValueError, "backend repair verification"):
+                    build(root, Path(folder) / "bundletool.jar")
+            self.assertEqual(observed, [assembled()])
+            self.assertFalse((root / "android/app/upload-keystore.jks").exists())
+            self.assertFalse((root / "android/key.properties").exists())
             self.assertFalse((Path(folder) / "chronospark-candidate-defines.json").exists())
 
 

@@ -295,19 +295,19 @@ export async function getDeletionStatus(
   config: AccountDeletionConfig,
   fetcher: typeof fetch = fetch,
 ): Promise<DeletionStatus | null> {
-  const response = await fetcher(
-    `${config.supabaseUrl}/rest/v1/account_deletion_requests` +
-      `?request_id=eq.${encodeURIComponent(requestId)}` +
-      `&receipt_hash=eq.${encodeURIComponent(receiptHash)}` +
-      "&select=state&limit=1",
-    { headers: jsonHeaders(config.serviceRoleKey) },
+  // The service-only RPC binds both capability values and enforces receipt
+  // expiry using database time. Do not query by user id or expose account data.
+  const result = await serviceRpc(
+    config,
+    fetcher,
+    "read_account_deletion_status",
+    { p_request_id: requestId, p_receipt_hash: receiptHash },
   );
-  if (!response.ok) return null;
-  const rows = await response.json();
-  const state = Array.isArray(rows) && rows.length === 1 &&
-      typeof rows[0]?.state === "string"
-    ? rows[0].state
-    : null;
+  const state =
+    result && typeof result === "object" && !Array.isArray(result) &&
+      "state" in result && typeof result.state === "string"
+      ? result.state
+      : null;
   return state === null ? null : { completed: state === "completed", state };
 }
 

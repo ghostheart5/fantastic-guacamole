@@ -8,6 +8,11 @@ import {
 } from "../_shared/billing_backend.ts";
 import { AnthropicPlannerProvider } from "./anthropic.ts";
 import {
+  internalAiAccountAllowed,
+  internalAiPreflightResponse,
+  parseInternalAiCohort,
+} from "../_shared/internal_ai_cohort.ts";
+import {
   isExplicitlyEnabled,
   type ModelPolicy,
   PLANNER_EXPLANATION_PROMPT_VERSION,
@@ -25,6 +30,9 @@ const config: BillingBackendConfig = {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
 };
 const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const internalAiCohort = parseInternalAiCohort(
+  Deno.env.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"),
+);
 const configuredModelId = Deno.env.get("PLANNER_EXPLANATION_MODEL") ??
   "claude-sonnet-4-6";
 const MODEL_ALLOWLIST = new Map<string, string>([
@@ -109,6 +117,8 @@ const store: PlannerExplanationStore = {
 
 const handler = createPlannerExplanationHandler({
   authenticate: async (req) => await authenticatedUserId(req, config),
+  internalAiAllowed: async (userId) =>
+    await internalAiAccountAllowed(userId, internalAiCohort),
   consumeRateLimit: async (req, userId) =>
     await consumeDurableRateLimits(req, config, userId, {
       bucket: "planner_explanation",
@@ -140,4 +150,15 @@ const handler = createPlannerExplanationHandler({
   allowedOrigins,
 });
 
-Deno.serve(handler);
+Deno.serve(async (req: Request) => {
+  const preflight = await internalAiPreflightResponse(
+    req,
+    internalAiCohort,
+    "planner-explanation-v1",
+    Boolean(
+      config.supabaseUrl && config.publishableKey && config.secretKey &&
+        anthropicApiKey,
+    ),
+  );
+  return preflight ?? await handler(req);
+});

@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -11,6 +15,95 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'disabled daily reminder uses the real repository under its reentrant account lock',
+    () async {
+      final preferences = _MemoryPreferences();
+      await preferences.save('daily_planning_reminder_enabled', 'false');
+      final scheduler = _RecordingScheduler();
+      const accountId = 'disabled-daily-account';
+      final scope = AccountDataRegistry.accountDigest(accountId);
+      final repository = NotificationsRepository(
+        scheduler,
+        SecureStore(backend: InMemorySecureStoreBackend()),
+        accountId: accountId,
+      );
+      final service = ReminderOrchestratorService(
+        preferences: preferences,
+        notifications: NotificationsService(repository),
+        scheduler: scheduler,
+        accountScope: scope,
+      );
+      await service
+          .ensureDailyPlanningReminder(shouldContinue: () => true)
+          .timeout(const Duration(seconds: 2));
+      expect(scheduler.dailySchedules, isEmpty);
+      expect(scheduler.cancelled, <String>['daily_planning_reminder']);
+      expect(scheduler.operations, <String>['cancel:$scope']);
+    },
+  );
+  test(
+    'a late daily schedule is cancelled before a reopened account schedule runs',
+    () async {
+      final scheduler = _RecordingScheduler()..blockFirstSchedule = true;
+      bool originalCurrent = true;
+      ReminderOrchestratorService service() => ReminderOrchestratorService(
+        preferences: _MemoryPreferences(),
+        notifications: NotificationsService(_RecordingNotificationRepository()),
+        scheduler: scheduler,
+        accountScope: 'account-scope',
+      );
+      final old = service().ensureDailyPlanningReminder(
+        shouldContinue: () => originalCurrent,
+      );
+      await scheduler.entered.future;
+      originalCurrent = false;
+      final reopened = service().ensureDailyPlanningReminder(
+        shouldContinue: () => true,
+      );
+      await pumpEventQueue();
+      expect(scheduler.dailySchedules, hasLength(1));
+      scheduler.release.complete();
+      await Future.wait(<Future<void>>[old, reopened]);
+      expect(scheduler.operations, <String>[
+        'schedule:account-scope',
+        'cancel:account-scope',
+        'schedule:account-scope',
+      ]);
+    },
+  );
+
+  test(
+    'daily scheduling waiting for account cleanup rechecks its generation guard',
+    () async {
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      bool current = true;
+      final cleanup = KeyedMutationCoordinator.shared.runExclusive<void>(
+        AccountDataRegistry.notificationMutationKeyForScope('blocked-account'),
+        () async {
+          entered.complete();
+          await release.future;
+        },
+      );
+      await entered.future;
+      final scheduler = _RecordingScheduler();
+      final service = ReminderOrchestratorService(
+        preferences: _MemoryPreferences(),
+        notifications: NotificationsService(_RecordingNotificationRepository()),
+        scheduler: scheduler,
+        accountScope: 'blocked-account',
+      );
+      final pending = service.ensureDailyPlanningReminder(
+        shouldContinue: () => current,
+      );
+      current = false;
+      release.complete();
+      await Future.wait(<Future<void>>[cleanup, pending]);
+      expect(scheduler.dailySchedules, isEmpty);
+      expect(scheduler.cancelled, isEmpty);
+    },
+  );
   test('reflection reminders delegate through the scheduler port', () async {
     final _MemoryPreferences preferences = _MemoryPreferences();
     final _RecordingScheduler scheduler = _RecordingScheduler();
@@ -116,6 +209,10 @@ final class _MemoryPreferences implements SharedPrefsStore {
 }
 
 final class _RecordingScheduler implements NotificationSchedulerPort {
+  bool blockFirstSchedule = false;
+  final entered = Completer<void>();
+  final release = Completer<void>();
+  final operations = <String>[];
   final ValueNotifier<bool?> permissionSignal = ValueNotifier<bool?>(true);
   final List<_DailySchedule> dailySchedules = <_DailySchedule>[];
   final List<String> cancelled = <String>[];
@@ -143,6 +240,7 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
     required int minute,
     String? accountScope,
   }) async {
+    operations.add('schedule:$accountScope');
     dailySchedules.add(
       _DailySchedule(
         id: id,
@@ -151,11 +249,16 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
         accountScope: accountScope,
       ),
     );
+    if (blockFirstSchedule && dailySchedules.length == 1) {
+      entered.complete();
+      await release.future;
+    }
     return true;
   }
 
   @override
   Future<bool> cancel(String id, {String? accountScope}) async {
+    operations.add('cancel:$accountScope');
     cancelled.add(id);
     return true;
   }

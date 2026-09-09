@@ -94,8 +94,8 @@ class VoicePermissionPrompt extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 isSpanish
-                    ? 'Permite el micrófono solo cuando quieras dictar texto en Planificador Inteligente o Consola SI. La reproducción hablada no requiere acceso al micrófono.'
-                    : 'Allow microphone access only when you want to dictate text in Smart Planner or the SI Console. Spoken playback does not require microphone access.',
+                    ? 'Permite el micrófono solo cuando quieras dictar texto en Planificador Inteligente o Consola SI. El proveedor de voz de tu dispositivo puede procesar el audio en sus servidores. La reproducción hablada no requiere acceso al micrófono.'
+                    : 'Allow microphone access only when you want to dictate text in Smart Planner or the SI Console. Your device\'s speech provider may process audio on its servers. Spoken playback does not require microphone access.',
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 13,

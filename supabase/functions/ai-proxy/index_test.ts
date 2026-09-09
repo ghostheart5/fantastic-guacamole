@@ -7,6 +7,9 @@ const originalEnvGet = Deno.env.get;
 try {
   Reflect.set(Deno.env, "get", (name: string) => {
     if (name === "SUPABASE_URL") return "https://backend.example";
+    if (name === "CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS") {
+      return "6c360d206728b8cc03034e9f3e803a817fcba5fcfa20c218c7a94744d1a76313";
+    }
     return "synthetic-test-value";
   });
   Reflect.set(Deno, "serve", (value: Handler) => {
@@ -17,6 +20,27 @@ try {
   Reflect.set(Deno, "serve", originalServe);
   Reflect.set(Deno.env, "get", originalEnvGet);
 }
+
+Deno.test("served AI GET reports the configured cohort without transport, quotes or spending", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => {
+    throw new Error("GET preflight must never call backend/provider");
+  };
+  try {
+    const response = await handler(
+      new Request("https://local.example/ai-proxy"),
+    );
+    if (
+      response.status !== 405 ||
+      response.headers.get("x-chronospark-internal-ai-guard") !== "v1" ||
+      !response.headers.get("x-chronospark-internal-ai-cohort-sha256")
+    ) throw new Error("served guard marker missing");
+    await response.body?.cancel();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 for (
   const failure of [
@@ -43,7 +67,9 @@ for (
     globalThis.fetch = ((url, init) => {
       const path = String(url);
       if (path.endsWith("/auth/v1/user")) {
-        return Promise.resolve(json({ id: "synthetic-user" }));
+        return Promise.resolve(
+          json({ id: "11111111-1111-4111-8111-111111111111" }),
+        );
       }
       if (path.endsWith("/consume_backend_rate_limit")) {
         return Promise.resolve(json({ allowed: true }));
@@ -134,3 +160,60 @@ for (
     }
   });
 }
+
+Deno.test("AI handler rejects noncohort and anonymous accounts before quote, debit or provider", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  try {
+    for (
+      const user of [
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          user_metadata: { chronospark_admin: true, internal_ai: true },
+        },
+        { id: "11111111-1111-4111-8111-111111111111", is_anonymous: true },
+      ]
+    ) {
+      let authCalls = 0;
+      globalThis.fetch = ((url) => {
+        if (!String(url).endsWith("/auth/v1/user")) {
+          throw new Error(
+            "unauthorized account reached quote, rate-limit, reservation or provider transport",
+          );
+        }
+        authCalls++;
+        return Promise.resolve(Response.json(user));
+      }) as typeof fetch;
+      for (const quoteOnly of [true, false]) {
+        const response = await handler(
+          new Request("https://local.example/ai-proxy", {
+            method: "POST",
+            headers: { authorization: "Bearer synthetic-session" },
+            body: JSON.stringify({
+              quoteOnly,
+              requestId: "synthetic-cohort-test",
+              prompt: "Plan a task.",
+              allowExternalAi: true,
+              quote: {},
+              userId: "11111111-1111-4111-8111-111111111111",
+              internalAccountDigests:
+                "6c360d206728b8cc03034e9f3e803a817fcba5fcfa20c218c7a94744d1a76313",
+            }),
+          }),
+        );
+        const expected = user.is_anonymous === true ? 401 : 403;
+        if (
+          response.status !== expected ||
+          (await response.json()).quote !== undefined
+        ) {
+          throw new Error("client-controlled cohort hints authorized AI use");
+        }
+      }
+      if (authCalls !== 2) {
+        throw new Error("each request must refresh trusted Auth identity");
+      }
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

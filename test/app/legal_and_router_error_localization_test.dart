@@ -375,7 +375,7 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     locale: Locale('en'),
     title: 'Privacy Policy',
     bodyFragment:
-        'This policy describes the data ChronoSpark may process and the stricter feature containment applied to the current release candidate.',
+        'This policy describes the data ChronoSpark may process in the contained public configuration and in eligible private internal-testing builds.',
     callToAction: 'Open Hosted Privacy Policy',
   ),
   _LocalizedRouteExpectation(
