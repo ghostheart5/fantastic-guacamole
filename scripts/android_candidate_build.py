@@ -16,7 +16,7 @@ import zipfile
 
 # Dispatch must identify a newly reviewed immutable source and its green CI.
 # Never silently fall back to the previous candidate.
-MINIMUM_VERSION_CODE = 2026083007
+MINIMUM_VERSION_CODE = 2026083022
 # Existing repository upload-identity pin; independent Play readback remains open.
 UPLOAD_SHA1 = "8A24D7BAACAB52F0A3777DD047C907962E82FAA5"
 PACKAGE = "com.ghostheart5.chronospark"
@@ -44,6 +44,24 @@ FLAGS = {
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def validate_billing_preflight(receipt):
+    require(type(receipt) is dict and receipt.get("verified") is True and
+            receipt.get("licenseTestGuard") == "v1", "Live billing preflight failed")
+    repair = receipt.get("backendRepairGate")
+    expected = {
+        "schemaVersion": 1,
+        "internalAiCohortMatched": True,
+        "obsoleteDebitDenied": True,
+        "canonicalCreditAuthorityIntact": True,
+        "deletionCapabilityGateway": True,
+        "migrationVersion": "20260909065846",
+    }
+    require(type(repair) is dict and all(
+        type(repair.get(key)) is type(value) and repair.get(key) == value
+        for key, value in expected.items()
+    ), "Deployed backend repair verification is required before signing")
 
 
 POLICY_PATH = "tool/internal_testing_assistant_release.json"
@@ -278,8 +296,7 @@ def build(root, bundletool):
     if billing_test:
         billing_receipt = strict_json(command(
             ["node", "scripts/verify_internal_billing_backend.mjs"], root, True))
-        require(billing_receipt.get("verified") is True and
-                billing_receipt.get("licenseTestGuard") == "v1", "Live billing preflight failed")
+        validate_billing_preflight(billing_receipt)
     key = root / "android/app/upload-keystore.jks"
     props = root / "android/key.properties"
     defines = Path(os.environ["RUNNER_TEMP"]) / "chronospark-candidate-defines.json"
