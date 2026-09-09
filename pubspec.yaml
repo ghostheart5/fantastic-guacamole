@@ -106,6 +106,7 @@ flutter:
     - assets/legal/licenses/space-grotesk-font-OFL.txt
     - assets/legal/licenses/jetbrains-mono-font-OFL.txt
     - assets/legal/licenses/material-icons-sdk-notice.txt
+    - assets/legal/licenses/datastore-protobuf-4.28.2-BSD.txt
   assets:
     - assets/animations/level_up.json
     - assets/animations/signal_pulse.json

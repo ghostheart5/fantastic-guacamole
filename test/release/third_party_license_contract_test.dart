@@ -24,6 +24,8 @@ void main() {
   const jetBrainsMonoPath = 'assets/legal/licenses/jetbrains-mono-font-OFL.txt';
   const materialIconsPath =
       'assets/legal/licenses/material-icons-sdk-notice.txt';
+  const datastoreProtobufPath =
+      'assets/legal/licenses/datastore-protobuf-4.28.2-BSD.txt';
 
   test('declared additional notices are readable labeled UTF-8 documents', () {
     expect(
@@ -37,6 +39,7 @@ void main() {
         spaceGroteskPath,
         jetBrainsMonoPath,
         materialIconsPath,
+        datastoreProtobufPath,
       ]),
     );
     expect(licenses.toSet().length, licenses.length);
@@ -109,6 +112,22 @@ void main() {
     expect(text, contains('QuickPVR'));
     expect(text, contains('Redistributions in binary form must reproduce'));
   });
+
+  test(
+    'DataStore protobuf runtime notice retains its complete upstream license',
+    () {
+      final bytes = File(datastoreProtobufPath).readAsBytesSync();
+      const label =
+          'AndroidX DataStore 1.1.7 / Protocol Buffers 4.28.2 (BSD-3-Clause notice)\n\n';
+      expect(utf8.decode(bytes), startsWith(label));
+      final body = bytes.sublist(utf8.encode(label).length);
+      expect(body, hasLength(1732));
+      expect(
+        sha256.convert(body).toString(),
+        '6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d',
+      );
+    },
+  );
 
   test(
     'certificate source availability identifies the exact bundled SDK source',

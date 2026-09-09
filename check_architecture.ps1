@@ -8,7 +8,12 @@ if ([string]::IsNullOrWhiteSpace($Root)) {
   $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
 
-$root = (Resolve-Path -LiteralPath $Root -ErrorAction Stop).Path
+# Use the same filesystem spelling as Get-ChildItem.FullName. Resolve-Path
+# preserves Windows 8.3 aliases (for example RUNNER~1) while enumeration expands
+# them, which otherwise makes a contained temporary fixture look out of scope.
+$root = [System.IO.Path]::GetFullPath(
+  (Get-Item -LiteralPath $Root -ErrorAction Stop).FullName
+)
 $libRoot = Join-Path $root 'lib'
 
 if (-not (Test-Path $libRoot)) {

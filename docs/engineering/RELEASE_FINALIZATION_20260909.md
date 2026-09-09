@@ -166,3 +166,58 @@ configurations and all twelve effective grant checks. Billing preflight
 `34349228045` passed for the same source. Backend source is unchanged by the goal
 repair; the fresh candidate preflight must still reverify it. No public pages or
 Google Play release were published.
+
+## Post-build failures and replacement candidate
+
+Signed candidate run `34351494461` built source `66d5a8da` as
+`4.1.0+2026083022`. Its AAB SHA256 is
+`e76c2374666d055add6c47d3d95a70ff9b2cba6ba537501a43e156e3fcafc982`.
+That artifact and its successful independent signature, native alignment,
+strict 16KB startup/onboarding and eight-notice checks remain historical
+evidence. The deeper native dependency review found one additional required
+notice, so this candidate is superseded for distribution by the pending rebuild.
+
+The actual AAB retains 69 `androidx.datastore.preferences.protobuf` classes.
+Its exact DataStore 1.1.7 repackaged JAR matches the dependency digest embedded
+in the AAB. AndroidX source commit
+`420da5f291449f11801e378c6789a328a06ec6cb` repackages `protobuf-javalite:4.28.2`.
+The complete upstream BSD notice was absent from the actual bundled notices;
+a separate Skia copyright line did not supply its conditions and disclaimer.
+The new labeled notice retains all 1,732 upstream bytes unchanged, SHA256
+`6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d`.
+It is declared in `flutter.licenses`, covered by the complete-text source test,
+and required by the existing dynamic AAB/APK verifier. Source and artifact
+provenance are retained under `EF/aab-inspection/maven-poms/` and
+`EF/protobuf-notice-repair/`.
+[Exact upstream license](https://raw.githubusercontent.com/protocolbuffers/protobuf/v28.2/LICENSE).
+
+The full native metadata inventory resolved 147 exact coordinates through
+149 official POMs, including two parents. Metadata-only dependencies without
+retained classes were not treated as demonstrated shipped-code omissions.
+This inventory and notice packaging are not blanket legal approval or proof
+of the user's acceptance of every external SDK service term.
+
+The extended post-build Windows run `34352629168` also retained four failures:
+three architecture fixtures rejected an in-root Windows short-path alias,
+and one legacy PowerShell child could not resolve `Get-FileHash`.
+The checker now obtains the root using the same filesystem spelling as file
+enumeration. A regression requires an actual different 8.3 parent alias while
+preserving detection of the real forbidden dependency. Legacy PowerShell
+fixtures isolate their child module search path; an incompatible inherited
+module negative control and an independently computed file hash verify the
+repair. The original hosted module path was not captured, so that particular
+environmental cause remains an inference supported by the reproduced mechanism.
+
+Maestro run `34352625201` passed Smart Planner, then stopped at Creator because
+the test demanded centering a fully visible control at the scroll boundary.
+The helper now requires 100% visibility without centering. The actual button tap,
+confirmation, and persistence assertions remain required. The other nine
+unexecuted journeys from that attempt are not passes.
+
+The replacement source includes these narrow test/tool repairs and the ninth
+notice. Fresh CI, signed-build inspection, full Windows/target coverage,
+native integration, strict 16KB startup and all applicable Maestro smoke and
+journey flows must finish before final acceptance is recorded. The original
+successful exact-source gate pair and post-build repeat remain retained;
+neither is relabeled as testing the new notice. Public pages and Google Play
+upload/rollout remain held, and monkey/level-20 endurance remain excluded.

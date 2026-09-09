@@ -31,6 +31,8 @@ appId: com.ghostheart5.chronospark
       text: "REVIEW CHANGES"
     direction: DOWN
     visibilityPercentage: 100
-    centerElement: true
+    # At the form's scroll boundary, a fully visible button cannot always move
+    # to the viewport center. Its semantic tap and confirmation remain required.
+    centerElement: false
     timeout: 10000
 - assertVisible: "REVIEW CHANGES"

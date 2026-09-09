@@ -84,6 +84,61 @@ void main() {
     timeout: const Timeout(Duration(minutes: 2)),
   );
 
+  if (Platform.isWindows) {
+    test(
+      'architecture checker normalizes Windows temporary root aliases',
+      () async {
+        const String relativePath = 'lib/data/services/fixture_service.dart';
+        final Directory parent = await Directory.systemTemp.createTemp(
+          'chronospark_architecture_parent_',
+        );
+        try {
+          final Directory fixtureRoot = await _createSourceFixture(
+            relativePath,
+            "import 'package:fantastic_guacamole/state/services/forbidden.dart';\n",
+            parent: parent,
+          );
+          final String literal = fixtureRoot.path.replaceAll("'", "''");
+          final ProcessResult alias = await Process.run('powershell', <String>[
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            "\$folder = (New-Object -ComObject Scripting.FileSystemObject).GetFolder('$literal'); Join-Path \$folder.ParentFolder.ShortPath \$folder.Name",
+          ]);
+          expect(alias.exitCode, 0, reason: alias.stderr as String);
+          final String shortPath = (alias.stdout as String).trim();
+          expect(shortPath, isNotEmpty);
+          expect(Directory(shortPath).existsSync(), isTrue);
+          expect(
+            shortPath.toLowerCase(),
+            isNot(fixtureRoot.path.replaceAll('/', '\\').toLowerCase()),
+            reason: 'This regression must exercise an actual 8.3 parent alias.',
+          );
+          for (final String root in <String>{
+            fixtureRoot.path,
+            fixtureRoot.path.replaceAll('\\', '/'),
+            shortPath,
+          }) {
+            final String output = _combinedOutput(
+              await _runArchitectureChecker(root: root),
+            );
+            expect(output, contains('Scanned 1 Dart files.'), reason: root);
+            expect(output, isNot(contains('Path is outside')), reason: root);
+            expect(
+              output,
+              contains('$relativePath:1 -> data/services must stay infra-only'),
+              reason:
+                  'Normalization must preserve the actual dependency violation.',
+            );
+          }
+        } finally {
+          await parent.delete(recursive: true);
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
+  }
+
   test(
     'architecture checker rejects every forbidden dependency class',
     () async {
@@ -245,9 +300,10 @@ Future<Directory> _createFixture(_ForbiddenDependencyFixture fixture) async {
 
 Future<Directory> _createSourceFixture(
   String relativePath,
-  String source,
-) async {
-  final Directory root = await Directory.systemTemp.createTemp(
+  String source, {
+  Directory? parent,
+}) async {
+  final Directory root = await (parent ?? Directory.systemTemp).createTemp(
     'chronospark_architecture_gate_',
   );
   final List<String> requiredDirectories = <String>[
