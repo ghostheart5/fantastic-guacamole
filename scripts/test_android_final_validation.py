@@ -170,6 +170,18 @@ class FinalValidationTest(unittest.TestCase):
             self.assertFalse(result["passed"])
             self.assertEqual(events, ["kvm"] if mode == "integration" else ["emulator"])
 
+    def test_guest_physical_display_matches_each_reviewed_viewport(self):
+        for viewport in ("320x640", "411x891"):
+            config = self.root / (viewport + ".ini")
+            config.write_text("hw.lcd.width=320\nhw.lcd.height=640\ncustom=preserved\n")
+            settings = gate.configure_avd(config, viewport)
+            self.assertEqual((settings["hw.lcd.width"], settings["hw.lcd.height"]),
+                             tuple(viewport.split("x")))
+            self.assertEqual(settings["hw.lcd.density"], "160")
+            self.assertIn("custom=preserved", config.read_text())
+        with self.assertRaisesRegex(RuntimeError, "Unreviewed native viewport"):
+            gate.configure_avd(config, "640x320")
+
     def integration_source(self):
         source = self.root / "app-source"
         (source / "integration_test").mkdir(parents=True, exist_ok=True)

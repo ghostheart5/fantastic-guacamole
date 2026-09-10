@@ -244,7 +244,9 @@ def verify_terminal(path):
     return totals
 
 
-def configure_avd(path):
+def configure_avd(path, viewport="320x640"):
+    require(viewport in ("320x640", "411x891"), "Unreviewed native viewport")
+    width, height = viewport.split("x")
     settings = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         if "=" in line:
@@ -252,7 +254,7 @@ def configure_avd(path):
             settings[key.strip()] = value.strip()
     settings.update({"hw.ramSize": "2048", "hw.cpu.ncore": "2", "hw.gpu.enabled": "yes",
                      "hw.gpu.mode": "swiftshader", "hw.audioInput": "no", "hw.audioOutput": "no",
-                     "hw.lcd.width": "320", "hw.lcd.height": "640", "hw.lcd.density": "160",
+                     "hw.lcd.width": width, "hw.lcd.height": height, "hw.lcd.density": "160",
                      "fastboot.forceColdBoot": "yes", "fastboot.forceFastBoot": "no"})
     path.write_text("\n".join(f"{k}={v}" for k, v in settings.items()) + "\n", encoding="utf-8")
     return settings
@@ -352,7 +354,9 @@ def integration(commands, source, adb, process, case):
     collector_receipt = {"started": False, "exitBeforeStop": None, "stopped": False}
     try:
         guest_health(commands, adb, process, "pre-test-health")
-        commands.run("required-viewport", adb + ["shell", "wm", "size", viewport])
+        # Set physical dimensions before boot. A wm override can change logical
+        # layout while screencap still returns the original physical display.
+        commands.run("required-viewport", adb + ["shell", "wm", "size"])
         capture_guest_png(commands, adb, "pre-test-screen", viewport)
         commands.run("clear-test-log", adb + ["logcat", "-c"], timeout=15)
         stream = log_path.open("xb")
@@ -861,7 +865,7 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
     avd_path = Path(os.environ["ANDROID_AVD_HOME"]) / (avd_name + ".avd")
     commands.run("create-owned-avd", [str(manager / "avdmanager"), "create", "avd", "--name", avd_name,
                   "--package", image_id, "--path", str(avd_path)], input_text="no\n")
-    settings = configure_avd(avd_path / "config.ini")
+    settings = configure_avd(avd_path / "config.ini", case[1] if case is not None else "320x640")
     # Fresh integration ports are outside the default ADB emulator scan range.
     # This prevents another server from rediscovering and replacing our transport.
     emulator_port = str(5584 + 2 * (ordinal or 1)) if mode == "integration" else "5554"
