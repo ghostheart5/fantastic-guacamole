@@ -176,11 +176,42 @@ class FinalValidationTest(unittest.TestCase):
             config.write_text("hw.lcd.width=320\nhw.lcd.height=640\ncustom=preserved\n")
             settings = gate.configure_avd(config, viewport)
             self.assertEqual((settings["hw.lcd.width"], settings["hw.lcd.height"]),
-                             tuple(viewport.split("x")))
+                             tuple(gate.physical_viewport(viewport).split("x")))
             self.assertEqual(settings["hw.lcd.density"], "160")
             self.assertIn("custom=preserved", config.read_text())
         with self.assertRaisesRegex(RuntimeError, "Unreviewed native viewport"):
             gate.configure_avd(config, "640x320")
+
+    def test_tall_logical_viewport_requires_separate_physical_and_override_proof(self):
+        result = gate.verify_viewport_readback('Physical size: 412x891\nOverride size: 411x891', '411x891')
+        self.assertEqual(result, {'logicalViewport': '411x891', 'physicalViewport': '412x891'})
+        for value in ('Physical size: 412x891', 'Physical size: 320x640\nOverride size: 411x891',
+                      'Physical size: 412x891\nOverride size: 410x891', ''):
+            with self.assertRaises(RuntimeError):
+                gate.verify_viewport_readback(value, '411x891')
+        self.assertEqual(gate.verify_viewport_readback('Physical size: 320x640', '320x640')['logicalViewport'], '320x640')
+
+    def test_native_adb_pin_rejects_checksum_and_protocol_mismatch(self):
+        expected = '3afdea91441815ab41254193df0343d92c1b1c0d0237165c3a345c8af8891c31'
+        version = 'Android Debug Bridge version 1.0.41\nVersion 36.0.2-14143358'
+        for index, (checksum, output, passed) in enumerate(((expected, version, True),
+                                                          ('0' * 64, version, False),
+                                                          (expected, 'Version 37.0.1', False))):
+            temporary = self.root / ('adb-pin-' + str(index))
+            temporary.mkdir()
+            commands = gate.Commands(temporary / 'evidence')
+            with patch.dict(os.environ, {'RUNNER_TEMP': str(temporary)}), \
+                    patch.object(gate, 'digest', return_value=checksum), \
+                    patch.object(commands, 'run', return_value=output) as run:
+                if passed:
+                    executable = gate.install_native_adb(commands)
+                    self.assertTrue(executable.is_relative_to(temporary))
+                    self.assertEqual(gate.read_json(commands.evidence / 'native-adb-pin.json')['sha256'], expected)
+                else:
+                    with self.assertRaises(RuntimeError):
+                        gate.install_native_adb(commands)
+                if checksum != expected:
+                    self.assertEqual([call.args[0] for call in run.call_args_list], ['download-pinned-native-adb'])
 
     def integration_source(self):
         source = self.root / "app-source"
@@ -308,6 +339,8 @@ class FinalValidationTest(unittest.TestCase):
                 return original_open(path, mode, *args, **kwargs)
             def run(label, argv, **kwargs):
                 commands.records.append({"label": label, "exitCode": code if label.startswith("auth_flow") else 0})
+                if label in ('viewport-readback', 'post-test-viewport'):
+                    return 'Physical size: 320x640\nOverride size: 320x640'
                 if label.startswith("auth_flow"):
                     # Flutter's integration golden stream requires DDS, even
                     # when the particular test does not compare screenshots.

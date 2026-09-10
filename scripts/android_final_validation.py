@@ -244,8 +244,25 @@ def verify_terminal(path):
     return totals
 
 
-def configure_avd(path, viewport="320x640"):
+def physical_viewport(viewport):
     require(viewport in ("320x640", "411x891"), "Unreviewed native viewport")
+    # Ranchu rounds an odd framebuffer width up to an even pixel count.
+    # Preserve the requested logical viewport separately with a wm override.
+    return "412x891" if viewport == "411x891" else viewport
+
+
+def verify_viewport_readback(text, viewport):
+    physical = re.search(r"(?m)^Physical size: (\d+x\d+)$", text)
+    override = re.search(r"(?m)^Override size: (\d+x\d+)$", text)
+    require(physical is not None and physical.group(1) == physical_viewport(viewport),
+            "Guest physical display does not match its configured framebuffer")
+    require((override or physical).group(1) == viewport,
+            "Guest logical viewport does not match the maintained test case")
+    return {"logicalViewport": viewport, "physicalViewport": physical.group(1)}
+
+
+def configure_avd(path, viewport="320x640"):
+    viewport = physical_viewport(viewport)
     width, height = viewport.split("x")
     settings = {}
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -354,10 +371,10 @@ def integration(commands, source, adb, process, case):
     collector_receipt = {"started": False, "exitBeforeStop": None, "stopped": False}
     try:
         guest_health(commands, adb, process, "pre-test-health")
-        # Set physical dimensions before boot. A wm override can change logical
-        # layout while screencap still returns the original physical display.
-        commands.run("required-viewport", adb + ["shell", "wm", "size"])
-        capture_guest_png(commands, adb, "pre-test-screen", viewport)
+        commands.run("required-viewport", adb + ["shell", "wm", "size", viewport])
+        entry["display"] = verify_viewport_readback(
+            commands.run("viewport-readback", adb + ["shell", "wm", "size"]), viewport)
+        capture_guest_png(commands, adb, "pre-test-screen", physical_viewport(viewport))
         commands.run("clear-test-log", adb + ["logcat", "-c"], timeout=15)
         stream = log_path.open("xb")
         errors = (commands.evidence / "continuous-logcat.stderr.txt").open("xb")
@@ -384,7 +401,9 @@ def integration(commands, source, adb, process, case):
             ("post-test-health", lambda: guest_health(commands, adb, process, "post-test-health")),
             ("end-test-log", lambda: commands.run("end-test-log", adb + ["shell", "log", "-t",
                                                           "ChronoSparkValidation", end], timeout=15)),
-            ("post-test-screen", lambda: capture_guest_png(commands, adb, "post-test-screen", viewport)),
+            ("post-test-viewport", lambda: verify_viewport_readback(
+                commands.run("post-test-viewport", adb + ["shell", "wm", "size"]), viewport)),
+            ("post-test-screen", lambda: capture_guest_png(commands, adb, "post-test-screen", physical_viewport(viewport))),
         ):
             try:
                 capture()
@@ -734,6 +753,27 @@ def install_native_emulator(commands):
     return emulator
 
 
+def install_native_adb(commands):
+    root = Path(os.environ['RUNNER_TEMP']) / 'chronospark-native-adb-36.0.2'
+    root.mkdir(exist_ok=False)
+    archive = root / 'platform-tools.zip'
+    url = 'https://dl.google.com/android/repository/platform-tools_r36.0.2-linux.zip'
+    expected = '3afdea91441815ab41254193df0343d92c1b1c0d0237165c3a345c8af8891c31'
+    commands.run('download-pinned-native-adb', ['curl', '--fail', '--location', '--silent',
+                 '--show-error', url, '--output', str(archive)], timeout=300)
+    actual = digest(archive)
+    require(actual == expected, 'Native ADB archive checksum mismatch')
+    commands.run('extract-pinned-native-adb', ['unzip', '-q', str(archive), '-d', str(root)], timeout=120)
+    executable = root / 'platform-tools/adb'
+    version = commands.run('pinned-native-adb-version', [str(executable), 'version'])
+    require('Android Debug Bridge version 1.0.41' in version and 'Version 36.0.2-' in version,
+            'Pinned native ADB version or protocol mismatch')
+    write_json(commands.evidence / 'native-adb-pin.json', {
+        'url': url, 'sha256': actual, 'version': version, 'executable': str(executable),
+        'boundary': 'Owned integration server and capture clients only. SDK/Flutter client and strict-16KB lane unchanged.'})
+    return executable
+
+
 def android(mode, source, tooling, evidence):
     commands = Commands(evidence)
     sdk = Path(os.environ["ANDROID_HOME"])
@@ -751,6 +791,10 @@ def android(mode, source, tooling, evidence):
                   "platforms;android-36", "build-tools;36.0.0", image_id], timeout=900, input_text="y\n" * 100)
     if mode == 'integration':
         emulator = install_native_emulator(commands)
+        native_adb = install_native_adb(commands)
+        sdk_adb_version = commands.run('flutter-sdk-adb-version', [str(sdk / 'platform-tools/adb'), 'version'])
+        require('Android Debug Bridge version 1.0.41' in sdk_adb_version,
+                'SDK ADB client protocol is incompatible with the owned server')
     library_root = emulator.parent / 'lib64'
     library_path = os.pathsep.join(str(path) for path in
                                   (library_root, library_root / "qt/lib", library_root / "gles_swiftshader"))
@@ -782,7 +826,7 @@ def android(mode, source, tooling, evidence):
         def launch_case(case, ordinal, guest_commands):
             return owned_android_guest(mode, source, tooling, guest_commands, sdk, manager,
                                        emulator, image_id, properties, case=case, ordinal=ordinal,
-                                       shared_user_home=shared_user_home)
+                                       shared_user_home=shared_user_home, adb_executable=native_adb)
         return execute_integration_cases(commands, source, launch_case)
     result = owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator, image_id, properties)
     require(result["passed"], "Owned Android validation failed; see its retained result")
@@ -850,7 +894,7 @@ def prepare_integration_kvm(commands, emulator):
 
 
 def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator, image_id, properties,
-                        *, case=None, ordinal=None, shared_user_home=None):
+                        *, case=None, ordinal=None, shared_user_home=None, adb_executable=None):
     suffix = mode + (f"-{ordinal:02d}" if ordinal is not None else "")
     owned = Path(os.environ["RUNNER_TEMP"]) / ("chronospark-" + suffix)
     owned.mkdir(exist_ok=False)
@@ -876,7 +920,7 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
     write_json(commands.evidence / "emulator-launch.json", {"argv": launch, "settings": settings,
                "image": image_id, "imagePropertiesSha256": digest(properties), "ownedDirectory": str(owned),
                "ownedHostUserDirectory": str(user_home), "freshGuestData": True})
-    adb = [str(sdk / "platform-tools/adb"), "-s", "emulator-" + emulator_port]
+    adb = [str(adb_executable or sdk / "platform-tools/adb"), "-s", "emulator-" + emulator_port]
     process = None
     adb_server = None
     result = {"passed": False, "mode": mode, "ownedEmulatorStopped": False,
@@ -884,11 +928,11 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
     try:
         if mode == "integration":
             result["kvmPreparation"] = prepare_integration_kvm(commands, emulator)
-            adb_server = OwnedAdbServer(sdk / "platform-tools/adb", commands.evidence, 55000 + (ordinal or 0))
+            adb_server = OwnedAdbServer(adb[0], commands.evidence, 55000 + (ordinal or 0))
             adb_server.start()
             result["ownedAdbServerStopped"] = False
-            commands.run("owned-adb-version", [str(sdk / "platform-tools/adb"), "version"])
-            commands.run("owned-adb-status", [str(sdk / "platform-tools/adb"), "server-status"])
+            commands.run("owned-adb-version", [adb[0], "version"])
+            commands.run("owned-adb-status", [adb[0], "server-status"])
         with (commands.evidence / "emulator.log").open("w", encoding="utf-8") as log:
             process = subprocess.Popen(launch, stdout=log, stderr=subprocess.STDOUT)
             commands.run("wait-for-device", adb + ["wait-for-device"], timeout=120)
