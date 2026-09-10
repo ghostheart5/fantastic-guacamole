@@ -343,7 +343,7 @@ def integration(commands, source, adb, process, case):
     manifest = commands.evidence / (label + "-manifest.json")
     entry = {"file": filename, "viewport": viewport, "expectedTests": expected,
              "runnerExitCode": None, "passed": False, "failures": [],
-             "debugTransport": "direct-vm-service-no-dds",
+             "debugTransport": "flutter-default-dds",
              "stateBoundary": "Fresh guest for this invocation; state is preserved across every test in this file."}
     collector = None
     begin, end = "CS_CASE_BEGIN_" + label, "CS_CASE_END_" + label
@@ -365,7 +365,7 @@ def integration(commands, source, adb, process, case):
         commands.run(label, ["dart", "run", "tool/run_flutter_tests.dart", "--report",
                             str(commands.evidence / (label + ".jsonl")), "--manifest", str(manifest),
                             "--timeout-seconds", "900", "--", "integration_test/" + filename,
-                            "--no-pub", "--concurrency=1", "--no-dds", "-d", adb[-1]],
+                            "--no-pub", "--concurrency=1", "-d", adb[-1]],
                      cwd=source, timeout=960, check=False)
         entry["runnerExitCode"] = commands.records[-1]["exitCode"]
         require(entry["runnerExitCode"] == 0, "Original canonical runner exited unsuccessfully")
@@ -735,7 +735,7 @@ def android(mode, source, tooling, evidence):
     sdk = Path(os.environ["ANDROID_HOME"])
     adb = [str(sdk / "platform-tools/adb"), "-s", "emulator-5554"]
     bootstrap_manager = sdk / "cmdline-tools/latest/bin"
-    image_id = ("system-images;android-36;google_atd;x86_64" if mode == "integration" else
+    image_id = ("system-images;android-36;google_apis;x86_64" if mode == "integration" else
                 "system-images;android-37.1;google_apis_ps16k;x86_64")
     emulator = sdk / "emulator/emulator"
     require(os.access("/dev/kvm", os.R_OK | os.W_OK), "KVM is unavailable; software CPU fallback is forbidden")
@@ -767,9 +767,9 @@ def android(mode, source, tooling, evidence):
                 "Expected API37.1 revision9 16KB image is unavailable")
     else:
         require(image_properties.get("AndroidVersion.ApiLevel") == "36" and
-                image_properties.get("Pkg.Revision") == "1" and
-                image_properties.get("SystemImage.TagId") == "google_atd",
-                "Expected API36 revision1 ATD image is unavailable")
+                image_properties.get("Pkg.Revision") == "7" and
+                image_properties.get("SystemImage.TagId") == "google_apis",
+                "Expected API36 revision7 Google APIs image is unavailable")
     if mode == "integration":
         # Keep the host ADB identity stable while replacing guest userdata.
         # This directory is new for this job and never contains app state.
