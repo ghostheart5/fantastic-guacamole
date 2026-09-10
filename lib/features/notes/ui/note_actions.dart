@@ -196,7 +196,16 @@ class _NoteActionsState extends ConsumerState<NoteActions> {
     );
     if (confirmed == true && mounted && sameOwner(owner)) {
       ref.read(planningNoteSelectionProvider.notifier).select(widget.note.id);
-      goToAppView(context, ref, AppView.smartPlanner);
+      final navigator = Navigator.of(context);
+      // Nexus opens note details as an imperative route above the app shell.
+      // Close that route before changing the shell destination underneath it.
+      final detailRoute = ModalRoute.of(context);
+      if (detailRoute is MaterialPageRoute && navigator.canPop()) {
+        // The consent dialog may still be finishing its reverse transition.
+        // Remove the exact detail route rather than popping that dialog again.
+        navigator.removeRoute(detailRoute);
+      }
+      goToAppView(navigator.context, ref, AppView.smartPlanner);
     }
   }
 

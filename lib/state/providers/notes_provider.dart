@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/state/providers/account_operation.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
@@ -52,6 +53,7 @@ class NotesNotifier extends AsyncNotifier<List<NoteEntity>> {
     state = AsyncData(<NoteEntity>[note, ..._current]);
     try {
       await projection.record(note, NoteTimelineMutation.created);
+      if (owner.isCurrent) ref.invalidate(timelineProvider);
     } on Object {
       // The note is already saved in the captured account.
     }
@@ -135,8 +137,10 @@ class NotesNotifier extends AsyncNotifier<List<NoteEntity>> {
   }
 
   Future<void> _project(NoteEntity note, NoteTimelineMutation mutation) async {
+    final owner = AccountOperation.capture(ref);
     try {
       await ref.read(noteTimelineAdapterProvider).record(note, mutation);
+      if (owner.isCurrent) ref.invalidate(timelineProvider);
     } on Object {
       // Timeline is a best-effort history projection; canonical Note truth has
       // already been stored and must not be rolled back by this failure.

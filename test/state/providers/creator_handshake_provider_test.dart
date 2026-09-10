@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
@@ -30,6 +33,73 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
+
+  test(
+    'failed note history projection does not roll back save or undo',
+    () async {
+      final projection = _RecordingNoteProjection()..fail = true;
+      final harness = _Harness(noteProjection: projection);
+      addTearDown(harness.dispose);
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Canonical note survives',
+          type: 'Note',
+          priority: 3,
+        ),
+      );
+      expect(
+        (await harness.notifier.confirm()).phase,
+        CreatorHandshakePhase.applied,
+      );
+      expect(
+        harness.noteRepository.notes.single.title,
+        'Canonical note survives',
+      );
+      await harness.notifier.confirm();
+      expect(harness.noteRepository.saveCalls, 1);
+      expect(
+        (await harness.notifier.undo()).phase,
+        CreatorHandshakePhase.undone,
+      );
+      expect(harness.noteRepository.notes, isEmpty);
+      await harness.notifier.undo();
+      expect(harness.noteRepository.deleteCalls, 1);
+      expect(projection.mutations, [
+        NoteTimelineMutation.created,
+        NoteTimelineMutation.deleted,
+      ]);
+    },
+  );
+
+  test(
+    'account change during note save cannot publish history into the next session',
+    () async {
+      final projection = _RecordingNoteProjection();
+      final harness = _Harness(noteProjection: projection);
+      addTearDown(harness.dispose);
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Old account note',
+          type: 'Note',
+          priority: 3,
+        ),
+      );
+      final gate = Completer<void>();
+      final entered = Completer<void>();
+      harness.noteRepository.saveGate = gate.future;
+      harness.noteRepository.saveEntered = entered;
+      final pending = harness.notifier.confirm();
+      await entered.future;
+      harness.container
+          .read(authSessionBoundaryProvider.notifier)
+          .begin(userId: 'next-account', isTransitioning: true);
+      gate.complete();
+      final result = await pending;
+      expect(result.receipt, isNull);
+      expect(projection.mutations, isEmpty);
+      expect(harness.noteRepository.saveCalls, 1);
+    },
+  );
 
   test('stage creates a bound preview without any mutation', () async {
     final _Harness harness = _Harness();
@@ -919,6 +989,7 @@ class _Harness {
     _MemoryGoalRepository? goalRepository,
     _MemoryHabitRepository? habitRepository,
     _MemoryNoteRepository? noteRepository,
+    NoteTimelineAdapter? noteProjection,
     SecureStore? store,
     DateTime? now,
   }) : repository = repository ?? _MemoryTaskRepository(),
@@ -934,6 +1005,8 @@ class _Harness {
         domainGoalRepositoryProvider.overrideWithValue(this.goalRepository),
         domainHabitRepositoryProvider.overrideWithValue(this.habitRepository),
         domainNoteRepositoryProvider.overrideWithValue(this.noteRepository),
+        if (noteProjection != null)
+          noteTimelineAdapterProvider.overrideWithValue(noteProjection),
         secureStoreProvider.overrideWithValue(this.store),
         creatorHandshakeClockProvider.overrideWithValue(() => this.now),
         personContextForSurfaceProvider(
@@ -1095,6 +1168,8 @@ class _MemoryNoteRepository implements INoteRepository {
   final List<NoteEntity> notes = <NoteEntity>[];
   int saveCalls = 0;
   int deleteCalls = 0;
+  Future<void>? saveGate;
+  Completer<void>? saveEntered;
 
   void seed(NoteEntity note) {
     notes.removeWhere((NoteEntity value) => value.id == note.id);
@@ -1114,7 +1189,19 @@ class _MemoryNoteRepository implements INoteRepository {
   @override
   Future<void> saveNote(NoteEntity note) async {
     saveCalls += 1;
+    saveEntered?.complete();
+    await saveGate;
     notes.removeWhere((NoteEntity value) => value.id == note.id);
     notes.insert(0, note);
+  }
+}
+
+class _RecordingNoteProjection implements NoteTimelineAdapter {
+  final List<NoteTimelineMutation> mutations = [];
+  bool fail = false;
+  @override
+  Future<void> record(NoteEntity note, NoteTimelineMutation mutation) async {
+    mutations.add(mutation);
+    if (fail) throw StateError('Simulated Timeline storage failure');
   }
 }

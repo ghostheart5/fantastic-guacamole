@@ -9,6 +9,8 @@ import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -853,6 +855,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         ]);
         return;
       case final CreatorNoteMutation mutation:
+        final projection = ref.read(noteTimelineAdapterProvider);
         final NoteEntity? created = await ref
             .read(createNoteUseCaseProvider)
             .call(
@@ -864,6 +867,10 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         if (created == null) {
           throw StateError('The confirmed note no longer passes validation.');
         }
+        owner.check();
+        await _bestEffort(
+          () => projection.record(created, NoteTimelineMutation.created),
+        );
         return;
       default:
         throw StateError('Creator operation is missing a typed mutation.');
@@ -892,7 +899,15 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
             .call(current: current, id: mutation.habitId);
         return;
       case final CreatorNoteMutation mutation:
+        final projection = ref.read(noteTimelineAdapterProvider);
+        final deleted = _noteEntityFromMutation(
+          mutation,
+        ).copyWith(updatedAt: _now());
         await ref.read(deleteNoteUseCaseProvider).call(mutation.noteId);
+        owner.check();
+        await _bestEffort(
+          () => projection.record(deleted, NoteTimelineMutation.deleted),
+        );
         return;
       default:
         throw StateError('Creator operation is missing a typed mutation.');
@@ -1040,6 +1055,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
           break;
         case CreatorEntityKind.note:
           ref.invalidate(notesProvider);
+          ref.invalidate(timelineProvider);
           break;
       }
     }

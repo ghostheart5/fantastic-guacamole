@@ -9,7 +9,17 @@ import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart'
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:hive/hive.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
+import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
@@ -34,6 +44,133 @@ void main() {
     await SharedPrefsService.init();
     await SharedPrefsService.clear();
   });
+
+  testWidgets(
+    'Creator note is visible in Timeline immediately and after reload',
+    (WidgetTester tester) async {
+      final harness = await _pumpRouteShell(
+        tester,
+        initialLocation: RoutePaths.creator,
+        memoryStorage: true,
+      );
+      final container = harness.container;
+      expect(container.read(timelineProvider), isEmpty);
+      final creator = container.read(creatorHandshakeProvider.notifier);
+      await creator.stage(
+        data: const CreatorFormData(
+          title: 'Release note history',
+          type: 'Note',
+          priority: 3,
+          description: 'Persist this body.',
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      final confirm = find.byKey(const Key('creator-confirm-selected'));
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        container.read(creatorHandshakeProvider).phase,
+        CreatorHandshakePhase.applied,
+      );
+      expect(
+        container.read(timelineProvider).single.detail,
+        'Release note history',
+      );
+      await creator.confirm();
+      expect(container.read(timelineProvider), hasLength(1));
+      await tester.ensureVisible(find.text('Open Timeline'));
+      await tester.tap(find.text('Open Timeline'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(TimelineScreen), findsOneWidget);
+      expect(find.text('Note Created'), findsOneWidget);
+      expect(find.textContaining('Release note history'), findsWidgets);
+      container.invalidate(timelineProvider);
+      await tester.pump();
+      expect(
+        container.read(timelineProvider).single.detail,
+        'Release note history',
+      );
+      await creator.undo();
+      await creator.undo();
+      expect(
+        await container.read(domainNoteRepositoryProvider).getNotes(),
+        isEmpty,
+      );
+      final events = container.read(timelineProvider);
+      expect(events.where((event) => event.isNoteCreated), hasLength(1));
+      expect(events.where((event) => event.isNoteDeleted), hasLength(1));
+      await tester.pump();
+      expect(find.text('Note Deleted'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final reuseShell in [false, true]) {
+    testWidgets(
+      'Nexus note consent opens visible Planner (shared shell: $reuseShell)',
+      (WidgetTester tester) async {
+        final harness = await _pumpRouteShell(
+          tester,
+          reuseShellState: reuseShell,
+          memoryStorage: true,
+        );
+        await harness.container
+            .read(notesProvider.notifier)
+            .createNote(
+              title: 'Explicit planning note',
+              body: 'Only ten minutes available.',
+            );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        final openNote = find.bySemanticsLabel('Open NOTE');
+        await tester.ensureVisible(openNote);
+        await tester.tap(openNote);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(find.byType(NoteDetailScreen), findsOneWidget);
+        final noteRoute = ModalRoute.of(
+          tester.element(find.byType(NoteDetailScreen)),
+        )!;
+        await tester.tap(find.text('Use in planning'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(find.text('Cancel'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.byType(NoteDetailScreen), findsOneWidget);
+        expect(harness.container.read(planningNoteSelectionProvider), isNull);
+        await tester.tap(find.text('Use in planning'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(find.text('Use this note'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pump(const Duration(milliseconds: 500));
+        _expectRouterUri(harness, RoutePaths.smartPlanner);
+        expect(
+          noteRoute.isActive,
+          isFalse,
+          reason: 'The exact note route must leave the Navigator.',
+        );
+        expect(find.byType(NoteDetailScreen), findsNothing);
+        expect(find.byType(SmartPlannerScreen), findsOneWidget);
+        expect(
+          (await harness.container.read(
+            selectedPlanningNoteProvider.future,
+          ))?.title,
+          'Explicit planning note',
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+        await tester.pump();
+      },
+    );
+  }
 
   testWidgets(
     'direct navigation to every shell route renders the correct first frame',
@@ -376,6 +513,7 @@ Future<_RouteShellHarness> _pumpRouteShell(
   bool reuseShellState = false,
   Size surfaceSize = const Size(1200, 2400),
   bool forceOnline = false,
+  bool memoryStorage = false,
 }) async {
   tester.platformDispatcher.views.first
     ..physicalSize = surfaceSize
@@ -388,6 +526,15 @@ Future<_RouteShellHarness> _pumpRouteShell(
 
   final ProviderContainer container = ProviderContainer(
     overrides: [
+      if (memoryStorage) ...[
+        hiveStoreProvider.overrideWithValue(_MemoryHiveStore()),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
+        sensitivePrefsStoreProvider.overrideWithValue(
+          const SharedPrefsStoreAdapter(),
+        ),
+      ],
       accountStorageScopeProvider.overrideWithValue(
         AccountStorageScope.authenticated('navigation-test-account'),
       ),
@@ -402,7 +549,6 @@ Future<_RouteShellHarness> _pumpRouteShell(
       goalsProvider.overrideWith(_StaticGoals.new),
     ],
   );
-  addTearDown(container.dispose);
 
   final GoRouter router = GoRouter(
     initialLocation: initialLocation,
@@ -420,14 +566,84 @@ Future<_RouteShellHarness> _pumpRouteShell(
     ),
   );
 
-  return _RouteShellHarness(container: container, router: router);
+  final harness = _RouteShellHarness(container: container, router: router);
+  addTearDown(harness.dispose);
+  return harness;
 }
 
 class _RouteShellHarness {
-  const _RouteShellHarness({required this.container, required this.router});
+  _RouteShellHarness({required this.container, required this.router});
 
   final ProviderContainer container;
   final GoRouter router;
+  bool _disposed = false;
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    container.dispose();
+  }
+}
+
+// Keep the real repositories and route stack, but avoid native disk I/O under
+// WidgetTester's fake async clock for the mutation journeys.
+class _MemoryHiveStore implements HiveStore {
+  final Map<String, Box<dynamic>> _boxes = {};
+  @override
+  Future<void> init() async {}
+  @override
+  bool isBoxOpen(String key) => _boxes.containsKey(key);
+  @override
+  Future<Box<T>> openBox<T>(String key) async =>
+      _boxes.putIfAbsent(key, _MemoryBox<T>.new) as Box<T>;
+  @override
+  Box<T> box<T>(String key) => _boxes[key]! as Box<T>;
+  @override
+  Future<void> clearBox(String key) async {
+    await _boxes[key]?.clear();
+  }
+
+  @override
+  Future<void> closeBox(String key) async {
+    _boxes.remove(key);
+  }
+}
+
+class _MemoryBox<T> implements Box<T> {
+  final Map<dynamic, T> _values = {};
+  @override
+  T? get(dynamic key, {T? defaultValue}) => _values[key] ?? defaultValue;
+  @override
+  bool containsKey(dynamic key) => _values.containsKey(key);
+  @override
+  Iterable<dynamic> get keys => _values.keys;
+  @override
+  bool get isNotEmpty => _values.isNotEmpty;
+  @override
+  Map<dynamic, T> toMap() => Map.of(_values);
+  @override
+  Future<void> put(dynamic key, T value) async {
+    _values[key] = value;
+  }
+
+  @override
+  Future<void> putAll(Map<dynamic, T> values) async {
+    _values.addAll(values);
+  }
+
+  @override
+  Future<void> delete(dynamic key) async {
+    _values.remove(key);
+  }
+
+  @override
+  Future<int> clear() async {
+    final count = _values.length;
+    _values.clear();
+    return count;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 PreferenceService _testPreferenceService() {

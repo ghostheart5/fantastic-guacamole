@@ -82,6 +82,10 @@ class CreatorScreen extends ConsumerWidget {
                 if (handshake.isReviewing) ...[
                   _CreatorHandshakePreviewCard(
                     state: handshake,
+                    goalTitles: {
+                      for (final goal in ref.watch(goalsProvider))
+                        goal.id: goal.title,
+                    },
                     guidedFirstTask: guidedFirstTask,
                     onToggle: (String operationId, bool selected) => ref
                         .read(creatorHandshakeProvider.notifier)
@@ -265,6 +269,7 @@ class _PlannerDraftPreviewCard extends StatelessWidget {
 class _CreatorHandshakePreviewCard extends StatelessWidget {
   const _CreatorHandshakePreviewCard({
     required this.state,
+    required this.goalTitles,
     required this.guidedFirstTask,
     required this.onToggle,
     required this.onEdit,
@@ -273,6 +278,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
   });
 
   final CreatorHandshakeState state;
+  final Map<String, String> goalTitles;
   final bool guidedFirstTask;
   final void Function(String operationId, bool selected) onToggle;
   final VoidCallback onEdit;
@@ -505,7 +511,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
     );
   }
 
-  static List<Widget> _operationDiffs(CreatorMutationOperation operation) {
+  List<Widget> _operationDiffs(CreatorMutationOperation operation) {
     final CreatorEntityMutation mutation = operation.mutation;
     final List<({String label, String value})> fields =
         <({String label, String value})>[
@@ -516,7 +522,12 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
       case final CreatorTaskMutation task:
         fields.addAll(<({String label, String value})>[
           (label: 'Priority', value: '${task.priority} / 5'),
-          (label: 'Active goal', value: task.goalId ?? 'No linked goal'),
+          (
+            label: 'Active goal',
+            value: task.goalId == null
+                ? 'No linked goal'
+                : goalTitles[task.goalId] ?? 'Linked goal unavailable',
+          ),
           (
             label: 'Estimated duration',
             value: task.estimatedDuration == null

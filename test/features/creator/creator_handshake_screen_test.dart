@@ -134,7 +134,13 @@ void main() {
         ),
         domainTaskRepositoryProvider.overrideWithValue(repository),
         domainGoalRepositoryProvider.overrideWithValue(
-          const _ScreenGoalRepository(),
+          _ScreenGoalRepository([
+            GoalEntity(
+              id: 'internal-goal-identity',
+              title: 'Verify release workflows',
+              createdAt: DateTime.utc(2026, 8, 20),
+            ),
+          ]),
         ),
         domainHabitRepositoryProvider.overrideWithValue(
           const _ScreenHabitRepository(),
@@ -159,6 +165,7 @@ void main() {
             description: 'The exact before and after must be visible.',
             type: 'Task',
             priority: 4,
+            goalId: 'internal-goal-identity',
           ),
           source: CreatorHandshakeSource.smartPlanner,
         );
@@ -181,6 +188,13 @@ void main() {
     expect(find.textContaining('Domain version'), findsNothing);
     expect(find.textContaining('Displayed diff'), findsNothing);
     expect(
+      find.textContaining(
+        'Active goal: Not present → Verify release workflows',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('internal-goal-identity'), findsNothing);
+    expect(
       find.textContaining('Title: Not present → Ship one verified change'),
       findsOneWidget,
     );
@@ -194,6 +208,7 @@ void main() {
 
     expect(repository.saveCalls, 1);
     expect(find.text('CREATION SAVED'), findsOneWidget);
+    expect(repository.tasks.values.single.goalId, 'internal-goal-identity');
     expect(find.textContaining('Confirmation:'), findsNothing);
     expect(find.textContaining('Result version:'), findsNothing);
     expect(find.textContaining('Saved exactly once'), findsOneWidget);
@@ -564,13 +579,14 @@ class _ScreenTaskRepository implements ITaskRepository {
 }
 
 class _ScreenGoalRepository implements IGoalRepository {
-  const _ScreenGoalRepository();
+  const _ScreenGoalRepository([this.goals = const []]);
+  final List<GoalEntity> goals;
 
   @override
   Future<void> deleteGoal(String id) async {}
 
   @override
-  List<GoalEntity> getGoals() => const <GoalEntity>[];
+  List<GoalEntity> getGoals() => List.of(goals);
 
   @override
   Future<void> saveGoal(GoalEntity goal) async {}
