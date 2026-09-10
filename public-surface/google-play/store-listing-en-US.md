@@ -1,6 +1,6 @@
 # Default store listing: English (United States)
 
-Local copy revised September 9, 2026. Prepared for review; this file does not establish that Console or the public listing has been updated. Confirm the exact build and account eligibility before submitting.
+Revised September 10, 2026 for the verified 4.1.0+2026083025 internal build. This source file alone does not establish Console submission or public publication.
 
 ## App name
 
@@ -10,44 +10,50 @@ Character count: 26 / 30
 
 ## Short description
 
-Plan the day, examine tradeoffs, and choose your next move with clarity.
+Plan tasks, build daily rhythms, and choose your next move with clear guidance
 
-Character count: 72 / 80
+Character count: 78 / 80
 
 ## Full description
 
-ChronoSpark is a planning and decision-support app for turning a busy day into a clear next move. It keeps the plan, available evidence, assumptions, and final choice visible so you can decide before anything changes.
+ChronoSpark helps you turn real-life demands into a next step you can understand and choose. Bring your goals, tasks, daily rhythms and notes together, then use planning guidance to work with the time and capacity you actually have.
 
-BUILD A PLAN YOU CAN REVIEW
+PLAN AROUND REAL LIFE
 
-Use Creator to draft a task, check the details, and confirm before it is saved. ChronoSpark keeps creation deliberate and provides a receipt so the result is clear.
+Study before school pickup. Break a large goal into a manageable task. Keep a daily routine in view. Record an idea before it disappears. ChronoSpark gives these everyday details a place in your plan.
 
-UNDERSTAND THE DAY
+SEE WHAT NEEDS YOUR ATTENTION
 
-Nexus brings the current planning context into one place without pretending to know more than the available evidence supports. Timeline separates scheduled plans from real due dates, so a planned time is not presented as a missed deadline.
+Nexus brings your planning context and suggested next move together. Timeline helps you review plans and recorded activity, with scheduled times kept distinct from actual deadlines.
 
-ASK FOR BOUNDED GUIDANCE
+MAKE YOUR NEXT STEP PRACTICAL
 
-Smart Planner helps you work through a stated situation using your prompt, current capacity, and relevant saved planning evidence when it is available. Guidance shows a practical next step and stays separate from saved changes.
+Tell Smart Planner what you are dealing with, how much time you have and any capacity or emotional context you choose to share. Review a concrete next step informed by your request and relevant saved information. Guidance stays separate from saved changes until you choose to act.
 
-EXAMINE THE EVIDENCE
+UNDERSTAND THE REASONING
 
-SI Console is a read-only evidence surface. Ask about current tasks, goals, milestones, or Timeline activity and review what was found, what is missing, and what the system can or cannot conclude. It does not silently change saved data.
+Use SI Console to ask about tasks, goals, milestones and Timeline activity. Its on-device guidance explains the evidence it found and the limits of what it can conclude. You stay in control of whether to act, edit, defer or reject a suggestion.
 
-COMPARE, THEN DECIDE
+CREATE WITH INTENTION
 
-Trajectory and Progression help you compare scenarios and reflect on outcomes. Projections are presented as conditional possibilities, not personal truth or guaranteed predictions.
+Use Creator to prepare a task, review its details and confirm before saving. Organize goals, keep useful notes and manage daily rhythms through the app's planning tools.
 
-DESIGNED AROUND USER CONTROL
+REFLECT ON WHAT YOU DO
 
-- Nothing is created from guidance until you review and confirm it.
-- Evidence and assumptions remain visible where the app has enough information.
-- Planning guidance does not replace medical, legal, financial, or emergency judgment.
-- Account and data-deletion controls are available in Settings.
-- Purchase and external AI availability depends on the installed build and account eligibility.
+Progression shows recorded activity and earned progress. Trajectory helps you examine possible paths and tradeoffs. Scenarios are conditional possibilities, not promises about your future.
 
-CURRENT RELEASE SCOPE
+NO ADS. EVER.
 
-ChronoSpark is available in English. The contained public configuration keeps external generative AI, subscriptions, credit top-ups, and credit spending disabled. Eligible private internal-testing builds may offer Google Play billing and disclosed AI-credit actions. External AI requests identify Anthropic, the data to be sent, and the expected credit cost before confirmation. Internal billing testers must use an approved license-tester account and Google Play test payment methods; internal-track enrollment alone does not make purchases free. Cloud sync and restore, analytics, and crash reporting remain disabled.
+ChronoSpark will never show ads. No banners, advertising interruptions or videos to watch for credits, features or access. This applies to every user, including users without a paid plan.
 
-ChronoSpark helps you understand the day, examine realistic options, and choose the next move while keeping you in control.
+YOUR CHOICES MATTER
+
+Choose what personal context you share. Review guidance before changing your plan. Account and data-deletion controls are available in Settings. Planning guidance does not replace professional or emergency support.
+
+FEATURE AVAILABILITY
+
+ChronoSpark is currently available in English. Core planning guidance runs on device. Optional voice dictation explains the device speech provider's processing before microphone use. Cloud sync, restore, analytics and crash reporting are currently disabled.
+
+Subscriptions, credit purchases and external AI actions are limited to eligible private testing accounts in this release. Where available, paid features and credit costs are shown before confirmation. External AI actions identify the provider and information to be sent. Google Play internal testers must also be registered license testers and choose test payment methods to avoid real charges.
+
+Make room for a clearer day, one considered action at a time.
