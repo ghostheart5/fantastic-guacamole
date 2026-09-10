@@ -758,6 +758,23 @@ def android(mode, source, tooling, evidence):
     return result
 
 
+def prepare_native_build(commands, source):
+    target = source / 'integration_test/app_startup_test.dart'
+    require(target.is_file(), 'Maintained startup integration target is missing')
+    receipt = {'passed': False, 'applicationTestsExecuted': 0, 'emulatorsStarted': 0,
+               'boundary': 'Compile-only preparation before any guest boots; canonical test invocations still build and execute normally.'}
+    try:
+        commands.run('compile-native-dependencies', ['flutter', 'build', 'apk', '--debug', '--no-pub',
+                     '--target-platform', 'android-x64', '--target', 'integration_test/app_startup_test.dart'],
+                     cwd=source, timeout=1200)
+        apk = source / 'build/app/outputs/flutter-apk/app-debug.apk'
+        require(apk.is_file() and zipfile.is_zipfile(apk), 'Compile-only preparation did not produce an APK')
+        receipt.update(passed=True, apkSha256=digest(apk), apkBytes=apk.stat().st_size)
+        return receipt
+    finally:
+        write_json(commands.evidence / 'native-build-preparation.json', receipt)
+
+
 def prepare_integration_kvm(commands, emulator):
     # A named-user ACL granted once at job setup was no longer effective for
     # later fresh guests. Reassert only that same ACL at each launch boundary.
@@ -823,6 +840,8 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
     emulator_port = str(5584 + 2 * (ordinal or 1)) if mode == "integration" else "5554"
     launch = [str(emulator), "-avd", avd_name, "-port", emulator_port, "-no-window", "-no-audio",
               "-no-snapshot", "-no-boot-anim", "-accel", "on", "-gpu", "swiftshader", "-memory", "2048", "-cores", "2"]
+    if mode == 'integration':
+        launch.append('-show-kernel')
     write_json(commands.evidence / "emulator-launch.json", {"argv": launch, "settings": settings,
                "image": image_id, "imagePropertiesSha256": digest(properties), "ownedDirectory": str(owned),
                "ownedHostUserDirectory": str(user_home), "freshGuestData": True})
@@ -933,12 +952,15 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("candidate", "source", "integration", "16kb", "terminal"))
+    parser.add_argument("mode", choices=("candidate", "source", "prepare", "integration", "16kb", "terminal"))
     parser.add_argument("--source", type=Path, default=Path("source"))
     parser.add_argument("--tooling", type=Path, default=Path("tooling"))
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--manifest", type=Path)
     args = parser.parse_args()
+    if args.mode == 'prepare':
+        prepare_native_build(Commands(args.evidence), args.source)
+        return
     if args.mode == "candidate":
         receipt = verify_candidate(Path(os.environ["CANDIDATE_ZIP"]), read_json(os.environ["CANDIDATE_RUN_JSON"]),
                                    read_json(os.environ["CANDIDATE_ARTIFACT_JSON"]), os.environ["SOURCE_SHA"],

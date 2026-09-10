@@ -295,6 +295,10 @@ jobs:
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
 
+      - name: Compile native dependencies before any emulator boot
+        timeout-minutes: 25
+        run: python3 tooling/scripts/android_final_validation.py prepare --evidence evidence/integration/preparation
+
       - name: Run all native integration files and the tall auth replay
         timeout-minutes: 95
         run: python3 tooling/scripts/android_final_validation.py integration --evidence evidence/integration/native

@@ -19,6 +19,31 @@ import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    def test_native_build_preparation_is_compile_only_and_requires_an_apk(self):
+        source = self.integration_source()
+        commands = gate.Commands(self.root / 'prepare')
+        apk = source / 'build/app/outputs/flutter-apk/app-debug.apk'
+        def build(label, argv, **kwargs):
+            self.assertEqual(label, 'compile-native-dependencies')
+            self.assertEqual(argv, ['flutter', 'build', 'apk', '--debug', '--no-pub',
+                                   '--target-platform', 'android-x64', '--target', 'integration_test/app_startup_test.dart'])
+            self.assertEqual(kwargs['cwd'], source)
+            apk.parent.mkdir(parents=True)
+            with zipfile.ZipFile(apk, 'w') as bundle: bundle.writestr('fixture', 'compile only')
+        with patch.object(commands, 'run', side_effect=build):
+            receipt = gate.prepare_native_build(commands, source)
+        self.assertTrue(receipt['passed'])
+        self.assertEqual(receipt['applicationTestsExecuted'], 0)
+        self.assertEqual(receipt['emulatorsStarted'], 0)
+
+    def test_native_build_preparation_never_accepts_failed_or_missing_output(self):
+        source = self.integration_source()
+        for index, side_effect in enumerate((RuntimeError('compile failed'), None)):
+            commands = gate.Commands(self.root / f'prepare-fail-{index}')
+            with patch.object(commands, 'run', side_effect=side_effect), self.assertRaises(RuntimeError):
+                gate.prepare_native_build(commands, source)
+            self.assertFalse(gate.read_json(commands.evidence / 'native-build-preparation.json')['passed'])
+
     @contextmanager
     def kvm_fixture(self, commands, *, accessible=(False, True), fail_label=None,
                     acceleration="accel:\n0\nKVM (version 12) is installed and usable.\naccel"):

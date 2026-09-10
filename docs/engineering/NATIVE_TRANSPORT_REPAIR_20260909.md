@@ -51,5 +51,22 @@ cold boot, two cores, explicit 2560 MB RAM and software graphics. Local health
 is not a substitute for full native tests or exact Play-signed upgrade evidence.
 The final hosted result must be read separately before claiming native acceptance.
 
+## Follow-up: first compile and guest transport interruption
+
+Run 34426553189 passed 14/15 executions with owned-server continuity and cleanup.
+Startup compiled for 693.9 seconds with its guest already booted, then lost its
+transport during VM-service startup. Its log collector exited 255 and the
+unchanged 900-second canonical timeout expired with zero cases executed.
+The server log establishes a remote read failure while the owned server stayed
+alive. It does not establish server replacement or prove a specific guest cause.
+
+The next revision compiles the maintained startup target before any guest boots,
+separating the heavy initial native dependency build from emulator execution.
+This preparation starts no emulator and executes no test, records an APK digest,
+and must succeed before the native suite starts. The canonical five invocations
+still build and run normally, with their original 900-second limits and all
+capture/assertion gates. Emulator kernel output is also retained for diagnosis.
+This is a resource-contention mitigation to validate, not proof of root cause.
+
 References: [ADB options and diagnostics](https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/docs/user/adb.1.md),
 [ADB server environment routing](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/client/commandline.cpp).
