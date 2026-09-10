@@ -343,6 +343,7 @@ def integration(commands, source, adb, process, case):
     manifest = commands.evidence / (label + "-manifest.json")
     entry = {"file": filename, "viewport": viewport, "expectedTests": expected,
              "runnerExitCode": None, "passed": False, "failures": [],
+             "debugTransport": "direct-vm-service-no-dds",
              "stateBoundary": "Fresh guest for this invocation; state is preserved across every test in this file."}
     collector = None
     begin, end = "CS_CASE_BEGIN_" + label, "CS_CASE_END_" + label
@@ -364,7 +365,7 @@ def integration(commands, source, adb, process, case):
         commands.run(label, ["dart", "run", "tool/run_flutter_tests.dart", "--report",
                             str(commands.evidence / (label + ".jsonl")), "--manifest", str(manifest),
                             "--timeout-seconds", "900", "--", "integration_test/" + filename,
-                            "--no-pub", "--concurrency=1", "-d", adb[-1]],
+                            "--no-pub", "--concurrency=1", "--no-dds", "-d", adb[-1]],
                      cwd=source, timeout=960, check=False)
         entry["runnerExitCode"] = commands.records[-1]["exitCode"]
         require(entry["runnerExitCode"] == 0, "Original canonical runner exited unsuccessfully")

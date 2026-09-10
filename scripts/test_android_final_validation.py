@@ -297,6 +297,9 @@ class FinalValidationTest(unittest.TestCase):
             def run(label, argv, **kwargs):
                 commands.records.append({"label": label, "exitCode": code if label.startswith("auth_flow") else 0})
                 if label.startswith("auth_flow"):
+                    self.assertIn("--no-dds", argv)
+                    self.assertIn("integration_test/auth_flow_integration_test.dart", argv)
+                    self.assertEqual(argv[-2:], ["-d", "emulator-5554"])
                     receipt = self.terminal()
                     receipt["totals"].update(total=count, passed=count)
                     receipt["completedTests"] = count
@@ -313,6 +316,7 @@ class FinalValidationTest(unittest.TestCase):
                                           ("auth_flow_integration_test.dart", "320x640", 6))
             self.assertEqual(result["passed"], index == 0)
             self.assertEqual(result["runnerExitCode"], code)
+            self.assertEqual(result["debugTransport"], "direct-vm-service-no-dds")
             self.assertEqual(screenshots.call_count, 2)
             self.assertTrue(result["ownedLogCollectorStopped"])
             self.assertEqual(collector.returncode, -15)
