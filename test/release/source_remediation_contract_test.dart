@@ -96,13 +96,8 @@ void main() {
         'Account and security services may use Supabase for authentication',
       ),
     );
-    expect(
-      policy,
-      contains(
-        'current release candidate does not send Planner content to an external generative-AI provider',
-      ),
-    );
-    expect(policy, contains('Anthropic is the disclosed provider'));
+    expect(policy, contains('Disabled in the contained public configuration'));
+    expect(policy, contains('Anthropic is the disclosed external AI provider'));
     expect(
       policy,
       contains('Firebase Analytics and Crashlytics are release-contained off'),
@@ -110,10 +105,30 @@ void main() {
     expect(
       bundled,
       contains(
-        'This policy describes the data ChronoSpark may process and the stricter feature containment',
+        'contained public configuration and in eligible private internal-testing builds',
       ),
     );
-    expect(bundled, contains('External AI\n\nDisabled.'));
+    expect(
+      bundled,
+      contains(
+        'External AI\n\nDisabled in the contained public configuration.',
+      ),
+    );
+    expect(bundled, contains('fixed fictional prompt'));
+    expect(bundled, contains('selected visible plan clauses'));
+    expect(bundled, contains('expected credit cost'));
+    expect(
+      bundled,
+      contains('credit-reservation, settlement, and retry records'),
+    );
+    expect(
+      bundled,
+      contains('internal-track enrollment alone does not make a purchase free'),
+    );
+    expect(
+      bundled,
+      isNot(contains('possible future external Planner explanation')),
+    );
     expect(bundled, contains('ghostheart131517@gmail.com'));
     expect(
       read('lib/config/env.dart'),
