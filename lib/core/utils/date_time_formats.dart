@@ -4,11 +4,11 @@ class DateTimeFormats {
   DateTimeFormats._();
 
   static String timelineDay(DateTime value) {
-    return DateFormat('EEEE, MMM d').format(value);
+    return DateFormat('EEEE, MMM d').format(value.toLocal());
   }
 
   static String timelineTime(DateTime value) {
-    return DateFormat('h:mm a').format(value);
+    return DateFormat('h:mm a').format(value.toLocal());
   }
 
   static String reportTimestamp(DateTime value) {

@@ -95,6 +95,135 @@ void main() {
     ],
   );
 
+  test('realistic selected note respects course focus and five-minute limit', () async {
+    final tasks = _MemoryTaskRepository([
+      TaskEntity(
+        id: 'study',
+        title: 'Complete lesson one and write five practice answers',
+        description:
+            'I have 25 minutes after dinner. School pickup is fixed at 4:30 PM. I slept poorly and need a small study step.',
+        goalId: 'course',
+        createdAt: DateTime.utc(2026, 8, 29),
+        estimatedDuration: const Duration(minutes: 25),
+      ),
+      TaskEntity(
+        id: 'pantry',
+        title: 'Check the pantry and write a five-meal shopping list',
+        description:
+            'Use what is already at home and stay within 60 dollars. This is a planning task only. Do not buy anything through the app.',
+        goalId: 'meals',
+        createdAt: DateTime.utc(2026, 8, 29),
+        estimatedDuration: const Duration(minutes: 15),
+      ),
+    ]);
+    final container = plannerContainer(
+      tasks: tasks,
+      goals: _MemoryGoalRepository([
+        GoalEntity(
+          id: 'course',
+          title: 'Finish the first bookkeeping course module by Friday',
+          description:
+              'Study for a job change while working 7 AM to 3 PM and protecting school pickup. Finish module one by Friday with short evening blocks.',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+        GoalEntity(
+          id: 'meals',
+          title: 'Prepare next week family meals without overspending',
+          description:
+              'Use food already at home. Plan five dinners and packed lunches around work and school pickup. Keep the shopping list within 60 dollars.',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+      ]),
+      selectedNote: NoteEntity(
+        id: 'limits',
+        title: 'A week with interruptions',
+        body:
+            "Today's limit: 5 minutes.\nKeep school pickup fixed; don't add another task.\nThe course matters. Keep the unfinished step for tomorrow.",
+        createdAt: DateTime.utc(2026, 8, 29),
+      ),
+    );
+    addTearDown(container.dispose);
+    final result = await container
+        .read(smartPlannerQueryControllerProvider)
+        .requestPlanningGuidance(
+          energy: null,
+          emotion: null,
+          notes:
+              'Use the selected note to choose one small course step for today. Respect its time limit and school pickup. Keep my task list unchanged.',
+          history: const [],
+          previousSavedNotes: null,
+        );
+    expect(result.plannerResponse.nextStep, contains('Complete lesson one'));
+    expect(result.plannerResponse.options, isNotEmpty);
+    expect(
+      result.plannerResponse.options.every(
+        (option) => option.estimatedMinutes <= 5,
+      ),
+      isTrue,
+    );
+    expect(
+      result.plannerResponse.verifiedEvidence.join(' '),
+      contains("note's explicit 5-minute limit"),
+    );
+    expect(tasks.writeCalls, 0);
+  });
+
+  test(
+    'ordinary family follow-up stays routine and respects spelled-out time',
+    () async {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final planner = container.read(smartPlannerQueryControllerProvider);
+      final result = await planner.requestFollowUpResult(
+        input:
+            'My child is home sick. I have five quiet minutes total, including breaks. Make the plan smaller.',
+        energy: .5,
+        emotion: null,
+        reflection: '',
+        history: const [],
+      );
+      expect(result.plannerResponse.isClarification, isFalse);
+      expect(
+        result.plannerResponse.options.every(
+          (option) => option.estimatedMinutes <= 5,
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'follow-up safety assessment includes the same prior distress as execution',
+    () async {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final planner = container.read(smartPlannerQueryControllerProvider);
+      const history = <Map<String, String>>[
+        {'role': 'user', 'content': 'I am having a panic attack.'},
+      ];
+      const input = 'Can we continue with one gentle question?';
+      final safety = planner.assessEmotionalSafety(
+        planner.followUpSafetyText(
+          input: input,
+          reflection: '',
+          history: history,
+        ),
+      );
+      expect(safety.requiresSupportivePause, isTrue);
+      final result = await planner.requestFollowUpResult(
+        input: input,
+        reflection: '',
+        history: history,
+        energy: null,
+        emotion: null,
+        supportivePauseReason: 'Pausing for support.',
+        supportiveQuestion: 'What support fits right now?',
+      );
+      expect(result.plannerResponse.isClarification, isTrue);
+      expect(result.message, contains('What support fits right now?'));
+    },
+  );
+
   for (final emotion in [
     EmotionalState.anxious,
     EmotionalState.fatigued,

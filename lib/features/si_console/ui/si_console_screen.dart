@@ -613,7 +613,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       );
       final SIV2Response response = await ref
           .read(siV2QueryServiceProvider)
-          .analyze(query);
+          .analyze(query)
+          .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       final String currentPersonContextRevision = ref.read(
         siV2PersonContextRevisionProvider,

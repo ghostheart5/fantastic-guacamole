@@ -506,12 +506,18 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       smartPlannerQueryControllerProvider,
     );
 
-    if (!await _confirmEmotionalSafetyRoute(text, planner)) {
+    final history = _conversationHistory();
+    final reflection = _notesController.text.trim();
+    final safetyText = planner.followUpSafetyText(
+      input: text,
+      reflection: reflection,
+      history: history,
+    );
+    if (!await _confirmEmotionalSafetyRoute(safetyText, planner)) {
       return;
     }
     if (!mounted || revision != _checkInRevision) return;
-    final ({String? pauseReason, String? question}) supportiveCopy =
-        _localizedSupportiveCopy(text, planner);
+    final supportiveCopy = _localizedSupportiveCopy(safetyText, planner);
     _followUpController.clear();
     setState(() {
       _sendingFollowUp = true;
@@ -523,8 +529,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             input: text,
             energy: _energy,
             emotion: _emotion,
-            reflection: _notesController.text.trim(),
-            history: _conversationHistory(),
+            reflection: reflection,
+            history: history,
             supportivePauseReason: supportiveCopy.pauseReason,
             supportiveQuestion: supportiveCopy.question,
           )

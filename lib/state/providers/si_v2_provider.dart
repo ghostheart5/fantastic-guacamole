@@ -253,12 +253,17 @@ final siV2QueryServiceProvider = Provider<SIV2QueryPort>((Ref ref) {
     clock: ref.watch(siV2ClockProvider),
     readDecisionReceipt: () async {
       try {
-        final SurfaceDecisionReceipt surface = await ref.read(
-          operatingDecisionForSurfaceProvider(
-            OperatingDecisionSurface.siConsole,
-          ).future,
-        );
-        return surface.receipt;
+        // This is optional supporting evidence. Do not wait on a paused
+        // off-screen consumer's future to answer a fresh read-only SI query.
+        final SurfaceDecisionReceipt? surface = ref
+            .read(
+              operatingDecisionForSurfaceProvider(
+                OperatingDecisionSurface.siConsole,
+              ),
+            )
+            .asData
+            ?.value;
+        return surface?.receipt;
       } on Object {
         return null;
       }

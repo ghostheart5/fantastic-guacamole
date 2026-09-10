@@ -12,7 +12,7 @@ appId: com.ghostheart5.chronospark
             - swipe:
                 # Stay above the Android keyboard when the title is focused.
                 # A gesture beginning at 85% is swallowed by the open IME.
-                start: "95%, 55%"
+                start: "95%, 45%"
                 end: "95%, 20%"
                 duration: 500
             - waitForAnimationToEnd:
@@ -21,7 +21,7 @@ appId: com.ghostheart5.chronospark
 # Android can report a one-pixel clipped button as fully visible. Reveal more
 # of the outer form before resolving a semantic tap; stay outside notes/IME.
 - swipe:
-    start: "95%, 55%"
+    start: "95%, 45%"
     end: "95%, 20%"
     duration: 500
 - waitForAnimationToEnd:

@@ -1,0 +1,13 @@
+appId: com.ghostheart5.chronospark
+---
+# Use the observed IME navigation control only when present. An unconditional
+# Android Back can navigate away when the keyboard has already closed.
+- runFlow:
+    when:
+      visible:
+        id: "android:id/input_method_nav_back"
+    commands:
+      - tapOn:
+          id: "android:id/input_method_nav_back"
+      - waitForAnimationToEnd:
+          timeout: 3000

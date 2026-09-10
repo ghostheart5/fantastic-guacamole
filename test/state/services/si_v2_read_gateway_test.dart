@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
@@ -9,6 +10,24 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
+
+  test(
+    'stalled task source is unavailable rather than an endless query',
+    () async {
+      final pending = Completer<List<TaskEntity>>();
+      final gateway = SIV2ReadGateway(
+        accountScopeId: 'account:test',
+        readTasks: () => pending.future,
+        readGoals: () async => [],
+        readMilestones: () async => [],
+        readTimeline: () async => [],
+      );
+      final result = await gateway.read(observedAt: now);
+      expect(result.unavailableSources, contains(SIV2Source.tasks));
+      pending.complete([]);
+      expect(result.tasks, isEmpty);
+    },
+  );
 
   test('maps only bounded read evidence and strips sensitive detail', () async {
     final SIV2ReadGateway gateway = SIV2ReadGateway(

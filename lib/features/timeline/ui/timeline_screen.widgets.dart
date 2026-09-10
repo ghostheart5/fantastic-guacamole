@@ -32,7 +32,7 @@ class _TimelineEventTile extends StatelessWidget {
       event.type == TimelineEventType.task && event.dueAt != null;
 
   String get _timingLabel {
-    final DateTime date = event.dueAt!;
+    final DateTime date = event.dueAt!.toLocal();
     if (_isScheduledTask) {
       return 'SCHEDULED ${DateTimeFormats.dateShort(date)}';
     }
@@ -519,6 +519,7 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
                   DropdownRouteKeyboardGuard(
                     child: DropdownButtonFormField<String?>(
                       key: const Key('timeline-task-goal-field'),
+                      isExpanded: true,
                       initialValue: selectedGoalId,
                       decoration: const InputDecoration(labelText: 'Goal'),
                       items: <DropdownMenuItem<String?>>[
@@ -815,7 +816,7 @@ class _TimelineFocusCard extends StatelessWidget {
         ? 'Next commitment is mapped'
         : 'Nothing needs action now';
     final String supporting = nextDeadline != null
-        ? '${nextDeadline!.title} is due ${DateTimeFormats.dateShort(nextDeadline!.dueAt ?? nextDeadline!.timestamp)}.'
+        ? '${nextDeadline!.title} is due ${DateTimeFormats.dateShort(_eventMoment(nextDeadline!))}.'
         : 'Your recent activity remains available in the chronology below.';
 
     return TemporalGlassSurface(
@@ -1464,7 +1465,7 @@ class _TimelineSourceNotice extends StatelessWidget {
 }
 
 DateTime _eventMoment(TimelineEventEntity event) =>
-    event.dueAt ?? event.timestamp;
+    (event.dueAt ?? event.timestamp).toLocal();
 
 bool _isOpenDeadline(TimelineEventEntity event) {
   final bool hasDeadlineSemantics = switch (event.type) {

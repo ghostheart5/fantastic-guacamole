@@ -52,22 +52,26 @@ final class SIV2ReadGateway {
     PersonContextView? personContextView;
 
     try {
-      taskEntities = await readTasks();
+      taskEntities = await readTasks().timeout(const Duration(seconds: 3));
     } on Object {
       unavailable.add(SIV2Source.tasks);
     }
     try {
-      goalEntities = await readGoals();
+      goalEntities = await readGoals().timeout(const Duration(seconds: 3));
     } on Object {
       unavailable.add(SIV2Source.goals);
     }
     try {
-      milestoneEntities = await readMilestones();
+      milestoneEntities = await readMilestones().timeout(
+        const Duration(seconds: 3),
+      );
     } on Object {
       unavailable.add(SIV2Source.milestones);
     }
     try {
-      timelineEntities = await readTimeline();
+      timelineEntities = await readTimeline().timeout(
+        const Duration(seconds: 3),
+      );
     } on Object {
       unavailable.add(SIV2Source.timeline);
     }

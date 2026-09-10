@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -16,6 +17,77 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('Timeline labels use local dates and times for UTC stored instants', () {
+    for (final DateTime local in <DateTime>[
+      DateTime(2026, 9, 10, 4, 57),
+      DateTime(2026, 12, 31, 23, 45),
+      DateTime(2026, 3, 8, 3, 15),
+    ]) {
+      expect(
+        DateTimeFormats.timelineTime(local.toUtc()),
+        DateTimeFormats.timelineTime(local),
+      );
+      expect(
+        DateTimeFormats.timelineDay(local.toUtc()),
+        DateTimeFormats.timelineDay(local),
+      );
+    }
+    expect(
+      DateTimeFormats.timelineTime(DateTime(2026, 9, 10, 4, 57).toUtc()),
+      '4:57 AM',
+    );
+  });
+
+  for (final String window in <String>['Today', 'Month', 'Year']) {
+    testWidgets(
+      '$window uses local calendar boundaries with mixed stored times',
+      (WidgetTester tester) async {
+        final DateTime localNow = DateTime(2026, 12, 31, 23, 50);
+        final ProviderContainer container = _buildContainer(
+          clock: () => localNow.toUtc(),
+          tasksLoader: (Ref ref) async => <Task>[],
+          baseEvents: <TimelineEventEntity>[
+            TimelineEventEntity(
+              id: 'utc-note',
+              type: TimelineEventType.noteCreated,
+              title: 'Evening note',
+              detail: 'Stored in UTC',
+              timestamp: DateTime(2026, 12, 31, 23, 40).toUtc(),
+            ),
+            TimelineEventEntity(
+              id: 'local-note',
+              type: TimelineEventType.noteArchived,
+              title: 'Evening archive',
+              detail: 'Stored in local time',
+              timestamp: DateTime(2026, 12, 31, 23, 45),
+            ),
+            TimelineEventEntity(
+              id: 'next-year',
+              type: TimelineEventType.noteCreated,
+              title: 'Next year note',
+              detail: 'Next local day',
+              timestamp: DateTime(2027, 1, 1, 0, 10).toUtc(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await _pumpTimelineShell(tester, container);
+        await tester.pump(const Duration(milliseconds: 50));
+        final Finder selector = find.bySemanticsLabel('Show $window timeline');
+        await tester.ensureVisible(selector);
+        await tester.tap(selector);
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(find.text('Evening note'), findsOneWidget);
+        expect(find.text('Evening archive'), findsOneWidget);
+        expect(find.text('Next year note'), findsNothing);
+        expect(find.text('11:40 PM'), findsOneWidget);
+        expect(find.text('11:45 PM'), findsOneWidget);
+        expect(find.text('THURSDAY, DEC 31'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('tutorial evidence matches only the Creator receipt task', (
     WidgetTester tester,
   ) async {
@@ -337,6 +409,36 @@ void main() {
     },
   );
 
+  testWidgets('long linked goal fits the task editor on a narrow phone', (
+    WidgetTester tester,
+  ) async {
+    final goal = GoalEntity(
+      id: 'course',
+      title:
+          'Finish the first bookkeeping course module before Friday while keeping school pickup fixed',
+      createdAt: _timelineNow,
+    );
+    final container = _buildContainer(
+      task: _managedTask.copyWith(goalId: goal.id),
+      goals: [goal],
+    );
+    addTearDown(container.dispose);
+    await _pumpTimeline(tester, container);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Edit'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    tester.view.physicalSize = const Size(720, 1280);
+    tester.view.devicePixelRatio = 2;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('timeline-task-goal-field')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const Key('timeline-task-goal-field')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('delete requires explicit confirmation and reports success', (
     WidgetTester tester,
   ) async {
@@ -409,6 +511,7 @@ void main() {
 
 ProviderContainer _buildContainer({
   Task? task,
+  List<GoalEntity> goals = const <GoalEntity>[],
   List<TimelineEventEntity> baseEvents = const <TimelineEventEntity>[],
   bool persistenceCorrupted = false,
   Future<List<Task>> Function(Ref ref)? tasksLoader,
@@ -430,7 +533,7 @@ ProviderContainer _buildContainer({
       timelinePersistenceCorruptedProvider.overrideWith(
         (Ref ref) => persistenceCorrupted,
       ),
-      goalsProvider.overrideWith(_EmptyGoalsNotifier.new),
+      goalsProvider.overrideWith(() => _EmptyGoalsNotifier(goals)),
       adaptiveGuidanceProvider.overrideWith(
         () => _ExpectedGuidanceNotifier(expectedTutorialTaskIds),
       ),
@@ -572,8 +675,10 @@ class _RecordingTaskActions extends TaskActions {
 }
 
 class _EmptyGoalsNotifier extends GoalsNotifier {
+  _EmptyGoalsNotifier(this.goals);
+  final List<GoalEntity> goals;
   @override
-  List<GoalEntity> build() => const <GoalEntity>[];
+  List<GoalEntity> build() => goals;
 }
 
 class _TimelineNotifier extends TimelineNotifier {

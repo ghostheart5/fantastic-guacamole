@@ -35,6 +35,14 @@ void main() {
           EmotionalSafetyRoute.routine,
       'Help me split the release checklist into two steps.':
           EmotionalSafetyRoute.routine,
+      'My child is home sick and I have five quiet minutes.':
+          EmotionalSafetyRoute.routine,
+      'My partner is working late; school pickup cannot move.':
+          EmotionalSafetyRoute.routine,
+      'Mi hija esta en casa y solo tengo cinco minutos.':
+          EmotionalSafetyRoute.routine,
+      'Last year we moved house and we are safe now.':
+          EmotionalSafetyRoute.routine,
     };
 
     for (final MapEntry<String, EmotionalSafetyRoute> item in corpus.entries) {

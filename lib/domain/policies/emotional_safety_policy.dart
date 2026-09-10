@@ -152,47 +152,47 @@ abstract final class EmotionalSafetyPolicy {
       ),
     ]);
 
+    final bool selfHarmLanguage =
+        (_matchesAny(normalized, <RegExp>[
+          RegExp(r'\b(?:kill|hurt|harm) (?:myself|me)\b'),
+          RegExp(r'\b(?:end|take) my (?:own )?life\b'),
+          RegExp(
+            r'\b(?:i want|i wish|i plan|i am planning|im planning|i am ready|im ready) to die\b',
+          ),
+          RegExp(r'\b(?:i am|i m|im|feeling) suicidal\b'),
+          RegExp(r'\bself harm(?:ing)?\b'),
+          RegExp(
+            r'\b(?:everyone|they|my family|people) (?:would be|are) better off without me\b',
+          ),
+          RegExp(r'\b(?:i do not|i dont) want to wake up\b'),
+          RegExp(r'\b(?:i will not|i wont) be here tomorrow\b'),
+          RegExp(r'\b(?:i cannot|i cant) go on\b'),
+          RegExp(r'\b(?:goodbye|disappear) forever\b'),
+          RegExp(
+            r'\b(?:matarme|hacerme dano|quitarme la vida|acabar con mi vida)\b',
+          ),
+          RegExp(r'\b(?:quiero|quisiera|planeo) morir\b'),
+          RegExp(r'\b(?:soy|estoy|me siento) suicida\b'),
+          RegExp(r'\b(?:todos|mi familia|la gente) estarian mejor sin mi\b'),
+          RegExp(r'\bno quiero despertar\b'),
+          RegExp(r'\bno estare aqui manana\b'),
+          RegExp(r'\bno puedo seguir\b'),
+        ]) ||
+        _containsAny(compact, const <String>{
+          'killmyself',
+          'endmylife',
+          'hurtmyself',
+          'selfharm',
+          'wanttodie',
+          'matarme',
+          'quitarmeelavida',
+          'quieromorir',
+        }));
     final bool immediateSelfHarm =
         !explicitDenial &&
         !historicalAndCurrentlySafe &&
         !clearlyThirdPerson &&
-        (_matchesAny(normalized, <RegExp>[
-              RegExp(r'\b(?:kill|hurt|harm) (?:myself|me)\b'),
-              RegExp(r'\b(?:end|take) my (?:own )?life\b'),
-              RegExp(
-                r'\b(?:i want|i wish|i plan|i am planning|im planning|i am ready|im ready) to die\b',
-              ),
-              RegExp(r'\b(?:i am|i m|im|feeling) suicidal\b'),
-              RegExp(r'\bself harm(?:ing)?\b'),
-              RegExp(
-                r'\b(?:everyone|they|my family|people) (?:would be|are) better off without me\b',
-              ),
-              RegExp(r'\b(?:i do not|i dont) want to wake up\b'),
-              RegExp(r'\b(?:i will not|i wont) be here tomorrow\b'),
-              RegExp(r'\b(?:i cannot|i cant) go on\b'),
-              RegExp(r'\b(?:goodbye|disappear) forever\b'),
-              RegExp(
-                r'\b(?:matarme|hacerme dano|quitarme la vida|acabar con mi vida)\b',
-              ),
-              RegExp(r'\b(?:quiero|quisiera|planeo) morir\b'),
-              RegExp(r'\b(?:soy|estoy|me siento) suicida\b'),
-              RegExp(
-                r'\b(?:todos|mi familia|la gente) estarian mejor sin mi\b',
-              ),
-              RegExp(r'\bno quiero despertar\b'),
-              RegExp(r'\bno estare aqui manana\b'),
-              RegExp(r'\bno puedo seguir\b'),
-            ]) ||
-            _containsAny(compact, const <String>{
-              'killmyself',
-              'endmylife',
-              'hurtmyself',
-              'selfharm',
-              'wanttodie',
-              'matarme',
-              'quitarmeelavida',
-              'quieromorir',
-            }));
+        selfHarmLanguage;
     if (immediateSelfHarm) {
       concerns.add(EmotionalSafetyConcern.selfHarm);
       findings.add('immediate_self_harm_language');
@@ -255,8 +255,7 @@ abstract final class EmotionalSafetyPolicy {
     }
 
     if (explicitDenial ||
-        historicalAndCurrentlySafe ||
-        clearlyThirdPerson ||
+        selfHarmLanguage ||
         _matchesAny(normalized, <RegExp>[
           RegExp(r'\b(?:suicide|suicidal|self harm|self harming)\b'),
           RegExp(r'\b(?:suicidio|suicida|autolesion|autolesiones)\b'),

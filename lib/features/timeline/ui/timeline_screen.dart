@@ -143,7 +143,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       else if (tasksLoading)
         _TimelineSourceIssue.taskLoading,
     ];
-    final DateTime now = ref.watch(timelineClockProvider)();
+    final DateTime now = ref.watch(timelineClockProvider)().toLocal();
 
     final int combinedKey = Object.hash(
       identityHashCode(baseEvents),
@@ -241,7 +241,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         .where((TimelineEventEntity event) => event.isRisk)
         .length;
     final int dueTodayCount = windowEvents.where((TimelineEventEntity event) {
-      final DateTime? due = event.dueAt;
+      final DateTime? due = event.dueAt?.toLocal();
       return due != null &&
           _isOpenDeadline(event) &&
           due.year == now.year &&

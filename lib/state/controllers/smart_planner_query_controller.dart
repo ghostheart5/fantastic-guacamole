@@ -220,6 +220,19 @@ class SmartPlannerQueryController
 
   bool detectsCrisis(String text) => CrisisDetectionPolicy.detects(text);
 
+  /// The UI must assess the same bounded user conversation as the controller
+  /// when obtaining consent and localized supportive copy for a follow-up.
+  String followUpSafetyText({
+    required String input,
+    required String reflection,
+    required List<Map<String, String>> history,
+  }) => _PlannerConversationContext.resolve(
+    input: input,
+    history: history,
+    reflection: reflection,
+    isFollowUp: true,
+  ).searchText;
+
   EmotionalSafetyAssessment assessEmotionalSafety(String text) =>
       EmotionalSafetyPolicy.assess(text);
 

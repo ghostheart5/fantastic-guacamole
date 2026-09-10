@@ -1,0 +1,32 @@
+appId: com.ghostheart5.chronospark
+---
+# Review can retain the form's scroll offset while Android's keyboard is open.
+# Require the heading after moving the page, not just after waiting at its foot.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when:
+            notVisible: "CONFIRM CREATOR CHANGES"
+          commands:
+            - swipe:
+                start: "95%, 15%"
+                end: "95%, 45%"
+                duration: 500
+            - waitForAnimationToEnd:
+                timeout: 3000
+- assertVisible: "CONFIRM CREATOR CHANGES"
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when:
+            notVisible: "CONFIRM SELECTED"
+          commands:
+            - swipe:
+                start: "95%, 45%"
+                end: "95%, 15%"
+                duration: 500
+            - waitForAnimationToEnd:
+                timeout: 3000
+- assertVisible: "CONFIRM SELECTED"

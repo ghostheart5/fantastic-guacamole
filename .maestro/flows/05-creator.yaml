@@ -64,9 +64,7 @@ tags:
     retryTapIfNoChange: true
 
 # Creator is a two-step, explicitly confirmed write boundary.
-- extendedWaitUntil:
-    visible: "CONFIRM CREATOR CHANGES"
-    timeout: 10000
+- runFlow: ../subflows/reveal-creator-confirmation.yaml
 - scrollUntilVisible:
     element:
       text: "CONFIRM SELECTED"
@@ -109,9 +107,7 @@ tags:
 - inputText: "Maestro review rhythm"
 - runFlow: ../subflows/reveal-creator-review.yaml
 - tapOn: "REVIEW CHANGES"
-- extendedWaitUntil:
-    visible: "CONFIRM CREATOR CHANGES"
-    timeout: 10000
+- runFlow: ../subflows/reveal-creator-confirmation.yaml
 - scrollUntilVisible:
     element:
       text: "CONFIRM SELECTED"
@@ -205,9 +201,7 @@ tags:
 - inputText: "Maestro preserved goal"
 - runFlow: ../subflows/reveal-creator-review.yaml
 - tapOn: "REVIEW CHANGES"
-- extendedWaitUntil:
-    visible: "CONFIRM CREATOR CHANGES"
-    timeout: 10000
+- runFlow: ../subflows/reveal-creator-confirmation.yaml
 - scrollUntilVisible:
     element:
       text: "CONFIRM SELECTED"

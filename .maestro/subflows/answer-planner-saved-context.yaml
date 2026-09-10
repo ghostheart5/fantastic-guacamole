@@ -26,9 +26,25 @@ appId: com.ghostheart5.chronospark
       - tapOn: "Send message"
       # Sending scrolls to the chat history. The updated actionable response
       # panel is above that history, as verified on the release device.
+      # Keep upward-page gestures above the open Android keyboard. The default
+      # scroll gesture can end inside the IME and leave the page stationary.
+      - repeat:
+          times: 12
+          commands:
+            - runFlow:
+                when:
+                  notVisible: "Use this plan"
+                commands:
+                  - swipe:
+                      start: "95%, 15%"
+                      end: "95%, 45%"
+                      duration: 500
+                  - waitForAnimationToEnd:
+                      timeout: 3000
       - scrollUntilVisible:
           element:
             text: "Use this plan"
           direction: UP
+          centerElement: false
           timeout: 30000
       - assertNotVisible: "(?s).*ONE CLARIFYING QUESTION.*"

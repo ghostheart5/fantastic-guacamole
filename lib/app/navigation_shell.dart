@@ -26,6 +26,8 @@ import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/app_recovery_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
@@ -76,6 +78,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   bool _audioInterruptionStarted = false;
   late final ProviderSubscription<double> _energySubscription;
   late final ProviderSubscription<LearningState> _learningSubscription;
+  ProviderSubscription<AsyncValue<OperatingDecisionReceipt>>?
+  _decisionSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
   late final ProviderSubscription<NetworkInterfaceAvailability>
   _networkAvailabilitySubscription;
@@ -146,6 +150,13 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     _startEntitlementAuthorityRechecks();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // The shared decision graph serves every shell route. Keep its single
+      // subscription live across note overlays and tab TickerMode changes,
+      // rather than resuming a dirty async graph during a route build.
+      _decisionSubscription = ref.listenManual(
+        operatingDecisionReceiptProvider,
+        (_, _) {},
+      );
       _initializeRuntimeServices();
       if (widget.allowSavedTabRestore) {
         _runBackgroundTask(
@@ -185,6 +196,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     }
     _energySubscription.close();
     _learningSubscription.close();
+    _decisionSubscription?.close();
     _viewSubscription.close();
     _networkAvailabilitySubscription.close();
     super.dispose();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
@@ -106,10 +107,60 @@ void main() {
       await tester.pump();
       expect(find.text('Note Deleted'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+      await tester.pump();
     },
   );
 
   for (final reuseShell in [false, true]) {
+    testWidgets(
+      'note return with dirty decision evidence can open Goals (shared shell: $reuseShell)',
+      (tester) async {
+        final harness = await _pumpRouteShell(
+          tester,
+          reuseShellState: reuseShell,
+          memoryStorage: true,
+        );
+        await harness.container
+            .read(notesProvider.notifier)
+            .createNote(
+              title: 'A week with interruptions',
+              body: "Today's limit: 5 minutes. Keep school pickup fixed.",
+            );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        for (var attempt = 0; attempt < 3; attempt++) {
+          final openNote = find.bySemanticsLabel('Open NOTE');
+          await tester.ensureVisible(openNote);
+          await tester.tap(openNote);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 350));
+          expect(find.byType(NoteDetailScreen), findsOneWidget);
+          harness.container.invalidate(tasksProvider);
+          harness.container.invalidate(goalsProvider);
+          await tester.pageBack();
+          await tester.pump();
+          await tester.pump(const Duration(seconds: 1));
+          await tester.pump();
+          expect(find.byType(NoteDetailScreen), findsNothing);
+          final openGoal = find.bySemanticsLabel('Open GOAL');
+          await tester.ensureVisible(openGoal);
+          await tester.tap(openGoal);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 350));
+          expect(find.byType(GoalsScreen), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          harness.router.go(RoutePaths.nexus);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 350));
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+        await tester.pump();
+      },
+    );
+
     testWidgets(
       'Nexus note consent opens visible Planner (shared shell: $reuseShell)',
       (WidgetTester tester) async {
@@ -176,11 +227,20 @@ void main() {
     'direct navigation to every shell route renders the correct first frame',
     (WidgetTester tester) async {
       for (final _ShellExpectation expectation in _shellExpectations) {
-        await _pumpRouteShell(tester, initialLocation: expectation.route);
+        final harness = await _pumpRouteShell(
+          tester,
+          initialLocation: expectation.route,
+        );
 
         _expectRouteAndVisibleView(expectation);
 
         await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+        // Native I/O is deliberately unavailable in this first-frame fixture.
+        // Drain the bounded SI read deadlines after disposing its route.
+        for (var i = 0; i < 4; i++) {
+          await tester.pump(const Duration(seconds: 3));
+        }
       }
     },
   );
@@ -502,6 +562,10 @@ void main() {
         );
 
         await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+        for (var i = 0; i < 4; i++) {
+          await tester.pump(const Duration(seconds: 3));
+        }
       }
     },
   );
@@ -738,6 +802,11 @@ List<GoRoute> get _legacyRedirectRoutes {
 }
 
 const List<_ShellExpectation> _shellExpectations = <_ShellExpectation>[
+  _ShellExpectation(
+    route: RoutePaths.creatorGoals,
+    view: AppView.goals,
+    screenType: GoalsScreen,
+  ),
   _ShellExpectation(
     route: RoutePaths.nexus,
     view: AppView.nexus,

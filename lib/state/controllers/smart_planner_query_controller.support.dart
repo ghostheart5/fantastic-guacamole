@@ -196,11 +196,35 @@ bool _referencesPriorPlannerSubject(String input) => RegExp(
 int? _explicitPlanningTimeLimit(String input) {
   // Recognize explicit numeric work windows, not arbitrary numbers in titles
   // or durations reported as past activity. This does not infer capacity.
+  const numbers = <String, int>{
+    'one': 1,
+    'two': 2,
+    'three': 3,
+    'four': 4,
+    'five': 5,
+    'six': 6,
+    'seven': 7,
+    'eight': 8,
+    'nine': 9,
+    'ten': 10,
+    'fifteen': 15,
+    'twenty': 20,
+    'thirty': 30,
+    'sixty': 60,
+    'cinco': 5,
+    'diez': 10,
+    'quince': 15,
+    'treinta': 30,
+  };
+  final normalized = input.replaceAllMapped(
+    RegExp('\\b(${numbers.keys.join('|')})\\b', caseSensitive: false),
+    (match) => '${numbers[match.group(0)!.toLowerCase()]}',
+  );
   final matches = RegExp(
-    r'\b(?:in|within|for|(?:i|we)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than|en|dentro de|durante|(?:solo\s+)?(?:tengo|tenemos)(?:\s+solo)?|como máximo|no más de)\s+'
-    r'(\d+(?:\.\d+)?)\s*(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
+    r"\b(?:in|within|for|only|(?:i|we)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than|(?:today(?:'s)?\s+)?(?:time\s+)?limit\s*:|en|dentro de|durante|(?:solo\s+)?(?:tengo|tenemos)(?:\s+solo)?|como máximo|no más de)\s+"
+    r'(\d+(?:\.\d+)?)\s*(?:quiet\s+|spare\s+)?(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
     caseSensitive: false,
-  ).allMatches(input);
+  ).allMatches(normalized);
   int? limit;
   for (final match in matches) {
     final double? amount = double.tryParse(match.group(1)!);
@@ -1164,6 +1188,11 @@ final class _PlannerPersonContextSignal {
 }
 
 const Set<String> _plannerStopWords = <String>{
+  // Request scaffolding and constraint language do not identify a saved
+  // subject. Otherwise "one ... task list" can outrank "course".
+  'the', 'and', 'for', 'one', 'small', 'step', 'steps', 'use', 'selected',
+  'note', 'keep', 'unchanged', 'list', 'task', 'tasks', 'goal', 'goals',
+  'without', 'another', 'next', 'not', 'its', 'limit', 'minutes',
   'about',
   'after',
   'again',
