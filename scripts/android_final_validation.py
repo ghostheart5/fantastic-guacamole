@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 import zlib
 
 import android_candidate_build as candidate_tools
+from owned_adb_server import OwnedAdbServer
 
 PACKAGE = "com.ghostheart5.chronospark"
 BUNDLETOOL_SHA256 = "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29"
@@ -314,9 +315,15 @@ def capture_guest_png(commands, adb, label, viewport):
 
 
 def guest_health(commands, adb, process, label):
-    result = {"passed": False, "emulatorPid": process.pid, "deviceSerial": "emulator-5554"}
+    result = {"passed": False, "emulatorPid": process.pid, "deviceSerial": adb[-1]}
     try:
-        require(adb[-2:] == ["-s", "emulator-5554"], "Health check targets an unowned device")
+        require('-port' in process.args and '-avd' in process.args,
+                "Owned emulator launch identity is missing")
+        port = process.args[process.args.index('-port') + 1]
+        avd = process.args[process.args.index('-avd') + 1]
+        require(port in ('5554', '5586', '5588', '5590', '5592', '5594') and
+                avd.startswith('ChronoSpark_Final_') and adb[-2:] == ['-s', 'emulator-' + port],
+                "Health check targets an unowned device")
         require(process.poll() is None, "Owned emulator process exited")
         require(commands.run(label + "-state", adb + ["get-state"], timeout=15) == "device",
                 "Owned device is not online")
@@ -357,7 +364,7 @@ def integration(commands, source, adb, process, case):
         commands.run(label, ["dart", "run", "tool/run_flutter_tests.dart", "--report",
                             str(commands.evidence / (label + ".jsonl")), "--manifest", str(manifest),
                             "--timeout-seconds", "900", "--", "integration_test/" + filename,
-                            "--no-pub", "--concurrency=1", "-d", "emulator-5554"],
+                            "--no-pub", "--concurrency=1", "-d", adb[-1]],
                      cwd=source, timeout=960, check=False)
         entry["runnerExitCode"] = commands.records[-1]["exitCode"]
         require(entry["runnerExitCode"] == 0, "Original canonical runner exited unsuccessfully")
@@ -685,7 +692,8 @@ def execute_integration_cases(commands, source, launch_case):
                             "evidenceDirectory": label, **result})
             write_json(commands.evidence / "integration-results.json", results)
             require(result.get("ownedEmulatorStopped") is True and
-                    result.get("ownedLogCollectorStopped") is True,
+                    result.get("ownedLogCollectorStopped") is True and
+                    result.get("ownedAdbServerStopped") is True,
                     "Prior owned guest/collector cleanup was not proved; no further guest may start")
         summary["passed"] = all(result["passed"] for result in results)
         require(summary["passed"], "One or more fresh-guest integration invocations failed")
@@ -810,18 +818,27 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
     commands.run("create-owned-avd", [str(manager / "avdmanager"), "create", "avd", "--name", avd_name,
                   "--package", image_id, "--path", str(avd_path)], input_text="no\n")
     settings = configure_avd(avd_path / "config.ini")
-    launch = [str(emulator), "-avd", avd_name, "-port", "5554", "-no-window", "-no-audio",
+    # Fresh integration ports are outside the default ADB emulator scan range.
+    # This prevents another server from rediscovering and replacing our transport.
+    emulator_port = str(5584 + 2 * (ordinal or 1)) if mode == "integration" else "5554"
+    launch = [str(emulator), "-avd", avd_name, "-port", emulator_port, "-no-window", "-no-audio",
               "-no-snapshot", "-no-boot-anim", "-accel", "on", "-gpu", "swiftshader", "-memory", "2048", "-cores", "2"]
     write_json(commands.evidence / "emulator-launch.json", {"argv": launch, "settings": settings,
                "image": image_id, "imagePropertiesSha256": digest(properties), "ownedDirectory": str(owned),
                "ownedHostUserDirectory": str(user_home), "freshGuestData": True})
-    adb = [str(sdk / "platform-tools/adb"), "-s", "emulator-5554"]
+    adb = [str(sdk / "platform-tools/adb"), "-s", "emulator-" + emulator_port]
     process = None
+    adb_server = None
     result = {"passed": False, "mode": mode, "ownedEmulatorStopped": False,
-              "ownedLogCollectorStopped": True}  # No collector exists before integration is invoked.
+              "ownedLogCollectorStopped": True, "ownedAdbServerStopped": True}
     try:
         if mode == "integration":
             result["kvmPreparation"] = prepare_integration_kvm(commands, emulator)
+            adb_server = OwnedAdbServer(sdk / "platform-tools/adb", commands.evidence, 55000 + (ordinal or 0))
+            adb_server.start()
+            result["ownedAdbServerStopped"] = False
+            commands.run("owned-adb-version", [str(sdk / "platform-tools/adb"), "version"])
+            commands.run("owned-adb-status", [str(sdk / "platform-tools/adb"), "server-status"])
         with (commands.evidence / "emulator.log").open("w", encoding="utf-8") as log:
             process = subprocess.Popen(launch, stdout=log, stderr=subprocess.STDOUT)
             commands.run("wait-for-device", adb + ["wait-for-device"], timeout=120)
@@ -844,9 +861,11 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
             commands.run("set-density", adb + ["shell", "wm", "density", "160"])
             commands.run("dismiss-keyguard", adb + ["shell", "wm", "dismiss-keyguard"])
             if mode == "integration":
+                adb_server.assert_alive()
                 result["integrationInvoked"] = True
                 result["ownedLogCollectorStopped"] = False
                 result.update(integration(commands, source, adb, process, case))
+                adb_server.assert_alive()
             else:
                 result.update(release_16kb(commands, source, tooling, adb, sdk))
                 result["passed"] = True
@@ -898,6 +917,16 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
                 result["ownedLogCollectorStopped"] = False
             if not result["ownedLogCollectorStopped"]:
                 result["passed"] = False
+        if adb_server is not None:
+            try:
+                adb_server.stop()
+                result["ownedAdbServerStopped"] = adb_server.receipt["stopped"]
+                result["ownedAdbServerContinuous"] = not adb_server.receipt["unexpectedServerExit"]
+                if not result["ownedAdbServerStopped"] or not result["ownedAdbServerContinuous"]:
+                    result["passed"] = False
+            except Exception as error:
+                result.update(passed=False, ownedAdbServerStopped=False,
+                              adbCleanupError=f"{type(error).__name__}: {error}")
         write_json(commands.evidence / "android-result.json", result)
     return result
 

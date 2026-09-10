@@ -134,7 +134,8 @@ class FinalValidationTest(unittest.TestCase):
         calls = []
         def launch(case, ordinal, commands):
             calls.append((case, ordinal, commands.evidence))
-            return {"passed": ordinal != 2, "ownedEmulatorStopped": True, "ownedLogCollectorStopped": True}
+            return {"passed": ordinal != 2, "ownedEmulatorStopped": True, "ownedLogCollectorStopped": True,
+                    "ownedAdbServerStopped": True}
         commands = gate.Commands(self.root / "five-guests")
         with self.assertRaisesRegex(RuntimeError, "invocations failed"):
             gate.execute_integration_cases(commands, self.integration_source(), launch)
@@ -147,12 +148,12 @@ class FinalValidationTest(unittest.TestCase):
         self.assertFalse(result["runs"][1]["passed"])
 
     def test_failed_owned_guest_or_collector_cleanup_prevents_next_guest(self):
-        for failed in ("ownedEmulatorStopped", "ownedLogCollectorStopped"):
+        for failed in ("ownedEmulatorStopped", "ownedLogCollectorStopped", "ownedAdbServerStopped"):
             calls = []
             def launch(case, ordinal, commands):
                 calls.append(ordinal)
                 return {"passed": False, "ownedEmulatorStopped": True,
-                        "ownedLogCollectorStopped": True, failed: False}
+                        "ownedLogCollectorStopped": True, "ownedAdbServerStopped": True, failed: False}
             commands = gate.Commands(self.root / failed)
             with self.subTest(failed=failed), self.assertRaisesRegex(RuntimeError, "cleanup was not proved"):
                 gate.execute_integration_cases(commands, self.integration_source(), launch)
@@ -176,6 +177,7 @@ class FinalValidationTest(unittest.TestCase):
 
     def test_health_rejects_offline_dead_or_unowned_guest_before_tests(self):
         class Process:
+            args = ['emulator', '-avd', 'ChronoSpark_Final_integration_01', '-port', '5554']
             pid = 123
             code = None
             def poll(self):
@@ -193,6 +195,12 @@ class FinalValidationTest(unittest.TestCase):
         process.code = None
         with patch.object(commands, "run", side_effect=["device", "1", "CHRONOSPARK_GUEST_READY"]):
             self.assertTrue(gate.guest_health(commands, ["adb", "-s", "emulator-5554"], process, "healthy")["passed"])
+        process.args[-1] = '5586'
+        with patch.object(commands, "run", side_effect=["device", "1", "CHRONOSPARK_GUEST_READY"]):
+            self.assertTrue(gate.guest_health(commands, ["adb", "-s", "emulator-5586"], process, "isolated")["passed"])
+        with patch.object(commands, "run") as run, self.assertRaisesRegex(RuntimeError, 'unowned'):
+            gate.guest_health(commands, ["adb", "-s", "emulator-5554"], process, "wrong-port")
+        run.assert_not_called()
 
     def png(self):
         def chunk(kind, payload):
