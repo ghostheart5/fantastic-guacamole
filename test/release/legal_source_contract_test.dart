@@ -85,4 +85,55 @@ void main() {
     expect(termsRoute, contains('<h1>Terms of Service</h1>'));
     expect(termsRoute, isNot(contains('url=../terms.html')));
   });
+
+  test(
+    'legal surfaces disclose private billing without promising public access',
+    () {
+      for (final String path in <String>[
+        'web/privacy/index.html',
+        'web/terms/index.html',
+        'web/support/index.html',
+        'web/delete-account/index.html',
+      ]) {
+        final String source = read(path);
+        expect(
+          source,
+          contains('contained public configuration'),
+          reason: path,
+        );
+        expect(source, contains('private internal'), reason: path);
+        expect(source, matches(RegExp(r'credit top-ups?')), reason: path);
+        expect(
+          source,
+          isNot(
+            contains(
+              'Subscriptions are not enabled for the current release candidate',
+            ),
+          ),
+          reason: path,
+        );
+      }
+      for (final String path in <String>[
+        'web/privacy/index.html',
+        'web/terms/index.html',
+        'web/support/index.html',
+      ]) {
+        final String source = read(path);
+        expect(
+          source,
+          contains('Google Play test payment method'),
+          reason: path,
+        );
+        expect(source, contains('Anthropic'), reason: path);
+        expect(source, contains('before confirmation'), reason: path);
+      }
+      for (final String path in <String>[
+        'web/terms/index.html',
+        'web/support/index.html',
+        'web/delete-account/index.html',
+      ]) {
+        expect(read(path), contains('does not cancel'), reason: path);
+      }
+    },
+  );
 }
