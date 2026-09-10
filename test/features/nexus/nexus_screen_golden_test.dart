@@ -213,6 +213,28 @@ void main() {
     });
   });
 
+  testWidgets('latest activity renders persisted UTC in the local clock', (
+    WidgetTester tester,
+  ) async {
+    final DateTime now = DateTime.now();
+    final DateTime local = DateTime(now.year, now.month, now.day, 15, 57);
+    await pumpNexusScreen(
+      tester,
+      width: 500,
+      timeline: [
+        TimelineEventEntity(
+          id: 'utc-note-clock-regression',
+          type: TimelineEventType.noteCreated,
+          title: 'Clock regression note',
+          detail: 'Saved at 3:57 PM local time',
+          timestamp: local.toUtc(),
+        ),
+      ],
+    );
+    expect(find.text('Today · 3:57 PM'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'sign-out cleanup StateError shows retry and preserves the signed-in account',
     (tester) async {

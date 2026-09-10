@@ -531,7 +531,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
 }) {
   final DateTime now = DateTime.now();
   final DateTime today = DateTime(now.year, now.month, now.day);
-  final DateTime tomorrow = today.add(const Duration(days: 1));
+  final DateTime tomorrow = DateTime(now.year, now.month, now.day + 1);
   final List<TimelineEventEntity> newest = List<TimelineEventEntity>.of(events)
     ..sort(
       (TimelineEventEntity first, TimelineEventEntity second) =>
@@ -817,43 +817,13 @@ String _titleCase(String value) {
 }
 
 String _formatDate(DateTime value) {
-  const List<String> months = <String>[
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return '${months[value.month - 1]} ${value.day}';
+  return DateTimeFormats.localMonthDay(value);
 }
 
 String _formatTime(DateTime value) {
-  final int displayHour = value.hour == 0
-      ? 12
-      : value.hour > 12
-      ? value.hour - 12
-      : value.hour;
-  final String minute = value.minute.toString().padLeft(2, '0');
-  return '$displayHour:$minute ${value.hour >= 12 ? 'PM' : 'AM'}';
+  return DateTimeFormats.timelineTime(value);
 }
 
 String _formatDateTime(DateTime value) {
-  final DateTime now = DateTime.now();
-  final DateTime day = DateTime(value.year, value.month, value.day);
-  final DateTime today = DateTime(now.year, now.month, now.day);
-  final int difference = day.difference(today).inDays;
-  final String date = switch (difference) {
-    0 => 'Today',
-    1 => 'Tomorrow',
-    -1 => 'Yesterday',
-    _ => _formatDate(value),
-  };
-  return '$date · ${_formatTime(value)}';
+  return DateTimeFormats.relativeLocalDateTime(value);
 }
