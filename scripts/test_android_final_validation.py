@@ -19,6 +19,28 @@ import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    def test_native_emulator_pin_rejects_corrupt_download_before_extraction(self):
+        commands = gate.Commands(self.root / 'pin-evidence')
+        labels = []
+        def run(label, argv, **kwargs):
+            labels.append(label)
+            if label.startswith('download-'):
+                Path(argv[-1]).write_bytes(b'corrupt download')
+        with patch.dict(os.environ, RUNNER_TEMP=str(self.root)), patch.object(commands, 'run', side_effect=run):
+            with self.assertRaisesRegex(RuntimeError, 'checksum mismatch'):
+                gate.install_native_emulator(commands)
+        self.assertEqual(labels, ['download-pinned-native-emulator'])
+        self.assertFalse((commands.evidence / 'native-emulator-pin.json').exists())
+
+    def test_native_emulator_pin_rejects_wrong_executable_version(self):
+        commands = gate.Commands(self.root / 'pin-evidence')
+        with patch.dict(os.environ, RUNNER_TEMP=str(self.root)), \
+                patch.object(gate, 'digest', return_value=gate.NATIVE_EMULATOR_SHA256), \
+                patch.object(commands, 'run', return_value='37.1.11 build 15917651'):
+            with self.assertRaisesRegex(RuntimeError, 'Unexpected pinned emulator version'):
+                gate.install_native_emulator(commands)
+        self.assertFalse((commands.evidence / 'native-emulator-pin.json').exists())
+
     def test_native_build_preparation_is_compile_only_and_requires_an_apk(self):
         source = self.integration_source()
         commands = gate.Commands(self.root / 'prepare')

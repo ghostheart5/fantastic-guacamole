@@ -70,3 +70,23 @@ This is a resource-contention mitigation to validate, not proof of root cause.
 
 References: [ADB options and diagnostics](https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/docs/user/adb.1.md),
 [ADB server environment routing](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/client/commandline.cpp).
+
+## Follow-up: pinned API 36 host runtime
+
+Run 34428738896 compiled before boot and again passed 14/15 executions. The
+Planner invocation failed before its test started: guest adbd recorded a write
+failure, the host recorded a remote read failure, and DDS startup failed. The
+owned server remained alive; retained kernel output contains no kernel panic.
+The initial compile mitigation did not resolve the intermittent transport loss.
+
+The API 36 lane now uses Google's archived Emulator 36.6.11 build 15507667,
+verified against its published SHA-256 before extraction and its version after
+extraction. It is installed in a new runner-temp directory; the SDK emulator and
+strict 16 KB lane remain unchanged. This isolates the host-runtime version from
+37.1.11, used by the failed runs. It does not assert an upstream regression has
+been proven. The same version passed the local Windows emulator OS/touch check;
+that does not itself establish Linux integration success. All 15 canonical
+executions, fatal/log continuity gates and timeouts remain required.
+
+Published archive: https://developer.android.com/studio/emulator_archive
+Linux SHA-256: 1eade4cf2df6ea8eeead4902c635897ba12aaa32aac4389eaae0fdb498a5b830

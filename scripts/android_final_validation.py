@@ -705,6 +705,30 @@ def execute_integration_cases(commands, source, launch_case):
     return summary
 
 
+NATIVE_EMULATOR_URL = 'https://dl.google.com/android/repository/emulator-linux_x64-15507667.zip'
+NATIVE_EMULATOR_SHA256 = '1eade4cf2df6ea8eeead4902c635897ba12aaa32aac4389eaae0fdb498a5b830'
+
+
+def install_native_emulator(commands):
+    # Keep the SDK and strict-16KB runtime intact. This pin is only for API36
+    # integration guests; verify Google's published archive before extraction.
+    root = Path(os.environ['RUNNER_TEMP']) / 'chronospark-native-emulator-36.6.11'
+    root.mkdir(exist_ok=False)
+    archive = root / 'emulator.zip'
+    commands.run('download-pinned-native-emulator', ['curl', '--fail', '--location', '--silent',
+                 '--show-error', NATIVE_EMULATOR_URL, '--output', str(archive)], timeout=600)
+    actual = digest(archive)
+    require(actual == NATIVE_EMULATOR_SHA256, 'Native emulator archive checksum mismatch')
+    commands.run('extract-pinned-native-emulator', ['unzip', '-q', str(archive), '-d', str(root)], timeout=120)
+    emulator = root / 'emulator/emulator'
+    version = commands.run('pinned-native-emulator-version', [str(emulator), '-version'])
+    require('36.6.11.0' in version and '15507667' in version, 'Unexpected pinned emulator version')
+    write_json(commands.evidence / 'native-emulator-pin.json', {
+        'passed': True, 'url': NATIVE_EMULATOR_URL, 'sha256': actual,
+        'version': version, 'executable': str(emulator), 'sdkEmulatorChanged': False})
+    return emulator
+
+
 def android(mode, source, tooling, evidence):
     commands = Commands(evidence)
     sdk = Path(os.environ["ANDROID_HOME"])
@@ -720,11 +744,13 @@ def android(mode, source, tooling, evidence):
     commands.run("command-line-tools-version", [str(manager / "sdkmanager"), "--version"])
     commands.run("install-sdk-packages", [str(manager / "sdkmanager"), "platform-tools", "emulator",
                   "platforms;android-36", "build-tools;36.0.0", image_id], timeout=900, input_text="y\n" * 100)
-    library_root = sdk / "emulator/lib64"
+    if mode == 'integration':
+        emulator = install_native_emulator(commands)
+    library_root = emulator.parent / 'lib64'
     library_path = os.pathsep.join(str(path) for path in
                                   (library_root, library_root / "qt/lib", library_root / "gles_swiftshader"))
     libraries = commands.run("emulator-dynamic-libraries", ["env", "LD_LIBRARY_PATH=" + library_path,
-                             "ldd", str(sdk / "emulator/qemu/linux-x86_64/qemu-system-x86_64")])
+                             "ldd", str(emulator.parent / 'qemu/linux-x86_64/qemu-system-x86_64')])
     verify_emulator_library_listing(libraries)
     commands.run("emulator-version", [str(emulator), "-version"])
     acceleration = commands.run("acceleration-check", [str(emulator), "-accel-check"])
