@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -25,9 +26,10 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           accountStorageScopeProvider.overrideWithValue(
-            const AccountStorageScope.signedOut(),
+            AccountStorageScope.authenticated('habit-test-user'),
           ),
           domainHabitRepositoryProvider.overrideWithValue(repository),
+          habitOccurrenceCoordinatorProvider.overrideWithValue(null),
           reminderOrchestratorServiceProvider.overrideWithValue(
             ReminderOrchestratorService(
               preferences: _DisabledPreferences(),

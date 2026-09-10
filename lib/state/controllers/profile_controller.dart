@@ -18,7 +18,15 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/streak_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+enum ProfileReadStatus { loading, ready, unavailable }
+
+class ProfileUnavailableException implements Exception {
+  const ProfileUnavailableException();
+}
+
 class ProfileState {
+  /// Read health is transient and is never written into the saved payload.
+  final ProfileReadStatus readStatus;
   final int xp;
   final int level;
   final int streak;
@@ -43,6 +51,7 @@ class ProfileState {
   final int legacyLevelFloor;
 
   ProfileState({
+    this.readStatus = ProfileReadStatus.ready,
     this.xp = 0,
     this.level = 1,
     this.streak = 0,
@@ -56,6 +65,7 @@ class ProfileState {
   });
 
   ProfileState copyWith({
+    ProfileReadStatus? readStatus,
     int? xp,
     int? level,
     int? streak,
@@ -69,6 +79,7 @@ class ProfileState {
     int? legacyLevelFloor,
   }) {
     return ProfileState(
+      readStatus: readStatus ?? this.readStatus,
       xp: xp ?? this.xp,
       level: level ?? this.level,
       streak: streak ?? this.streak,
@@ -181,8 +192,10 @@ class ProfileController extends Notifier<ProfileState> {
         generation: generation,
       ),
     );
-    return ProfileState();
+    return ProfileState(readStatus: ProfileReadStatus.loading);
   }
+
+  void retryLoad() => ref.invalidateSelf();
 
   static const _stateKey = 'profile_state';
   static const _secureStateKey = 'profile_state_v2';
@@ -218,34 +231,49 @@ class ProfileController extends Notifier<ProfileState> {
         await storage.open();
         raw = storage.get(_stateKey);
         if (raw != null) {
+          // Validate before migrating or deleting the only recovery copy.
+          ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
           await runAccountStorageMutation(() async {
+            if (!ref.mounted || generation != _initializationGeneration) return;
             await secureStore.writeString(_secureStateKey, raw!);
             await storage.delete(_stateKey);
           });
         }
       }
-      if (raw == null ||
-          !ref.mounted ||
-          generation != _initializationGeneration) {
-        return;
-      }
-      state = ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      if (!ref.mounted || generation != _initializationGeneration) return;
+      state = raw == null
+          ? ProfileState()
+          : ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (error, stackTrace) {
+      if (!ref.mounted || generation != _initializationGeneration) return;
+      state = state.copyWith(readStatus: ProfileReadStatus.unavailable);
       Logger.errorCategory(
         'ProfileHydration',
-        'Failed to restore the saved profile; keeping safe defaults.',
+        'Failed to restore the saved profile; preserving stored data and blocking edits.',
         error,
         stackTrace,
       );
     }
   }
 
-  Future<void> _ensureInitialized() async {
+  Future<bool> _ensureInitialized() async {
+    final generation = _initializationGeneration;
     final Future<void>? initialization = _initialization;
     if (initialization != null) await initialization;
+    if (!ref.mounted || generation != _initializationGeneration) {
+      return false;
+    }
+    if (state.readStatus != ProfileReadStatus.ready ||
+        !ref.read(accountStorageScopeProvider).isWritable) {
+      throw const ProfileUnavailableException();
+    }
+    return true;
   }
 
   Future<void> _save() {
+    if (state.readStatus != ProfileReadStatus.ready) {
+      throw const ProfileUnavailableException();
+    }
     final SecureStore store = _secureStore;
     final String encoded = jsonEncode(state.toJson());
     final Future<void> operation = _pendingSave.then<void>(
@@ -281,7 +309,7 @@ class ProfileController extends Notifier<ProfileState> {
       );
     }
     if (shouldContinue?.call() == false) return;
-    await _ensureInitialized();
+    if (!await _ensureInitialized()) return;
     if (!ref.mounted || shouldContinue?.call() == false) return;
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
@@ -352,7 +380,7 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   Future<void> updateName(String name) async {
-    await _ensureInitialized();
+    if (!await _ensureInitialized()) return;
     if (!ref.mounted) return;
     state = state.copyWith(
       name: name.trim().isEmpty ? state.name : name.trim(),
@@ -361,14 +389,14 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   Future<void> toggleSound(bool value) async {
-    await _ensureInitialized();
+    if (!await _ensureInitialized()) return;
     if (!ref.mounted) return;
     state = state.copyWith(soundEnabled: value);
     await _save();
   }
 
   Future<void> incrementStreak() async {
-    await _ensureInitialized();
+    if (!await _ensureInitialized()) return;
     if (!ref.mounted) return;
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
@@ -400,7 +428,7 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   Future<void> resetStreak() async {
-    await _ensureInitialized();
+    if (!await _ensureInitialized()) return;
     if (!ref.mounted) return;
     state = state.copyWith(streak: 0, clearLastActiveDate: true);
     await _save();

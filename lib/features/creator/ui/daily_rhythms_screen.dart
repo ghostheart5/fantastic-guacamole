@@ -55,6 +55,15 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     try {
       final String message = await operation(ref.read(habitsProvider.notifier));
       if (_sameAccount(owner)) _message(message);
+    } on RhythmReminderSyncException {
+      if (_sameAccount(owner)) {
+        _message(
+          'Your change was saved, but reminders could not update.',
+          onRetry: () {
+            unawaited(_retryReminders(owner));
+          },
+        );
+      }
     } catch (_) {
       if (_sameAccount(owner)) {
         _message(
@@ -66,10 +75,31 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     }
   }
 
-  void _message(String text) {
+  Future<void> _retryReminders(String owner) async {
+    if (!_sameAccount(owner)) return;
+    try {
+      await ref.read(habitsProvider.notifier).retryReminders();
+      if (_sameAccount(owner)) _message('Reminders updated.');
+    } catch (_) {
+      if (_sameAccount(owner)) {
+        _message(
+          'Reminders are still unavailable. Your saved rhythm has been preserved.',
+        );
+      }
+    }
+  }
+
+  void _message(String text, {VoidCallback? onRetry}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(text),
+          action: onRetry == null
+              ? null
+              : SnackBarAction(label: 'Retry reminders', onPressed: onRetry),
+        ),
+      );
   }
 
   Future<void> _record(String owner, HabitEntity habit, bool complete) =>

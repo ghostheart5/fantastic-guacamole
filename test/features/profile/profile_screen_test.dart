@@ -64,6 +64,23 @@ void main() {
     return container;
   }
 
+  testWidgets('unreadable profile hides default progress and offers retry', (
+    tester,
+  ) async {
+    await pumpProfile(
+      tester,
+      ProfileState(readStatus: ProfileReadStatus.unavailable),
+    );
+    expect(
+      find.textContaining('Your stored progress has been preserved'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry loading profile'), findsOneWidget);
+    expect(find.text('XP'), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('renders for a brand-new account', (WidgetTester tester) async {
     await pumpProfile(tester, ProfileState());
 

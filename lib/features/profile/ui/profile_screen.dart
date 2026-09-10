@@ -81,6 +81,32 @@ class _ProfileBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actions = ref.watch(profileActionsProvider);
     final data = state.profile;
+    final readStatus = ref.watch(
+      profileProvider.select((value) => value.readStatus),
+    );
+    if (readStatus != ProfileReadStatus.ready) {
+      return ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          _ProfileTitle(
+            onOpenSettings: () => goToAppView(context, ref, AppView.settings),
+          ),
+          const SizedBox(height: 24),
+          if (readStatus == ProfileReadStatus.loading)
+            const Center(child: CircularProgressIndicator())
+          else ...[
+            const Text(
+              'Your saved profile could not be loaded. Your stored progress has been preserved. Edits are paused until it can be read.',
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => ref.read(profileProvider.notifier).retryLoad(),
+              child: const Text('Retry loading profile'),
+            ),
+          ],
+        ],
+      );
+    }
     final identity = ref.watch(identityStateProvider);
     final int completedTasks = ref.watch(
       trajectorySummaryProvider.select((summary) => summary.completedTasks),

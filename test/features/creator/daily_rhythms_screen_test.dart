@@ -114,6 +114,28 @@ void main() {
     expect(notifier.completions, 0);
   });
 
+  testWidgets(
+    'saved rhythm with failed reminders offers a reminder-only retry',
+    (tester) async {
+      await open(tester);
+      notifier.failReminders = true;
+      await tester.tap(find.text('Pause'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Your change was saved, but reminders could not update.'),
+        findsOneWidget,
+      );
+      expect(find.text('Retry reminders'), findsOneWidget);
+      expect(find.text('Resume'), findsOneWidget);
+      expect(find.textContaining('Could not save'), findsNothing);
+      await tester.tap(find.text('Retry reminders'));
+      await tester.pumpAndSettle();
+      expect(notifier.reminderRetries, 1);
+      expect(find.text('Reminders updated.'), findsOneWidget);
+      expect(find.text('Resume'), findsOneWidget);
+    },
+  );
+
   testWidgets('pause disables outcomes and resume restores controls', (
     tester,
   ) async {
@@ -247,6 +269,13 @@ HabitOccurrenceEntity _outcome(HabitOccurrenceOutcome outcome) =>
     );
 
 class _Rhythms extends HabitsNotifier {
+  bool failReminders = false;
+  int reminderRetries = 0;
+  @override
+  Future<void> retryReminders() async {
+    reminderRetries++;
+  }
+
   _Rhythms(this.outcomes);
   final List<HabitOccurrenceEntity> outcomes;
   int completions = 0;
@@ -297,6 +326,7 @@ class _Rhythms extends HabitsNotifier {
         status: value.active ? HabitStatus.paused : HabitStatus.active,
       ),
     ]);
+    if (failReminders) throw RhythmReminderSyncException();
   }
 
   @override

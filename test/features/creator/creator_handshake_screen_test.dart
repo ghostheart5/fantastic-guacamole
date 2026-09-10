@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
@@ -41,6 +42,8 @@ void main() {
     final repository = _ScreenTaskRepository();
     final container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('planner-duration-screen-test'),
         ),
@@ -124,6 +127,8 @@ void main() {
     final _ScreenTaskRepository repository = _ScreenTaskRepository();
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('creator-screen-test'),
         ),
@@ -231,6 +236,8 @@ void main() {
     final _ScreenTaskRepository repository = _ScreenTaskRepository();
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('creator-screen-test'),
         ),
@@ -295,6 +302,8 @@ void main() {
     final _ScreenTaskRepository repository = _ScreenTaskRepository();
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(accountScope),
         domainTaskRepositoryProvider.overrideWithValue(repository),
         domainGoalRepositoryProvider.overrideWithValue(
@@ -390,6 +399,8 @@ void main() {
     addTearDown(tester.view.reset);
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('creator-note-screen-test'),
         ),
@@ -451,6 +462,8 @@ void main() {
       final _ScreenTaskRepository repository = _ScreenTaskRepository();
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          // Keep Person Context storage deterministic; no platform channel in a widget test.
+          sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
           accountStorageScopeProvider.overrideWithValue(
             AccountStorageScope.authenticated('guided-creator-screen-test'),
           ),
@@ -587,4 +600,26 @@ class _ScreenNoteRepository implements INoteRepository {
 
   @override
   Future<void> saveNote(NoteEntity note) async {}
+}
+
+class _ScreenPreferences implements SharedPrefsStore {
+  final values = <String, String>{};
+  @override
+  Future<void> init() async {}
+  @override
+  String? load(String key) => values[key];
+  @override
+  Future<void> save(String key, String value) async {
+    values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    values.remove(key);
+  }
+
+  @override
+  Future<void> clear() async {
+    values.clear();
+  }
 }

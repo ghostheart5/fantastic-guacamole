@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+import 'package:fantastic_guacamole/state/providers/account_operation.dart';
+
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
@@ -47,9 +50,13 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
   int _proposalSequence = 0;
   bool _confirmationInFlight = false;
   bool _undoInFlight = false;
+  int _buildGeneration = 0;
 
   @override
   CreatorHandshakeState build() {
+    _buildGeneration++;
+    _confirmationInFlight = false;
+    _undoInFlight = false;
     ref.listen<PersonContextView?>(
       personContextForSurfaceProvider(_creatorPersonContextRequest),
       (PersonContextView? previous, PersonContextView? next) {
@@ -77,9 +84,23 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     required CreatorFormData data,
     CreatorHandshakeSource source = CreatorHandshakeSource.creator,
   }) async {
+    final owner = AccountOperation.capture(ref);
+    try {
+      return await _stageOnce(owner, data: data, source: source);
+    } on StaleAccountOperation {
+      return const CreatorHandshakeState();
+    }
+  }
+
+  Future<CreatorHandshakeState> _stageOnce(
+    AccountOperation owner, {
+    required CreatorFormData data,
+    required CreatorHandshakeSource source,
+  }) async {
+    owner.check();
     final String account = _verifiedAccountScopeId();
     final DateTime now = _now();
-    final String revision = await _domainRevision();
+    final String revision = await owner.wait(_domainRevision(owner));
     final PersonContextView? personContext = _creatorPersonContext(account);
     final int sequence = _proposalSequence++;
     final String proposalSeed = creatorHandshakeDigest(<String, Object?>{
@@ -179,14 +200,28 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
   Future<CreatorHandshakeState> confirm() async {
     if (_confirmationInFlight) return state;
     _confirmationInFlight = true;
+    final owner = AccountOperation.capture(ref);
+    final buildGeneration = _buildGeneration;
+    final reviewed = state;
     try {
-      return await _confirmOnce();
+      return await runAccountStorageMutation(
+        () => _confirmOnce(owner, reviewed),
+      );
+    } on StaleAccountOperation {
+      // The old operation must not publish a result into the new account.
+      return const CreatorHandshakeState();
     } finally {
-      _confirmationInFlight = false;
+      if (buildGeneration == _buildGeneration) _confirmationInFlight = false;
     }
   }
 
-  Future<CreatorHandshakeState> _confirmOnce() async {
+  Future<CreatorHandshakeState> _confirmOnce(
+    AccountOperation owner,
+    CreatorHandshakeState reviewed,
+  ) async {
+    owner.check();
+    // A queued click authorizes only the preview/receipt visible at that click.
+    if (!identical(state, reviewed)) return state;
     if (state.receipt != null) {
       if (state.phase == CreatorHandshakePhase.undone) {
         return state;
@@ -223,6 +258,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     if (preview.isExpiredAt(now)) {
       return _refreshPreview(
         preview,
+        owner: owner,
         phase: CreatorHandshakePhase.expired,
         message:
             'Confirmation expired. The preview was refreshed; review it again. Nothing was saved.',
@@ -245,13 +281,14 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       return _rejectStalePersonContext();
     }
 
-    final String currentRevision = await _domainRevision();
+    final String currentRevision = await owner.wait(_domainRevision(owner));
     if (!_personContextBindingIsCurrent(preview, account)) {
       return _rejectStalePersonContext();
     }
     if (currentRevision != preview.baseDomainRevision) {
       return _refreshPreview(
         preview,
+        owner: owner,
         phase: CreatorHandshakePhase.stale,
         revision: currentRevision,
         message:
@@ -264,7 +301,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       message: 'Applying only the selected, confirmed operation…',
     );
 
-    final Map<String, Map<String, Object?>> ledger = await _readLedger(account);
+    final Map<String, Map<String, Object?>> ledger = await owner.wait(
+      _readLedger(account),
+    );
     final List<CreatorMutationOperation> toCreate =
         <CreatorMutationOperation>[];
     final List<String> taskIds = <String>[];
@@ -294,7 +333,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         }
         continue;
       }
-      final Object? existing = await _readExisting(operation);
+      final Object? existing = await owner.wait(
+        _readExisting(operation, owner),
+      );
       if (existing != null) {
         if (!_matchesMutation(existing, operation)) {
           state = state.copyWith(
@@ -320,7 +361,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         if (!_personContextBindingIsCurrent(preview, account)) {
           return _rejectStalePersonContext();
         }
-        await _applyCreate(operation);
+        await owner.wait(_applyCreate(operation, owner));
         if (operation.entityKind == CreatorEntityKind.task) {
           _bestEffort(
             () => ref.read(localMetricsAccumulatorProvider).recordTaskCreated(),
@@ -333,6 +374,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         );
       }
     } on Object {
+      owner.check();
       state = state.copyWith(
         phase: CreatorHandshakePhase.failed,
         message:
@@ -341,9 +383,11 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       return state;
     }
 
-    await _bestEffort(() => _writeLedger(account, ledger));
-    await _bestEffort(() => _recordGuidanceMilestones(preview));
-    final String resultingRevision = await _domainRevision();
+    await owner.wait(_bestEffort(() => _writeLedger(account, ledger)));
+    await owner.wait(
+      _bestEffort(() => _recordGuidanceMilestones(preview, owner)),
+    );
+    final String resultingRevision = await owner.wait(_domainRevision(owner));
     final CreatorHandshakeReceipt receipt = CreatorHandshakeReceipt(
       proposalId: preview.proposalId,
       accountScopeId: account,
@@ -372,14 +416,26 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
   Future<CreatorHandshakeState> undo() async {
     if (_undoInFlight) return state;
     _undoInFlight = true;
+    final owner = AccountOperation.capture(ref);
+    final buildGeneration = _buildGeneration;
+    final reviewed = state;
     try {
-      return await _undoOnce();
+      return await runAccountStorageMutation(() => _undoOnce(owner, reviewed));
+    } on StaleAccountOperation {
+      // The old operation must not publish a result into the new account.
+      return const CreatorHandshakeState();
     } finally {
-      _undoInFlight = false;
+      if (buildGeneration == _buildGeneration) _undoInFlight = false;
     }
   }
 
-  Future<CreatorHandshakeState> _undoOnce() async {
+  Future<CreatorHandshakeState> _undoOnce(
+    AccountOperation owner,
+    CreatorHandshakeState reviewed,
+  ) async {
+    owner.check();
+    // A queued click authorizes only the preview/receipt visible at that click.
+    if (!identical(state, reviewed)) return state;
     final CreatorHandshakeReceipt? receipt = state.receipt;
     final CreatorHandshakePreview? preview = state.preview;
     if (receipt == null || preview == null) return state;
@@ -410,7 +466,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       return state;
     }
 
-    final Map<String, Map<String, Object?>> ledger = await _readLedger(account);
+    final Map<String, Map<String, Object?>> ledger = await owner.wait(
+      _readLedger(account),
+    );
     for (final CreatorMutationOperation operation
         in preview.selectedOperations) {
       final Map<String, Object?>? recorded = ledger[operation.operationId];
@@ -422,7 +480,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         );
         return state;
       }
-      final Object? existing = await _readExisting(operation);
+      final Object? existing = await owner.wait(
+        _readExisting(operation, owner),
+      );
       if (existing == null) {
         ledger[operation.operationId] = _ledgerEntry(
           operation,
@@ -444,9 +504,11 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     try {
       for (final CreatorMutationOperation operation
           in preview.selectedOperations) {
-        final Object? existing = await _readExisting(operation);
+        final Object? existing = await owner.wait(
+          _readExisting(operation, owner),
+        );
         if (existing != null) {
-          await _applyDelete(operation);
+          await owner.wait(_applyDelete(operation, owner));
         }
         ledger[operation.operationId] = _ledgerEntry(
           operation,
@@ -455,6 +517,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         );
       }
     } on Object {
+      owner.check();
       state = state.copyWith(
         phase: CreatorHandshakePhase.failed,
         message:
@@ -462,7 +525,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       );
       return state;
     }
-    await _bestEffort(() => _writeLedger(account, ledger));
+    await owner.wait(_bestEffort(() => _writeLedger(account, ledger)));
     _invalidateDomains(preview.selectedOperations);
     state = state.copyWith(
       phase: CreatorHandshakePhase.undone,
@@ -474,13 +537,14 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
 
   Future<CreatorHandshakeState> _refreshPreview(
     CreatorHandshakePreview preview, {
+    required AccountOperation owner,
     required CreatorHandshakePhase phase,
     required String message,
     String? revision,
   }) async {
     final DateTime now = _now();
     final CreatorHandshakePreview refreshed = preview.copyWith(
-      baseDomainRevision: revision ?? await _domainRevision(),
+      baseDomainRevision: revision ?? await owner.wait(_domainRevision(owner)),
       createdAt: now,
       expiresAt: now.add(confirmationLifetime),
     );
@@ -730,7 +794,11 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         updatedAt: mutation.createdAt,
       );
 
-  Future<Object?> _readExisting(CreatorMutationOperation operation) async {
+  Future<Object?> _readExisting(
+    CreatorMutationOperation operation,
+    AccountOperation owner,
+  ) async {
+    owner.check();
     switch (operation.mutation) {
       case final CreatorTaskMutation mutation:
         return ref
@@ -756,7 +824,11 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     }
   }
 
-  Future<void> _applyCreate(CreatorMutationOperation operation) async {
+  Future<void> _applyCreate(
+    CreatorMutationOperation operation,
+    AccountOperation owner,
+  ) async {
+    owner.check();
     switch (operation.mutation) {
       case final CreatorTaskMutation mutation:
         final TaskEntity task = _taskEntityFromMutation(mutation);
@@ -774,6 +846,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         final List<HabitEntity> current = await ref
             .read(domainHabitRepositoryProvider)
             .getHabits();
+        owner.check();
         await ref.read(saveHabitsUseCaseProvider).call(<HabitEntity>[
           _habitEntityFromMutation(mutation),
           ...current,
@@ -797,7 +870,11 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     }
   }
 
-  Future<void> _applyDelete(CreatorMutationOperation operation) async {
+  Future<void> _applyDelete(
+    CreatorMutationOperation operation,
+    AccountOperation owner,
+  ) async {
+    owner.check();
     switch (operation.mutation) {
       case final CreatorTaskMutation mutation:
         await ref.read(deleteTaskUseCaseProvider).call(mutation.taskId);
@@ -809,6 +886,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         final List<HabitEntity> current = await ref
             .read(domainHabitRepositoryProvider)
             .getHabits();
+        owner.check();
         await ref
             .read(deleteHabitUseCaseProvider)
             .call(current: current, id: mutation.habitId);
@@ -967,19 +1045,23 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     }
   }
 
-  Future<String> _domainRevision() async {
+  Future<String> _domainRevision(AccountOperation owner) async {
+    owner.check();
     final List<TaskEntity> tasks = List<TaskEntity>.of(
       await ref.read(domainTaskRepositoryProvider).getAllTasks(),
     );
+    owner.check();
     final List<GoalEntity> goals = List<GoalEntity>.of(
       ref.read(domainGoalRepositoryProvider).getGoals(),
     );
     final List<HabitEntity> habits = List<HabitEntity>.of(
       await ref.read(domainHabitRepositoryProvider).getHabits(),
     );
+    owner.check();
     final List<NoteEntity> notes = List<NoteEntity>.of(
       await ref.read(domainNoteRepositoryProvider).getNotes(),
     );
+    owner.check();
     tasks.sort(
       (TaskEntity left, TaskEntity right) => left.id.compareTo(right.id),
     );
@@ -1109,16 +1191,26 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
 
   Future<void> _recordGuidanceMilestones(
     CreatorHandshakePreview preview,
+    AccountOperation owner,
   ) async {
+    owner.check();
     final AdaptiveGuidanceNotifier guidance = ref.read(
       adaptiveGuidanceProvider.notifier,
     );
-    await guidance.recordIfMissing(GuidanceMilestone.firstItem);
+    await owner.wait(
+      guidance.recordIfMissing(
+        GuidanceMilestone.firstItem,
+        shouldContinue: () => owner.isCurrent,
+      ),
+    );
     if (preview.selectedOperations.any(
       (CreatorMutationOperation operation) =>
           operation.taskMutation?.scheduledFor != null,
     )) {
-      await guidance.recordIfMissing(GuidanceMilestone.firstSchedule);
+      await guidance.recordIfMissing(
+        GuidanceMilestone.firstSchedule,
+        shouldContinue: () => owner.isCurrent,
+      );
     }
   }
 

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/providers/account_operation.dart';
 import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
@@ -30,6 +31,10 @@ class NotesNotifier extends AsyncNotifier<List<NoteEntity>> {
     String? outcomeId,
     String? userId,
   }) async {
+    final owner = AccountOperation.capture(ref);
+    owner.check();
+    // Bind the supporting writer before waiting for canonical persistence.
+    final projection = ref.read(noteTimelineAdapterProvider);
     final NoteEntity? note = await ref
         .read(createNoteUseCaseProvider)
         .call(
@@ -43,9 +48,13 @@ class NotesNotifier extends AsyncNotifier<List<NoteEntity>> {
           outcomeId: outcomeId,
           userId: userId,
         );
-    if (note == null) return;
+    if (note == null || !owner.isCurrent) return;
     state = AsyncData(<NoteEntity>[note, ..._current]);
-    await _project(note, NoteTimelineMutation.created);
+    try {
+      await projection.record(note, NoteTimelineMutation.created);
+    } on Object {
+      // The note is already saved in the captured account.
+    }
   }
 
   Future<void> updateNote(NoteEntity note) async {
@@ -136,5 +145,5 @@ class NotesNotifier extends AsyncNotifier<List<NoteEntity>> {
 }
 
 final noteTimelineAdapterProvider = Provider<NoteTimelineAdapter>((Ref ref) {
-  return NoteTimelineAdapter(ref.read(timelineRepositoryProvider));
+  return NoteTimelineAdapter(ref.watch(timelineRepositoryProvider));
 });
