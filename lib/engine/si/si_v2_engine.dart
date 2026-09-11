@@ -4,6 +4,12 @@ import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 final class SIV2Engine {
   const SIV2Engine();
 
+  /// Record lists and unsupported questions must retain their own response
+  /// instead of receiving the Home decision's unrelated recommendation.
+  bool allowsSharedDecisionFor(SIV2Query query) =>
+      !query.requestsListing &&
+      _SIV2Question.parse(query).focus != _SIV2QuestionFocus.unsupported;
+
   SIV2Response analyze({
     required SIV2Query query,
     required SIV2EvidenceSnapshot snapshot,

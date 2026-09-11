@@ -178,15 +178,16 @@ final class SIV2QueryService implements SIV2QueryPort {
       snapshot: snapshot,
       now: now,
     );
-    final OperatingDecisionReceipt? sharedDecision = await readDecisionReceipt
-        ?.call();
+    final OperatingDecisionReceipt? sharedDecision =
+        engine.allowsSharedDecisionFor(query)
+        ? await readDecisionReceipt?.call()
+        : null;
     final Set<String> siContextSignalIds =
         snapshot.personContext?.signals
             .map((SIV2PersonContextSignalEvidence signal) => signal.id)
             .toSet() ??
         const <String>{};
-    if (!query.requestsListing &&
-        sharedDecision != null &&
+    if (sharedDecision != null &&
         (sharedDecision.personContextAppliedSignalIds.isEmpty ||
             siContextSignalIds.containsAll(
               sharedDecision.personContextAppliedSignalIds,
