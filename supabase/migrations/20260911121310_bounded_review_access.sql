@@ -72,6 +72,16 @@ $function$
 ;
 
 -- Explicit account-bound reviewer access; no Google purchase record is created.
+-- The service role cannot read auth.users directly. Expose only this boolean,
+-- not credentials or an expanded table grant, through a service-only helper.
+create function public.is_confirmed_review_account(p_user_id uuid)
+returns boolean language sql stable security definer set search_path='' as $identity$
+  select exists(select 1 from auth.users where id=p_user_id
+    and email_confirmed_at is not null and not coalesce(is_anonymous,false));
+$identity$;
+revoke all on function public.is_confirmed_review_account(uuid) from public,anon,authenticated;
+grant execute on function public.is_confirmed_review_account(uuid) to service_role;
+
 create function public.grant_complimentary_review_access(
   p_user_id uuid, p_review_key text, p_credits integer, p_expires_at timestamptz
 ) returns jsonb language plpgsql security invoker set search_path='' as $grant$
@@ -99,8 +109,7 @@ begin
     return jsonb_build_object('duplicate',true,'creditsGranted',0,
       'expiresAt',v_event.expires_at,'reviewKey',p_review_key);
   end if;
-  if not exists(select 1 from auth.users where id=p_user_id
-    and email_confirmed_at is not null and not coalesce(is_anonymous,false)) then
+  if not public.is_confirmed_review_account(p_user_id) then
     raise exception 'confirmed nonanonymous reviewer required';
   end if;
   v_principal:=public.ensure_billing_principal(p_user_id);

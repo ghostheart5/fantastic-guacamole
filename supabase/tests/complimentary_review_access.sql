@@ -17,6 +17,9 @@ begin
   assert not has_function_privilege('anon','public.grant_complimentary_review_access(uuid,text,integer,timestamptz)','execute'), 'anonymous cannot self-grant';
   assert not has_function_privilege('authenticated','public.grant_complimentary_review_access(uuid,text,integer,timestamptz)','execute'), 'signed-in clients cannot self-grant';
   assert has_function_privilege('service_role','public.grant_complimentary_review_access(uuid,text,integer,timestamptz)','execute'), 'service authority can grant';
+  assert not has_function_privilege('authenticated','public.is_confirmed_review_account(uuid)','execute'),'clients cannot probe reviewer identities';
+  assert not has_function_privilege('anon','public.is_confirmed_review_account(uuid)','execute'),'anonymous cannot probe reviewer identities';
+  assert public.is_confirmed_review_account(a) and not public.is_confirmed_review_account(c),'identity helper returns only confirmed eligibility';
   rejected:=false;
   begin perform public.grant_complimentary_review_access(c,'review:unconfirmed',300,grant_expiry);
   exception when raise_exception then rejected:=true; end;
