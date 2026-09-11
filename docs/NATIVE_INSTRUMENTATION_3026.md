@@ -36,3 +36,9 @@ References:
 
 Local adversarial runner/provenance/cleanup validation: 67 tests passed.
 Hosted execution remains required before accepting this repair.
+
+Run `34609928003` rejected the first harness during compilation: AndroidX
+runner1.7.0/rules1.7.0 conflicted with AGP's consistent-resolution constraints
+from Flutter's existing debug runtime (runner1.3.0/rules1.2.0). The harness now
+uses those already-resolved versions, preserving the app runtime graph. That
+failed preparation ran no application tests and supplies no native pass.

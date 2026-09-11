@@ -11,8 +11,12 @@ gradle.beforeProject { project ->
             }
             project.android.defaultConfig.testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
             project.android.sourceSets.getByName('androidTest').java.srcDir(source)
-            project.dependencies.add('androidTestImplementation', 'androidx.test:runner:1.7.0')
-            project.dependencies.add('androidTestImplementation', 'androidx.test:rules:1.7.0')
+            // Match integration_test's existing main debug runtime graph.
+            // AGP consistently resolves androidTest against that graph; adding
+            // newer versions only to androidTest creates an unsatisfiable
+            // strict constraint and must not silently upgrade the app graph.
+            project.dependencies.add('androidTestImplementation', 'androidx.test:runner:1.3.0')
+            project.dependencies.add('androidTestImplementation', 'androidx.test:rules:1.2.0')
         }
     }
 }
