@@ -171,7 +171,7 @@ final class SIV2QueryService implements SIV2QueryPort {
     _requireSiEmotionalSafetyRoute(query.conversationText);
     final DateTime now = clock().toUtc();
     final SIV2EvidenceSnapshot snapshot =
-        await readEvidenceForDecision?.call(now, query.conversationText) ??
+        await readEvidenceForDecision?.call(now, query.decisionContextText) ??
         await readEvidence(now);
     SIV2Response response = engine.analyze(
       query: query,
@@ -185,7 +185,8 @@ final class SIV2QueryService implements SIV2QueryPort {
             .map((SIV2PersonContextSignalEvidence signal) => signal.id)
             .toSet() ??
         const <String>{};
-    if (sharedDecision != null &&
+    if (!query.requestsListing &&
+        sharedDecision != null &&
         (sharedDecision.personContextAppliedSignalIds.isEmpty ||
             siContextSignalIds.containsAll(
               sharedDecision.personContextAppliedSignalIds,

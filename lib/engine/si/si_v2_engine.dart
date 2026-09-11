@@ -113,7 +113,7 @@ final class SIV2Engine {
         (SIV2PersonContextSignalEvidence signal) => SIV2Statement(
           kind: SIV2StatementKind.userReportedEvidence,
           text:
-              'User reported ${signal.kind.name}: ${signal.userReportedValue}. This is relevant context, not independently verified fact.',
+              'User reported ${signal.kind.name}: ${_sentence(signal.userReportedValue)} This is relevant context, not independently verified fact.',
           evidenceIds: <String>['person-context:${signal.id}'],
         ),
       ),
@@ -825,6 +825,22 @@ final class SIV2Engine {
             ? 'No evidence gaps were identified in the selected lens.'
             : 'The selected lens has these missing or conflicting items: ${missingInformation.join(' ')}';
       case _SIV2QuestionFocus.overview:
+        if (question.requestsListing) {
+          final List<String> titles = switch (question.sourceHint) {
+            SIV2Source.goals => goals.map((item) => item.title).toList(),
+            SIV2Source.tasks => tasks.map((item) => item.title).toList(),
+            SIV2Source.milestones =>
+              milestones.map((item) => item.title).toList(),
+            _ => const <String>[],
+          };
+          final String label = question.sourceHint?.name ?? 'items';
+          if (titles.isEmpty) {
+            return 'No saved $label match the current evidence lens.';
+          }
+          return '${titles.length} saved $label match the current evidence lens:\n'
+              '${titles.take(20).map((title) => '\u2022 $title').join('\n')}'
+              '${titles.length > 20 ? '\nShowing the first 20; narrow the lens to inspect the rest.' : ''}';
+        }
         if (focusTask != null && question.titleScore(focusTask.title) > 0) {
           return 'Your question most closely matches saved task "${focusTask.title}", recorded at priority ${focusTask.priority}/5 with ${_timingLabel(focusTask.dueDate ?? focusTask.scheduledFor, now)}.';
         }
@@ -880,6 +896,9 @@ final class SIV2Engine {
       case _SIV2QuestionFocus.forecast:
       case _SIV2QuestionFocus.counterfactual:
       case _SIV2QuestionFocus.overview:
+        if (question.requestsListing) {
+          return 'Review the listed saved records; narrow the evidence lens if needed.$noMutation';
+        }
         break;
     }
     if (focusTask != null) {
@@ -1047,7 +1066,18 @@ final class SIV2Engine {
           right.targetDate ?? _farFuture,
         );
       });
-    return '"${ranked[0].title}" ranks ahead of "${ranked[1].title}" for this question because its recorded target is ${_targetLabel(ranked[0].targetDate, now)} versus ${_targetLabel(ranked[1].targetDate, now)}.';
+    final SIV2GoalEvidence first = ranked[0];
+    final SIV2GoalEvidence second = ranked[1];
+    if (question.titleScore(first.title) != question.titleScore(second.title)) {
+      return '"${first.title}" ranks ahead of "${second.title}" because its title more closely matches this question. Recorded targets: ${_targetLabel(first.targetDate, now)} versus ${_targetLabel(second.targetDate, now)}; dates did not decide this ordering.';
+    }
+    if ((first.targetDate ?? _farFuture).compareTo(
+          second.targetDate ?? _farFuture,
+        ) !=
+        0) {
+      return '"${first.title}" ranks ahead of "${second.title}" because title relevance is tied and its recorded target is ${_targetLabel(first.targetDate, now)} versus ${_targetLabel(second.targetDate, now)}.';
+    }
+    return '"${first.title}" and "${second.title}" are tied on title relevance and recorded targets (${_targetLabel(first.targetDate, now)}). These signals do not establish a higher priority for either goal.';
   }
 
   SIV2Conflict? _relevantConflict(
@@ -1199,18 +1229,24 @@ final class _SIV2Question {
     required this.currentTerms,
     required this.priorTerms,
     required this.hasPriorContext,
+    required this.requestsListing,
   });
 
   factory _SIV2Question.parse(SIV2Query query) {
     final String current = _normalizeQuestion(query.rawText);
-    final String prior = _normalizeQuestion(query.priorUserTurns.join(' '));
+    final String prior = query.usesPriorDecisionContext
+        ? _normalizeQuestion(query.priorUserTurns.join(' '))
+        : '';
     final String filter = _normalizeQuestion(query.entityFilter ?? '');
     return _SIV2Question(
-      focus: _focusFor(current, query.intent),
+      focus: query.requestsListing
+          ? _SIV2QuestionFocus.overview
+          : _focusFor(current, query.intent),
       sourceHint: _sourceFor(current) ?? _sourceFor('$prior $filter'.trim()),
       currentTerms: _questionTerms('$current $filter'),
       priorTerms: _questionTerms(prior),
-      hasPriorContext: query.priorUserTurns.isNotEmpty,
+      hasPriorContext: query.usesPriorDecisionContext,
+      requestsListing: query.requestsListing,
     );
   }
 
@@ -1219,6 +1255,7 @@ final class _SIV2Question {
   final Set<String> currentTerms;
   final Set<String> priorTerms;
   final bool hasPriorContext;
+  final bool requestsListing;
 
   int titleScore(String title) {
     final Set<String> titleTerms = _questionTokens(title);
@@ -1489,6 +1526,11 @@ String _normalizeQuestion(String value) => value
     .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
     .replaceAll(RegExp(r'\s+'), ' ')
     .trim();
+
+String _sentence(String value) {
+  final String trimmed = value.trimRight();
+  return RegExp(r'[.!?]$').hasMatch(trimmed) ? trimmed : '$trimmed.';
+}
 
 Set<String> _questionTerms(String input) => _questionTokens(
   input,

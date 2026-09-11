@@ -169,6 +169,23 @@ final class SIV2Query {
   final List<String> priorUserTurns;
 
   String get conversationText => <String>[...priorUserTurns, rawText].join(' ');
+
+  /// Only referential follow-ups inherit planning relevance. Safety screening
+  /// continues to use the entire recent conversation independently.
+  bool get usesPriorDecisionContext =>
+      priorUserTurns.isNotEmpty &&
+      RegExp(
+        r'^(why|how so|why is that|why that one|what about that|what about it|what next|what should i do next|explain that|explain it|what happens if i defer (it|that|this))\s*[?!.]*$',
+        caseSensitive: false,
+      ).hasMatch(rawText);
+
+  String get decisionContextText =>
+      usesPriorDecisionContext ? conversationText : rawText;
+
+  bool get requestsListing => RegExp(
+    r'^(list|show|what are)\s+(all\s+)?(my\s+)?(active\s+|saved\s+)?(goals|tasks|milestones)\s*[?!.]*$',
+    caseSensitive: false,
+  ).hasMatch(rawText);
 }
 
 final class SIV2TaskEvidence {
