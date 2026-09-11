@@ -169,7 +169,7 @@ void main() {
     container.invalidate(paywallConfigProvider);
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    refresh!.complete(_twoPlanConfig);
+    refresh.complete(_twoPlanConfig);
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(position(), closeTo(before, 1));
