@@ -916,6 +916,38 @@ def prepare_integration_kvm(commands, emulator):
         write_json(commands.evidence / "kvm-preparation.json", receipt)
 
 
+def prepare_fixture_guest(commands, adb, process):
+    """Settle first-boot work before the offline, dependency-injected matrix.
+
+    This is preparation on a new owned guest, never reconnection or a test retry.
+    Real network, billing and signed-release checks use separate validation lanes.
+    """
+    receipt = {"passed": False, "samples": [], "applicationTestsExecuted": 0,
+               "networkBoundary": "Offline fixture matrix only; no signed-release or live-service claim."}
+    try:
+        commands.run("fixture-wifi-off", adb + ["shell", "svc", "wifi", "disable"])
+        commands.run("fixture-mobile-data-off", adb + ["shell", "svc", "data", "disable"])
+        require(commands.run("fixture-wifi-readback", adb + ["shell", "settings", "get", "global", "wifi_on"]) == "0",
+                "Fixture Wi-Fi isolation did not apply")
+        require(commands.run("fixture-data-readback", adb + ["shell", "settings", "get", "global", "mobile_data"]) == "0",
+                "Fixture mobile data isolation did not apply")
+        # sys.boot_completed precedes GMS/package initialization on a fresh image.
+        # Retain a bounded continuous preparation window instead of racing it.
+        for index in range(7):
+            if index:
+                time.sleep(10)
+            guest_health(commands, adb, process, f"fixture-settle-health-{index}")
+            guest_memory = commands.run(f"fixture-memory-{index}", adb + ["shell", "cat", "/proc/meminfo"])
+            host_memory = Path("/proc/meminfo").read_text()
+            receipt["samples"].append({"index": index, "monotonic": time.monotonic(),
+                                       "guestMemory": guest_memory, "hostMemory": host_memory,
+                                       "hostLoad": Path("/proc/loadavg").read_text().strip()})
+        receipt["passed"] = True
+        return receipt
+    finally:
+        write_json(commands.evidence / "fixture-preparation.json", receipt)
+
+
 def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator, image_id, properties,
                         *, case=None, ordinal=None, shared_user_home=None, adb_executable=None):
     suffix = mode + (f"-{ordinal:02d}" if ordinal is not None else "")
@@ -979,6 +1011,7 @@ def owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator,
             commands.run("dismiss-keyguard", adb + ["shell", "wm", "dismiss-keyguard"])
             if mode == "integration":
                 adb_server.assert_alive()
+                result["fixturePreparation"] = prepare_fixture_guest(commands, adb, process)
                 result["integrationInvoked"] = True
                 result["ownedLogCollectorStopped"] = False
                 result.update(integration(commands, source, adb, process, case))

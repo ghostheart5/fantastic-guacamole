@@ -19,6 +19,36 @@ import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    def test_fixture_preparation_rejects_failed_isolation_and_any_transport_gap(self):
+        for failing_step in ('fixture-wifi-readback', 'fixture-data-readback', 'fixture-settle-health-3', None):
+            with tempfile.TemporaryDirectory() as directory:
+                commands = gate.Commands(directory)
+                health = []
+                def run(label, argv, **kwargs):
+                    if label.endswith('readback'):
+                        return '1' if label == failing_step else '0'
+                    return 'MemAvailable: 1024000 kB'
+                def sample(commands, adb, process, label):
+                    health.append(label)
+                    if label == failing_step:
+                        raise RuntimeError('device offline')
+                with patch.object(commands, 'run', side_effect=run), \
+                        patch.object(gate, 'guest_health', side_effect=sample), \
+                        patch.object(gate.time, 'sleep'), \
+                        patch.object(Path, 'read_text', return_value='fixture host resource record'):
+                    if failing_step is None:
+                        result = gate.prepare_fixture_guest(commands, ['adb'], None)
+                        self.assertTrue(result['passed'])
+                        self.assertEqual(len(result['samples']), 7)
+                    else:
+                        with self.assertRaises(RuntimeError):
+                            gate.prepare_fixture_guest(commands, ['adb'], None)
+                receipt = gate.read_json(Path(directory) / 'fixture-preparation.json')
+                self.assertEqual(receipt['passed'], failing_step is None)
+                self.assertEqual(receipt['applicationTestsExecuted'], 0)
+                if failing_step == 'fixture-settle-health-3':
+                    self.assertEqual(len(health), 4)  # No reconnect or repeated health attempt.
+
     def test_adbd_restart_requires_actual_root_and_rejects_other_failures(self):
         cases = [(0, 'restarting adbd as root', '0', True),
                  (1, 'adb: unable to connect for root: closed', '0', True),
