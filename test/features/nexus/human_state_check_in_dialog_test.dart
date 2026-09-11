@@ -85,10 +85,10 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(container.read(siStateProvider).fatigue, .7);
-      expect(container.read(siStateProvider).hasObservedFatigue, isTrue);
-      expect(container.read(siStateProvider).hasObservedEnergy, isFalse);
-      await tester.pumpWidget(const SizedBox());
-      container.dispose();
+    expect(container.read(siStateProvider).hasObservedFatigue, isTrue);
+    expect(container.read(siStateProvider).hasObservedEnergy, isFalse);
+    await tester.pumpWidget(const SizedBox());
+    container.dispose();
   });
 
   testWidgets('an account transition rejects a stale save callback', (
