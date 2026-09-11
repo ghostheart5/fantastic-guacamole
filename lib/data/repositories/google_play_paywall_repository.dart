@@ -883,7 +883,7 @@ class GooglePlayPaywallRepository
       final List<dynamic> rows = await client
           .from('monetization_subscription_statuses')
           .select(
-            'user_id,plan_id,product_id,status,is_active,expires_at,updated_at',
+            'user_id,plan_id,product_id,status,is_active,expires_at,updated_at,source,started_at,auto_renews,period_credits,purchase_token_hash,order_id',
           )
           .eq('user_id', expectedUserId)
           .limit(1)
@@ -937,11 +937,29 @@ class GooglePlayPaywallRepository
       final DateTime? updatedAt = DateTime.tryParse(
         row['updated_at']?.toString() ?? '',
       )?.toUtc();
+      final DateTime? startedAt = DateTime.tryParse(
+        row['started_at']?.toString() ?? '',
+      )?.toUtc();
+      // Review access is an explicit server provision, never a receipt status
+      // accepted from Google Play or a local premium/testing override.
+      final bool isReviewGrant =
+          status == 'review_access' &&
+          row['source'] == 'complimentary_review' &&
+          row['auto_renews'] == false &&
+          row['period_credits'] == 0 &&
+          row['purchase_token_hash'] == null &&
+          row['order_id'] == null &&
+          startedAt != null &&
+          expiry != null &&
+          !startedAt.isAfter(now.add(_kAuthorityFutureClockSkew)) &&
+          expiry.isAfter(startedAt) &&
+          expiry.difference(startedAt) <= const Duration(days: 31);
       final bool shapeIsValid =
           row['user_id']?.toString() == expectedUserId &&
           planId != null &&
           row['plan_id']?.toString() == _kServerPlanIds[planId] &&
           status.isNotEmpty &&
+          (status != 'review_access' || isReviewGrant) &&
           updatedAt != null &&
           !updatedAt.isAfter(now.add(_kAuthorityFutureClockSkew)) &&
           (expiry == null || _isExpiryWithinMaximum(expiry, now));
@@ -955,7 +973,7 @@ class GooglePlayPaywallRepository
 
       final bool isActive =
           row['is_active'] == true &&
-          _kAuthorityAccessStatuses.contains(status) &&
+          (_kAuthorityAccessStatuses.contains(status) || isReviewGrant) &&
           expiry != null &&
           expiry.isAfter(now);
       if (!_isCurrentAuthorityRequest(client, expectedUserId, generation)) {

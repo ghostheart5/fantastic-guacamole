@@ -24,6 +24,34 @@ import 'package:flutter_test/flutter_test.dart';
 /// Covers the loading branch, restore availability, plan prioritization,
 /// truthful result messages, and the dormant offer-copy contract.
 void main() {
+  test('review access is disclosed without claiming a purchase or renewal', () {
+    const review = SubscriptionState(
+      isActive: true,
+      status: 'review_access',
+      source: 'supabase_authority',
+    );
+    for (final spanish in [false, true]) {
+      final localization = ChronoSparkLocalizations(
+        Locale(spanish ? 'es' : 'en'),
+      );
+      expect(
+        resolvePaywallRestoreResultMessage(
+          review,
+          testingMode: false,
+          localizations: localization,
+        ),
+        contains(spanish ? 'Sin pago' : 'No payment'),
+      );
+      expect(
+        resolvePaywallPurchaseResultMessage(
+          review,
+          testingMode: false,
+          localizations: localization,
+        ),
+        contains(spanish ? 'revisión' : 'review access'),
+      );
+    }
+  });
   Future<ProviderContainer> pumpPaywall(
     WidgetTester tester, {
     required PaywallEntity config,

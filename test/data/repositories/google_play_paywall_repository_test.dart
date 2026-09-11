@@ -2359,6 +2359,75 @@ void main() {
     },
   );
 
+  for (final mutation in <String, Map<String, Object?>>{
+    'valid': {},
+    'wrong owner': {'user_id': 'other-user'},
+    'wrong source': {'source': 'google_play'},
+    'recurring': {'auto_renews': true},
+    'recurring credits': {'period_credits': 300},
+    'purchase token': {'purchase_token_hash': 'not-a-review-grant'},
+    'order': {'order_id': 'not-a-review-order'},
+    'missing start': {'started_at': null},
+    'unbounded': {
+      'expires_at': DateTime.now()
+          .toUtc()
+          .add(const Duration(days: 40))
+          .toIso8601String(),
+    },
+    'expired': {
+      'expires_at': DateTime.now()
+          .toUtc()
+          .subtract(const Duration(hours: 1))
+          .toIso8601String(),
+    },
+  }.entries) {
+    test('complimentary review authority: ${mutation.key}', () async {
+      final now = DateTime.now().toUtc();
+      final client = await _authorityClient(
+        (request) async => http.Response(
+          jsonEncode([
+            {
+              'user_id': 'user-1',
+              'plan_id': 'premium_monthly',
+              'product_id': 'chronospark_premium_monthly',
+              'status': 'review_access',
+              'is_active': true,
+              'source': 'complimentary_review',
+              'auto_renews': false,
+              'period_credits': 0,
+              'started_at': now
+                  .subtract(const Duration(days: 1))
+                  .toIso8601String(),
+              'expires_at': now.add(const Duration(days: 29)).toIso8601String(),
+              'updated_at': now.toIso8601String(),
+              ...mutation.value,
+            },
+          ]),
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      );
+      final billing = _emptyBillingClient();
+      final repository = GooglePlayPaywallRepository(
+        billingClient: billing,
+        paywallTestingModeOverride: false,
+        sharedPreferencesLoader: SharedPreferences.getInstance,
+        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+        supabaseClient: client,
+      );
+      final result = await repository.refreshSubscriptionState(force: true);
+      expect(result.isActive, mutation.key == 'valid');
+      expect(result.isTesting, isFalse);
+      expect(billing.buyCalls, 0);
+      if (mutation.key == 'valid') {
+        expect(result.status, 'review_access');
+        expect(result.source, 'supabase_authority');
+      }
+      await repository.disposeAsync();
+      await client.dispose();
+    });
+  }
+
   test(
     'authority refresh is single-flight and persists the owner status row',
     () async {

@@ -36,6 +36,10 @@ String resolvePaywallPurchaseResultMessage(
 }) {
   final _PaywallCopy copy = _PaywallCopy(localizations);
   switch (subscription.status) {
+    case 'review_access':
+      return localizations.isSpanish
+          ? 'Acceso de revisión gratuito. Sin pago ni renovación automática.'
+          : 'Complimentary review access. No payment or automatic renewal.';
     case 'credits_added':
       return localizations.isSpanish
           ? 'Créditos añadidos a tu cuenta.'
@@ -70,6 +74,12 @@ String resolvePaywallRestoreResultMessage(
 }) {
   final _PaywallCopy copy = _PaywallCopy(localizations);
   switch (subscription.status) {
+    case 'review_access':
+      return resolvePaywallPurchaseResultMessage(
+        subscription,
+        testingMode: false,
+        localizations: localizations,
+      );
     case 'credits_added':
       return localizations.isSpanish
           ? 'Créditos añadidos a tu cuenta.'
@@ -856,7 +866,13 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     ),
                   ),
                   child: Text(
-                    paywallTestingMode
+                    subscription?.status == 'review_access'
+                        ? resolvePaywallRestoreResultMessage(
+                            subscription!,
+                            testingMode: false,
+                            localizations: ChronoSparkLocalizations.of(context),
+                          )
+                        : paywallTestingMode
                         ? copy.unlockedForTesting
                         : copy.subscriptionActive,
                     textAlign: TextAlign.center,
