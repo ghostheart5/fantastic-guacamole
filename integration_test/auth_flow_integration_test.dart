@@ -175,9 +175,9 @@ void main() {
     );
   });
 
-  test(
+  testWidgets(
     'planner pipeline accepts context and returns a usable response',
-    () async {
+    (WidgetTester tester) async {
       const AgentOrchestrator orchestrator = AgentOrchestrator();
       final AgentResult result = await orchestrator.execute(
         prompt: 'I keep losing attention after lunch. What should I do next?',
@@ -212,7 +212,9 @@ void main() {
     },
   );
 
-  test('task journey creates and persists a task', () async {
+  testWidgets('task journey creates and persists a task', (
+    WidgetTester tester,
+  ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await SharedPrefsService.init();
     await SharedPrefsService.clear();

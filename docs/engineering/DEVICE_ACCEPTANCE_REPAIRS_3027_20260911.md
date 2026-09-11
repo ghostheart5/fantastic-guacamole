@@ -41,3 +41,13 @@ aligning both test classpaths; SDK image installation then failed on some hosts,
 so the native15-case gate remains open. Signed qualified review/public paid
 activation and the isolated reviewer journey remain open. Production publication
 is not authorized. No current candidate is declared production ready here.
+
+Native instrumentation run34614660995 reported four of the six authentication
+file cases. The two plain Dart `test` registrations do not populate Flutter's
+integration binding results map; its native runner reports `testWidgets`
+results. The gate rejected the incomplete report. Both registrations now use
+`testWidgets`, preserving every test body/assertion and all six case names.
+No test is filtered or counted from an assumed success. Changed-file analysis
+passes; fresh Linux/native execution is required. Pending candidate34615281331
+was canceled and independently read back as canceled before upload, so3027 can
+be rebuilt from the complete reviewed source without reusing an uploaded code.
