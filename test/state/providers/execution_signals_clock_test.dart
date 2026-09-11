@@ -3,9 +3,64 @@ import 'package:fantastic_guacamole/state/providers/execution_signals_provider.d
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/state/logs_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('replaced calculation cannot start a deferred timer', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [logsProvider.overrideWith(() => _Logs(const []))],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(executionSignalsProvider, (_, _) {});
+    container.invalidate(executionSignalsProvider);
+    container.read(executionSignalsProvider);
+    // Advance the container's zero-delay refresh scheduler as well as microtasks.
+    await tester.pump(const Duration(milliseconds: 1));
+    subscription.close();
+    await tester.pump();
+    // Flutter checks for leaked timers before addTearDown disposes the container.
+  });
+
+  testWidgets('cached calculation stops on detach and refreshes on return', (
+    tester,
+  ) async {
+    DateTime now = DateTime(2026, 9, 11, 23, 59, 55);
+    final container = ProviderContainer(
+      overrides: [
+        executionSignalsClockProvider.overrideWithValue(() => now),
+        logsProvider.overrideWith(
+          () => _Logs([_entry('today', DateTime(2026, 9, 11, 20))]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final derived = Provider((ref) => ref.watch(executionSignalsProvider));
+    Widget screen() => UncontrolledProviderScope(
+      container: container,
+      child: Consumer(
+        builder: (context, ref, child) {
+          return Text(
+            '${ref.watch(derived).completedToday}',
+            textDirection: TextDirection.ltr,
+          );
+        },
+      ),
+    );
+    await tester.pumpWidget(screen());
+    expect(find.text('1'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    now = now.add(const Duration(seconds: 6));
+    await tester.pumpWidget(screen());
+    await tester.pump();
+    expect(find.text('0'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    // The retained container is deliberately disposed after Flutter checks
+    // pending timers, so this also verifies that detached UI leaves none.
+  });
+
   testWidgets('recent evidence expires without a new log or manual refresh', (
     tester,
   ) async {

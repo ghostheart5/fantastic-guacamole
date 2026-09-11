@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Explicit, optional operating context. It expires after two hours or at
-/// the end of the app session and
+/// the app closing and
 /// is fenced against sign-out/account changes while the dialog is open.
 class HumanStateCheckInDialog extends ConsumerStatefulWidget {
   const HumanStateCheckInDialog({required this.energy, super.key});
@@ -56,7 +56,7 @@ class _HumanStateCheckInDialogState
             ),
             const SizedBox(height: 12),
             const Text(
-              'Optional. Used for planning for up to two hours in this app session. You can clear it at any time.',
+              'Optional. Used for planning for up to two hours while the app stays open. You can clear it at any time.',
             ),
             const SizedBox(height: 12),
             Text(

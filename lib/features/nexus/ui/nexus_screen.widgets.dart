@@ -205,7 +205,7 @@ class _NexusVitals extends StatelessWidget {
             child: _VitalMetric(
               label: 'ENERGY',
               onTap: onEnergy,
-              hint: 'Check in with your energy for this session',
+              hint: 'Check in with your current energy',
               value: hasObservedEnergy
                   ? '${(energy * 100).round()}%'
                   : 'UNMEASURED',

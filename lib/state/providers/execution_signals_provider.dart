@@ -65,7 +65,8 @@ final executionSignalsClockProvider = Provider<DateTime Function()>(
 
 final executionSignalsProvider = Provider<ExecutionSignals>((Ref ref) {
   final List<LogEntryEntity> entries = ref.watch(logsProvider).entries;
-  final DateTime now = ref.watch(executionSignalsClockProvider)().toLocal();
+  final clock = ref.watch(executionSignalsClockProvider);
+  final DateTime now = clock().toLocal();
   final DateTime sevenDaysAgo = now.subtract(const Duration(days: 7));
   final DateTime fourteenDaysAgo = now.subtract(const Duration(days: 14));
   // Refresh only when a date/window boundary can change a count, rather than
@@ -82,8 +83,31 @@ final executionSignalsProvider = Provider<ExecutionSignals>((Ref ref) {
       }
     }
   }
-  final timer = Timer(nextRefresh.difference(now), ref.invalidateSelf);
-  ref.onDispose(timer.cancel);
+  Timer? timer;
+  bool disposed = false;
+  void stopTimer() => timer?.cancel();
+  void scheduleRefresh() {
+    // Defer until subscriptions settle: Riverpod forbids invalidation inside
+    // lifecycle callbacks, and a one-off read must not retain a background timer.
+    scheduleMicrotask(() {
+      if (disposed || !ref.mounted || ref.isPaused) return;
+      stopTimer();
+      final remaining = nextRefresh.difference(clock().toLocal());
+      if (remaining <= Duration.zero) {
+        ref.invalidateSelf();
+      } else {
+        timer = Timer(remaining, ref.invalidateSelf);
+      }
+    });
+  }
+
+  ref.onCancel(stopTimer);
+  ref.onResume(scheduleRefresh);
+  ref.onDispose(() {
+    disposed = true;
+    stopTimer();
+  });
+  scheduleRefresh();
 
   int createdToday = 0;
   int completedToday = 0;
