@@ -11,6 +11,10 @@ on:
         required: false
         type: string
         default: qa-smoke
+      run_monkey:
+        required: false
+        type: boolean
+        default: false
   push:
     branches: ["main"]
   workflow_dispatch:
@@ -27,6 +31,11 @@ on:
         options:
           - qa-smoke
           - qa-journeys
+      run_monkey:
+        description: Run the five bounded Monkey variants on the disposable QA emulator
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -38,6 +47,7 @@ concurrency:
 env:
   QA_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
   QA_SUITE: ${{ inputs.suite || 'qa-smoke' }}
+  QA_MONKEY: ${{ inputs.run_monkey && 'true' || 'false' }}
 
 jobs:
   runtime:
@@ -170,8 +180,8 @@ jobs:
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
 
-      - name: Build, install, and execute exact-source QA smoke
-        timeout-minutes: 50
+      - name: Build, install, and execute exact-source QA suite
+        timeout-minutes: 58
         env:
           QA_TIMEOUT_SECONDS: ${{ inputs.suite == 'qa-journeys' && '2400' || '900' }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
@@ -190,14 +200,9 @@ jobs:
           pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check'
           disable-animations: true
           disable-spellchecker: true
-          script: >-
-            pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1
-            -Suite "$QA_SUITE"
-            -ExecutionTimeoutSeconds "$QA_TIMEOUT_SECONDS"
-            -BuildProfile qa
-            -DeviceSerial emulator-5554
-            -ExpectedCommit "$QA_SOURCE_SHA"
-            -ArtifactsRoot artifacts/maestro-ci
+          script: |
+            pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite "$QA_SUITE" -ExecutionTimeoutSeconds "$QA_TIMEOUT_SECONDS" -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -ArtifactsRoot artifacts/maestro-ci
+            if [ "$QA_MONKEY" = true ]; then pwsh -NoProfile -File ./scripts/run_android_monkey_matrix.ps1 -DeviceSerial emulator-5554 -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-ci; fi
 
       - name: Verify source-bound Maestro evidence
         if: always()
@@ -243,6 +248,23 @@ jobs:
               raise SystemExit('::error::Maestro JUnit evidence is not a complete passing run.')
           PY
 
+      - name: Verify optional Monkey evidence
+        if: always() && inputs.run_monkey
+        env:
+          EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          manifests = list(Path('artifacts/monkey-ci').glob('*/manifest.json'))
+          assert len(manifests) == 1, 'Expected one Monkey matrix manifest'
+          m = json.loads(manifests[0].read_text(encoding='utf-8-sig'))
+          assert m['git']['commit'] == os.environ['EXPECTED_COMMIT'] and not m['git']['dirty']
+          assert m['device']['serial'] == 'emulator-5554'
+          assert m['status'] == 'passed' and m['requestedVariantCount'] == m['completedVariantCount'] == 5
+          assert len(m['results']) == 5
+          PY
+
       - name: Upload complete Maestro evidence
         if: always()
         timeout-minutes: 5
@@ -254,3 +276,4 @@ jobs:
           path: |
             artifacts/maestro-ci/**
             test-results/maestro-prewarm/**
+            artifacts/monkey-ci/**
