@@ -19,6 +19,56 @@ import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    def image_archive_fixture(self, names):
+        archive = self.root / 'fixture-image.zip'
+        with zipfile.ZipFile(archive, 'w') as bundle:
+            for name in names:
+                bundle.writestr(name, b'verified fixture image')
+        return archive
+
+    def test_verified_image_repair_restores_partial_image_only(self):
+        names = ['x86_64/' + name for name in
+                 ('source.properties', 'system.img', 'vendor.img', 'ramdisk.img', 'kernel-ranchu')]
+        archive = self.image_archive_fixture(names)
+        sdk = self.root / 'sdk'
+        directory = sdk / 'system-images/android-36/google_apis/x86_64'
+        directory.mkdir(parents=True)
+        (directory / 'vendor.img').write_bytes(b'partial')
+        unrelated = sdk / 'other-package'
+        unrelated.write_bytes(b'preserve')
+        commands = gate.Commands(self.root / 'evidence')
+        def download(label, argv, **kwargs):
+            Path(argv[-1]).write_bytes(archive.read_bytes())
+        with patch.dict(os.environ, GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='github-hosted', RUNNER_TEMP=str(self.root)), \
+                patch.object(gate, 'NATIVE_IMAGE_SHA1', hashlib.sha1(archive.read_bytes()).hexdigest()), \
+                patch.object(gate, 'NATIVE_IMAGE_BYTES', archive.stat().st_size), \
+                patch.object(commands, 'run', side_effect=download):
+            result = gate.repair_partial_native_image(commands, sdk, 'system-images;android-36;google_apis;x86_64')
+        self.assertEqual(len(result['files']), 5)
+        self.assertEqual(unrelated.read_bytes(), b'preserve')
+        self.assertTrue(all((directory / Path(name).name).read_bytes() == b'verified fixture image' for name in names))
+
+    def test_verified_image_repair_rejects_checksum_before_extraction(self):
+        archive = self.image_archive_fixture(['x86_64/source.properties'])
+        commands = gate.Commands(self.root / 'evidence')
+        with patch.dict(os.environ, GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='github-hosted', RUNNER_TEMP=str(self.root)), \
+                patch.object(gate, 'NATIVE_IMAGE_BYTES', archive.stat().st_size), \
+                patch.object(commands, 'run', side_effect=lambda label, argv, **kw: Path(argv[-1]).write_bytes(archive.read_bytes())):
+            with self.assertRaisesRegex(RuntimeError, 'pinned official'):
+                gate.repair_partial_native_image(commands, self.root / 'sdk', 'system-images;android-36;google_apis;x86_64')
+        self.assertFalse((self.root / 'sdk').exists())
+
+    def test_verified_image_repair_rejects_traversal_before_any_extraction(self):
+        archive = self.image_archive_fixture(['x86_64/source.properties', 'x86_64/../../escape'])
+        commands = gate.Commands(self.root / 'evidence')
+        with patch.dict(os.environ, GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='github-hosted', RUNNER_TEMP=str(self.root)), \
+                patch.object(gate, 'NATIVE_IMAGE_SHA1', hashlib.sha1(archive.read_bytes()).hexdigest()), \
+                patch.object(gate, 'NATIVE_IMAGE_BYTES', archive.stat().st_size), \
+                patch.object(commands, 'run', side_effect=lambda label, argv, **kw: Path(argv[-1]).write_bytes(archive.read_bytes())):
+            with self.assertRaisesRegex(RuntimeError, 'Unsafe image'):
+                gate.repair_partial_native_image(commands, self.root / 'sdk', 'system-images;android-36;google_apis;x86_64')
+        self.assertFalse((self.root / 'sdk').exists())
+
     def test_sdk_setup_requires_complete_files_and_explicit_root(self):
         sdk = self.root / 'sdk'
         image_id = 'system-images;android-36;google_apis;x86_64'
@@ -41,6 +91,25 @@ class FinalValidationTest(unittest.TestCase):
         self.assertTrue(all('--sdk_root=' + str(sdk.resolve()) in argv for argv in installs))
         self.assertEqual(result['applicationTestsExecuted'], 0)
         self.assertEqual(result['emulatorsStarted'], 0)
+
+    def test_sdk_setup_repairs_metadata_only_install_before_acceptance(self):
+        sdk = self.root / 'sdk'
+        image_id = 'system-images;android-36;google_apis;x86_64'
+        commands = gate.Commands(self.root / 'evidence')
+        def restore(*args):
+            directory = sdk / Path(*image_id.split(';'))
+            directory.mkdir(parents=True)
+            for name in ('source.properties', 'system.img', 'vendor.img', 'ramdisk.img', 'kernel-ranchu'):
+                (directory / name).write_bytes(b'verified fixture')
+            return {'fixture': True}
+        with patch.dict(os.environ, GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='github-hosted'), \
+                patch.object(commands, 'run', return_value=''), \
+                patch.object(gate, 'repair_partial_native_image', side_effect=restore) as repair:
+            result = gate.install_integration_sdk_packages(commands, sdk / 'tools/bin', sdk, image_id)
+        repair.assert_called_once_with(commands, sdk.resolve(), image_id)
+        self.assertTrue(result['passed'])
+        self.assertEqual(len(result['attempts']), 3)
+        self.assertEqual(result['applicationTestsExecuted'], 0)
 
     def test_sdk_setup_failed_commands_cannot_pass_even_with_files(self):
         sdk = self.root / 'sdk'

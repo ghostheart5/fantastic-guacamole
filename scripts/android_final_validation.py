@@ -840,6 +840,64 @@ def install_native_adb(commands):
     return executable
 
 
+NATIVE_IMAGE_URL = 'https://dl.google.com/android/repository/sys-img/google_apis/x86_64-36_r07.zip'
+NATIVE_IMAGE_SHA1 = 'c6bf44bdcd885bb902b4ba752d111a073ad7a817'
+NATIVE_IMAGE_BYTES = 1895447397
+
+
+def repair_partial_native_image(commands, sdk, image_id):
+    """Restore only the pinned disposable-host image from Google's verified ZIP."""
+    require(os.environ.get('GITHUB_ACTIONS') == 'true' and
+            os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted',
+            'Native image repair is restricted to disposable hosted runners')
+    require(image_id == 'system-images;android-36;google_apis;x86_64', 'Unreviewed image repair')
+    sdk = Path(sdk).resolve()
+    directory = sdk / Path(*image_id.split(';'))
+    require(directory.resolve().is_relative_to(sdk) and not directory.is_symlink(),
+            'Image repair path escapes the SDK')
+    root = Path(os.environ['RUNNER_TEMP']) / 'chronospark-native-image-repair'
+    root.mkdir(exist_ok=False)
+    archive = root / 'image.zip'
+    commands.run('download-verified-native-image', ['curl', '--fail', '--location', '--silent',
+                 '--show-error', NATIVE_IMAGE_URL, '--output', str(archive)], timeout=600)
+    sha1, sha256 = hashlib.sha1(), hashlib.sha256()
+    with archive.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            sha1.update(chunk)
+            sha256.update(chunk)
+    require(archive.stat().st_size == NATIVE_IMAGE_BYTES and sha1.hexdigest() == NATIVE_IMAGE_SHA1,
+            'Native image archive differs from the pinned official repository metadata')
+    extracted = []
+    with zipfile.ZipFile(archive) as bundle:
+        members = bundle.infolist()
+        names = [item.filename for item in members]
+        require(len(names) == len(set(names)), 'Duplicate image archive paths')
+        for item in members:
+            parts = item.filename.split('/')
+            require(parts[0] == 'x86_64' and '..' not in parts and
+                    '\\' not in item.filename and ':' not in item.filename and
+                    stat.S_IFMT(item.external_attr >> 16) != stat.S_IFLNK,
+                    'Unsafe image archive path or symlink')
+            destination = directory.joinpath(*parts[1:])
+            require(destination.resolve().is_relative_to(directory.resolve()),
+                    'Image archive extraction escapes its reviewed directory')
+        for item in members:
+            destination = directory.joinpath(*item.filename.split('/')[1:])
+            if item.is_dir():
+                destination.mkdir(parents=True, exist_ok=True)
+                continue
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with bundle.open(item) as source, destination.open('wb') as output:
+                shutil.copyfileobj(source, output, length=1024 * 1024)
+            require(destination.stat().st_size == item.file_size, 'Incomplete native image extraction')
+            extracted.append({'path': item.filename, 'bytes': item.file_size})
+    receipt = {'archiveSha1': sha1.hexdigest(), 'archiveSha256': sha256.hexdigest(),
+               'archiveBytes': archive.stat().st_size, 'url': NATIVE_IMAGE_URL, 'files': extracted,
+               'boundary': 'Only the pinned API36 revision7 image in a disposable hosted SDK. No emulator or application test has started.'}
+    write_json(commands.evidence / 'native-image-repair.json', receipt)
+    return receipt
+
+
 def install_integration_sdk_packages(commands, manager, sdk, image_id):
     """Provision before guest creation; retry downloads, never application tests."""
     require(os.environ.get('GITHUB_ACTIONS') == 'true' and
@@ -871,6 +929,13 @@ def install_integration_sdk_packages(commands, manager, sdk, image_id):
             commands.run(f'sdk-installed-readback-{attempt}', [str(manager / 'sdkmanager'),
                          '--sdk_root=' + str(sdk), '--list_installed'], timeout=90, check=False)
             commands.run(f'sdk-disk-readback-{attempt}', ['df', '-h', str(sdk)], timeout=15, check=False)
+        if receipt['attempts'][-1]['commandSucceeded']:
+            receipt['verifiedArchiveRepair'] = repair_partial_native_image(commands, sdk, image_id)
+            receipt['repairedImageFiles'] = {name: (directory / name).stat().st_size
+                                             if (directory / name).is_file() else None for name in required}
+            receipt['passed'] = all(size is not None and size > 0 for size in receipt['repairedImageFiles'].values())
+            if receipt['passed']:
+                return receipt
         raise RuntimeError('Pinned native image setup did not produce complete files in the explicit SDK root')
     finally:
         write_json(commands.evidence / 'native-sdk-provisioning.json', receipt)

@@ -59,3 +59,17 @@ Each attempt records command success, file sizes, installed packages and disk
 state on failure. Existing image API, ABI, tag and revision checks remain.
 The runner/provenance/cleanup suite now passes 70 tests. Full hosted matrix
 acceptance is still pending; a single persistence host is not a matrix pass.
+
+Run34614660995 proved the SDK Manager partial-install state: successful exit
+and installed revision7 metadata, but only vendor.img present among the five
+required files, unchanged over three attempts. The host had76GB available.
+When that exact state persists, the gate now downloads Google's pinned
+API36 revision7 archive, checks its published1,895,447,397-byte length and
+SHA1c6bf44bdcd885bb902b4ba752d111a073ad7a817, and records a computed SHA256.
+It validates every archive path before extraction, checks ZIP CRCs during
+streaming, and restores only that image's directory on a disposable hosted
+SDK. Existing API/ABI/tag/revision and five-file checks still apply. This is
+setup repair before guest creation, not an application-test retry.
+Official pin source (read September11):
+https://dl.google.com/android/repository/sys-img/google_apis/sys-img2-4.xml
+Local runner/provenance/cleanup/archive checks:74 passed.
