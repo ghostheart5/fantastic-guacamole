@@ -220,6 +220,9 @@ def source_receipt(source, tooling, evidence):
               "repository": os.environ["GITHUB_REPOSITORY"],
               "validationRunId": os.environ["GITHUB_RUN_ID"],
               "validationRunAttempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "nativeCase": os.environ.get("NATIVE_CASE"),
+              "hostBootId": (Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+                             if sys.platform == 'linux' else None),
               "job": os.environ["GITHUB_JOB"],
               "candidateRunId": os.environ["CANDIDATE_RUN"],
               "candidateArtifactId": os.environ["CANDIDATE_ARTIFACT_ID"],
@@ -724,14 +727,20 @@ def release_16kb(commands, source, tooling, adb, sdk):
             "boundary": "AAB-derived APK with disposable test signer; no Play signing, authentication, microphone, purchase or billing proof."}
 
 
-def execute_integration_cases(commands, source, launch_case):
+def execute_integration_cases(commands, source, launch_case, case_index=None):
     require({path.name for path in (source / "integration_test").glob("*_test.dart")} == set(SOURCE_FILES),
             "Maintained native test inventory changed; review this runner")
+    cases = list(enumerate(INTEGRATION_CASES, 1))
+    if case_index is not None:
+        require(type(case_index) is int and 1 <= case_index <= len(cases), 'Invalid native case index')
+        cases = [cases[case_index - 1]]
     results = []
-    summary = {"passed": False, "mode": "integration", "expectedInvocations": 5, "expectedTests": 15,
-               "boundary": "Five fresh guests, one independent file/viewport per guest; no retries or within-file state clearing. Test fakes, not signed release or Play Billing."}
+    summary = {"passed": False, "mode": "integration", "expectedInvocations": len(cases),
+               "expectedTests": sum(case[2] for _, case in cases),
+               "caseOrdinals": [index for index, _ in cases],
+               "boundary": "One fresh guest per file/viewport; no retries or within-file state clearing. A selected case is not a full matrix pass. Test fakes, not signed release or Play Billing."}
     try:
-        for index, case in enumerate(INTEGRATION_CASES, 1):
+        for index, case in cases:
             label = f"{index:02d}-" + Path(case[0]).stem + "-" + case[1]
             guest_commands = Commands(commands.evidence / label)
             result = launch_case(case, index, guest_commands)
@@ -746,7 +755,7 @@ def execute_integration_cases(commands, source, launch_case):
         require(summary["passed"], "One or more fresh-guest integration invocations failed")
     finally:
         summary.update(runs=results, completedInvocations=len(results),
-                       notRun=[{"file": case[0], "viewport": case[1]} for case in INTEGRATION_CASES[len(results):]],
+                       notRun=[{"file": case[0], "viewport": case[1]} for _, case in cases[len(results):]],
                        ownedEmulatorStopped=bool(results) and all(result.get("ownedEmulatorStopped") for result in results))
         write_json(commands.evidence / "android-result.json", summary)
     return summary
@@ -833,7 +842,7 @@ def install_native_adb(commands):
     return executable
 
 
-def android(mode, source, tooling, evidence):
+def android(mode, source, tooling, evidence, case_index=None):
     commands = Commands(evidence)
     sdk = Path(os.environ["ANDROID_HOME"])
     adb = [str(sdk / "platform-tools/adb"), "-s", "emulator-5554"]
@@ -884,7 +893,7 @@ def android(mode, source, tooling, evidence):
             return owned_android_guest(mode, source, tooling, guest_commands, sdk, manager,
                                        emulator, image_id, properties, case=case, ordinal=ordinal,
                                        shared_user_home=shared_user_home, adb_executable=native_adb)
-        return execute_integration_cases(commands, source, launch_case)
+        return execute_integration_cases(commands, source, launch_case, case_index)
     result = owned_android_guest(mode, source, tooling, commands, sdk, manager, emulator, image_id, properties)
     require(result["passed"], "Owned Android validation failed; see its retained result")
     return result
@@ -1122,7 +1131,9 @@ def main():
     parser.add_argument("--tooling", type=Path, default=Path("tooling"))
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--case-index", type=int, choices=range(1, 6))
     args = parser.parse_args()
+    require(args.case_index is None or args.mode == 'integration', 'Case selection is integration-only')
     if args.mode == 'prepare':
         prepare_native_build(Commands(args.evidence), args.source)
         return
@@ -1142,7 +1153,7 @@ def main():
     elif args.mode == "terminal":
         write_json(args.evidence / "verified-terminal.json", verify_terminal(args.manifest))
     else:
-        android(args.mode, args.source.resolve(), args.tooling.resolve(), args.evidence)
+        android(args.mode, args.source.resolve(), args.tooling.resolve(), args.evidence, args.case_index)
 
 
 if __name__ == "__main__":

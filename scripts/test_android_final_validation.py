@@ -19,6 +19,20 @@ import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    def test_selected_case_runs_once_and_does_not_claim_the_full_matrix(self):
+        calls = []
+        def launch(case, ordinal, commands):
+            calls.append((case, ordinal))
+            return {'passed': True, 'ownedEmulatorStopped': True,
+                    'ownedLogCollectorStopped': True, 'ownedAdbServerStopped': True}
+        result = gate.execute_integration_cases(gate.Commands(self.root / 'one-host'),
+                    self.integration_source(), launch, case_index=5)
+        self.assertEqual(calls, [(gate.INTEGRATION_CASES[4], 5)])
+        self.assertEqual(result['expectedTests'], 6)
+        self.assertEqual(result['expectedInvocations'], 1)
+        self.assertEqual(result['caseOrdinals'], [5])
+        self.assertEqual(result['notRun'], [])
+
     def test_adb_alignment_preserves_original_and_requires_exact_binary(self):
         sdk = self.root / 'sdk'
         destination = sdk / 'platform-tools/adb'

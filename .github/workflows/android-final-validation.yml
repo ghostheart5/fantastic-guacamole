@@ -253,8 +253,13 @@ jobs:
     if: inputs.windows_only != true && inputs.release_16kb_only != true
     needs: candidate-gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 115
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        native_case: [1, 2, 3, 4, 5]
     env:
+      NATIVE_CASE: ${{ matrix.native_case }}
       CANDIDATE_AAB_SHA: ${{ needs.candidate-gate.outputs.aab_sha }}
       CANDIDATE_ARTIFACT_ID: ${{ needs.candidate-gate.outputs.artifact_id }}
       CANDIDATE_ARTIFACT_SHA: ${{ needs.candidate-gate.outputs.artifact_sha }}
@@ -312,9 +317,9 @@ jobs:
         timeout-minutes: 25
         run: python3 tooling/scripts/android_final_validation.py prepare --evidence evidence/integration/preparation
 
-      - name: Run all native integration files and the tall auth replay
-        timeout-minutes: 95
-        run: python3 tooling/scripts/android_final_validation.py integration --evidence evidence/integration/native
+      - name: Run the assigned complete file and viewport on its own host
+        timeout-minutes: 25
+        run: python3 tooling/scripts/android_final_validation.py integration --case-index "$NATIVE_CASE" --evidence evidence/integration/native
 
       - name: Confirm source stayed unchanged
         if: always()
@@ -324,8 +329,39 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: final-native-integration-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: final-native-case-${{ matrix.native_case }}-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: evidence/integration/
+          retention-days: 7
+          if-no-files-found: error
+
+  native-matrix-gate:
+    if: always() && needs.candidate-gate.result == 'success' && inputs.windows_only != true && inputs.release_16kb_only != true
+    needs: [candidate-gate, android-integration]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CANDIDATE_AAB_SHA: ${{ needs.candidate-gate.outputs.aab_sha }}
+      NATIVE_JOBS_RESULT: ${{ needs.android-integration.result }}
+    steps:
+      - name: Checkout exact aggregation tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+      - name: Download all five independent host results from this attempt
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: final-native-case-*-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: native-cases
+      - name: Require all fifteen tests and five clean independent hosts
+        run: python3 tooling/scripts/verify_native_host_matrix.py --input native-cases --output evidence/native-host-matrix.json
+      - name: Retain complete matrix decision
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: final-native-matrix-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/
           retention-days: 7
           if-no-files-found: error
 
