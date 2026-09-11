@@ -265,7 +265,7 @@ Set<PersonContextKind> _relevantUnknownKinds(String decisionText) {
       PersonContextKind.currentPriority,
     if (words.contains('time') ||
         RegExp(
-          r'\b(?:minutes?|mins?|hours?|hrs?)\b',
+          r'\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|forty|sixty|an?|half)[ -]*(?:minutes?|mins?|hours?|hrs?)\b',
           caseSensitive: false,
         ).hasMatch(decisionText) ||
         words.contains('capacity') ||

@@ -249,6 +249,15 @@ void main() {
         timeline.personContext!.signals.map((signal) => signal.id),
         isNot(contains('capacity')),
       );
+      final meetingMinutes = await gateway.read(
+        observedAt: now,
+        decisionText: 'Show the meeting minutes in my Timeline.',
+      );
+      expect(
+        meetingMinutes.personContext!.signals.map((signal) => signal.id),
+        isNot(contains('capacity')),
+        reason: 'Meeting minutes are content, not an explicit time constraint.',
+      );
     },
   );
 
