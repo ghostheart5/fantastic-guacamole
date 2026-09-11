@@ -40,5 +40,11 @@ Hosted execution remains required before accepting this repair.
 Run `34609928003` rejected the first harness during compilation: AndroidX
 runner1.7.0/rules1.7.0 conflicted with AGP's consistent-resolution constraints
 from Flutter's existing debug runtime (runner1.3.0/rules1.2.0). The harness now
-uses those already-resolved versions, preserving the app runtime graph. That
-failed preparation ran no application tests and supplies no native pass.
+initially matched those versions. Source inspection then identified the older
+monitor's legacy broadcast-receiver registration, which is unsuitable for the
+current target-SDK requirements. Run `34611303641` was canceled during setup/
+compilation before accepting any result. The final overlay aligns runner1.7.0
+and rules1.7.0 in BOTH debugImplementation and androidTestImplementation. This
+changes the fixture-only test-library graph explicitly, without changing the
+canonical checkout, app release dependencies or signed AAB. The failed first
+preparation and canceled comparison supply no native pass.
