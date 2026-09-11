@@ -90,3 +90,47 @@ executions, fatal/log continuity gates and timeouts remain required.
 
 Published archive: https://developer.android.com/studio/emulator_archive
 Linux SHA-256: 1eade4cf2df6ea8eeead4902c635897ba12aaa32aac4389eaae0fdb498a5b830
+
+## September 10 follow-up for candidate 3025
+
+Current app source is `a8a625c55ef5f280504da5fc5a78695e45585e4c`, candidate
+build run `34535515386`, AAB SHA-256
+`199e37faa0240d82acce75cfa20fbc65dce8b41ebe918d568c2b8c9a69e41f7f`.
+The earlier source and candidate above remain historical evidence.
+
+The native lane uses API 36 Google APIs revision 7, a checksum-pinned ADB
+36.0.2 foreground server and the default Flutter DDS transport. The no-DDS
+workaround was removed because Flutter's native integration golden listener
+uses DDS even when the individual test does not compare a golden image.
+
+Run 34544342882 completed nine small-screen tests and five tall-screen tests,
+then lost the tall guest's ADB connection. Run 34546671574 completed fourteen
+tests, but startup lost its connection while attaching VM services. Owned ADB
+processes stayed alive and all five guests, collectors and servers were cleaned
+up. No captured application fatal or kernel panic establishes an app crash.
+Normal ADB warnings and errors replaced per-packet tracing in 8db9bae7; this
+reduced logging overhead but did not resolve the transport loss. No specific
+upstream regression or root cause has been proven.
+
+The second run's tall replay completed all six cases, with zero errors or skips,
+but its post-test screenshot used the logical 411x891 dimensions. Android had
+returned the physical 412x891 composition size before the test. Both independent
+`wm size` readbacks correctly reported physical 412x891 and override 411x891.
+Commit 1381ebc3 records capture space and accepts only those two explicitly
+declared screenshot dimensions. It still requires exact logical viewport proof
+before and after the unchanged test file, complete PNG data, successful capture
+exit, full logcat coverage and successful device health. It does not retry a
+test, reconnect a failed invocation or alter its recorded result.
+
+Verification: 44 final-runner tests and six ownership tests passed. A separate
+recheck of the original pre/post PNG bytes reproduced physical and logical
+capture spaces under the new checker; the original run remains failed.
+Run 34549031300 was dispatched with tooling 1381ebc3 to rerun all fifteen cases.
+Its final native result must be read before certifying this gate.
+
+The strict-16KB lane separately handles the documented adbd root restart response
+by waiting for reconnection and requiring actual uid 0. It rejects other errors
+and non-root guests. Selective run 34545389697 passed real 16384-byte pages,
+AAB-derived installation, cold launch, Maestro onboarding and cleanup. Runs
+34546671574 and 34549031300 also passed that strict lane. These disposable-signed
+derived APK checks do not prove Play-signing, real authentication or purchases.
