@@ -11,6 +11,7 @@ on:
         options:
           - canonical-ci
           - post-build-validation
+          - native-sdk-preflight
       source_sha:
         description: Full immutable app source SHA; required for post-build validation
         required: false
@@ -43,6 +44,48 @@ permissions:
   contents: read
 
 jobs:
+  native-sdk-preflight:
+    if: inputs.operation == 'native-sdk-preflight'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact SDK validation tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Set up pinned Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify SDK installation and pinned archive recovery without running app tests
+        run: |
+          python3 - <<'PY'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          from android_final_validation import Commands, install_integration_sdk_packages, repair_partial_native_image, write_json, require
+          commands = Commands('evidence/sdk')
+          sdk = Path(os.environ['ANDROID_HOME']).resolve()
+          image_id = 'system-images;android-36;google_apis;x86_64'
+          commands.run('install-command-tools', [str(sdk / 'cmdline-tools/latest/bin/sdkmanager'), '--sdk_root=' + str(sdk), 'cmdline-tools;22.0'], timeout=600, input_text='y\n' * 100)
+          result = install_integration_sdk_packages(commands, sdk / 'cmdline-tools/22.0/bin', sdk, image_id)
+          if 'verifiedArchiveRepair' not in result:
+              result['verifiedArchiveRepair'] = repair_partial_native_image(commands, sdk, image_id)
+          properties = sdk / 'system-images/android-36/google_apis/x86_64/source.properties'
+          data = dict(line.split('=', 1) for line in properties.read_text().splitlines() if '=' in line)
+          require(data.get('AndroidVersion.ApiLevel') == '36' and data.get('Pkg.Revision') == '7' and data.get('SystemImage.Abi') == 'x86_64' and data.get('SystemImage.TagId') == 'google_apis', 'Pinned image identity mismatch')
+          write_json(commands.evidence / 'sdk-only-result.json', {'passed': True, 'toolingSha': os.environ['GITHUB_SHA'], 'imageProperties': data, 'applicationTestsExecuted': 0, 'emulatorsStarted': 0, 'boundary': 'SDK preparation only. Not a native matrix or release acceptance pass.'})
+          PY
+      - name: Retain compact SDK setup evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: native-sdk-preflight-${{ github.sha }}-${{ github.run_id }}
+          path: evidence/sdk/
+          retention-days: 7
+          if-no-files-found: error
+
   canonical-ci:
     if: inputs.operation == '' || inputs.operation == 'canonical-ci'
     uses: ./.github/workflows/ci.yml
