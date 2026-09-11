@@ -44,7 +44,11 @@ class OwnedAdbServer:
             raise RuntimeError("Requested ADB server port is already in use")
         self.previous = {key: os.environ.get(key) for key in self.environment}
         os.environ.update(self.environment)
-        server_env = dict(os.environ, ADB_TRACE="transport,sockets,services")
+        # Per-packet/socket tracing generated 80k-100k synchronous log lines per
+        # short invocation. Keep normal ADB warnings/errors without instrumenting
+        # every packet on the same transport that carries VM-service test data.
+        # App logcat, kernel output, lifecycle and ownership receipts remain on.
+        server_env = dict(os.environ, ADB_TRACE="")
         # The Windows native backend cannot bind a named host in -L. Without
         # -a, tcp:PORT binds loopback; clients still connect to explicit 127.0.0.1.
         argv = [self.executable, "-L", f"tcp:{self.port}",
@@ -55,7 +59,7 @@ class OwnedAdbServer:
             self.process = subprocess.Popen(argv, stdout=self.stream, stderr=subprocess.STDOUT,
                                             env=server_env, stdin=subprocess.DEVNULL)
             self.receipt.update(started=True, stopped=False, pid=self.process.pid, argv=argv,
-                                environment=self.environment)
+                                environment=self.environment, diagnosticMode="standard-adb-logs")
             deadline = time.monotonic() + 15
             while not self.listening():
                 self.assert_alive()
