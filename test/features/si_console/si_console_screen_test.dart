@@ -389,9 +389,11 @@ void main() {
     addTearDown(() => _dispose(tester, container));
     await _pumpScreen(tester, container);
 
-    expect(find.textContaining('relevant user-reported'), findsOneWidget);
+    expect(find.textContaining('user-reported item available'), findsOneWidget);
     expect(
-      find.textContaining('cited as evidence and not independently verified'),
+      find.textContaining(
+        'Each answer cites only context relevant to that question',
+      ),
       findsOneWidget,
     );
   });

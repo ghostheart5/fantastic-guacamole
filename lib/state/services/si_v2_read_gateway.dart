@@ -264,6 +264,10 @@ Set<PersonContextKind> _relevantUnknownKinds(String decisionText) {
         words.contains('first'))
       PersonContextKind.currentPriority,
     if (words.contains('time') ||
+        RegExp(
+          r'\b(?:minutes?|mins?|hours?|hrs?)\b',
+          caseSensitive: false,
+        ).hasMatch(decisionText) ||
         words.contains('capacity') ||
         words.contains('workload') ||
         words.contains('schedule'))

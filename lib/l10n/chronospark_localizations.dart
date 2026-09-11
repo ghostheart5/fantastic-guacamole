@@ -801,8 +801,8 @@ final class SIRoutineCopy {
       ? 'Contexto personal: compartido, pero ningún elemento fue relevante para este enfoque.'
       : 'Person context: shared but no item was relevant to this lens.';
   String personContextEvidence(int count) => isSpanish
-      ? 'Contexto personal: ${count == 1 ? 'se cita 1 elemento pertinente declarado por el usuario' : 'se citan $count elementos pertinentes declarados por el usuario'} como evidencia no verificada de forma independiente.'
-      : 'Person context: $count relevant user-reported ${count == 1 ? 'item is' : 'items are'} cited as evidence and not independently verified.';
+      ? 'Contexto personal: $count ${count == 1 ? 'elemento declarado por el usuario disponible' : 'elementos declarados por el usuario disponibles'}. Cada respuesta cita solo el contexto pertinente a esa pregunta; no se verifica de forma independiente.'
+      : 'Person context: $count user-reported ${count == 1 ? 'item available' : 'items available'}. Each answer cites only context relevant to that question; it is not independently verified.';
   String get retryEvidence =>
       isSpanish ? 'Reintentar carga de evidencia' : 'Retry evidence loading';
   String get unavailableSavedWork => isSpanish

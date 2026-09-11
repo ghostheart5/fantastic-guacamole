@@ -798,6 +798,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: ListView(
+            // Authority refresh temporarily shows the loading branch. Keep the
+            // current plan position when the verified content returns.
+            key: const PageStorageKey<String>('paywall-plans'),
             padding: const EdgeInsets.all(20),
             children: [
               TemporalScreenHeader(

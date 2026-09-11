@@ -141,6 +141,40 @@ void main() {
     return container;
   }
 
+  testWidgets('authority refresh preserves the inspected plan position', (
+    tester,
+  ) async {
+    Completer<PaywallEntity>? refresh;
+    final container = await pumpPaywall(
+      tester,
+      config: _twoPlanConfig,
+      configOverride: (ref) => refresh?.future ?? _twoPlanConfig,
+    );
+    tester.view.physicalSize = const Size(800, 600);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pump(const Duration(milliseconds: 400));
+    double position() => tester
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .position
+        .pixels;
+    final before = position();
+    expect(before, greaterThan(0));
+    refresh = Completer<PaywallEntity>();
+    container.invalidate(paywallConfigProvider);
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    refresh!.complete(_twoPlanConfig);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(position(), closeTo(before, 1));
+  });
+
   testWidgets(
     'completed pending restore clears its historical pending message',
     (tester) async {

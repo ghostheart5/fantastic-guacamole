@@ -223,6 +223,24 @@ void main() {
         workload.personContext!.signals.map((signal) => signal.id),
         contains('capacity'),
       );
+      for (final duration in [
+        'five minutes',
+        '5-minute',
+        '5 min',
+        'one hour',
+      ]) {
+        final timedQuestion = await gateway.read(
+          observedAt: now,
+          decisionText:
+              'What should I do next with only $duration before pickup?',
+        );
+        expect(
+          timedQuestion.personContext!.signals.map((signal) => signal.id),
+          contains('capacity'),
+          reason:
+              'Explicit duration must not silently discard consented capacity: $duration',
+        );
+      }
       final SIV2EvidenceSnapshot timeline = await gateway.read(
         observedAt: now,
         decisionText: 'What happened in my Timeline?',

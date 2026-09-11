@@ -9,6 +9,37 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
+  test(
+    'mail drafts preserve spaces, literal plus and diagnostic lines',
+    () async {
+      String? launched;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'launch') {
+          launched = (call.arguments as Map)['url'] as String;
+          return true;
+        }
+        return false;
+      });
+      const body = 'Issue summary: café & tea\nVersion: 4.1.0+2026083029';
+      expect(
+        await const ExternalUrlService().open(
+          Uri(
+            scheme: 'mailto',
+            path: 'support@example.com',
+            queryParameters: {
+              'subject': 'ChronoSpark support request',
+              'body': body,
+            },
+          ),
+        ),
+        isTrue,
+      );
+      expect(launched, contains('subject=ChronoSpark%20support%20request'));
+      expect(launched, contains('%2B2026083029'));
+      expect(Uri.parse(launched!).queryParameters['body'], body);
+    },
+  );
+
   test('opens Terms even when package visibility reports no handler', () async {
     final calls = <String>[];
     messenger.setMockMethodCallHandler(channel, (call) async {
