@@ -19,6 +19,26 @@ import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    def test_adbd_restart_requires_actual_root_and_rejects_other_failures(self):
+        cases = [(0, 'restarting adbd as root', '0', True),
+                 (1, 'adb: unable to connect for root: closed', '0', True),
+                 (1, 'adb: unable to connect for root: closed', '2000', False),
+                 (1, 'adbd cannot run as root in production builds', '0', False),
+                 (0, 'restarting adbd as root', '2000', False)]
+        for index, (code, output, uid, passed) in enumerate(cases):
+            with tempfile.TemporaryDirectory() as directory:
+                commands = gate.Commands(directory)
+                def run(label, argv, **kwargs):
+                    commands.records.append({'label': label, 'exitCode': code if label == 'root-owned-userdebug-adb' else 0})
+                    return output if label == 'root-owned-userdebug-adb' else uid if label == 'root-readback' else ''
+                with patch.object(commands, 'run', side_effect=run):
+                    if passed:
+                        self.assertTrue(gate.root_userdebug_guest(commands, ['adb', '-s', 'emulator-5554'])['verifiedRoot'])
+                    else:
+                        with self.assertRaises(RuntimeError):
+                            gate.root_userdebug_guest(commands, ['adb', '-s', 'emulator-5554'])
+                self.assertEqual(gate.read_json(Path(directory) / 'root-readback.json')['verifiedRoot'], passed)
+
     def test_native_emulator_pin_rejects_corrupt_download_before_extraction(self):
         commands = gate.Commands(self.root / 'pin-evidence')
         labels = []

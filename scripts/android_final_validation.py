@@ -584,6 +584,25 @@ def standalone_onboarding(commands, source, adb):
         write_json(commands.evidence / "standalone-onboarding-result.json", receipt)
 
 
+def root_userdebug_guest(commands, adb):
+    receipt = {"verifiedRoot": False}
+    try:
+        output = commands.run("root-owned-userdebug-adb", adb + ["root"], check=False)
+        code = commands.records[-1]["exitCode"]
+        receipt.update(requestExitCode=code, restartClosedConnection=(
+            code == 1 and output == 'adb: unable to connect for root: closed'))
+        # adbd can close its transport while successfully restarting as root.
+        # Accept only that exact restart symptom, then require actual uid 0.
+        require(code == 0 or receipt["restartClosedConnection"], "ADB root request was rejected")
+        commands.run("wait-for-root-adb", adb + ["wait-for-device"], timeout=60)
+        receipt["uid"] = commands.run("root-readback", adb + ["shell", "id", "-u"])
+        require(receipt["uid"] == "0", "Strict compatibility validation requires verified root")
+        receipt["verifiedRoot"] = True
+        return receipt
+    finally:
+        write_json(commands.evidence / 'root-readback.json', receipt)
+
+
 def release_16kb(commands, source, tooling, adb, sdk):
     require(commands.run("page-size", adb + ["shell", "getconf", "PAGE_SIZE"]) == "16384",
             "Guest page size is not 16384; no 4KB fallback is permitted")
@@ -591,10 +610,7 @@ def release_16kb(commands, source, tooling, adb, sdk):
             commands.run("guest-sdk-full", adb + ["shell", "getprop", "ro.build.version.sdk_full"]) == "37.1" and
             commands.run("guest-build-type", adb + ["shell", "getprop", "ro.build.type"]) == "userdebug",
             "The expected API37.1 userdebug guest is not running")
-    commands.run("root-owned-userdebug-adb", adb + ["root"])
-    commands.run("wait-for-root-adb", adb + ["wait-for-device"], timeout=60)
-    require(commands.run("root-readback", adb + ["shell", "id", "-u"]) == "0",
-            "Strict compatibility validation requires the verified userdebug image")
+    root_userdebug_guest(commands, adb)
     for name, value in (("bionic.linker.16kb.app_compat.enabled", "fatal"),
                         ("pm.16kb.app_compat.disabled", "true")):
         commands.run("set-" + name, adb + ["shell", "setprop", name, value])

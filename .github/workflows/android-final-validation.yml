@@ -21,6 +21,11 @@ on:
         required: false
         type: boolean
         default: false
+      release_16kb_only:
+        description: Run only strict 16KB; other lane evidence remains separate
+        required: false
+        type: boolean
+        default: false
       validation_source_sha:
         description: Immutable Windows test revision; complete reviewed delta required
         required: false
@@ -45,6 +50,11 @@ on:
         required: false
         type: boolean
         default: false
+      release_16kb_only:
+        description: Run only strict 16KB; other lane evidence remains separate
+        required: false
+        type: boolean
+        default: false
       validation_source_sha:
         description: Immutable Windows test revision; complete reviewed delta required
         required: false
@@ -55,7 +65,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: android-final-validation-${{ inputs.source_sha }}-${{ inputs.windows_only && 'windows' || 'native' }}
+  group: android-final-validation-${{ inputs.source_sha }}-${{ inputs.windows_only && 'windows' || inputs.release_16kb_only && '16kb' || 'native' }}
   cancel-in-progress: false
 
 env:
@@ -80,11 +90,14 @@ jobs:
           VALIDATION_SOURCE_SHA: ${{ inputs.validation_source_sha }}
           NATIVE_ONLY: ${{ inputs.native_only }}
           WINDOWS_ONLY: ${{ inputs.windows_only }}
+          RELEASE_16KB_ONLY: ${{ inputs.release_16kb_only }}
         run: |
           set -euo pipefail
           [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
           [[ "$CANDIDATE_RUN" =~ ^[1-9][0-9]*$ ]]
           test "$NATIVE_ONLY:$WINDOWS_ONLY" != 'true:true'
+          test "$RELEASE_16KB_ONLY:$WINDOWS_ONLY" != 'true:true'
+          test "$RELEASE_16KB_ONLY:$NATIVE_ONLY" != 'true:true'
           if [ -n "$VALIDATION_SOURCE_SHA" ]; then
             test "$WINDOWS_ONLY" = true
             [[ "$VALIDATION_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
@@ -140,7 +153,7 @@ jobs:
           if-no-files-found: error
 
   windows-full:
-    if: inputs.native_only != true
+    if: inputs.native_only != true && inputs.release_16kb_only != true
     needs: candidate-gate
     runs-on: windows-2022
     timeout-minutes: 100
@@ -237,7 +250,7 @@ jobs:
             source/test/**/failures/**
 
   android-integration:
-    if: inputs.windows_only != true
+    if: inputs.windows_only != true && inputs.release_16kb_only != true
     needs: candidate-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 115
