@@ -793,13 +793,19 @@ def align_flutter_adb(commands, sdk, native_adb):
     with backup.open('xb') as output, destination.open('rb') as original:
         shutil.copyfileobj(original, output)
     require(digest(backup) == original_sha, 'Original SDK ADB backup differs')
-    shutil.copy2(pinned, destination)
+    # Hosted SDK files can be group-writable but owned by another account.
+    # Preserve their executable permissions; copy2's metadata update can fail
+    # with EPERM even after it has copied the executable bytes successfully.
+    original_mode = destination.stat().st_mode
+    shutil.copyfile(pinned, destination)
     require(digest(destination) == pinned_sha, 'Flutter SDK ADB differs from the owned server')
+    require(destination.stat().st_mode == original_mode, 'SDK ADB permissions changed')
     version = commands.run('flutter-sdk-adb-version', [str(destination), 'version'])
     require('Version 36.0.2-' in version and 'Android Debug Bridge version 1.0.41' in version,
             'Flutter SDK ADB version mismatch')
     receipt = {'passed': True, 'originalSha256': original_sha,
-               'alignedSha256': pinned_sha, 'sdkExecutable': str(destination),
+               'alignedSha256': pinned_sha, 'originalMode': original_mode,
+               'alignedMode': destination.stat().st_mode, 'sdkExecutable': str(destination),
                'serverExecutable': str(pinned), 'originalBackup': str(backup),
                'scope': 'Disposable GitHub-hosted integration job only; no local SDK changes'}
     write_json(commands.evidence / 'flutter-adb-alignment.json', receipt)
@@ -823,7 +829,7 @@ def install_native_adb(commands):
             'Pinned native ADB version or protocol mismatch')
     write_json(commands.evidence / 'native-adb-pin.json', {
         'url': url, 'sha256': actual, 'version': version, 'executable': str(executable),
-        'boundary': 'Owned integration server and capture clients only. SDK/Flutter client and strict-16KB lane unchanged.'})
+        'boundary': 'Owned integration server and aligned Flutter client. Strict-16KB lane unchanged.'})
     return executable
 
 
@@ -1144,4 +1150,6 @@ if __name__ == "__main__":
         main()
     except Exception as error:
         print(f"Final validation failed: {type(error).__name__}: {error}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         raise SystemExit(1)

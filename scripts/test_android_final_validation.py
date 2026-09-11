@@ -28,19 +28,22 @@ class FinalValidationTest(unittest.TestCase):
         pinned.write_bytes(b'verified pinned executable')
         commands = gate.Commands(self.root / 'alignment')
         with patch.dict(os.environ, GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='github-hosted',
-                        RUNNER_TEMP=str(self.root)), patch.object(commands, 'run', return_value=
+                        RUNNER_TEMP=str(self.root)), patch.object(gate.shutil, 'copystat',
+                        side_effect=PermissionError('SDK metadata is owned by another account')), \
+                        patch.object(commands, 'run', return_value=
                         'Android Debug Bridge version 1.0.41\nVersion 36.0.2-14143358'):
             result = gate.align_flutter_adb(commands, sdk, pinned)
             self.assertTrue(result['passed'])
             self.assertEqual(destination.read_bytes(), pinned.read_bytes())
             self.assertEqual(Path(result['originalBackup']).read_bytes(), b'original SDK executable')
+            self.assertEqual(result['originalMode'], result['alignedMode'])
             with self.assertRaisesRegex(RuntimeError, 'backup already exists'):
                 gate.align_flutter_adb(commands, sdk, pinned)
 
     def test_adb_alignment_rejects_local_or_self_hosted_before_any_write(self):
         for actions, environment in (('false', 'github-hosted'), ('true', 'self-hosted'), ('', '')):
             with patch.dict(os.environ, GITHUB_ACTIONS=actions, RUNNER_ENVIRONMENT=environment), \
-                    patch.object(gate.shutil, 'copy2') as copy:
+                    patch.object(gate.shutil, 'copyfile') as copy:
                 with self.assertRaisesRegex(RuntimeError, 'disposable GitHub-hosted'):
                     gate.align_flutter_adb(None, self.root / 'sdk', self.root / 'pinned')
                 copy.assert_not_called()
@@ -54,7 +57,7 @@ class FinalValidationTest(unittest.TestCase):
         pinned.write_bytes(b'pinned')
         commands = gate.Commands(self.root / 'alignment')
         with patch.dict(os.environ, GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='github-hosted',
-                        RUNNER_TEMP=str(self.root)), patch.object(gate.shutil, 'copy2'):
+                        RUNNER_TEMP=str(self.root)), patch.object(gate.shutil, 'copyfile'):
             with self.assertRaisesRegex(RuntimeError, 'differs from the owned server'):
                 gate.align_flutter_adb(commands, sdk, pinned)
         self.assertFalse((commands.evidence / 'flutter-adb-alignment.json').exists())
