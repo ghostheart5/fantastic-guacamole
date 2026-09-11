@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, copyFileSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +9,10 @@ import { PROJECT, REPOSITORY, REF, MIGRATION, FUNCTIONS, command, rollout,
 import { CREDIT_AUTHORITY_FUNCTIONS, CREDIT_AUTHORITY_QUERY } from './verify_backend_repair_gate.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const files = readdirSync(join(root, 'supabase/migrations')).filter((name) => name.endsWith('.sql'));
+// This one-use rollout is permanently fenced to its September 9 inventory.
+// Later app migrations must not silently widen that original deployment scope.
+const currentFiles = readdirSync(join(root, 'supabase/migrations')).filter((name) => name.endsWith('.sql'));
+const files = currentFiles.filter((name) => name <= MIGRATION);
 const migration = readFileSync(join(root, 'supabase/migrations', MIGRATION), 'utf8');
 const remote = files.filter((name) => name !== MIGRATION).map((name) => {
   const split = name.indexOf('_');
@@ -78,6 +81,9 @@ test('exact 49 deployed migrations and single unmodified pending migration are r
     assert.throws(() => validateMigrationInventory(files, history, migration));
   }
   assert.throws(() => validateMigrationInventory([...files, '20990101000000_unreviewed.sql'], remote, migration));
+  if (currentFiles.length > files.length) {
+    assert.throws(() => validateMigrationInventory(currentFiles, remote, migration));
+  }
   assert.throws(() => validateMigrationInventory(files, remote, `${migration}\ngrant all to public;`));
   validateMigrationInventory(files, remote, migration.replaceAll('\n', '\r\n'));
   validateDryRun(`Would push these migrations:\n - ${MIGRATION}\n`);
@@ -88,6 +94,10 @@ test('exact 49 deployed migrations and single unmodified pending migration are r
 
 function fixture(overrides = {}) {
   const temp = mkdtempSync(join(tmpdir(), 'chronospark-rollout-contract-'));
+  const appRoot = join(temp, 'reviewed-app');
+  mkdirSync(join(appRoot, 'supabase/migrations'), { recursive: true });
+  mkdirSync(join(appRoot, 'supabase/functions'), { recursive: true });
+  for (const name of files) copyFileSync(join(root, 'supabase/migrations', name), join(appRoot, 'supabase/migrations', name));
   const state = { migrated: false, deployed: new Set(), calls: [], historyReads: 0, ...overrides };
   const setup = { env: { ...env, RUNNER_TEMP: temp, ...overrides.env }, state, temp };
   const functions = () => FUNCTIONS.map(([slug, jwt]) => ({ slug, status: 'ACTIVE',
@@ -128,8 +138,8 @@ function fixture(overrides = {}) {
     assert.equal(passedEnv, setup.env);
     assert.equal(args.some((item) => item.includes(privateValue)), false);
     if (args[0] === 'git') {
-      if (args[1] === 'rev-parse') return cwd === root ? source : toolingSource;
-      return cwd === root ? (state.dirtyApp ?? '') : (state.dirtyTooling ?? '');
+      if (args[1] === 'rev-parse') return cwd === appRoot ? source : toolingSource;
+      return cwd === appRoot ? (state.dirtyApp ?? '') : (state.dirtyTooling ?? '');
     }
     assert.equal(args[0], 'supabase');
     if (args[1] === '--version') return '2.116.0\n';
@@ -151,7 +161,7 @@ function fixture(overrides = {}) {
     state.deployed.add(slug);
     return '';
   };
-  setup.options = { root, toolingRoot: temp, request, command: run, preflight: async (passedEnv) => {
+  setup.options = { root: appRoot, toolingRoot: temp, request, command: run, preflight: async (passedEnv) => {
     assert.equal(passedEnv, setup.env);
     assert.equal(state.migrated, true);
     assert.equal(state.deployed.size, 3);
@@ -177,7 +187,8 @@ test('rollout changes only one secret, reviewed migration and three functions in
     assert.ok(posts[0].url.endsWith('/secrets'));
     const pushes = f.state.calls.filter((call) => call.args?.[1] === 'db' && !call.args.includes('--dry-run'));
     assert.equal(pushes.length, 1);
-    assert.deepEqual(readdirSync(f.temp), ['chronospark-backend-repair-evidence']);
+    assert.deepEqual(readdirSync(f.temp).sort(), ['chronospark-backend-repair-evidence', 'reviewed-app']);
+    assert.equal(readFileSync(join(f.temp, 'reviewed-app/supabase/migrations', MIGRATION), 'utf8'), migration);
     const output = readFileSync(join(f.temp, 'chronospark-backend-repair-evidence/rollout.json'), 'utf8');
     for (const forbidden of [privateValue, env.CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS, 'synthetic-function-body']) {
       assert.equal(output.includes(forbidden), false);
