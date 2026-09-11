@@ -268,6 +268,21 @@ class CandidateVerifierTests(unittest.TestCase):
     def test_manifest(self):
         self.assertEqual(manifest_identity(manifest(), ("4.1.0", "2026083003")), 36)
 
+    def test_all_candidate_profiles_reject_advertising_permissions(self):
+        permissions = ('com.google.android.gms.permission.AD_ID',
+                       'android.permission.ACCESS_ADSERVICES_AD_ID',
+                       'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+                       'android.permission.ACCESS_ADSERVICES_TOPICS',
+                       'android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE')
+        for billing in (False, True):
+            for tag in ('uses-permission', 'uses-permission-sdk-23'):
+                for permission in permissions:
+                    xml = manifest(billing=billing).replace('</manifest>',
+                        f'<{tag} android:name="{permission}"/></manifest>')
+                    with self.subTest(billing=billing, tag=tag, permission=permission), \
+                            self.assertRaisesRegex(ValueError, 'No-ads policy'):
+                        manifest_identity(xml, ('4.1.0', '2026083003'), billing_test=billing)
+
     def test_bad_manifest_identity_rejected(self):
         for options in ({"package": "other.app"}, {"code": "1"},
                         {"target": "35"}, {"debug": "true"}, {"test_only": "true"}):

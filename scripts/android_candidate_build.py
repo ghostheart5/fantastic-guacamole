@@ -238,6 +238,19 @@ def manifest_identity(xml, version, billing_test=False):
     require(app is not None and app.get(android + "debuggable", "false") == "false",
             "Debuggable AAB rejected")
     require(app.get(android + "testOnly", "false") == "false", "Test-only AAB rejected")
+    ad_permissions = {
+        "com.google.android.gms.permission.AD_ID",
+        "android.permission.ACCESS_ADSERVICES_AD_ID",
+        "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",
+        "android.permission.ACCESS_ADSERVICES_TOPICS",
+        "android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE",
+    }
+    declared_permissions = {
+        node.get(android + "name") for node in manifest
+        if node.tag in ("uses-permission", "uses-permission-sdk-23")
+    }
+    require(not ad_permissions.intersection(declared_permissions),
+            "No-ads policy: advertising permissions are forbidden in every candidate profile")
     billing_permission = any(node.get(android + "name") == "com.android.vending.BILLING"
                              for node in manifest.findall("uses-permission"))
     require(billing_permission == billing_test,
