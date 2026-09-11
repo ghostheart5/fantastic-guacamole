@@ -172,41 +172,40 @@ class _NexusVitals extends StatelessWidget {
   const _NexusVitals({
     required this.energy,
     required this.fatigue,
-    required this.momentum,
+    required this.momentumLabel,
     required this.hasObservedEnergy,
     required this.hasObservedClarity,
-    required this.hasMomentumEvidence,
+    required this.onEnergy,
+    required this.onClarity,
+    required this.onMomentum,
     required this.pulse,
   });
 
   final double energy;
   final double fatigue;
-  final double momentum;
+  final String momentumLabel;
   final bool hasObservedEnergy;
   final bool hasObservedClarity;
-  final bool hasMomentumEvidence;
+  final VoidCallback onEnergy;
+  final VoidCallback onClarity;
+  final VoidCallback onMomentum;
   final double pulse;
 
   @override
   Widget build(BuildContext context) {
-    final String momentumLabel = !hasMomentumEvidence
-        ? 'LEARNING'
-        : momentum >= .72
-        ? 'STRONG'
-        : momentum >= .45
-        ? 'STEADY'
-        : 'BUILDING';
     return Semantics(
       container: true,
       label:
           '${hasObservedEnergy ? 'Energy ${(energy * 100).round()} percent' : 'Energy unmeasured'}. '
-          '${hasObservedClarity ? 'Clarity ${((1 - fatigue) * 100).round()} percent' : 'Clarity not checked'}. '
+          '${hasObservedClarity ? 'Estimated clarity ${((1 - fatigue) * 100).round()} percent, based on reported fatigue' : 'Clarity not checked'}. '
           'Momentum $momentumLabel.',
       child: Row(
         children: <Widget>[
           Expanded(
             child: _VitalMetric(
               label: 'ENERGY',
+              onTap: onEnergy,
+              hint: 'Check in with your energy for this session',
               value: hasObservedEnergy
                   ? '${(energy * 100).round()}%'
                   : 'UNMEASURED',
@@ -218,6 +217,8 @@ class _NexusVitals extends StatelessWidget {
           Expanded(
             child: _VitalMetric(
               label: 'CLARITY',
+              onTap: onClarity,
+              hint: 'Estimate from your fatigue report. Tap to check in',
               value: hasObservedClarity
                   ? '${((1 - fatigue) * 100).round()}%'
                   : 'NOT CHECKED',
@@ -229,6 +230,8 @@ class _NexusVitals extends StatelessWidget {
           Expanded(
             child: _VitalMetric(
               label: 'MOMENTUM',
+              onTap: onMomentum,
+              hint: 'Open Trajectory to review the current baseline',
               value: momentumLabel,
               accent: AppColors.memoryAmber,
               pulse: pulse,
@@ -246,50 +249,65 @@ class _VitalMetric extends StatelessWidget {
     required this.value,
     required this.accent,
     required this.pulse,
+    required this.onTap,
+    required this.hint,
   });
 
   final String label;
   final String value;
   final Color accent;
   final double pulse;
+  final VoidCallback onTap;
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary.withValues(alpha: .68),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: accent.withValues(alpha: .28)),
-      ),
-      child: Column(
-        children: <Widget>[
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: AppSizes.fontMicro,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
+    return Tooltip(
+      message: hint,
+      child: Semantics(
+        button: true,
+        hint: hint,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.bgSecondary.withValues(alpha: .68),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: accent.withValues(alpha: .28)),
+            ),
+            child: Column(
+              children: <Widget>[
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: AppSizes.fontMicro,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: accent.withValues(alpha: .84 + pulse * .16),
+                    fontSize: AppSizes.fontBodyLg,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.fade,
-            softWrap: false,
-            style: TextStyle(
-              color: accent.withValues(alpha: .84 + pulse * .16),
-              fontSize: AppSizes.fontBodyLg,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

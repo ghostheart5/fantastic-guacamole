@@ -21,11 +21,7 @@ class _TrajectoryOverviewCard extends StatelessWidget {
         : baseline.pressure >= 50
         ? const Color(0xFFFFC857)
         : const Color(0xFF6EE7F9);
-    final String momentumBand = baseline.momentum >= 72
-        ? 'STRONG'
-        : baseline.momentum >= 45
-        ? 'STEADY'
-        : 'BUILDING';
+    final String momentumBand = trajectoryMomentumBand(baseline.momentum);
     return _Panel(
       title: 'Current direction',
       accent: accent,

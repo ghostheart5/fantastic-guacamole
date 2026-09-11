@@ -4,7 +4,7 @@ This is an initial source-based map. It does not prove live deployment settings.
 
 | Data/signal | Source classification | Consent/freshness requirement | Local use | External use | Persistence | Current launch state |
 |---|---|---|---|---|---|---|
-| Current energy/capacity | User-reported or Unknown | Explicit check-in; short expiry | Planning and Nexus only when authorized | None while AI disabled | Do not promote to enduring identity | Unknown by default |
+| Current energy/fatigue and estimated clarity | User-reported energy/fatigue or Unknown; clarity is inverse reported fatigue, not a cognitive assessment | Optional explicit Home check-in; each field expires independently after two hours; clearable; account/session fenced | Shared planning, Nexus and Trajectory operating context | Only through separately gated and disclosed external AI requests | Session-only; not written as enduring identity; app restart/sign-out clears it | Unknown by default; source and host validation in HOME_VITALS_RELEASE_CHECK_20260911 |
 | Emotion | User-reported or Unknown | Explicit emotional-signal consent; revocable | Deterministic guidance only when enabled | Safety-routed content is blocked before external AI egress | Current check-in separate from history | Phase 7 source and host tests pass; qualified review remains external |
 | Identity/archetype | Co-authored only | Opt-in review and correction | Profile only after evidence/review | None | Removable with provenance | Inferred identity hidden until co-authoring exists |
 | Tasks/goals/habits/notes | User-authored | Account ownership and purpose scope | Decision/evidence domains | Supabase only where enabled and promised | Versioned account-scoped storage required | Several domains incomplete |

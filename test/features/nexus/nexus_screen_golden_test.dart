@@ -23,6 +23,7 @@ import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
+import 'package:fantastic_guacamole/state/providers/nexus_vitals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
@@ -74,6 +75,14 @@ void main() {
           () => _TestSIStateController(observed: observedVitals),
         ),
         trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
+        nexusTrajectoryVitalsProvider.overrideWithValue(
+          const NexusTrajectoryVitals(
+            momentumLabel: 'STEADY',
+            momentumPercent: 50,
+            pressurePercent: 10,
+            activeCount: 2,
+          ),
+        ),
         goalsProvider.overrideWith(
           () => _StaticGoalsNotifier(_populatedNexusModel.aggregation.goals),
         ),
@@ -140,6 +149,14 @@ void main() {
           () => _TestSIStateController(observed: true),
         ),
         trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
+        nexusTrajectoryVitalsProvider.overrideWithValue(
+          const NexusTrajectoryVitals(
+            momentumLabel: 'STEADY',
+            momentumPercent: 50,
+            pressurePercent: 10,
+            activeCount: 2,
+          ),
+        ),
         goalsProvider.overrideWith(
           () => _StaticGoalsNotifier(_populatedNexusModel.aggregation.goals),
         ),
@@ -377,6 +394,46 @@ void main() {
         find.text('Review the overdue item below before taking a break.'),
         findsNothing,
       );
+    });
+
+    testWidgets('Home Momentum opens Trajectory', (tester) async {
+      final container = await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+      );
+      await tester.tap(find.text('MOMENTUM').first);
+      await tester.pump();
+      expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+    });
+
+    testWidgets('Home check-in updates Energy and Clarity immediately', (
+      tester,
+    ) async {
+      final container = await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+        observedVitals: false,
+      );
+      await tester.tap(find.text('ENERGY'));
+      await tester.pump(const Duration(milliseconds: 400));
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(.65);
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('65%'), findsOneWidget);
+      expect(container.read(siStateProvider).energy, .65);
+      await tester.tap(find.text('CLARITY'));
+      await tester.pump(const Duration(milliseconds: 400));
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(.2);
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('80%'), findsOneWidget);
+      expect(find.text('65%'), findsOneWidget);
+      expect(container.read(siStateProvider).fatigue, .2);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      container.dispose();
     });
 
     testWidgets('seeded vitals are not presented as personal measurements', (

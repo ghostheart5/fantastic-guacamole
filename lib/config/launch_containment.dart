@@ -9,7 +9,10 @@ abstract final class LaunchContainment {
   static const bool subscriptionsEnabled = false;
   static const bool externalAiEnabled = false;
   static const bool creditSpendingEnabled = false;
-  static const bool externalAiProviderRetentionVerified = false;
+  // Verified 2026-09-11: actual API organization, 30-day default retention,
+  // global inference, no ZDR, feedback off; disclosures reconciled in
+  // docs/engineering/FINAL_FOUR_GATES_20260911.md. Reassess on provider changes.
+  static const bool externalAiProviderRetentionVerified = true;
   static const bool externalAiSafetyReviewApproved = false;
   static const bool paidCreditPlansEnabled =
       subscriptionsEnabled &&

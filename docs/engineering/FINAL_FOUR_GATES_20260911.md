@@ -82,4 +82,13 @@ Official requirements checked September 11:
 - https://support.claude.com/en/articles/7996862-how-do-i-view-and-sign-your-data-processing-addendum-dpa
 - https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data
 
+## Subsequent Home vitals repair
+
+The [Home vitals checkpoint](HOME_VITALS_RELEASE_CHECK_20260911.md) records
+the subsequent Energy, Clarity, Momentum and Pressure repairs. The verified
+provider-retention flag is now reconciled in source; public paid features remain
+disabled. These working-tree changes require a new candidate and do not inherit
+candidate 3025's native validation result. Full reviewer access and the qualified
+review record remain open.
+
 **Release status: not ready.**

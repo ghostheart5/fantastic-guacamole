@@ -12,6 +12,8 @@ import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
+import 'package:fantastic_guacamole/features/nexus/ui/human_state_check_in_dialog.dart';
+import 'package:fantastic_guacamole/state/providers/nexus_vitals_provider.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
@@ -79,12 +81,22 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     super.dispose();
   }
 
+  void _checkIn({required bool energy}) {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (_) => HumanStateCheckInDialog(energy: energy),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ProfileState profile = ref.watch(profileProvider);
     final siState = ref.watch(consentedHumanContextProvider).siState;
     final double energy = siState.energy;
     final double fatigue = siState.fatigue;
+    final trajectoryVitals = ref.watch(nexusTrajectoryVitalsProvider);
     final NexusDecisionModel decisionModel = ref.watch(nexusDecisionProvider);
     final LearningFeedbackChange? learningChange = ref.watch(
       latestDecisionLearningChangeProvider,
@@ -117,10 +129,13 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     builder: (context, _) => _NexusVitals(
                       energy: energy,
                       fatigue: fatigue,
-                      momentum: trajectory.momentum,
+                      momentumLabel: trajectoryVitals.momentumLabel,
                       hasObservedEnergy: siState.hasObservedEnergy,
                       hasObservedClarity: siState.hasObservedFatigue,
-                      hasMomentumEvidence: trajectory.completedTasks >= 3,
+                      onEnergy: () => _checkIn(energy: true),
+                      onClarity: () => _checkIn(energy: false),
+                      onMomentum: () =>
+                          goToAppView(context, ref, AppView.trajectoryEngine),
                       pulse: _pulse.value,
                     ),
                   ),
@@ -193,6 +208,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
                   child: _TrajectoryReport(
                     summary: trajectory,
+                    vitals: trajectoryVitals,
                     onOpen: () =>
                         goToAppView(context, ref, AppView.trajectoryEngine),
                   ),

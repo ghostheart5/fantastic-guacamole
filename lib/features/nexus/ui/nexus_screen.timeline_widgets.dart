@@ -1,9 +1,14 @@
 part of 'nexus_screen.dart';
 
 class _TrajectoryReport extends StatelessWidget {
-  const _TrajectoryReport({required this.summary, required this.onOpen});
+  const _TrajectoryReport({
+    required this.summary,
+    required this.vitals,
+    required this.onOpen,
+  });
 
   final TrajectorySummaryView summary;
+  final NexusTrajectoryVitals vitals;
   final VoidCallback onOpen;
 
   @override
@@ -14,16 +19,20 @@ class _TrajectoryReport extends StatelessWidget {
       'elevated' || 'watch' => AppColors.memoryAmber,
       _ => AppColors.neonViolet,
     };
-    final String headline = summary.predictionEvidenceSufficient
+    final String headline = vitals.unavailableDetail != null
+        ? 'Trajectory ${vitals.momentumLabel.toLowerCase()}'
+        : summary.predictionEvidenceSufficient
         ? summary.predictionOutcome!
         : '${_titleCase(riskName)} pressure signal';
-    final String report = summary.predictionEvidenceSufficient
-        ? '${((summary.predictionProbability ?? 0) * 100).round()}% observed follow-through across ${summary.predictionSampleSize} outcomes.'
-        : _cleanTrajectoryCopy(
-            summary.statusDetail.isNotEmpty
-                ? summary.statusDetail
-                : summary.alert,
-          );
+    final String report =
+        vitals.unavailableDetail ??
+        (summary.predictionEvidenceSufficient
+            ? '${((summary.predictionProbability ?? 0) * 100).round()}% observed follow-through across ${summary.predictionSampleSize} outcomes.'
+            : _cleanTrajectoryCopy(
+                summary.statusDetail.isNotEmpty
+                    ? summary.statusDetail
+                    : summary.alert,
+              ));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,7 +86,9 @@ class _TrajectoryReport extends StatelessWidget {
                     Expanded(
                       child: _MetricCell(
                         label: 'PRESSURE',
-                        value: '${summary.pressureIndex}%',
+                        value: vitals.pressurePercent == null
+                            ? '—'
+                            : '${vitals.pressurePercent}%',
                         accent: accent,
                       ),
                     ),
@@ -85,7 +96,9 @@ class _TrajectoryReport extends StatelessWidget {
                     Expanded(
                       child: _MetricCell(
                         label: 'MOMENTUM',
-                        value: '${(summary.momentum * 100).round()}%',
+                        value: vitals.momentumPercent == null
+                            ? '—'
+                            : '${vitals.momentumPercent}%',
                         accent: AppColors.neonCyan,
                       ),
                     ),
@@ -93,7 +106,7 @@ class _TrajectoryReport extends StatelessWidget {
                     Expanded(
                       child: _MetricCell(
                         label: 'ACTIVE',
-                        value: '${summary.pendingTasks}',
+                        value: vitals.activeCount?.toString() ?? '—',
                         accent: AppColors.neonViolet,
                       ),
                     ),

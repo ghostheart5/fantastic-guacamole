@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contra
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
+import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
@@ -20,6 +21,12 @@ enum TrajectoryEngineStatus {
 }
 
 const int trajectoryMinimumObservedOutcomes = 3;
+
+String trajectoryMomentumBand(int momentum) => momentum >= 72
+    ? 'STRONG'
+    : momentum >= 45
+    ? 'STEADY'
+    : 'BUILDING';
 
 bool trajectoryHasMinimumEvidence(TrajectoryComparison? comparison) {
   final TrajectoryBaseline? baseline = comparison?.baseline;
@@ -158,6 +165,7 @@ class TrajectoryEngineActions {
 
   void refresh() {
     _ref
+      ..invalidate(executionSignalsProvider)
       ..invalidate(trajectorySummaryProvider)
       ..invalidate(trajectoryConsequenceProvider)
       ..invalidate(operatingSnapshotProvider)

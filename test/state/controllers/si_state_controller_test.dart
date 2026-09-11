@@ -5,6 +5,62 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'check-ins expire independently and never become enduring state',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(siStateProvider.notifier);
+      controller.adjustEnergy(.2);
+      controller.adjustFatigue(-.1);
+      await tester.pump(const Duration(hours: 1));
+      controller.replaceState(
+        energy: .8,
+        fatigue: .4,
+        energyOrigin: PredictiveEvidenceOrigin.observed,
+      );
+      await tester.pump(const Duration(hours: 1));
+      expect(container.read(siStateProvider).hasObservedEnergy, isTrue);
+      expect(container.read(siStateProvider).hasObservedFatigue, isFalse);
+      await tester.pump(const Duration(hours: 1));
+      expect(container.read(siStateProvider).hasObservedEnergy, isFalse);
+      container.dispose();
+    },
+  );
+  test('non-finite inputs cannot become personal observations', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(siStateProvider.notifier);
+    for (final value in [
+      double.nan,
+      double.infinity,
+      double.negativeInfinity,
+    ]) {
+      controller.adjustEnergy(value);
+      controller.adjustFatigue(value);
+      controller.replaceState(
+        energy: value,
+        fatigue: .5,
+        energyOrigin: PredictiveEvidenceOrigin.observed,
+      );
+      expect(container.read(siStateProvider).hasObservedEnergy, isFalse);
+      expect(container.read(siStateProvider).hasObservedFatigue, isFalse);
+      expect(
+        SIState(
+          energy: value,
+          energyOrigin: PredictiveEvidenceOrigin.observed,
+        ).hasObservedEnergy,
+        isFalse,
+      );
+      expect(
+        SIState(
+          fatigue: value,
+          fatigueOrigin: PredictiveEvidenceOrigin.observed,
+        ).hasObservedFatigue,
+        isFalse,
+      );
+    }
+  });
   test('build starts with default SI state', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);

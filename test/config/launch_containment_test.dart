@@ -11,7 +11,7 @@ void main() {
     expect(LaunchContainment.subscriptionsEnabled, isFalse);
     expect(LaunchContainment.externalAiEnabled, isFalse);
     expect(LaunchContainment.creditSpendingEnabled, isFalse);
-    expect(LaunchContainment.externalAiProviderRetentionVerified, isFalse);
+    expect(LaunchContainment.externalAiProviderRetentionVerified, isTrue);
     expect(LaunchContainment.externalAiSafetyReviewApproved, isFalse);
     expect(LaunchContainment.paidCreditPlansEnabled, isFalse);
     expect(LaunchContainment.analyticsEnabled, isFalse);
