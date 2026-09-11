@@ -306,7 +306,7 @@ def verify_png(data):
     return list(dimensions)
 
 
-def capture_guest_png(commands, adb, label, viewport):
+def capture_guest_png(commands, adb, label, viewport, framebuffer=None):
     path = commands.evidence / (label + ".png")
     record = {"argv": adb + ["exec-out", "screencap", "-p"], "exitCode": None,
               "timedOut": False, "launchFailed": False, "valid": False}
@@ -317,8 +317,15 @@ def capture_guest_png(commands, adb, label, viewport):
         (commands.evidence / (label + ".stderr.txt")).write_bytes(result.stderr)
         require(result.returncode == 0, "Screenshot command failed")
         record["dimensions"] = verify_png(path.read_bytes())
-        require(record["dimensions"] == [int(value) for value in viewport.split("x")],
+        # Android may capture the logical display after its override settles,
+        # or the physical composition buffer. Both sizes must be explicit;
+        # wm readback independently requires the exact logical test viewport.
+        allowed = [viewport] if framebuffer is None else [viewport, framebuffer]
+        require(record["dimensions"] in [[int(value) for value in item.split("x")] for item in allowed],
                 "Screenshot dimensions do not match the required viewport")
+        record["logicalViewport"] = viewport
+        record["physicalViewport"] = framebuffer or viewport
+        record["captureSpace"] = "logical" if record["dimensions"] == [int(value) for value in viewport.split("x")] else "physical"
         record["valid"] = True
     except subprocess.TimeoutExpired as error:
         record["timedOut"] = True
@@ -374,7 +381,7 @@ def integration(commands, source, adb, process, case):
         commands.run("required-viewport", adb + ["shell", "wm", "size", viewport])
         entry["display"] = verify_viewport_readback(
             commands.run("viewport-readback", adb + ["shell", "wm", "size"]), viewport)
-        capture_guest_png(commands, adb, "pre-test-screen", physical_viewport(viewport))
+        capture_guest_png(commands, adb, "pre-test-screen", viewport, physical_viewport(viewport))
         commands.run("clear-test-log", adb + ["logcat", "-c"], timeout=15)
         stream = log_path.open("xb")
         errors = (commands.evidence / "continuous-logcat.stderr.txt").open("xb")
@@ -403,7 +410,7 @@ def integration(commands, source, adb, process, case):
                                                           "ChronoSparkValidation", end], timeout=15)),
             ("post-test-viewport", lambda: verify_viewport_readback(
                 commands.run("post-test-viewport", adb + ["shell", "wm", "size"]), viewport)),
-            ("post-test-screen", lambda: capture_guest_png(commands, adb, "post-test-screen", physical_viewport(viewport))),
+            ("post-test-screen", lambda: capture_guest_png(commands, adb, "post-test-screen", viewport, physical_viewport(viewport))),
         ):
             try:
                 capture()

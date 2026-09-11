@@ -338,6 +338,23 @@ class FinalValidationTest(unittest.TestCase):
             self.assertEqual(receipt["exitCode"], code)
             self.assertEqual(receipt["valid"], index == 2)
 
+    def test_capture_accepts_only_declared_logical_or_physical_size(self):
+        for index, (size, expected) in enumerate((([411, 891], 'logical'), ([412, 891], 'physical'),
+                                                 ([410, 891], None), ([891, 412], None), ([320, 640], None))):
+            def run(argv, **kwargs):
+                kwargs['stdout'].write(self.png())
+                return subprocess.CompletedProcess(argv, 0, stderr=b'')
+            commands = gate.Commands(self.root / ('capture-space-' + str(index)))
+            with patch.object(gate.subprocess, 'run', side_effect=run), patch.object(gate, 'verify_png', return_value=size):
+                if expected:
+                    receipt = gate.capture_guest_png(commands, ['adb'], 'screen', '411x891', '412x891')
+                    self.assertEqual(receipt['captureSpace'], expected)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'Screenshot dimensions'):
+                        gate.capture_guest_png(commands, ['adb'], 'screen', '411x891', '412x891')
+            receipt = gate.read_json(commands.evidence / "screen.json")
+            self.assertEqual(receipt["valid"], expected is not None)
+
     def test_native_case_requires_six_auth_tests_and_preserves_failure_captures(self):
         class Collector:
             pid = 123
