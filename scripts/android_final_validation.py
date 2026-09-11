@@ -925,12 +925,12 @@ def prepare_fixture_guest(commands, adb, process):
     receipt = {"passed": False, "samples": [], "applicationTestsExecuted": 0,
                "networkBoundary": "Offline fixture matrix only; no signed-release or live-service claim."}
     try:
+        commands.run("fixture-airplane-on", adb + ["shell", "cmd", "connectivity", "airplane-mode", "enable"])
         commands.run("fixture-wifi-off", adb + ["shell", "svc", "wifi", "disable"])
-        commands.run("fixture-mobile-data-off", adb + ["shell", "svc", "data", "disable"])
         require(commands.run("fixture-wifi-readback", adb + ["shell", "settings", "get", "global", "wifi_on"]) == "0",
                 "Fixture Wi-Fi isolation did not apply")
-        require(commands.run("fixture-data-readback", adb + ["shell", "settings", "get", "global", "mobile_data"]) == "0",
-                "Fixture mobile data isolation did not apply")
+        require(commands.run("fixture-airplane-readback", adb + ["shell", "cmd", "connectivity", "airplane-mode"]) == "enabled",
+                "Fixture cellular radio isolation did not apply")
         # sys.boot_completed precedes GMS/package initialization on a fresh image.
         # Retain a bounded continuous preparation window instead of racing it.
         for index in range(7):

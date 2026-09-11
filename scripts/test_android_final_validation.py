@@ -20,11 +20,13 @@ import android_final_validation as gate
 
 class FinalValidationTest(unittest.TestCase):
     def test_fixture_preparation_rejects_failed_isolation_and_any_transport_gap(self):
-        for failing_step in ('fixture-wifi-readback', 'fixture-data-readback', 'fixture-settle-health-3', None):
+        for failing_step in ('fixture-wifi-readback', 'fixture-airplane-readback', 'fixture-settle-health-3', None):
             with tempfile.TemporaryDirectory() as directory:
                 commands = gate.Commands(directory)
                 health = []
                 def run(label, argv, **kwargs):
+                    if label == 'fixture-airplane-readback':
+                        return 'disabled' if label == failing_step else 'enabled'
                     if label.endswith('readback'):
                         return '1' if label == failing_step else '0'
                     return 'MemAvailable: 1024000 kB'
