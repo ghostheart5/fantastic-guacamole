@@ -125,8 +125,22 @@ test, reconnect a failed invocation or alter its recorded result.
 Verification: 44 final-runner tests and six ownership tests passed. A separate
 recheck of the original pre/post PNG bytes reproduced physical and logical
 capture spaces under the new checker; the original run remains failed.
-Run 34549031300 was dispatched with tooling 1381ebc3 to rerun all fifteen cases.
-Its final native result must be read before certifying this gate.
+Run 34549031300 used tooling 1381ebc3 and finished **failed**. Persistence
+completed its one case. Startup, small auth, Planner and tall auth each failed
+during test loading after their ADB/VM-service transport disconnected: four
+loader errors and fourteen intended application cases not executed. All five
+owned guests, log collectors and servers were cleaned up; owned servers stayed
+alive. The screenshot-space repair does not resolve this transport failure.
+The full native gate remains open. Do not combine passes across earlier failed
+runs or treat the absence of early GitHub annotations as a passing test result.
+
+Retained evidence for this run is in `C:/src/cs-3025-native-r7`; its immutable
+GitHub run is https://github.com/ghostheart5/fantastic-guacamole/actions/runs/34549031300.
+The next investigation should isolate the transport on a known-stable native
+environment and capture host/guest resource and connection diagnostics around
+VM-service attachment. No further unchanged retry was dispatched. There is no
+proven application assertion failure or proven upstream root cause in these
+interrupted invocations; the missing execution remains unverified, not passed.
 
 The strict-16KB lane separately handles the documented adbd root restart response
 by waiting for reconnection and requiring actual uid 0. It rejects other errors
