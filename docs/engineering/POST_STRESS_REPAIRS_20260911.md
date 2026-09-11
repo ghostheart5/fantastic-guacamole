@@ -6,6 +6,10 @@ The 3028 stress report remains a historical record of the published and installe
 - **S10, support email:** encode mail query fields using URI component escaping before launching the email app. Spaces, Unicode, newlines, ampersands and literal plus signs survive correctly. This also covers the existing account-deletion support mail path; no mail is sent by the app or tests.
 - **S11, SI context disclosure:** the ready banner now describes available user-reported context, without claiming every answer cited it. Query relevance recognizes explicit minute/hour wording, so a question about five minutes does not silently exclude consented capacity. Existing consent, freshness, account and unrelated-query exclusions remain in force. The ambiguous ranking observation is retained: explicit grocery wording already selects the grocery task; no speculative ranking weight change was made.
 
+## Installed-device follow-up
+
+The owner subsequently completed Google's verification choice, and the Moto was updated through Play to 3029. The named repaired-device checks, four energy/clarity combinations, Momentum horizon checks, restore/credit spending, 100 navigation events and offline persistence ran. A new misleading SI goal-comparison rationale prevents a full human acceptance pass. See [installed-device results](INSTALLED_3029_VALIDATION_20260911.md) and its JSON evidence index. The pending-update statements below describe the earlier automated handoff, not the current installed version.
+
 ## Candidate and publication
 
 App source: `bc5a50c216513b8157a34330b785eb9d6187f77c`. Build tooling: `a529a415b1201aef2c0da687098d0e612200d8d9`. Signed candidate run: `34642305491`. Both authoritative version files specify `4.1.0+2026083029`.

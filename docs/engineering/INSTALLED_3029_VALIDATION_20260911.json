@@ -1,0 +1,604 @@
+{
+  "recordedAtUtc": "2026-09-11T21:26:30.921215+00:00",
+  "versionCode": 2026083029,
+  "appSourceSha": "bc5a50c216513b8157a34330b785eb9d6187f77c",
+  "installer": "com.android.vending",
+  "androidUser": 0,
+  "status": "COMPLETED_WITH_FINDINGS",
+  "productionReady": false,
+  "productionPublished": false,
+  "profileBefore": {
+    "level": 20,
+    "xp": 36187,
+    "completions": 1447
+  },
+  "profileAfterColdRestart": {
+    "level": 20,
+    "xp": 36212,
+    "completions": 1448
+  },
+  "vitals": {
+    "complete": true,
+    "cases": [
+      {
+        "energy": 0,
+        "reportedFatigue": 0,
+        "clarity": 100,
+        "trajectoryAndReturn": "PASS"
+      },
+      {
+        "energy": 100,
+        "reportedFatigue": 100,
+        "clarity": 0,
+        "trajectoryAndReturn": "PASS"
+      },
+      {
+        "energy": 10,
+        "reportedFatigue": 90,
+        "clarity": 10,
+        "trajectoryAndReturn": "PASS"
+      },
+      {
+        "energy": 90,
+        "reportedFatigue": 10,
+        "clarity": 90,
+        "trajectoryAndReturn": "PASS"
+      }
+    ],
+    "finalCleared": true
+  },
+  "navigation": {
+    "completed": true,
+    "events": 100,
+    "cycles": 25,
+    "samples": [
+      {
+        "cycles": 5,
+        "navigationEvents": 20,
+        "seconds": 6.23,
+        "nexusReadback": true
+      },
+      {
+        "cycles": 10,
+        "navigationEvents": 40,
+        "seconds": 12.12,
+        "nexusReadback": true
+      },
+      {
+        "cycles": 15,
+        "navigationEvents": 60,
+        "seconds": 17.95,
+        "nexusReadback": true
+      },
+      {
+        "cycles": 20,
+        "navigationEvents": 80,
+        "seconds": 23.78,
+        "nexusReadback": true
+      },
+      {
+        "cycles": 25,
+        "navigationEvents": 100,
+        "seconds": 29.58,
+        "nexusReadback": true
+      }
+    ],
+    "boundary": "Targeted rapid root navigation; no random/destructive events. Runtime log scan remains separate."
+  },
+  "offline": {
+    "startedAt": "2026-09-11T21:22:55.279919+00:00",
+    "before": {
+      "wifi_on": "1",
+      "mobile_data": "1"
+    },
+    "status": "PASS",
+    "offline": {
+      "wifi_on": "0",
+      "mobile_data": "1"
+    },
+    "defaultNetwork": "none",
+    "launch": "Starting: Intent { cmp=com.ghostheart5.chronospark/.MainActivity }\r\nStatus: ok\r\nLaunchState: COLD\r\nActivity: com.ghostheart5.chronospark/.MainActivity\r\nTotalTime: 969\r\nWaitTime: 1000\r\nComplete",
+    "restored": {
+      "wifi_on": "1",
+      "mobile_data": "1"
+    },
+    "finishedAt": "2026-09-11T21:23:15.499822+00:00"
+  },
+  "billing": {
+    "restore": "PASS_NO_DUPLICATE_GRANT",
+    "beforeBalance": 797,
+    "afterBalance": 794,
+    "includedAfter": 297,
+    "purchasedAfter": 497,
+    "lifetimeSpentAfter": 61,
+    "spendCredits": 3,
+    "retryAdditionalCharge": 0,
+    "consentInvalidatesQuote": true,
+    "annualStatusAtReadback": "active",
+    "expiresAtReadback": "2026-09-11T21:46:18.563Z"
+  },
+  "repairs": {
+    "S9": "PASS_SCROLL_AND_RESTORE",
+    "S10": "PASS_UNSENT_DRAFT_DISCARDED",
+    "S11": "PASS_EXPLICIT_FIVE_MINUTE_QUERY; TOPIC_CHANGE_NOT_ACCEPTED"
+  },
+  "findings": [
+    {
+      "id": "S12",
+      "severity": "medium",
+      "status": "OPEN",
+      "summary": "Goal comparison attributes ranking to equal or missing target dates despite relevance-first sorting.",
+      "source": "lib/engine/si/si_v2_engine.dart:1050"
+    },
+    {
+      "id": "OBS_QUERY_COVERAGE",
+      "severity": "observation",
+      "status": "DOCUMENTED",
+      "summary": "List my goals unsupported; earlier capacity retained across later conversation queries."
+    },
+    {
+      "id": "OBS_COPY_PUNCTUATION",
+      "severity": "low",
+      "status": "OPEN",
+      "summary": "Expanded saved context ending in a period is followed by another period."
+    }
+  ],
+  "cleanup": {
+    "contextItemsRemaining": 0,
+    "syntheticVitalsCleared": true,
+    "externalAiConsentRestored": true,
+    "networkRestored": true,
+    "collectorStopped": true,
+    "ownerDataReset": false,
+    "ownerSignedOut": false
+  },
+  "runtime": {
+    "startedAtUtc": "2026-09-11T21:04:19.722426+00:00",
+    "stoppedAtUtc": "2026-09-11T21:24:30.3799846Z",
+    "capture": {
+      "path": "test-results/release-3029/device/runtime.log",
+      "sha256": "503fcae42b23bd8ea1876138c557ef5985631231d3686c4969747bfca86ea65c",
+      "bytes": 67894
+    },
+    "patternMatches": {
+      "FATAL EXCEPTION": 0,
+      "ANR in com\\.ghostheart5\\.chronospark": 0,
+      "Unhandled Exception": 0,
+      "RenderFlex.*overflow": 0,
+      "logger\\.categorized_error": 0
+    }
+  },
+  "evidence": [
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-add.json",
+      "sha256": "551b84934e08d44febdcdb25b0486774bf744a117d2448c7f7c846f61dd15b82",
+      "bytes": 4502
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-capacity.json",
+      "sha256": "02bbe6c187faff3abecaf1c00507a72b791a507135fa67010442a4ddf62f728d",
+      "bytes": 4505
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-clean.json",
+      "sha256": "c91104a308dffcf0fe29b15c9ec467c2669d4d90ff66b4a2960d0bbb11140c45",
+      "bytes": 4962
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-delete.json",
+      "sha256": "d201a785cc0ab2994d42feff1fa0abb6f63eea81ab27637df00bc9b748c61b03",
+      "bytes": 1311
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-deleted.json",
+      "sha256": "b9a716caf246354a391013b64bd65a56a85b7b8fed5de58a670b2ea6f9d1a9c3",
+      "bytes": 958
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-expanded.json",
+      "sha256": "36e72458891c695d9f9152ae1a395d825ddbf4e008c686254b48e039f80bf72b",
+      "bytes": 5015
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-home.json",
+      "sha256": "1bf36051d2657ddb8e7ed8759157bdeedfdfa6bc604c67a5a6e4280073ffa520",
+      "bytes": 7934
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-profile.json",
+      "sha256": "1bf36051d2657ddb8e7ed8759157bdeedfdfa6bc604c67a5a6e4280073ffa520",
+      "bytes": 7934
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-ready.json",
+      "sha256": "afa9d9fc52cbb030a5e7318952324d2d29b80eeffe200f070f614b49f867574e",
+      "bytes": 4329
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-review.json",
+      "sha256": "4481edd415a79462d15a0a1add8a9c9682a4067c6cf601db8bb52551c59e7124",
+      "bytes": 1953
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-saved.json",
+      "sha256": "720587bd1189c15278e5126c612e06e053cc9ab27c04581e744fdcd7aaca971e",
+      "bytes": 5276
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-text.json",
+      "sha256": "2aef541dea565888220cf34e80b58a6e502a50b656697c2a4de5eef586084069",
+      "bytes": 2884
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-types.json",
+      "sha256": "9adb4f8ca6ab657fbe9b8fa2c734e5f64951c644936a5cd5feb2cea59787b208",
+      "bytes": 2301
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-withdraw.json",
+      "sha256": "237b88bdf58a786fb22f3ee55c49c3d505628ff404c41d3f99ba6e47b9d371ca",
+      "bytes": 1361
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-context-withdrawn.json",
+      "sha256": "244fa86075021e7cdee13f6892a5f140bf7903db2bce56361d78f04651bc66ec",
+      "bytes": 1719
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-confirmed.json",
+      "sha256": "bd4f3da841fb08bc7b393cfb9b0a9277883434e2cd75f2242526cb17b69d0c78",
+      "bytes": 5390
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-consent-off.json",
+      "sha256": "09a26e9fd7edc8d0b0778de8c6d52ab96f7445e55330c4c2d472badaca07f5f5",
+      "bytes": 5662
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-consent-restored.json",
+      "sha256": "92e5fbd4943e74594f8023537d239db6c89484f0f460a1ae9d0ff24d6363c758",
+      "bytes": 5389
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-controls1.json",
+      "sha256": "ecc899280b4d013541d22868b0983878ebad8aaa77d8549501357798705064bd",
+      "bytes": 4876
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-controls2.json",
+      "sha256": "baa0d3b2f8617f069cc5461734cd820919e5f1ea91d35db1b1c540c73ccd4bd1",
+      "bytes": 5128
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-controls3.json",
+      "sha256": "30151de3295995fcc7f0e84e78085b45b6a13fd5adc99134912f2754b2715a5d",
+      "bytes": 5389
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-longquote.json",
+      "sha256": "d764448edea32e76d8ccbbebb71c02b3f642aba8c376cde80a79f96f8f2a8f4b",
+      "bytes": 4900
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-planning.json",
+      "sha256": "6bba34ed3319895b3bc0e4dd9f6da521648debc10544bc64e359e9d74f7bb3eb",
+      "bytes": 4738
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-quote.json",
+      "sha256": "fbbe7a1cf7ef41b552ddc9d9dab595cf6d2a5e00dbe0b50c5860e84dfb79d011",
+      "bytes": 4900
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-result.json",
+      "sha256": "85a1f50c816f5ab5ec942066d0973d3d82d0167650635b0bc9ba116607e6fb61",
+      "bytes": 4278
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-credit-retry.json",
+      "sha256": "550922beca0f11f3b848a7f81e69eb5b9dd8e88cc343f7830ee9d9104b4b8f5d",
+      "bytes": 5423
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-final-home.json",
+      "sha256": "477362015cbc02098e15bde83e6ed56ea8e9c3fd915f2b4541864d73fab517e1",
+      "bytes": 7643
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-final-profile.json",
+      "sha256": "f6ebaf5858887a72702903ec72eff25683140932f525505a18bfa31adbdc8472",
+      "bytes": 3168
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-first-home.json",
+      "sha256": "39d68da16cc86a3a19864df406d4d1bc64daa5cf4820c52bb20f70ccab4b257f",
+      "bytes": 7659
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-help-lower.json",
+      "sha256": "2eb1626f55f41f404a2e7f5b4f953cd376ca1cada0c3ceb8f903f274d98ff274",
+      "bytes": 4253
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-help.json",
+      "sha256": "42cf3b82145a39ab8ba838cf0108251f02139e9bce24c094132bf73332c1e5c2",
+      "bytes": 4178
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-home-before-task.json",
+      "sha256": "deb97661799022d13945f4b57c563b21d8f8a8e83754b348c9c21535e1820e6b",
+      "bytes": 8220
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-home-creditdone.json",
+      "sha256": "8cbc4b36b4208318897318f0a9a9d10974386c12970cdd2338fea36200a6c63d",
+      "bytes": 8422
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-home-task-visible.json",
+      "sha256": "314068bdb825db9b559d1129c7626b03c3c78ba4ff29bf71ac6dc258f1b4286e",
+      "bytes": 5763
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-momentum-30.json",
+      "sha256": "c9f4284589797f6bc32c4303815e643b685ddbcc4afc234d763d51a2b7bad017",
+      "bytes": 5269
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-momentum-90.json",
+      "sha256": "a057948063ce49886ab04367b9063ee62f1d1fd899bebffa8cea7d3fcb36da6b",
+      "bytes": 5268
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-momentum-restored.json",
+      "sha256": "71eec34be7ea9959dea62bb51ad081291f6f69e57aef0710d59d1bfc052e41bb",
+      "bytes": 5263
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-momentum.json",
+      "sha256": "71eec34be7ea9959dea62bb51ad081291f6f69e57aef0710d59d1bfc052e41bb",
+      "bytes": 5263
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-nav-planner.json",
+      "sha256": "fe2e61a8c40af2522b91a0477b5e5213e9944716c06de35f85028192f0cc2f80",
+      "bytes": 3291
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-nav-si.json",
+      "sha256": "fe2e61a8c40af2522b91a0477b5e5213e9944716c06de35f85028192f0cc2f80",
+      "bytes": 3291
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-paywall-bottom.json",
+      "sha256": "1e9083965bb91de34fb081a8ff6c6935bd90402577f3e8f4411d5813584cb653",
+      "bytes": 2884
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-paywall-refresh-retained.json",
+      "sha256": "a1d34490a71c6c7d8428ddb29024577d252a0158717a4969cfdc67299f665a3a",
+      "bytes": 3131
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-paywall.json",
+      "sha256": "63ea454768a9e80e9860484c41919e835ec0d00e6869e8c79c30ac5177a48038",
+      "bytes": 2179
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-planner-actions.json",
+      "sha256": "6959fd798235d0be51c2c127cb037e40ab1bb5e15e601a054093bd39694718c1",
+      "bytes": 4556
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-planner-emotion.json",
+      "sha256": "b8a11b7ce2f274a2b123e75bf5979c62e76ece73ee4e988029affe06d0cb71f3",
+      "bytes": 4039
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-planner-evidence.json",
+      "sha256": "cd6430908c0e14d1edf5287d093885769aea050a17695685f4c0438f8513f999",
+      "bytes": 2526
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-planner-form.json",
+      "sha256": "deb97661799022d13945f4b57c563b21d8f8a8e83754b348c9c21535e1820e6b",
+      "bytes": 8220
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-planner-guidance.json",
+      "sha256": "159cef970c32fe810c662b84eab19f23bcfa6cabe887bc5049e5f773c96e2563",
+      "bytes": 3929
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-planner-query.json",
+      "sha256": "bc7b9ba2d862b4003482b2d2d0ce441fbb172dd9ee748de5bc0d2c8be1809ac2",
+      "bytes": 3611
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-planner-ready.json",
+      "sha256": "15f8fe0616ce1505622fe1d6ccaa2a11466ace185c07c7525cb058c55213983e",
+      "bytes": 4556
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-planner.json",
+      "sha256": "859978d0b8387fc8b82754a702bcc25f95ada91d6360b2a06d934040483becf9",
+      "bytes": 4401
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-profile-baseline.json",
+      "sha256": "6c6377f5735d4a5face5bbcb87036ce479bb5d5326bec85d93963392e480a064",
+      "bytes": 3168
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-profile-earned.json",
+      "sha256": "f6ebaf5858887a72702903ec72eff25683140932f525505a18bfa31adbdc8472",
+      "bytes": 3168
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-restore-complete.json",
+      "sha256": "a1d34490a71c6c7d8428ddb29024577d252a0158717a4969cfdc67299f665a3a",
+      "bytes": 3131
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-restore.json",
+      "sha256": "1e9083965bb91de34fb081a8ff6c6935bd90402577f3e8f4411d5813584cb653",
+      "bytes": 2884
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-settings-credit-scroll.json",
+      "sha256": "6054abb54a0e0fa951f2b17bffcfd09bd52bf544ebd41bd79b9af9ea555b8c4c",
+      "bytes": 4974
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-settings-credit.json",
+      "sha256": "1e299bf3bdf74a6b01ef8a3b0913d8ff4ca2c3cbf47c804a4469836e873def3f",
+      "bytes": 3422
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-settings-return.json",
+      "sha256": "1e299bf3bdf74a6b01ef8a3b0913d8ff4ca2c3cbf47c804a4469836e873def3f",
+      "bytes": 3422
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-settings.json",
+      "sha256": "1e299bf3bdf74a6b01ef8a3b0913d8ff4ca2c3cbf47c804a4469836e873def3f",
+      "bytes": 3422
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-a2.json",
+      "sha256": "d3c71c6b687f3f75b6f33b0469b08ab30143abe2b41b07caff0cc28103ba3833",
+      "bytes": 7397
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-answer-visible.json",
+      "sha256": "1bf36051d2657ddb8e7ed8759157bdeedfdfa6bc604c67a5a6e4280073ffa520",
+      "bytes": 7934
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-answer.json",
+      "sha256": "75d390886a95fa662758f1ae3cd0bec4699cd028a5435490fd6c79e08fb7efa9",
+      "bytes": 7397
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-evidence.json",
+      "sha256": "413f1bc2d1d8578d45365a03bce187af3103623b2227060ae13b10187ba4aa57",
+      "bytes": 9176
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-exit.json",
+      "sha256": "1bf36051d2657ddb8e7ed8759157bdeedfdfa6bc604c67a5a6e4280073ffa520",
+      "bytes": 7934
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-goallist-answer.json",
+      "sha256": "cf60b5b8e65ba5ffc5951ebd506982899977a30ef3d546abe5e5ec7b5979a385",
+      "bytes": 8415
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-goallist-q.json",
+      "sha256": "77402fedf0da31ed4681b6f6cc8ca5e949318d52118e7b4075257990dad3ded9",
+      "bytes": 5839
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-map2.json",
+      "sha256": "fe2e61a8c40af2522b91a0477b5e5213e9944716c06de35f85028192f0cc2f80",
+      "bytes": 3291
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-q2.json",
+      "sha256": "f741d4ec2f0ad927bb7cfe35f3e8aac1dc0fc9526e2657d277e825a1637f43ec",
+      "bytes": 3696
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-question.json",
+      "sha256": "f741d4ec2f0ad927bb7cfe35f3e8aac1dc0fc9526e2657d277e825a1637f43ec",
+      "bytes": 3696
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-return.json",
+      "sha256": "ca7b0e8d368ffe52e508214574e91d28d42ef7eb50acc804d6ebf78d935fb7d7",
+      "bytes": 4122
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-unrelated-answer.json",
+      "sha256": "0d7b7de317f285859cb5b1703692e5598c6d544b8722cd031b516f196bb18fad",
+      "bytes": 7320
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si-unrelated-q.json",
+      "sha256": "8f3b44001ff2fa834223159b7dab004659ca56d5916bfc03b9e8be8cd679cf6e",
+      "bytes": 6092
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-si.json",
+      "sha256": "ca7b0e8d368ffe52e508214574e91d28d42ef7eb50acc804d6ebf78d935fb7d7",
+      "bytes": 4122
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-support-discard.json",
+      "sha256": "d69afe0452380636b92c60c4d0624db74c1370250e4ab628e0b6f6eea4a61b02",
+      "bytes": 4254
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-support-draft.json",
+      "sha256": "bc25b3a75d9210f5ba1a1feccdf356448b9fea58370df4e89a26d234e019ec7d",
+      "bytes": 3835
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-support-menu.json",
+      "sha256": "4370bfaafc88d94d57ecb63b12515fa4b6727b0e0592585bc403faf42192fdac",
+      "bytes": 2092
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-support-review.json",
+      "sha256": "6950b5ca0b411c18e49404fa3855fb7e05d2cde1af9d86b6f0e29abeee1305f0",
+      "bytes": 3270
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-task-cancel.json",
+      "sha256": "314068bdb825db9b559d1129c7626b03c3c78ba4ff29bf71ac6dc258f1b4286e",
+      "bytes": 5763
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-task-complete.json",
+      "sha256": "1985949a3102764acb2a7ad82d9ff23f5fa4656b736519962e7eed30678c799c",
+      "bytes": 5983
+    },
+    {
+      "path": "test-results/stress-3027-20260911/installed3029-task-editor.json",
+      "sha256": "0c16fd0aa47b350febfcc5a06367e2ef3fbcb7d62a88b303bb60545a4a9f9829",
+      "bytes": 2134
+    },
+    {
+      "path": "test-results/stress-3027-20260911/screenshots-3029/nexus-level20.png",
+      "sha256": "a45ea8d74a788be85dc449aa908b4ade657fbe2771acd876931223644a93399f",
+      "bytes": 1161798
+    },
+    {
+      "path": "test-results/stress-3027-20260911/screenshots-3029/paywall-restore.png",
+      "sha256": "0eee1c168b7e6aade7ba25fe8bc31f8c7f9b142d46c12a61b5fa0e106513708c",
+      "bytes": 616386
+    },
+    {
+      "path": "test-results/stress-3027-20260911/screenshots-3029/profile-level20.png",
+      "sha256": "c6c283a76c14675eda4b6d2560386f544b9ed0e7ec6ad73118d622fbab577300",
+      "bytes": 1009243
+    },
+    {
+      "path": "test-results/stress-3027-20260911/vitals3029-boundaries.json",
+      "sha256": "30e1ca95d9c5177daee151d12494ce58fd11baa538fc1f829d6650666b154b4d",
+      "bytes": 568
+    },
+    {
+      "path": "test-results/stress-3027-20260911/navigation3029-stress.json",
+      "sha256": "76e2b3797ac34a7be2f20b510fd8f2b4d3cf8bd088a56f12fb92847921d97a7a",
+      "bytes": 800
+    },
+    {
+      "path": "test-results/stress-3027-20260911/offline3029-restart-result-v3.json",
+      "sha256": "49bbc9a722fa76888bdf99213a9d7ed30567307f8c32429e61e2cb30e9910375",
+      "bytes": 582
+    }
+  ],
+  "boundary": "Named installed-device cases only. Earlier 3028 journeys and exact-source hosted tests remain separately attributed."
+}

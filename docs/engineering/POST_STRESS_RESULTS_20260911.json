@@ -22,7 +22,7 @@
     "aabSha256": "c48ed72e83d9a6e6857356196ad9dd3a31193ea88c5dc787785a70b89d90fb07"
   },
   "automatedStatus": "PASS",
-  "overallAcceptance": "PENDING_INSTALLED_3029_HUMAN_VALIDATION",
+  "overallAcceptance": "INSTALLED_3029_COMPLETED_WITH_FINDINGS",
   "ci": {
     "run": 34640831258,
     "flutterPassed": 2910,
@@ -540,5 +540,12 @@
       ]
     }
   ],
-  "boundary": "Finite named scenarios. Fixture/native/QA passes do not establish every device/input/outage, live billing outcome, installed-release human acceptance, or production readiness."
+  "boundary": "Finite named scenarios. Fixture/native/QA passes do not establish every device/input/outage, live billing outcome, installed-release human acceptance, or production readiness.",
+  "installedDeviceFollowup": {
+    "finding": "S12 misleading goal comparison rationale",
+    "status": "COMPLETED_WITH_FINDINGS",
+    "versionCode": 2026083029,
+    "priorPendingFields": "Historical automated-handoff state, superseded by this follow-up",
+    "report": "INSTALLED_3029_VALIDATION_20260911.json"
+  }
 }
