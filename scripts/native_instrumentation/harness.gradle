@@ -1,0 +1,18 @@
+// Explicit test-only Gradle overlay; never included in a signed candidate.
+if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
+    throw new GradleException('Instrumentation harness cannot configure a release build')
+}
+gradle.beforeProject { project ->
+    if (project.path == ':app') {
+        project.plugins.withId('com.android.application') {
+            def source = project.findProperty('chronosparkInstrumentationSource')
+            if (!source || !new File(source.toString()).isDirectory()) {
+                throw new GradleException('Explicit tooling instrumentation source is required')
+            }
+            project.android.defaultConfig.testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
+            project.android.sourceSets.getByName('androidTest').java.srcDir(source)
+            project.dependencies.add('androidTestImplementation', 'androidx.test:runner:1.7.0')
+            project.dependencies.add('androidTestImplementation', 'androidx.test:rules:1.7.0')
+        }
+    }
+}

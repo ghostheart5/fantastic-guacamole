@@ -5,6 +5,7 @@ import unittest
 
 from android_final_validation import read_json, write_json
 from verify_native_host_matrix import verify
+from test_native_instrumentation import write_evidence
 
 
 class NativeHostMatrixTest(unittest.TestCase):
@@ -37,11 +38,12 @@ class NativeHostMatrixTest(unittest.TestCase):
                 'passed': True, 'expectedInvocations': 1, 'completedInvocations': 1,
                 'expectedTests': count, 'caseOrdinals': [index], 'notRun': [], 'runs': [run]})
             directory = artifact / 'native' / label
-            write_json(directory / f'{stem}-{viewport}-manifest.json', {
-                'finalSuccess': True, 'exitCode': 0, 'terminalCompletion': True, 'terminalSuccess': True,
-                'timedOut': False, 'launchFailed': False, 'totals': totals,
-                'completedTests': count, 'reportParseErrors': []})
-            (directory / f'{stem}-{viewport}.jsonl').write_text('{"type":"done","success":true}\n')
+            receipt = write_evidence(directory, f'{stem}-{viewport}', stem + '.dart', count)
+            summary_path = artifact / 'native/android-result.json'
+            summary = read_json(summary_path)
+            summary['runs'][0].update(debugTransport='android-instrumentation',
+                                      completedTestNames=receipt['completedTestNames'])
+            write_json(summary_path, summary)
 
     def test_requires_all_five_hosts_and_exact_fifteen_zero_skip_tests(self):
         result = verify(self.root, self.expected)
@@ -79,11 +81,11 @@ class NativeHostMatrixTest(unittest.TestCase):
         write_json(path, original)
 
     def test_rejects_green_summary_with_failed_canonical_manifest(self):
-        path = next((self.root / '2').rglob('*-manifest.json'))
+        path = next((self.root / '2').rglob('*-instrumentation.json'))
         manifest = read_json(path)
-        manifest['terminalCompletion'] = False
+        manifest['passed'] = False
         write_json(path, manifest)
-        with self.assertRaisesRegex(RuntimeError, 'Canonical test receipt'):
+        with self.assertRaisesRegex(RuntimeError, 'Instrumentation receipt'):
             verify(self.root, self.expected)
 
 

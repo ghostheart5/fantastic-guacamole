@@ -313,9 +313,9 @@ jobs:
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
 
-      - name: Compile native dependencies before any emulator boot
+      - name: Compile the assigned Dart target and instrumentation before any emulator boot
         timeout-minutes: 25
-        run: python3 tooling/scripts/android_final_validation.py prepare --evidence evidence/integration/preparation
+        run: python3 tooling/scripts/android_final_validation.py prepare --case-index "$NATIVE_CASE" --evidence evidence/integration/preparation
 
       - name: Run the assigned complete file and viewport on its own host
         timeout-minutes: 25

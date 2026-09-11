@@ -4,7 +4,8 @@ import os
 from pathlib import Path
 import re
 
-from android_final_validation import INTEGRATION_CASES, digest, read_json, require, verify_terminal, write_json
+from android_final_validation import INTEGRATION_CASES, digest, read_json, require, write_json
+from native_instrumentation import verify_evidence
 
 
 def verify(root, expected):
@@ -48,10 +49,13 @@ def verify(root, expected):
         label = f'{int(ordinal):02d}-{Path(filename).stem}-{viewport}'
         require(run.get('evidenceDirectory') == label, 'Native evidence directory differs')
         directory = artifact / 'native' / label
-        manifest = directory / f'{Path(filename).stem}-{viewport}-manifest.json'
-        require(verify_terminal(manifest) == totals, 'Canonical manifest totals differ')
-        report = directory / f'{Path(filename).stem}-{viewport}.jsonl'
-        require(report.is_file() and report.stat().st_size > 0, 'Canonical raw test report is missing')
+        test_label = f'{Path(filename).stem}-{viewport}'
+        manifest = directory / f'{test_label}-instrumentation.json'
+        report = directory / f'{test_label}.log'
+        raw_result = verify_evidence(directory, test_label, filename, count)
+        require(raw_result['totals'] == totals and run.get('debugTransport') == 'android-instrumentation' and
+                run.get('completedTestNames') == raw_result['completedTestNames'],
+                'Native summary differs from actual instrumentation results')
         runs.append({'case': int(ordinal), 'file': filename, 'viewport': viewport,
                      'totals': totals, 'hostBootId': boot_id, 'artifact': artifact.name,
                      'manifestSha256': digest(manifest), 'reportSha256': digest(report),

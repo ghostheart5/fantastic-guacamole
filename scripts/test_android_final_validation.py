@@ -153,16 +153,9 @@ class FinalValidationTest(unittest.TestCase):
     def test_native_build_preparation_is_compile_only_and_requires_an_apk(self):
         source = self.integration_source()
         commands = gate.Commands(self.root / 'prepare')
-        apk = source / 'build/app/outputs/flutter-apk/app-debug.apk'
-        def build(label, argv, **kwargs):
-            self.assertEqual(label, 'compile-native-dependencies')
-            self.assertEqual(argv, ['flutter', 'build', 'apk', '--debug', '--no-pub',
-                                   '--target-platform', 'android-x64', '--target', 'integration_test/app_startup_test.dart'])
-            self.assertEqual(kwargs['cwd'], source)
-            apk.parent.mkdir(parents=True)
-            with zipfile.ZipFile(apk, 'w') as bundle: bundle.writestr('fixture', 'compile only')
-        with patch.object(commands, 'run', side_effect=build):
-            receipt = gate.prepare_native_build(commands, source)
+        with patch.object(gate.native_instrumentation, 'prepare', return_value={'file': 'app_startup_test.dart'}) as prepare:
+            receipt = gate.prepare_native_build(commands, source, self.root, 1)
+        prepare.assert_called_once_with(commands, source, self.root, 'app_startup_test.dart')
         self.assertTrue(receipt['passed'])
         self.assertEqual(receipt['applicationTestsExecuted'], 0)
         self.assertEqual(receipt['emulatorsStarted'], 0)
@@ -171,8 +164,8 @@ class FinalValidationTest(unittest.TestCase):
         source = self.integration_source()
         for index, side_effect in enumerate((RuntimeError('compile failed'), None)):
             commands = gate.Commands(self.root / f'prepare-fail-{index}')
-            with patch.object(commands, 'run', side_effect=side_effect), self.assertRaises(RuntimeError):
-                gate.prepare_native_build(commands, source)
+            with patch.object(gate.native_instrumentation, 'prepare', side_effect=RuntimeError('compile failed')), self.assertRaises(RuntimeError):
+                gate.prepare_native_build(commands, source, self.root, 1)
             self.assertFalse(gate.read_json(commands.evidence / 'native-build-preparation.json')['passed'])
 
     @contextmanager
@@ -467,21 +460,18 @@ class FinalValidationTest(unittest.TestCase):
                 commands.records.append({"label": label, "exitCode": code if label.startswith("auth_flow") else 0})
                 if label in ('viewport-readback', 'post-test-viewport'):
                     return 'Physical size: 320x640\nOverride size: 320x640'
-                if label.startswith("auth_flow"):
-                    # Flutter's integration golden stream requires DDS, even
-                    # when the particular test does not compare screenshots.
-                    self.assertNotIn("--no-dds", argv)
-                    self.assertIn("integration_test/auth_flow_integration_test.dart", argv)
-                    self.assertEqual(argv[-2:], ["-d", "emulator-5554"])
-                    receipt = self.terminal()
-                    receipt["totals"].update(total=count, passed=count)
-                    receipt["completedTests"] = count
-                    gate.write_json(commands.evidence / "auth_flow_integration_test-320x640-manifest.json", receipt)
                 if label in ("begin-test-log", "end-test-log"):
                     with (commands.evidence / "continuous-logcat.log").open("a", encoding="utf-8") as stream:
                         stream.write(argv[-1] + "\n" + body)
                 return ""
+            def execute(commands, source, adb, filename, expected, label):
+                commands.records.append({'label': label, 'exitCode': code})
+                if code:
+                    raise RuntimeError('instrumentation command failed')
+                return {'totals': {'total': count, 'passed': count, 'failed': 0, 'error': 0, 'skipped': 0},
+                        'completedTestNames': [str(i) for i in range(count)]}
             with patch.object(commands, "run", side_effect=run), patch.object(gate, "guest_health"), \
+                    patch.object(gate.native_instrumentation, "execute", side_effect=execute), \
                     patch.object(gate, "capture_guest_png") as screenshots, \
                     patch.object(gate.subprocess, "Popen", return_value=collector), \
                     patch.object(Path, "open", open_file):
@@ -489,7 +479,7 @@ class FinalValidationTest(unittest.TestCase):
                                           ("auth_flow_integration_test.dart", "320x640", 6))
             self.assertEqual(result["passed"], index == 0)
             self.assertEqual(result["runnerExitCode"], code)
-            self.assertEqual(result["debugTransport"], "flutter-default-dds")
+            self.assertEqual(result["debugTransport"], "android-instrumentation")
             self.assertEqual(screenshots.call_count, 2)
             self.assertTrue(result["ownedLogCollectorStopped"])
             self.assertEqual(collector.returncode, -15)

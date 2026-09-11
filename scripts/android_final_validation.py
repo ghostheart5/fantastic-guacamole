@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 import zlib
 
 import android_candidate_build as candidate_tools
+import native_instrumentation
 from owned_adb_server import OwnedAdbServer
 
 PACKAGE = "com.ghostheart5.chronospark"
@@ -369,10 +370,9 @@ def guest_health(commands, adb, process, label):
 def integration(commands, source, adb, process, case):
     filename, viewport, expected = case
     label = Path(filename).stem + "-" + viewport
-    manifest = commands.evidence / (label + "-manifest.json")
     entry = {"file": filename, "viewport": viewport, "expectedTests": expected,
              "runnerExitCode": None, "passed": False, "failures": [],
-             "debugTransport": "flutter-default-dds",
+             "debugTransport": "android-instrumentation",
              "stateBoundary": "Fresh guest for this invocation; state is preserved across every test in this file."}
     collector = None
     begin, end = "CS_CASE_BEGIN_" + label, "CS_CASE_END_" + label
@@ -393,16 +393,14 @@ def integration(commands, source, adb, process, case):
         commands.run("begin-test-log", adb + ["shell", "log", "-t", "ChronoSparkValidation", begin], timeout=15)
         print(json.dumps({"event": "integration-start", "file": filename, "viewport": viewport,
                           "expectedTests": expected}), flush=True)
-        commands.run(label, ["dart", "run", "tool/run_flutter_tests.dart", "--report",
-                            str(commands.evidence / (label + ".jsonl")), "--manifest", str(manifest),
-                            "--timeout-seconds", "900", "--", "integration_test/" + filename,
-                            "--no-pub", "--concurrency=1", "-d", adb[-1]],
-                     cwd=source, timeout=960, check=False)
+        result = native_instrumentation.execute(commands, source, adb, filename, expected, label)
         entry["runnerExitCode"] = commands.records[-1]["exitCode"]
-        require(entry["runnerExitCode"] == 0, "Original canonical runner exited unsuccessfully")
-        entry["totals"] = verify_terminal(manifest)
+        entry["totals"] = result['totals']
+        entry["completedTestNames"] = result['completedTestNames']
         require(entry["totals"]["total"] == expected, "Maintained native test count changed or tests were omitted")
     except (RuntimeError, OSError, ValueError) as error:
+        if commands.records and commands.records[-1].get('label') == label:
+            entry['runnerExitCode'] = commands.records[-1]['exitCode']
         entry["failures"].append(str(error))
     finally:
         # Capture immediately, even when Flutter failed. Never launch another
@@ -899,18 +897,14 @@ def android(mode, source, tooling, evidence, case_index=None):
     return result
 
 
-def prepare_native_build(commands, source):
-    target = source / 'integration_test/app_startup_test.dart'
-    require(target.is_file(), 'Maintained startup integration target is missing')
+def prepare_native_build(commands, source, tooling, case_index):
+    require(case_index in range(1, 6), 'Native preparation requires one maintained case')
+    filename = INTEGRATION_CASES[case_index - 1][0]
     receipt = {'passed': False, 'applicationTestsExecuted': 0, 'emulatorsStarted': 0,
-               'boundary': 'Compile-only preparation before any guest boots; canonical test invocations still build and execute normally.'}
+               'boundary': 'Compile the unchanged Dart target and external Android instrumentation harness before guest boot.'}
     try:
-        commands.run('compile-native-dependencies', ['flutter', 'build', 'apk', '--debug', '--no-pub',
-                     '--target-platform', 'android-x64', '--target', 'integration_test/app_startup_test.dart'],
-                     cwd=source, timeout=1200)
-        apk = source / 'build/app/outputs/flutter-apk/app-debug.apk'
-        require(apk.is_file() and zipfile.is_zipfile(apk), 'Compile-only preparation did not produce an APK')
-        receipt.update(passed=True, apkSha256=digest(apk), apkBytes=apk.stat().st_size)
+        receipt['instrumentation'] = native_instrumentation.prepare(commands, source, tooling, filename)
+        receipt['passed'] = True
         return receipt
     finally:
         write_json(commands.evidence / 'native-build-preparation.json', receipt)
@@ -1133,9 +1127,9 @@ def main():
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--case-index", type=int, choices=range(1, 6))
     args = parser.parse_args()
-    require(args.case_index is None or args.mode == 'integration', 'Case selection is integration-only')
+    require(args.case_index is None or args.mode in ('integration', 'prepare'), 'Case selection is native integration-only')
     if args.mode == 'prepare':
-        prepare_native_build(Commands(args.evidence), args.source)
+        prepare_native_build(Commands(args.evidence), args.source, args.tooling, args.case_index)
         return
     if args.mode == "candidate":
         receipt = verify_candidate(Path(os.environ["CANDIDATE_ZIP"]), read_json(os.environ["CANDIDATE_RUN_JSON"]),

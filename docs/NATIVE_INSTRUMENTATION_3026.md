@@ -1,0 +1,38 @@
+# Build 3026 native transport repair
+
+Candidate source: `e78001c20d0fa0a7a954bb0fa1aa9fc5237c96f9`.
+Signed candidate run: `34605500439`.
+
+Validation run `34606916292` lost ADB connectivity as the Planner test's
+Flutter VM service started and the host attempted DDS attachment. No Planner
+assertion executed. Continuous logs contain no preceding app fatal signal.
+The original failure remains a failed gate; emulator pinning alone did not
+make this transport reliable. The precise emulator/ADB root cause is unproven.
+
+The fixture lane now uses Flutter's documented `FlutterTestRunner` and AndroidX
+`AndroidJUnitRunner`. An explicit Gradle init script adds a Java androidTest
+harness from this tooling checkout, restricted against release build tasks.
+The unchanged Dart target and test APK compile before any emulator boots.
+No `flutter test -d`, DDS session, retry, reconnection, per-test data reset, or
+test selection/filtering occurs inside the invocation.
+
+The five independent host/guest boundaries and existing 15 Dart cases remain.
+Flutter's custom Java runner discovers one container but reports each Dart
+test result. The parser therefore checks every named start/finish pair,
+unique identities, exact maintained counts, zero failure/skip statuses, and
+the terminal JUnit and instrumentation results. The aggregation job reparses
+the retained raw output and checks its hash, APK preparation identity, clean
+source provenance, continuous logs, viewport captures, and owned cleanup.
+Windows canonical test manifests retain their original runner and schema.
+
+This is fixture integration evidence. It does not replace signed-AAB launch,
+Play Billing, owner-data preservation, or reviewer-access device validation.
+The signed candidate bytes are unchanged.
+
+References:
+- https://docs.flutter.dev/testing/integration-tests#test-in-firebase-test-lab-android
+- Flutter 3.44.6 `packages/integration_test/README.md`, Android Device Testing
+- https://developer.android.com/jetpack/androidx/releases/test
+
+Local adversarial runner/provenance/cleanup validation: 67 tests passed.
+Hosted execution remains required before accepting this repair.
