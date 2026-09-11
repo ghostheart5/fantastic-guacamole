@@ -859,6 +859,55 @@ class FinalValidationTest(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 gate.verify_rendered_login(path)
 
+    def test_onboarding_stop_waits_for_terminating_process_without_repeating_force_stop(self):
+        class FakeCommands:
+            evidence = self.root
+            records = []
+            outputs = iter(["", "4026", "4026", ""])
+
+            def run(self, label, argv, **kwargs):
+                self.records.append({"label": label, "exitCode": 0})
+                return next(self.outputs)
+
+        commands = FakeCommands()
+        with patch.object(gate.time, "sleep"):
+            result = gate.stop_owned_app_for_onboarding(commands, ["fake-adb", "-s", "emulator-5554"])
+        self.assertTrue(result["passed"])
+        self.assertEqual([s["pids"] for s in result["samples"]], [["4026"], ["4026"], []])
+        self.assertEqual(sum(r["label"] == "stop-app-before-onboarding-reset" for r in commands.records), 1)
+
+    def test_onboarding_stop_rejects_persistent_process_with_bounded_failed_receipt(self):
+        class FakeCommands:
+            evidence = self.root
+            records = []
+
+            def run(self, label, argv, **kwargs):
+                self.records.append({"label": label, "exitCode": 0})
+                return "4026" if "pidof" in argv else ""
+
+        with patch.object(gate.time, "monotonic", side_effect=[0, 0, 1, 11]), \
+                patch.object(gate.time, "sleep"):
+            with self.assertRaisesRegex(RuntimeError, "App remained running"):
+                gate.stop_owned_app_for_onboarding(FakeCommands(), ["fake-adb", "-s", "emulator-5554"])
+        self.assertFalse(json.loads((self.root / "onboarding-app-stop-result.json").read_text())["passed"])
+
+    def test_onboarding_stop_does_not_mistake_adb_failure_for_process_exit(self):
+        class FakeCommands:
+            evidence = self.root
+            records = []
+
+            def run(self, label, argv, **kwargs):
+                self.records.append({"label": label, "exitCode": 1})
+                return "error: device offline" if "pidof" in argv else ""
+
+        with self.assertRaisesRegex(RuntimeError, "invalid pidof result"):
+            gate.stop_owned_app_for_onboarding(FakeCommands(), ["fake-adb", "-s", "emulator-5554"])
+        self.assertFalse(json.loads((self.root / "onboarding-app-stop-result.json").read_text())["passed"])
+
+    def test_onboarding_stop_rejects_unowned_phone(self):
+        with self.assertRaisesRegex(RuntimeError, "owned emulator"):
+            gate.stop_owned_app_for_onboarding(None, ["adb", "-s", "owner-phone"])
+
     def test_maestro_nonzero_exit_cannot_pass_via_a_successful_junit_file(self):
         flow = self.root / ".maestro/flows/03-onboarding-tutorial.yaml"
         flow.parent.mkdir(parents=True)

@@ -525,6 +525,31 @@ def verify_rendered_login(path):
             "Native login handoff did not render its email/password form")
 
 
+def stop_owned_app_for_onboarding(commands, adb):
+    require(adb[-2:] == ["-s", "emulator-5554"], "Onboarding stop requires the owned emulator")
+    receipt = {"passed": False, "timeoutSeconds": 10, "samples": []}
+    try:
+        commands.run("stop-app-before-onboarding-reset", adb + ["shell", "am", "force-stop", PACKAGE])
+        deadline = time.monotonic() + 10
+        while True:
+            remaining = deadline - time.monotonic()
+            require(remaining > 0, "App remained running before the owned onboarding reset")
+            sample = len(receipt["samples"])
+            label = "verify-app-stopped-before-onboarding-reset" + (f"-{sample:02d}" if sample else "")
+            output = commands.run(label, adb + ["shell", "pidof", PACKAGE],
+                                  timeout=min(2, remaining), check=False)
+            code = commands.records[-1]["exitCode"]
+            require(code in (0, 1) and (not output or re.fullmatch(r"\d+(?: \d+)*", output)),
+                    "Cannot verify app termination: invalid pidof result")
+            receipt["samples"].append({"exitCode": code, "pids": output.split()})
+            if not output:
+                receipt["passed"] = True
+                return receipt
+            time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+    finally:
+        write_json(commands.evidence / "onboarding-app-stop-result.json", receipt)
+
+
 def standalone_onboarding(commands, source, adb):
     require(adb[-2:] == ["-s", "emulator-5554"], "Onboarding data reset requires this job's owned emulator")
     maestro = shutil.which("maestro")
@@ -540,10 +565,7 @@ def standalone_onboarding(commands, source, adb):
     try:
         version = commands.run("onboarding-maestro-version", [maestro, "--version"], timeout=60)
         require(re.search(r"\b2\.10\.0\b", version), "Unexpected Maestro runtime version")
-        commands.run("stop-app-before-onboarding-reset", adb + ["shell", "am", "force-stop", PACKAGE])
-        require(not commands.run("verify-app-stopped-before-onboarding-reset",
-                adb + ["shell", "pidof", PACKAGE], check=False),
-                "App remained running before the owned onboarding reset")
+        receipt["appStoppedBeforeReset"] = stop_owned_app_for_onboarding(commands, adb)
         commands.run("clear-onboarding-flow-log", adb + ["logcat", "-c"])
         commands.run("standalone-onboarding-maestro", [maestro, "test", "--udid", "emulator-5554",
                      "--no-ansi", "--format", "JUNIT", "--output", str(junit), "--debug-output",
