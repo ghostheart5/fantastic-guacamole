@@ -56,7 +56,7 @@ earlier checkpoints and cannot override newer evidence.
 | Monitoring/alerting | Operations owner | GitHub, Supabase, Firebase monitoring | Alert routes and test notification | Failures reach an owner | Silent outages | BLOCKED_EXTERNAL |
 | Reconciliation health | Billing/backend owner | Scheduled reconciliation workflow | Recent successful runs and pending-count evidence | No unmonitored deferred work | Entitlement/deletion drift | BLOCKED_EXTERNAL |
 | Telemetry retention | Privacy owner | Firebase Analytics/Crashlytics retention | Exported retention and consent behavior | Matches policy and minimization | Privacy breach | BLOCKED_EXTERNAL |
-| Anthropic DPA/retention | Legal/privacy owner | Provider contract and console | Signed DPA and actual retention/ZDR evidence | Matches disclosure | Undisclosed data retention | BLOCKED_EXTERNAL |
+| Anthropic DPA/retention | Legal/privacy owner | Provider contract and console | Applicable DPA (including incorporation into accepted Commercial Terms), actual API organization retention settings and any negotiated/ZDR exception | Matches disclosure | Undisclosed data retention | CONFIGURATION_VERIFIED 2026-09-11:30-day default retention, no ZDR, feedback off, global inference in the recorded organization; final public disclosure reconciliation remains open |
 | Planner explanation deployment and scrub | Backend + privacy owner | Fresh Supabase project and authorized production project | Migration replay, database lint, deployed function/config readback, one quoted cancellation, one explicitly authorized real-provider test, one refunded failure, and observed content scrub | No model call before all gates; zero charge on cancel/failure; raw replay content removed within the disclosed target; local fixtures are not live-provider proof | Data retention, double charge, or source/deployment drift | BLOCKED_EXTERNAL |
 | Privacy/legal review | Qualified reviewer | Final app, policies, data map | Signed dated review | No unresolved launch blocker | Regulatory and trust risk | BLOCKED_EXTERNAL |
 | Mental-health-safety review | Qualified reviewer | Final distress/crisis experience and evals | Signed dated review | Safe bounded behavior | Harmful response | BLOCKED_EXTERNAL |
@@ -67,6 +67,12 @@ earlier checkpoints and cannot override newer evidence.
 | First-time human UAT | Product research owner | No-coaching UAT protocol | Participant results and retest | All mandatory tasks pass | Adoption/trust failure | BLOCKED_EXTERNAL |
 | Production credentials/signing | Release owner | Protected release environment | Signed artifact and provenance | Exact final SHA/artifact | Cannot release safely | BLOCKED_EXTERNAL |
 | Google Play publication | Release owner | Google Play Console | Explicit later authorization | Controlled rollout only | Unauthorized publication | BLOCKED_EXTERNAL |
+
+Anthropic DPA wording above was reconciled on September 11 with its
+[official DPA guidance](https://support.claude.com/en/articles/7996862-how-do-i-view-and-sign-your-data-processing-addendum-dpa).
+The existing provider organization and its Default workspace were then verified
+in the authenticated Edge session; see the [four-gate checkpoint](docs/engineering/FINAL_FOUR_GATES_20260911.md).
+This does not waive the separate qualified safety review.
 
 ### App Check scope - 2026-09-04
 
