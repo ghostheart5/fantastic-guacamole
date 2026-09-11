@@ -48,3 +48,14 @@ and rules1.7.0 in BOTH debugImplementation and androidTestImplementation. This
 changes the fixture-only test-library graph explicitly, without changing the
 canonical checkout, app release dependencies or signed AAB. The failed first
 preparation and canceled comparison supply no native pass.
+
+Run `34611575564` compiled the aligned harness successfully. Its persistence
+host passed, but other hosts failed during SDK image provisioning, before
+starting a guest. One download failed; others returned success without the
+expected image files under ANDROID_HOME. SDK provisioning now supplies an
+explicit resolved SDK root and requires five nonempty image files. At most
+three setup/download attempts occur before any emulator or application test.
+Each attempt records command success, file sizes, installed packages and disk
+state on failure. Existing image API, ABI, tag and revision checks remain.
+The runner/provenance/cleanup suite now passes 70 tests. Full hosted matrix
+acceptance is still pending; a single persistence host is not a matrix pass.

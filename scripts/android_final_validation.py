@@ -840,6 +840,42 @@ def install_native_adb(commands):
     return executable
 
 
+def install_integration_sdk_packages(commands, manager, sdk, image_id):
+    """Provision before guest creation; retry downloads, never application tests."""
+    require(os.environ.get('GITHUB_ACTIONS') == 'true' and
+            os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted',
+            'Native SDK provisioning is restricted to disposable hosted runners')
+    sdk = Path(sdk).resolve()
+    directory = sdk / Path(*image_id.split(';'))
+    required = ('source.properties', 'system.img', 'vendor.img', 'ramdisk.img', 'kernel-ranchu')
+    receipt = {'passed': False, 'sdkRoot': str(sdk), 'imageId': image_id, 'attempts': [],
+               'applicationTestsExecuted': 0, 'emulatorsStarted': 0,
+               'boundary': 'Bounded SDK download/setup retries only, before any guest or test invocation.'}
+    try:
+        for attempt in range(1, 4):
+            entry = {'attempt': attempt, 'commandSucceeded': False}
+            try:
+                commands.run(f'install-sdk-packages-{attempt}', [str(manager / 'sdkmanager'),
+                             '--sdk_root=' + str(sdk), 'platform-tools', 'emulator',
+                             'platforms;android-36', 'build-tools;36.0.0', image_id],
+                             timeout=300, input_text='y\n' * 100)
+                entry['commandSucceeded'] = True
+            except RuntimeError as error:
+                entry['failure'] = str(error)
+            entry['imageFiles'] = {name: (directory / name).stat().st_size
+                                   if (directory / name).is_file() else None for name in required}
+            receipt['attempts'].append(entry)
+            if entry['commandSucceeded'] and all(size is not None and size > 0 for size in entry['imageFiles'].values()):
+                receipt['passed'] = True
+                return receipt
+            commands.run(f'sdk-installed-readback-{attempt}', [str(manager / 'sdkmanager'),
+                         '--sdk_root=' + str(sdk), '--list_installed'], timeout=90, check=False)
+            commands.run(f'sdk-disk-readback-{attempt}', ['df', '-h', str(sdk)], timeout=15, check=False)
+        raise RuntimeError('Pinned native image setup did not produce complete files in the explicit SDK root')
+    finally:
+        write_json(commands.evidence / 'native-sdk-provisioning.json', receipt)
+
+
 def android(mode, source, tooling, evidence, case_index=None):
     commands = Commands(evidence)
     sdk = Path(os.environ["ANDROID_HOME"])
@@ -849,11 +885,15 @@ def android(mode, source, tooling, evidence, case_index=None):
                 "system-images;android-37.1;google_apis_ps16k;x86_64")
     emulator = sdk / "emulator/emulator"
     require(os.access("/dev/kvm", os.R_OK | os.W_OK), "KVM is unavailable; software CPU fallback is forbidden")
-    commands.run("install-pinned-command-line-tools", [str(bootstrap_manager / "sdkmanager"),
+    sdk_root_args = ['--sdk_root=' + str(sdk.resolve())] if mode == 'integration' else []
+    commands.run("install-pinned-command-line-tools", [str(bootstrap_manager / "sdkmanager"), *sdk_root_args,
                   "cmdline-tools;22.0"], timeout=600, input_text="y\n" * 100)
     manager = sdk / "cmdline-tools/22.0/bin"
     commands.run("command-line-tools-version", [str(manager / "sdkmanager"), "--version"])
-    commands.run("install-sdk-packages", [str(manager / "sdkmanager"), "platform-tools", "emulator",
+    if mode == 'integration':
+        install_integration_sdk_packages(commands, manager, sdk, image_id)
+    else:
+        commands.run("install-sdk-packages", [str(manager / "sdkmanager"), "platform-tools", "emulator",
                   "platforms;android-36", "build-tools;36.0.0", image_id], timeout=900, input_text="y\n" * 100)
     if mode == 'integration':
         emulator = install_native_emulator(commands)

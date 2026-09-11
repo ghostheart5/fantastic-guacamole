@@ -19,6 +19,59 @@ import android_final_validation as gate
 
 
 class FinalValidationTest(unittest.TestCase):
+    def test_sdk_setup_requires_complete_files_and_explicit_root(self):
+        sdk = self.root / 'sdk'
+        image_id = 'system-images;android-36;google_apis;x86_64'
+        directory = sdk / Path(*image_id.split(';'))
+        commands = gate.Commands(self.root / 'sdk-evidence')
+        installs = []
+        def run(label, argv, **kwargs):
+            if label.startswith('install-sdk-packages-'):
+                installs.append(argv)
+                if len(installs) == 2:
+                    directory.mkdir(parents=True)
+                    for name in ('source.properties', 'system.img', 'vendor.img', 'ramdisk.img', 'kernel-ranchu'):
+                        (directory / name).write_bytes(b'fixture')
+            return ''
+        with patch.dict(os.environ, GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='github-hosted'), \
+                patch.object(commands, 'run', side_effect=run):
+            result = gate.install_integration_sdk_packages(commands, sdk / 'tools/bin', sdk, image_id)
+        self.assertTrue(result['passed'])
+        self.assertEqual(len(installs), 2)
+        self.assertTrue(all('--sdk_root=' + str(sdk.resolve()) in argv for argv in installs))
+        self.assertEqual(result['applicationTestsExecuted'], 0)
+        self.assertEqual(result['emulatorsStarted'], 0)
+
+    def test_sdk_setup_failed_commands_cannot_pass_even_with_files(self):
+        sdk = self.root / 'sdk'
+        image_id = 'system-images;android-36;google_apis;x86_64'
+        directory = sdk / Path(*image_id.split(';'))
+        directory.mkdir(parents=True)
+        for name in ('source.properties', 'system.img', 'vendor.img', 'ramdisk.img', 'kernel-ranchu'):
+            (directory / name).write_bytes(b'fixture')
+        commands = gate.Commands(self.root / 'sdk-evidence')
+        def run(label, argv, **kwargs):
+            if label.startswith('install-sdk-packages-'):
+                raise RuntimeError('download failed')
+            return ''
+        with patch.dict(os.environ, GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='github-hosted'), \
+                patch.object(commands, 'run', side_effect=run) as call:
+            with self.assertRaisesRegex(RuntimeError, 'complete files'):
+                gate.install_integration_sdk_packages(commands, sdk / 'tools/bin', sdk, image_id)
+        result = json.loads((commands.evidence / 'native-sdk-provisioning.json').read_text())
+        self.assertFalse(result['passed'])
+        self.assertEqual(len(result['attempts']), 3)
+        self.assertEqual(call.call_count, 9)
+        self.assertTrue(all(not attempt['commandSucceeded'] for attempt in result['attempts']))
+
+    def test_sdk_setup_rejects_non_hosted_before_commands(self):
+        commands = gate.Commands(self.root / 'sdk-evidence')
+        with patch.dict(os.environ, GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='self-hosted'), \
+                patch.object(commands, 'run') as call:
+            with self.assertRaisesRegex(RuntimeError, 'disposable hosted'):
+                gate.install_integration_sdk_packages(commands, self.root, self.root, 'unused')
+        call.assert_not_called()
+
     def test_selected_case_runs_once_and_does_not_claim_the_full_matrix(self):
         calls = []
         def launch(case, ordinal, commands):
