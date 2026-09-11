@@ -91,7 +91,7 @@ begin
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('chronospark:review:'||p_review_key,0));
   select * into v_event from public.monetization_entitlement_events
-    where event_key=p_review_key for update;
+    where event_key=p_review_key;
   if found then
     if v_event.user_id is distinct from p_user_id then
       raise exception 'review grant ownership mismatch';
