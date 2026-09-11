@@ -2,6 +2,14 @@
 
 Checked September 8, 2026 against [Google Play preview-asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en).
 
+## Historical September 8 update after internal delivery
+
+Build 3019 is now available on the existing internal track and independently verified as installed through Play on the Moto. Eight final actual 1080x1920 RGB JPEG phone captures are in `artifacts/google-play/level20-20260908/installed-3019-verified/`, with their own gallery and manifest. They replace the build-3018 previews for current review. The preserved profile shows level 20, 36,125 XP and 1,445 completions after one bounded QA task. Each image was visually reviewed; no UI or progress pixels were generated or composited.
+
+The Console track selector was read successfully and showed Phones, Tablets, Chrome OS and Android XR. Actual supported tablet/Chromebook layouts remain to be captured. If distributing the XR experience, prepare four to eight actual 8:5 screenshots, at least 1920x1200 (3840x2400 recommended), and verify its applicable Console requirements. The observed compatibility counts for TV/Car do not establish separate platform enrollment. Do not substitute resized phone images for large-screen or XR evidence.
+
+The 512px icon and opaque 1024x500 feature graphic remain valid prepared assets. This phase published only the internal app release; the store listing assets were not uploaded. The older preparation record below is retained as history and is superseded by this update for phone capture and Console-readback status.
+
 | Asset | Specification | ChronoSpark status |
 |---|---|---|
 | App icon | 512 x 512, 32-bit PNG, at most 1,024 KB | Existing `assets/app-icon-512.png` verified: RGBA, 425,441 bytes. |

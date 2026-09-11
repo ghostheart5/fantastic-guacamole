@@ -74,4 +74,8 @@ Listing assets and the current [graphics requirements](../../public-surface/goog
 
 No Play upload, rollout or device installation was performed in this rebuild phase. The controlled Console tab timed out, so current Console version availability and device-category slots were not independently read back. Update the preserved Moto profile through the existing internal track, verify the eight repairs on build 3019, then capture the final phone set and applicable tablet layouts.
 
-Status: **conditionally ready for the existing Google Play internal-testing upload and repaired-device validation**.
+Status at the end of the rebuild phase: **conditionally ready for the existing Google Play internal-testing upload and repaired-device validation**.
+
+## Subsequent Play delivery and device acceptance
+
+The next authorized phase completed the internal upload, published release 21 for internal testers, updated the Moto through Google Play to `4.1.0+2026083019`, and passed all eight scoped repair checks. The preserved profile now has level 20, 36,125 XP and 1,445 completions after one normal QA completion. Eight final phone captures now show installed build 3019. See [the device acceptance record](INTERNAL_3019_DEVICE_ACCEPTANCE_20260908.md) for exact observations, source evidence, screenshot location and remaining limitations. The previous build-phase and build-3018 preview statements above are historical.

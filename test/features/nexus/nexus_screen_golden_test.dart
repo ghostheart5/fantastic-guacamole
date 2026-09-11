@@ -279,6 +279,47 @@ void main() {
     },
   );
 
+  testWidgets(
+    'saved Nexus task opens its own editable draft and cancel preserves it',
+    (tester) async {
+      final task = Task(
+        id: 'unscheduled-focus-task',
+        title: 'Sort three bills',
+        priority: 3,
+        difficulty: 2,
+        energyRequired: 2,
+        createdAt: DateTime.utc(2026, 9, 11),
+        estimatedDuration: const Duration(minutes: 5),
+      );
+      await pumpNexusScreen(tester, width: 420, tasks: [task]);
+      final row = find.bySemanticsLabel('Open TASK');
+      await tester.ensureVisible(row);
+      await tester.tap(row);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Edit task'), findsOneWidget);
+      final title = find.byKey(const Key('timeline-task-title-field'));
+      expect(
+        tester.widget<TextFormField>(title).initialValue,
+        'Sort three bills',
+      );
+      await tester.enterText(title, 'Unconfirmed change');
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Edit task'), findsNothing);
+      await tester.tap(row);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        tester.widget<TextFormField>(title).initialValue,
+        'Sort three bills',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('saved Nexus note opens its content instead of a creation form', (
     tester,
   ) async {

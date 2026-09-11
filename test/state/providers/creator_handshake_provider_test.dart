@@ -14,6 +14,8 @@ import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
@@ -33,6 +35,75 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
+
+  for (final bool failHistory in <bool>[false, true]) {
+    test(
+      'goal confirmation and undo preserve canonical writes when history failure is $failHistory',
+      () async {
+        final history = _MemoryCreatorTimeline()..fail = failHistory;
+        final harness = _Harness(timelineRepository: history);
+        addTearDown(harness.dispose);
+        await harness.notifier.stage(
+          data: const CreatorFormData(
+            title: 'Prepare a family budget',
+            type: 'Goal',
+            priority: 3,
+          ),
+        );
+        expect(
+          (await harness.notifier.confirm()).phase,
+          CreatorHandshakePhase.applied,
+        );
+        final goal = harness.goalRepository.goals.single;
+        await harness.notifier.confirm();
+        expect(harness.goalRepository.saveCalls, 1);
+        if (!failHistory) {
+          expect(history.events.single.title, 'Goal created');
+          expect(history.events.single.relatedId, goal.id);
+          expect(history.events.single.timestamp, goal.createdAt);
+        }
+        expect(
+          (await harness.notifier.undo()).phase,
+          CreatorHandshakePhase.undone,
+        );
+        await harness.notifier.undo();
+        expect(harness.goalRepository.goals, isEmpty);
+        expect(harness.goalRepository.deleteCalls, 1);
+        expect(
+          history.events.map((event) => event.title),
+          failHistory ? isEmpty : ['Goal created', 'Goal creation undone'],
+        );
+      },
+    );
+  }
+
+  test(
+    'account change during goal save blocks its history projection',
+    () async {
+      final history = _MemoryCreatorTimeline();
+      final harness = _Harness(timelineRepository: history);
+      addTearDown(harness.dispose);
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Old account goal',
+          type: 'Goal',
+          priority: 3,
+        ),
+      );
+      final gate = Completer<void>();
+      final entered = Completer<void>();
+      harness.goalRepository.saveGate = gate.future;
+      harness.goalRepository.saveEntered = entered;
+      final pending = harness.notifier.confirm();
+      await entered.future;
+      harness.container
+          .read(authSessionBoundaryProvider.notifier)
+          .begin(userId: 'next-account', isTransitioning: true);
+      gate.complete();
+      expect((await pending).receipt, isNull);
+      expect(history.events, isEmpty);
+    },
+  );
 
   test(
     'failed note history projection does not roll back save or undo',
@@ -990,6 +1061,7 @@ class _Harness {
     _MemoryHabitRepository? habitRepository,
     _MemoryNoteRepository? noteRepository,
     NoteTimelineAdapter? noteProjection,
+    ITimelineRepository? timelineRepository,
     SecureStore? store,
     DateTime? now,
   }) : repository = repository ?? _MemoryTaskRepository(),
@@ -1005,6 +1077,9 @@ class _Harness {
         domainGoalRepositoryProvider.overrideWithValue(this.goalRepository),
         domainHabitRepositoryProvider.overrideWithValue(this.habitRepository),
         domainNoteRepositoryProvider.overrideWithValue(this.noteRepository),
+        domainTimelineRepositoryProvider.overrideWithValue(
+          timelineRepository ?? _MemoryCreatorTimeline(),
+        ),
         if (noteProjection != null)
           noteTimelineAdapterProvider.overrideWithValue(noteProjection),
         secureStoreProvider.overrideWithValue(this.store),
@@ -1108,6 +1183,8 @@ class _MemoryTaskRepository implements ITaskRepository {
 }
 
 class _MemoryGoalRepository implements IGoalRepository {
+  Future<void>? saveGate;
+  Completer<void>? saveEntered;
   final List<GoalEntity> goals = <GoalEntity>[];
   int saveCalls = 0;
   int deleteCalls = 0;
@@ -1129,6 +1206,8 @@ class _MemoryGoalRepository implements IGoalRepository {
 
   @override
   Future<void> saveGoal(GoalEntity goal) async {
+    saveEntered?.complete();
+    await saveGate;
     saveCalls += 1;
     goals.removeWhere((GoalEntity value) => value.id == goal.id);
     goals.insert(0, goal);
@@ -1141,6 +1220,31 @@ class _MemoryGoalRepository implements IGoalRepository {
       ..clear()
       ..addAll(values);
   }
+}
+
+class _MemoryCreatorTimeline implements ITimelineRepository {
+  final List<TimelineEventEntity> events = [];
+  bool fail = false;
+  @override
+  bool get lastReadCorrupted => false;
+  @override
+  List<TimelineEventEntity> getEvents() => List.of(events);
+  @override
+  Future<void> addEvent(TimelineEventEntity event) async {
+    if (fail) throw StateError('History unavailable');
+    events.add(event);
+  }
+
+  @override
+  Future<void> saveEvents(List<TimelineEventEntity> values) async {
+    events
+      ..clear()
+      ..addAll(values);
+  }
+
+  @override
+  Future<void> removeEvent(String id) async =>
+      events.removeWhere((event) => event.id == id);
 }
 
 class _MemoryHabitRepository implements IHabitRepository {

@@ -95,6 +95,112 @@ void main() {
     ],
   );
 
+  test(
+    'Planner resolves a named target among 10000 saved tasks without writes',
+    () async {
+      final tasks = _MemoryTaskRepository(
+        List.generate(
+          10000,
+          (index) => TaskEntity(
+            id: 'load-$index',
+            title: 'Load target $index',
+            createdAt: DateTime.utc(2026, 9, 11),
+            estimatedDuration: const Duration(minutes: 25),
+          ),
+        ),
+      );
+      final container = plannerContainer(tasks: tasks);
+      addTearDown(container.dispose);
+      for (final target in <int>[9999, 5000, 1001]) {
+        final result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: null,
+              emotion: null,
+              notes: 'Give me a five minute step on Load target $target.',
+              history: const [],
+              previousSavedNotes: null,
+            );
+        expect(
+          result.plannerResponse.nextStep,
+          contains('Load target $target'),
+        );
+        expect(
+          result.plannerResponse.options.every(
+            (option) =>
+                option.estimatedMinutes > 0 && option.estimatedMinutes <= 5,
+          ),
+          isTrue,
+        );
+      }
+      expect(tasks.writeCalls, 0);
+    },
+    timeout: const Timeout(Duration(seconds: 60)),
+  );
+
+  test('current budget request outranks a retained bookkeeping note', () async {
+    final now = DateTime.utc(2026, 9, 11);
+    final tasks = _MemoryTaskRepository([
+      TaskEntity(
+        id: 'old-task',
+        title: 'Review one bookkeeping example before school pickup',
+        goalId: 'old-goal',
+        createdAt: now.subtract(const Duration(days: 1)),
+        scheduledFor: now.subtract(const Duration(days: 1)),
+      ),
+      TaskEntity(
+        id: 'budget-task',
+        title: 'Sort three bills in a five minute window',
+        goalId: 'budget-goal',
+        createdAt: now,
+      ),
+    ]);
+    final container = plannerContainer(
+      tasks: tasks,
+      goals: _MemoryGoalRepository([
+        GoalEntity(
+          id: 'old-goal',
+          title:
+              'Finish my bookkeeping course while balancing school pickup and five-minute study windows',
+          createdAt: now,
+        ),
+        GoalEntity(
+          id: 'budget-goal',
+          title: 'Prepare a realistic weekly family budget',
+          createdAt: now,
+        ),
+      ]),
+      selectedNote: NoteEntity(
+        id: 'old-note',
+        title: 'Five-minute bookkeeping study window',
+        body:
+            'Prioritize the bookkeeping course. Review one example before school pickup.',
+        goalId: 'old-goal',
+        createdAt: now,
+      ),
+    );
+    addTearDown(container.dispose);
+    final result = await container
+        .read(smartPlannerQueryControllerProvider)
+        .requestPlanningGuidance(
+          energy: null,
+          emotion: null,
+          notes:
+              'I have only five minutes before school pickup and I feel tired. Help me take one small step on my weekly family budget. Do not schedule a fifteen minute task.',
+          history: const [],
+          previousSavedNotes: null,
+        );
+    expect(result.plannerResponse.nextStep, contains('Sort three bills'));
+    expect(result.plannerResponse.nextStep, isNot(contains('bookkeeping')));
+    expect(
+      result.plannerResponse.options.every(
+        (option) => option.estimatedMinutes <= 5,
+      ),
+      isTrue,
+    );
+    expect(tasks.writeCalls, 0);
+  });
+
   test('realistic selected note respects course focus and five-minute limit', () async {
     final tasks = _MemoryTaskRepository([
       TaskEntity(
@@ -1864,6 +1970,9 @@ void main() {
         'Help me organize my desk for 10 min',
         'I only have 10 minutes to organize my desk',
         'I have only 10 minutes to organize my desk',
+        'Give me a ten minute step to organize my desk',
+        'Suggest a 10-minute task to organize my desk',
+        'Plan a ten-minute session to organize my desk',
       ]) {
         final response = controller.buildPlannerResponse(
           input: input,

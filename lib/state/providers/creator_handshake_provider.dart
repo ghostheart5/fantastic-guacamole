@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
@@ -843,6 +844,8 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         await ref
             .read(createGoalUseCaseProvider)
             .call(_goalEntityFromMutation(mutation));
+        owner.check();
+        await _bestEffort(() => _recordGoalHistory(mutation, owner));
         return;
       case final CreatorHabitMutation mutation:
         final List<HabitEntity> current = await ref
@@ -888,6 +891,10 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         return;
       case final CreatorGoalMutation mutation:
         await ref.read(deleteGoalUseCaseProvider).call(mutation.goalId);
+        owner.check();
+        await _bestEffort(
+          () => _recordGoalHistory(mutation, owner, undone: true),
+        );
         return;
       case final CreatorHabitMutation mutation:
         final List<HabitEntity> current = await ref
@@ -1036,6 +1043,29 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     return 'This confirmation was already applied. No duplicate items were created.';
   }
 
+  Future<void> _recordGoalHistory(
+    CreatorGoalMutation mutation,
+    AccountOperation owner, {
+    bool undone = false,
+  }) async {
+    owner.check();
+    final repository = ref.read(domainTimelineRepositoryProvider);
+    final String eventId =
+        'creator-goal:${mutation.goalId}:${undone ? 'undone' : 'created'}';
+    if (repository.getEvents().any((event) => event.id == eventId)) return;
+    await repository.addEvent(
+      TimelineEventEntity(
+        id: eventId,
+        type: TimelineEventType.reflection,
+        title: undone ? 'Goal creation undone' : 'Goal created',
+        detail: mutation.title,
+        timestamp: undone ? _now() : mutation.createdAt,
+        status: TimelineEventStatus.info,
+        relatedId: mutation.goalId,
+      ),
+    );
+  }
+
   void _invalidateDomains(Iterable<CreatorMutationOperation> operations) {
     final Set<CreatorEntityKind> kinds = operations
         .map((CreatorMutationOperation operation) => operation.entityKind)
@@ -1048,6 +1078,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         case CreatorEntityKind.goal:
           ref.invalidate(goalsReadProvider);
           ref.invalidate(goalsProvider);
+          ref.invalidate(timelineProvider);
           break;
         case CreatorEntityKind.habit:
           ref.invalidate(habitsProvider);

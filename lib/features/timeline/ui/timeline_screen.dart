@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
@@ -59,20 +60,6 @@ final class _TimelineSafetyCopy {
   String get notChanged => isSpanish
       ? 'La actividad de la Línea de Tiempo no cambió porque no se pudo conservar su copia de recuperación.'
       : 'Timeline activity was not changed because its recovery copy could not be preserved.';
-}
-
-class _TaskEditDraft {
-  const _TaskEditDraft({
-    required this.title,
-    required this.estimatedDuration,
-    required this.dueDate,
-    required this.goalId,
-  });
-
-  final String title;
-  final Duration? estimatedDuration;
-  final DateTime? dueDate;
-  final String? goalId;
 }
 
 class TimelineScreen extends ConsumerStatefulWidget {

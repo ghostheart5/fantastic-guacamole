@@ -54,6 +54,8 @@ class DynamicForm extends StatefulWidget {
 
 class _DynamicFormState extends State<DynamicForm> {
   static const List<Duration> _estimates = <Duration>[
+    Duration(minutes: 5),
+    Duration(minutes: 10),
     Duration(minutes: 15),
     Duration(minutes: 25),
     Duration(minutes: 30),
@@ -873,7 +875,11 @@ class _TargetCountPicker extends StatelessWidget {
               const _FieldLabel(text: 'TARGET COUNT'),
               const SizedBox(height: 4),
               Text(
-                '$value ${value == 1 ? 'time' : 'times'} per ${cadence.name}',
+                '$value ${value == 1 ? 'time' : 'times'} per ${switch (cadence) {
+                  HabitCadence.daily => 'day',
+                  HabitCadence.weekly => 'week',
+                  HabitCadence.monthly => 'month',
+                }}',
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
             ],
@@ -969,7 +975,7 @@ String _durationLabel(Duration duration) {
   final int minutes = duration.inMinutes;
   return minutes < 60
       ? '$minutes minutes'
-      : '${minutes ~/ 60} hour${minutes == 60 ? '' : 's'} ${minutes % 60 == 0 ? '' : '${minutes % 60} min'}'
+      : '${minutes ~/ 60} hour${minutes ~/ 60 == 1 ? '' : 's'} ${minutes % 60 == 0 ? '' : '${minutes % 60} min'}'
             .trim();
 }
 

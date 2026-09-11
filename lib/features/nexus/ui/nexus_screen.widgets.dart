@@ -626,7 +626,7 @@ class _CurrentFocusSection extends StatelessWidget {
   final AsyncValue<List<NoteEntity>> notes;
   final TimeBlock? nextBlock;
   final VoidCallback onOpenGoal;
-  final VoidCallback onOpenTask;
+  final ValueChanged<TaskEntity?> onOpenTask;
   final ValueChanged<NoteEntity?> onOpenNote;
 
   @override
@@ -679,7 +679,7 @@ class _CurrentFocusSection extends StatelessWidget {
                     ? _formatDateTime(nextBlock!.start)
                     : 'Create a task and schedule it when you are ready.',
                 accent: AppColors.neonCyan,
-                onTap: onOpenTask,
+                onTap: () => onOpenTask(currentTask),
               ),
               const _PanelDivider(),
               _FocusRow(

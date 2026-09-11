@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
@@ -186,7 +187,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     notes: notes,
                     nextBlock: nextBlock,
                     onOpenGoal: () => goToAppView(context, ref, AppView.goals),
-                    onOpenTask: () => _openCreator(CreatorFormKind.task),
+                    onOpenTask: _openTask,
                     onOpenNote: (note) {
                       if (note == null) {
                         _openCreator(CreatorFormKind.note);
@@ -282,6 +283,53 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
       if (mounted) {
         setState(() => _completingTaskIds.remove(taskId));
       }
+    }
+  }
+
+  Future<void> _openTask(TaskEntity? task) async {
+    if (task == null) {
+      _openCreator(CreatorFormKind.task);
+      return;
+    }
+    final generation = ref.read(authSessionBoundaryProvider).generation;
+    final namespace = ref.read(accountStorageScopeProvider).v2Namespace;
+    final draft = await showTaskEditDialog(
+      context: context,
+      editable: task,
+      goals: ref.read(goalsProvider),
+    );
+    if (draft == null || !mounted) return;
+    final scope = ref.read(accountStorageScopeProvider);
+    if (!scope.isWritable ||
+        scope.v2Namespace != namespace ||
+        ref.read(authSessionBoundaryProvider).generation != generation) {
+      return;
+    }
+    try {
+      await ref
+          .read(taskActionsProvider)
+          .updateTaskDetails(
+            id: task.id,
+            title: draft.title,
+            estimatedDuration: draft.estimatedDuration,
+            clearEstimatedDuration: draft.estimatedDuration == null,
+            dueDate: draft.dueDate,
+            clearDueDate: draft.dueDate == null,
+            goalId: draft.goalId,
+            clearGoalId: draft.goalId == null,
+          );
+      if (!mounted ||
+          ref.read(authSessionBoundaryProvider).generation != generation) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Task updated.')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Task could not be updated. Try again.')),
+      );
     }
   }
 

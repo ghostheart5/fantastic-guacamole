@@ -78,7 +78,7 @@ void main() {
     expect(screen, contains('CreatorFormKind.task'));
     expect(screen, contains('CreatorFormKind.note'));
     expect(widgets, contains('onTap: onOpenGoal'));
-    expect(widgets, contains('onTap: onOpenTask'));
+    expect(widgets, contains('onTap: () => onOpenTask(currentTask)'));
     expect(widgets, contains('onTap: () => onOpenNote(currentNote)'));
     expect(screen, contains('NoteDetailScreen(noteId: note.id)'));
   });

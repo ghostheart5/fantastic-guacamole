@@ -220,11 +220,22 @@ int? _explicitPlanningTimeLimit(String input) {
     RegExp('\\b(${numbers.keys.join('|')})\\b', caseSensitive: false),
     (match) => '${numbers[match.group(0)!.toLowerCase()]}',
   );
-  final matches = RegExp(
+  final windowPattern = RegExp(
     r"\b(?:in|within|for|only|(?:i|we)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than|(?:today(?:'s)?\s+)?(?:time\s+)?limit\s*:|en|dentro de|durante|(?:solo\s+)?(?:tengo|tenemos)(?:\s+solo)?|como máximo|no más de)\s+"
     r'(\d+(?:\.\d+)?)\s*(?:quiet\s+|spare\s+)?(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
     caseSensitive: false,
-  ).allMatches(normalized);
+  );
+  // A requested short step is also a work window. Keep the request verb so
+  // historical activity or a duration appearing only in a title is not a cap.
+  final stepPattern = RegExp(
+    r'\b(?:give me|suggest|plan|make|choose)(?:\s+an?)?\s+'
+    r'(\d+(?:\.\d+)?)[ -]+(minutes?|hours?)[ -]+(?:step|plan|session|task)\b',
+    caseSensitive: false,
+  );
+  final matches = <RegExpMatch>[
+    ...windowPattern.allMatches(normalized),
+    ...stepPattern.allMatches(normalized),
+  ];
   int? limit;
   for (final match in matches) {
     final double? amount = double.tryParse(match.group(1)!);
@@ -311,19 +322,40 @@ final class _PlannerEvidence {
           accountScopeId: accountScopeId,
           decisionText: searchText,
         );
-    final Set<String> terms = _plannerTerms(
-      [
-        searchText,
-        if (!savedContextDeclined && selectedNote != null) ...[
-          selectedNote.title,
-          selectedNote.body ?? '',
-          for (final task in activeTasks)
-            if (task.id == selectedNote.taskId) task.title,
-          for (final goal in activeGoals)
-            if (goal.id == selectedNote.goalId) goal.title,
-        ],
-      ].join(' '),
+    final Set<String> requestTerms = _plannerTerms(
+      searchText.replaceAll(
+        RegExp(
+          r'\b(?:\d+|one|two|three|four|five|ten|fifteen|twenty|thirty|forty|sixty)[ -]+minutes?\b',
+          caseSensitive: false,
+        ),
+        '',
+      ),
     );
+    final bool explicitlyUsesNote = RegExp(
+      r'\b(?:selected|this|that) note\b',
+      caseSensitive: false,
+    ).hasMatch(searchText);
+    final bool requestMatchesSavedWork =
+        activeTasks.any((task) => _taskTextMatch(task, requestTerms) > 0) ||
+        activeGoals.any((goal) => _goalTextMatch(goal, requestTerms) > 0);
+    // A retained note can ground an unspecified request, but its longer body
+    // must not outvote the user's current named task or goal. Explicit requests
+    // to use that note keep its linked evidence in the ranking.
+    final Set<String> terms = requestMatchesSavedWork && !explicitlyUsesNote
+        ? requestTerms
+        : _plannerTerms(
+            [
+              searchText,
+              if (!savedContextDeclined && selectedNote != null) ...[
+                selectedNote.title,
+                selectedNote.body ?? '',
+                for (final task in activeTasks)
+                  if (task.id == selectedNote.taskId) task.title,
+                for (final goal in activeGoals)
+                  if (goal.id == selectedNote.goalId) goal.title,
+              ],
+            ].join(' '),
+          );
     activeTasks.sort(
       (TaskEntity left, TaskEntity right) =>
           _compareTasks(left, right, terms: terms, now: now),
@@ -1195,6 +1227,8 @@ const Set<String> _plannerStopWords = <String>{
   'without', 'another', 'next', 'not', 'its', 'limit', 'minutes',
   'about',
   'after',
+  'before',
+  'only',
   'again',
   'could',
   'current',

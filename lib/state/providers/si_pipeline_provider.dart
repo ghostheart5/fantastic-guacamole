@@ -24,18 +24,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
 ) async {
-  // Repository providers fail closed until account storage is ready. Keep the
-  // aggregation subscribed to that lifecycle so an early startup failure is
-  // replaced by fresh evidence as soon as the authenticated scope is ready.
+  // Normal sign-out/account transitions are unavailable evidence, not a
+  // repository failure. Never query protected storage before it is ready.
   final AccountStorageScope accountScope = ref.watch(
     accountStorageScopeProvider,
   );
+  if (!accountScope.isWritable) return SIStateAggregation.unavailable();
+  final generation = ref.watch(authSessionBoundaryProvider).generation;
+  bool current() =>
+      ref.mounted &&
+      ref.read(authSessionBoundaryProvider).generation == generation &&
+      ref.read(accountStorageScopeProvider).v2Namespace ==
+          accountScope.v2Namespace;
   ref.watch(learningRevisionProvider);
   final DateTime observedAt = DateTime.now();
-  final List<TaskEntity> taskEntities = await _loadAllActionableTaskEntities(
-    ref,
-    observedAt,
-  );
+  final List<TaskEntity> taskEntities;
+  try {
+    taskEntities = await _loadAllActionableTaskEntities(ref, observedAt);
+  } catch (_) {
+    if (!current()) return SIStateAggregation.unavailable();
+    rethrow;
+  }
+  if (!current()) {
+    return SIStateAggregation.unavailable();
+  }
   final List<PlannerInput> plannerInputs = PlannerInputAdapter.fromTaskEntities(
     taskEntities,
   );
@@ -125,6 +137,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   SISourceStatus learningHealth = SISourceStatus.empty;
   try {
     final bool learningPaused = await ref.watch(learningPausedProvider.future);
+    if (!current()) return SIStateAggregation.unavailable();
     if (!learningPaused) {
       final LearningEntity? storedLearning = await ref
           .read(domainLearningRepositoryProvider)
@@ -137,6 +150,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   } on Object {
     learningHealth = SISourceStatus.error;
   }
+  if (!current()) return SIStateAggregation.unavailable();
   final SiStateEntity decisionState = SiStateEntity(
     energy: siState.energy,
     attention: (1 - siState.fatigue).clamp(0.0, 1.0),

@@ -7,6 +7,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final int minutes in <int>[5, 10]) {
+    testWidgets('Creator submits a $minutes-minute task without rounding up', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(900, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      CreatorFormData? submitted;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DynamicForm(
+                onSubmit: (CreatorFormData data) async => submitted = data,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(find.byType(TextField).first, 'Sort three bills');
+      await tester.tap(find.byKey(const Key('creator-task-estimate')));
+      await tester.pumpAndSettle();
+      expect(find.text('1 hours 30 min'), findsNothing);
+      expect(find.text('1 hour 30 min'), findsOneWidget);
+      await tester.tap(find.text('$minutes minutes').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('CREATE TASK'));
+      await tester.tap(find.text('CREATE TASK'));
+      await tester.pump();
+      expect(submitted?.estimatedDuration, Duration(minutes: minutes));
+      expect(submitted?.title, 'Sort three bills');
+    });
+  }
+
   testWidgets('input labels remain accessible after text is entered', (
     tester,
   ) async {
