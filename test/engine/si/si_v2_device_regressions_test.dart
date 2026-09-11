@@ -19,10 +19,11 @@ void main() {
   SIV2EvidenceSnapshot snapshot(
     List<SIV2GoalEvidence> goals, {
     SIV2PersonContextEvidence? context,
+    List<SIV2TaskEvidence> tasks = const [],
   }) => SIV2EvidenceSnapshot(
     accountScopeId: 'account:test',
     observedAt: now,
-    tasks: const [],
+    tasks: tasks,
     goals: goals,
     milestones: const [],
     timeline: const [],
@@ -44,6 +45,82 @@ void main() {
     expect(response.directAnswer, isNot(contains('ranks ahead')));
     response.validate();
   });
+  test(
+    'available-action wording returns a saved task instead of unsupported',
+    () {
+      for (final text in [
+        'What can I do in five minutes before school pickup to review a bookkeeping example?',
+        'What can I work on for 10 minutes?',
+        'What can I do with an hour?',
+        'What can I do next?',
+      ]) {
+        final response = const SIV2Engine().analyze(
+          query: query(text),
+          snapshot: snapshot(
+            [],
+            tasks: [
+              SIV2TaskEvidence(
+                id: 'task',
+                title: 'Review a bookkeeping example',
+                createdAt: now,
+                priority: 3,
+              ),
+            ],
+          ),
+          now: now,
+        );
+        expect(
+          response.directAnswer,
+          contains('For the next action'),
+          reason: text,
+        );
+        expect(response.directAnswer, contains('Review a bookkeeping example'));
+        response.validate();
+      }
+    },
+  );
+  test(
+    'weather and place questions do not become unrelated task schedules',
+    () {
+      for (final text in [
+        'Will it rain tomorrow?',
+        'What is the weather tomorrow?',
+        'Forecast the weather this week.',
+        'What can I do in New York?',
+      ]) {
+        final response = const SIV2Engine().analyze(
+          query: query(text),
+          snapshot: snapshot(
+            [],
+            tasks: [
+              SIV2TaskEvidence(
+                id: 'task',
+                title: 'Review a bookkeeping example',
+                createdAt: now,
+                priority: 3,
+              ),
+            ],
+          ),
+          now: now,
+        );
+        expect(
+          response.directAnswer,
+          contains('SI cannot answer'),
+          reason: text,
+        );
+        expect(
+          response.recommendation,
+          isNot(contains('Review a bookkeeping example')),
+        );
+      }
+      expect(
+        ask('Tell me about my weather preparation goal', [
+          goal('g', 'Weather preparation'),
+        ]).directAnswer,
+        isNot(contains('SI cannot answer')),
+      );
+    },
+  );
   test('matching title explains ordering even when its date is later', () {
     final response = ask('Compare grocery goals', [
       goal('a', 'Bicycle repair', now),

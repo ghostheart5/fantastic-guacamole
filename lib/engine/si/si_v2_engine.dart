@@ -1353,6 +1353,14 @@ final class _SIV2Question {
   }
 
   static _SIV2QuestionFocus _focusFor(String input, SIV2Intent intent) {
+    final bool asksForWeather = RegExp(
+      r'^(?:(?:will|does|did|is) it (?:rain|snow|hail|storm)\b|'
+      r'(?:what(?: s| is| will(?: be)?)?|how(?: s| is)?) (?:the )?(?:weather|temperature)\b|'
+      r'(?:the )?weather(?: forecast)?\b|(?:forecast|predict) (?:the )?weather\b)',
+    ).hasMatch(input);
+    if (asksForWeather) {
+      return _SIV2QuestionFocus.unsupported;
+    }
     if (intent != SIV2Intent.answer) {
       return switch (intent) {
         SIV2Intent.answer => _SIV2QuestionFocus.overview,
@@ -1441,17 +1449,23 @@ final class _SIV2Question {
     if (hasAny(<String>['why', 'explain', 'reason', 'cause'])) {
       return _SIV2QuestionFocus.explanation;
     }
-    if (hasAny(<String>[
-      'what should i do',
-      'what do i do',
-      'what should i work',
-      'what now',
-      'next action',
-      'next task',
-      'start first',
-      'focus on',
-      'do first',
-    ])) {
+    final bool asksForAvailableAction = RegExp(
+      r'^what can i (?:do|work on)(?: next| now)?(?:$| (?:in|for|with) '
+      r'(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|sixty) '
+      r'(?:minutes?|hours?)\b)',
+    ).hasMatch(input);
+    if (asksForAvailableAction ||
+        hasAny(<String>[
+          'what should i do',
+          'what do i do',
+          'what should i work',
+          'what now',
+          'next action',
+          'next task',
+          'start first',
+          'focus on',
+          'do first',
+        ])) {
       return _SIV2QuestionFocus.nextAction;
     }
     if (hasAny(<String>[
