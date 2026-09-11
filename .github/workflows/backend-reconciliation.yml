@@ -13,12 +13,17 @@ on:
         options:
           - reconcile
           - apply-reviewed-repairs
+          - prepare-reviewer-cohort
       source_sha:
         description: Repair mode only; exact full reviewed commit SHA
         type: string
         required: false
       ci_run:
         description: Repair mode only; successful manual CI run for that exact commit
+        type: string
+        required: false
+      database_run:
+        description: Reviewer cohort mode only; successful exact-source database gate
         type: string
         required: false
 
@@ -30,6 +35,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  reviewer-cohort:
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'prepare-reviewer-cohort' && github.repository == 'ghostheart5/fantastic-guacamole' && github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout immutable tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+      - name: Validate source input
+        env:
+          SOURCE: ${{ inputs.source_sha }}
+        run: '[[ "$SOURCE" =~ ^[a-f0-9]{40}$ ]]'
+      - name: Checkout immutable app policy
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Test cohort preservation contracts
+        run: node --test tooling/scripts/reviewer_cohort.test.mjs
+      - name: Prepare only the verified reviewer cohort
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEW_SOURCE_SHA: ${{ inputs.source_sha }}
+          REVIEW_CI_RUN: ${{ inputs.ci_run }}
+          REVIEW_DB_RUN: ${{ inputs.database_run }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: ${{ secrets.CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS }}
+          CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST: ${{ secrets.CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST }}
+        run: node tooling/scripts/reviewer_cohort.mjs
+      - name: Save sanitized cohort receipt
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: reviewer-cohort-${{ inputs.source_sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/reviewer-cohort.json
+          if-no-files-found: error
+          retention-days: 7
   account-deletion:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.operation == 'reconcile')
     runs-on: ubuntu-24.04
