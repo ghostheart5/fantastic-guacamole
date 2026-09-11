@@ -15,6 +15,7 @@ The Moto Play installation was `4.1.0+2026083027`, source `faa512ea2e35f229e02da
 | Home task action | “Open TASK” opened blank Creator even when a saved task was displayed. It now opens that task's editor, shared with Timeline; Cancel preserves the task. The Home save rejects account changes while the dialog is open. |
 | Rhythm cadence copy | Creator displayed “3 times per weekly.” Labels now use day/week/month. |
 | Account-transition runtime errors | All 11 hosted Maestro flows completed their assertions, but the strict log gate found 23 provider errors during logout/account switching. SI and prediction readers now report unavailable evidence before protected storage is ready and discard stale asynchronous account results. Genuine failures in a current account remain errors. |
+| Saved capacity wording | Saved Person Context saying “five minutes” made Home claim a 25-minute cap. The shared parser now recognizes spelled and hyphenated minute values, and preserves positive limits below five minutes through the decision engine. |
 
 ## Evidence and boundaries
 

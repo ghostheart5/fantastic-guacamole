@@ -611,6 +611,40 @@ void main() {
     );
   });
 
+  for (final entry in <String, int>{
+    'STRESS3027 demo. I have only five minutes before school pickup. Help me take one small step and stop.':
+        5,
+    'I have a five-minute window': 5,
+    'I have one minute': 1,
+    'I have 2 minutes': 2,
+    'I have forty-five minutes': 45,
+  }.entries) {
+    test('explicit capacity remains exact: ${entry.key}', () {
+      final signal = _signalFor(
+        PersonContextKind.presentCapacity,
+        id: 'explicit-capacity',
+        value: entry.key,
+        now: now,
+        surface: PersonContextSurface.smartPlanner,
+      );
+      final context = GovernedDecisionContext.resolve(
+        view: PersonContextView(
+          accountScopeId: 'account:test',
+          surface: PersonContextSurface.smartPlanner,
+          purposes: operationalPersonContextPurposes,
+          observedAt: now,
+          signals: [signal],
+          unknownKinds: const {},
+        ),
+        accountScopeId: 'account:test',
+        tasks: const [],
+        now: now,
+        surface: PersonContextSurface.smartPlanner,
+      );
+      expect(context.capacityCapMinutes, entry.value);
+    });
+  }
+
   test('plain-language low capacity becomes a bounded 25-minute limit', () {
     final PersonContextSignal capacity = _signalFor(
       PersonContextKind.presentCapacity,

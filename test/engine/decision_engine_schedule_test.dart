@@ -8,6 +8,43 @@ import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final minutes in [1, 2, 5]) {
+    test('governed $minutes-minute capacity does not expand a short task', () {
+      final now = DateTime(2026, 9, 11, 12);
+      final tasks = [
+        _decisionTask(
+          'short',
+          'One small step',
+          now: now,
+          priority: 3,
+          minutes: minutes,
+        ),
+        _decisionTask(
+          'long',
+          'Long session',
+          now: now,
+          priority: 5,
+          minutes: 45,
+        ),
+      ];
+      final context = _decisionContext(
+        tasks: tasks,
+        now: now,
+        signals: [
+          _decisionSignal(
+            id: 'capacity',
+            kind: PersonContextKind.presentCapacity,
+            value: 'I have $minutes minutes',
+            now: now,
+          ),
+        ],
+      );
+      final result = _recommend(tasks, now: now, personContext: context);
+      expect(result.selectedTask?.id, 'short');
+      expect(result.executionMinutes, lessThanOrEqualTo(minutes));
+    });
+  }
+
   for (final mood in ['anxious', 'fatigued', 'scattered', 'negative']) {
     test(
       'shared $mood check-in bounds an urgent first step without rescheduling',

@@ -409,7 +409,7 @@ class DecisionEngine {
       );
     }
     final int? cap = context.capacityCapMinutes;
-    if (cap != null && (cap < 5 || cap > 240)) {
+    if (cap != null && (cap < 1 || cap > 240)) {
       throw StateError('Governed Person Context capacity is out of bounds.');
     }
   }
