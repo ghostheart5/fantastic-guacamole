@@ -85,5 +85,21 @@ begin
 end;
 $$;
 reset role;
+do $$ begin
+  perform set_config('request.jwt.claim.sub','81818181-8181-4181-8181-818181818181',true);
+end $$;
+set local role authenticated;
+do $$ begin
+  -- Exercise the actual Dart/PostgREST projection under the client role.
+  perform user_id,plan_id,product_id,status,is_active,expires_at,updated_at,
+    source,started_at,auto_renews,period_credits
+    from public.monetization_subscription_statuses where user_id=auth.uid();
+  assert (select count(user_id)=1 from public.monetization_subscription_statuses where user_id=auth.uid()),'own review authority readable';
+  assert (select count(user_id)=0 from public.monetization_subscription_statuses where user_id<>auth.uid()),'other account authority hidden';
+  assert not has_column_privilege(current_user,'public.monetization_subscription_statuses','purchase_token_hash','select'),'purchase token stays private';
+  assert not has_column_privilege(current_user,'public.monetization_subscription_statuses','order_id','select'),'order stays private';
+  assert not has_column_privilege(current_user,'public.monetization_subscription_statuses','metadata','select'),'internal metadata stays private';
+end $$;
+reset role;
 select 'ok 1 - bounded complimentary access, ownership, budget, expiry and privileges';
 rollback;

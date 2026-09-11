@@ -883,7 +883,7 @@ class GooglePlayPaywallRepository
       final List<dynamic> rows = await client
           .from('monetization_subscription_statuses')
           .select(
-            'user_id,plan_id,product_id,status,is_active,expires_at,updated_at,source,started_at,auto_renews,period_credits,purchase_token_hash,order_id',
+            'user_id,plan_id,product_id,status,is_active,expires_at,updated_at,source,started_at,auto_renews,period_credits',
           )
           .eq('user_id', expectedUserId)
           .limit(1)

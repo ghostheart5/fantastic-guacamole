@@ -2383,8 +2383,11 @@ void main() {
   }.entries) {
     test('complimentary review authority: ${mutation.key}', () async {
       final now = DateTime.now().toUtc();
-      final client = await _authorityClient(
-        (request) async => http.Response(
+      final client = await _authorityClient((request) async {
+        final projection = request.url.queryParameters['select'] ?? '';
+        expect(projection, isNot(contains('purchase_token_hash')));
+        expect(projection, isNot(contains('order_id')));
+        return http.Response(
           jsonEncode([
             {
               'user_id': 'user-1',
@@ -2405,8 +2408,8 @@ void main() {
           ]),
           200,
           headers: {'content-type': 'application/json'},
-        ),
-      );
+        );
+      });
       final billing = _emptyBillingClient();
       final repository = GooglePlayPaywallRepository(
         billingClient: billing,
