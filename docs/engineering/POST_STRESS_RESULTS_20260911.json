@@ -1,0 +1,544 @@
+{
+  "recordedAtUtc": "2026-09-11T20:54:54.357513+00:00",
+  "appSourceSha": "bc5a50c216513b8157a34330b785eb9d6187f77c",
+  "versionCode": 2026083029,
+  "versionName": "4.1.0",
+  "aabSha256": "c48ed72e83d9a6e6857356196ad9dd3a31193ea88c5dc787785a70b89d90fb07",
+  "candidateRun": 34642305491,
+  "candidateArtifactId": 10281470253,
+  "candidateArtifactSha256": "97c3e8f8b6fafb69913a533ed8c9d5abe81582b9202c78f01863266a30a5a1c7",
+  "toolingSha": "a529a415b1201aef2c0da687098d0e612200d8d9",
+  "internalPublication": {
+    "track": "internal",
+    "trackId": "4700889470079224942",
+    "releaseId": 31,
+    "status": "AVAILABLE_TO_INTERNAL_TESTERS",
+    "name": "2026083029 (4.1.0) - SI & paywall repairs",
+    "notes": "Keeps your place when subscription details refresh. Fixes spacing in support emails. Improves use of short time limits and explains which personal context is available to SI. Includes the recent planning, task, rhythm, and Home metric repairs. License testers: use Google test payment methods only.",
+    "savedReadback": "Changes saved. You can now preview your release before publishing it.",
+    "prepareUrl": "https://play.google.com/console/u/0/developers/7769568821533010883/app/4976364997895633041/tracks/4700889470079224942/releases/31/prepare",
+    "productionPublicationAuthorized": false,
+    "publicationReadback": "Active internal track; latest3029; Available to internal testers; Sep11 3:26PM; release31",
+    "aabSha256": "c48ed72e83d9a6e6857356196ad9dd3a31193ea88c5dc787785a70b89d90fb07"
+  },
+  "automatedStatus": "PASS",
+  "overallAcceptance": "PENDING_INSTALLED_3029_HUMAN_VALIDATION",
+  "ci": {
+    "run": 34640831258,
+    "flutterPassed": 2910,
+    "qaConfigurationPassed": 15,
+    "windowsVisualWidgetPassed": 48,
+    "launcherPassed": 17,
+    "linuxIntegrationGroupsPassed": 8,
+    "overallCoveragePercent": 74.9
+  },
+  "database": {
+    "sourceSha": "bc5a50c216513b8157a34330b785eb9d6187f77c",
+    "run": 34640833400,
+    "artifactId": 10279789309,
+    "artifactSha256": "187d48c92e6c1974da991dbbbe09729e0416f57c2b96c93dd3ebc0bf5aedb55a",
+    "sqlFiles": 13,
+    "sqlCases": 350,
+    "sqlResult": "PASS",
+    "edgeTests": 142,
+    "edgeFailures": 0,
+    "edgeErrors": 0,
+    "edgeSkippedNodes": 0,
+    "source": "Verified artifact JUnit plus successful workflow database-contract summary"
+  },
+  "windowsFull": {
+    "run": 34643932401,
+    "passed": 2913,
+    "qaConfigurationPassed": 15,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "native": {
+    "passed": true,
+    "sourceSha": "bc5a50c216513b8157a34330b785eb9d6187f77c",
+    "validationRun": 34643932401,
+    "rawNativeReportsReparsed": 5,
+    "independentHosts": 5,
+    "totals": {
+      "total": 15,
+      "passed": 15,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0
+    },
+    "cases": [
+      {
+        "file": "app_startup_test.dart",
+        "viewport": "320x640",
+        "sourceTestHashVerified": true,
+        "totals": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "completedTestNames": [
+          "startup hydration boots app root and completes state bootstrap"
+        ]
+      },
+      {
+        "file": "auth_flow_integration_test.dart",
+        "viewport": "320x640",
+        "sourceTestHashVerified": true,
+        "totals": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "completedTestNames": [
+          "auth screen exposes forgot password action",
+          "QA tester access enters the app without backend access",
+          "onboarding persists and stages the first helpful choice",
+          "planner pipeline accepts context and returns a usable response",
+          "task journey creates and persists a task",
+          "screen journey reviews, creates, and routes to Timeline"
+        ]
+      },
+      {
+        "file": "persistence_recovery_test.dart",
+        "viewport": "320x640",
+        "sourceTestHashVerified": true,
+        "totals": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "completedTestNames": [
+          "task survives restart and malformed storage degrades safely"
+        ]
+      },
+      {
+        "file": "planner_learning_identity_test.dart",
+        "viewport": "320x640",
+        "sourceTestHashVerified": true,
+        "totals": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "completedTestNames": [
+          "Planner task and its exact outcome survive native storage reopen"
+        ]
+      },
+      {
+        "file": "auth_flow_integration_test.dart",
+        "viewport": "411x891",
+        "sourceTestHashVerified": true,
+        "totals": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "completedTestNames": [
+          "auth screen exposes forgot password action",
+          "QA tester access enters the app without backend access",
+          "onboarding persists and stages the first helpful choice",
+          "planner pipeline accepts context and returns a usable response",
+          "task journey creates and persists a task",
+          "screen journey reviews, creates, and routes to Timeline"
+        ]
+      }
+    ],
+    "boundary": "Complete fixture instrumentation and source identities; not Play purchase or human UAT proof."
+  },
+  "maestroAndMonkey": {
+    "sourceSha": "bc5a50c216513b8157a34330b785eb9d6187f77c",
+    "run": 34640835412,
+    "artifactId": 10281387286,
+    "artifactSha256": "4e9fc35fbf39c2a0c43760cb0d2357b74a88234877a45cc7d5883746751cc97f",
+    "qaApkSha256": "747ED5D2AED4761E85AAA8118D23FED259517CB515737356304B2C2375A7D25F",
+    "journeyStatus": "passed",
+    "journeys": {
+      "terminalParsed": true,
+      "status": "passed",
+      "testCases": 11,
+      "failures": 0.0,
+      "errors": 0.0,
+      "skipped": 0.0,
+      "expectedTestCases": 11,
+      "testCaseCountMatchesFlows": true,
+      "failureReason": null
+    },
+    "journeyFatalMarkers": 0,
+    "monkeyStatus": "passed",
+    "monkeyVariants": 5,
+    "monkeyEvents": 1700,
+    "variants": [
+      {
+        "name": "smoke",
+        "status": "passed",
+        "requestedEvents": 100,
+        "injectedEvents": 100,
+        "eventCountVerified": true,
+        "fatalMarkerCount": 0,
+        "monkeyExitCode": 0,
+        "monkeyTimedOut": false,
+        "relaunchSucceeded": true
+      },
+      {
+        "name": "balanced",
+        "status": "passed",
+        "requestedEvents": 500,
+        "injectedEvents": 500,
+        "eventCountVerified": true,
+        "fatalMarkerCount": 0,
+        "monkeyExitCode": 0,
+        "monkeyTimedOut": false,
+        "relaunchSucceeded": true
+      },
+      {
+        "name": "navigation",
+        "status": "passed",
+        "requestedEvents": 300,
+        "injectedEvents": 300,
+        "eventCountVerified": true,
+        "fatalMarkerCount": 0,
+        "monkeyExitCode": 0,
+        "monkeyTimedOut": false,
+        "relaunchSucceeded": true
+      },
+      {
+        "name": "touch-motion",
+        "status": "passed",
+        "requestedEvents": 500,
+        "injectedEvents": 500,
+        "eventCountVerified": true,
+        "fatalMarkerCount": 0,
+        "monkeyExitCode": 0,
+        "monkeyTimedOut": false,
+        "relaunchSucceeded": true
+      },
+      {
+        "name": "lifecycle",
+        "status": "passed",
+        "requestedEvents": 300,
+        "injectedEvents": 300,
+        "eventCountVerified": true,
+        "fatalMarkerCount": 0,
+        "monkeyExitCode": 0,
+        "monkeyTimedOut": false,
+        "relaunchSucceeded": true
+      }
+    ]
+  },
+  "strict16Kb": {
+    "run": 34643932401,
+    "passed": true,
+    "pageSize": 16384,
+    "compatibilityFallbackDisabled": true,
+    "onboardingToLoginPassed": true,
+    "boundary": "AAB-derived APK with disposable test signer; no Play signing, authentication, microphone, purchase or billing proof."
+  },
+  "decisionVolume": {
+    "sourceSha": "bc5a50c216513b8157a34330b785eb9d6187f77c",
+    "cases": 60,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "tasksPerScenario": 1000,
+    "terminalSuccess": true,
+    "boundary": "60 deterministic random fixture scenarios; not 60000 independent end-to-end user tests"
+  },
+  "runtime": {
+    "sha256": "0626cf3865c9715361b9349f44db557b3837e28b5d39975aad283dbfd8500878",
+    "bytes": 125578,
+    "collectorStopped": true,
+    "patterns": {
+      "FATAL EXCEPTION": 0,
+      "ANR in com\\.ghostheart5\\.chronospark": 0,
+      "Unhandled Exception": 0,
+      "RenderFlex.*overflow": 0,
+      "logger\\.categorized_error": 0
+    },
+    "boundary": "Filtered pre-update3028 capture only; no installed3029 acceptance implied."
+  },
+  "annualLiveBilling": {
+    "purchaseInstalledVersionCode": 2026083028,
+    "instrument": "Google Play Test card, always approves",
+    "paymentSheetExplicitlySaidNoCharge": true,
+    "productDisplayName": "ChronoSpark Premium Annual",
+    "licenseTestDisplayedPeriod": "$69.99/30 min",
+    "purchaseAtUtc": "2026-09-11T19:46:18.563Z",
+    "backendUpdatedAtUtc": "2026-09-11T19:46:23.658882Z",
+    "status": "active",
+    "isActive": true,
+    "autoRenews": true,
+    "expiresAtUtc": "2026-09-11T20:16:18.563Z",
+    "balanceBefore": 517,
+    "balanceAfter": 797,
+    "includedBefore": 20,
+    "includedAfter": 300,
+    "purchasedPreserved": 497,
+    "lifetimeSpent": 58,
+    "appReadback": "PREMIUM, Subscription active, 797 credits; 497 purchased do not expire",
+    "restoreAfter3029Update": "PENDING",
+    "renewal": "PASS: RTDN type2 at2026-09-11T20:16:29.310952Z; period extended to20:46:18.563Z; allowance300 and balance_delta0",
+    "evidence": [
+      "annual-play-sheet.json",
+      "annual-entitlement.json"
+    ],
+    "boundary": "Free license-test purchase. No public release or real payment. Annual renewal and updated-build restore remain separate checks.",
+    "restoreBeforeUpdate": "PASS: Subscription restored and active; balance797 unchanged",
+    "productId": "chronospark_premium_annual",
+    "planId": "premium_yearly",
+    "lastServerReadback": {
+      "status": "active",
+      "periodEndsAtUtc": "2026-09-11T21:16:18.563Z",
+      "balance": 797,
+      "included": 300,
+      "purchased": 497,
+      "lifetimeSpent": 58
+    }
+  },
+  "device": {
+    "installedVersionCode": 2026083028,
+    "installer": "com.android.vending",
+    "androidUser": 0,
+    "level": 20,
+    "xp": 36187,
+    "completedTasks": 1447,
+    "temporaryContextWithdrawnAndDeleted": true,
+    "contextItemsRemaining": 0,
+    "testTaskRetainedIncomplete": true,
+    "noUninstallOrDataReset": true,
+    "googlePurchaseVerificationChoicePending": true
+  },
+  "pendingHumanChecks": [
+    "Play update to3029 and preserved-data readback",
+    "Paywall scroll across authority refresh",
+    "Gmail support draft spacing; discard without sending",
+    "SI available-versus-cited context and explicit minute relevance",
+    "Energy/Clarity/Momentum with Home/Trajectory recalculation",
+    "New grocery task completion and exactly-once XP",
+    "Updated-build annual restore and credit spending/retry",
+    "Updated-build navigation and offline/cold recovery"
+  ],
+  "repairedFindings": {
+    "S9": "IMPLEMENTED_REGRESSION_PASS_INSTALLED_3029_CHECK_PENDING",
+    "S10": "IMPLEMENTED_REGRESSION_PASS_INSTALLED_3029_CHECK_PENDING",
+    "S11": "IMPLEMENTED_REGRESSION_PASS_INSTALLED_3029_CHECK_PENDING"
+  },
+  "baselineHumanReport": "docs/engineering/STRESS_REPAIRS_20260911.md",
+  "productionStatus": "NOT_READY",
+  "productionPublished": false,
+  "externalGates": [
+    "Qualified privacy/legal and mental-health/AI-safety review",
+    "Reviewer-device access",
+    "Final public paid configuration and disclosure/store reconciliation"
+  ],
+  "liveScenariosNotAllFreshlyRepeated": [
+    "grace",
+    "hold",
+    "pause",
+    "chargeback",
+    "induced backend outage"
+  ],
+  "artifactEvidence": [
+    {
+      "run": "34640831258",
+      "workflowCommit": "bc5a50c216513b8157a34330b785eb9d6187f77c",
+      "artifacts": [
+        {
+          "id": 10280751680,
+          "name": "chronospark-flutter-tests-bc5a50c216513b8157a34330b785eb9d6187f77c-1",
+          "sha256": "sha256:69438ced6e1dada3c8464c69d8cda73b2e064a13e144a5cf17bcf8d71d427902",
+          "counts": [
+            {
+              "file": "artifacts\\flutter-test-evidence\\flutter-tests.jsonl",
+              "passed": 2910,
+              "failed": 0,
+              "skipped": 0,
+              "errors": 0,
+              "success": true
+            },
+            {
+              "file": "artifacts\\flutter-test-evidence\\qa-config-tests.jsonl",
+              "passed": 15,
+              "failed": 0,
+              "skipped": 0,
+              "errors": 0,
+              "success": true
+            }
+          ]
+        },
+        {
+          "id": 10280042241,
+          "name": "chronospark-static-bc5a50c216513b8157a34330b785eb9d6187f77c-1",
+          "sha256": "sha256:051cc818e142dbd43ff1ca6796dba3806834fff5c81b7f64a71ed9d9206fb557",
+          "counts": []
+        },
+        {
+          "id": 10279877545,
+          "name": "chronospark-linux-integration-bc5a50c216513b8157a34330b785eb9d6187f77c-1",
+          "sha256": "sha256:a29be3ae83acd28938fe44505d12497bc7a036e192d9bbe47239dbef69d42c2a",
+          "counts": [
+            {
+              "file": "app_startup.jsonl",
+              "passed": 1,
+              "failed": 0,
+              "skipped": 0,
+              "errors": 0,
+              "success": true
+            },
+            {
+              "file": "auth_flow_integration.jsonl",
+              "passed": 6,
+              "failed": 0,
+              "skipped": 0,
+              "errors": 0,
+              "success": true
+            },
+            {
+              "file": "persistence_recovery.jsonl",
+              "passed": 1,
+              "failed": 0,
+              "skipped": 0,
+              "errors": 0,
+              "success": true
+            }
+          ]
+        },
+        {
+          "id": 10279594988,
+          "name": "chronospark-windows-goldens-bc5a50c216513b8157a34330b785eb9d6187f77c-1",
+          "sha256": "sha256:f4eaffe9f7fd7348e13d548ccfd6b58528dda4932c5fa0a611539880df0a0800",
+          "counts": [
+            {
+              "file": "artifacts\\windows-golden-evidence\\golden-tests.jsonl",
+              "passed": 48,
+              "failed": 0,
+              "skipped": 0,
+              "errors": 0,
+              "success": true
+            },
+            {
+              "file": "artifacts\\windows-golden-evidence\\maestro-launcher-tests.jsonl",
+              "passed": 17,
+              "failed": 0,
+              "skipped": 0,
+              "errors": 0,
+              "success": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "run": "34640833400",
+      "workflowCommit": "bc5a50c216513b8157a34330b785eb9d6187f77c",
+      "artifacts": [
+        {
+          "id": 10279789309,
+          "name": "chronospark-database-bc5a50c216513b8157a34330b785eb9d6187f77c-1",
+          "sha256": "sha256:187d48c92e6c1974da991dbbbe09729e0416f57c2b96c93dd3ebc0bf5aedb55a",
+          "counts": []
+        }
+      ]
+    },
+    {
+      "run": "34643932401",
+      "workflowCommit": "a529a415b1201aef2c0da687098d0e612200d8d9",
+      "artifacts": [
+        {
+          "id": 10282012997,
+          "name": "final-windows-bc5a50c216513b8157a34330b785eb9d6187f77c-34643932401-1",
+          "sha256": "sha256:fa9621b3c5180aba51930379fe27407270eae2828c007ea67f9141e8a20b77b8",
+          "counts": [
+            {
+              "file": "evidence\\windows\\full.jsonl",
+              "passed": 2913,
+              "failed": 0,
+              "skipped": 0,
+              "errors": 0,
+              "success": true
+            },
+            {
+              "file": "evidence\\windows\\qa-config.jsonl",
+              "passed": 15,
+              "failed": 0,
+              "skipped": 0,
+              "errors": 0,
+              "success": true
+            }
+          ]
+        },
+        {
+          "id": 10282012493,
+          "name": "final-native-case-2-bc5a50c216513b8157a34330b785eb9d6187f77c-34643932401-1",
+          "sha256": "sha256:bec8fae7933999e0f8d750704a7580856cf47892aef31ac748aace2f1bacf074",
+          "counts": []
+        },
+        {
+          "id": 10281977695,
+          "name": "final-native-matrix-bc5a50c216513b8157a34330b785eb9d6187f77c-34643932401-1",
+          "sha256": "sha256:d034dcc73429309614caf6264e46f2915f59124154e1cfb7ddd735ca8a0d04cb",
+          "counts": []
+        },
+        {
+          "id": 10281832677,
+          "name": "final-native-case-5-bc5a50c216513b8157a34330b785eb9d6187f77c-34643932401-1",
+          "sha256": "sha256:ad63088278e20380f3861b53f2a225f377ada3285bd352b4f44e6d9fd7df114d",
+          "counts": []
+        },
+        {
+          "id": 10281707949,
+          "name": "final-native-case-1-bc5a50c216513b8157a34330b785eb9d6187f77c-34643932401-1",
+          "sha256": "sha256:cfc988b6c6430cc9068943da8eb8374bb46f36b755c9efc99ef0ed67262a4318",
+          "counts": []
+        },
+        {
+          "id": 10281685145,
+          "name": "final-input-proof-34643932401-1",
+          "sha256": "sha256:d7b9fd35b61666ff81192292e557db34fec48e32ef086578177f43246cefeb71",
+          "counts": []
+        },
+        {
+          "id": 10281528368,
+          "name": "final-native-case-3-bc5a50c216513b8157a34330b785eb9d6187f77c-34643932401-1",
+          "sha256": "sha256:1fdbb11764103d317b3573c1c310bcc18a6b002e1bea9e02613a8b8917fdee7d",
+          "counts": []
+        },
+        {
+          "id": 10281431237,
+          "name": "final-release-16kb-bc5a50c216513b8157a34330b785eb9d6187f77c-34643932401-1",
+          "sha256": "sha256:e6b27110373c90cb0b03e551a0dfc9acc96bf6c0d3ed59d16901cd5b4741ea5b",
+          "counts": []
+        },
+        {
+          "id": 10281347632,
+          "name": "final-native-case-4-bc5a50c216513b8157a34330b785eb9d6187f77c-34643932401-1",
+          "sha256": "sha256:ef5ae869d5dba44a3ec784148a6d0efddb6ac918a9a917cbb83483a73016449b",
+          "counts": []
+        }
+      ]
+    },
+    {
+      "run": "34640835412",
+      "workflowCommit": "a529a415b1201aef2c0da687098d0e612200d8d9",
+      "artifacts": [
+        {
+          "id": 10281387286,
+          "name": "chronospark-maestro-bc5a50c216513b8157a34330b785eb9d6187f77c-1",
+          "sha256": "sha256:4e9fc35fbf39c2a0c43760cb0d2357b74a88234877a45cc7d5883746751cc97f",
+          "counts": []
+        }
+      ]
+    }
+  ],
+  "boundary": "Finite named scenarios. Fixture/native/QA passes do not establish every device/input/outage, live billing outcome, installed-release human acceptance, or production readiness."
+}
