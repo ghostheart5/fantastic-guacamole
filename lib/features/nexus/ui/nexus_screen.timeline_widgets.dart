@@ -46,7 +46,11 @@ class _TrajectoryReport extends StatelessWidget {
         const SizedBox(height: 9),
         SmartPressable(
           onTap: onOpen,
-          semanticLabel: 'Open Trajectory Engine',
+          semanticLabel:
+              'Open Trajectory Engine. $headline. $report '
+              'Pressure ${vitals.pressurePercent == null ? 'unavailable' : '${vitals.pressurePercent} percent'}. '
+              'Momentum ${vitals.momentumPercent == null ? 'unavailable' : '${vitals.momentumPercent} percent'}. '
+              'Active commitments ${vitals.activeCount?.toString() ?? 'unavailable'}.',
           child: _GlassPanel(
             accent: accent,
             child: Column(

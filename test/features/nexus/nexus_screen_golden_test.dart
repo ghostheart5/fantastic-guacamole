@@ -406,6 +406,31 @@ void main() {
       expect(container.read(appFlowProvider), AppView.trajectoryEngine);
     });
 
+    testWidgets('Home report exposes baseline metrics to accessibility', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final container = await pumpNexusScreen(
+          tester,
+          width: Breakpoints.compact,
+        );
+        final report = find.bySemanticsLabel(
+          RegExp(r'^Open Trajectory Engine\.'),
+        );
+        await tester.scrollUntilVisible(report, 300);
+        final label = tester.getSemantics(report).label;
+        expect(label, contains('Pressure 10 percent.'));
+        expect(label, contains('Momentum 50 percent.'));
+        expect(label, contains('Active commitments 2.'));
+        await tester.tap(report);
+        await tester.pump();
+        expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+      } finally {
+        semantics.dispose();
+      }
+    });
+
     testWidgets('Home check-in updates Energy and Clarity immediately', (
       tester,
     ) async {
