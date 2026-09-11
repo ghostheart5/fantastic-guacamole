@@ -761,14 +761,14 @@ def execute_integration_cases(commands, source, launch_case, case_index=None):
     return summary
 
 
-NATIVE_EMULATOR_URL = 'https://dl.google.com/android/repository/emulator-linux_x64-15507667.zip'
-NATIVE_EMULATOR_SHA256 = '1eade4cf2df6ea8eeead4902c635897ba12aaa32aac4389eaae0fdb498a5b830'
+NATIVE_EMULATOR_URL = 'https://dl.google.com/android/repository/emulator-linux_x64-15917651.zip'
+NATIVE_EMULATOR_SHA256 = '95771e0ae431897b2a4bd2d97fa095f29a8b0624a7b216baf529f9306161c266'
 
 
 def install_native_emulator(commands):
     # Keep the SDK and strict-16KB runtime intact. This pin is only for API36
     # integration guests; verify Google's published archive before extraction.
-    root = Path(os.environ['RUNNER_TEMP']) / 'chronospark-native-emulator-36.6.11'
+    root = Path(os.environ['RUNNER_TEMP']) / 'chronospark-native-emulator-37.1.11'
     root.mkdir(exist_ok=False)
     archive = root / 'emulator.zip'
     commands.run('download-pinned-native-emulator', ['curl', '--fail', '--location', '--silent',
@@ -778,7 +778,7 @@ def install_native_emulator(commands):
     commands.run('extract-pinned-native-emulator', ['unzip', '-q', str(archive), '-d', str(root)], timeout=120)
     emulator = root / 'emulator/emulator'
     version = commands.run('pinned-native-emulator-version', [str(emulator), '-version'])
-    require('36.6.11.0' in version and '15507667' in version, 'Unexpected pinned emulator version')
+    require('37.1.11.0' in version and '15917651' in version, 'Unexpected pinned emulator version')
     write_json(commands.evidence / 'native-emulator-pin.json', {
         'passed': True, 'url': NATIVE_EMULATOR_URL, 'sha256': actual,
         'version': version, 'executable': str(emulator), 'sdkEmulatorChanged': False})

@@ -145,7 +145,7 @@ class FinalValidationTest(unittest.TestCase):
         commands = gate.Commands(self.root / 'pin-evidence')
         with patch.dict(os.environ, RUNNER_TEMP=str(self.root)), \
                 patch.object(gate, 'digest', return_value=gate.NATIVE_EMULATOR_SHA256), \
-                patch.object(commands, 'run', return_value='37.1.11 build 15917651'):
+                patch.object(commands, 'run', return_value='36.6.11.0 build 15507667'):
             with self.assertRaisesRegex(RuntimeError, 'Unexpected pinned emulator version'):
                 gate.install_native_emulator(commands)
         self.assertFalse((commands.evidence / 'native-emulator-pin.json').exists())
