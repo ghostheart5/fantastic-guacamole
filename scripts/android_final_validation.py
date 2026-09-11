@@ -776,6 +776,36 @@ def install_native_emulator(commands):
     return emulator
 
 
+def align_flutter_adb(commands, sdk, native_adb):
+    """Use one client/server executable, only on a disposable hosted runner."""
+    require(os.environ.get('GITHUB_ACTIONS') == 'true' and
+            os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted',
+            'ADB alignment is restricted to disposable GitHub-hosted runners')
+    destination = Path(sdk) / 'platform-tools/adb'
+    pinned = Path(native_adb)
+    require(destination.is_file() and not destination.is_symlink() and pinned.is_file(),
+            'ADB alignment requires regular SDK and pinned executables')
+    require(destination.resolve() != pinned.resolve(), 'ADB paths must be distinct')
+    backup = Path(os.environ['RUNNER_TEMP']) / 'chronospark-original-sdk-adb'
+    require(not backup.exists(), 'Original SDK ADB backup already exists')
+    original_sha = digest(destination)
+    pinned_sha = digest(pinned)
+    with backup.open('xb') as output, destination.open('rb') as original:
+        shutil.copyfileobj(original, output)
+    require(digest(backup) == original_sha, 'Original SDK ADB backup differs')
+    shutil.copy2(pinned, destination)
+    require(digest(destination) == pinned_sha, 'Flutter SDK ADB differs from the owned server')
+    version = commands.run('flutter-sdk-adb-version', [str(destination), 'version'])
+    require('Version 36.0.2-' in version and 'Android Debug Bridge version 1.0.41' in version,
+            'Flutter SDK ADB version mismatch')
+    receipt = {'passed': True, 'originalSha256': original_sha,
+               'alignedSha256': pinned_sha, 'sdkExecutable': str(destination),
+               'serverExecutable': str(pinned), 'originalBackup': str(backup),
+               'scope': 'Disposable GitHub-hosted integration job only; no local SDK changes'}
+    write_json(commands.evidence / 'flutter-adb-alignment.json', receipt)
+    return receipt
+
+
 def install_native_adb(commands):
     root = Path(os.environ['RUNNER_TEMP']) / 'chronospark-native-adb-36.0.2'
     root.mkdir(exist_ok=False)
@@ -815,9 +845,7 @@ def android(mode, source, tooling, evidence):
     if mode == 'integration':
         emulator = install_native_emulator(commands)
         native_adb = install_native_adb(commands)
-        sdk_adb_version = commands.run('flutter-sdk-adb-version', [str(sdk / 'platform-tools/adb'), 'version'])
-        require('Android Debug Bridge version 1.0.41' in sdk_adb_version,
-                'SDK ADB client protocol is incompatible with the owned server')
+        align_flutter_adb(commands, sdk, native_adb)
     library_root = emulator.parent / 'lib64'
     library_path = os.pathsep.join(str(path) for path in
                                   (library_root, library_root / "qt/lib", library_root / "gles_swiftshader"))
