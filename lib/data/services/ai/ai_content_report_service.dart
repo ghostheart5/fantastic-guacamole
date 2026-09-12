@@ -8,8 +8,9 @@ import 'package:http/http.dart' as http;
 /// Submits a user-selected AI response for safety review.
 ///
 /// The response text is sent only after the user explicitly chooses a report
-/// reason. It is bounded before transport and never includes credentials,
-/// prompts, history, or local diagnostics.
+/// reason. It is bounded before transport. No separate prompt, history or
+/// diagnostics are attached, but the selected response can repeat user content.
+/// Account authentication is sent in the Authorization header.
 class AiContentReportService {
   AiContentReportService({http.Client? client})
     : _client = client ?? http.Client();

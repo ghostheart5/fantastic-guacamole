@@ -66,8 +66,8 @@ final class _SIConsoleSafetyCopy {
   String get reportTitle =>
       isSpanish ? 'Reportar respuesta' : 'Report response';
   String get reportDisclosure => isSpanish
-      ? 'Solo se enviarán la respuesta seleccionada y el motivo para una revisión de seguridad. Tu mensaje y el historial de la conversación no se incluyen.'
-      : 'Only the selected response and your reason are sent for safety review. Your prompt and conversation history are not included.';
+      ? 'Envía esta respuesta y el motivo a ChronoSpark para una revisión de seguridad. La respuesta puede contener detalles de tus tareas, metas, notas o conversación. No adjuntamos el resto de la conversación. El informe se vincula a tu cuenta y se almacena para su revisión.'
+      : 'Send this selected response and your reason to ChronoSpark for safety review. The response may contain details from your tasks, goals, notes or conversation. We do not attach the rest of your conversation. The report is linked to your account and stored for review.';
   String get reasonLabel => isSpanish ? 'Motivo' : 'Reason';
   String reportReason(AiContentReportReason reason) => switch (reason) {
     AiContentReportReason.unsafe =>

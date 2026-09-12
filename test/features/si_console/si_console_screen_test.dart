@@ -508,7 +508,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Reportar respuesta'), findsOneWidget);
-    expect(find.textContaining('Tu mensaje y el historial'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'detalles de tus tareas, metas, notas o conversación',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('se vincula a tu cuenta y se almacena'),
+      findsOneWidget,
+    );
     expect(find.text('Enviar informe'), findsOneWidget);
   });
 
