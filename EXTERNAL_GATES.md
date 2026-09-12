@@ -1,6 +1,6 @@
 # ChronoSpark External Gates
 
-## Current candidate evidence - 2026-09-11
+## Current candidate evidence - 2026-09-12
 
 The [3032 release validation report](docs/engineering/FINAL_3032_RELEASE_VALIDATION_20260911.md)
 records the current signed artifact, independently checked automated results,
@@ -8,6 +8,13 @@ retained failed attempts, internal-testing state, device evidence and outstandin
 public-release requirements. Use that report for candidate status. The older
 checkpoints and rows below retain their original evidence boundaries; they do not
 replace current-build validation or approve production publication.
+
+The [September 12 installed-device checkpoint](docs/engineering/INSTALLED_3032_VALIDATION_20260912.md)
+closes the Moto update and named 3032 repair-validation checks, including live
+credit spending and duplicate-charge protection. Twenty store screenshot
+candidates are packaged. Separate reviewer access, qualified review dispositions,
+public policy/Data safety/paid-feature reconciliation and production access remain
+open; production publication is still prohibited.
 
 ## Historical evidence notice - 2026-09-04
 

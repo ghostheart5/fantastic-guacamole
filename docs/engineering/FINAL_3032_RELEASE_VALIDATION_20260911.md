@@ -141,6 +141,17 @@ after the signed app source; they do not change the published AAB identity.
 
 ## Internal testing and Moto
 
+**September 12 update:** Play-installed 3032 is now verified on the Moto and the
+named installed-device acceptance cases pass. The [device validation report](INSTALLED_3032_VALIDATION_20260912.md)
+records six SI cases, four vitals combinations, four Momentum horizons, 100
+navigation actions, nine emotional states, Planner controls, actual one-time
+credit spending/retry, restart persistence and 20 screenshot candidates.
+Level 20, 36,212 XP and 1,448 completed tasks remain intact. Filtered runtime
+capture has zero matching fatal, app-ANR, unhandled-exception or overflow markers.
+Production gates remain open.
+
+### Historical pre-update observations (superseded by the update above)
+
 Play accepted 3032 into saved internal release draft 33 with mapping and native
 symbols attached. The verified bundle was published to the existing internal
 track at September 11, 8:47 PM Central; independent Console readback confirms
@@ -200,7 +211,8 @@ The following remain outside this engineering pass:
 - Completing the separate reviewer Android profile's setup and its restricted
   feature journey. Owner user 0 must remain preserved.
 - Final public paid-feature eligibility, matching policies, listing, Data safety,
-  and current supported-format screenshots.
+  and final public screenshot selection (20 dimension-verified candidate captures
+  are now available; see the device report).
 - Google's production-access application and approval. Production publication
   remains prohibited even if access is later approved.
 
@@ -214,8 +226,8 @@ or public-copy update is asserted.
 The Console's no-ads answer was freshly verified. ChronoSpark's policy remains no
 ads for any user, including no ad watching for credits or features.
 
-Current status: **AUTOMATED CHECKS PASS; INTERNAL 3032 PUBLISHED; MOTO UPDATE
-AND UPDATED-DEVICE VALIDATION PENDING; NOT PRODUCTION READY**. Finite tests cannot prove
+Current status: **AUTOMATED CHECKS PASS; INTERNAL 3032 PUBLISHED; PLAY-INSTALLED
+3032 NAMED DEVICE CHECKS PASS; EXTERNAL GATES OPEN; NOT PRODUCTION READY**. Finite tests cannot prove
 correctness for every possible input, device, network condition or future service
 failure.
 
