@@ -389,6 +389,8 @@ jobs:
           name: chronospark-maestro-${{ inputs.source_sha || github.sha }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 30
+          # Recovery copies are tracked-source .maestro files, not credentials.
+          include-hidden-files: true
           path: |
             artifacts/maestro-ci/**
             test-results/maestro-prewarm/**
