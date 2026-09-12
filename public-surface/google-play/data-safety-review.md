@@ -1,5 +1,15 @@
 # Data safety correction gate
 
+## September 12 current readback
+
+The [3032 blocker closeout](../../docs/engineering/BLOCKER_CLOSEOUT_3032_20260912.md)
+records the current eight-type Console preview and its handling answers. These
+are not a new submission or public declaration. The exact missing public privacy
+paragraph is prepared in [draft PR 103](https://github.com/ghostheart5/fantastic-guacamole/pull/103).
+Voice provider identity is verified on the Moto; actual dictation and final
+provider-handling/disclosure review remain open. The prior public-page hold has
+not been lifted. Historical items below retain their original evidence limits.
+
 Do not save the Data safety form until every answer is reconciled against the exact signed release artifact, dependency lockfile, manifest, runtime network behavior, Supabase schema, Firebase services, and deletion implementation.
 
 This is an unsaved correction draft. Console descriptions and broken-link

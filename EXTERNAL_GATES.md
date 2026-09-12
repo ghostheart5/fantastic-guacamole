@@ -16,6 +16,13 @@ candidates are packaged. Separate reviewer access, qualified review dispositions
 public policy/Data safety/paid-feature reconciliation and production access remain
 open; production publication is still prohibited.
 
+The [blocker closeout](docs/engineering/BLOCKER_CLOSEOUT_3032_20260912.md) records
+the canonical privacy correction and its generated copies in draft PR 103, Console-accepted current-build
+XR screenshots saved as a draft, fresh reviewer entitlement readback, and the
+[current qualified-review packet](docs/engineering/QUALIFIED_REVIEW_PACKET_3032_20260912.md).
+Reviewer setup is waiting at Google services terms; public-page publication is
+waiting on the earlier owner hold; neither has been marked passed.
+
 ## Historical evidence notice - 2026-09-04
 
 Newer closeout evidence is in the [Phase 2 checkpoint](docs/engineering/PHASE_2_BACKEND_HARDENING_20260904.md):

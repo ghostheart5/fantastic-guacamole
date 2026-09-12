@@ -1,5 +1,16 @@
 # Google Play graphics: level-20 release preparation
 
+## September 12 Console format correction
+
+The current XR upload form rejected 1920x1200 (8:5) captures as unselectable and
+accepted actual 1920x1080 (16:9) build-3032 virtual-display captures. Four replacements
+were saved as an unpublished draft and independently reloaded. The original 8:5
+guidance below must not be treated as proof of acceptance by this Console form.
+See the [current blocker closeout](../../docs/engineering/BLOCKER_CLOSEOUT_3032_20260912.md)
+for package hashes, unchanged earlier-build slots and physical-hardware limits.
+The AI asset declaration also needs original branding-asset provenance before
+submission; captured app screenshots have separate non-generated pixel provenance.
+
 Checked September 8, 2026 against [Google Play preview-asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en).
 
 ## Historical September 8 update after internal delivery
