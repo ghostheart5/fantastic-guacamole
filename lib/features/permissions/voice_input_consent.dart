@@ -5,7 +5,7 @@ import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider
 import 'package:flutter/material.dart';
 
 /// Remember explicit provider consent per account/device. OS microphone
-/// permission remains independently checked by onStart for every session.
+/// permission remains independently checked by onStart for every capture.
 Future<bool> startVoiceInputWithConsent({
   required BuildContext context,
   required Future<void> Function() onStart,

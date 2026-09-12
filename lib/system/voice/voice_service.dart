@@ -11,16 +11,16 @@ class VoiceService {
   static final ValueNotifier<bool> _playback = ValueNotifier<bool>(false);
   static int _generation = 0;
 
-  // Serialize native commands, not whole utterances. Stop must never wait
+  // Serialize native operations, not whole utterances. Stop must never wait
   // for a long response to finish, and superseded requests must not restart.
-  static Future<void> _commands = Future<void>.value();
+  static Future<void> _operations = Future<void>.value();
 
   bool get isSpeaking => _playback.value;
   ValueListenable<bool> get playback => _playback;
 
-  Future<void> _enqueue(Future<void> Function() command) {
-    final Future<void> pending = _commands.then((_) => command());
-    _commands = pending.catchError((Object _) {});
+  Future<void> _enqueue(Future<void> Function() operation) {
+    final Future<void> pending = _operations.then((_) => operation());
+    _operations = pending.catchError((Object _) {});
     return pending;
   }
 

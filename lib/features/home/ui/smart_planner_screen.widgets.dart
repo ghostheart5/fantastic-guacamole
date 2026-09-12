@@ -1211,3 +1211,37 @@ class _SelectedPlanningNoteCard extends ConsumerWidget {
     ],
   );
 }
+
+Widget _bubble(String text, {required bool isUser}) {
+  return Align(
+    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+    child: Container(
+      constraints: const BoxConstraints(maxWidth: 280),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isUser
+            ? AppColors.neonViolet.withValues(alpha: 0.18)
+            : AppColors.neonCyan.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(8),
+          topRight: const Radius.circular(8),
+          bottomLeft: Radius.circular(isUser ? 8 : 4),
+          bottomRight: Radius.circular(isUser ? 4 : 8),
+        ),
+        border: Border.all(
+          color: isUser
+              ? AppColors.neonViolet.withValues(alpha: 0.35)
+              : AppColors.neonCyan.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: isUser ? Colors.white : const Color(0xFF9BE7FF),
+          fontSize: 13,
+          height: 1.5,
+        ),
+      ),
+    ),
+  );
+}
