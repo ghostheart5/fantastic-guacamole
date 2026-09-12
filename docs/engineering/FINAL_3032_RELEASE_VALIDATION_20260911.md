@@ -52,7 +52,7 @@ Build tooling: `44f7931e3033b15b3229cd91b2111a17ff453403`.
 | Strict 16 KB signed-release validation | PASS: actual 16,384-byte guest, compatibility fallback disabled, onboarding 1/1 | Same post-build run; AAB hash matches the artifact above |
 | Decision-volume exercise | PASS: 60 scenarios of 1,000 tasks | Local deterministic, finite-result, input-preservation and terminal-task checks |
 | Maestro journeys | PASS: all 11, zero failures/errors/skips and app fatal markers | Independently parsed JUnit from `34661540608`; the combined workflow later failed during Monkey |
-| Bounded Monkey recovery | RUNNING | `34665799720`, tooling `c8a57c0308b23ca49a25da8aeab3fcf9ff84a8fc` |
+| Bounded Monkey recovery | PASS: 5/5 variants, 1,700 verified events, successful relaunches, zero app fatal markers and no Android ANR | `34666965106`, tooling `c5ff686b0d8e047d850a15a20d6beda981e123a4` |
 
 Hosted fixture tests do not establish Google Play purchase behavior or a signed
 Moto human journey. Artifact ZIP hashes and raw terminal/JUnit results were
@@ -103,9 +103,34 @@ failed run; it is not a clean system pass.
 Tooling `c8a57c03` adds the existing bounded exact-text-entry helper before
 Creator submission. The recovery-only copy changes exactly this input command;
 all downstream assertions remain intact, and source/executed flow hashes are
-recorded. Run `34665799720` executes the two seed journeys and all five Monkey
-variants. The final whole-system ANR guard still rejects any ANR, even if a
-text-entry retry succeeds. Application source remains
+recorded. Run `34665799720` was configured for the two seed journeys and all
+five Monkey variants. The final whole-system ANR guard still rejects any ANR, even if a
+text-entry retry succeeds.
+
+Run `34665799720` passed the repaired first seed journey, with no app fatal
+markers and no Android ANR. The second runner invocation then correctly refused
+one untracked report directory: the workflow had selected an output root not
+covered by the source checkout ignore rules. This is an orchestration defect.
+Artifact `10289217930` retains the successful first journey and overall failed
+run. Tooling `c5ff686b` moves recovery reports into the existing ignored
+`test-results` tree and verifies every generated root is ignored before compiling.
+Run `34666965106` passed both seed journeys and all five Monkey variants with
+the clean-source guard enabled. Its complete logs were independently hashed and
+rescanned with the committed fatal patterns: zero matches. Actual Monkey
+terminal event totals were 100 smoke, 500 balanced, 300 navigation, 500 touch-motion
+and 300 lifecycle events. Every relaunch passed. Android reported no ANR.
+No notification-panel collapse was needed in this run; that branch passed
+the focused fixtures rather than a forced live-panel scenario.
+
+Passing artifact `10289609570` has ZIP SHA-256
+`bb37b9f9c9e3c70939e37bbc84363604b6bbd4e21018d1bf4f8fef3b7fa2fcb8`.
+The archive contains the executed-flow hash ledger, but GitHub omitted the
+hidden `.maestro` flow copies. Every ledger hash was independently compared
+with immutable source and the exact single input-entry replacement; the hosted
+verifier had also checked the actual files after execution. Downloaded raw flow
+copies are not claimed. Future archival-only tooling `4b21abe9` includes those
+hidden tracked-source copies; its YAML was checked, and no runtime rerun was
+needed for that output-only adjustment. Application source remains
 `91d9086e`; separate QA builds are bound to their own compilation and APK hashes.
 The runner repair does not substitute a new app build or erase the failed run.
 
@@ -128,6 +153,11 @@ journey checks passed. This does not close the stress gate. An automatic tool
 policy rejected the command to open the Play Store with only `blocked by policy`;
 the owner was asked to open its page and update. No uninstall or sideload was
 attempted.
+
+The official Play web interface recognized the authorized license tester and
+the Moto. Its targeted Install request then required Google account
+reauthentication; delivery was not confirmed. The verification page was left
+for the owner, without entering or requesting a password in chat.
 
 Wireless connection was verified against hardware serial `ZY22G665VG` and owner
 Android user 0. Owner data was not cleared or uninstalled. The phone was later independently
@@ -174,10 +204,18 @@ The following remain outside this engineering pass:
 - Google's production-access application and approval. Production publication
   remains prohibited even if access is later approved.
 
+The signed-in Play web listing was also read directly. It still displays
+`No data collected` and the old short description, `Precision Productivity for
+People Who Actually Build Things`. Those public-facing values are not reconciled
+with the current authentication/billing/optional-provider data map or prepared
+listing copy. The Data safety gate therefore remains open; no form submission
+or public-copy update is asserted.
+
 The Console's no-ads answer was freshly verified. ChronoSpark's policy remains no
 ads for any user, including no ad watching for credits or features.
 
-Current status: **IN PROGRESS; NOT PRODUCTION READY**. Finite tests cannot prove
+Current status: **AUTOMATED CHECKS PASS; INTERNAL 3032 PUBLISHED; MOTO UPDATE
+AND UPDATED-DEVICE VALIDATION PENDING; NOT PRODUCTION READY**. Finite tests cannot prove
 correctness for every possible input, device, network condition or future service
 failure.
 
