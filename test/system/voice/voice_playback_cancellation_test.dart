@@ -31,6 +31,9 @@ void main() {
       if (call.method == 'stop') finish();
       if (call.method == 'speak') {
         spoken.add((call.arguments as Map)['text'] as String);
+        if (spoken.last.length > 4000) {
+          throw PlatformException(code: 'TTS_INPUT_TOO_LONG');
+        }
         if (failPlayback) throw PlatformException(code: 'TTS_FAILED');
         final pending = Completer<void>();
         utterances.add(pending);
@@ -119,6 +122,89 @@ void main() {
   test('native playback error clears the visible playback state', () async {
     failPlayback = true;
     expect(await service.speakChecked('Cannot play'), isFalse);
+    expect(service.isSpeaking, isFalse);
+  });
+
+  test(
+    'long evidence reports play completely within native input limits',
+    () async {
+      final text = List.generate(
+        240,
+        (i) => 'Evidence $i supports this next step.',
+      ).join(' ');
+      bool completed = false;
+      final speech = service.speakChecked(text).then((result) {
+        completed = true;
+        return result;
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(spoken.length, 1);
+      expect(service.isSpeaking, isTrue);
+      for (int i = 0; i < 20 && !completed; i++) {
+        finish();
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(completed, isTrue);
+      expect(await speech, isTrue);
+      expect(spoken.length, greaterThan(1));
+      expect(spoken.every((part) => part.length <= 4000), isTrue);
+      expect(spoken.join(), text);
+      expect(service.isSpeaking, isFalse);
+    },
+  );
+
+  test('long speech preserves Unicode at a native request boundary', () async {
+    final text = '${'a' * 3499}\u{1F600}${'b' * 4000}';
+    final speech = service.speakChecked(text);
+    for (int i = 0; i < 10; i++) {
+      await Future<void>.delayed(Duration.zero);
+      finish();
+    }
+    expect(await speech, isTrue);
+    expect(spoken.join(), text);
+    for (final part in spoken) {
+      expect(
+        part.runes.any((rune) => rune >= 0xD800 && rune <= 0xDFFF),
+        isFalse,
+      );
+    }
+  });
+
+  test('stop discards every remaining piece of a long response', () async {
+    final speech = service.speakChecked('Evidence. ' * 1000);
+    await Future<void>.delayed(Duration.zero);
+    expect(spoken.length, 1);
+    await service.stop();
+    expect(await speech, isTrue);
+    await Future<void>.delayed(Duration.zero);
+    expect(spoken.length, 1);
+    expect(service.isSpeaking, isFalse);
+  });
+
+  test(
+    'replacement drops the old report tail while keeping the new speech',
+    () async {
+      final old = service.speakChecked('Previous evidence. ' * 500);
+      await Future<void>.delayed(Duration.zero);
+      final replacement = service.speakChecked('New selected response');
+      await Future<void>.delayed(Duration.zero);
+      expect(await old, isTrue);
+      expect(spoken.length, 2);
+      expect(spoken.last, 'New selected response');
+      expect(service.isSpeaking, isTrue);
+      finish();
+      expect(await replacement, isTrue);
+      expect(spoken.length, 2);
+    },
+  );
+
+  test('a failed later piece stops the report and clears playback', () async {
+    final speech = service.speakChecked('Evidence. ' * 1000);
+    await Future<void>.delayed(Duration.zero);
+    failPlayback = true;
+    finish();
+    expect(await speech, isFalse);
+    expect(spoken.length, 2);
     expect(service.isSpeaking, isFalse);
   });
 }

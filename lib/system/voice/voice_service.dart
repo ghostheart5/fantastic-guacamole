@@ -35,32 +35,56 @@ class VoiceService {
     }
     final int generation = ++_generation;
     _playback.value = true;
-    Future<bool>? completion;
     try {
-      await _enqueue(() async {
-        if (generation != _generation || !await _ensureInitialized()) return;
-        if (generation != _generation) return;
-        await _tts.invokeMethod<void>('stop');
-        if (generation != _generation) return;
-        completion = _tts
-            .invokeMethod<void>('speak', <String, Object?>{'text': value})
-            .then(
-              (_) => true,
-              onError: (Object error) {
-                _reportPlaybackFailure(error);
-                return false;
-              },
-            );
-      });
-      // Cancellation is a successful user action, not an unavailable engine.
-      // Existing speakChecked callers show an error when this returns false.
-      if (generation != _generation) return true;
-      return completion == null ? false : await completion!;
+      for (final String chunk in _speechChunks(value)) {
+        Future<bool>? completion;
+        await _enqueue(() async {
+          if (generation != _generation || !await _ensureInitialized()) return;
+          if (generation != _generation) return;
+          await _tts.invokeMethod<void>('stop');
+          if (generation != _generation) return;
+          completion = _tts
+              .invokeMethod<void>('speak', <String, Object?>{'text': chunk})
+              .then(
+                (_) => true,
+                onError: (Object error) {
+                  if (generation != _generation) return true;
+                  _reportPlaybackFailure(error);
+                  return false;
+                },
+              );
+        });
+        // Cancellation must discard every remaining piece of this response.
+        if (generation != _generation) return true;
+        if (completion == null) return false;
+        final bool played = await completion!;
+        if (generation != _generation) return true;
+        if (!played) return false;
+      }
+      return true;
     } catch (error) {
       _reportPlaybackFailure(error);
       return false;
     } finally {
       if (generation == _generation) _playback.value = false;
+    }
+  }
+
+  Iterable<String> _speechChunks(String text) sync* {
+    // Android accepts at most 4000 UTF-16 units per native speech request.
+    // Leave headroom, retain all text, and avoid splitting surrogate pairs.
+    const int limit = 3500;
+    int start = 0;
+    while (start < text.length) {
+      int end = (start + limit).clamp(0, text.length);
+      if (end < text.length) {
+        final int boundary = text.lastIndexOf(RegExp(r'\s'), end - 1);
+        if (boundary > start + limit ~/ 2) end = boundary + 1;
+        final int previous = text.codeUnitAt(end - 1);
+        if (previous >= 0xD800 && previous <= 0xDBFF) end--;
+      }
+      yield text.substring(start, end);
+      start = end;
     }
   }
 
