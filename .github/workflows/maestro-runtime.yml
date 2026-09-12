@@ -87,6 +87,9 @@ jobs:
           # Evidence must use the checked-out source's existing ignored root.
           # The canonical runner rejects untracked files as well as edits.
           git check-ignore -q test-results/maestro-prewarm/provenance.json
+          git check-ignore -q test-results/monkey-seed-ci/probe.json
+          git check-ignore -q test-results/monkey-ci/probe.json
+          git check-ignore -q test-results/monkey-recovery-flows/probe.json
           mkdir -p test-results/maestro-prewarm
           python3 - <<'PY'
           import json, os
@@ -258,11 +261,11 @@ jobs:
             # additional records to the original Monkey starting state.
             python3 test-results/monkey-tooling/scripts/prepare_monkey_seed_flows.py "$GITHUB_WORKSPACE" "$QA_SOURCE_SHA" "$GITHUB_WORKSPACE/test-results/monkey-recovery-flows"
             for flow in priority8-learned-lifecycle priority8-learned-lifecycle-readback; do
-              pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite custom -Flow "test-results/monkey-recovery-flows/.maestro/flows/$flow.yaml" -ExecutionTimeoutSeconds 900 -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -SkipBuild -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-seed-ci
+              pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite custom -Flow "test-results/monkey-recovery-flows/.maestro/flows/$flow.yaml" -ExecutionTimeoutSeconds 900 -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -SkipBuild -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot test-results/monkey-seed-ci
             done
           fi
           if [ "$QA_MONKEY" = true ]; then
-            pwsh -NoProfile -File ./test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1 -RepositoryRoot "$GITHUB_WORKSPACE" -Config "$GITHUB_WORKSPACE/test-orchestrator.json" -DeviceSerial emulator-5554 -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-ci
+            pwsh -NoProfile -File ./test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1 -RepositoryRoot "$GITHUB_WORKSPACE" -Config "$GITHUB_WORKSPACE/test-orchestrator.json" -DeviceSerial emulator-5554 -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot test-results/monkey-ci
           fi
           SH
 
@@ -342,7 +345,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           from pathlib import Path
-          manifests = list(Path('artifacts/monkey-ci').glob('*/manifest.json'))
+          manifests = list(Path('test-results/monkey-ci').glob('*/manifest.json'))
           assert len(manifests) == 1, 'Expected one Monkey matrix manifest'
           m = json.loads(manifests[0].read_text(encoding='utf-8-sig'))
           assert m['git']['commit'] == os.environ['EXPECTED_COMMIT'] and not m['git']['dirty']
@@ -361,7 +364,7 @@ jobs:
               assert len(changed) == 1 and changed[0]['path'] == '.maestro/flows/priority8-learned-lifecycle.yaml'
               for row in flow_receipt['files']:
                   assert hashlib.sha256((flow_root / row['path']).read_bytes()).hexdigest() == row['executedSha256']
-              seeds = list(Path('artifacts/monkey-seed-ci').glob('*/manifest.json'))
+              seeds = list(Path('test-results/monkey-seed-ci').glob('*/manifest.json'))
               assert len(seeds) == 2
               names = set()
               for seed_path in seeds:
@@ -389,6 +392,6 @@ jobs:
           path: |
             artifacts/maestro-ci/**
             test-results/maestro-prewarm/**
-            artifacts/monkey-ci/**
-            artifacts/monkey-seed-ci/**
+            test-results/monkey-ci/**
+            test-results/monkey-seed-ci/**
             test-results/monkey-recovery-flows/**
