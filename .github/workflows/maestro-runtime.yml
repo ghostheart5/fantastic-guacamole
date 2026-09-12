@@ -210,7 +210,7 @@ jobs:
               last_anr = shell('dumpsys', 'activity', 'lastanr')
               (root / 'prepared-window.txt').write_text(window)
               (root / 'prepared-lastanr.txt').write_text(last_anr)
-              assert 'No ANR has occurred since boot' in last_anr, 'Fresh guest reported an ANR before app tests'
+              assert '<no anr has occurred since boot>' in last_anr.lower(), 'Fresh guest reported an ANR before app tests'
               assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
               receipt['passed'] = True
           finally:
@@ -225,7 +225,7 @@ jobs:
             timeout 30s adb -s emulator-5554 logcat -d -b all -v threadtime > test-results/maestro-prewarm/system-logcat.txt 2>&1 || result=1
             timeout 30s adb -s emulator-5554 shell dumpsys activity lastanr > test-results/maestro-prewarm/final-lastanr.txt 2>&1 || result=1
             timeout 30s adb -s emulator-5554 shell dumpsys window windows > test-results/maestro-prewarm/final-window.txt 2>&1 || result=1
-            grep -q 'No ANR has occurred since boot' test-results/maestro-prewarm/final-lastanr.txt || result=1
+            grep -Fqi '<no anr has occurred since boot>' test-results/maestro-prewarm/final-lastanr.txt || result=1
             exit "$result"
           }
           trap capture_system EXIT
