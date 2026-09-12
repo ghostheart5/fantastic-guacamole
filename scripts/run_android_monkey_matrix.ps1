@@ -2,6 +2,7 @@
 param(
     [string]$Config = "$PSScriptRoot\..\test-orchestrator.json",
     [string]$DeviceSerial,
+    [string]$RepositoryRoot,
     [string]$ApkPath,
     [string]$ExpectedApkSha256,
     [switch]$AllowConnectedDevice,
@@ -15,7 +16,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'android_runtime_fatal_patterns.ps1')
-$projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$runnerRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$projectRoot = if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) { $runnerRoot } else { (Resolve-Path -LiteralPath $RepositoryRoot).Path }
 
 function Get-GitEvidenceText {
     param(
@@ -292,6 +294,35 @@ function Wait-ForPackageFocus {
     }
 }
 
+function Restore-MonkeySystemPanel {
+    param([Parameter(Mandatory)][string]$Serial)
+    if ($Serial -notmatch '^emulator-\d+$') {
+        throw 'System-panel recovery is restricted to the selected disposable emulator.'
+    }
+    $window = Invoke-Adb -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $focus = @($window.Output | Where-Object { $_ -match 'mCurrentFocus=' }) -join "`n"
+    $receipt = [ordered]@{
+        Passed = $window.ExitCode -eq 0 -and -not $window.TimedOut
+        BeforeFocus = $focus.Trim()
+        WindowExitCode = $window.ExitCode
+        WindowTimedOut = $window.TimedOut
+        Collapsed = $false
+        CollapseExitCode = $null
+        CollapseTimedOut = $null
+    }
+    # A random swipe can leave SystemUI above an otherwise healthy application.
+    # Close only the notification panel, after preserving the stress evidence.
+    # App errors, ANR dialogs and the app's own UI are never dismissed here.
+    if ($receipt.Passed -and $focus -match 'mCurrentFocus=Window\{[^}]* u0 NotificationShade\}') {
+        $collapse = Invoke-Adb -Arguments @('-s', $Serial, 'shell', 'cmd', 'statusbar', 'collapse')
+        $receipt.CollapseExitCode = $collapse.ExitCode
+        $receipt.CollapseTimedOut = $collapse.TimedOut
+        $receipt.Collapsed = $collapse.ExitCode -eq 0 -and -not $collapse.TimedOut
+        $receipt.Passed = $receipt.Collapsed
+    }
+    return [pscustomobject]$receipt
+}
+
 if ($MyInvocation.InvocationName -eq '.') {
     return
 }
@@ -551,6 +582,8 @@ foreach ($variant in $variants) {
         $fatalEvidence | Select-Object -Unique | Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
     }
 
+    $systemPanelRecovery = Restore-MonkeySystemPanel -Serial $serial
+    $systemPanelRecovery | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $runRoot ("$name-system-panel.json")) -Encoding utf8
     $relaunchStopResult = Invoke-Adb -Arguments @(
         '-s', $serial, 'shell', 'am', 'force-stop', $packageName
     )
@@ -581,6 +614,7 @@ foreach ($variant in $variants) {
         }
     }
     $relaunchSucceeded = $relaunchProcessAbsent -and
+        $systemPanelRecovery.Passed -and
         $relaunchResult.ExitCode -eq 0 -and
         $relaunchReadiness.Ready
     $passed = $startupReadiness.Ready -and
@@ -619,6 +653,7 @@ foreach ($variant in $variants) {
         fullLogcatSha256 = $fullLogcatSha256
         fullLogcatBytes = (Get-Item -LiteralPath $fullLogcatPath).Length
         fatalMarkerCount = $fatalEvidence.Count
+        systemPanelRecovery = $systemPanelRecovery
         relaunchStopExitCode = $relaunchStopResult.ExitCode
         relaunchProcessAbsent = $relaunchProcessAbsent
         relaunchLaunchExitCode = $relaunchResult.ExitCode
@@ -650,6 +685,11 @@ $manifest = [ordered]@{
         branch = $branch
         dirty = $dirtyEntries.Count -gt 0
         dirtyEntryCount = $dirtyEntries.Count
+    }
+    runner = [ordered]@{
+        commit = Get-GitEvidenceText -RepositoryRoot $runnerRoot -Arguments @('rev-parse', 'HEAD')
+        scriptSha256 = (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash
+        fatalPatternsSha256 = (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'android_runtime_fatal_patterns.ps1') -Algorithm SHA256).Hash
     }
     device = [ordered]@{
         serial = $serial

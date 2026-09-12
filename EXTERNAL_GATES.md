@@ -1,6 +1,15 @@
 # ChronoSpark External Gates
 
-## Current evidence notice - 2026-09-04
+## Current candidate evidence - 2026-09-11
+
+The [3032 release validation report](docs/engineering/FINAL_3032_RELEASE_VALIDATION_20260911.md)
+records the current signed artifact, independently checked automated results,
+retained failed attempts, internal-testing state, device evidence and outstanding
+public-release requirements. Use that report for candidate status. The older
+checkpoints and rows below retain their original evidence boundaries; they do not
+replace current-build validation or approve production publication.
+
+## Historical evidence notice - 2026-09-04
 
 Newer closeout evidence is in the [Phase 2 checkpoint](docs/engineering/PHASE_2_BACKEND_HARDENING_20260904.md):
 the tested deletion functions and cron migration were deployed and independently

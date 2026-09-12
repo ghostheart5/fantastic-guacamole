@@ -2,7 +2,7 @@ appId: com.ghostheart5.chronospark
 ---
 # The request field must already be focused. Android IME input occasionally
 # drops a character; retry only text entry, never the submitted operation.
-# Both callers supply fewer than 50 characters so eraseText clears the field.
+# All callers supply fewer than 50 characters so eraseText clears the field.
 - waitForAnimationToEnd:
     timeout: 3000
 - repeat:

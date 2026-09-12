@@ -1,6 +1,6 @@
 # Default store listing: English (United States)
 
-Revised September 10, 2026 for the verified 4.1.0+2026083025 internal build. This source file alone does not establish Console submission or public publication.
+Revised September 11, 2026 for the signed 4.1.0+2026083032 internal-testing candidate. This source file alone does not establish Console submission or public publication.
 
 ## App name
 

@@ -41,7 +41,10 @@ tags:
     centerElement: true
     timeout: 10000
 - tapOn: '^Title, required(?:\s+Title \*)?$'
-- inputText: "Priority 8 journey seed"
+- runFlow:
+    file: ../subflows/enter-planner-request.yaml
+    env:
+      REQUEST: "Priority 8 journey seed"
 - tapOn:
     text: "(?:Done|Enter)"
     optional: true
