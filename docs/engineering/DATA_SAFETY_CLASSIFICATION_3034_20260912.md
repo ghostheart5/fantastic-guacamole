@@ -1,5 +1,9 @@
 # Data safety reporting classification - build 3034
 
+## Delivery closeout - build 3035
+
+The coordinated clarification is now committed, pushed, built, published to internal testing and Play-installed on the Moto. The matching policy was published through PR 104 and independently read back. The new English report dialog and Settings privacy link passed scoped native validation with the existing level-20 profile preserved. See [the 3035 delivery record](INTERNAL_3035_DELIVERY_20260912.md) for exact source, AAB hash, CI counts, deployment and device evidence. Earlier local-only/unpublished wording below records the preparation phase and is superseded by this closeout. The ten-category Data safety form remains a draft; no Google Play production publication occurred.
+
 Date: September 12, 2026. Scope: SI response reporting and enabled external planning payloads. Status: classification correction saved as a Google Play Console draft; no review submission or production publication. Final independent readback is recorded below.
 
 ## Candidate and backend identity
