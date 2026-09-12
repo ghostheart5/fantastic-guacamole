@@ -180,6 +180,62 @@ jobs:
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
 
+      - name: Prepare bounded fresh-guest readiness and system diagnostics
+        run: |
+          set -euo pipefail
+          cat > test-results/maestro-prewarm/prepare_guest.py <<'PY'
+          import json, os, re, subprocess, time
+          from pathlib import Path
+          assert os.environ.get('GITHUB_ACTIONS') == 'true' and os.name == 'posix'
+          root = Path('test-results/maestro-prewarm')
+          adb = ['adb', '-s', 'emulator-5554']
+          def shell(*args):
+              return subprocess.check_output(adb + ['shell', *args], timeout=20).decode('utf-8').strip()
+          assert shell('getprop', 'ro.kernel.qemu') == '1', 'Only an owned hosted emulator is allowed'
+          assert shell('am', 'get-current-user') == '0'
+          receipt = {'passed': False, 'samples': [], 'applicationTestsExecuted': 0}
+          try:
+              # Boot completion precedes first-boot package and launcher work.
+              # Observe one bounded settling window; never dismiss or retry ANRs.
+              for index in range(7):
+                  if index:
+                      time.sleep(10)
+                  assert shell('getprop', 'sys.boot_completed') == '1'
+                  assert shell('pm', 'path', 'android').startswith('package:')
+                  receipt['samples'].append({'index': index, 'monotonic': time.monotonic(),
+                      'guestMemory': shell('cat', '/proc/meminfo'),
+                      'hostMemory': Path('/proc/meminfo').read_text(),
+                      'hostLoad': Path('/proc/loadavg').read_text().strip()})
+              window = shell('dumpsys', 'window', 'windows')
+              last_anr = shell('dumpsys', 'activity', 'lastanr')
+              (root / 'prepared-window.txt').write_text(window)
+              (root / 'prepared-lastanr.txt').write_text(last_anr)
+              assert 'No ANR has occurred since boot' in last_anr, 'Fresh guest reported an ANR before app tests'
+              assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
+              receipt['passed'] = True
+          finally:
+              (root / 'guest-readiness.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          PY
+          cat > test-results/maestro-prewarm/run-suite.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          capture_system() {
+            result=$?
+            trap - EXIT
+            timeout 30s adb -s emulator-5554 logcat -d -b all -v threadtime > test-results/maestro-prewarm/system-logcat.txt 2>&1 || result=1
+            timeout 30s adb -s emulator-5554 shell dumpsys activity lastanr > test-results/maestro-prewarm/final-lastanr.txt 2>&1 || result=1
+            timeout 30s adb -s emulator-5554 shell dumpsys window windows > test-results/maestro-prewarm/final-window.txt 2>&1 || result=1
+            grep -q 'No ANR has occurred since boot' test-results/maestro-prewarm/final-lastanr.txt || result=1
+            exit "$result"
+          }
+          trap capture_system EXIT
+          python3 test-results/maestro-prewarm/prepare_guest.py
+          pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite "$QA_SUITE" -ExecutionTimeoutSeconds "$QA_TIMEOUT_SECONDS" -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -ArtifactsRoot artifacts/maestro-ci
+          if [ "$QA_MONKEY" = true ]; then
+            pwsh -NoProfile -File ./scripts/run_android_monkey_matrix.ps1 -DeviceSerial emulator-5554 -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-ci
+          fi
+          SH
+
       - name: Build, install, and execute exact-source QA suite
         timeout-minutes: 58
         env:
@@ -201,8 +257,7 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           script: |
-            pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite "$QA_SUITE" -ExecutionTimeoutSeconds "$QA_TIMEOUT_SECONDS" -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -ArtifactsRoot artifacts/maestro-ci
-            if [ "$QA_MONKEY" = true ]; then pwsh -NoProfile -File ./scripts/run_android_monkey_matrix.ps1 -DeviceSerial emulator-5554 -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-ci; fi
+            bash test-results/maestro-prewarm/run-suite.sh
 
       - name: Verify source-bound Maestro evidence
         if: always()
