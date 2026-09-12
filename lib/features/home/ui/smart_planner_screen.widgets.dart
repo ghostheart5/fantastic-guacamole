@@ -431,12 +431,14 @@ class _FollowUpBar extends StatelessWidget {
     required this.controller,
     required this.onSend,
     required this.sending,
+    required this.listening,
     this.errorText,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
   final bool sending;
+  final bool listening;
   final String? errorText;
 
   @override
@@ -474,7 +476,7 @@ class _FollowUpBar extends StatelessWidget {
                         ),
                       ),
                       TextButton(
-                        onPressed: sending ? null : onSend,
+                        onPressed: sending || listening ? null : onSend,
                         child: const Text('Retry follow-up'),
                       ),
                     ],
@@ -488,10 +490,11 @@ class _FollowUpBar extends StatelessWidget {
                     key: const Key('planner-follow-up-field'),
                     controller: controller,
                     enabled: !sending,
+                    readOnly: listening,
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) {
-                      if (!sending) onSend();
+                      if (!sending && !listening) onSend();
                     },
                     decoration: InputDecoration(
                       labelText: 'Follow-up question',
@@ -516,7 +519,7 @@ class _FollowUpBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   tooltip: sending ? 'Sending message' : 'Send message',
-                  onPressed: sending ? null : onSend,
+                  onPressed: sending || listening ? null : onSend,
                   icon: sending
                       ? const SizedBox.square(
                           dimension: 18,
@@ -987,8 +990,11 @@ class _MicButton extends ConsumerWidget {
       }
       final bool stoppedListening =
           (previous?.isListening ?? false) && !next.isListening;
-      if (stoppedListening && next.recognizedText.trim().isNotEmpty) {
+      if ((next.isListening || stoppedListening) &&
+          next.recognizedText.trim().isNotEmpty) {
         onRecognized(next.recognizedText.trim());
+      }
+      if (stoppedListening) {
         ref.read(voiceControllerProvider.notifier).clearRecognizedText();
       }
     });
@@ -1009,6 +1015,7 @@ class _MicButton extends ConsumerWidget {
           await startVoiceInputWithConsent(
             context: context,
             onStart: controller.startListening,
+            consentStore: ref.read(voiceInputConsentStoreProvider),
             isCurrentRequest: () =>
                 controller.lifecycleRevision == lifecycleRevision,
           );

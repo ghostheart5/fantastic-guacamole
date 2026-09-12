@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
@@ -93,6 +95,37 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'partial dictation is visible before silence and is never auto-sent',
+    (tester) async {
+      final voice = _RecordingConsentVoiceController();
+      final port = _RecordingPort(snapshot: snapshot, now: now);
+      final container = _container(port, snapshot, voiceController: voice);
+      addTearDown(() => _dispose(tester, container));
+      await _pumpScreen(tester, container);
+      voice.emitTranscript('What should I', listening: true);
+      await tester.pump();
+      final input = find.byKey(const Key('si-query-input'));
+      expect(tester.widget<TextField>(input).controller!.text, 'What should I');
+      expect(tester.widget<TextField>(input).readOnly, isTrue);
+      await tester.tap(find.byIcon(Icons.send_rounded), warnIfMissed: false);
+      await tester.pump();
+      expect(port.calls, 0);
+      voice.emitTranscript('What should I do next?', listening: false);
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(input).controller!.text,
+        'What should I do next?',
+      );
+      expect(tester.widget<TextField>(input).readOnly, isFalse);
+      expect(port.calls, 0);
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(port.calls, 1);
+    },
+  );
 
   testWidgets('malformed empty input is ignored without analysis', (
     WidgetTester tester,
@@ -622,6 +655,9 @@ ProviderContainer _container(
       siV2PersonContextRevisionProvider.overrideWith(
         (Ref ref) => ref.watch(_siContextRevisionTestProvider),
       ),
+      voiceInputConsentStoreProvider.overrideWithValue(
+        VoiceInputConsentStore(const AccountStorageScope.unsafe()),
+      ),
       voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
     ],
   );
@@ -759,6 +795,10 @@ final class _NoopVoiceService extends VoiceService {
 }
 
 class _RecordingConsentVoiceController extends VoiceController {
+  void emitTranscript(String text, {required bool listening}) {
+    state = state.copyWith(isListening: listening, recognizedText: text);
+  }
+
   int starts = 0;
   bool failStart = false;
   int revision = 0;

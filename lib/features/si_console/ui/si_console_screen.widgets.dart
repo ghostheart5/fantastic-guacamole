@@ -945,8 +945,11 @@ class _InputBar extends ConsumerWidget {
       }
       final bool stoppedListening =
           (previous?.isListening ?? false) && !next.isListening;
-      if (stoppedListening && next.recognizedText.trim().isNotEmpty) {
+      if ((next.isListening || stoppedListening) &&
+          next.recognizedText.trim().isNotEmpty) {
         controller.text = next.recognizedText.trim();
+      }
+      if (stoppedListening) {
         ref.read(voiceControllerProvider.notifier).clearRecognizedText();
       }
     });
@@ -1286,6 +1289,7 @@ class _InputBar extends ConsumerWidget {
                       child: TextField(
                         key: const Key('si-query-input'),
                         controller: controller,
+                        readOnly: listening,
                         minLines: 1,
                         maxLines: 4,
                         enabled: interactive,
@@ -1334,7 +1338,7 @@ class _InputBar extends ConsumerWidget {
                           ),
                         ),
                         onSubmitted: (_) {
-                          if (!busy) onSend();
+                          if (!busy && !listening) onSend();
                         },
                       ),
                     ),
@@ -1362,6 +1366,9 @@ class _InputBar extends ConsumerWidget {
                             await startVoiceInputWithConsent(
                               context: context,
                               onStart: controller.startListening,
+                              consentStore: ref.read(
+                                voiceInputConsentStoreProvider,
+                              ),
                               isCurrentRequest: () =>
                                   controller.lifecycleRevision ==
                                   lifecycleRevision,
@@ -1399,7 +1406,7 @@ class _InputBar extends ConsumerWidget {
                         enabled: enabled,
                         busy: busy,
                       ),
-                      enabled: interactive,
+                      enabled: interactive && !listening,
                       onTap: onSend,
                       child: Container(
                         width: 48,

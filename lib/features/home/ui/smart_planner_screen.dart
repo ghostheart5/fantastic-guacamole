@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
 
@@ -1545,6 +1546,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                   controller: _followUpController,
                   onSend: _sendFollowUp,
                   sending: _sendingFollowUp,
+                  listening: ref.watch(voiceControllerProvider).isListening,
                   errorText: _followUpError,
                 ),
               )

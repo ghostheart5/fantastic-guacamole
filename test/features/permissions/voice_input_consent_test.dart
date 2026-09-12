@@ -1,3 +1,6 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_input_consent.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +8,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  late VoiceInputConsentStore consentStore;
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    consentStore = VoiceInputConsentStore(
+      AccountStorageScope.authenticated('review-a'),
+    );
+  });
   Future<void> mount(
     WidgetTester tester,
     Future<void> Function() onStart, {
@@ -20,6 +30,7 @@ void main() {
         AppLifecycleState.resumed,
       ),
     );
+    await tester.runAsync(() => SharedPreferences.getInstance());
     await tester.pumpWidget(
       MaterialApp(
         locale: locale,
@@ -37,6 +48,7 @@ void main() {
                 await startVoiceInputWithConsent(
                   context: context,
                   onStart: onStart,
+                  consentStore: consentStore,
                 );
               },
               child: const Text('Dictate'),
@@ -55,27 +67,73 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('approval persists across sessions for the same account', (
+    tester,
+  ) async {
+    int starts = 0;
+    await mount(tester, () async {
+      starts++;
+    });
+    await tester.tap(find.text('Dictate'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('may send audio to its servers'),
+      findsOneWidget,
+    );
+    await tapAction(tester, 'Agree and dictate');
+    expect(starts, 1);
+    consentStore = VoiceInputConsentStore(
+      AccountStorageScope.authenticated('review-a'),
+    );
+    await tester.tap(find.text('Dictate'));
+    await tester.pumpAndSettle();
+    expect(starts, 2);
+    expect(find.text('Agree and dictate'), findsNothing);
+  });
+
   testWidgets(
-    'each dictation requires provider disclosure even after prior consent',
-    (WidgetTester tester) async {
+    'reset requires consent again and another account has no consent',
+    (tester) async {
       int starts = 0;
       await mount(tester, () async {
         starts++;
       });
-      for (int attempt = 0; attempt < 2; attempt++) {
-        await tester.tap(find.text('Dictate'));
-        await tester.pumpAndSettle();
-        expect(starts, attempt);
-        final Finder disclosure = find.textContaining(
-          'may send audio to its servers',
-        );
-        expect(disclosure, findsOneWidget);
-        await tester.ensureVisible(disclosure);
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        await tapAction(tester, 'Agree and dictate');
-        expect(starts, attempt + 1);
-      }
+      await tester.tap(find.text('Dictate'));
+      await tester.pumpAndSettle();
+      await tapAction(tester, 'Agree and dictate');
+      await consentStore.revoke();
+      await tester.tap(find.text('Dictate'));
+      await tester.pumpAndSettle();
+      expect(starts, 1);
+      await tapAction(tester, 'Agree and dictate');
+      consentStore = VoiceInputConsentStore(
+        AccountStorageScope.authenticated('review-b'),
+      );
+      await tester.tap(find.text('Dictate'));
+      await tester.pumpAndSettle();
+      expect(starts, 2);
+      expect(find.text('Agree and dictate'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'account invalidation during disclosure prevents capture and saving',
+    (tester) async {
+      int starts = 0;
+      await mount(tester, () async {
+        starts++;
+      });
+      await tester.tap(find.text('Dictate'));
+      await tester.pumpAndSettle();
+      consentStore.invalidate();
+      await tapAction(tester, 'Agree and dictate');
+      expect(starts, 0);
+      expect(
+        await VoiceInputConsentStore(
+          AccountStorageScope.authenticated('review-a'),
+        ).isApproved(),
+        isFalse,
+      );
     },
   );
 

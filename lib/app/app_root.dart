@@ -23,6 +23,8 @@ import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
+import 'package:fantastic_guacamole/ui/widgets/voice_playback_controls.dart';
+import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -294,6 +296,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
       showQaDiagnostics: showQaDiagnostics,
     );
     final GoRouter router = ref.watch(appRouterProvider);
+    final voiceService = ref.watch(voiceServiceProvider);
     _router = router;
 
     ref.listen<AsyncValue<DeepLinkState>>(deepLinkStateProvider, (
@@ -330,6 +333,15 @@ class _AppRootState extends ConsumerState<AppRoot> {
               child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
             ),
             const AdaptiveGuideOverlay(),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: VoicePlaybackControls(
+                service: voiceService,
+                navigation: router.routerDelegate,
+              ),
+            ),
           ],
         );
 

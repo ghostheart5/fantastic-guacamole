@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class VoiceService {
@@ -7,17 +8,21 @@ class VoiceService {
 
   static const MethodChannel _tts = MethodChannel('chronospark/tts');
   static bool _initialized = false;
-  static bool _isSpeaking = false;
+  static final ValueNotifier<bool> _playback = ValueNotifier<bool>(false);
+  static int _generation = 0;
 
-  /// Serialises [speak] so two utterances cannot interleave.
-  ///
-  /// Native TTS completes the `speak` method when the utterance finishes, so
-  /// two rapid taps otherwise race stop/speak(A)/stop/speak(B) with A's
-  /// completer still pending. Every call site is fire-and-forget, so nothing
-  /// else rate-limits them.
-  static Future<void> _speakQueue = Future<void>.value();
+  // Serialize native commands, not whole utterances. Stop must never wait
+  // for a long response to finish, and superseded requests must not restart.
+  static Future<void> _commands = Future<void>.value();
 
-  bool get isSpeaking => _isSpeaking;
+  bool get isSpeaking => _playback.value;
+  ValueListenable<bool> get playback => _playback;
+
+  Future<void> _enqueue(Future<void> Function() command) {
+    final Future<void> pending = _commands.then((_) => command());
+    _commands = pending.catchError((Object _) {});
+    return pending;
+  }
 
   Future<void> speak(String text) async {
     await speakChecked(text);
@@ -28,33 +33,43 @@ class VoiceService {
     if (value.isEmpty) {
       return false;
     }
-    if (!await _ensureInitialized()) {
-      return false;
-    }
-    bool succeeded = true;
-    // Chain onto the previous utterance rather than racing it. Errors are
-    // absorbed so one bad utterance cannot poison the queue for the session.
-    final Future<void> queued = _speakQueue.then((_) async {
-      try {
+    final int generation = ++_generation;
+    _playback.value = true;
+    Future<bool>? completion;
+    try {
+      await _enqueue(() async {
+        if (generation != _generation || !await _ensureInitialized()) return;
+        if (generation != _generation) return;
         await _tts.invokeMethod<void>('stop');
-        _isSpeaking = true;
-        await _tts.invokeMethod<void>('speak', <String, Object?>{
-          'text': value,
-        });
-      } catch (error) {
-        succeeded = false;
-        Logger.errorCode(
-          code: AppDiagnosticCode.voicePlaybackFailed,
-          debugMessage: 'VoiceService playback failed.',
-          exception: error,
-        );
-      } finally {
-        _isSpeaking = false;
-      }
-    });
-    _speakQueue = queued.catchError((Object _) {});
-    await queued;
-    return succeeded;
+        if (generation != _generation) return;
+        completion = _tts
+            .invokeMethod<void>('speak', <String, Object?>{'text': value})
+            .then(
+              (_) => true,
+              onError: (Object error) {
+                _reportPlaybackFailure(error);
+                return false;
+              },
+            );
+      });
+      // Cancellation is a successful user action, not an unavailable engine.
+      // Existing speakChecked callers show an error when this returns false.
+      if (generation != _generation) return true;
+      return completion == null ? false : await completion!;
+    } catch (error) {
+      _reportPlaybackFailure(error);
+      return false;
+    } finally {
+      if (generation == _generation) _playback.value = false;
+    }
+  }
+
+  void _reportPlaybackFailure(Object error) {
+    Logger.errorCode(
+      code: AppDiagnosticCode.voicePlaybackFailed,
+      debugMessage: 'VoiceService playback failed.',
+      exception: error,
+    );
   }
 
   Future<void> speakSummary({
@@ -104,28 +119,18 @@ class VoiceService {
   }
 
   Future<void> stop() async {
-    if (!_initialized) {
-      return;
-    }
+    ++_generation;
+    _playback.value = false;
     try {
-      await _tts.invokeMethod<void>('stop');
-      _isSpeaking = false;
+      await _enqueue(() async {
+        if (_initialized) await _tts.invokeMethod<void>('stop');
+      });
     } catch (_) {
       // Ignore platform-level failures.
     }
   }
 
-  Future<void> pause() async {
-    if (!_initialized) {
-      return;
-    }
-    try {
-      await _tts.invokeMethod<void>('pause');
-      _isSpeaking = false;
-    } catch (_) {
-      // Ignore platform-level failures.
-    }
-  }
+  Future<void> pause() => stop();
 
   Future<void> setLanguage(String language) async {
     if (!await _ensureInitialized()) {

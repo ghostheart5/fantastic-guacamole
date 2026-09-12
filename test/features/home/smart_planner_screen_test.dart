@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
@@ -30,6 +31,53 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  testWidgets(
+    'planner shows partial dictation before completion and keeps Send disabled',
+    (tester) async {
+      final voice = _RecordingConsentVoiceController();
+      final container = _container(voiceController: voice);
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _requestGuidance(tester);
+      await _scrollTo(tester, find.byIcon(Icons.mic_none_rounded));
+      await tester.pump();
+      voice.emitTranscript('What should I', listening: true);
+      await tester.pump();
+      final input = find.byKey(const Key('planner-follow-up-field'));
+      expect(tester.widget<TextField>(input).controller!.text, 'What should I');
+      expect(tester.widget<TextField>(input).readOnly, isTrue);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is IconButton && widget.tooltip == 'Send message',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      voice.emitTranscript('What should I do next?', listening: false);
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(input).controller!.text,
+        'What should I do next?',
+      );
+      expect(tester.widget<TextField>(input).readOnly, isFalse);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is IconButton && widget.tooltip == 'Send message',
+              ),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
   testWidgets('voice failure displays localized safe feedback', (tester) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     final voice = _RecordingConsentVoiceController()..failStart = true;
@@ -680,6 +728,9 @@ void main() {
           _BlockedPlannerController.new,
         ),
         smartPlannerAvailabilityProvider.overrideWith((Ref ref) async => true),
+        voiceInputConsentStoreProvider.overrideWithValue(
+          VoiceInputConsentStore(const AccountStorageScope.unsafe()),
+        ),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
       ],
     );
@@ -1197,6 +1248,9 @@ ProviderContainer _container({
       smartPlannerAvailabilityProvider.overrideWith(
         (Ref ref) async => plannerAvailable,
       ),
+      voiceInputConsentStoreProvider.overrideWithValue(
+        VoiceInputConsentStore(const AccountStorageScope.unsafe()),
+      ),
       voiceServiceProvider.overrideWithValue(
         voiceService ?? _NoopVoiceService(),
       ),
@@ -1680,6 +1734,10 @@ class _UnavailableVoiceService extends VoiceService {
 }
 
 class _RecordingConsentVoiceController extends VoiceController {
+  void emitTranscript(String text, {required bool listening}) {
+    state = state.copyWith(isListening: listening, recognizedText: text);
+  }
+
   int starts = 0;
   bool failStart = false;
   int revision = 0;
