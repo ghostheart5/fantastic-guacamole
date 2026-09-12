@@ -256,8 +256,9 @@ jobs:
             # Recreate the same final data lifecycle as the full journey suite.
             # The first flow clears state, so earlier journeys do not contribute
             # additional records to the original Monkey starting state.
+            python3 test-results/monkey-tooling/scripts/prepare_monkey_seed_flows.py "$GITHUB_WORKSPACE" "$QA_SOURCE_SHA" "$GITHUB_WORKSPACE/test-results/monkey-recovery-flows"
             for flow in priority8-learned-lifecycle priority8-learned-lifecycle-readback; do
-              pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite custom -Flow ".maestro/flows/$flow.yaml" -ExecutionTimeoutSeconds 900 -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -SkipBuild -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-seed-ci
+              pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite custom -Flow "test-results/monkey-recovery-flows/.maestro/flows/$flow.yaml" -ExecutionTimeoutSeconds 900 -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -SkipBuild -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-seed-ci
             done
           fi
           if [ "$QA_MONKEY" = true ]; then
@@ -353,6 +354,13 @@ jobs:
           assert compilation['sourceSha'] == os.environ['EXPECTED_COMMIT']
           assert compilation['precompiledApkSha256'].lower() == m['apk']['sha256'].lower()
           if os.environ['QA_MONKEY_ONLY'] == 'true':
+              flow_root = Path('test-results/monkey-recovery-flows')
+              flow_receipt = json.loads((flow_root / 'provenance.json').read_text())
+              assert flow_receipt['sourceSha'] == os.environ['EXPECTED_COMMIT']
+              changed = [r for r in flow_receipt['files'] if r['sourceSha256'] != r['executedSha256']]
+              assert len(changed) == 1 and changed[0]['path'] == '.maestro/flows/priority8-learned-lifecycle.yaml'
+              for row in flow_receipt['files']:
+                  assert hashlib.sha256((flow_root / row['path']).read_bytes()).hexdigest() == row['executedSha256']
               seeds = list(Path('artifacts/monkey-seed-ci').glob('*/manifest.json'))
               assert len(seeds) == 2
               names = set()
@@ -383,3 +391,4 @@ jobs:
             test-results/maestro-prewarm/**
             artifacts/monkey-ci/**
             artifacts/monkey-seed-ci/**
+            test-results/monkey-recovery-flows/**
