@@ -1,6 +1,6 @@
 Privacy Policy
 
-Last updated: September 11, 2026
+Last updated: September 12, 2026
 
 This policy describes the data ChronoSpark may process in the contained public configuration and in eligible private internal-testing builds. Feature availability depends on the installed build and account eligibility. A listed provider is not proof that every provider feature is enabled.
 
@@ -69,6 +69,10 @@ The internal credit-test controls submit a fixed fictional prompt, not your save
 ChronoSpark retains usage, credit-reservation, settlement, and retry records for those operations. The optional Planner explanation service may keep response content for the short replay window shown with its quote, then retain billing metadata. Provider processing is also subject to Anthropic's applicable policies. Do not include passwords, payment credentials, or other secrets in submitted content. Local SI Console guidance and core planning do not require an external AI request.
 
 ChronoSpark's Anthropic organization uses 30-day retention by default and does not use Zero Data Retention. Anthropic may retain data longer for usage-policy enforcement, legal requirements, or other exceptions described in its commercial data-retention policy. Requests may be processed globally. Optional sharing of prompts and responses as user feedback is disabled for this organization. ChronoSpark's shorter replay-content window does not shorten the provider's separate retention period.
+
+Reporting an SI response
+
+If you choose to report an SI response, we receive the selected response, your reporting reason and your account identifier. The selected response may include planning or other personal details that appear in it. We store the report to review safety, privacy and accuracy concerns; it is not processed only in memory. The reporting service does not forward the report to our external AI provider. Report records are linked to your account and are deleted from the report table when your account is deleted. The general retention and deletion terms in this policy also apply.
 
 Optional voice input
 
