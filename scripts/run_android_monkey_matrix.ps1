@@ -2,6 +2,7 @@
 param(
     [string]$Config = "$PSScriptRoot\..\test-orchestrator.json",
     [string]$DeviceSerial,
+    [string]$RepositoryRoot,
     [string]$ApkPath,
     [string]$ExpectedApkSha256,
     [switch]$AllowConnectedDevice,
@@ -14,8 +15,37 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
-Set-Location -LiteralPath $projectRoot
+. (Join-Path $PSScriptRoot 'android_runtime_fatal_patterns.ps1')
+$runnerRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$projectRoot = if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) { $runnerRoot } else { (Resolve-Path -LiteralPath $RepositoryRoot).Path }
+
+function Get-GitEvidenceText {
+    param(
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    $output = @(& git -C $RepositoryRoot @Arguments)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Git evidence lookup failed: $($Arguments -join ' ')"
+    }
+    return ($output -join "`n").Trim()
+}
+
+function Get-MonkeyRunRoot {
+    param(
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)][string]$ArtifactsRoot,
+        [Parameter(Mandatory)][string]$RunId
+    )
+
+    $resolvedArtifactsRoot = if ([System.IO.Path]::IsPathRooted($ArtifactsRoot)) {
+        $ArtifactsRoot
+    } else {
+        Join-Path $RepositoryRoot $ArtifactsRoot
+    }
+    return Join-Path $resolvedArtifactsRoot $RunId
+}
 
 function Resolve-AdbPath {
     $command = Get-Command adb -ErrorAction SilentlyContinue
@@ -80,7 +110,8 @@ function Stop-NativeProcessTree {
 function Invoke-Adb {
     param(
         [Parameter(Mandatory)][string[]]$Arguments,
-        [ValidateRange(1, 3600)][int]$TimeoutSeconds = $AdbCommandTimeoutSeconds
+        [ValidateRange(1, 3600)][int]$TimeoutSeconds = $AdbCommandTimeoutSeconds,
+        [ValidateRange(0, 3600000)][int]$TimeoutMilliseconds = 0
     )
 
     $process = New-Object System.Diagnostics.Process
@@ -107,7 +138,11 @@ function Invoke-Adb {
         }
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
         $stderrTask = $process.StandardError.ReadToEndAsync()
-        $completed = $process.WaitForExit($TimeoutSeconds * 1000)
+        $completed = if ($TimeoutMilliseconds -gt 0) {
+            $process.WaitForExit($TimeoutMilliseconds)
+        } else {
+            $process.WaitForExit($TimeoutSeconds * 1000)
+        }
         if (-not $completed) {
             Stop-NativeProcessTree -Process $process
             if (-not $process.WaitForExit(5000)) {
@@ -153,27 +188,65 @@ function Wait-ForPackageFocus {
     $stablePid = ''
     $lastPid = ''
     $lastFocus = ''
+    $probeSamples = [System.Collections.Generic.List[object]]::new()
+    $budgetMilliseconds = $TimeoutSeconds * 1000
 
     do {
-        $pidResult = Invoke-Adb -Arguments @(
+        $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
+        if ($remainingMilliseconds -le 0) { break }
+        $sample = [ordered]@{
+            sample = $probeSamples.Count + 1
+            pid = $null
+            window = $null
+            stableSamples = 0
+            observedPid = ''
+            observedFocus = ''
+            validFocus = $false
+            elapsedMilliseconds = 0
+            deadlineExceeded = $false
+        }
+        $probeTimeout = [math]::Min(5000, $remainingMilliseconds)
+        $probeTimer = [System.Diagnostics.Stopwatch]::StartNew()
+        $pidResult = Invoke-Adb -TimeoutMilliseconds $probeTimeout -Arguments @(
             '-s', $Serial, 'shell', 'pidof', $PackageName
         )
-        $windowResult = Invoke-Adb -Arguments @(
-            '-s', $Serial, 'shell', 'dumpsys', 'window', 'displays'
-        )
-
+        $sample.pid = [ordered]@{
+            exitCode = $pidResult.ExitCode
+            timedOut = [bool]$pidResult.TimedOut
+            timeoutMilliseconds = $probeTimeout
+            durationMilliseconds = [math]::Round($probeTimer.Elapsed.TotalMilliseconds, 3)
+        }
         $lastPid = ($pidResult.Output -join '').Trim()
-        $lastFocus = @(
-            $windowResult.Output |
-                ForEach-Object { [string]$_ } |
-                Where-Object { $_ -match 'mCurrentFocus=' } |
-                Select-Object -Last 1
-        ) -join ''
+        $pidReady = $pidResult.ExitCode -eq 0 -and -not $pidResult.TimedOut -and
+            -not [string]::IsNullOrWhiteSpace($lastPid)
+        $windowResult = $null
+        $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
+        if ($pidReady -and $remainingMilliseconds -gt 0) {
+            $probeTimeout = [math]::Min(5000, $remainingMilliseconds)
+            $probeTimer.Restart()
+            $windowResult = Invoke-Adb -TimeoutMilliseconds $probeTimeout -Arguments @(
+                '-s', $Serial, 'shell', 'dumpsys', 'window', 'displays'
+            )
+            $sample.window = [ordered]@{
+                exitCode = $windowResult.ExitCode
+                timedOut = [bool]$windowResult.TimedOut
+                timeoutMilliseconds = $probeTimeout
+                durationMilliseconds = [math]::Round($probeTimer.Elapsed.TotalMilliseconds, 3)
+            }
+            $lastFocus = @(
+                $windowResult.Output |
+                    ForEach-Object { [string]$_ } |
+                    Where-Object { $_ -match 'mCurrentFocus=' } |
+                    Select-Object -Last 1
+            ) -join ''
+        }
 
         $ownsFocus =
-            $pidResult.ExitCode -eq 0 -and
-            -not [string]::IsNullOrWhiteSpace($lastPid) -and
+            $pidReady -and
+            $null -ne $windowResult -and
             $windowResult.ExitCode -eq 0 -and
+            -not $windowResult.TimedOut -and
+            $timer.Elapsed.TotalMilliseconds -lt $budgetMilliseconds -and
             $lastFocus -match $focusPattern
 
         if ($ownsFocus) {
@@ -184,24 +257,31 @@ function Wait-ForPackageFocus {
                 $stableSamples = 1
             }
 
-            if ($stableSamples -ge $RequiredStableSamples) {
-                return [pscustomobject]@{
-                    Ready = $true
-                    ElapsedSeconds = [math]::Round(
-                        $timer.Elapsed.TotalSeconds,
-                        3
-                    )
-                    LastPid = $lastPid
-                    LastFocus = $lastFocus.Trim()
-                }
-            }
         } else {
             $stableSamples = 0
             $stablePid = ''
         }
 
-        if ($timer.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
-            Start-Sleep -Milliseconds $PollMilliseconds
+        $sample.stableSamples = $stableSamples
+        $sample.observedPid = $lastPid
+        $sample.observedFocus = if ($null -ne $windowResult) { $lastFocus.Trim() } else { '' }
+        $sample.validFocus = $ownsFocus
+        $sample.elapsedMilliseconds = [math]::Round($timer.Elapsed.TotalMilliseconds, 3)
+        $sample.deadlineExceeded = $timer.Elapsed.TotalMilliseconds -ge $budgetMilliseconds
+        $probeSamples.Add([pscustomobject]$sample)
+        if ($stableSamples -ge $RequiredStableSamples -and
+            $timer.Elapsed.TotalMilliseconds -lt $budgetMilliseconds) {
+            return [pscustomobject]@{
+                Ready = $true
+                ElapsedSeconds = [math]::Round($timer.Elapsed.TotalSeconds, 3)
+                LastPid = $lastPid
+                LastFocus = $lastFocus.Trim()
+                ProbeSamples = @($probeSamples)
+            }
+        }
+        $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
+        if ($remainingMilliseconds -gt 0) {
+            Start-Sleep -Milliseconds ([math]::Min($PollMilliseconds, $remainingMilliseconds))
         }
     } while ($timer.Elapsed.TotalSeconds -lt $TimeoutSeconds)
 
@@ -210,8 +290,44 @@ function Wait-ForPackageFocus {
         ElapsedSeconds = [math]::Round($timer.Elapsed.TotalSeconds, 3)
         LastPid = $lastPid
         LastFocus = $lastFocus.Trim()
+        ProbeSamples = @($probeSamples)
     }
 }
+
+function Restore-MonkeySystemPanel {
+    param([Parameter(Mandatory)][string]$Serial)
+    if ($Serial -notmatch '^emulator-\d+$') {
+        throw 'System-panel recovery is restricted to the selected disposable emulator.'
+    }
+    $window = Invoke-Adb -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $focus = @($window.Output | Where-Object { $_ -match 'mCurrentFocus=' }) -join "`n"
+    $receipt = [ordered]@{
+        Passed = $window.ExitCode -eq 0 -and -not $window.TimedOut
+        BeforeFocus = $focus.Trim()
+        WindowExitCode = $window.ExitCode
+        WindowTimedOut = $window.TimedOut
+        Collapsed = $false
+        CollapseExitCode = $null
+        CollapseTimedOut = $null
+    }
+    # A random swipe can leave SystemUI above an otherwise healthy application.
+    # Close only the notification panel, after preserving the stress evidence.
+    # App errors, ANR dialogs and the app's own UI are never dismissed here.
+    if ($receipt.Passed -and $focus -match 'mCurrentFocus=Window\{[^}]* u0 NotificationShade\}') {
+        $collapse = Invoke-Adb -Arguments @('-s', $Serial, 'shell', 'cmd', 'statusbar', 'collapse')
+        $receipt.CollapseExitCode = $collapse.ExitCode
+        $receipt.CollapseTimedOut = $collapse.TimedOut
+        $receipt.Collapsed = $collapse.ExitCode -eq 0 -and -not $collapse.TimedOut
+        $receipt.Passed = $receipt.Collapsed
+    }
+    return [pscustomobject]$receipt
+}
+
+if ($MyInvocation.InvocationName -eq '.') {
+    return
+}
+
+Set-Location -LiteralPath $projectRoot
 
 if (-not $AllowConnectedDevice) {
     throw 'Monkey testing requires -AllowConnectedDevice and an explicitly selected disposable emulator.'
@@ -294,11 +410,11 @@ if ($apkHash -ne $ExpectedApkSha256.Trim()) {
     throw 'APK hash does not match -ExpectedApkSha256.'
 }
 
-$commit = (git rev-parse HEAD).Trim()
-$branch = (git branch --show-current).Trim()
+$commit = Get-GitEvidenceText -RepositoryRoot $projectRoot -Arguments @('rev-parse', 'HEAD')
+$branch = Get-GitEvidenceText -RepositoryRoot $projectRoot -Arguments @('branch', '--show-current')
 $startedAt = (Get-Date).ToUniversalTime()
 $runId = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $commit.Substring(0, 8)
-$runRoot = Join-Path $projectRoot (Join-Path $ArtifactsRoot $runId)
+$runRoot = Get-MonkeyRunRoot -RepositoryRoot $projectRoot -ArtifactsRoot $ArtifactsRoot -RunId $runId
 New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
 
 $installResult = Invoke-Adb `
@@ -420,6 +536,9 @@ foreach ($variant in $variants) {
         -not $logcatResult.TimedOut -and
         @($logcatResult.Output).Count -gt 0
     $logcatText = $logcatResult.Output -join "`n"
+    $fullLogcatPath = Join-Path $runRoot "$name-full-logcat.log"
+    $logcatText | Set-Content -LiteralPath $fullLogcatPath -Encoding utf8
+    $fullLogcatSha256 = (Get-FileHash -LiteralPath $fullLogcatPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $escapedPackage = [regex]::Escape($packageName)
     $fatalPatterns = @(
         "(?im)^.*// (?:CRASH|ANR):\s*$escapedPackage.*$",
@@ -427,7 +546,7 @@ foreach ($variant in $variants) {
         "(?im)^.*(?:am_crash|am_anr).*$escapedPackage.*$",
         "(?is)FATAL EXCEPTION.{0,1200}Process:\s*$escapedPackage(?:,|\s)",
         "(?im)^.*Fatal signal.*$escapedPackage.*$"
-    )
+    ) + @(Get-ChronoSparkFatalDiagnosticPatterns)
     $fatalEvidence = [System.Collections.Generic.List[string]]::new()
     foreach ($pattern in $fatalPatterns) {
         foreach ($match in [regex]::Matches($logcatText, $pattern)) {
@@ -458,11 +577,13 @@ foreach ($variant in $variants) {
         "Logcat collection failed with exit code $($logcatResult.ExitCode)." |
             Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
     } elseif ($fatalEvidence.Count -eq 0) {
-        'No ChronoSpark crash or ANR markers found.' | Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
+        'No configured ChronoSpark fatal runtime markers found.' | Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
     } else {
         $fatalEvidence | Select-Object -Unique | Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
     }
 
+    $systemPanelRecovery = Restore-MonkeySystemPanel -Serial $serial
+    $systemPanelRecovery | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $runRoot ("$name-system-panel.json")) -Encoding utf8
     $relaunchStopResult = Invoke-Adb -Arguments @(
         '-s', $serial, 'shell', 'am', 'force-stop', $packageName
     )
@@ -479,6 +600,7 @@ foreach ($variant in $variants) {
         ElapsedSeconds = 0
         LastPid = $postStopPid
         LastFocus = ''
+        ProbeSamples = @()
     }
     if ($relaunchProcessAbsent) {
         $relaunchResult = Invoke-Adb -Arguments @(
@@ -492,6 +614,7 @@ foreach ($variant in $variants) {
         }
     }
     $relaunchSucceeded = $relaunchProcessAbsent -and
+        $systemPanelRecovery.Passed -and
         $relaunchResult.ExitCode -eq 0 -and
         $relaunchReadiness.Ready
     $passed = $startupReadiness.Ready -and
@@ -516,6 +639,7 @@ foreach ($variant in $variants) {
         startupWaitSeconds = $startupReadiness.ElapsedSeconds
         startupLastPid = $startupReadiness.LastPid
         startupLastFocus = $startupReadiness.LastFocus
+        startupProbeSamples = @($startupReadiness.ProbeSamples)
         stressMonkeyStarted = $stressMonkeyStarted
         monkeyExitCode = $monkeyExitCode
         monkeyTimedOut = $monkeyTimedOut
@@ -525,7 +649,11 @@ foreach ($variant in $variants) {
         logcatExitCode = $logcatResult.ExitCode
         logcatTimedOut = $logcatResult.TimedOut
         logcatCollected = $logcatCollected
+        fullLogcatPath = $fullLogcatPath
+        fullLogcatSha256 = $fullLogcatSha256
+        fullLogcatBytes = (Get-Item -LiteralPath $fullLogcatPath).Length
         fatalMarkerCount = $fatalEvidence.Count
+        systemPanelRecovery = $systemPanelRecovery
         relaunchStopExitCode = $relaunchStopResult.ExitCode
         relaunchProcessAbsent = $relaunchProcessAbsent
         relaunchLaunchExitCode = $relaunchResult.ExitCode
@@ -533,6 +661,7 @@ foreach ($variant in $variants) {
         relaunchWaitSeconds = $relaunchReadiness.ElapsedSeconds
         relaunchLastPid = $relaunchReadiness.LastPid
         relaunchLastFocus = $relaunchReadiness.LastFocus
+        relaunchProbeSamples = @($relaunchReadiness.ProbeSamples)
         relaunchSucceeded = $relaunchSucceeded
         durationSeconds = [math]::Round(((Get-Date) - $variantStart).TotalSeconds, 3)
         monkeyLog = $variantLog
@@ -556,6 +685,11 @@ $manifest = [ordered]@{
         branch = $branch
         dirty = $dirtyEntries.Count -gt 0
         dirtyEntryCount = $dirtyEntries.Count
+    }
+    runner = [ordered]@{
+        commit = Get-GitEvidenceText -RepositoryRoot $runnerRoot -Arguments @('rev-parse', 'HEAD')
+        scriptSha256 = (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash
+        fatalPatternsSha256 = (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'android_runtime_fatal_patterns.ps1') -Algorithm SHA256).Hash
     }
     device = [ordered]@{
         serial = $serial

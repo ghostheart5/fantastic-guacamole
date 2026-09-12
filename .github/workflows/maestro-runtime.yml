@@ -15,6 +15,10 @@ on:
         required: false
         type: boolean
         default: false
+      monkey_only:
+        required: false
+        type: boolean
+        default: false
   push:
     branches: ["main"]
   workflow_dispatch:
@@ -36,6 +40,11 @@ on:
         required: false
         type: boolean
         default: false
+      monkey_only:
+        description: Run only the complete Monkey matrix against a newly compiled exact-source QA APK
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -48,6 +57,7 @@ env:
   QA_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
   QA_SUITE: ${{ inputs.suite || 'qa-smoke' }}
   QA_MONKEY: ${{ inputs.run_monkey && 'true' || 'false' }}
+  QA_MONKEY_ONLY: ${{ inputs.monkey_only && 'true' || 'false' }}
 
 jobs:
   runtime:
@@ -60,6 +70,7 @@ jobs:
           set -euo pipefail
           [[ "$QA_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
           case "$QA_SUITE" in qa-smoke|qa-journeys) ;; *) exit 1 ;; esac
+          if [ "$QA_MONKEY_ONLY" = true ]; then test "$QA_MONKEY" = true; fi
 
       - name: Checkout exact source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -86,6 +97,7 @@ jobs:
               'runId': os.environ['GITHUB_RUN_ID'],
               'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'],
               'suite': os.environ['QA_SUITE'],
+              'monkeyOnly': os.environ['QA_MONKEY_ONLY'] == 'true',
               'boundary': 'QA source and workflow tooling have separate identities; not a signed release build.'
           }, indent=2) + '\n')
           PY
@@ -95,6 +107,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Checkout exact Monkey tooling separately from application source
+        if: inputs.run_monkey
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: test-results/monkey-tooling
+          persist-credentials: false
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -147,7 +167,7 @@ jobs:
               'sourceSha': source, 'precompiledApkSha256': digest,
               'buildExitCode': 0, 'gradleStopExitCode': 0,
               'noEmulatorObservedBeforeCompilation': True,
-              'boundary': 'Precompilation only; the canonical runner still builds and records the APK it actually tests.'
+              'boundary': 'Exact-source precompilation; runtime receipts identify the installed APK and its separate test tooling.'
           }, indent=2) + '\n')
           PY
           test -z "$(git status --porcelain)"
@@ -230,9 +250,18 @@ jobs:
           }
           trap capture_system EXIT
           python3 test-results/maestro-prewarm/prepare_guest.py
-          pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite "$QA_SUITE" -ExecutionTimeoutSeconds "$QA_TIMEOUT_SECONDS" -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -ArtifactsRoot artifacts/maestro-ci
+          if [ "$QA_MONKEY_ONLY" != true ]; then
+            pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite "$QA_SUITE" -ExecutionTimeoutSeconds "$QA_TIMEOUT_SECONDS" -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -ArtifactsRoot artifacts/maestro-ci
+          else
+            # Recreate the same final data lifecycle as the full journey suite.
+            # The first flow clears state, so earlier journeys do not contribute
+            # additional records to the original Monkey starting state.
+            for flow in priority8-learned-lifecycle priority8-learned-lifecycle-readback; do
+              pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite custom -Flow ".maestro/flows/$flow.yaml" -ExecutionTimeoutSeconds 900 -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -SkipBuild -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-seed-ci
+            done
+          fi
           if [ "$QA_MONKEY" = true ]; then
-            pwsh -NoProfile -File ./scripts/run_android_monkey_matrix.ps1 -DeviceSerial emulator-5554 -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-ci
+            pwsh -NoProfile -File ./test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1 -RepositoryRoot "$GITHUB_WORKSPACE" -Config "$GITHUB_WORKSPACE/test-orchestrator.json" -DeviceSerial emulator-5554 -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot artifacts/monkey-ci
           fi
           SH
 
@@ -260,7 +289,7 @@ jobs:
             bash test-results/maestro-prewarm/run-suite.sh
 
       - name: Verify source-bound Maestro evidence
-        if: always()
+        if: always() && !inputs.monkey_only
         env:
           EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
           EXPECTED_SUITE: ${{ inputs.suite || 'qa-smoke' }}
@@ -307,6 +336,7 @@ jobs:
         if: always() && inputs.run_monkey
         env:
           EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
+          EXPECTED_TOOLING: ${{ github.sha }}
         run: |
           python3 - <<'PY'
           import json, os
@@ -315,6 +345,26 @@ jobs:
           assert len(manifests) == 1, 'Expected one Monkey matrix manifest'
           m = json.loads(manifests[0].read_text(encoding='utf-8-sig'))
           assert m['git']['commit'] == os.environ['EXPECTED_COMMIT'] and not m['git']['dirty']
+          assert m['runner']['commit'] == os.environ['EXPECTED_TOOLING']
+          import hashlib
+          runner = Path('test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1')
+          assert m['runner']['scriptSha256'].lower() == hashlib.sha256(runner.read_bytes()).hexdigest()
+          compilation = json.loads(Path('test-results/maestro-prewarm/completion.json').read_text())
+          assert compilation['sourceSha'] == os.environ['EXPECTED_COMMIT']
+          assert compilation['precompiledApkSha256'].lower() == m['apk']['sha256'].lower()
+          if os.environ['QA_MONKEY_ONLY'] == 'true':
+              seeds = list(Path('artifacts/monkey-seed-ci').glob('*/manifest.json'))
+              assert len(seeds) == 2
+              names = set()
+              for seed_path in seeds:
+                  seed = json.loads(seed_path.read_text(encoding='utf-8-sig'))
+                  assert seed['status'] == 'passed' and seed['git']['commit'] == os.environ['EXPECTED_COMMIT']
+                  assert not seed['git']['dirty'] and seed['apk']['externalHashVerified']
+                  assert seed['apk']['sha256'].lower() == m['apk']['sha256'].lower()
+                  assert seed['junit']['testCases'] == 1 and seed['junit']['failures'] == seed['junit']['errors'] == seed['junit']['skipped'] == 0
+                  assert seed['fatalMarkerCount'] == 0 and seed['logcatCapture']['aliveThroughRun']
+                  names.update(seed['flows'])
+              assert names == {'priority8-learned-lifecycle.yaml', 'priority8-learned-lifecycle-readback.yaml'}
           assert m['device']['serial'] == 'emulator-5554'
           assert m['status'] == 'passed' and m['requestedVariantCount'] == m['completedVariantCount'] == 5
           assert len(m['results']) == 5
@@ -332,3 +382,4 @@ jobs:
             artifacts/maestro-ci/**
             test-results/maestro-prewarm/**
             artifacts/monkey-ci/**
+            artifacts/monkey-seed-ci/**
