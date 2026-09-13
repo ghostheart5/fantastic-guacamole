@@ -177,11 +177,13 @@ class _TimelineSnapshot extends StatelessWidget {
   const _TimelineSnapshot({
     required this.events,
     required this.tasks,
+    required this.goals,
     required this.onOpen,
   });
 
   final List<TimelineEventEntity> events;
   final AsyncValue<List<TaskEntity>> tasks;
+  final List<GoalEntity> goals;
   final VoidCallback onOpen;
 
   @override
@@ -190,6 +192,7 @@ class _TimelineSnapshot extends StatelessWidget {
       events: events,
       tasks: tasks.asData?.value,
       tasksLoading: tasks.isLoading,
+      goals: goals,
     );
 
     return Column(
@@ -294,13 +297,18 @@ class _TimelineRow extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     if (item.when != null)
-                      Text(
-                        _formatDateTime(item.when!),
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: AppSizes.fontCaption,
+                      Expanded(
+                        child: Text(
+                          _formatDateTime(item.when!),
+                          textAlign: TextAlign.end,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: AppSizes.fontCaption,
+                          ),
                         ),
                       ),
                   ],
@@ -545,6 +553,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
   required List<TimelineEventEntity> events,
   required List<TaskEntity>? tasks,
   required bool tasksLoading,
+  required List<GoalEntity> goals,
 }) {
   final DateTime now = DateTime.now();
   final DateTime today = DateTime(now.year, now.month, now.day);
@@ -555,6 +564,17 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
           second.timestamp.compareTo(first.timestamp),
     );
   final TimelineEventEntity? latest = newest.isEmpty ? null : newest.first;
+  // Project current goal targets exactly as Timeline does. Stored goal events
+  // remain activity history; they may describe an older date or completed goal.
+  final goalIds = goals.map((goal) => goal.id).toSet();
+  final deadlineEvents = <TimelineEventEntity>[
+    ...events.where(
+      (event) =>
+          event.type != TimelineEventType.goal ||
+          !goalIds.contains(event.relatedId),
+    ),
+    ...projectTimelineEvents(now: now, tasks: const [], goals: goals),
+  ];
   final List<TaskEntity> active = (tasks ?? const <TaskEntity>[])
       .where((TaskEntity task) => !task.isCompleted && !task.isCanceled)
       .toList(growable: false);
@@ -584,7 +604,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
       event.status != TimelineEventStatus.canceled &&
       event.status != TimelineEventStatus.skipped;
   final List<TimelineEventEntity> dueEvents =
-      events
+      deadlineEvents
           .where((event) {
             final DateTime? due = event.dueAt;
             return due != null &&
@@ -600,7 +620,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
               first.dueAt!.compareTo(second.dueAt!),
         );
   final List<TimelineEventEntity> overdueEvents =
-      events
+      deadlineEvents
           .where((event) {
             final DateTime? due = event.dueAt;
             return due != null &&

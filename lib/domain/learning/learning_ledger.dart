@@ -152,6 +152,13 @@ PlannerV2Response applyPlannerLearnedPreference(
     if (value.name == pattern.preferredOption) preferred = value;
   }
   if (preferred == null) return response;
+  // Current evidence may require a minimum for capacity or task demand.
+  // Historical preference must not turn that smaller recommendation into work
+  // the current response deliberately avoided, or replace its explanation.
+  if (response.recommendedKind == PlannerOptionKind.minimum ||
+      preferred == response.recommendedKind) {
+    return response;
+  }
   return response.recommend(
     preferred,
     why:

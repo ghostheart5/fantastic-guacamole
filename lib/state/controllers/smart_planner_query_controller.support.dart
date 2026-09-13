@@ -224,7 +224,7 @@ int? _explicitPlanningTimeLimit(String input) {
     (match) => '${numbers[match.group(0)!.toLowerCase()]}',
   );
   final windowPattern = RegExp(
-    r"\b(?:in|within|for|only|(?:i|we)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than|(?:today(?:'s)?\s+)?(?:time\s+)?limit\s*:|en|dentro de|durante|(?:solo\s+)?(?:tengo|tenemos)(?:\s+solo)?|como máximo|no más de)\s+"
+    r"\b(?:in|within|for|only|(?:i|we|and)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than|(?:today(?:'s)?\s+)?(?:time\s+)?limit\s*:|en|dentro de|durante|(?:solo\s+)?(?:tengo|tenemos)(?:\s+solo)?|como máximo|no más de)\s+"
     r'(\d+(?:\.\d+)?)\s*(?:quiet\s+|spare\s+)?(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
     caseSensitive: false,
   );

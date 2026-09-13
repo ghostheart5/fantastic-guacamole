@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
+import 'package:fantastic_guacamole/features/timeline/logic/timeline_projection.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -221,6 +222,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                   child: _TimelineSnapshot(
                     events: timeline,
                     tasks: tasks,
+                    goals: goals,
                     onOpen: () => goToAppView(context, ref, AppView.timeline),
                   ),
                 ),

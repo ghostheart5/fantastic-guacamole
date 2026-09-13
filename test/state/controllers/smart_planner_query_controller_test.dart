@@ -6,6 +6,8 @@ import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dar
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'dart:async';
 import 'dart:io';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/learning/learning_ledger.dart';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
@@ -1128,6 +1130,72 @@ void main() {
       expect(result.message, contains('Minimum:'));
       expect(result.message, contains('Best-fit:'));
       expect(result.message, contains('Stretch:'));
+    },
+  );
+
+  test(
+    'initial zero-energy guidance keeps recovery despite learned best-fit',
+    () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'school-bag',
+          title: 'Pack the school bag and water bottle',
+          estimatedDuration: const Duration(minutes: 5),
+          priority: 4,
+        ),
+      ]);
+      final container = plannerContainer(
+        tasks: tasks,
+        emotionConsent: false,
+        selectedNote: NoteEntity(
+          id: 'evening-plan',
+          title: 'Monday morning - a realistic evening plan',
+          body:
+              'I have ten quiet minutes after dinner. Pack the school bag first, then fill the water bottle. Do not add a shopping trip or turn this into a long cleaning session. I need to rest after a late shift.',
+          createdAt: DateTime.utc(2026, 8, 29),
+          taskId: 'school-bag',
+        ),
+      );
+      addTearDown(container.dispose);
+      final result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: 0,
+            emotion: EmotionalState.fatigued,
+            notes:
+                'I am exhausted after work and have five minutes. What is a gentle next step?',
+            history: const [],
+            previousSavedNotes: null,
+          );
+      final now = DateTime.utc(2026, 9, 13);
+      final learning = LearningLedgerSummary.fromOutcomes([
+        for (var i = 0; i < 8; i++)
+          DecisionOutcomeEntity(
+            decisionId: 'best-fit-$i',
+            kind: DecisionOutcomeKind.accepted,
+            surface: 'smart_planner',
+            situation: 'bounded planning choice',
+            recordedAt: now,
+            modelVersion: 'v1',
+            recommendationConfidence: .8,
+            optionChosen: 'bestFit',
+            recommendationHelped: true,
+          ),
+      ], now: now);
+      final response = applyPlannerLearnedPreference(
+        result.plannerResponse,
+        learning,
+      );
+      expect(response.isClarification, isFalse);
+      expect(response.recommendedKind, PlannerOptionKind.minimum);
+      expect(response.recommendedOption.description, contains('quiet break'));
+      expect(
+        response.options.every((option) => option.estimatedMinutes <= 5),
+        isTrue,
+      );
+      expect(response.adaptationReceipt.userSetEnergy, 0);
+      expect(response.adaptationReceipt.userSelectedEmotion, isNull);
+      expect(response.recommendationReason, contains('0% energy'));
     },
   );
 

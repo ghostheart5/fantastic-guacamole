@@ -113,6 +113,25 @@ void main() {
     expect(applied.recommendedKind, PlannerOptionKind.minimum);
     expect(applied.recommendationReason, contains('reviewable'));
   });
+
+  for (final preferred in ['bestFit', 'stretch']) {
+    test('learning cannot escalate a current minimum to $preferred', () {
+      final now = DateTime.utc(2026, 9, 13);
+      final summary = LearningLedgerSummary.fromOutcomes([
+        for (var i = 0; i < 8; i++)
+          _outcome('preference-$i', now, option: preferred),
+      ], now: now);
+      expect(summary.patterns.single.canInfluenceRecommendations, isTrue);
+      final response = _plannerResponse().recommend(
+        PlannerOptionKind.minimum,
+        why: 'Current capacity requires the smallest option.',
+      );
+      final applied = applyPlannerLearnedPreference(response, summary);
+      expect(applied.recommendedKind, PlannerOptionKind.minimum);
+      expect(applied.nextStep, response.nextStep);
+      expect(applied.recommendationReason, response.recommendationReason);
+    });
+  }
 }
 
 PlannerV2Response _plannerResponse() => PlannerV2Response(

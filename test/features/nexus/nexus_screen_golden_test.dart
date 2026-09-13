@@ -48,6 +48,7 @@ void main() {
     required double width,
     MockAuthService? authService,
     List<Task>? tasks,
+    List<GoalEntity>? goals,
     List<NoteEntity> notes = const [],
     List<TimelineEventEntity>? timeline,
     bool observedVitals = true,
@@ -92,7 +93,9 @@ void main() {
           ),
         ),
         goalsProvider.overrideWith(
-          () => _StaticGoalsNotifier(_populatedNexusModel.aggregation.goals),
+          () => _StaticGoalsNotifier(
+            goals ?? _populatedNexusModel.aggregation.goals,
+          ),
         ),
         tasksProvider.overrideWith(
           (Ref ref) async => tasks ?? _populatedNexusModel.aggregation.tasks,
@@ -516,6 +519,94 @@ void main() {
       );
     });
 
+    testWidgets(
+      'Home counts a goal due today without a stored deadline event',
+      (tester) async {
+        final now = DateTime.now();
+        final container = await pumpNexusScreen(
+          tester,
+          width: Breakpoints.compact,
+          tasks: const [],
+          timeline: const [],
+          goals: [
+            GoalEntity(
+              id: 'bookkeeping',
+              title: 'Finish weekend bookkeeping',
+              createdAt: now.subtract(const Duration(days: 2)),
+              targetDate: DateTime(now.year, now.month, now.day),
+            ),
+          ],
+        );
+        await tester.scrollUntilVisible(find.text('Today at a glance'), 400);
+        expect(find.text('One commitment is due today.'), findsOneWidget);
+        expect(find.text('Nothing is due today.'), findsNothing);
+        expect(find.text('Nothing is overdue.'), findsOneWidget);
+        expect(find.text('No recent activity'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        final notifier =
+            container.read(goalsProvider.notifier) as _StaticGoalsNotifier;
+        final goal = container.read(goalsProvider).single;
+        notifier.replace([
+          goal.copyWith(targetDate: now.add(const Duration(days: 1))),
+        ]);
+        await tester.pump();
+        expect(find.text('Nothing is due today.'), findsOneWidget);
+        notifier.replace([
+          goal.copyWith(targetDate: now.subtract(const Duration(days: 1))),
+        ]);
+        await tester.pump();
+        expect(find.text('One commitment needs attention.'), findsOneWidget);
+        notifier.replace([goal.markCompleted(now)]);
+        await tester.pump();
+        expect(find.text('Nothing is due today.'), findsOneWidget);
+        expect(find.text('Nothing is overdue.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    for (final completed in [false, true]) {
+      testWidgets(
+        'Home uses current goal state over stored target: completed=$completed',
+        (tester) async {
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          await pumpNexusScreen(
+            tester,
+            width: Breakpoints.compact,
+            tasks: const [],
+            goals: [
+              GoalEntity(
+                id: 'bookkeeping',
+                title: 'Finish weekend bookkeeping',
+                createdAt: now.subtract(const Duration(days: 2)),
+                targetDate: completed
+                    ? today
+                    : today.add(const Duration(days: 1)),
+                completedAt: completed ? now : null,
+              ),
+            ],
+            timeline: [
+              TimelineEventEntity(
+                id: 'old-target',
+                type: TimelineEventType.goal,
+                title: 'Previous bookkeeping target',
+                detail: 'Goal target saved.',
+                timestamp: now.subtract(const Duration(days: 1)),
+                dueAt: today,
+                relatedId: 'bookkeeping',
+                status: TimelineEventStatus.active,
+              ),
+            ],
+          );
+          await tester.scrollUntilVisible(find.text('Today at a glance'), 400);
+          expect(find.text('Nothing is due today.'), findsOneWidget);
+          expect(find.text('Nothing is overdue.'), findsOneWidget);
+          expect(find.text('Previous bookkeeping target'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('Home Momentum opens Trajectory', (tester) async {
       final container = await pumpNexusScreen(
         tester,
@@ -839,6 +930,8 @@ class _StaticGoalsNotifier extends GoalsNotifier {
 
   @override
   List<GoalEntity> build() => goals;
+
+  void replace(List<GoalEntity> goals) => state = goals;
 }
 
 class _StaticNotesNotifier extends NotesNotifier {

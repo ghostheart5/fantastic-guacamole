@@ -494,7 +494,10 @@ class SmartPlannerQueryController
   }) {
     final double? boundedEnergy = energy?.clamp(0.0, 1.0).toDouble();
     final double planningEnergy = boundedEnergy ?? 0.5;
-    final _PlannerTopic topic = _detectTopic(conversation.evidenceSearchText);
+    final bool recoveryOnly = boundedEnergy == 0;
+    final _PlannerTopic topic = recoveryOnly
+        ? _PlannerTopic.recovery
+        : _detectTopic(conversation.evidenceSearchText);
     final _PlannerStrategy strategy = _strategyFor(topic);
     final _EffortProfile energyEffort = _effortFor(planningEnergy);
     final int? capacityLimitMinutes =
@@ -513,6 +516,8 @@ class SmartPlannerQueryController
         EmotionalSafetyPolicy.assess(conversation.searchText);
     final bool supportivePause = emotionalSafety.requiresSupportivePause;
     final List<String> adaptations = <String>[
+      if (recoveryOnly)
+        'Prioritized recovery because you reported zero energy; saved commitments do not require a work block now.',
       if (boundedEnergy != null)
         _energyAdaptation(boundedEnergy, energyEffort)
       else
@@ -594,6 +599,7 @@ class SmartPlannerQueryController
     );
     final String subject = evidence.focusSubject ?? conversation.subject;
     final List<PlannerOption> options = _buildEvidenceAwareOptions(
+      recoveryOnly: recoveryOnly,
       topic: topic,
       strategy: strategy,
       effort: effort,
@@ -608,7 +614,9 @@ class SmartPlannerQueryController
         contextWasProvided: contextWasProvided,
         evidence: evidence,
       ),
-      mattersMost: evidence.mattersMost ?? strategy.mattersMost,
+      mattersMost: recoveryOnly
+          ? strategy.mattersMost
+          : evidence.mattersMost ?? strategy.mattersMost,
       verifiedEvidence: <String>[
         if (boundedEnergy != null)
           'Current check-in energy set by you: ${(boundedEnergy * 100).round()}%.'
@@ -753,13 +761,14 @@ class SmartPlannerQueryController
   }
 
   static List<PlannerOption> _buildEvidenceAwareOptions({
+    required bool recoveryOnly,
     required _PlannerTopic topic,
     required _PlannerStrategy strategy,
     required _EffortProfile effort,
     required String subject,
     required _PlannerEvidence evidence,
   }) {
-    final rhythm = evidence.focusRhythm;
+    final rhythm = recoveryOnly ? null : evidence.focusRhythm;
     if (rhythm != null) {
       final title = _safeEvidenceTitle(rhythm.habit.title);
       return [
@@ -782,7 +791,7 @@ class SmartPlannerQueryController
           ),
       ];
     }
-    final TaskEntity? task = evidence.focusTask;
+    final TaskEntity? task = recoveryOnly ? null : evidence.focusTask;
     if (task != null) {
       return _taskOptions(
         task: task,
@@ -791,7 +800,7 @@ class SmartPlannerQueryController
         activeTaskCount: evidence.activeTasks.length,
       );
     }
-    final GoalEntity? goal = evidence.focusGoal;
+    final GoalEntity? goal = recoveryOnly ? null : evidence.focusGoal;
     if (goal != null) {
       return _goalOptions(goal: goal, effort: effort);
     }
