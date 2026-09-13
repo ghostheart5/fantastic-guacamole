@@ -279,7 +279,10 @@ jobs:
           QA_TIMEOUT_SECONDS: ${{ inputs.suite == 'qa-journeys' && '2400' || '900' }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
-          api-level: 35
+          # API 35 Google launcher repeatedly ANRed during first boot before
+          # application tests. Preserve all readiness and runtime assertions
+          # while using the API 34 guest for this source-bound smoke repeat.
+          api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_6
