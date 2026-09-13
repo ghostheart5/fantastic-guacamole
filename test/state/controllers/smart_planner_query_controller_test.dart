@@ -1194,7 +1194,7 @@ void main() {
         expect(option.description, isNot(contains('setup')));
       } else {
         final work = RegExp(
-          r'Use (\d+) minutes',
+          r'Use (\d+) minutes?\b',
         ).firstMatch(option.description)!;
         final rest = RegExp(
           r'a (\d+)-minute quiet break',
@@ -1212,6 +1212,50 @@ void main() {
       );
       expect(tasks.writeCalls, 0);
     });
+  }
+
+  for (final hasSavedTask in [false, true]) {
+    for (final limit in [1, 5]) {
+      test(
+        'minute wording is grammatical with saved=$hasSavedTask, limit=$limit',
+        () async {
+          final container = plannerContainer(
+            tasks: _MemoryTaskRepository([
+              if (hasSavedTask)
+                TaskEntity(
+                  id: 'receipts',
+                  title: 'Sort grocery receipts',
+                  createdAt: DateTime.utc(2026, 8, 29),
+                  estimatedDuration: const Duration(minutes: 15),
+                ),
+            ]),
+          );
+          addTearDown(container.dispose);
+          final response = await container
+              .read(smartPlannerQueryControllerProvider)
+              .requestFollowUpResult(
+                input:
+                    'I am tired. Help me recover and sort grocery receipts in $limit ${limit == 1 ? 'minute' : 'minutes'} total.',
+                energy: .2,
+                emotion: EmotionalState.fatigued,
+                reflection: '',
+                history: const [],
+              );
+          expect(response.plannerResponse.isClarification, isFalse);
+          final descriptions = response.plannerResponse.options
+              .map((o) => o.description)
+              .join(' ');
+          expect(descriptions, isNot(matches(RegExp(r'\b1 minutes\b'))));
+          expect(descriptions, contains(limit == 1 ? '1 minute' : '5 minutes'));
+          expect(
+            response.plannerResponse.options.every(
+              (o) => o.estimatedMinutes <= limit,
+            ),
+            isTrue,
+          );
+        },
+      );
+    }
   }
 
   for (final status in [

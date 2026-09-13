@@ -1,5 +1,8 @@
 part of 'smart_planner_query_controller.dart';
 
+String _plannerMinutes(int minutes) =>
+    '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
+
 final class _PlannerConversationContext {
   const _PlannerConversationContext({
     required this.input,

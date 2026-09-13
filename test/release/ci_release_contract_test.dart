@@ -707,14 +707,53 @@ void main() {
       (emulatorStep['with'] as YamlMap)['disable-linux-hw-accel'],
       isFalse,
     );
-    expect(runtimeScript, contains('run_maestro_android_evidence.ps1'));
-    expect(runtimeScript, contains('-DeviceSerial emulator-5554'));
-    expect(runtimeScript, contains(r'-ExpectedCommit "${{ github.sha }}"'));
+    expect(
+      runtimeScript.trim(),
+      'bash test-results/maestro-prewarm/run-suite.sh',
+    );
+    final preparation = namedStep(
+      maestro,
+      'Prepare bounded fresh-guest readiness and system diagnostics',
+    )['run'].toString();
+    expect(preparation, contains('run-suite.sh'));
+    expect(preparation, contains('run_maestro_android_evidence.ps1'));
+    expect(preparation, contains('-DeviceSerial emulator-5554'));
+    expect(preparation, contains(r'-ExpectedCommit "$QA_SOURCE_SHA"'));
+    expect(
+      (runtimeWorkflow['env'] as YamlMap)['QA_SOURCE_SHA'],
+      r'${{ inputs.source_sha || github.sha }}',
+    );
+    expect(
+      (namedStep(maestro, 'Checkout exact source')['with'] as YamlMap)['ref'],
+      r'${{ inputs.source_sha || github.sha }}',
+    );
+    expect(
+      (namedStep(
+            maestro,
+            'Checkout exact Monkey tooling separately from application source',
+          )['with']
+          as YamlMap)['ref'],
+      r'${{ github.sha }}',
+    );
     final YamlMap runtimeEvidence = namedStep(
       maestro,
       'Verify source-bound Maestro evidence',
     );
-    expect(runtimeEvidence['if'], 'always()');
+    expect(runtimeEvidence['if'], 'always() && !inputs.monkey_only');
+    final monkeyEvidence = namedStep(
+      maestro,
+      'Verify optional Monkey evidence',
+    );
+    expect(monkeyEvidence['if'], 'always() && inputs.run_monkey');
+    expect(
+      monkeyEvidence['run'],
+      contains("'--verify', '.', os.environ['EXPECTED_COMMIT']"),
+    );
+    expect(
+      monkeyEvidence['run'],
+      contains("result['relaunchLogcatCollected']"),
+    );
+    expect(monkeyEvidence['run'], contains("m['completedVariantCount'] == 5"));
     expect(
       runtimeEvidence['run'],
       contains("manifest.get('apk', {}).get('builtFromCheckout') is not True"),

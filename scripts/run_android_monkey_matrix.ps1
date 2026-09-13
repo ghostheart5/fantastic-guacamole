@@ -178,7 +178,8 @@ function Wait-ForPackageFocus {
         [Parameter(Mandatory)][string]$PackageName,
         [ValidateRange(1, 120)][int]$TimeoutSeconds = 30,
         [ValidateRange(1, 10)][int]$RequiredStableSamples = 2,
-        [ValidateRange(100, 5000)][int]$PollMilliseconds = 500
+        [ValidateRange(100, 5000)][int]$PollMilliseconds = 500,
+        [switch]$RecoverSystemDialogs
     )
 
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -190,6 +191,8 @@ function Wait-ForPackageFocus {
     $lastFocus = ''
     $probeSamples = [System.Collections.Generic.List[object]]::new()
     $budgetMilliseconds = $TimeoutSeconds * 1000
+    $dialogDismissals = 0
+    $dialogRecoveryFailed = $false
 
     do {
         $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
@@ -204,6 +207,7 @@ function Wait-ForPackageFocus {
             validFocus = $false
             elapsedMilliseconds = 0
             deadlineExceeded = $false
+            systemDialogRecovery = $null
         }
         $probeTimeout = [math]::Min(5000, $remainingMilliseconds)
         $probeTimer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -249,6 +253,18 @@ function Wait-ForPackageFocus {
             $timer.Elapsed.TotalMilliseconds -lt $budgetMilliseconds -and
             $lastFocus -match $focusPattern
 
+        if (-not $ownsFocus -and $pidReady -and $null -ne $windowResult -and
+            $windowResult.ExitCode -eq 0 -and -not $windowResult.TimedOut -and
+            $RecoverSystemDialogs -and $dialogDismissals -lt 2 -and
+            $lastFocus -match '^\s*mCurrentFocus=Window\{\S+ u0 SystemUIDialog\}\s*$') {
+            $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
+            if ($remainingMilliseconds -gt 0) {
+                $sample.systemDialogRecovery = Restore-MonkeySystemDialog -Serial $Serial `
+                    -ExpectedFocus $lastFocus -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
+                $dialogDismissals++
+                $dialogRecoveryFailed = -not $sample.systemDialogRecovery.Passed
+            }
+        }
         if ($ownsFocus) {
             if ($lastPid -eq $stablePid) {
                 $stableSamples++
@@ -269,6 +285,7 @@ function Wait-ForPackageFocus {
         $sample.elapsedMilliseconds = [math]::Round($timer.Elapsed.TotalMilliseconds, 3)
         $sample.deadlineExceeded = $timer.Elapsed.TotalMilliseconds -ge $budgetMilliseconds
         $probeSamples.Add([pscustomobject]$sample)
+        if ($dialogRecoveryFailed) { break }
         if ($stableSamples -ge $RequiredStableSamples -and
             $timer.Elapsed.TotalMilliseconds -lt $budgetMilliseconds) {
             return [pscustomobject]@{
@@ -292,6 +309,52 @@ function Wait-ForPackageFocus {
         LastFocus = $lastFocus.Trim()
         ProbeSamples = @($probeSamples)
     }
+}
+
+function Restore-MonkeySystemDialog {
+    param(
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$ExpectedFocus,
+        [ValidateRange(1, 5000)][int]$TimeoutMilliseconds = 5000
+    )
+    if ($Serial -notmatch '^emulator-\d+$') {
+        throw 'System-dialog recovery is restricted to the selected disposable emulator.'
+    }
+    $receipt = [ordered]@{ Passed = $false; BeforeFocus = $ExpectedFocus.Trim(); Windows = ''; BackSent = $false; Reason = ''; Commands = @() }
+    if ($ExpectedFocus -notmatch '^\s*mCurrentFocus=(Window\{\S+ u0 SystemUIDialog\})\s*$') {
+        $receipt.Reason = 'Focus is not the exact SystemUI dialog title.'
+        return [pscustomobject]$receipt
+    }
+    $token = $Matches[1]
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $windows = Invoke-Adb -TimeoutMilliseconds $TimeoutMilliseconds -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'windows')
+    $receipt.Windows = $windows.Output -join "`n"
+    $receipt.Commands += [pscustomobject]@{ Command = 'window ownership'; ExitCode = $windows.ExitCode; TimedOut = $windows.TimedOut }
+    # Match the focused window's own block, never a different SystemUI window.
+    $block = [regex]::Match($receipt.Windows, '(?ms)^\s*Window #\d+ ' + [regex]::Escape($token) + ':.*?(?=^\s*Window #\d+ |\z)').Value
+    if ($windows.ExitCode -ne 0 -or $windows.TimedOut -or
+        $block -notmatch '(?m)\bpackage=com\.android\.systemui(?:\s|$)') {
+        $receipt.Reason = 'Focused dialog ownership was not verified.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $focusReadback = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $receipt.Commands += [pscustomobject]@{ Command = 'focus readback'; ExitCode = $focusReadback.ExitCode; TimedOut = $focusReadback.TimedOut }
+    $focus = @($focusReadback.Output | Where-Object { $_ -match 'mCurrentFocus=' }) -join "`n"
+    if ($focusReadback.ExitCode -ne 0 -or $focusReadback.TimedOut -or $focus.Trim() -cne $ExpectedFocus.Trim()) {
+        $receipt.Reason = 'Focus changed before recovery; no key was sent.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    # BACK cancels the verified Android-owned modal; never tap an approval.
+    $back = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
+    $receipt.Commands += [pscustomobject]@{ Command = 'cancel system dialog'; ExitCode = $back.ExitCode; TimedOut = $back.TimedOut }
+    $receipt.BackSent = $true
+    $receipt.Passed = $back.ExitCode -eq 0 -and -not $back.TimedOut -and $timer.Elapsed.TotalMilliseconds -lt $TimeoutMilliseconds
+    $receipt.Reason = 'App focus still requires independent stable probes after recovery.'
+    return [pscustomobject]$receipt
 }
 
 function Restore-MonkeySystemPanel {
@@ -610,8 +673,21 @@ foreach ($variant in $variants) {
         if ($relaunchResult.ExitCode -eq 0) {
             $relaunchReadiness = Wait-ForPackageFocus `
                 -Serial $serial `
-                -PackageName $packageName
+                -PackageName $packageName -RecoverSystemDialogs
         }
+    }
+    # Include restart/recovery diagnostics; a dismissed overlay cannot hide a
+    # provider failure or process error that occurred after the stress capture.
+    $relaunchLogcat = Invoke-Adb -Arguments @('-s', $serial, 'logcat', '-d', '-v', 'threadtime')
+    $relaunchLogcatCollected = $relaunchLogcat.ExitCode -eq 0 -and -not $relaunchLogcat.TimedOut -and @($relaunchLogcat.Output).Count -gt 0
+    $relaunchLogcatText = $relaunchLogcat.Output -join "`n"
+    $relaunchLogcatPath = Join-Path $runRoot "$name-relaunch-full-logcat.log"
+    $relaunchLogcatText | Set-Content -LiteralPath $relaunchLogcatPath -Encoding utf8
+    foreach ($pattern in $fatalPatterns) {
+        foreach ($match in [regex]::Matches($relaunchLogcatText, $pattern)) { $fatalEvidence.Add($match.Value.Trim()) }
+    }
+    if ($fatalEvidence.Count -gt 0) {
+        $fatalEvidence | Select-Object -Unique | Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
     }
     $relaunchSucceeded = $relaunchProcessAbsent -and
         $systemPanelRecovery.Passed -and
@@ -622,6 +698,7 @@ foreach ($variant in $variants) {
         $monkeyExitCode -eq 0 -and
         $eventCountVerified -and
         $logcatCollected -and
+        $relaunchLogcatCollected -and
         $fatalEvidence.Count -eq 0 -and
         $relaunchSucceeded
 
@@ -663,6 +740,11 @@ foreach ($variant in $variants) {
         relaunchLastFocus = $relaunchReadiness.LastFocus
         relaunchProbeSamples = @($relaunchReadiness.ProbeSamples)
         relaunchSucceeded = $relaunchSucceeded
+        relaunchLogcatCollected = $relaunchLogcatCollected
+        relaunchLogcatExitCode = $relaunchLogcat.ExitCode
+        relaunchLogcatTimedOut = $relaunchLogcat.TimedOut
+        relaunchLogcatPath = $relaunchLogcatPath
+        relaunchLogcatSha256 = (Get-FileHash -LiteralPath $relaunchLogcatPath -Algorithm SHA256).Hash.ToLowerInvariant()
         durationSeconds = [math]::Round(((Get-Date) - $variantStart).TotalSeconds, 3)
         monkeyLog = $variantLog
         runtimeEvidence = $runtimeEvidence

@@ -91,6 +91,21 @@ class TimelineEventEntity {
     if (due == null || isTerminal || isOverdue) {
       return false;
     }
+    if (type == TimelineEventType.goal) {
+      final localDue = due.toLocal();
+      final localReference = reference.toLocal();
+      // Compare calendar dates without shortening a day across DST changes.
+      final days = DateTime.utc(localDue.year, localDue.month, localDue.day)
+          .difference(
+            DateTime.utc(
+              localReference.year,
+              localReference.month,
+              localReference.day,
+            ),
+          )
+          .inDays;
+      return days >= 0 && days <= 7;
+    }
     final Duration delta = due.difference(reference);
     return delta.inDays <= 7 && delta.inHours >= 0;
   }

@@ -68,7 +68,17 @@ List<TimelineEventEntity> projectTimelineEvents({
     if (target == null) {
       continue;
     }
-    final bool overdue = target.isBefore(now);
+    // Goal targets come from a date picker: the whole local day is available.
+    // Task deadlines above retain their precise time semantics.
+    final localTarget = target.toLocal();
+    final localNow = now.toLocal();
+    final targetDay = DateTime(
+      localTarget.year,
+      localTarget.month,
+      localTarget.day,
+    );
+    final today = DateTime(localNow.year, localNow.month, localNow.day);
+    final bool overdue = targetDay.isBefore(today);
     events.add(
       TimelineEventEntity(
         id: 'timeline-projected-goal-${goal.id}',
@@ -76,6 +86,8 @@ List<TimelineEventEntity> projectTimelineEvents({
         title: goal.title,
         detail: overdue
             ? 'Goal target date has passed. Recovery plan needed.'
+            : targetDay == today
+            ? 'Goal target date is today.'
             : 'Goal target date is upcoming.',
         timestamp: now,
         status: overdue

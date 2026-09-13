@@ -7,6 +7,60 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 29, 12);
 
+  for (final hour in [0, 2, 12, 23]) {
+    test('goal remains due today at $hour:59, including UTC storage', () {
+      final today = DateTime(2026, 9, 13);
+      final reference = DateTime(2026, 9, 13, hour, 59, 59);
+      for (final target in [today, today.toUtc()]) {
+        final event = projectTimelineEvents(
+          now: reference,
+          tasks: const [],
+          goals: [_goal('today', target)],
+        ).single;
+        expect(event.status, TimelineEventStatus.active);
+        expect(event.detail, 'Goal target date is today.');
+        expect(event.dueAt, target);
+        expect(event.isUpcomingAt(reference), isTrue);
+      }
+    });
+  }
+
+  test(
+    'goal date boundaries respect yesterday, tomorrow and seven-day horizon',
+    () {
+      final reference = DateTime(
+        2026,
+        11,
+        1,
+        23,
+        59,
+      ); // DST boundary in US zones.
+      final events = projectTimelineEvents(
+        now: reference,
+        tasks: const [],
+        goals: [
+          _goal('yesterday', DateTime(2026, 10, 31)),
+          _goal('tomorrow', DateTime(2026, 11, 2)),
+          _goal('seven', DateTime(2026, 11, 8)),
+          _goal('eight', DateTime(2026, 11, 9)),
+        ],
+      );
+      expect(events.map((e) => e.isOverdue), [true, false, false, false]);
+      expect(events.map((e) => e.isUpcomingAt(reference)), [
+        false,
+        true,
+        true,
+        false,
+      ]);
+      final afterMidnight = projectTimelineEvents(
+        now: DateTime(2026, 9, 14),
+        tasks: const [],
+        goals: [_goal('ended', DateTime(2026, 9, 13))],
+      ).single;
+      expect(afterMidnight.isOverdue, isTrue);
+    },
+  );
+
   test('projects only active tasks and goals that still need attention', () {
     final List<TimelineEventEntity> events = projectTimelineEvents(
       now: now,

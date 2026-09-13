@@ -530,9 +530,9 @@ class SmartPlannerQueryController
       evidence.plannerMemory.adaptationSummary,
       evidence.personContext.adaptationSummary,
       if (capacityLimitMinutes != null)
-        'Applied your reported capacity limit of $capacityLimitMinutes minutes: no option exceeds it.',
+        'Applied your reported capacity limit of ${_plannerMinutes(capacityLimitMinutes)}: no option exceeds it.',
       if (requestTimeLimitMinutes != null)
-        'Applied your requested time limit of $requestTimeLimitMinutes minutes: no option exceeds it. This limit was not saved.',
+        'Applied your requested time limit of ${_plannerMinutes(requestTimeLimitMinutes)}: no option exceeds it. This limit was not saved.',
       if (conversation.historyTurnsUsed > 0)
         'Used ${conversation.historyTurnsUsed} recent conversation turn(s) to keep this response connected to your earlier request.',
       'Kept every option reversible and left saving to an explicit Creator confirmation.',
@@ -771,7 +771,7 @@ class SmartPlannerQueryController
                 : 'Plan one rhythm session',
             description: kind == PlannerOptionKind.minimum
                 ? 'Check how many repetitions of "$title" remain toward the ${rhythm.habit.targetCount}-per-${rhythm.habit.cadence.name} target. Choose one small next step.'
-                : 'Reserve up to ${kind == PlannerOptionKind.bestFit ? effort.bestFitMinutes : effort.stretchMinutes} minutes for one remaining session of "$title", if one is still needed. Mark the period complete only when its full target is met.',
+                : 'Reserve up to ${_plannerMinutes(kind == PlannerOptionKind.bestFit ? effort.bestFitMinutes : effort.stretchMinutes)} for one remaining session of "$title", if one is still needed. Mark the period complete only when its full target is met.',
             estimatedMinutes: kind == PlannerOptionKind.minimum
                 ? effort.minimumMinutes
                 : kind == PlannerOptionKind.bestFit
@@ -800,7 +800,7 @@ class SmartPlannerQueryController
         kind: PlannerOptionKind.minimum,
         title: strategy.minimumTitle,
         description: topic == _PlannerTopic.recovery
-            ? 'Within ${effort.minimumMinutes} minutes total, choose one nonessential task to postpone and take a quiet break. Stop when the timer ends.'
+            ? 'Within ${_plannerMinutes(effort.minimumMinutes)} total, choose one nonessential task to postpone and take a quiet break. Stop when the timer ends.'
             : strategy.minimumAction(subject),
         estimatedMinutes: effort.minimumMinutes,
         tradeoff: topic == _PlannerTopic.recovery
@@ -811,7 +811,7 @@ class SmartPlannerQueryController
         kind: PlannerOptionKind.bestFit,
         title: strategy.bestFitTitle,
         description: topic == _PlannerTopic.recovery
-            ? 'Use ${effort.bestFitMinutes} minutes total to recover and reassess what part of $subject is realistic. Stop when the timer ends.'
+            ? 'Use ${_plannerMinutes(effort.bestFitMinutes)} total to recover and reassess what part of $subject is realistic. Stop when the timer ends.'
             : strategy.bestFitAction(subject),
         estimatedMinutes: effort.bestFitMinutes,
         tradeoff:
@@ -821,7 +821,7 @@ class SmartPlannerQueryController
         kind: PlannerOptionKind.stretch,
         title: strategy.stretchTitle,
         description: topic == _PlannerTopic.recovery
-            ? 'Use ${effort.stretchMinutes} minutes total to review essential commitments and choose one recovery adjustment. Leave the rest for later.'
+            ? 'Use ${_plannerMinutes(effort.stretchMinutes)} total to review essential commitments and choose one recovery adjustment. Leave the rest for later.'
             : strategy.stretchAction(subject),
         estimatedMinutes: effort.stretchMinutes,
         tradeoff:
@@ -855,7 +855,7 @@ class SmartPlannerQueryController
           title: 'Reduce the saved task',
           description: setupMinutes == 0
               ? 'Use the entire $minimumMinutes-minute block for a quiet break. Leave "$title" for another block.'
-              : 'Use $setupMinutes minutes to set up "$title", then take a $breakMinutes-minute quiet break. Stop after $minimumMinutes minutes total.',
+              : 'Use ${_plannerMinutes(setupMinutes)} to set up "$title", then take a $breakMinutes-minute quiet break. Stop after ${_plannerMinutes(minimumMinutes)} total.',
           estimatedMinutes: minimumMinutes,
           tradeoff:
               'Protects capacity, but the saved task will need another work block.',
@@ -864,7 +864,7 @@ class SmartPlannerQueryController
           kind: PlannerOptionKind.bestFit,
           title: 'Recover, then reassess',
           description:
-              'Use $bestFitMinutes minutes total to recover and decide what part of "$title" is realistic today. Stop when the timer ends.',
+              'Use ${_plannerMinutes(bestFitMinutes)} total to recover and decide what part of "$title" is realistic today. Stop when the timer ends.',
           estimatedMinutes: bestFitMinutes,
           tradeoff:
               'Preserves energy while keeping the saved commitment visible.',
@@ -873,7 +873,7 @@ class SmartPlannerQueryController
           kind: PlannerOptionKind.stretch,
           title: 'Reset today’s workload',
           description:
-              'Within $stretchMinutes minutes total, review the $activeTaskCount active saved task(s), defer one that can safely wait, and use the remaining time for recovery and "$title". Stop when the timer ends.',
+              'Within ${_plannerMinutes(stretchMinutes)} total, review the $activeTaskCount active saved task(s), defer one that can safely wait, and use the remaining time for recovery and "$title". Stop when the timer ends.',
           estimatedMinutes: stretchMinutes,
           tradeoff:
               'Creates a clearer day, but requires more planning attention now.',
@@ -885,7 +885,7 @@ class SmartPlannerQueryController
         kind: PlannerOptionKind.minimum,
         title: 'Start the saved task',
         description:
-            'Open "$title" and complete its smallest visible step for $minimumMinutes minutes. Stop when the timer ends.',
+            'Open "$title" and complete its smallest visible step for ${_plannerMinutes(minimumMinutes)}. Stop when the timer ends.',
         estimatedMinutes: minimumMinutes,
         tradeoff: 'Creates verified movement without finishing the whole task.',
       ),
@@ -893,7 +893,7 @@ class SmartPlannerQueryController
         kind: PlannerOptionKind.bestFit,
         title: 'Run one focused block',
         description:
-            'Work only on "$title" for $bestFitMinutes minutes, then record the next unfinished step before stopping.',
+            'Work only on "$title" for ${_plannerMinutes(bestFitMinutes)}, then record the next unfinished step before stopping.',
         estimatedMinutes: bestFitMinutes,
         tradeoff:
             'Balances progress on the saved task with the capacity you reported.',
@@ -928,7 +928,7 @@ class SmartPlannerQueryController
         kind: PlannerOptionKind.bestFit,
         title: 'Advance one goal step',
         description:
-            'Choose one concrete action for saved goal "$title" and work on it for ${effort.bestFitMinutes} minutes.',
+            'Choose one concrete action for saved goal "$title" and work on it for ${_plannerMinutes(effort.bestFitMinutes)}.',
         estimatedMinutes: effort.bestFitMinutes,
         tradeoff: 'Moves the saved goal while keeping today’s scope bounded.',
       ),
