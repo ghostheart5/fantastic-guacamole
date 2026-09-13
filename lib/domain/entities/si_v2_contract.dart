@@ -183,7 +183,7 @@ final class SIV2Query {
       usesPriorDecisionContext ? conversationText : rawText;
 
   bool get requestsListing => RegExp(
-    r'^(list|show|what are)\s+(all\s+)?(my\s+)?(active\s+|saved\s+)?(goals|tasks|milestones)\s*[?!.]*$',
+    r'^(?:(?:list|show|what are)\s+(?:all\s+)?(?:my\s+)?(?:active\s+|saved\s+|current\s+)?(?:goals|tasks|milestones)|what\s+(?:active\s+|saved\s+|current\s+)?(?:goals|tasks|milestones)\s+do i have)\s*[?!.]*$',
     caseSensitive: false,
   ).hasMatch(rawText);
 }

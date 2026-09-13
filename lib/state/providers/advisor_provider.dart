@@ -126,6 +126,7 @@ final progressionReviewProvider = FutureProvider<ProgressionReview>((
       overdue: overdue,
       milestoneHealth: milestoneSummary.healthScore,
       milestoneOverdue: milestoneSummary.overdue,
+      milestoneCount: milestones.requireValue.length,
       activeGoals: activeGoals,
       activeTasks: activeTasks,
     ),
@@ -157,6 +158,7 @@ String buildProgressionReview({
   required int overdue,
   required int milestoneHealth,
   required int milestoneOverdue,
+  required int milestoneCount,
   required int activeGoals,
   required int activeTasks,
 }) {
@@ -184,7 +186,9 @@ String buildProgressionReview({
       ? 'Timeline integrity is at risk'
       : 'Timeline integrity is stable';
 
-  final String milestoneState = milestoneOverdue > 0
+  final String milestoneState = milestoneCount == 0
+      ? 'No milestones recorded yet; milestone health is not available'
+      : milestoneOverdue > 0
       ? 'Milestone drift detected'
       : milestoneHealth >= 70
       ? 'Milestones are on-track'
@@ -209,7 +213,7 @@ String buildProgressionReview({
       '$executionState. $completionDetail '
       '$pressureState (index $pressureIndex). '
       '$timelineState (health $timelineHealth%, risk $timelineRisk%, overdue $overdue). '
-      '$milestoneState (health $milestoneHealth%, overdue $milestoneOverdue).\n\n'
+      '$milestoneState${milestoneCount == 0 ? '' : ' (health $milestoneHealth%, overdue $milestoneOverdue)'}.\n\n'
       'Active workload: $activeTasks tasks across $activeGoals goals.\n'
       'Next practice: $oneAction';
 }

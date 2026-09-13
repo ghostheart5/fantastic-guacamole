@@ -164,6 +164,11 @@ void main() {
     );
     expect(review.status, ProgressionReviewStatus.ready);
     expect(review.text, contains('Active workload: 1 tasks'));
+    expect(
+      review.text,
+      contains('No milestones recorded yet; milestone health is not available'),
+    );
+    expect(review.text, isNot(contains('Milestones are on-track')));
   });
 
   final validMilestone = MilestoneEntity(

@@ -415,6 +415,12 @@ class _PlannerSuggestionContent extends StatelessWidget {
     final String? confidenceLabel = decision == null
         ? null
         : l10n.provisionalEvidenceConfidenceLabel(decision!.confidence);
+    // A nearby block is not necessarily the displayed decision. Recovery and
+    // reconciliation guidance must not expose another task's completion action.
+    final bool showsTask =
+        block != null &&
+        (decision == null || decision!.subjectId == block!.taskId) &&
+        (title == block!.title || title == 'Work on: ${block!.title}');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -446,6 +452,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
         const SizedBox(height: 13),
         Text(
           title,
+          key: const Key('nexus-recommended-action'),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -504,7 +511,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
             ),
           ),
         ],
-        if (block != null) ...<Widget>[
+        if (showsTask) ...<Widget>[
           const SizedBox(height: 12),
           Row(
             children: <Widget>[
@@ -549,7 +556,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
                 ),
               ),
             ),
-            if (block != null && !block!.completed) ...<Widget>[
+            if (showsTask && !block!.completed) ...<Widget>[
               const SizedBox(width: 9),
               Semantics(
                 button: true,

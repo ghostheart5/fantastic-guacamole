@@ -1153,10 +1153,144 @@ void main() {
     );
     expect(
       response.nextStep,
-      'Choose one nonessential task to postpone. Then take a five-minute quiet break.',
+      'Within 3 minutes total, choose one nonessential task to postpone and take a quiet break. Stop when the timer ends.',
     );
     expect(response.nextStep, isNot(contains('im tired')));
   });
+
+  for (final limit in [1, 3, 5, 10]) {
+    test('recovery setup and break together fit $limit minutes', () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'receipts',
+          title: 'Sort grocery receipts',
+          createdAt: DateTime.utc(2026, 8, 29),
+          estimatedDuration: const Duration(minutes: 15),
+        ),
+      ]);
+      final container = plannerContainer(tasks: tasks);
+      addTearDown(container.dispose);
+      final result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestFollowUpResult(
+            input:
+                'I only have $limit minutes total before school pickup. Include any break inside those $limit minutes.',
+            energy: .2,
+            emotion: EmotionalState.fatigued,
+            reflection: '',
+            history: const [
+              {
+                'role': 'user',
+                'content':
+                    'I am tired. Help me recover and reduce Sort grocery receipts.',
+              },
+            ],
+          );
+      expect(result.plannerResponse.isClarification, isFalse);
+      final option = result.plannerResponse.options.first;
+      expect(option.estimatedMinutes, lessThanOrEqualTo(limit));
+      if (option.estimatedMinutes == 1) {
+        expect(option.description, contains('entire 1-minute block'));
+        expect(option.description, isNot(contains('setup')));
+      } else {
+        final work = RegExp(
+          r'Use (\d+) minutes',
+        ).firstMatch(option.description)!;
+        final rest = RegExp(
+          r'a (\d+)-minute quiet break',
+        ).firstMatch(option.description)!;
+        expect(
+          int.parse(work[1]!) + int.parse(rest[1]!),
+          option.estimatedMinutes,
+        );
+      }
+      expect(
+        result.plannerResponse.options.every(
+          (o) => o.estimatedMinutes <= limit,
+        ),
+        isTrue,
+      );
+      expect(tasks.writeCalls, 0);
+    });
+  }
+
+  for (final status in [
+    RhythmPeriodStatus.skipped,
+    RhythmPeriodStatus.unrecorded,
+  ]) {
+    test(
+      'linked ${status.name} rhythm does not displace the active receipt task',
+      () async {
+        final task = TaskEntity(
+          id: 'receipts',
+          title: 'Sort grocery receipts and record the total',
+          goalId: 'bookkeeping',
+          createdAt: DateTime.utc(2026, 8, 29),
+        );
+        final tasks = _MemoryTaskRepository([task]);
+        final container = plannerContainer(
+          tasks: tasks,
+          goals: _MemoryGoalRepository([
+            GoalEntity(
+              id: 'bookkeeping',
+              title: 'Finish my weekend bookkeeping catch-up',
+              createdAt: DateTime.utc(2026, 8, 29),
+            ),
+          ]),
+          rhythms: [
+            RhythmPlanningEntry(
+              HabitEntity(
+                id: 'rhythm',
+                title: 'Check grocery receipts after lunch',
+                createdAt: DateTime.utc(2026, 8, 29),
+              ),
+              '2026-08-29',
+              status,
+            ),
+          ],
+          selectedNote: NoteEntity(
+            id: 'limits',
+            title: 'Weekend bookkeeping time limits',
+            body:
+                'I have seven minutes after lunch for receipts. School pickup starts at three.',
+            goalId: 'bookkeeping',
+            taskId: 'receipts',
+            habitId: 'rhythm',
+            createdAt: DateTime.utc(2026, 8, 29),
+          ),
+        );
+        addTearDown(container.dispose);
+        for (final input in [
+          'Plan one bookkeeping step using the time limit in this note.',
+          'Plan the active task named Sort grocery receipts and record the total. Leave the skipped Daily Rhythm unchanged.',
+        ]) {
+          final result = await container
+              .read(smartPlannerQueryControllerProvider)
+              .requestPlanningGuidance(
+                energy: .5,
+                emotion: null,
+                notes: input,
+                history: const [],
+                previousSavedNotes: null,
+              );
+          expect(
+            result.plannerResponse.isClarification,
+            isFalse,
+            reason: input,
+          );
+          expect(result.plannerResponse.nextStep, contains(task.title));
+          expect(
+            result.plannerResponse.options.every(
+              (o) => o.estimatedMinutes <= 7,
+            ),
+            isTrue,
+          );
+          expect(result.request.context['focusedEvidenceKind'], 'task');
+        }
+        expect(tasks.writeCalls, 0);
+      },
+    );
+  }
 
   test('high energy and engaged self-report can recommend Stretch', () async {
     final ProviderContainer container = plannerContainer();

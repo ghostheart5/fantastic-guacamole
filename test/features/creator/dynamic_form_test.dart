@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -222,6 +223,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: appTheme,
         home: Scaffold(
           body: SingleChildScrollView(
             child: DynamicForm(
@@ -235,6 +237,27 @@ void main() {
 
     expect(find.text('CADENCE / RECURRENCE'), findsOneWidget);
     expect(find.byKey(const Key('creator-rhythm-cadence')), findsOneWidget);
+    final increase = find.byKey(const Key('creator-rhythm-increase'));
+    final foreground = IconTheme.of(
+      tester.element(find.byIcon(Icons.add_rounded)),
+    ).color!;
+    final background = tester
+        .widget<IconButton>(increase)
+        .style!
+        .backgroundColor!
+        .resolve({})!;
+    final light = foreground.computeLuminance() > background.computeLuminance()
+        ? foreground.computeLuminance()
+        : background.computeLuminance();
+    final dark = foreground.computeLuminance() < background.computeLuminance()
+        ? foreground.computeLuminance()
+        : background.computeLuminance();
+    expect(
+      (light + .05) / (dark + .05),
+      greaterThanOrEqualTo(3),
+      reason:
+          'The rendered plus icon must be distinguishable from its filled background.',
+    );
     await tester.enterText(
       find.byWidgetPredicate(
         (Widget widget) =>

@@ -895,6 +895,10 @@ class _TargetCountPicker extends StatelessWidget {
         IconButton.filled(
           key: const Key('creator-rhythm-increase'),
           tooltip: 'Increase target count',
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.neonCyan,
+            foregroundColor: const Color(0xFF001318),
+          ),
           onPressed: value < 365 ? () => onChanged(value + 1) : null,
           icon: const Icon(Icons.add_rounded),
         ),

@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -53,6 +54,7 @@ void main() {
     NexusDecisionModel? decisionModel,
     Locale locale = const Locale('en'),
     List<DecisionOutcomeKind>? recordedDecisionOutcomes,
+    TimeBlock? recommendationBlock,
   }) async {
     tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -61,6 +63,12 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        if (recommendationBlock != null) ...[
+          nexusTimeBlocksProvider.overrideWithValue(
+            AsyncData([recommendationBlock]),
+          ),
+          nextNexusTimeBlockProvider.overrideWithValue(recommendationBlock),
+        ],
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(
@@ -354,6 +362,77 @@ void main() {
     semantics.dispose();
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  for (final scenario in [
+    'task',
+    'task-prefix',
+    'recovery',
+    'different-task',
+  ]) {
+    testWidgets('completion belongs only to the displayed task: $scenario', (
+      tester,
+    ) async {
+      final original = _operatingDecision;
+      final receipt = OperatingDecisionReceipt(
+        subjectId: scenario == 'different-task'
+            ? 'another-task'
+            : original.subjectId,
+        recommendedAction: scenario == 'recovery'
+            ? 'Take a short recovery break before choosing more work.'
+            : scenario == 'task-prefix'
+            ? 'Work on: ${original.recommendedAction}'
+            : original.recommendedAction,
+        rationale: original.rationale,
+        whyItMatters: original.whyItMatters,
+        consequenceOfDelay: original.consequenceOfDelay,
+        generatedAt: original.generatedAt,
+        expiresAt: original.expiresAt,
+        confidence: original.confidence,
+        evidence: original.evidence,
+        actionIntent: original.actionIntent,
+        sourceRevisions: original.sourceRevisions,
+        modelVersion: original.modelVersion,
+      );
+      final model = NexusDecisionModel(
+        status: NexusDecisionStatus.ready,
+        hasAvailableNetworkInterface: true,
+        pendingSyncCount: 0,
+        topRisk: '',
+        recentProgress: '',
+        statusDetail: 'Ready',
+        intelligence: DecisionIntelligence(
+          snapshot: _operatingSnapshot,
+          delta: _readyNexusDecisionModel.intelligence!.delta,
+          decision: receipt,
+          acknowledgedSnapshotId: null,
+        ),
+      );
+      await pumpNexusScreen(
+        tester,
+        width: 420,
+        decisionModel: model,
+        recommendationBlock: TimeBlock(
+          id: 'block',
+          taskId: 'task-1',
+          title: 'Finish quarterly review',
+          start: _decisionObservedAt,
+          end: _decisionObservedAt.add(const Duration(minutes: 5)),
+        ),
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('nexus-recommended-action')))
+            .data,
+        receipt.recommendedAction,
+      );
+      expect(
+        find.widgetWithText(OutlinedButton, 'Complete'),
+        scenario.startsWith('task') ? findsOneWidget : findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   group('NexusScreen responsive typography', () {
     testWidgets('uses ultra-compact values below 340px', (

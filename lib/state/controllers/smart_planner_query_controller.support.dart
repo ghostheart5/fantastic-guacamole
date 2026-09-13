@@ -434,7 +434,14 @@ final class _PlannerEvidence {
       final match = _plannerTerms(
         '${entry.habit.title} ${entry.habit.description ?? ''}',
       ).intersection(terms).length;
-      if (entry.habit.id == selectedNote?.habitId || match > bestRhythmMatch) {
+      // A note link supplies context, not an unconditional choice of work.
+      // Preserve a matched task/goal; a resolved linked rhythm cannot block it.
+      final bool linkedFallback =
+          entry.habit.id == selectedNote?.habitId &&
+          focusTask == null &&
+          focusGoal == null &&
+          focusRhythm == null;
+      if (linkedFallback || match > bestRhythmMatch) {
         focusRhythm = entry;
         bestRhythmMatch = match;
       }

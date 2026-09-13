@@ -45,40 +45,39 @@ void main() {
     expect(response.directAnswer, isNot(contains('ranks ahead')));
     response.validate();
   });
-  test(
-    'available-action wording returns a saved task instead of unsupported',
-    () {
-      for (final text in [
-        'What can I do in five minutes before school pickup to review a bookkeeping example?',
-        'What can I work on for 10 minutes?',
-        'What can I do with an hour?',
-        'What can I do next?',
-      ]) {
-        final response = const SIV2Engine().analyze(
-          query: query(text),
-          snapshot: snapshot(
-            [],
-            tasks: [
-              SIV2TaskEvidence(
-                id: 'task',
-                title: 'Review a bookkeeping example',
-                createdAt: now,
-                priority: 3,
-              ),
-            ],
-          ),
-          now: now,
-        );
-        expect(
-          response.directAnswer,
-          contains('For the next action'),
-          reason: text,
-        );
-        expect(response.directAnswer, contains('Review a bookkeeping example'));
-        response.validate();
-      }
-    },
-  );
+  test('available-action wording returns a saved task instead of unsupported', () {
+    for (final text in [
+      'What can I do in five minutes before school pickup to review a bookkeeping example?',
+      'What can I work on for 10 minutes?',
+      'What can I do with an hour?',
+      'What can I do next?',
+      'I have five minutes before school pickup. What is one small bookkeeping action I can do now?',
+      'What is a quick task I can do next?',
+    ]) {
+      final response = const SIV2Engine().analyze(
+        query: query(text),
+        snapshot: snapshot(
+          [],
+          tasks: [
+            SIV2TaskEvidence(
+              id: 'task',
+              title: 'Review a bookkeeping example',
+              createdAt: now,
+              priority: 3,
+            ),
+          ],
+        ),
+        now: now,
+      );
+      expect(
+        response.directAnswer,
+        contains('For the next action'),
+        reason: text,
+      );
+      expect(response.directAnswer, contains('Review a bookkeeping example'));
+      response.validate();
+    }
+  });
   test(
     'weather and place questions do not become unrelated task schedules',
     () {
@@ -161,6 +160,52 @@ void main() {
     );
     expect(ask('Show my goals', []).directAnswer, contains('No saved'));
   });
+  test(
+    'ordinary current-goal and have-records questions list saved evidence',
+    () {
+      for (final text in [
+        'What are my current goals?',
+        'What goals do I have?',
+      ]) {
+        expect(
+          ask(text, [goal('g', 'Weekend bookkeeping')]).directAnswer,
+          contains('Weekend bookkeeping'),
+        );
+        expect(query(text).requestsListing, isTrue);
+      }
+      final response = const SIV2Engine().analyze(
+        query: query('What tasks do I have?'),
+        snapshot: snapshot(
+          [],
+          tasks: [
+            SIV2TaskEvidence(
+              id: 'receipts',
+              title: 'Sort grocery receipts',
+              createdAt: now,
+              priority: 3,
+            ),
+          ],
+        ),
+        now: now,
+      );
+      expect(response.directAnswer, contains('Sort grocery receipts'));
+      expect(
+        response.recommendation,
+        contains('Review the listed saved records'),
+      );
+      expect(
+        ask('What milestones do I have?', []).directAnswer,
+        contains('No saved'),
+      );
+      expect(query('What milestones do I have?').requestsListing, isTrue);
+      expect(
+        query(
+          'What are my current goals for the weather tomorrow?',
+        ).requestsListing,
+        isFalse,
+      );
+    },
+  );
   test(
     'new explicit topic excludes prior relevance but short follow-ups retain it',
     () async {

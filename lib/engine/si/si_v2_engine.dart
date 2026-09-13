@@ -1460,7 +1460,12 @@ final class _SIV2Question {
       r'(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|sixty) '
       r'(?:minutes?|hours?)\b)',
     ).hasMatch(input);
+    final bool asksForSmallAction = RegExp(
+      r'\bwhat is (?:one|a) (?:small |quick |practical )?(?:[a-z]+ )?'
+      r'(?:action|task|step) (?:that )?i can (?:do|take) (?:now|next)\b',
+    ).hasMatch(input);
     if (asksForAvailableAction ||
+        asksForSmallAction ||
         hasAny(<String>[
           'what should i do',
           'what do i do',

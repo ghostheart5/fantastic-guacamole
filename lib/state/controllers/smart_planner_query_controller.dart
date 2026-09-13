@@ -799,7 +799,9 @@ class SmartPlannerQueryController
       PlannerOption(
         kind: PlannerOptionKind.minimum,
         title: strategy.minimumTitle,
-        description: strategy.minimumAction(subject),
+        description: topic == _PlannerTopic.recovery
+            ? 'Within ${effort.minimumMinutes} minutes total, choose one nonessential task to postpone and take a quiet break. Stop when the timer ends.'
+            : strategy.minimumAction(subject),
         estimatedMinutes: effort.minimumMinutes,
         tradeoff: topic == _PlannerTopic.recovery
             ? 'This may delay one low-priority task, but it protects your energy right now.'
@@ -808,7 +810,9 @@ class SmartPlannerQueryController
       PlannerOption(
         kind: PlannerOptionKind.bestFit,
         title: strategy.bestFitTitle,
-        description: strategy.bestFitAction(subject),
+        description: topic == _PlannerTopic.recovery
+            ? 'Use ${effort.bestFitMinutes} minutes total to recover and reassess what part of $subject is realistic. Stop when the timer ends.'
+            : strategy.bestFitAction(subject),
         estimatedMinutes: effort.bestFitMinutes,
         tradeoff:
             'Balances meaningful progress with the capacity you reported.',
@@ -816,7 +820,9 @@ class SmartPlannerQueryController
       PlannerOption(
         kind: PlannerOptionKind.stretch,
         title: strategy.stretchTitle,
-        description: strategy.stretchAction(subject),
+        description: topic == _PlannerTopic.recovery
+            ? 'Use ${effort.stretchMinutes} minutes total to review essential commitments and choose one recovery adjustment. Leave the rest for later.'
+            : strategy.stretchAction(subject),
         estimatedMinutes: effort.stretchMinutes,
         tradeoff:
             'Creates more progress now, with a higher energy and attention cost.',
@@ -839,12 +845,17 @@ class SmartPlannerQueryController
       math.max(estimate, bestFitMinutes),
     );
     if (topic == _PlannerTopic.recovery) {
+      final int setupMinutes = minimumMinutes > 1
+          ? math.max(1, minimumMinutes ~/ 2)
+          : 0;
+      final int breakMinutes = minimumMinutes - setupMinutes;
       return <PlannerOption>[
         PlannerOption(
           kind: PlannerOptionKind.minimum,
           title: 'Reduce the saved task',
-          description:
-              'Reduce "$title" to one $minimumMinutes-minute setup step, then take a five-minute quiet break.',
+          description: setupMinutes == 0
+              ? 'Use the entire $minimumMinutes-minute block for a quiet break. Leave "$title" for another block.'
+              : 'Use $setupMinutes minutes to set up "$title", then take a $breakMinutes-minute quiet break. Stop after $minimumMinutes minutes total.',
           estimatedMinutes: minimumMinutes,
           tradeoff:
               'Protects capacity, but the saved task will need another work block.',
@@ -853,7 +864,7 @@ class SmartPlannerQueryController
           kind: PlannerOptionKind.bestFit,
           title: 'Recover, then reassess',
           description:
-              'Protect a $bestFitMinutes-minute recovery block, then decide what part of "$title" is still realistic today.',
+              'Use $bestFitMinutes minutes total to recover and decide what part of "$title" is realistic today. Stop when the timer ends.',
           estimatedMinutes: bestFitMinutes,
           tradeoff:
               'Preserves energy while keeping the saved commitment visible.',
@@ -862,7 +873,7 @@ class SmartPlannerQueryController
           kind: PlannerOptionKind.stretch,
           title: 'Reset today’s workload',
           description:
-              'Review the $activeTaskCount active saved task(s), defer one that can safely wait, and reserve the next $stretchMinutes minutes for recovery and "$title".',
+              'Within $stretchMinutes minutes total, review the $activeTaskCount active saved task(s), defer one that can safely wait, and use the remaining time for recovery and "$title". Stop when the timer ends.',
           estimatedMinutes: stretchMinutes,
           tradeoff:
               'Creates a clearer day, but requires more planning attention now.',
@@ -1304,7 +1315,7 @@ class SmartPlannerQueryController
       stretchTitle: 'Rebuild the day around recovery',
       mattersMost: 'Protecting capacity before demanding performance.',
       minimumAction: (String _) =>
-          'Choose one nonessential task to postpone. Then take a five-minute quiet break.',
+          'Choose one nonessential task to postpone and take a quiet break within this block.',
       bestFitAction: (String subject) =>
           'Create one protected recovery block, then reassess what part of $subject is still realistic.',
       stretchAction: (String subject) =>
