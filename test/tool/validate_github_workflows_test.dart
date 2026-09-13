@@ -60,6 +60,81 @@ void main() {
     ).readAsStringSync();
   });
 
+  group('Maestro prepared-script contract', () {
+    late String source;
+    setUp(
+      () => source = File(
+        '.github/workflows/maestro-runtime.yml',
+      ).readAsStringSync(),
+    );
+
+    test(
+      'accepts source-bound prepared script and complete evidence paths',
+      () {
+        expect(
+          workflow_validator.validateMaestroRuntimeSource(source),
+          isEmpty,
+        );
+      },
+    );
+
+    final mutations = <String, List<String>>{
+      'emulator calls a different script': [
+        'bash test-results/maestro-prewarm/run-suite.sh',
+        'echo skipped',
+      ],
+      'prepared script is not written': [
+        "cat > test-results/maestro-prewarm/run-suite.sh <<'SH'",
+        "cat > ignored.sh <<'SH'",
+      ],
+      'source hash omitted from runner': [
+        r'-ExpectedCommit "$QA_SOURCE_SHA"',
+        r'-ExpectedCommit "other-source"',
+      ],
+      'wrong physical target': [
+        '-DeviceSerial emulator-5554',
+        '-DeviceSerial moto',
+      ],
+      'verifier runs only on success': [
+        'if: always() && !inputs.monkey_only',
+        'if: success() && !inputs.monkey_only',
+      ],
+      'monkey-only bypasses all verification': [
+        'if: always() && inputs.run_monkey',
+        'if: false',
+      ],
+      'monkey-only does not require monkey': [
+        r'if [ "$QA_MONKEY_ONLY" = true ]; then test "$QA_MONKEY" = true; fi',
+        'echo no input gate',
+      ],
+      'skips allowed': [
+        "junit.get('skipped') != 0",
+        "junit.get('skipped') < 0",
+      ],
+      'runtime evidence omitted': [
+        '            artifacts/maestro-ci/**',
+        '            omitted/**',
+      ],
+      'guest diagnostics omitted': [
+        '            test-results/maestro-prewarm/**',
+        '            omitted/**',
+      ],
+    };
+    for (final mutation in mutations.entries) {
+      test('rejects ${mutation.key}', () {
+        expect(source, contains(mutation.value.first));
+        final changed = source.replaceFirst(
+          mutation.value.first,
+          mutation.value.last,
+        );
+        expect(
+          workflow_validator.validateMaestroRuntimeSource(changed),
+          isNotEmpty,
+        );
+      });
+    }
+  });
+
   test('canonical primary CI retains every required fail-closed gate', () {
     expect(workflow_validator.validatePrimaryCiSource(canonicalCi), isEmpty);
   });
