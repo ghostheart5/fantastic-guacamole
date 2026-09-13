@@ -36,7 +36,7 @@ final class SIV2Engine {
         ? snapshot.goals
               .where((SIV2GoalEvidence item) => matchesEntity(item.title))
               .where(
-                (SIV2GoalEvidence item) => _withinDeadlineRange(
+                (SIV2GoalEvidence item) => _withinGoalRange(
                   item.targetDate,
                   query.timeRange,
                   observedNow,
@@ -136,7 +136,7 @@ final class SIV2Engine {
         .where(
           (SIV2GoalEvidence item) =>
               item.targetDate != null &&
-              item.targetDate!.toUtc().isBefore(observedNow),
+              _localDay(item.targetDate!).isBefore(_localDay(observedNow)),
         )
         .length;
     final int overdueMilestones = milestones
@@ -511,7 +511,7 @@ final class SIV2Engine {
       final DateTime? taskDate = task.dueDate ?? task.scheduledFor;
       if (taskDate != null &&
           goal.targetDate != null &&
-          taskDate.toUtc().isAfter(goal.targetDate!.toUtc())) {
+          _localDay(taskDate).isAfter(_localDay(goal.targetDate!))) {
         conflicts.add(
           SIV2Conflict(
             conflictId: 'task-after-goal:${task.id}:$goalId',
@@ -547,7 +547,9 @@ final class SIV2Engine {
           : goalsById[milestone.goalId!];
       if (goal?.targetDate != null &&
           milestone.targetDate != null &&
-          milestone.targetDate!.toUtc().isAfter(goal!.targetDate!.toUtc())) {
+          _localDay(
+            milestone.targetDate!,
+          ).isAfter(_localDay(goal!.targetDate!))) {
         conflicts.add(
           SIV2Conflict(
             conflictId: 'milestone-after-goal:${milestone.id}:${goal.id}',
@@ -588,7 +590,7 @@ final class SIV2Engine {
               .firstOrNull;
     final bool crossesGoalDate =
         linkedGoal?.targetDate != null &&
-        deferredDate.toUtc().isAfter(linkedGoal!.targetDate!.toUtc());
+        _localDay(deferredDate).isAfter(_localDay(linkedGoal!.targetDate!));
     return <SIV2Scenario>[
       SIV2Scenario(
         kind: SIV2ScenarioKind.doNow,
@@ -699,7 +701,7 @@ final class SIV2Engine {
           return '"${focusTask.title}" has the strongest urgency signal: priority ${focusTask.priority}/5 and ${_timingLabel(date, now)}.';
         }
         if (focusGoal != null) {
-          return 'Goal "${focusGoal.title}" has the strongest available urgency signal with ${_targetLabel(focusGoal.targetDate, now)}.';
+          return 'Goal "${focusGoal.title}" has the strongest available urgency signal with ${_goalTargetLabel(focusGoal.targetDate, now)}.';
         }
         if (focusMilestone != null) {
           return 'Milestone "${focusMilestone.title}" has the strongest available urgency signal with ${_targetLabel(focusMilestone.targetDate, now)}.';
@@ -958,13 +960,7 @@ final class SIV2Engine {
             .titleScore(right.title)
             .compareTo(question.titleScore(left.title));
         if (relevanceOrder != 0) return relevanceOrder;
-        final DateTime leftDate =
-            left.targetDate ??
-            DateTime.fromMillisecondsSinceEpoch(8640000000000000, isUtc: true);
-        final DateTime rightDate =
-            right.targetDate ??
-            DateTime.fromMillisecondsSinceEpoch(8640000000000000, isUtc: true);
-        return leftDate.compareTo(rightDate);
+        return _compareGoalTargets(left.targetDate, right.targetDate);
       });
     return ranked.first;
   }
@@ -1068,22 +1064,17 @@ final class SIV2Engine {
             .titleScore(right.title)
             .compareTo(question.titleScore(left.title));
         if (relevanceOrder != 0) return relevanceOrder;
-        return (left.targetDate ?? _farFuture).compareTo(
-          right.targetDate ?? _farFuture,
-        );
+        return _compareGoalTargets(left.targetDate, right.targetDate);
       });
     final SIV2GoalEvidence first = ranked[0];
     final SIV2GoalEvidence second = ranked[1];
     if (question.titleScore(first.title) != question.titleScore(second.title)) {
-      return '"${first.title}" ranks ahead of "${second.title}" because its title more closely matches this question. Recorded targets: ${_targetLabel(first.targetDate, now)} versus ${_targetLabel(second.targetDate, now)}; dates did not decide this ordering.';
+      return '"${first.title}" ranks ahead of "${second.title}" because its title more closely matches this question. Recorded targets: ${_goalTargetLabel(first.targetDate, now)} versus ${_goalTargetLabel(second.targetDate, now)}; dates did not decide this ordering.';
     }
-    if ((first.targetDate ?? _farFuture).compareTo(
-          second.targetDate ?? _farFuture,
-        ) !=
-        0) {
-      return '"${first.title}" ranks ahead of "${second.title}" because title relevance is tied and its recorded target is ${_targetLabel(first.targetDate, now)} versus ${_targetLabel(second.targetDate, now)}.';
+    if (_compareGoalTargets(first.targetDate, second.targetDate) != 0) {
+      return '"${first.title}" ranks ahead of "${second.title}" because title relevance is tied and its recorded target is ${_goalTargetLabel(first.targetDate, now)} versus ${_goalTargetLabel(second.targetDate, now)}.';
     }
-    return '"${first.title}" and "${second.title}" are tied on title relevance and recorded targets (${_targetLabel(first.targetDate, now)}). These signals do not establish a higher priority for either goal.';
+    return '"${first.title}" and "${second.title}" are tied on title relevance and recorded targets (${_goalTargetLabel(first.targetDate, now)}). These signals do not establish a higher priority for either goal.';
   }
 
   SIV2Conflict? _relevantConflict(
@@ -1141,6 +1132,41 @@ final class SIV2Engine {
     return utc.isBefore(now)
         ? 'target ${_dateLabel(utc)}, now past'
         : 'target ${_dateLabel(utc)}';
+  }
+
+  // Goal targets are local calendar dates, like Home and Timeline. UTC here
+  // is only a day key, so comparing days remains safe across DST transitions.
+  DateTime _localDay(DateTime value) {
+    final local = value.toLocal();
+    return DateTime.utc(local.year, local.month, local.day);
+  }
+
+  int _compareGoalTargets(DateTime? left, DateTime? right) {
+    if (left == null) return right == null ? 0 : 1;
+    if (right == null) return -1;
+    return _localDay(left).compareTo(_localDay(right));
+  }
+
+  String _goalTargetLabel(DateTime? date, DateTime now) {
+    if (date == null) return 'no saved target date';
+    final day = _localDay(date);
+    final order = day.compareTo(_localDay(now));
+    final suffix = order < 0 ? ', now past' : (order == 0 ? ', due today' : '');
+    return 'target ${_dateLabel(day)}$suffix';
+  }
+
+  bool _withinGoalRange(
+    DateTime? date,
+    SIV2TimeRange range,
+    DateTime now, {
+    required bool undatedMatches,
+  }) {
+    if (range == SIV2TimeRange.all) return true;
+    if (date == null) return undatedMatches;
+    final day = _localDay(date);
+    final start = _localDay(now);
+    if (day.isBefore(start)) return true;
+    return _withinRange(day, range, start, undatedMatches: undatedMatches);
   }
 
   String _dateLabel(DateTime value) =>

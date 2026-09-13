@@ -2244,6 +2244,91 @@ void main() {
     },
   );
 
+  for (final followUp in [false, true]) {
+    test(
+      'compound energy and time budget caps all options (follow-up: $followUp)',
+      () {
+        final container = plannerContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(smartPlannerQueryControllerProvider);
+        for (final input in [
+          'I have zero energy and five minutes. Help me recover.',
+          'I have low energy and 5 minutes. Help me recover.',
+          'We have no energy and five minutes. Help me recover.',
+          'I have very little energy and only five minutes. Help me recover.',
+          'Tengo poca energía y cinco minutos. Help me recover.',
+          'Tenemos cero energía y cinco minutos. Help me recover.',
+        ]) {
+          final response = controller.buildPlannerResponse(
+            input: input,
+            energy: 0,
+            emotion: null,
+            contextWasProvided: true,
+            isFollowUp: followUp,
+            history: followUp
+                ? const [
+                    {
+                      'role': 'user',
+                      'content': 'I have twenty minutes. Help me recover.',
+                    },
+                    {
+                      'role': 'assistant',
+                      'content': 'Choose a quiet recovery block.',
+                    },
+                  ]
+                : const [],
+          );
+          expect(response.options, hasLength(3), reason: input);
+          expect(
+            response.options.map((o) => o.estimatedMinutes),
+            everyElement(lessThanOrEqualTo(5)),
+            reason: input,
+          );
+          expect(
+            response.adaptationReceipt.adjustments,
+            contains(contains('requested time limit of 5 minutes')),
+            reason: input,
+          );
+          expect(response.recommendedKind, PlannerOptionKind.minimum);
+        }
+      },
+    );
+  }
+
+  test(
+    'compound parser does not treat past activity or negation as a budget',
+    () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      for (final input in [
+        'I had zero energy and five minutes yesterday. Help me recover.',
+        'I have zero energy and spent five minutes walking yesterday. Help me recover.',
+        'I do not have zero energy and five minutes. Help me recover.',
+        'My note is titled zero energy and five minutes. Help me recover.',
+        'Tenía poca energía y cinco minutos ayer. Help me recover.',
+        'No tengo energía y cinco minutos. Help me recover.',
+      ]) {
+        final response = controller.buildPlannerResponse(
+          input: input,
+          energy: 0,
+          emotion: null,
+          contextWasProvided: true,
+        );
+        expect(
+          response.options.map((o) => o.estimatedMinutes),
+          contains(greaterThan(5)),
+          reason: input,
+        );
+        expect(
+          response.adaptationReceipt.adjustments,
+          isNot(contains(contains('requested time limit'))),
+          reason: input,
+        );
+      }
+    },
+  );
+
   test(
     'follow-up time limits stay with the subject and explicit changes win',
     () {

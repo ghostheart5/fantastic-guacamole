@@ -235,9 +235,19 @@ int? _explicitPlanningTimeLimit(String input) {
     r'(\d+(?:\.\d+)?)[ -]+(minutes?|hours?)[ -]+(?:step|plan|session|task)\b',
     caseSensitive: false,
   );
+  // A present-tense capacity statement can share its verb: "I have zero
+  // energy and five minutes". Keep the intervening phrase bounded to energy
+  // rather than scanning arbitrary text (titles, past activity, or negation).
+  final compoundWindowPattern = RegExp(
+    r'\b(?:(?:i|we)\s+have\s+(?:(?:zero|no|low|little|very little|0)\s+)?energy\s+and\s+(?:only\s+)?'
+    r'|(?<!no\s)(?:tengo|tenemos)\s+(?:(?:cero|poca|muy poca|0)\s+)?energ[ií]a\s+y\s+(?:solo\s+)?)'
+    r'(\d+(?:\.\d+)?)\s*(?:quiet\s+|spare\s+)?(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
+    caseSensitive: false,
+  );
   final matches = <RegExpMatch>[
     ...windowPattern.allMatches(normalized),
     ...stepPattern.allMatches(normalized),
+    ...compoundWindowPattern.allMatches(normalized),
   ];
   int? limit;
   for (final match in matches) {
