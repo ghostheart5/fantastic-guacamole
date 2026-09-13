@@ -113,13 +113,32 @@ class NotificationsRepository implements INotificationRepository {
   @override
   Future<void> scheduleNotification(NotificationEntity notification) async {
     await _runMutation(() async {
-      await _upsert(notification);
+      final List<NotificationEntity> entries = await _readNotifications();
+      final NotificationEntity? existing = _find(entries, notification.id);
+      // Startup can schedule the same reminder again. Reading it is durable
+      // for that occurrence; changed content or time represents a new one.
+      // Compare instants because storage serializes local times as UTC.
+      final bool preserveRead =
+          existing != null &&
+          existing.isRead &&
+          existing.title == notification.title &&
+          existing.message == notification.message &&
+          existing.scheduledAt.isAtSameMomentAs(notification.scheduledAt);
+      final NotificationEntity scheduled = preserveRead
+          ? _copy(notification, isRead: true)
+          : notification;
+      await _save(<NotificationEntity>[
+        scheduled,
+        ...entries.where(
+          (NotificationEntity entry) => entry.id != scheduled.id,
+        ),
+      ]);
       try {
         final schedule = _scheduleNotification;
         if (schedule != null) {
-          await schedule(notification);
+          await schedule(scheduled);
         } else {
-          await _scheduler.schedule(notification, accountScope: _accountScope);
+          await _scheduler.schedule(scheduled, accountScope: _accountScope);
         }
       } catch (error) {
         Logger.warn(

@@ -5,16 +5,83 @@ import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'read goal reminder survives startup synchronization and provider reload',
+    () async {
+      final preferences = _MemoryPreferences();
+      final scheduler = _RecordingScheduler();
+      final backend = InMemorySecureStoreBackend();
+      const accountId = 'goal-reminder-restart-account';
+      NotificationsRepository repository() => NotificationsRepository(
+        scheduler,
+        SecureStore(backend: backend),
+        accountId: accountId,
+      );
+      ReminderOrchestratorService service(NotificationsRepository repository) =>
+          ReminderOrchestratorService(
+            preferences: preferences,
+            notifications: NotificationsService(repository),
+            scheduler: scheduler,
+            accountScope: AccountDataRegistry.accountDigest(accountId),
+          );
+      ProviderContainer container(NotificationsRepository repository) =>
+          ProviderContainer(
+            overrides: [
+              domainNotificationRepositoryProvider.overrideWithValue(
+                repository,
+              ),
+            ],
+          );
+      final now = DateTime.now();
+      final goal = GoalEntity(
+        id: 'groceries',
+        title: 'Prepare Thursday grocery pickup',
+        createdAt: now,
+        targetDate: now.add(const Duration(days: 4)),
+      );
+      final originalRepository = repository();
+      await service(originalRepository).syncGoalReminders([goal]);
+      final original = container(originalRepository);
+      try {
+        original.read(notificationProvider);
+        await pumpEventQueue();
+        expect(original.read(unreadNotificationsProvider), 1);
+        final id = original.read(notificationProvider).single.id;
+        await original.read(notificationProvider.notifier).markRead(id);
+        expect(original.read(unreadNotificationsProvider), 0);
+      } finally {
+        original.dispose();
+      }
+
+      // Startup recreates services/providers but retains account storage.
+      final restartedRepository = repository();
+      await service(restartedRepository).syncGoalReminders([goal]);
+      await service(restartedRepository).syncGoalReminders([goal]);
+      final restarted = container(restartedRepository);
+      addTearDown(restarted.dispose);
+      restarted.read(notificationProvider);
+      await pumpEventQueue();
+
+      expect(restarted.read(notificationProvider), hasLength(1));
+      expect(restarted.read(notificationProvider).single.isRead, isTrue);
+      expect(restarted.read(unreadNotificationsProvider), 0);
+    },
+  );
+
   test(
     'disabled daily reminder uses the real repository under its reentrant account lock',
     () async {

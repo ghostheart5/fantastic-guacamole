@@ -149,6 +149,128 @@ void main() {
     expect(entries.single.isRead, isTrue);
   });
 
+  NotificationEntity reminder({
+    String title = 'Goal Reminder',
+    String message = 'Prepare Thursday grocery pickup',
+    DateTime? at,
+    bool enabled = true,
+  }) => NotificationEntity(
+    id: 'goal_reminder_groceries',
+    title: title,
+    message: message,
+    scheduledAt: at ?? DateTime.utc(2026, 9, 16),
+    isEnabled: enabled,
+  );
+
+  NotificationsRepository reopen({
+    String accountId = 'account-a',
+    Future<void> Function(NotificationEntity)? schedule,
+  }) => NotificationsRepository(
+    NotificationScheduler(),
+    SecureStore(backend: backend),
+    accountId: accountId,
+    scheduleNotification: schedule ?? (_) async {},
+  );
+
+  test(
+    'unchanged reminder stays read across repeated scheduling and reload',
+    () async {
+      await repository.scheduleNotification(reminder());
+      await repository.markRead(reminder().id);
+      final scheduled = <NotificationEntity>[];
+      final reopened = reopen(schedule: (entry) async => scheduled.add(entry));
+
+      await reopened.scheduleNotification(reminder());
+      await reopened.scheduleNotification(reminder());
+
+      final persisted = await reopen().getNotifications();
+      expect(persisted, hasLength(1));
+      expect(persisted.single.isRead, isTrue);
+      expect(scheduled, hasLength(2));
+      expect(scheduled.every((entry) => entry.isRead), isTrue);
+    },
+  );
+
+  for (final field in ['title', 'message', 'time']) {
+    test('changed reminder $field is unread even with the same ID', () async {
+      await repository.scheduleNotification(reminder());
+      await repository.markRead(reminder().id);
+      final changed = reminder(
+        title: field == 'title' ? 'Updated goal reminder' : 'Goal Reminder',
+        message: field == 'message'
+            ? 'Prepare Friday grocery pickup'
+            : 'Prepare Thursday grocery pickup',
+        at: field == 'time' ? DateTime.utc(2026, 9, 17) : null,
+      );
+
+      await reopen().scheduleNotification(changed);
+
+      final persisted = await reopen().getNotifications();
+      expect(persisted, hasLength(1));
+      expect(persisted.single.isRead, isFalse);
+      expect(persisted.single.title, changed.title);
+      expect(persisted.single.message, changed.message);
+      expect(persisted.single.scheduledAt, changed.scheduledAt);
+    });
+  }
+
+  test(
+    'equivalent local and UTC instants preserve reminder read state',
+    () async {
+      final instant = DateTime.utc(2026, 9, 16);
+      await repository.scheduleNotification(reminder(at: instant.toLocal()));
+      await repository.markRead(reminder().id);
+
+      await reopen().scheduleNotification(reminder(at: instant));
+
+      expect((await reopen().getNotifications()).single.isRead, isTrue);
+    },
+  );
+
+  test('re-enabling an unchanged reminder retains its read state', () async {
+    await repository.scheduleNotification(reminder());
+    await repository.markRead(reminder().id);
+    await repository.cancelNotification(reminder().id);
+    expect((await repository.getNotifications()).single.isEnabled, isFalse);
+
+    await reopen().scheduleNotification(reminder());
+
+    final persisted = (await reopen().getNotifications()).single;
+    expect(persisted.isEnabled, isTrue);
+    expect(persisted.isRead, isTrue);
+  });
+
+  test('same reminder ID cannot inherit another account read state', () async {
+    await repository.scheduleNotification(reminder());
+    await repository.markRead(reminder().id);
+    final otherAccount = reopen(accountId: 'account-b');
+
+    await otherAccount.scheduleNotification(reminder());
+    await reopen().scheduleNotification(reminder());
+
+    expect((await reopen().getNotifications()).single.isRead, isTrue);
+    expect((await otherAccount.getNotifications()).single.isRead, isFalse);
+  });
+
+  for (final readFirst in [true, false]) {
+    test(
+      'concurrent read and reminder sync preserve read state (read first: $readFirst)',
+      () async {
+        await repository.scheduleNotification(reminder());
+        final otherInstance = reopen();
+        await Future.wait<void>([
+          if (readFirst) repository.markRead(reminder().id),
+          otherInstance.scheduleNotification(reminder()),
+          if (!readFirst) repository.markRead(reminder().id),
+        ]);
+
+        final persisted = await reopen().getNotifications();
+        expect(persisted, hasLength(1));
+        expect(persisted.single.isRead, isTrue);
+      },
+    );
+  }
+
   test(
     'cancelAll disables all notifications and invokes scheduler hook',
     () async {
