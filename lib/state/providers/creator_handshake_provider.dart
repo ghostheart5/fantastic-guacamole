@@ -1074,6 +1074,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       switch (kind) {
         case CreatorEntityKind.task:
           ref.invalidate(tasksProvider);
+          ref.invalidate(goalProgressProvider);
           break;
         case CreatorEntityKind.goal:
           ref.invalidate(goalsReadProvider);

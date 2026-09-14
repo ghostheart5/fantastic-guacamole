@@ -25,6 +25,7 @@ import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -763,6 +764,57 @@ void main() {
       );
     },
   );
+
+  for (final bool undo in <bool>[false, true]) {
+    test(
+      'linked task ${undo ? 'undo' : 'confirmation'} refreshes previously read goal progress',
+      () async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        harness.repository.seed(
+          TaskEntity(
+            id: 'completed-action',
+            title: 'Check the first shirt',
+            goalId: 'laundry',
+            createdAt: harness.now,
+            isCompleted: true,
+          ),
+        );
+        final progress = goalProgressProvider('laundry');
+        if (!undo) {
+          final before = await harness.container.read(progress.future);
+          expect(before.totalCount, 1);
+          expect(before.fraction, 1);
+        }
+        await harness.notifier.stage(
+          data: const CreatorFormData(
+            title: 'Check the next care label',
+            type: 'Task',
+            priority: 3,
+            goalId: 'laundry',
+          ),
+        );
+        expect(
+          (await harness.notifier.confirm()).phase,
+          CreatorHandshakePhase.applied,
+        );
+        final afterCreate = await harness.container.read(progress.future);
+        expect(afterCreate.totalCount, 2);
+        expect(afterCreate.completedCount, 1);
+        expect(afterCreate.fraction, .5);
+        if (undo) {
+          expect(
+            (await harness.notifier.undo()).phase,
+            CreatorHandshakePhase.undone,
+          );
+          final afterUndo = await harness.container.read(progress.future);
+          expect(afterUndo.totalCount, 1);
+          expect(afterUndo.completedCount, 1);
+          expect(afterUndo.fraction, 1);
+        }
+      },
+    );
+  }
 
   test('task mutation preserves all scheduling and goal fields', () async {
     final _Harness harness = _Harness();
