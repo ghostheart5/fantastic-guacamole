@@ -16,6 +16,7 @@ final class _PlannerIntent {
     required this.timeNeedsClarification,
     required this.recoveryConflict,
     this.action,
+    this.availableContainer,
   });
 
   factory _PlannerIntent.resolve({
@@ -42,10 +43,7 @@ final class _PlannerIntent {
     final note = evidence.selectedNote;
     final noteRelevant =
         note != null &&
-        (RegExp(
-              r'\b(selected note|this note|nota seleccionada|esta nota)\b',
-              caseSensitive: false,
-            ).hasMatch(source) ||
+        (_plannerReferencesSelectedNote(source) ||
             note.taskId == evidence.focusTask?.id && note.taskId != null ||
             note.goalId == evidence.focusGoal?.id && note.goalId != null ||
             _plannerTerms(
@@ -66,7 +64,8 @@ final class _PlannerIntent {
     final recovery =
         zeroEnergy ||
         currentRecovery ||
-        ((requestedAction == null || conversation.continuesPriorSubject) &&
+        (!_declinesPlannerRecovery(conversation.input) &&
+            (requestedAction == null || conversation.continuesPriorSubject) &&
             _explicitRecoveryRequest(source));
     final noteActions = noteRelevant
         ? _plannerActionCandidates(noteText)
@@ -76,11 +75,7 @@ final class _PlannerIntent {
         : const <String>[];
     String? action = requestedAction;
     if (action == null && !recovery) {
-      action =
-          RegExp(
-            r'\b(selected note|this note|nota seleccionada|esta nota)\b',
-            caseSensitive: false,
-          ).hasMatch(source)
+      action = _plannerReferencesSelectedNote(source)
           ? noteActions.firstOrNull ??
                 _savedPlannerAction(evidence.focusTask?.title ?? '')
           : _savedPlannerAction(evidence.focusTask?.title ?? '') ??
@@ -92,7 +87,10 @@ final class _PlannerIntent {
           );
     }
     if (action != null && noteRelevant && !recovery) {
-      final requestedTerms = _plannerTerms(action);
+      final requestedTerms = _plannerTopicTerms(action);
+      final requestedActivity = _plannerVerbRoot(
+        action.split(' ').first.toLowerCase(),
+      );
       for (final noteAction in noteActions) {
         final prerequisite = RegExp(
           r'^(.+?)\s+(?:before|antes de)\s+(.+)$',
@@ -101,15 +99,24 @@ final class _PlannerIntent {
         if (prerequisite == null) {
           continue;
         }
-        final dependentTerms = _plannerTerms(prerequisite.group(2)!);
-        if (requestedTerms.any(
-          (term) => dependentTerms.any(
-            (dependent) =>
-                term == dependent ||
-                dependent == '${term}ing' ||
-                dependent == '${term}ed',
-          ),
-        )) {
+        final dependentActivity = _plannerVerbRoot(
+          prerequisite.group(2)!.trim().split(' ').first.toLowerCase(),
+        );
+        if (requestedActivity != dependentActivity) {
+          continue;
+        }
+        final dependentTerms = _plannerTopicTerms(prerequisite.group(2)!);
+        final selectedActivityOnly =
+            dependentTerms.isEmpty && _plannerReferencesSelectedNote(source);
+        if (selectedActivityOnly ||
+            requestedTerms.any(
+              (term) => dependentTerms.any(
+                (dependent) =>
+                    term == dependent ||
+                    dependent == '${term}ing' ||
+                    dependent == '${term}ed',
+              ),
+            )) {
           action = noteAction;
           break;
         }
@@ -122,6 +129,7 @@ final class _PlannerIntent {
                 action,
                 spanish: language == 'es',
                 constraints: constraints,
+                availableContainer: _plannerAvailableContainer(source),
               ),
               constraints,
             ))) {
@@ -130,9 +138,14 @@ final class _PlannerIntent {
     return _PlannerIntent(
       objective: conversation.subject,
       action: action,
+      availableContainer: _plannerAvailableContainer(source),
       languageCode: language,
       constraints: constraints,
-      noteActions: noteActions,
+      // Matching an object can justify a prerequisite, not every other task
+      // in that note. Broader note steps require the user's explicit selection.
+      noteActions: _plannerReferencesSelectedNote(source)
+          ? noteActions
+          : noteActions.where((noteAction) => noteAction == action).toList(),
       recovery: recovery,
       recoveryConflict:
           zeroEnergy &&
@@ -160,6 +173,7 @@ final class _PlannerIntent {
 
   final String objective;
   final String? action;
+  final String? availableContainer;
   final String languageCode;
   final List<String> constraints;
   final List<String> noteActions;
@@ -208,7 +222,7 @@ final class _PlannerIntent {
           ? 'El objetivo corregido es: ${_sentence(correction)}'
           : 'The corrected target is: ${_sentence(correction)}';
     }
-    if (savedSubject != null) {
+    if (savedSubject != null && objective.trim().isEmpty) {
       return spanish
           ? 'Quieres avanzar en $savedSubject, pero falta concretar el siguiente paso.'
           : 'You want to move $savedSubject forward, but the next action is not clear yet.';
@@ -256,8 +270,10 @@ final class _PlannerIntent {
     }
     if (limit != null) {
       return spanish
-          ? 'Mantén este único paso dentro de los $limit minutos disponibles.'
-          : 'Keep this one step within your available $limit minutes.';
+          ? limit == 1
+                ? 'Mantén este único paso dentro del minuto disponible.'
+                : 'Mantén este único paso dentro de los $limit minutos disponibles.'
+          : 'Keep this one step within your available ${_plannerMinutes(limit)}.';
     }
     return spanish
         ? 'Empieza por la acción que has indicado y deja lo opcional para después.'
@@ -294,6 +310,7 @@ final class _PlannerIntent {
             action!,
             spanish: spanish,
             constraints: constraints,
+            availableContainer: availableContainer,
           );
     final noteSteps = noteActions
         .where((value) => value.toLowerCase() != action?.toLowerCase())
@@ -302,11 +319,11 @@ final class _PlannerIntent {
         .toList(growable: false);
     final noIroning = constraints.any(
       (value) => RegExp(
-        r'\b(?:iron|ironing|planchar)\b',
+        r'\b(?:iron|ironing|planchar|planchado)\b',
         caseSensitive: false,
       ).hasMatch(value),
     );
-    final constraintText = noIroning
+    final constraintText = noIroning && !recovery
         ? spanish
               ? ' Deja la plancha para otro momento.'
               : ' Leave ironing out of this step.'
@@ -357,13 +374,19 @@ String _plannerLanguage(String text) =>
     ? 'es'
     : 'en';
 
+bool _plannerReferencesSelectedNote(String text) => RegExp(
+  r'\b(?:selected|this|that)(?:\s+[a-záéíóúüñ-]+){0,3}\s+note\b'
+  r'|\b(?:esta|esa)\s+nota\b|\bnota(?:\s+[a-záéíóúüñ-]+){0,2}\s+seleccionada\b',
+  caseSensitive: false,
+).hasMatch(text);
+
 String _sentence(String text) {
   final clean = text.trim().replaceAll(RegExp(r'[.!?;]+$'), '');
   return clean.isEmpty ? '' : '${clean[0].toUpperCase()}${clean.substring(1)}.';
 }
 
 bool _negatedPlannerClause(String clause) => RegExp(
-  r"\b(?:not|never|cannot|can['’]t|don['’]t|do not|no|nunca|sin|ni|evita|avoid)\b",
+  r"(?<![a-záéíóúüñ])(?:not|never|cannot|can['’]t|don['’]t|do not|no|nunca|sin|ni|evita|avoid)(?![a-záéíóúüñ])",
   caseSensitive: false,
 ).hasMatch(clause);
 
@@ -381,41 +404,257 @@ List<String> _plannerExclusions(String text) => text
     .toList(growable: false);
 
 bool _actionContradicts(String action, List<String> constraints) {
-  final terms = _plannerTerms(action);
   for (final constraint in constraints) {
-    // Match the forbidden action, not every shared noun ("do not iron the
-    // uniform" must not prohibit packing the same uniform).
-    final forbidden = RegExp(
-      r"\b(?:do not|don['’]t|cannot|can['’]t|avoid|not|no|never|nunca|sin)\s+(?:need to\s+|need a\s+)?([a-záéíóúñ]+)",
+    final negation = RegExp(
+      r"\b(?:do not|don['’]t|cannot|can['’]t|avoid|not|no|never|nunca|sin|evita)\s+",
       caseSensitive: false,
-    ).firstMatch(constraint)?.group(1)?.toLowerCase();
-    if (forbidden != null &&
-        terms.any(
-          (term) =>
-              term == forbidden ||
-              term == '${forbidden}ing' ||
-              term == '${forbidden}ed',
-        )) {
-      return true;
+    ).firstMatch(constraint);
+    if (negation == null) {
+      continue;
     }
-    if (RegExp(
-          r'\b(no ironing|sin planchar|no planchar)\b',
-          caseSensitive: false,
-        ).hasMatch(constraint) &&
-        RegExp(
-          r'\b(iron|ironing|planchar)\b',
-          caseSensitive: false,
-        ).hasMatch(action)) {
-      return true;
+    final prohibited = constraint
+        .substring(negation.end)
+        .replaceFirst(
+          RegExp(r'^(?:puedo|puedes|debemos|debo)\s+', caseSensitive: false),
+          '',
+        );
+    // Coordinated prohibitions inherit the negation, but retain their own
+    // objects: leaving a child does not forbid leaving other receipts for later.
+    for (final phrase in prohibited.split(
+      RegExp(r'\s+(?:or|and|ni|o|y)\s+', caseSensitive: false),
+    )) {
+      final words = RegExp(r'[a-záéíóúñ]+').allMatches(phrase.toLowerCase());
+      if (words.isEmpty) {
+        continue;
+      }
+      final verb = _plannerVerbRoot(words.first.group(0)!);
+      if (!_plannerKnownVerb(verb)) {
+        continue;
+      }
+      final objects = _plannerObjectTerms(phrase.substring(words.first.end));
+      for (final proposed in action.split(RegExp(r'[.!?;\n]+'))) {
+        final proposedWords = RegExp(
+          r'[a-záéíóúñ]+',
+        ).allMatches(proposed.toLowerCase());
+        final usesVerb = proposedWords.any(
+          (word) =>
+              _plannerVerbRoot(word.group(0)!) == verb &&
+              !_negatedPlannerClause(proposed.substring(0, word.start)),
+        );
+        if (usesVerb &&
+            (objects.isEmpty ||
+                objects
+                    .intersection(_plannerObjectTerms(proposed))
+                    .isNotEmpty)) {
+          return true;
+        }
+      }
     }
   }
   return false;
 }
 
-bool _explicitRecoveryRequest(String text) {
+const _plannerProhibitionVerbs = {
+  'leave',
+  'silence',
+  'work',
+  'iron',
+  'send',
+  'write',
+  'open',
+  'clean',
+  'wash',
+  'pack',
+  'sort',
+  'call',
+  'read',
+  'check',
+  'plan',
+  'dejar',
+  'silenciar',
+  'trabajar',
+  'planchar',
+  'enviar',
+  'escribir',
+  'abrir',
+  'limpiar',
+  'lavar',
+  'guardar',
+  'ordenar',
+  'llamar',
+  'leer',
+  'revisar',
+};
+
+bool _plannerKnownVerb(String word) =>
+    _plannerProhibitionVerbs.contains(word) ||
+    RegExp('^(?:$_plannerActionVerbs)\$', caseSensitive: false).hasMatch(word);
+
+String _plannerVerbRoot(String word) => switch (word) {
+  'leaving' || 'leaves' || 'left' => 'leave',
+  'silencing' || 'silenced' => 'silence',
+  'working' || 'worked' => 'work',
+  'ironing' || 'ironed' => 'iron',
+  'writing' || 'written' => 'write',
+  'sending' || 'sent' => 'send',
+  'opening' || 'opened' => 'open',
+  'cleaning' || 'cleaned' => 'clean',
+  'washing' || 'washed' => 'wash',
+  'packing' || 'packed' => 'pack',
+  'sorting' || 'sorted' => 'sort',
+  'planning' || 'planned' => 'plan',
+  'deja' || 'dejes' || 'dejando' => 'dejar',
+  'silencia' || 'silencies' => 'silenciar',
+  'trabaja' || 'trabajes' || 'trabajo' => 'trabajar',
+  'plancha' || 'planches' => 'planchar',
+  'envía' || 'envíes' => 'enviar',
+  'escribe' || 'escribas' => 'escribir',
+  'abre' || 'abras' => 'abrir',
+  'limpia' || 'limpies' => 'limpiar',
+  'lava' || 'laves' => 'lavar',
+  'guarda' || 'guardes' => 'guardar',
+  'ordena' || 'ordeno' || 'ordenes' => 'ordenar',
+  'revisa' || 'reviso' || 'revises' => 'revisar',
+  _ => _plannerRegularVerbRoot(word),
+};
+
+String _plannerRegularVerbRoot(String word) {
+  for (final suffix in ['ing', 'ed', 's']) {
+    if (word.length > suffix.length + 2 && word.endsWith(suffix)) {
+      final stem = word.substring(0, word.length - suffix.length);
+      if (_plannerKnownVerb(stem)) {
+        return stem;
+      }
+      if (_plannerKnownVerb('${stem}e')) {
+        return '${stem}e';
+      }
+    }
+  }
+  return word;
+}
+
+Set<String> _plannerObjectTerms(String text) => _plannerTopicTerms(text)
+    .map(
+      (term) => switch (term) {
+        'toddler' ||
+        'baby' ||
+        'children' ||
+        'hijo' ||
+        'hija' ||
+        'niño' ||
+        'niña' => 'child',
+        _ =>
+          term.length > 4 && term.endsWith('s')
+              ? term.substring(0, term.length - 1)
+              : term,
+      },
+    )
+    .toSet();
+
+// Procedural words can occur in almost any saved description. They cannot
+// establish that the user chose that task, note, goal, or rhythm.
+Set<String> _plannerTopicTerms(String text) => _plannerTerms(text)
+    .where(
+      (term) =>
+          !RegExp(
+            '^(?:$_plannerActionVerbs)\$',
+            caseSensitive: false,
+          ).hasMatch(term) &&
+          !_plannerProhibitionVerbs.contains(_plannerVerbRoot(term)) &&
+          !const {
+            'stop',
+            'resume',
+            'first',
+            'next',
+            'later',
+            'now',
+            'minute',
+            'minutes',
+            'time',
+            'step',
+            'one',
+            'two',
+            'five',
+            'ten',
+            'twenty',
+            'for',
+            'and',
+            'but',
+            'not',
+            'any',
+            'the',
+            'our',
+            'your',
+            'its',
+            'can',
+            'cannot',
+            'alone',
+            'immediately',
+            'please',
+            'right',
+            'per',
+            'day',
+            'daily',
+            'once',
+            'enough',
+            'gentle',
+            'synthetic',
+            'journey',
+            'validation',
+            'minuto',
+            'paso',
+            'primero',
+            'luego',
+            'ahora',
+            'con',
+            'sin',
+            'una',
+            'uno',
+            'los',
+            'las',
+            'del',
+            'mis',
+            'sus',
+            'por',
+            'favor',
+            'puedo',
+            'debo',
+            'parar',
+            'retomar',
+          }.contains(term),
+    )
+    .toSet();
+
+Iterable<String> _plannerAffirmativeClauses(String text) => text
+    .split(RegExp(r'[.!?;,\n]+|\bbut\b|\bpero\b', caseSensitive: false))
+    .where((clause) => !_negatedPlannerClause(clause));
+
+String _plannerWithoutQuotedText(String text) => text.replaceAll(
+  RegExp(r'''"[^"]*"|“[^”]*”|‘[^’]*’|(?<!\w)'[^']*'(?!\w)'''),
+  '',
+);
+
+bool _plannerHistoricalOrUncertain(String text) => RegExp(
+  r'\b(?:yesterday|earlier|used to|last time|previously|said|quoted|quote|hypothetical|maybe|perhaps|might|if|not sure|unsure|ayer|antes dije|dije|quiz[aá]s|tal vez|no s[eé]|si pudiera)\b',
+  caseSensitive: false,
+).hasMatch(text);
+
+bool? _plannerRecoveryPreference(String text) {
+  bool? preference;
   for (final clause in text.split(
     RegExp(r'[.!?;,\n]+|\bbut\b|\bpero\b', caseSensitive: false),
   )) {
+    final current = _plannerWithoutQuotedText(clause);
+    if (_plannerHistoricalOrUncertain(current)) {
+      continue;
+    }
+    if (RegExp(
+      r"\b(?:do not|don['’]t|not|no longer|never|no)\b.{0,25}\b(?:need|want|suggest|rest|break|pause|necesito|quiero|sugieras|descansar|descanso|pausa)\b.{0,20}\b(?:rest|break|pause|recovery|descansar|descanso|pausa)\b|\b(?:do not rest|don['’]t rest|no rest|no break|sin descanso|sin pausa|no descanses)\b",
+      caseSensitive: false,
+    ).hasMatch(current)) {
+      preference = false;
+      continue;
+    }
     if (_negatedPlannerClause(clause) &&
         !RegExp(
           r'\b(no|zero) energy\b|sin energ[ií]a',
@@ -424,17 +663,38 @@ bool _explicitRecoveryRequest(String text) {
       continue;
     }
     if (RegExp(
-      r'\b(?:need|want|help me|prioriti[sz]e|choose|protect|make room for)\b.{0,35}\b(?:rest|recover|recovery|break|sleep)\b|\b(?:zero|no) energy\b|\b(?:necesito|quiero|ay[uú]dame a)\b.{0,35}\b(?:descansar|descanso|recuperarme)\b|sin energ[ií]a',
+      r'\b(?:need|want|help me|give me|prioriti[sz]e|choose|protect|make room for)\b.{0,35}\b(?:rest|recover|recovery|break|sleep)\b|\b(?:zero|no) energy\b|\b(?:my|our) energy (?:is|has reached) (?:zero|0)\b|\b(?:necesito|quiero|dame|ay[uú]dame a)\b.{0,35}\b(?:descansar|descanso|pausa|recuperarme)\b|sin energ[ií]a|\bmi energ[ií]a (?:es|est[aá] en|est[aá] a) (?:cero|0)\b',
       caseSensitive: false,
-    ).hasMatch(clause)) {
-      return true;
+    ).hasMatch(current)) {
+      preference = true;
     }
   }
-  return false;
+  return preference;
 }
 
+bool _explicitRecoveryRequest(String text) =>
+    _plannerRecoveryPreference(text) == true;
+
+bool _declinesPlannerRecovery(String text) =>
+    _plannerRecoveryPreference(text) == false;
+
 const _plannerActionVerbs =
-    r'draft|redactar|redacta|record|fill|preparing|reviewing|writing|working on|work(?: solo| alone)? on|pack|gather|fold|sort|send|write|reply|email|call|tell|review|read|check|wash|prepare|finish|complete|pay|open|put|list|compare|book|schedule|clean|cook|start|practise|practice|walk|drink|collect|organize|organise|look at|guarda|guardar|preparar|prepara|recoger|recoge|doblar|dobla|ordenar|ordena|enviar|env[ií]a|escribir|escribe|revisar|revisa|leer|lee|llamar|llama|lavar|lava|terminar|termina|hacer';
+    r'draft|redactar|redacta|record|fill|preparing|reviewing|writing|working on|work(?: solo| alone)? on|pack|gather|fold|sort|send|write|reply|email|call|tell|review|read|check|wash|prepare|finish|complete|pay|open|put|list|compare|book|schedule|clean|cook|start|practise|practice|walk|drink|collect|organize|organise|look at|guarda|guardar|preparar|prepara|recoger|recoge|doblar|dobla|ordenar|ordena|ordeno|enviar|env[ií]a|escribir|escribe|revisar|revisa|reviso|leer|lee|llamar|llama|lavar|lava|terminar|termina|hacer|limpiar|limpia|abrir|abre';
+
+bool _plannerHasActionPosition(String prefix) {
+  final clean = prefix.trim();
+  if (clean.isEmpty || RegExp(r'^[-*\d):\s]+$').hasMatch(clean)) {
+    return true;
+  }
+  // An action needs an imperative, an explicit request, or a present-tense
+  // subject. "a clean tote" and "the care-label check" are noun phrases.
+  return RegExp(
+    r"\b(?:please|help me|can you|could you|would you|(?:i|we)\s+(?:(?:need|want|have|am trying|are trying) to|must|should|can)|i am|we are|i['’]m|we['’]re|need to|want to|have to|must|i|we|first|next|then|now|necesito|quiero|debo|puedo|yo|ay[uú]dame a|por favor|primero|ahora|mientras)\s*$"
+    r'|\b(?:minutes?|mins?|hours?|step|task|session|plan)\s+(?:available\s+)?to\s*$'
+    r'|\b(?:minutos?|horas?|paso)\s+(?:disponibles?\s+)?para\s*$',
+    caseSensitive: false,
+  ).hasMatch(clean);
+}
 
 List<String> _plannerActionCandidates(String source) {
   final candidates = <String>[];
@@ -444,15 +704,17 @@ List<String> _plannerActionCandidates(String source) {
       caseSensitive: false,
     ),
   )) {
-    final match = RegExp(
+    final matches = RegExp(
       '\\b($_plannerActionVerbs)\\s+([^.!?;]+)',
       caseSensitive: false,
-    ).firstMatch(clause);
-    if (match == null) {
+    ).allMatches(clause);
+    if (matches.isEmpty) {
       continue;
     }
+    final match = matches.first;
     final prefix = clause.substring(0, match.start);
-    if (_negatedPlannerClause(prefix) ||
+    if (!_plannerHasActionPosition(prefix) ||
+        _negatedPlannerClause(prefix) ||
         RegExp(
           r"\b(already|finished|completed|done|used to|yesterday|ya|termin[eé]|hice)\b|\b(?:can|could) wait\b",
           caseSensitive: false,
@@ -498,15 +760,16 @@ List<String> _plannerActionCandidates(String source) {
     if (RegExp(r'^(?:give|tell) me\b', caseSensitive: false).hasMatch(action)) {
       continue;
     }
-    if (RegExp(
-      r'\b(saved (?:task|goal)|selected note|nota seleccionada)\b',
-      caseSensitive: false,
-    ).hasMatch(action)) {
+    if (_plannerReferencesSelectedNote(action) ||
+        RegExp(
+          r'\bsaved (?:task|goal)\b',
+          caseSensitive: false,
+        ).hasMatch(action)) {
       continue;
     }
-    // Objects consisting only of a pronoun still need the earlier objective.
+    // Pronouns and ordering adverbs do not identify a new action object.
     if (RegExp(
-      '^($_plannerActionVerbs)\\s+(?:it|that|this|something|anything|eso|algo)\\W*\$',
+      '^($_plannerActionVerbs)\\s+(?:it|that|this|something|anything|eso|algo|first|next|now|later|primero|ahora)(?:\\s+and\\b.*)?\\W*\$',
       caseSensitive: false,
     ).hasMatch(action)) {
       continue;
@@ -563,7 +826,9 @@ String? _extractPlannerAction(String source) {
   if (candidates.isNotEmpty) {
     return null;
   }
-  for (final clause in source.split(RegExp(r'[.!?;,\n]+'))) {
+  for (final clause in _plannerWithoutQuotedText(
+    source,
+  ).split(RegExp(r'[.!?;,\n]+'))) {
     if (_negatedPlannerClause(clause)) {
       continue;
     }
@@ -599,17 +864,24 @@ String _concretePlannerStep(
   String action, {
   required bool spanish,
   List<String> constraints = const [],
+  String? availableContainer,
 }) {
   final lower = action.toLowerCase();
   if (RegExp(
     r'\b(?:pack|preparar|prepara|guardar|guarda)\b.*\b(?:uniform|uniforme)\b',
   ).hasMatch(lower)) {
+    final badge = RegExp(r'\b(?:badge|identificaci[oó]n)\b').hasMatch(lower);
+    if (availableContainer != null) {
+      return spanish
+          ? 'Reúne las prendas de tu uniforme${badge ? ' y tu identificación' : ''} y guárdalas en $availableContainer. Deja lo opcional para después.'
+          : 'Gather the pieces of your uniform${badge ? ' and your name badge' : ''} and pack them in the $availableContainer. Leave optional jobs for later.';
+    }
     return spanish
-        ? 'Guarda las prendas de tu uniforme juntas para llevarlas. Deja lo opcional para después.'
-        : 'Gather the pieces of your uniform and pack them together. Leave optional jobs for later.';
+        ? 'Guarda las prendas de tu uniforme${badge ? ' y tu identificación' : ''} juntas para llevarlas. Deja lo opcional para después.'
+        : 'Gather the pieces of your uniform${badge ? ' and your name badge' : ''} and pack them together. Leave optional jobs for later.';
   }
   if (RegExp(
-    r'\b(?:work on|working on|sort)\b.*\breceipts?\b',
+    r'\b(?:work on|working on|sort|ordenar|ordena|ordeno)\b.*\b(?:receipts?|recibos?)\b',
   ).hasMatch(lower)) {
     return spanish
         ? 'Pon un solo recibo delante de ti y trabaja únicamente con ese. Deja los demás para después.'
@@ -675,6 +947,33 @@ String _concretePlannerStep(
   return _sentence(imperative);
 }
 
+String? _plannerAvailableContainer(String source) {
+  String? available;
+  for (final clause in source.split(RegExp(r'[.!?;,\n]+'))) {
+    final current = _plannerWithoutQuotedText(clause);
+    if (_plannerHistoricalOrUncertain(current)) {
+      continue;
+    }
+    if (_negatedPlannerClause(current) &&
+        RegExp(
+          r'\b(?:bag|tote|bolsa|mochila)\b',
+          caseSensitive: false,
+        ).hasMatch(current)) {
+      available = null;
+      continue;
+    }
+    final match = RegExp(
+      r'\b(?:i have|we have)\s+(?:a|an|another|my)\s+((?:(?:clean|open|spare|empty|canvas)\s+){0,2}(?:tote(?: bag)?|bag|backpack))\b'
+      r'|\b(?:tengo|tenemos)\s+((?:una|otra|mi)\s+(?:bolsa(?: de tela)?|mochila)(?:\s+(?:limpia|abierta|vac[ií]a))?)\b',
+      caseSensitive: false,
+    ).firstMatch(current);
+    if (match != null) {
+      available = match.group(1) ?? match.group(2);
+    }
+  }
+  return available;
+}
+
 String _plannerActionForDisplay(String action, {required bool spanish}) =>
     _sentence(
       action
@@ -686,6 +985,33 @@ String _plannerActionForDisplay(String action, {required bool spanish}) =>
     );
 
 bool _plannerDepartureUnresolved(String source) {
+  bool departureConfirmed = false;
+  for (final clause in _plannerWithoutQuotedText(
+    source,
+  ).split(RegExp(r'[.!?;,\n]+'))) {
+    final current = _plannerWithoutQuotedText(clause);
+    final departure = RegExp(
+      r"\b(?:(?:i|we)\s+(?:leave|depart|am leaving|are leaving|need to leave|have to leave|(?:might|may|could|would|cannot|can['’]t|do not|will|won['’]t) leave)|salgo|salimos|(?:tengo|tenemos) que salir|voy a salir|(?:quiz[aá]s|tal vez) salga)\b",
+      caseSensitive: false,
+    ).firstMatch(current);
+    if (departure == null) {
+      continue;
+    }
+    if (_plannerHistoricalOrUncertain(current) ||
+        _negatedPlannerClause(current) ||
+        RegExp(
+          r"\b(?:may|could|would|won['’]t)\b",
+          caseSensitive: false,
+        ).hasMatch(current)) {
+      // A newer uncertainty cannot be satisfied by an earlier departure fact.
+      departureConfirmed = false;
+      continue;
+    }
+    departureConfirmed = RegExp(
+      r'^\s+(?:in|en)\s+(?:\d+|one|two|three|five|ten|fifteen|twenty|thirty|un|uno|dos|tres|cinco|diez|quince|veinte|treinta)\s+(?:minutes?|minutos?)\b',
+      caseSensitive: false,
+    ).hasMatch(current.substring(departure.end));
+  }
   final travelConfirmed =
       RegExp(
         r'\b(?:travel|commut(?:e|ing)|journey|driv(?:e|ing)|desplazamiento|trayecto)\b.{0,30}\b(?:already accounted for|already allowed for|included|accounted for|incluido)\b|\b(?:including|after allowing for|after setting aside)\s+(?:the )?(?:travel|commute|driving)\b',
@@ -695,7 +1021,7 @@ bool _plannerDepartureUnresolved(String source) {
         r"\b(?:not|no|isn[’']t)\s+(?:yet\s+)?(?:included|accounted for|incluido)\b",
         caseSensitive: false,
       ).hasMatch(source);
-  if (travelConfirmed) {
+  if (travelConfirmed || departureConfirmed) {
     return false;
   }
   return RegExp(

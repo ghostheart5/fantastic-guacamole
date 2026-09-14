@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
@@ -37,64 +38,56 @@ class _HumanStateCheckInDialogState
 
   @override
   Widget build(BuildContext context) {
+    final copy = NexusCopy.of(context);
     final scope = ref.watch(accountStorageScopeProvider);
     final validSession =
         scope.isAuthenticated &&
         scope.v2Namespace == _account &&
         ref.watch(authSessionBoundaryProvider).generation == _generation;
     return AlertDialog(
-      title: Text(widget.energy ? 'Energy check-in' : 'Clarity check-in'),
+      title: Text(widget.energy ? copy.energyCheckIn : copy.clarityCheckIn),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.energy
-                  ? 'How much energy do you have right now?'
-                  : 'How fatigued do you feel right now? Clarity is an estimate of 100% minus your reported fatigue, not a cognitive assessment.',
-            ),
+            Text(widget.energy ? copy.energyQuestion : copy.fatigueQuestion),
             const SizedBox(height: 12),
-            const Text(
-              'Optional. Used for planning for up to two hours while the app stays open. You can clear it at any time.',
-            ),
+            Text(copy.checkInDisclosure),
             const SizedBox(height: 12),
             Text(
               _reported == null
-                  ? 'Not checked'
-                  : '${widget.energy ? 'Energy' : 'Fatigue'}: ${(_reported! * 100).round()}%',
+                  ? copy.notChecked
+                  : '${copy.reportLabel(widget.energy)}: ${(_reported! * 100).round()}%',
             ),
             Slider(
               label: '${((_reported ?? .5) * 100).round()}%',
               semanticFormatterCallback: (value) =>
-                  '${widget.energy ? 'Energy' : 'Fatigue'} ${(value * 100).round()} percent',
+                  copy.sliderValue(widget.energy, (value * 100).round()),
               value: _reported ?? .5,
               divisions: 20,
               onChanged: validSession
                   ? (value) => setState(() => _reported = value)
                   : null,
             ),
-            if (!validSession)
-              const Text(
-                'Your account changed. Close this check-in and reopen it.',
-              ),
+            if (!validSession) Text(copy.accountChanged),
           ],
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(copy.cancel),
         ),
         TextButton(
           onPressed: validSession ? () => _save(null) : null,
-          child: const Text('Clear'),
+          child: Text(copy.clear),
         ),
         FilledButton(
           onPressed: validSession && _reported != null
               ? () => _save(_reported)
               : null,
-          child: const Text('Save'),
+          child: Text(copy.save),
         ),
       ],
     );

@@ -1586,6 +1586,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       title: l10n.text(ChronoSparkString.smartPlanner),
       subtitle: routine.subtitle,
       eyebrow: routine.eyebrow,
+      backTooltip: MaterialLocalizations.of(context).backButtonTooltip,
       onBack: () => goToAppView(context, ref, AppView.nexus),
     );
   }

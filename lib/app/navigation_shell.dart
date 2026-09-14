@@ -16,6 +16,7 @@ import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
+import 'package:fantastic_guacamole/l10n/navigation_copy.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';

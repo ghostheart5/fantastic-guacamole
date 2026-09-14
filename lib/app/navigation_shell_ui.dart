@@ -48,6 +48,7 @@ extension _NavigationShellUi on _NavigationShellState {
 
   Widget _buildPhoneDestination(int index, int currentIndex) {
     final AppRouteDefinition destination = _primaryDestinations[index];
+    final label = NavigationCopy.of(context).label(destination);
     final bool selected = index == currentIndex;
     final Color accent = _navigationAccent(index);
 
@@ -55,9 +56,9 @@ extension _NavigationShellUi on _NavigationShellState {
       child: Semantics(
         button: true,
         selected: selected,
-        label: destination.label,
+        label: label,
         child: Tooltip(
-          message: destination.label,
+          message: label,
           child: Material(
             color: Colors.transparent,
             child: InkWell(
@@ -92,7 +93,7 @@ extension _NavigationShellUi on _NavigationShellState {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        destination.label,
+                        label,
                         maxLines: 1,
                         softWrap: false,
                         style: TextStyle(
@@ -145,15 +146,16 @@ extension _NavigationShellUi on _NavigationShellState {
     required bool extended,
   }) {
     final AppRouteDefinition destination = _primaryDestinations[index];
+    final label = NavigationCopy.of(context).label(destination);
     final bool selected = index == currentIndex;
     final Color accent = _navigationAccent(index);
 
     return Semantics(
       button: true,
       selected: selected,
-      label: destination.label,
+      label: label,
       child: Tooltip(
-        message: destination.label,
+        message: label,
 
         child: Material(
           color: Colors.transparent,
@@ -192,7 +194,7 @@ extension _NavigationShellUi on _NavigationShellState {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        destination.label,
+                        label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -216,11 +218,12 @@ extension _NavigationShellUi on _NavigationShellState {
   }
 
   Widget _buildRailMapAction({required bool extended}) {
+    final copy = NavigationCopy.of(context);
     return Semantics(
       button: true,
-      label: 'Open navigation map',
+      label: copy.openMap,
       child: Tooltip(
-        message: 'Open navigation map',
+        message: copy.openMap,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -243,12 +246,12 @@ extension _NavigationShellUi on _NavigationShellState {
                     ),
                     if (extended) ...<Widget>[
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Navigation map',
+                          copy.railMapTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Color(0xFFA8B5CA),
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -322,7 +325,7 @@ extension _NavigationShellUi on _NavigationShellState {
       child: SizedBox.square(
         dimension: AppSizes.touchTarget,
         child: IconButton(
-          tooltip: 'Open navigation map',
+          tooltip: NavigationCopy.of(context).openMap,
           onPressed: _showNavigationMap,
           icon: const Icon(Icons.map_outlined),
           color: AppColors.neonCyan,
@@ -372,6 +375,7 @@ extension _NavigationShellUi on _NavigationShellState {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.68),
       builder: (BuildContext context) {
+        final copy = NavigationCopy.of(context);
         Widget navItem(AppRouteDefinition destination) {
           final AppView target = destination.appView!;
           final bool selected = target == widget.initialView;
@@ -389,7 +393,7 @@ extension _NavigationShellUi on _NavigationShellState {
               color: selected ? AppColors.neonCyan : const Color(0xFFA8B5CA),
             ),
             title: Text(
-              destination.label,
+              copy.label(destination),
               style: TextStyle(
                 color: selected ? AppColors.neonCyan : Colors.white,
                 fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
@@ -397,7 +401,7 @@ extension _NavigationShellUi on _NavigationShellState {
               ),
             ),
             subtitle: Text(
-              destination.navigationSubtitle ?? '',
+              copy.subtitle(destination),
               style: const TextStyle(
                 color: Color(0xFFA8B5CA),
                 letterSpacing: 0,
@@ -438,24 +442,24 @@ extension _NavigationShellUi on _NavigationShellState {
                           padding: const EdgeInsets.fromLTRB(20, 14, 8, 10),
                           child: Row(
                             children: <Widget>[
-                              const Expanded(
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
                                     Text(
-                                      'Navigation Map',
-                                      style: TextStyle(
+                                      copy.mapTitle,
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 20,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: 0,
                                       ),
                                     ),
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     Text(
-                                      'Core first, advanced when needed.',
+                                      copy.mapSubtitle,
 
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Color(0xFFA8B5CA),
                                         letterSpacing: 0,
                                       ),
@@ -464,7 +468,7 @@ extension _NavigationShellUi on _NavigationShellState {
                                 ),
                               ),
                               IconButton(
-                                tooltip: 'Close navigation map',
+                                tooltip: copy.closeMap,
                                 onPressed: () => Navigator.of(context).pop(),
                                 constraints: const BoxConstraints.tightFor(
                                   width: AppSizes.touchTarget,

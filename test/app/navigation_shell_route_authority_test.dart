@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
@@ -36,6 +37,7 @@ import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,6 +47,58 @@ void main() {
     await SharedPrefsService.init();
     await SharedPrefsService.clear();
   });
+
+  for (final width in [320.0, 1200.0]) {
+    testWidgets(
+      'Spanish navigation renders and opens the canonical Planner route at $width',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          final harness = await _pumpRouteShell(
+            tester,
+            surfaceSize: Size(width, 1200),
+            locale: const Locale('es'),
+            memoryStorage: true,
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(find.byTooltip('Abrir mapa de navegación'), findsOneWidget);
+          await tester.tap(find.byTooltip('Abrir mapa de navegación'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(find.text('Mapa de navegación'), findsWidgets);
+          expect(
+            find.text('Primero lo esencial; lo avanzado cuando lo necesites.'),
+            findsOneWidget,
+          );
+          expect(find.byTooltip('Cerrar mapa de navegación'), findsOneWidget);
+          expect(
+            find.text('Inicio de planificación conectada'),
+            findsOneWidget,
+          );
+          expect(find.text('Escenarios futuros y ejecución'), findsOneWidget);
+          expect(find.text('Navigation Map'), findsNothing);
+          final planner = find.text('Planificador Inteligente');
+          await tester.ensureVisible(planner);
+          await tester.tap(planner);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(
+            harness.router.routeInformationProvider.value.uri.path,
+            RoutePaths.smartPlanner,
+          );
+          expect(find.byType(SmartPlannerScreen), findsOneWidget);
+          expect(find.byTooltip('Atrás'), findsOneWidget);
+          expect(find.byTooltip('Back'), findsNothing);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          harness.dispose();
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
+  }
 
   testWidgets(
     'Creator note is visible in Timeline immediately and after reload',
@@ -578,6 +632,7 @@ Future<_RouteShellHarness> _pumpRouteShell(
   Size surfaceSize = const Size(1200, 2400),
   bool forceOnline = false,
   bool memoryStorage = false,
+  Locale locale = const Locale('en'),
 }) async {
   tester.platformDispatcher.views.first
     ..physicalSize = surfaceSize
@@ -626,7 +681,17 @@ Future<_RouteShellHarness> _pumpRouteShell(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: locale,
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+      ),
     ),
   );
 

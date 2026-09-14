@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
@@ -372,70 +373,200 @@ void main() {
     'recovery',
     'different-task',
   ]) {
-    testWidgets('completion belongs only to the displayed task: $scenario', (
+    for (final locale in const [Locale('en'), Locale('es')]) {
+      testWidgets(
+        'completion belongs only to the displayed task: $scenario (${locale.languageCode})',
+        (tester) async {
+          final original = _operatingDecision;
+          final receipt = OperatingDecisionReceipt(
+            subjectId: scenario == 'different-task'
+                ? 'another-task'
+                : original.subjectId,
+            recommendedAction: scenario == 'recovery'
+                ? 'Take a short recovery break before choosing more work.'
+                : scenario == 'task-prefix'
+                ? 'Work on: ${original.recommendedAction}'
+                : original.recommendedAction,
+            rationale: original.rationale,
+            whyItMatters: scenario == 'task-prefix'
+                ? 'It converts the strongest available signal into measurable forward movement.'
+                : original.whyItMatters,
+            consequenceOfDelay: original.consequenceOfDelay,
+            generatedAt: original.generatedAt,
+            expiresAt: original.expiresAt,
+            confidence: original.confidence,
+            evidence: original.evidence,
+            actionIntent: original.actionIntent,
+            sourceRevisions: original.sourceRevisions,
+            modelVersion: original.modelVersion,
+          );
+          final model = NexusDecisionModel(
+            status: NexusDecisionStatus.ready,
+            hasAvailableNetworkInterface: true,
+            pendingSyncCount: 0,
+            topRisk: '',
+            recentProgress: '',
+            statusDetail: 'Ready',
+            intelligence: DecisionIntelligence(
+              snapshot: _operatingSnapshot,
+              delta: _readyNexusDecisionModel.intelligence!.delta,
+              decision: receipt,
+              acknowledgedSnapshotId: null,
+            ),
+          );
+          await pumpNexusScreen(
+            tester,
+            width: 420,
+            locale: locale,
+            decisionModel: model,
+            recommendationBlock: TimeBlock(
+              id: 'block',
+              taskId: 'task-1',
+              title: 'Finish quarterly review',
+              start: _decisionObservedAt,
+              end: _decisionObservedAt.add(const Duration(minutes: 5)),
+            ),
+          );
+          expect(
+            tester
+                .widget<Text>(find.byKey(const Key('nexus-recommended-action')))
+                .data,
+            locale.languageCode == 'es' && scenario == 'task-prefix'
+                ? 'Trabaja en: Finish quarterly review'
+                : receipt.recommendedAction,
+          );
+          expect(
+            find.widgetWithText(
+              OutlinedButton,
+              locale.languageCode == 'es' ? 'Completar' : 'Complete',
+            ),
+            scenario.startsWith('task') ? findsOneWidget : findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+
+  for (final observed in [false, true]) {
+    testWidgets('Spanish Nexus renders observed state $observed at 320dp', (
       tester,
     ) async {
-      final original = _operatingDecision;
-      final receipt = OperatingDecisionReceipt(
-        subjectId: scenario == 'different-task'
-            ? 'another-task'
-            : original.subjectId,
-        recommendedAction: scenario == 'recovery'
-            ? 'Take a short recovery break before choosing more work.'
-            : scenario == 'task-prefix'
-            ? 'Work on: ${original.recommendedAction}'
-            : original.recommendedAction,
-        rationale: original.rationale,
-        whyItMatters: original.whyItMatters,
-        consequenceOfDelay: original.consequenceOfDelay,
-        generatedAt: original.generatedAt,
-        expiresAt: original.expiresAt,
-        confidence: original.confidence,
-        evidence: original.evidence,
-        actionIntent: original.actionIntent,
-        sourceRevisions: original.sourceRevisions,
-        modelVersion: original.modelVersion,
-      );
-      final model = NexusDecisionModel(
-        status: NexusDecisionStatus.ready,
-        hasAvailableNetworkInterface: true,
-        pendingSyncCount: 0,
-        topRisk: '',
-        recentProgress: '',
-        statusDetail: 'Ready',
-        intelligence: DecisionIntelligence(
-          snapshot: _operatingSnapshot,
-          delta: _readyNexusDecisionModel.intelligence!.delta,
-          decision: receipt,
-          acknowledgedSnapshotId: null,
-        ),
-      );
-      await pumpNexusScreen(
-        tester,
-        width: 420,
-        decisionModel: model,
-        recommendationBlock: TimeBlock(
-          id: 'block',
-          taskId: 'task-1',
-          title: 'Finish quarterly review',
-          start: _decisionObservedAt,
-          end: _decisionObservedAt.add(const Duration(minutes: 5)),
-        ),
-      );
-      expect(
-        tester
-            .widget<Text>(find.byKey(const Key('nexus-recommended-action')))
-            .data,
-        receipt.recommendedAction,
-      );
-      expect(
-        find.widgetWithText(OutlinedButton, 'Complete'),
-        scenario.startsWith('task') ? findsOneWidget : findsNothing,
-      );
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
+      final semantics = tester.ensureSemantics();
+      try {
+        await pumpNexusScreen(
+          tester,
+          width: 320,
+          locale: const Locale('es'),
+          observedVitals: observed,
+        );
+        expect(
+          find.text('Tu día, organizado en un próximo paso claro.'),
+          findsOneWidget,
+        );
+        expect(find.text('NÚCLEO DE LÓGICA ADAPTATIVA'), findsOneWidget);
+        expect(find.bySemanticsLabel('Abrir notificaciones'), findsOneWidget);
+        expect(find.bySemanticsLabel('Cerrar sesión'), findsOneWidget);
+        expect(find.text('ENERGÍA'), findsOneWidget);
+        expect(find.text('CLARIDAD'), findsOneWidget);
+        expect(find.text('IMPULSO'), findsOneWidget);
+        expect(find.text('ESTABLE'), findsOneWidget);
+        expect(find.text(observed ? '78%' : 'SIN MEDIR'), findsOneWidget);
+        expect(find.text(observed ? '76%' : 'SIN REGISTRAR'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel(
+            RegExp(
+              observed
+                  ? 'Claridad estimada 76 por ciento'
+                  : 'Claridad sin registrar',
+            ),
+          ),
+          findsWidgets,
+        );
+        expect(find.text('DECISIÓN ACTUAL'), findsOneWidget);
+        expect(find.text('Revisar sugerencia'), findsOneWidget);
+        final priorities = find.text('PRIORIDADES ACTUALES');
+        await tester.scrollUntilVisible(priorities, 250);
+        expect(priorities, findsOneWidget);
+        expect(find.bySemanticsLabel('Abrir META'), findsOneWidget);
+        expect(find.bySemanticsLabel('Abrir TAREA'), findsOneWidget);
+        expect(find.bySemanticsLabel('Abrir NOTA'), findsOneWidget);
+        // The task is user data and must not be translated with its surrounding UI.
+        expect(find.text('Finish quarterly review'), findsWidgets);
+        expect(find.text('CURRENT DECISION'), findsNothing);
+        expect(find.text('CURRENT PRIORITIES'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      } finally {
+        semantics.dispose();
+      }
     });
   }
+
+  testWidgets(
+    'Spanish learning feedback localizes controls and preserves private explanations',
+    (tester) async {
+      final container = await pumpNexusScreen(
+        tester,
+        width: 320,
+        locale: const Locale('es'),
+      );
+      container
+          .read(latestDecisionLearningChangeProvider.notifier)
+          .publish(
+            const LearningFeedbackChange(
+              observationId: 'localization-observation',
+              decisionId: 'localization-decision',
+              outcomeKind: DecisionOutcomeKind.shown,
+              isCorrection: false,
+              surface: 'nexus',
+              subjectId: 'task-1',
+              beforeAffinity: .5,
+              afterAffinity: .5,
+              summary:
+                  'The shown outcome was recorded; ranking weights did not change.',
+            ),
+          );
+      await tester.pump();
+      expect(find.text('QUÉ CAMBIÓ CON EL APRENDIZAJE'), findsOneWidget);
+      expect(
+        find.text(
+          'Se registró el resultado mostrado; los pesos de prioridad no cambiaron.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Corregir este aprendizaje'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Esto ayudó'), findsOneWidget);
+      expect(
+        find.widgetWithText(OutlinedButton, 'Esto no ayudó'),
+        findsOneWidget,
+      );
+      container
+          .read(latestDecisionLearningChangeProvider.notifier)
+          .publish(
+            const LearningFeedbackChange(
+              observationId: 'localization-private',
+              decisionId: 'localization-private-decision',
+              outcomeKind: DecisionOutcomeKind.accepted,
+              isCorrection: true,
+              surface: 'nexus',
+              subjectId: 'task-1',
+              beforeAffinity: .5,
+              afterAffinity: .6,
+              summary: 'My original private explanation stays intact.',
+            ),
+          );
+      await tester.pump();
+      expect(
+        find.text('My original private explanation stays intact.'),
+        findsOneWidget,
+      );
+      expect(find.text('Esto ayudó'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   group('NexusScreen responsive typography', () {
     testWidgets('uses ultra-compact values below 340px', (

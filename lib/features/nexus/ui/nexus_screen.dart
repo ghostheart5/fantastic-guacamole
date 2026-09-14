@@ -17,6 +17,7 @@ import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.d
 import 'package:fantastic_guacamole/features/nexus/ui/human_state_check_in_dialog.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_vitals_provider.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';

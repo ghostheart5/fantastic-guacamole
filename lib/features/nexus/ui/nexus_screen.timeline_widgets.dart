@@ -441,14 +441,15 @@ class _LearningChangePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final copy = NexusCopy.of(context);
     return _GlassPanel(
       accent: AppColors.neonCyan,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'WHAT LEARNING CHANGED',
-            style: TextStyle(
+          Text(
+            copy.learningChanged,
+            style: const TextStyle(
               color: AppColors.neonCyan,
               fontSize: 12,
               fontWeight: FontWeight.w800,
@@ -456,27 +457,29 @@ class _LearningChangePanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            change.summary,
+            copy.learningSummary(
+              change.summary,
+              change.outcomeKind.name,
+              change.beforeAffinity,
+              change.afterAffinity,
+            ),
             style: const TextStyle(color: Colors.white, fontSize: 15),
           ),
           if (onHelpful != null && onNotHelpful != null) ...<Widget>[
             const SizedBox(height: 12),
-            const Text(
-              'Correct this learning',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+            Text(
+              copy.correctLearning,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: <Widget>[
-                OutlinedButton(
-                  onPressed: onHelpful,
-                  child: const Text('This helped'),
-                ),
+                OutlinedButton(onPressed: onHelpful, child: Text(copy.helped)),
                 OutlinedButton(
                   onPressed: onNotHelpful,
-                  child: const Text('This did not help'),
+                  child: Text(copy.didNotHelp),
                 ),
               ],
             ),
@@ -809,24 +812,27 @@ NoteEntity? _selectCurrentNote(
   return active.first;
 }
 
-String _goalDetail(GoalEntity goal) {
+String _goalDetail(GoalEntity goal, BuildContext context) {
+  final copy = NexusCopy.of(context);
   if (goal.targetDate != null) {
-    return 'Target ${_formatDate(goal.targetDate!)}';
+    return copy.goalTarget(copy.date(context, goal.targetDate!));
   }
   final String? description = goal.description?.trim();
-  return description?.isNotEmpty == true ? description! : 'Active goal';
+  return description?.isNotEmpty == true ? description! : copy.activeGoal;
 }
 
-String _taskDetail(TaskEntity task) {
+String _taskDetail(TaskEntity task, BuildContext context) {
+  final copy = NexusCopy.of(context);
   final DateTime? scheduled = task.scheduledFor;
-  if (scheduled != null) return _formatDateTime(scheduled);
-  return 'Priority ${task.priority} · not scheduled';
+  if (scheduled != null) return copy.dateTime(context, scheduled);
+  return copy.taskPriority(task.priority);
 }
 
-String _noteDetail(NoteEntity note) {
+String _noteDetail(NoteEntity note, BuildContext context) {
   final String? body = note.body?.trim();
   if (body?.isNotEmpty == true) return body!;
-  return 'Updated ${_formatDate(note.updatedAt)}';
+  final copy = NexusCopy.of(context);
+  return copy.updated(copy.date(context, note.updatedAt));
 }
 
 Color _statusAccent(NexusDecisionStatus status) => switch (status) {
@@ -851,14 +857,6 @@ String _cleanTrajectoryCopy(String value) {
 String _titleCase(String value) {
   if (value.isEmpty) return 'Current';
   return '${value[0].toUpperCase()}${value.substring(1)}';
-}
-
-String _formatDate(DateTime value) {
-  return DateTimeFormats.localMonthDay(value);
-}
-
-String _formatTime(DateTime value) {
-  return DateTimeFormats.timelineTime(value);
 }
 
 String _formatDateTime(DateTime value) {

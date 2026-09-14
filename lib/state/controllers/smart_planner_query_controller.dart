@@ -356,7 +356,9 @@ class SmartPlannerQueryController
           respondingToPlanQuestion:
               currentPlan?.adjustments.lastOrNull?.kind ==
                   PlannerAdjustmentKind.rejectedApproach ||
-              currentPlan?.currentPlan.isClarification == true,
+              currentPlan?.currentPlan.isClarification == true ||
+              (currentPlan?.currentPlan.usefulQuestion?.trim().isNotEmpty ??
+                  false),
           isFollowUp: true,
         );
     _requireNonCrisisRoute(conversation.searchText);
@@ -500,7 +502,9 @@ class SmartPlannerQueryController
         respondingToPlanQuestion:
             currentPlan?.adjustments.lastOrNull?.kind ==
                 PlannerAdjustmentKind.rejectedApproach ||
-            currentPlan?.currentPlan.isClarification == true,
+            currentPlan?.currentPlan.isClarification == true ||
+            (currentPlan?.currentPlan.usefulQuestion?.trim().isNotEmpty ??
+                false),
         isFollowUp: isFollowUp,
       ),
       evidence: const _PlannerEvidence.empty(),

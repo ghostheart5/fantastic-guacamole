@@ -65,8 +65,7 @@ final class _PlannerConversationContext {
         awaitingSavedChoice = false;
       }
     }
-    final declinesCurrentChoice =
-        isFollowUp && _declinesSavedChoice(normalizedInput);
+    final declinesCurrentChoice = _declinesSavedChoice(normalizedInput);
     savedContextDeclined = savedContextDeclined || declinesCurrentChoice;
     final declineOnly =
         declinesCurrentChoice && _extractPlannerAction(normalizedInput) == null;
@@ -85,9 +84,6 @@ final class _PlannerConversationContext {
     int? priorTimeLimitMinutes = currentUserContext?.timeLimitMinutes;
     if (currentUserContext == null) {
       for (final turn in boundedPrior) {
-        if (_declinesSavedChoice(turn) && _extractPlannerAction(turn) == null) {
-          continue;
-        }
         if (priorSubject.isEmpty || !_continuesPlannerObjective(turn)) {
           priorSubject = turn;
           retainedConstraints.clear();
@@ -105,6 +101,8 @@ final class _PlannerConversationContext {
         (declineOnly ||
             _continuesPlannerObjective(normalizedInput) ||
             respondingToPlanQuestion &&
+                _repeatsPlannerObjective(normalizedInput, priorSubject) ||
+            respondingToPlanQuestion &&
                 _extractPlannerAction(normalizedInput) == null &&
                 !RegExp(
                   r'\b(?:I meant|me refiero a|quer[ií]a decir)\b',
@@ -120,7 +118,7 @@ final class _PlannerConversationContext {
       ].where((String value) => value.isNotEmpty).join(' '),
       evidenceSearchText: <String>[
         if (continuesPriorSubject) ...[priorSubject, ...retainedConstraints],
-        if (!declineOnly) normalizedInput,
+        normalizedInput,
       ].where((value) => value.isNotEmpty).join('. '),
       savedContextDeclined: savedContextDeclined,
       answeredSavedContextQuestion:
@@ -134,7 +132,7 @@ final class _PlannerConversationContext {
       corrections: continuesPriorSubject
           ? [
               ...retainedConstraints,
-              if (!declineOnly && normalizedInput.isNotEmpty) normalizedInput,
+              if (normalizedInput.isNotEmpty) normalizedInput,
             ]
           : const [],
     );
@@ -220,9 +218,22 @@ bool _continuesPlannerObjective(String input) {
       _explicitPlanningTimeLimit(input) != null ||
       _negatedPlannerClause(input) ||
       RegExp(
-        r'\b(it|that|those|these|earlier|previous|smaller|shorter|instead|tomorrow|interruptions|interrupciones|eso|anterior|menos|mañana)\b|^why\b|^por qu[eé]\b|^can you make\b|^make this\b|^this (?:one|plan)\b',
+        r'\b(it|that|those|these|earlier|previous|smaller|shorter|instead|tomorrow|interruptions|interrupciones|eso|anterior|menos|mañana)\b|^why\b|^por qu[eé]\b|^can you make\b|^make this\b|^this (?:one|plan)\b|^(?:keep|mant[eé]n)\b',
         caseSensitive: false,
       ).hasMatch(input);
+}
+
+bool _repeatsPlannerObjective(String input, String priorSubject) {
+  final action = _extractPlannerAction(input);
+  final prior = _extractPlannerAction(priorSubject);
+  if (action == null || prior == null) {
+    return false;
+  }
+  return _plannerVerbRoot(action.split(' ').first.toLowerCase()) ==
+          _plannerVerbRoot(prior.split(' ').first.toLowerCase()) &&
+      _plannerObjectTerms(
+        action,
+      ).intersection(_plannerObjectTerms(prior)).isNotEmpty;
 }
 
 int? _explicitPlanningTimeLimit(String input) {
@@ -269,8 +280,13 @@ int? _explicitPlanningTimeLimit(String input) {
   // A requested short step is also a work window. Keep the request verb so
   // historical activity or a duration appearing only in a title is not a cap.
   final stepPattern = RegExp(
-    r'\b(?:give me|suggest|plan|make|choose)(?:\s+an?)?\s+'
-    r'(\d+(?:\.\d+)?)[ -]+(minutes?|hours?)[ -]+(?:step|plan|session|task)\b',
+    r'\b(?:give me|suggest|plan|make|choose|i need|i want)(?:\s+an?)?\s+'
+    r'(\d+(?:\.\d+)?)[ -]+(minutes?|hours?)[ -]+(?:step|plan|session|task|rest|break|pause|recovery)\b',
+    caseSensitive: false,
+  );
+  final spanishRestWindowPattern = RegExp(
+    r'\b(?:dame|necesito|quiero|sugiere)(?:\s+(?:1|un[oa]?))?\s+'
+    r'(?:descanso|pausa)(?:\s+de)?\s+(\d+(?:\.\d+)?)\s*(minutos?|horas?)\b',
     caseSensitive: false,
   );
   // A present-tense capacity statement can share its verb: "I have zero
@@ -295,6 +311,7 @@ int? _explicitPlanningTimeLimit(String input) {
   final matches = <RegExpMatch>[
     ...windowPattern.allMatches(normalized),
     ...stepPattern.allMatches(normalized),
+    ...spanishRestWindowPattern.allMatches(normalized),
     ...compoundWindowPattern.allMatches(normalized),
     ...actionWindowPattern.allMatches(normalized),
     ...directActionWindowPattern.allMatches(normalized),
@@ -389,8 +406,12 @@ final class _PlannerEvidence {
           accountScopeId: accountScopeId,
           decisionText: searchText,
         );
-    final Set<String> requestTerms = _plannerTerms(
-      searchText.replaceAll(
+    // A rejected saved title or a generic method word is not the requested
+    // subject. Rank saved evidence using the affirmative objective's objects.
+    final selectionText = _plannerAffirmativeClauses(searchText).join('. ');
+    final selectionAction = _extractPlannerAction(selectionText);
+    final Set<String> requestTerms = _plannerTopicTerms(
+      (selectionAction ?? selectionText).replaceAll(
         RegExp(
           r'\b(?:\d+|one|two|three|four|five|ten|fifteen|twenty|thirty|forty|sixty)[ -]+minutes?\b',
           caseSensitive: false,
@@ -398,12 +419,11 @@ final class _PlannerEvidence {
         '',
       ),
     );
-    final bool explicitlyUsesNote = RegExp(
-      r'\b(?:selected|this|that) note\b|\b(?:esta nota|nota seleccionada)\b',
-      caseSensitive: false,
-    ).hasMatch(searchText);
+    final bool explicitlyUsesNote = _plannerReferencesSelectedNote(
+      selectionText,
+    );
     if (selectedNote != null && !explicitlyUsesNote) {
-      final noteTerms = _plannerTerms(
+      final noteTerms = _plannerTopicTerms(
         '${selectedNote.title} ${selectedNote.body ?? ''}',
       );
       final linkedTaskMatches = activeTasks.any(
@@ -430,9 +450,9 @@ final class _PlannerEvidence {
     // to use that note keep its linked evidence in the ranking.
     final Set<String> terms = requestMatchesSavedWork && !explicitlyUsesNote
         ? requestTerms
-        : _plannerTerms(
+        : _plannerTopicTerms(
             [
-              searchText,
+              selectionAction ?? selectionText,
               if (!savedContextDeclined && selectedNote != null) ...[
                 selectedNote.title,
                 selectedNote.body ?? '',
