@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
@@ -218,6 +219,7 @@ class _PlannerDraftPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final copy = ChronoSparkLocalizations.of(context).plannerRoutine;
     return TemporalGlassSurface(
       key: const Key('creator-planner-draft-preview'),
       accent: AppColors.neonCyan,
@@ -250,7 +252,7 @@ class _PlannerDraftPreviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${draft.estimatedMinutes} minute ${draft.sourceOption.name} option',
+            '${copy.optionKind(draft.sourceOption.name)} · ${draft.estimatedMinutes} min',
             style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const SizedBox(height: 8),

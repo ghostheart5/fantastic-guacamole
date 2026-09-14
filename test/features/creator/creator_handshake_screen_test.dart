@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -25,6 +26,7 @@ import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -83,12 +85,29 @@ void main() {
             ),
           ),
         );
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: CreatorScreen()),
+    Widget previewApp(Locale locale) => UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        locale: locale,
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: const CreatorScreen(),
       ),
     );
+    await tester.pumpWidget(previewApp(const Locale('en')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('BEST-FIT · 20 min'), findsOneWidget);
+    expect(find.textContaining('bestFit'), findsNothing);
+    await tester.pumpWidget(previewApp(const Locale('es')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('MÁS ADECUADO · 20 min'), findsOneWidget);
+    expect(repository.saveCalls, 0);
+    await tester.pumpWidget(previewApp(const Locale('en')));
     await tester.pump(const Duration(milliseconds: 200));
     final estimate = tester.widget<DropdownButton<Duration>>(
       find.byKey(const Key('creator-task-estimate')),

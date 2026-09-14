@@ -159,10 +159,17 @@ PlannerV2Response applyPlannerLearnedPreference(
       preferred == response.recommendedKind) {
     return response;
   }
+  final bool spanish = response.isSpanish;
+  final String optionLabel = switch (preferred) {
+    PlannerOptionKind.minimum => spanish ? 'mínima' : 'minimum',
+    PlannerOptionKind.bestFit => spanish ? 'más adecuada' : 'best-fit',
+    PlannerOptionKind.stretch => spanish ? 'de mayor esfuerzo' : 'stretch',
+  };
   return response.recommend(
     preferred,
-    why:
-        'Your reviewable Smart Planner feedback repeatedly favored the ${preferred.name} option. You can choose another option or correct this learning at any time.',
+    why: spanish
+        ? 'Tus elecciones registradas en el Planificador Inteligente han favorecido varias veces la opción $optionLabel. Puedes elegir otra opción o corregir este aprendizaje cuando quieras.'
+        : 'Your reviewable Smart Planner feedback repeatedly favored the $optionLabel option. You can choose another option or correct this learning at any time.',
   );
 }
 
