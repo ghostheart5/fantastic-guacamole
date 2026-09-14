@@ -7,6 +7,39 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
 
+  for (final dated in [false, true]) {
+    test('next action cites a recorded date only when present: $dated', () {
+      final response = const SIV2Engine().analyze(
+        query: SIV2Query(
+          rawText: 'What should I do next?',
+          intent: SIV2Intent.answer,
+          sources: SIV2Source.values.toSet(),
+          timeRange: SIV2TimeRange.all,
+        ),
+        snapshot: SIV2EvidenceSnapshot(
+          accountScopeId: 'account:test',
+          observedAt: now,
+          tasks: [
+            SIV2TaskEvidence(
+              id: 'care-labels',
+              title: 'Check care labels',
+              createdAt: now,
+              priority: 3,
+              dueDate: dated ? now.add(const Duration(days: 1)) : null,
+            ),
+          ],
+          goals: const [],
+          milestones: const [],
+          timeline: const [],
+        ),
+        now: now,
+      );
+      expect(response.directAnswer, contains('Check care labels'));
+      expect(response.directAnswer.contains('recorded date'), dated);
+      expect(response.directAnswer, contains('priority 3/5'));
+    });
+  }
+
   test(
     'returns proof-carrying analysis with scenarios and confidence anatomy',
     () {

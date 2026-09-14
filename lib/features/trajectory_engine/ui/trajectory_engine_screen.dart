@@ -67,11 +67,12 @@ class _TrajectoryEngineScreenState
       _selectedScenarioId,
     );
     final bool blocksContent =
+        model.status == TrajectoryEngineStatus.empty ||
         comparison == null &&
-        (model.status == TrajectoryEngineStatus.loading ||
-            model.status == TrajectoryEngineStatus.learning ||
-            model.status == TrajectoryEngineStatus.error ||
-            model.status == TrajectoryEngineStatus.empty);
+            (model.status == TrajectoryEngineStatus.loading ||
+                model.status == TrajectoryEngineStatus.learning ||
+                model.status == TrajectoryEngineStatus.error ||
+                model.status == TrajectoryEngineStatus.empty);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgTrajectory,
@@ -106,6 +107,16 @@ class _TrajectoryEngineScreenState
                 onCreate: () => goToAppView(context, ref, AppView.creator),
               ),
               if (blocksContent) const SizedBox(height: 12),
+              if (model.status == TrajectoryEngineStatus.empty &&
+                  comparison?.baseline.hasObservedEnergy == true)
+                _Panel(
+                  title: 'Recorded check-in',
+                  child: _OverviewMetric(
+                    label: 'ENERGY',
+                    value: '${comparison!.baseline.energy}%',
+                    accent: const Color(0xFFA78BFA),
+                  ),
+                ),
               if (blocksContent &&
                   model.status == TrajectoryEngineStatus.loading)
                 const Center(

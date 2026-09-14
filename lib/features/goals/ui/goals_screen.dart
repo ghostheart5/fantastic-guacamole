@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/ui/widgets/text_controller_scope.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
@@ -35,13 +36,22 @@ class GoalsScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
                 child: TemporalScreenHeader(
-                  title: 'GOALS',
-                  subtitle: 'Direct the next horizon.',
-                  eyebrow: '${goals.length} active',
+                  title: journeyText(context, 'GOALS', 'METAS'),
+                  subtitle: journeyText(
+                    context,
+                    'Direct the next horizon.',
+                    'Dirige tu próximo horizonte.',
+                  ),
+                  eyebrow: journeyText(
+                    context,
+                    '${goals.length} active',
+                    '${goals.length} activas',
+                  ),
+                  backTooltip: es ? 'Atrás' : 'Back',
                   accent: AppColors.memoryAmber,
                   onBack: () => goToAppView(context, ref, AppView.smartPlanner),
                   trailing: IconButton(
-                    tooltip: 'Add goal',
+                    tooltip: journeyText(context, 'Add goal', 'Añadir meta'),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints.tightFor(
                       width: 48,
@@ -131,9 +141,13 @@ class GoalsScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      const Text(
-                        'GOALS · NEW DIRECTION',
-                        style: TextStyle(
+                      Text(
+                        journeyText(
+                          context,
+                          'GOALS · NEW DIRECTION',
+                          'METAS · NUEVO RUMBO',
+                        ),
+                        style: const TextStyle(
                           color: AppColors.memoryAmber,
                           fontSize: 11,
                           letterSpacing: 0,
@@ -142,7 +156,7 @@ class GoalsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Add a goal',
+                        journeyText(context, 'Add a goal', 'Añadir una meta'),
                         style: Theme.of(ctx).textTheme.headlineSmall?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -150,16 +164,34 @@ class GoalsScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Name the future you want to direct.',
-                        style: TextStyle(color: Colors.white70, height: 1.4),
+                      Text(
+                        journeyText(
+                          context,
+                          'Name the future you want to direct.',
+                          'Ponle nombre al futuro que quieres construir.',
+                        ),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          height: 1.4,
+                        ),
                       ),
                       const SizedBox(height: 18),
-                      _SheetField(controller: titleCtrl, hint: 'Goal title'),
+                      _SheetField(
+                        controller: titleCtrl,
+                        hint: journeyText(
+                          context,
+                          'Goal title',
+                          'Título de la meta',
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       _SheetField(
                         controller: descCtrl,
-                        hint: 'Description (optional)',
+                        hint: journeyText(
+                          context,
+                          'Description (optional)',
+                          'Descripción (opcional)',
+                        ),
                         maxLines: 2,
                       ),
                       const SizedBox(height: 12),
@@ -219,8 +251,16 @@ class GoalsScreen extends ConsumerWidget {
                               Expanded(
                                 child: Text(
                                   targetDate != null
-                                      ? 'Target: ${targetDate!.day}/${targetDate!.month}/${targetDate!.year}'
-                                      : 'Set target date (optional)',
+                                      ? journeyText(
+                                          context,
+                                          'Target: ${targetDate!.day}/${targetDate!.month}/${targetDate!.year}',
+                                          'Objetivo: ${targetDate!.day}/${targetDate!.month}/${targetDate!.year}',
+                                        )
+                                      : journeyText(
+                                          context,
+                                          'Set target date (optional)',
+                                          'Elegir fecha objetivo (opcional)',
+                                        ),
                                   style: TextStyle(
                                     color: targetDate != null
                                         ? AppColors.memoryAmber
@@ -253,7 +293,7 @@ class GoalsScreen extends ConsumerWidget {
                       const TemporalDivider(color: AppColors.memoryAmber),
                       const SizedBox(height: 16),
                       TemporalActionButton(
-                        label: 'ADD GOAL',
+                        label: journeyText(context, 'ADD GOAL', 'AÑADIR META'),
                         icon: Icons.add_circle_outline_rounded,
                         accent: AppColors.neonCyan,
                         onPressed: isSaving
@@ -263,8 +303,11 @@ class GoalsScreen extends ConsumerWidget {
                                 final title = titleCtrl.text.trim();
                                 if (title.isEmpty) {
                                   setSheetState(
-                                    () =>
-                                        saveError = 'Enter a goal title first.',
+                                    () => saveError = journeyText(
+                                      context,
+                                      'Enter a goal title first.',
+                                      'Escribe primero un título para la meta.',
+                                    ),
                                   );
                                   return;
                                 }
@@ -290,9 +333,13 @@ class GoalsScreen extends ConsumerWidget {
                                       result.hasWarnings &&
                                       !result.accountChanged) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content: Text(
-                                          'Goal saved. Some reminders or activity updates could not finish.',
+                                          journeyText(
+                                            context,
+                                            'Goal saved. Some reminders or activity updates could not finish.',
+                                            'Meta guardada. No se pudieron completar algunos recordatorios o actualizaciones de actividad.',
+                                          ),
                                         ),
                                       ),
                                     );
@@ -301,8 +348,11 @@ class GoalsScreen extends ConsumerWidget {
                                   if (ctx.mounted) {
                                     setSheetState(() {
                                       isSaving = false;
-                                      saveError =
-                                          'Goal could not be saved. Please try again.';
+                                      saveError = journeyText(
+                                        context,
+                                        'Goal could not be saved. Please try again.',
+                                        'No se pudo guardar la meta. Inténtalo de nuevo.',
+                                      );
                                     });
                                   }
                                 }
@@ -322,7 +372,9 @@ class GoalsScreen extends ConsumerWidget {
                           onPressed: isSaving
                               ? null
                               : () => Navigator.of(ctx).pop(),
-                          child: const Text('CANCEL'),
+                          child: Text(
+                            journeyText(context, 'CANCEL', 'CANCELAR'),
+                          ),
                         ),
                       ),
                     ],
@@ -361,9 +413,9 @@ class _EmptyGoals extends StatelessWidget {
                   color: AppColors.memoryAmber,
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'No goals yet',
-                  style: TextStyle(
+                Text(
+                  journeyText(context, 'No goals yet', 'Aún no hay metas'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -371,10 +423,14 @@ class _EmptyGoals extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Add your first direction and connect tasks as the plan takes shape.',
+                Text(
+                  journeyText(
+                    context,
+                    'Add your first direction and connect tasks as the plan takes shape.',
+                    'Añade tu primer rumbo y vincula tareas a medida que el plan tome forma.',
+                  ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white70,
                     height: 1.45,
                     letterSpacing: 0,
@@ -382,7 +438,7 @@ class _EmptyGoals extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
                 TemporalActionButton(
-                  label: 'ADD A GOAL',
+                  label: journeyText(context, 'ADD A GOAL', 'AÑADIR UNA META'),
                   icon: Icons.add_rounded,
                   onPressed: onAdd,
                 ),
@@ -412,22 +468,37 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
     final int completed = goalProgress.completedCount;
     final DateTime? targetDate = goal.targetDate;
     final String targetLabel = targetDate == null
-        ? 'No target date set'
-        : 'Target date: ${targetDate.day}/${targetDate.month}/${targetDate.year}';
-    final String text =
-        'ChronoSpark Goal\n'
-        '${goal.title}\n'
-        'One-time actions: $completed/$total complete\n'
-        'Recurring completions: ${goalProgress.recurringCompletedCount}\n'
-        '$targetLabel\n'
-        'Build your goal system: ${AppUrls.website}';
+        ? journeyText(context, 'No target date set', 'Sin fecha objetivo')
+        : journeyText(
+            context,
+            'Target date: ${targetDate.day}/${targetDate.month}/${targetDate.year}',
+            'Fecha objetivo: ${targetDate.day}/${targetDate.month}/${targetDate.year}',
+          );
+    final String text = journeyText(
+      context,
+      'ChronoSpark Goal\n'
+          '${goal.title}\n'
+          'One-time actions: $completed/$total complete\n'
+          'Recurring completions: ${goalProgress.recurringCompletedCount}\n'
+          '$targetLabel\n'
+          'Build your goal system: ${AppUrls.website}',
+      'Meta de ChronoSpark\n${goal.title}\nAcciones únicas: $completed/$total completadas\nRepeticiones completadas: ${goalProgress.recurringCompletedCount}\n$targetLabel\nConstruye tu sistema de metas: ${AppUrls.website}',
+    );
 
     try {
       await SharePlus.instance.share(
         ShareParams(
           text: text,
-          title: 'ChronoSpark Goal',
-          subject: 'My ChronoSpark goal',
+          title: journeyText(
+            context,
+            'ChronoSpark Goal',
+            'Meta de ChronoSpark',
+          ),
+          subject: journeyText(
+            context,
+            'My ChronoSpark goal',
+            'Mi meta de ChronoSpark',
+          ),
         ),
       );
       AppAnalytics.track(
@@ -447,9 +518,13 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(
-          'Share sheet unavailable. Goal summary copied to clipboard.',
+          journeyText(
+            context,
+            'Share sheet unavailable. Goal summary copied to clipboard.',
+            'No se puede abrir el menú para compartir. Resumen de la meta copiado al portapapeles.',
+          ),
         ),
       ),
     );
@@ -482,9 +557,13 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
               .complete(widget.goal.id);
           if (context.mounted && result.hasWarnings && !result.accountChanged) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text(
-                  'Goal completed. Some reminders or activity updates could not finish.',
+                  journeyText(
+                    context,
+                    'Goal completed. Some reminders or activity updates could not finish.',
+                    'Meta completada. No se pudieron completar algunos recordatorios o actualizaciones de actividad.',
+                  ),
                 ),
               ),
             );
@@ -493,8 +572,14 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
         } on Object {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Goal could not be completed. Please try again.'),
+              SnackBar(
+                content: Text(
+                  journeyText(
+                    context,
+                    'Goal could not be completed. Please try again.',
+                    'No se pudo completar la meta. Inténtalo de nuevo.',
+                  ),
+                ),
               ),
             );
           }
@@ -553,7 +638,11 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Share goal: ${widget.goal.title}',
+                          tooltip: journeyText(
+                            context,
+                            'Share goal: ${widget.goal.title}',
+                            'Compartir meta: ${widget.goal.title}',
+                          ),
                           constraints: const BoxConstraints.tightFor(
                             width: 48,
                             height: 48,
@@ -570,8 +659,16 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                         ),
                         IconButton(
                           tooltip: _expanded
-                              ? 'Collapse goal details: ${widget.goal.title}'
-                              : 'Expand goal details: ${widget.goal.title}',
+                              ? journeyText(
+                                  context,
+                                  'Collapse goal details: ${widget.goal.title}',
+                                  'Contraer detalles de la meta: ${widget.goal.title}',
+                                )
+                              : journeyText(
+                                  context,
+                                  'Expand goal details: ${widget.goal.title}',
+                                  'Expandir detalles de la meta: ${widget.goal.title}',
+                                ),
                           constraints: const BoxConstraints.tightFor(
                             width: 48,
                             height: 48,
@@ -609,7 +706,11 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Target ${targetDate.day}/${targetDate.month}/${targetDate.year}',
+                            journeyText(
+                              context,
+                              'Target ${targetDate.day}/${targetDate.month}/${targetDate.year}',
+                              'Objetivo ${targetDate.day}/${targetDate.month}/${targetDate.year}',
+                            ),
                             style: TextStyle(
                               color: dateColor,
                               fontSize: 12,

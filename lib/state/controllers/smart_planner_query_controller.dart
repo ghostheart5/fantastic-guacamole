@@ -281,6 +281,7 @@ class SmartPlannerQueryController
     }
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
       searchText: conversation.evidenceSearchText,
+      savedContextDeclined: conversation.savedContextDeclined,
     );
     authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     final AssistantRequestEnvelope request = _requestContract(

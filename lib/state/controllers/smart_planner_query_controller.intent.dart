@@ -41,14 +41,8 @@ final class _PlannerIntent {
     // A retained note can explain the matched commitment; unrelated notes cannot
     // silently add instructions to a newly named objective.
     final note = evidence.selectedNote;
-    final noteRelevant =
-        note != null &&
-        (_plannerReferencesSelectedNote(source) ||
-            note.taskId == evidence.focusTask?.id && note.taskId != null ||
-            note.goalId == evidence.focusGoal?.id && note.goalId != null ||
-            _plannerTerms(
-              '${note.title} ${note.body ?? ''}',
-            ).intersection(_plannerTerms(source)).isNotEmpty);
+    // Evidence resolution is the single relevance gate, including its limits.
+    final noteRelevant = note != null;
     final noteText = noteRelevant ? (note.body ?? '') : '';
     final personConstraints = evidence.personContext.signals
         .where(
@@ -323,7 +317,11 @@ final class _PlannerIntent {
         caseSensitive: false,
       ).hasMatch(value),
     );
-    final constraintText = noIroning && !recovery
+    final laundryAction = RegExp(
+      r'\b(?:laundry|wash\w*|shirt\w*|cloth\w*|fold\w*|iron\w*|lavander[ií]a|lav\w*|camisa\w*|ropa|planch\w*)\b',
+      caseSensitive: false,
+    ).hasMatch('$action ${noteSteps.join(' ')}');
+    final constraintText = noIroning && laundryAction && !recovery
         ? spanish
               ? ' Deja la plancha para otro momento.'
               : ' Leave ironing out of this step.'
@@ -601,6 +599,27 @@ Set<String> _plannerTopicTerms(String text) => _plannerTerms(text)
             'synthetic',
             'journey',
             'validation',
+            // A shared day or generic work context does not identify a task.
+            'work',
+            'today',
+            'tomorrow',
+            'monday',
+            'tuesday',
+            'wednesday',
+            'thursday',
+            'friday',
+            'saturday',
+            'sunday',
+            'trabajo',
+            'hoy',
+            'mañana',
+            'lunes',
+            'martes',
+            'miércoles',
+            'jueves',
+            'viernes',
+            'sábado',
+            'domingo',
             'minuto',
             'paso',
             'primero',
@@ -744,6 +763,13 @@ List<String> _plannerActionCandidates(String source) {
           ),
         )
         .first;
+    action = action.replaceFirst(
+      RegExp(
+        r'\s+(?:and\s+(?:(?:I|we)\s+)?(?:only\s+)?have|y\s+(?:solo\s+)?tengo)\s+(?:only\s+|solo\s+)?(?:\d+|one|two|three|four|five|ten|fifteen|twenty|thirty|un|uno|dos|tres|cuatro|cinco|diez|quince|veinte|treinta)\s+(?:minutes?|mins?|hours?|minutos?|horas?)\b.*$',
+        caseSensitive: false,
+      ),
+      '',
+    );
     action = action.replaceFirst(
       RegExp(
         r'\s+(?:for|within|in)\s+(?:\d+|one|two|three|five|ten|twenty)\s+minutes?.*$',

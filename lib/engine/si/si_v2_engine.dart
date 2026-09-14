@@ -677,7 +677,11 @@ final class SIV2Engine {
     switch (question.focus) {
       case _SIV2QuestionFocus.nextAction:
         if (focusTask != null) {
-          return 'For the next action you asked about, "${focusTask.title}" ranks first from its title relevance, recorded date, and priority ${focusTask.priority}/5.';
+          final dateBasis =
+              focusTask.dueDate != null || focusTask.scheduledFor != null
+              ? 'recorded date, '
+              : '';
+          return 'For the next action you asked about, "${focusTask.title}" ranks first from its title relevance, ${dateBasis}and priority ${focusTask.priority}/5.';
         }
         final int goalMatch = focusGoal == null
             ? 0

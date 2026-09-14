@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -39,16 +40,20 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
           builder: (BuildContext dialogContext) => AlertDialog(
             title: Text(title),
             content: Text(
-              'Review before sharing. This summary contains progress metrics, not your task or note text.\n\n$preview',
+              journeyText(
+                context,
+                'Review before sharing. This summary contains progress metrics, not your task or note text.\n\n$preview',
+                'Revisa antes de compartir. Este resumen contiene métricas de progreso, sin el texto de tus tareas o notas.\n\n$preview',
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancel'),
+                child: Text(journeyText(context, 'Cancel', 'Cancelar')),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Share'),
+                child: Text(journeyText(context, 'Share', 'Compartir')),
               ),
             ],
           ),
@@ -59,26 +64,42 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
   Future<void> _shareProgressCard(BuildContext context, WidgetRef ref) async {
     final profile = ref.read(profileProvider);
     final trajectory = ref.read(trajectorySummaryProvider);
-    final String text =
-        'ChronoSpark Progress Snapshot\n'
-        'Level ${profile.level} • XP ${profile.xp} • Streak ${profile.streak}d\n'
-        'Momentum ${(trajectory.momentum * 100).round()}% • Completed tasks ${trajectory.completedTasks}\n'
-        'Building consistency with ChronoSpark: ${AppUrls.website}';
+    final String text = journeyText(
+      context,
+      'ChronoSpark Progress Snapshot\n'
+          'Level ${profile.level} • XP ${profile.xp} • Streak ${profile.streak}d\n'
+          'Momentum ${(trajectory.momentum * 100).round()}% • Completed tasks ${trajectory.completedTasks}\n'
+          'Building consistency with ChronoSpark: ${AppUrls.website}',
+      'Resumen de progreso de ChronoSpark\nNivel ${profile.level} • XP ${profile.xp} • Racha ${profile.streak}d\nImpulso ${(trajectory.momentum * 100).round()}% • Tareas completadas ${trajectory.completedTasks}\nDesarrollando constancia con ChronoSpark: ${AppUrls.website}',
+    );
 
     if (!await _confirmShare(
       context,
-      title: 'Review progress snapshot',
+      title: journeyText(
+        context,
+        'Review progress snapshot',
+        'Revisar resumen de progreso',
+      ),
       preview: text,
     )) {
       return;
     }
+    if (!context.mounted) return;
 
     try {
       await SharePlus.instance.share(
         ShareParams(
           text: text,
-          title: 'ChronoSpark Progress Snapshot',
-          subject: 'My ChronoSpark progression update',
+          title: journeyText(
+            context,
+            'ChronoSpark Progress Snapshot',
+            'Resumen de progreso de ChronoSpark',
+          ),
+          subject: journeyText(
+            context,
+            'My ChronoSpark progression update',
+            'Mi actualización de progreso en ChronoSpark',
+          ),
         ),
       );
       AppAnalytics.track(
@@ -97,9 +118,13 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(
-          'Share sheet unavailable. Progress snapshot copied to clipboard.',
+          journeyText(
+            context,
+            'Share sheet unavailable. Progress snapshot copied to clipboard.',
+            'No se puede abrir el menú para compartir. Resumen de progreso copiado al portapapeles.',
+          ),
         ),
       ),
     );
@@ -111,27 +136,43 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
   ) async {
     final profile = ref.read(profileProvider);
     final trajectory = ref.read(trajectorySummaryProvider);
-    final String text =
-        'ChronoSpark Achievement Unlocked\n'
-        'Level ${profile.level} achieved\n'
-        'Current streak: ${profile.streak} days\n'
-        'Momentum ${(trajectory.momentum * 100).round()}%\n'
-        'Join me in ChronoSpark: ${AppUrls.website}';
+    final String text = journeyText(
+      context,
+      'ChronoSpark Achievement Unlocked\n'
+          'Level ${profile.level} achieved\n'
+          'Current streak: ${profile.streak} days\n'
+          'Momentum ${(trajectory.momentum * 100).round()}%\n'
+          'Join me in ChronoSpark: ${AppUrls.website}',
+      'Logro desbloqueado en ChronoSpark\nNivel ${profile.level} alcanzado\nRacha actual: ${profile.streak} días\nImpulso ${(trajectory.momentum * 100).round()}%\nAcompáñame en ChronoSpark: ${AppUrls.website}',
+    );
 
     if (!await _confirmShare(
       context,
-      title: 'Review achievement snapshot',
+      title: journeyText(
+        context,
+        'Review achievement snapshot',
+        'Revisar resumen del logro',
+      ),
       preview: text,
     )) {
       return;
     }
+    if (!context.mounted) return;
 
     try {
       await SharePlus.instance.share(
         ShareParams(
           text: text,
-          title: 'ChronoSpark Achievement',
-          subject: 'I hit a new ChronoSpark milestone',
+          title: journeyText(
+            context,
+            'ChronoSpark Achievement',
+            'Logro de ChronoSpark',
+          ),
+          subject: journeyText(
+            context,
+            'I hit a new ChronoSpark milestone',
+            'Alcancé un nuevo hito en ChronoSpark',
+          ),
         ),
       );
       AppAnalytics.track(
@@ -150,9 +191,13 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(
-          'Share sheet unavailable. Achievement summary copied to clipboard.',
+          journeyText(
+            context,
+            'Share sheet unavailable. Achievement summary copied to clipboard.',
+            'No se puede abrir el menú para compartir. Resumen del logro copiado al portapapeles.',
+          ),
         ),
       ),
     );
@@ -177,11 +222,19 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Semantics(
-                      label: 'Back to Nexus',
+                      label: journeyText(
+                        context,
+                        'Back to Nexus',
+                        'Volver a Nexus',
+                      ),
                       button: true,
                       onTap: () => goToAppView(context, ref, AppView.nexus),
                       child: IconButton(
-                        tooltip: 'Back to Nexus',
+                        tooltip: journeyText(
+                          context,
+                          'Back to Nexus',
+                          'Volver a Nexus',
+                        ),
                         onPressed: () =>
                             goToAppView(context, ref, AppView.nexus),
                         constraints: const BoxConstraints.tightFor(
@@ -195,12 +248,28 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: TemporalScreenHeader(
-                        title: 'PROGRESSION',
-                        subtitle: 'See what your actions are building.',
-                        eyebrow: 'Observed continuity',
+                        title: journeyText(
+                          context,
+                          'PROGRESSION',
+                          'PROGRESIÓN',
+                        ),
+                        subtitle: journeyText(
+                          context,
+                          'See what your actions are building.',
+                          'Descubre lo que construyen tus acciones.',
+                        ),
+                        eyebrow: journeyText(
+                          context,
+                          'Observed continuity',
+                          'Continuidad observada',
+                        ),
                         accent: AppColors.memoryAmber,
                         trailing: PopupMenuButton<_ProgressionShareAction>(
-                          tooltip: 'Share progression',
+                          tooltip: journeyText(
+                            context,
+                            'Share progression',
+                            'Compartir progreso',
+                          ),
                           color: const Color(0xFF101827),
                           icon: const Icon(
                             Icons.ios_share_rounded,
@@ -214,21 +283,27 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                                 await _shareAchievementCard(context, ref);
                             }
                           },
-                          itemBuilder: (BuildContext context) => const [
+                          itemBuilder: (BuildContext context) => [
                             PopupMenuItem<_ProgressionShareAction>(
                               value: _ProgressionShareAction.progress,
                               child: Row(
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.insights_rounded,
                                     color: AppColors.memoryAmber,
                                   ),
-                                  SizedBox(width: 10),
+                                  const SizedBox(width: 10),
                                   Flexible(
                                     child: Text(
-                                      'Progress snapshot',
+                                      journeyText(
+                                        context,
+                                        'Progress snapshot',
+                                        'Resumen de progreso',
+                                      ),
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(color: Colors.white),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -238,16 +313,22 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                               value: _ProgressionShareAction.achievement,
                               child: Row(
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.emoji_events_outlined,
                                     color: AppColors.neonCyan,
                                   ),
-                                  SizedBox(width: 10),
+                                  const SizedBox(width: 10),
                                   Flexible(
                                     child: Text(
-                                      'Achievement',
+                                      journeyText(
+                                        context,
+                                        'Achievement',
+                                        'Logro',
+                                      ),
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(color: Colors.white),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -354,9 +435,9 @@ class _ProgressionOverview extends StatelessWidget {
                       letterSpacing: 0,
                     ),
                   ),
-                  const Text(
-                    'LEVEL',
-                    style: TextStyle(
+                  Text(
+                    journeyText(context, 'LEVEL', 'NIVEL'),
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
@@ -374,7 +455,11 @@ class _ProgressionOverview extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                'LEVEL $level · ${levelTitle.toUpperCase()}',
+                journeyText(
+                  context,
+                  'LEVEL $level · ${levelTitle.toUpperCase()}',
+                  'NIVEL $level · ${journeyLabel(context, levelTitle).toUpperCase()}',
+                ),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.memoryAmber,
                   fontWeight: FontWeight.w800,
@@ -383,7 +468,11 @@ class _ProgressionOverview extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                '$xpToNext XP until Level ${level + 1}',
+                journeyText(
+                  context,
+                  '$xpToNext XP until Level ${level + 1}',
+                  '$xpToNext XP para el nivel ${level + 1}',
+                ),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white70,
                   height: 1.4,
@@ -402,7 +491,11 @@ class _ProgressionOverview extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '$streak day streak · $streakMessage',
+                      journeyText(
+                        context,
+                        '$streak day streak · $streakMessage',
+                        'Racha de $streak ${streak == 1 ? 'día' : 'días'} · ${journeyLabel(context, streakMessage)}',
+                      ),
                       style: const TextStyle(
                         color: Color(0xFFD7DFF0),
                         fontSize: 12,
@@ -433,10 +526,22 @@ class _ObservedContinuitySummary extends ConsumerWidget {
         status != ProgressionReviewStatus.ready) {
       final String availability =
           review.hasError || status == ProgressionReviewStatus.unavailable
-          ? 'Saved continuity evidence is unavailable. Retry the progress review below.'
+          ? journeyText(
+              context,
+              'Saved continuity evidence is unavailable. Retry the progress review below.',
+              'La evidencia de continuidad guardada no está disponible. Reintenta la revisión de progreso más abajo.',
+            )
           : status == ProgressionReviewStatus.empty
-          ? 'No saved planning history yet. Record an outcome to begin a continuity review.'
-          : 'Loading saved continuity evidence. Ratings will appear when it is ready.';
+          ? journeyText(
+              context,
+              'No saved planning history yet. Record an outcome to begin a continuity review.',
+              'Aún no hay historial de planificación guardado. Registra un resultado para iniciar una revisión de continuidad.',
+            )
+          : journeyText(
+              context,
+              'Loading saved continuity evidence. Ratings will appear when it is ready.',
+              'Cargando la evidencia de continuidad guardada. Las valoraciones aparecerán cuando esté lista.',
+            );
       return Text(
         availability,
         key: const Key('progression-continuity-availability'),
@@ -452,15 +557,23 @@ class _ObservedContinuitySummary extends ConsumerWidget {
         .length;
     final String milestoneText =
         milestoneSummary.total == 0 && timelineMilestones == 0
-        ? 'No milestones recorded yet.'
-        : 'Milestones completed: ${milestoneSummary.completed}/${milestoneSummary.total} · Timeline milestones: $timelineMilestones';
+        ? journeyText(
+            context,
+            'No milestones recorded yet.',
+            'Aún no hay hitos registrados.',
+          )
+        : journeyText(
+            context,
+            'Milestones completed: ${milestoneSummary.completed}/${milestoneSummary.total} · Timeline milestones: $timelineMilestones',
+            'Hitos completados: ${milestoneSummary.completed}/${milestoneSummary.total} · Hitos en la Línea de Tiempo: $timelineMilestones',
+          );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text(
-          'OBSERVED CONTINUITY',
-          style: TextStyle(
+        Text(
+          journeyText(context, 'OBSERVED CONTINUITY', 'CONTINUIDAD OBSERVADA'),
+          style: const TextStyle(
             color: AppColors.memoryAmber,
             fontSize: 11,
             fontWeight: FontWeight.w800,
@@ -471,19 +584,19 @@ class _ObservedContinuitySummary extends ConsumerWidget {
         Row(
           children: <Widget>[
             _ProgressMetric(
-              label: 'COMPLETED',
+              label: journeyText(context, 'COMPLETED', 'COMPLETADAS'),
               value: '${trajectory.completedTasks}',
               color: AppColors.neonCyan,
             ),
             const _ProgressMetricDivider(),
             _ProgressMetric(
-              label: 'STREAK',
+              label: journeyText(context, 'STREAK', 'RACHA'),
               value: '${profile.streak}d',
               color: AppColors.neonViolet,
             ),
             const _ProgressMetricDivider(),
             _ProgressMetric(
-              label: 'PRESSURE',
+              label: journeyText(context, 'PRESSURE', 'PRESIÓN'),
               value: '${trajectory.pressureIndex}%',
               color: AppColors.memoryAmber,
             ),
@@ -600,9 +713,13 @@ class _ProgressSignalsCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
-              'CAPABILITY SIGNALS',
-              style: TextStyle(
+            Text(
+              journeyText(
+                context,
+                'CAPABILITY SIGNALS',
+                'SEÑALES DE CAPACIDAD',
+              ),
+              style: const TextStyle(
                 fontSize: 11,
                 letterSpacing: 0,
                 color: AppColors.neonCyan,
@@ -612,18 +729,48 @@ class _ProgressSignalsCard extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
-        _SignalRow(label: 'Follow-through', value: followThrough),
+        _SignalRow(
+          label: journeyText(context, 'Follow-through', 'Cumplimiento'),
+          value: journeyText(
+            context,
+            followThrough,
+            execution.actioned7d == 0
+                ? 'Evidencia insuficiente'
+                : '${(execution.completionRate7d * 100).round()}% completadas',
+          ),
+        ),
         const SizedBox(height: 10),
-        _SignalRow(label: 'Planning reliability', value: signals.consistency),
+        _SignalRow(
+          label: journeyText(
+            context,
+            'Planning reliability',
+            'Fiabilidad de planificación',
+          ),
+          value: journeyText(
+            context,
+            signals.consistency,
+            'Racha de ${ref.watch(profileProvider).streak} días',
+          ),
+        ),
         const SizedBox(height: 10),
-        _SignalRow(label: 'Recovery load', value: signals.load),
+        _SignalRow(
+          label: journeyText(context, 'Recovery load', 'Carga de recuperación'),
+          value: signals.load,
+        ),
         const SizedBox(height: 10),
-        _SignalRow(label: 'Recent direction', value: direction),
+        _SignalRow(
+          label: journeyText(context, 'Recent direction', 'Tendencia reciente'),
+          value: direction,
+        ),
         const SizedBox(height: 12),
         Text(
-          '${execution.completed7d} of ${execution.actioned7d} recorded outcomes '
-          'completed in the last 7 days. Direction compares that rate with '
-          'the previous 7 days.',
+          journeyText(
+            context,
+            '${execution.completed7d} of ${execution.actioned7d} recorded outcomes '
+                'completed in the last 7 days. Direction compares that rate with '
+                'the previous 7 days.',
+            '${execution.completed7d} de ${execution.actioned7d} resultados registrados se completaron en los últimos 7 días. La tendencia compara esa tasa con la de los 7 días anteriores.',
+          ),
           style: const TextStyle(
             color: Colors.white70,
             fontSize: 12,
@@ -681,7 +828,7 @@ class _SignalRow extends StatelessWidget {
         const SizedBox(width: 12),
         Flexible(
           child: Text(
-            value,
+            journeyLabel(context, value),
             textAlign: TextAlign.end,
             style: TextStyle(
               color: _valueColor(),
@@ -706,9 +853,13 @@ class _NarrativeCard extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'WHAT YOUR ACTIONS ARE CHANGING',
-          style: TextStyle(
+        Text(
+          journeyText(
+            context,
+            'WHAT YOUR ACTIONS ARE CHANGING',
+            'LO QUE ESTÁN CAMBIANDO TUS ACCIONES',
+          ),
+          style: const TextStyle(
             fontSize: 11,
             letterSpacing: 0,
             color: AppColors.neonViolet,
@@ -717,7 +868,7 @@ class _NarrativeCard extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          narrative.summary,
+          journeyText(context, narrative.summary, narrative.spanishSummary),
           style: const TextStyle(
             color: Colors.white,
             fontSize: 14,
@@ -728,12 +879,20 @@ class _NarrativeCard extends ConsumerWidget {
         const SizedBox(height: 6),
         Text(
           execution.actioned7d == 0
-              ? 'No completed, skipped, or delayed outcomes were recorded in '
-                    'the last 7 days. Your next recorded action will help '
-                    'establish a baseline.'
-              : '${execution.completed7d} of ${execution.actioned7d} recorded '
-                    'outcomes completed in the last 7 days. Each recorded '
-                    'outcome adds to your follow-through evidence.',
+              ? journeyText(
+                  context,
+                  'No completed, skipped, or delayed outcomes were recorded in '
+                      'the last 7 days. Your next recorded action will help '
+                      'establish a baseline.',
+                  'No se registraron resultados completados, omitidos ni aplazados en los últimos 7 días. Tu próxima acción registrada ayudará a establecer una referencia.',
+                )
+              : journeyText(
+                  context,
+                  '${execution.completed7d} of ${execution.actioned7d} recorded '
+                      'outcomes completed in the last 7 days. Each recorded '
+                      'outcome adds to your follow-through evidence.',
+                  '${execution.completed7d} de ${execution.actioned7d} resultados registrados se completaron en los últimos 7 días. Cada resultado aporta evidencia de tu cumplimiento.',
+                ),
           style: const TextStyle(
             color: Color(0xFFC6D0E2),
             fontSize: 13,
@@ -754,9 +913,13 @@ class _AdvisorSummaryCard extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'NEXT CAPABILITY TO PRACTICE',
-          style: TextStyle(
+        Text(
+          journeyText(
+            context,
+            'NEXT CAPABILITY TO PRACTICE',
+            'PRÓXIMA CAPACIDAD A PRACTICAR',
+          ),
+          style: const TextStyle(
             fontSize: 11,
             letterSpacing: 0,
             color: AppColors.memoryAmber,
@@ -769,7 +932,11 @@ class _AdvisorSummaryCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                summary.text,
+                journeyText(
+                  context,
+                  summary.text,
+                  summary.spanishText ?? summary.text,
+                ),
                 style: const TextStyle(
                   color: Color(0xFFD7DFF0),
                   fontSize: 13,
@@ -781,7 +948,13 @@ class _AdvisorSummaryCard extends ConsumerWidget {
                 OutlinedButton.icon(
                   onPressed: () => retryProgressionReview(ref),
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry progress review'),
+                  label: Text(
+                    journeyText(
+                      context,
+                      'Retry progress review',
+                      'Reintentar revisión de progreso',
+                    ),
+                  ),
                 ),
               ],
               if (summary.canAct) ...[
@@ -790,16 +963,24 @@ class _AdvisorSummaryCard extends ConsumerWidget {
               ],
             ],
           ),
-          loading: () => const Text(
-            'Building a progress view from your saved Timeline and completed actions...',
-            style: TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
+          loading: () => Text(
+            journeyText(
+              context,
+              'Building a progress view from your saved Timeline and completed actions...',
+              'Creando una vista del progreso a partir de tu Línea de Tiempo y acciones completadas...',
+            ),
+            style: const TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
           ),
           error: (_, _) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Progress review is unavailable. Your saved evidence could not be read. Retry when your data is available.',
-                style: TextStyle(
+              Text(
+                journeyText(
+                  context,
+                  'Progress review is unavailable. Your saved evidence could not be read. Retry when your data is available.',
+                  'La revisión de progreso no está disponible. No se pudo leer la evidencia guardada. Reintenta cuando tus datos estén disponibles.',
+                ),
+                style: const TextStyle(
                   color: Color(0xFFC6D0E2),
                   fontSize: 13,
                   height: 1.45,
@@ -811,7 +992,13 @@ class _AdvisorSummaryCard extends ConsumerWidget {
                   retryProgressionReview(ref);
                 },
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Retry progress review'),
+                label: Text(
+                  journeyText(
+                    context,
+                    'Retry progress review',
+                    'Reintentar revisión de progreso',
+                  ),
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.memoryAmber,
                   side: BorderSide(
@@ -840,7 +1027,7 @@ class _AdvisorSummaryCard extends ConsumerWidget {
         action.navigate(context, ref);
       },
       icon: Icon(action.icon, size: 18),
-      label: Text(action.label),
+      label: Text(journeyLabel(context, action.label)),
       style: FilledButton.styleFrom(
         backgroundColor: AppColors.memoryAmber,
         foregroundColor: Colors.black,
@@ -926,9 +1113,13 @@ class _XpProgressChartCard extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'COMPLETION MOMENTUM',
-          style: TextStyle(
+        Text(
+          journeyText(
+            context,
+            'COMPLETION MOMENTUM',
+            'IMPULSO DE FINALIZACIÓN',
+          ),
+          style: const TextStyle(
             fontSize: 11,
             letterSpacing: 0,
             color: AppColors.memoryAmber,
@@ -938,7 +1129,11 @@ class _XpProgressChartCard extends ConsumerWidget {
         const SizedBox(height: 8),
         if (points.isNotEmpty) ...[
           Text(
-            'Last 30 days • $end completed',
+            journeyText(
+              context,
+              'Last 30 days • $end completed',
+              'Últimos 30 días • $end completadas',
+            ),
             style: const TextStyle(
               color: Color(0xFFC6D0E2),
               fontSize: 12,
@@ -960,10 +1155,22 @@ class _XpProgressChartCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   logs.isLoading
-                      ? 'Loading completion history...'
+                      ? journeyText(
+                          context,
+                          'Loading completion history...',
+                          'Cargando historial de finalización...',
+                        )
                       : logs.error != null
-                      ? 'Completion history is unavailable right now.'
-                      : 'No completions were recorded in the last 30 days.',
+                      ? journeyText(
+                          context,
+                          'Completion history is unavailable right now.',
+                          'El historial de finalización no está disponible ahora.',
+                        )
+                      : journeyText(
+                          context,
+                          'No completions were recorded in the last 30 days.',
+                          'No se registraron finalizaciones en los últimos 30 días.',
+                        ),
                   style: const TextStyle(
                     color: Color(0xFFD7DFF0),
                     fontSize: 13,

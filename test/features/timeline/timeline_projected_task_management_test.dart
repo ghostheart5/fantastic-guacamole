@@ -17,6 +17,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'Spanish Timeline localizes current controls and date but preserves saved content',
+    (tester) async {
+      final container = _buildContainer(baseEvents: [_baseEvent]);
+      addTearDown(container.dispose);
+      await _pumpTimelineShell(tester, container, locale: const Locale('es'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
+      expect(find.text('VENCE HOY'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Mostrar Línea de Tiempo: Semana'),
+        findsOneWidget,
+      );
+      expect(find.text('NEXT 7 DAYS'), findsNothing);
+      await tester.tap(find.text('Buscar y filtrar'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.widgetWithText(TextField, 'Buscar un evento, tarea, meta o nota'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text(_managedTask.title));
+      expect(find.text(_managedTask.title), findsOneWidget);
+      expect(find.text('Completar'), findsOneWidget);
+      expect(find.textContaining('Task deadline'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('Timeline labels use local dates and times for UTC stored instants', () {
     for (final DateTime local in <DateTime>[
       DateTime(2026, 9, 10, 4, 57),

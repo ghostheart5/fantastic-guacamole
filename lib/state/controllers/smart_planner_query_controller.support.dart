@@ -411,20 +411,30 @@ final class _PlannerEvidence {
     final selectionText = _plannerAffirmativeClauses(searchText).join('. ');
     final selectionAction = _extractPlannerAction(selectionText);
     final Set<String> requestTerms = _plannerTopicTerms(
-      (selectionAction ?? selectionText).replaceAll(
-        RegExp(
-          r'\b(?:\d+|one|two|three|four|five|ten|fifteen|twenty|thirty|forty|sixty)[ -]+minutes?\b',
-          caseSensitive: false,
-        ),
-        '',
-      ),
+      (selectionAction == null
+              ? selectionText
+              : selectionAction
+                    .split(
+                      RegExp(
+                        r'\s+(?:before|after|asking|antes de|despu[eé]s de)\s+',
+                        caseSensitive: false,
+                      ),
+                    )
+                    .first)
+          .replaceAll(
+            RegExp(
+              r'\b(?:\d+|one|two|three|four|five|ten|fifteen|twenty|thirty|forty|sixty)[ -]+minutes?\b',
+              caseSensitive: false,
+            ),
+            '',
+          ),
     );
     final bool explicitlyUsesNote = _plannerReferencesSelectedNote(
       selectionText,
     );
     if (selectedNote != null && !explicitlyUsesNote) {
       final noteTerms = _plannerTopicTerms(
-        '${selectedNote.title} ${selectedNote.body ?? ''}',
+        '${selectedNote.title} ${_plannerActionCandidates(selectedNote.body ?? '').join('. ')}',
       );
       final linkedTaskMatches = activeTasks.any(
         (task) =>

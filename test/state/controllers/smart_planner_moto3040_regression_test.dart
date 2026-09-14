@@ -29,6 +29,109 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  group('Moto 3041 current objective and saved-context regressions', () {
+    for (final entry in [
+      (
+        language: 'en',
+        input:
+            'I rested and feel fine now. I do not need another break. I am writing the school note and have five minutes. Help me finish the note.',
+        object: 'school note',
+        budget: 'and have',
+      ),
+      (
+        language: 'es',
+        input: 'Necesito escribir la nota escolar y tengo cinco minutos.',
+        object: 'nota escolar',
+        budget: 'y tengo',
+      ),
+    ]) {
+      test(
+        '${entry.language} action excludes coordinated time metadata',
+        () async {
+          final response = await _Scenario(
+            language: entry.language,
+          ).start(entry.input);
+          _expectWithin(response, 5);
+          expect(response.nextStep, contains(entry.object));
+          for (final option in response.options) {
+            expect(
+              '${option.title} ${option.description}',
+              isNot(contains(entry.budget)),
+            );
+          }
+        },
+      );
+    }
+    for (final input in [
+      'The school note is finished. Now I need to draft an email to my restaurant manager asking to swap my Friday shift. Do not send it. I have ten minutes.',
+      'I need to draft a work email before school pickup in twenty minutes. Dinner can wait. Please help me start the email and leave time to get to school.',
+    ]) {
+      test('incidental laundry-note overlap does not alter $input', () async {
+        final scenario = _Scenario(note: true);
+        final original = _noteRequest('en');
+        final laundry = await scenario.start(original);
+        _expectCareLabels(laundry);
+        final response = await scenario.follow(original, laundry, input);
+        expect(response.nextStep, contains('email'));
+        final rendered =
+            '${response.nextStep} ${response.options.map((o) => o.description).join(' ')} ${response.verifiedEvidence.join(' ')}';
+        expect(
+          rendered,
+          isNot(
+            matches(
+              RegExp(
+                r'ironing|care labels|Read note|note.s explicit',
+                caseSensitive: false,
+              ),
+            ),
+          ),
+        );
+      });
+    }
+    for (final language in ['en', 'es']) {
+      test(
+        '$language initial saved-context refusal avoids evidence reads',
+        () async {
+          var noteReads = 0;
+          final scenario = _Scenario(
+            language: language,
+            note: true,
+            onNoteRead: () {
+              noteReads++;
+              throw StateError('Declined note must not be loaded');
+            },
+          );
+          final result = await scenario.controller.requestPlanningGuidance(
+            notes: language == 'es'
+                ? 'Necesito redactar un correo a mi gerente. Tengo diez minutos. Usa solo lo que escribí aquí, no mis notas guardadas. No envíes nada.'
+                : 'I have ten minutes to draft a Friday shift-swap email to my manager. Use only what I wrote here, not saved notes. Do not send anything.',
+            energy: null,
+            emotion: null,
+            history: const [],
+            previousSavedNotes: null,
+            languageCode: language,
+          );
+          expect(noteReads, 0);
+          expect(
+            result.plannerResponse.userContext?.savedContextDeclined,
+            isTrue,
+          );
+          expect(result.request.context['selectedNoteId'], isNull);
+          expect(result.request.context['focusTaskId'], isNull);
+          expect(result.plannerResponse.userContext?.timeLimitMinutes, 10);
+          expect(
+            result.plannerResponse.verifiedEvidence.join(' '),
+            isNot(contains('laundry')),
+          );
+          expect(
+            result.plannerResponse.options.map((o) => o.estimatedMinutes),
+            contains(10),
+          );
+        },
+      );
+    }
+  });
+
   group('departure answers and saved-context choice', () {
     for (final entry in [
       (
@@ -847,6 +950,7 @@ class _Scenario {
     bool note = false,
     bool savedWork = false,
     String? noteBody,
+    void Function()? onNoteRead,
   }) {
     tasks = _Tasks(
       savedWork
@@ -916,8 +1020,9 @@ class _Scenario {
                 ]
               : [],
         ),
-        selectedPlanningNoteProvider.overrideWith(
-          (ref) async => note
+        selectedPlanningNoteProvider.overrideWith((ref) async {
+          onNoteRead?.call();
+          return note
               ? NoteEntity(
                   id: 'laundry-prerequisite',
                   title: language == 'es'
@@ -933,8 +1038,8 @@ class _Scenario {
                                 'Do not add ironing. I need to rest after a restaurant shift.'),
                   createdAt: _now,
                 )
-              : null,
-        ),
+              : null;
+        }),
       ],
     );
     controller = container.read(smartPlannerQueryControllerProvider);

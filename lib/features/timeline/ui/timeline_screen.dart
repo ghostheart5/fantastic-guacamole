@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
+import 'package:intl/intl.dart';
 import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -188,7 +190,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final Map<String, List<TimelineEventEntity>> grouped =
         <String, List<TimelineEventEntity>>{};
     for (final TimelineEventEntity event in filtered) {
-      final String key = DateTimeFormats.timelineDay(_eventMoment(event));
+      final String key = ChronoSparkLocalizations.of(context).isSpanish
+          ? DateFormat.yMMMMEEEEd('es').format(_eventMoment(event))
+          : DateTimeFormats.timelineDay(_eventMoment(event));
       grouped.putIfAbsent(key, () => <TimelineEventEntity>[]).add(event);
     }
     final List<String> days = grouped.keys.toList(growable: false);

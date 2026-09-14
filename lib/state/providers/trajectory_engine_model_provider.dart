@@ -62,9 +62,13 @@ class TrajectoryEngineModel {
   final bool hasAvailableNetworkInterface;
 
   bool get hasComparison =>
-      comparison != null && comparison!.outcomes.isNotEmpty;
+      status != TrajectoryEngineStatus.empty &&
+      comparison != null &&
+      comparison!.outcomes.isNotEmpty;
 
-  bool get canRecommendScenario => trajectoryCanRecommend(comparison);
+  bool get canRecommendScenario =>
+      status != TrajectoryEngineStatus.empty &&
+      trajectoryCanRecommend(comparison);
 }
 
 final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((

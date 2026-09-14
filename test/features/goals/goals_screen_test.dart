@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:async';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -58,6 +59,47 @@ void main() {
   );
   for (final es in [false, true]) {
     testWidgets(
+      '${es ? 'Spanish' : 'English'} goal controls preserve the stored title',
+      (tester) async {
+        final container = ProviderContainer(
+          overrides: [
+            goalsProvider.overrideWith(_GoalsNotifier.new),
+            goalsReadProvider.overrideWithValue(
+              const AsyncData(<GoalEntity>[]),
+            ),
+            goalProgressProvider(
+              'release',
+            ).overrideWith((ref) async => const GoalProgressView.empty()),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(_testApp(container, es));
+        await tester.pumpAndSettle();
+        expect(find.text(es ? 'METAS' : 'GOALS'), findsOneWidget);
+        expect(find.text('Ship the first release'), findsOneWidget);
+        expect(
+          find.byTooltip(
+            es
+                ? 'Compartir meta: Ship the first release'
+                : 'Share goal: Ship the first release',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.byTooltip(es ? 'Añadir meta' : 'Add goal'));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.widgetWithText(
+            TextField,
+            es ? 'Título de la meta' : 'Goal title',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text(es ? 'AÑADIR META' : 'ADD GOAL'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
       '${es ? 'Spanish' : 'English'} unavailable goals show a recoverable error',
       (tester) async {
         var failed = true;
@@ -90,7 +132,8 @@ void main() {
               .widget<IconButton>(
                 find.byWidgetPredicate(
                   (widget) =>
-                      widget is IconButton && widget.tooltip == 'Add goal',
+                      widget is IconButton &&
+                      widget.tooltip == (es ? 'Añadir meta' : 'Add goal'),
                 ),
               )
               .onPressed,
@@ -241,7 +284,10 @@ Widget _testApp(ProviderContainer container, bool es) =>
       child: MaterialApp(
         locale: Locale(es ? 'es' : 'en'),
         supportedLocales: const [Locale('en'), Locale('es')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        localizationsDelegates: const [
+          ChronoSparkLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(disableAnimations: true),
           child: child!,

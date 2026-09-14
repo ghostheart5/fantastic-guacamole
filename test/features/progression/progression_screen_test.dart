@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -25,6 +27,7 @@ void main() {
   Future<ProviderContainer> pumpProgression(
     WidgetTester tester, {
     required TrajectorySummaryView trajectory,
+    Locale locale = const Locale('en'),
     Size physicalSize = const Size(1200, 4000),
     FutureOr<String> Function(Ref ref)? weeklySummaryOverride,
     FutureOr<ProgressionReview> Function(Ref ref)? reviewOverride,
@@ -73,12 +76,48 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: ProgressionScreen()),
+        child: MaterialApp(
+          locale: locale,
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            ChronoSparkLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          home: const ProgressionScreen(),
+        ),
       ),
     );
     await tester.pump();
     return container;
   }
+
+  testWidgets(
+    'Spanish progression translates controls and evidence without changing values',
+    (tester) async {
+      await pumpProgression(
+        tester,
+        trajectory: _emptyTrajectory,
+        locale: const Locale('es'),
+        reviewOverride: (ref) => const ProgressionReview(
+          'No saved planning history yet.',
+          spanishText: 'Aún no hay historial de planificación guardado.',
+          status: ProgressionReviewStatus.empty,
+        ),
+      );
+      expect(find.text('PROGRESIÓN'), findsOneWidget);
+      expect(find.byTooltip('Compartir progreso'), findsOneWidget);
+      expect(find.text('IMPULSO DE FINALIZACIÓN'), findsOneWidget);
+      expect(find.text('Fiabilidad de planificación'), findsOneWidget);
+      expect(find.text('PROGRESSION'), findsNothing);
+      expect(find.text('LEVEL'), findsNothing);
+      expect(find.textContaining('XP para el nivel'), findsOneWidget);
+      expect(
+        find.text('Aún no hay historial de planificación guardado.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('renders for a brand-new account with zeroed progress', (
     WidgetTester tester,
