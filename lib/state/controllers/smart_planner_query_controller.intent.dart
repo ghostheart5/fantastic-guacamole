@@ -151,11 +151,11 @@ final class _PlannerIntent {
             ).hasMatch(constraint),
           ),
       caregiving: RegExp(
-        r'\b(toddler|baby|child|caring for|supervising|beb[eé]|niñ[oa]|cuidando)\b',
+        r'\b(toddler|baby|child|children|caring for|supervising|beb[eé]|niñ[oa]s?|hij[oa]s?|cuidando)\b',
         caseSensitive: false,
       ).hasMatch(source),
       interruptible: RegExp(
-        r"\b(toddler|baby|supervis(?:e|ing)|caring for|child.{0,30}(?:home|sick)|cannot silence|can['’]t silence|interruptions|interrump|cuidando|beb[eé]|niñ[oa])",
+        r"\b(toddler|baby|supervis(?:e|ing)|caring for|child.{0,30}(?:home|sick|needs? me)|cannot silence|can['’]t silence|interruptions|interrump|cuidando|beb[eé]|niñ[oa]|hij[oa])",
         caseSensitive: false,
       ).hasMatch(source),
       deadlineNeedsDeparture: _plannerDepartureUnresolved(source),
@@ -710,6 +710,8 @@ bool _plannerHasActionPosition(String prefix) {
   return RegExp(
     r"\b(?:please|help me|can you|could you|would you|(?:i|we)\s+(?:(?:need|want|have|am trying|are trying) to|must|should|can)|i am|we are|i['’]m|we['’]re|need to|want to|have to|must|i|we|first|next|then|now|necesito|quiero|debo|puedo|yo|ay[uú]dame a|por favor|primero|ahora|mientras)\s*$"
     r'|\b(?:minutes?|mins?|hours?|step|task|session|plan)\s+(?:available\s+)?to\s*$'
+    r'|\b(?:i|we)\s+(?:only\s+)?have\s+\S+(?:\s+\S+)?\s+(?:minutes?|mins?|hours?)\s+(?:after|before)\s+(?:(?:my|our|the)\s+)?(?:breakfast|lunch|dinner|work|school|school pickup|school run|meeting|appointment)\s+to\s*$'
+    r'|\btengo\s+\S+(?:\s+\S+)?\s+(?:minutos?|horas?)\s+(?:despu[eé]s de|antes de)\s+(?:(?:mi|el|la)\s+)?(?:desayunar|almorzar|cenar|desayuno|almuerzo|cena|trabajo|escuela|reuni[oó]n|cita)\s+para\s*$'
     r'|\b(?:minutos?|horas?|paso)\s+(?:disponibles?\s+)?para\s*$',
     caseSensitive: false,
   ).hasMatch(clean);
@@ -719,7 +721,7 @@ List<String> _plannerActionCandidates(String source) {
   final candidates = <String>[];
   for (final clause in source.split(
     RegExp(
-      r'[.!?;,\n]+|\b(?:and then|then|but|pero|despu[eé]s)\b|\band\s+(?=(?:(?:I|we)\s+)?(?:need|must|have to|want to)\b)',
+      r'[.!?;,\n]+|\b(?:and then|then|but|pero|despu[eé]s(?!\s+de\b))\b|\band\s+(?=(?:(?:I|we)\s+)?(?:need|must|have to|want to)\b)',
       caseSensitive: false,
     ),
   )) {
@@ -1016,6 +1018,17 @@ bool _plannerDepartureUnresolved(String source) {
     source,
   ).split(RegExp(r'[.!?;,\n]+'))) {
     final current = _plannerWithoutQuotedText(clause);
+    final workBeforeLeaving = RegExp(
+      r'\b(?:i|we)\s+have\s+(?:\d+|one|two|three|five|ten|fifteen|twenty|thirty)\s+minutes?\s+(?:before|until)\s+(?:(?:i|we)\s+)?(?:leaving|leave|departing)\b',
+      caseSensitive: false,
+    ).hasMatch(current);
+    if (workBeforeLeaving) {
+      departureConfirmed =
+          !_plannerHistoricalOrUncertain(current) &&
+          !_negatedPlannerClause(current);
+      continue;
+    }
+
     final departure = RegExp(
       r"\b(?:(?:i|we)\s+(?:leave|depart|am leaving|are leaving|need to leave|have to leave|(?:might|may|could|would|cannot|can['’]t|do not|will|won['’]t) leave)|salgo|salimos|(?:tengo|tenemos) que salir|voy a salir|(?:quiz[aá]s|tal vez) salga)\b",
       caseSensitive: false,
@@ -1051,7 +1064,7 @@ bool _plannerDepartureUnresolved(String source) {
     return false;
   }
   return RegExp(
-        r'\b(?:before|until|antes de)\b[^.!?;\n]{0,45}\b(?:school|pick(?:up|[- ]up)(?!\s+list)|shift|appointment|meeting|ride|bus|train|turno|cita|recoger|autobús|tren)\b',
+        '\\b(?:before|until|antes de)\\b(?:(?!\\b(?:to|para)\\s+(?:$_plannerActionVerbs)\\b)[^.!?;\\n]){0,45}\\b(?:school|pick(?:up|[- ]up)(?!\\s+list)|shift|appointment|meeting|ride|bus|train|turno|cita|recoger|autobús|tren)\\b',
         caseSensitive: false,
       ).hasMatch(source) ||
       RegExp(

@@ -29,6 +29,110 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  group('Moto 3042 temporal action and bilingual caregiving regressions', () {
+    test(
+      'explicit work window before leaving answers departure timing',
+      () async {
+        final response = await _Scenario().start(
+          'I need to prepare my restaurant uniform and name badge for my afternoon shift. I have ten minutes before leaving to collect my child from school. I feel rested and do not need a break.',
+        );
+        _expectUniform(response);
+        _expectWithin(response, 10);
+        expect(response.userContext?.timeLimitMinutes, 10);
+        expect(response.usefulQuestion, isNull);
+      },
+    );
+    for (final entry in [
+      (
+        language: 'en',
+        input:
+            'I have ten minutes after breakfast to draft a Friday shift-swap email to my manager. Use only what I wrote here, not saved notes. Keep it as a draft; do not send anything.',
+        object: 'email',
+      ),
+      (
+        language: 'en',
+        input:
+            'I have ten minutes before lunch to draft a school pickup email. Do not send it.',
+        object: 'email',
+      ),
+      (
+        language: 'es',
+        input:
+            'Tengo diez minutos después de desayunar para redactar un correo a mi gerente. No envíes nada.',
+        object: 'correo',
+      ),
+      (
+        language: 'es',
+        input:
+            'Tengo diez minutos antes de cenar para redactar un correo escolar. No envíes nada.',
+        object: 'correo',
+      ),
+    ]) {
+      test(
+        '${entry.language} temporal preface preserves ${entry.input}',
+        () async {
+          final response = await _Scenario(
+            language: entry.language,
+          ).start(entry.input);
+          expect(response.nextStep.toLowerCase(), contains(entry.object));
+          expect(response.userContext?.timeLimitMinutes, 10);
+          expect(response.options, isNotEmpty);
+          _expectWithin(response, 10);
+          expect(response.usefulQuestion, isNull);
+          expect(
+            response.options.map((o) => o.title).join(' ').toLowerCase(),
+            isNot(contains('breakfast')),
+          );
+        },
+      );
+    }
+    for (final child in ['hijo', 'hija']) {
+      test('English to Spanish retains the $child interruption boundary', () async {
+        final scenario = _Scenario(savedWork: true);
+        const original =
+            'I am caring for a toddler and have ten minutes to sort grocery receipts for my weekly budget. I may need to stop immediately when my child needs me. I do not need a break.';
+        final initial = await scenario.start(original);
+        _expectReceipts(initial);
+        final response = (await scenario.controller.requestFollowUpResult(
+          input:
+              'Necesito ordenar los mismos recibos del supermercado para mi presupuesto semanal. Tengo diez minutos y debo poder parar inmediatamente si mi $child me necesita. No necesito descansar.',
+          energy: null,
+          emotion: null,
+          reflection: original,
+          languageCode: 'en',
+          history: [
+            {'role': 'user', 'content': original},
+            {'role': 'assistant', 'content': initial.toConversationText()},
+          ],
+          currentPlan: PlannerConversationSnapshot(
+            originalObjective: original,
+            currentPlan: initial,
+            userContext: initial.userContext,
+            adjustments: const [],
+          ),
+        )).plannerResponse;
+        expect(response.languageCode, 'es');
+        _expectReceipts(response);
+        _expectWithin(response, 10);
+        for (final option in response.options) {
+          expect(
+            option.description,
+            contains('Para cuando necesiten tu atención'),
+          );
+        }
+      });
+    }
+    test(
+      'another persons temporal statement is not a requested action',
+      () async {
+        final response = await _Scenario().start(
+          'My manager has ten minutes after breakfast to draft an email. I have no task selected yet.',
+        );
+        expect(response.options, isEmpty);
+      },
+    );
+  });
+
   group('Moto 3041 current objective and saved-context regressions', () {
     for (final entry in [
       (

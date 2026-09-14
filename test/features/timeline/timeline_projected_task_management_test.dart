@@ -41,9 +41,64 @@ void main() {
       expect(find.text(_managedTask.title), findsOneWidget);
       expect(find.text('Completar'), findsOneWidget);
       expect(find.textContaining('Task deadline'), findsNothing);
+      await tester.ensureVisible(find.text('Editar'));
+      await tester.tap(find.text('Editar'));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text('Editar tarea'), findsOneWidget);
+      expect(find.text('Título de la tarea'), findsOneWidget);
+      expect(find.text('Minutos estimados'), findsOneWidget);
+      expect(find.text('Sin meta vinculada'), findsOneWidget);
+      expect(find.byTooltip('Elegir fecha límite'), findsOneWidget);
+      expect(find.text('Edit task'), findsNothing);
+      await tester.enterText(
+        find.byKey(const Key('timeline-task-title-field')),
+        '',
+      );
+      await tester.tap(find.text('Guardar'));
+      await tester.pump();
+      expect(find.text('Escribe un título para la tarea.'), findsOneWidget);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text(_managedTask.title), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Spanish generated completion translates wrappers only', (
+    tester,
+  ) async {
+    const storedTitle = 'Task Completed - school pickup';
+    final generated = TimelineEventEntity(
+      id: 'timeline-task-complete-123',
+      type: TimelineEventType.reflection,
+      title: 'Task Completed',
+      detail: '$storedTitle marked complete.',
+      timestamp: _timelineNow,
+      sourceFeature: 'task',
+      relatedId: 'completed-task',
+    );
+    final userReflection = TimelineEventEntity(
+      id: 'user-reflection',
+      type: TimelineEventType.reflection,
+      title: 'Task Completed',
+      detail: 'My own English reflection.',
+      timestamp: _timelineNow,
+    );
+    final container = _buildContainer(
+      tasksLoader: (ref) async => [],
+      baseEvents: [generated, userReflection],
+    );
+    addTearDown(container.dispose);
+    await _pumpTimelineShell(tester, container, locale: const Locale('es'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.ensureVisible(find.text('Tarea completada'));
+    expect(find.text('$storedTitle marcada como completada.'), findsOneWidget);
+    expect(find.text('Task Completed'), findsOneWidget);
+    expect(find.text('My own English reflection.'), findsOneWidget);
+    expect(generated.title, 'Task Completed');
+    expect(generated.detail, '$storedTitle marked complete.');
+    expect(tester.takeException(), isNull);
+  });
 
   test('Timeline labels use local dates and times for UTC stored instants', () {
     for (final DateTime local in <DateTime>[

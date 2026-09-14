@@ -277,7 +277,7 @@ String buildProgressionReview({
         '$executionState. $completionDetail $pressureState (índice $pressureIndex). '
         '$timelineState (estado $timelineHealth%, riesgo $timelineRisk%, vencidos $overdue). '
         '$milestoneState${milestoneCount == 0 ? '' : ' (estado $milestoneHealth%, vencidos $milestoneOverdue)'}.\n\n'
-        'Carga activa: $activeTasks tareas en $activeGoals metas.\n'
+        'Carga activa: $activeTasks ${activeTasks == 1 ? 'tarea' : 'tareas'} en $activeGoals ${activeGoals == 1 ? 'meta' : 'metas'}.\n'
         'Próxima práctica: $oneAction';
   }
   return 'PROGRESS REVIEW\n\n'

@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'package:flutter/material.dart';
 
@@ -35,7 +36,7 @@ Future<TaskEditDraft?> showTaskEditDialog({
     context: context,
     builder: (BuildContext dialogContext) => StatefulBuilder(
       builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
-        title: const Text('Edit task'),
+        title: Text(journeyText(context, 'Edit task', 'Editar tarea')),
         content: SingleChildScrollView(
           child: Form(
             key: formKey,
@@ -47,10 +48,20 @@ Future<TaskEditDraft?> showTaskEditDialog({
                   initialValue: draftTitle,
                   autofocus: true,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'Task title'),
+                  decoration: InputDecoration(
+                    labelText: journeyText(
+                      context,
+                      'Task title',
+                      'Título de la tarea',
+                    ),
+                  ),
                   validator: (String? value) =>
                       value == null || value.trim().isEmpty
-                      ? 'Enter a task title.'
+                      ? journeyText(
+                          context,
+                          'Enter a task title.',
+                          'Escribe un título para la tarea.',
+                        )
                       : null,
                   onChanged: (String value) => draftTitle = value,
                 ),
@@ -60,10 +71,18 @@ Future<TaskEditDraft?> showTaskEditDialog({
                     key: const Key('timeline-task-goal-field'),
                     isExpanded: true,
                     initialValue: selectedGoalId,
-                    decoration: const InputDecoration(labelText: 'Goal'),
+                    decoration: InputDecoration(
+                      labelText: journeyText(context, 'Goal', 'Meta'),
+                    ),
                     items: <DropdownMenuItem<String?>>[
-                      const DropdownMenuItem<String?>(
-                        child: Text('No linked goal'),
+                      DropdownMenuItem<String?>(
+                        child: Text(
+                          journeyText(
+                            context,
+                            'No linked goal',
+                            'Sin meta vinculada',
+                          ),
+                        ),
                       ),
                       ...goals.map(
                         (GoalEntity goal) => DropdownMenuItem<String?>(
@@ -85,16 +104,24 @@ Future<TaskEditDraft?> showTaskEditDialog({
                   key: const Key('timeline-task-duration-field'),
                   initialValue: durationText,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Estimated minutes',
-                    hintText: 'Optional',
+                  decoration: InputDecoration(
+                    labelText: journeyText(
+                      context,
+                      'Estimated minutes',
+                      'Minutos estimados',
+                    ),
+                    hintText: journeyText(context, 'Optional', 'Opcional'),
                   ),
                   validator: (String? value) {
                     final String normalized = value?.trim() ?? '';
                     if (normalized.isEmpty) return null;
                     final int? minutes = int.tryParse(normalized);
                     return minutes == null || minutes < 1 || minutes > 1440
-                        ? 'Use 1 to 1440 minutes.'
+                        ? journeyText(
+                            context,
+                            'Use 1 to 1440 minutes.',
+                            'Usa de 1 a 1440 minutos.',
+                          )
                         : null;
                   },
                   onChanged: (String value) => durationText = value,
@@ -105,19 +132,35 @@ Future<TaskEditDraft?> showTaskEditDialog({
                     Expanded(
                       child: Text(
                         dueDate == null
-                            ? 'No deadline'
-                            : 'Deadline ${dueDate!.month}/${dueDate!.day}/${dueDate!.year}',
+                            ? journeyText(
+                                context,
+                                'No deadline',
+                                'Sin fecha límite',
+                              )
+                            : journeyText(
+                                context,
+                                'Deadline ${dueDate!.month}/${dueDate!.day}/${dueDate!.year}',
+                                'Fecha límite ${MaterialLocalizations.of(context).formatCompactDate(dueDate!)}',
+                              ),
                       ),
                     ),
                     if (dueDate != null)
                       IconButton(
-                        tooltip: 'Clear deadline',
+                        tooltip: journeyText(
+                          context,
+                          'Clear deadline',
+                          'Quitar fecha límite',
+                        ),
                         onPressed: () => setDialogState(() => dueDate = null),
                         icon: const Icon(Icons.close_rounded),
                       ),
                     IconButton(
                       key: const Key('timeline-task-deadline-field'),
-                      tooltip: 'Choose deadline',
+                      tooltip: journeyText(
+                        context,
+                        'Choose deadline',
+                        'Elegir fecha límite',
+                      ),
                       onPressed: () async {
                         final DateTime now = DateTime.now();
                         final DateTime? selected = await showDatePicker(
@@ -141,7 +184,7 @@ Future<TaskEditDraft?> showTaskEditDialog({
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: Text(journeyText(context, 'Cancel', 'Cancelar')),
           ),
           FilledButton(
             onPressed: () {
@@ -158,7 +201,7 @@ Future<TaskEditDraft?> showTaskEditDialog({
                 ),
               );
             },
-            child: const Text('Save'),
+            child: Text(journeyText(context, 'Save', 'Guardar')),
           ),
         ],
       ),
