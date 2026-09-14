@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 
 final creatorDraftPreviewProvider =
     NotifierProvider<CreatorDraftPreviewNotifier, CreatorDraftPreview?>(
@@ -33,14 +34,18 @@ final class CreatorDraftPreview {
       );
     }
     final PlannerOption option = response.recommendedOption;
+    final copy = CreatorCopy(response.isSpanish);
     final String evidence = response.verifiedEvidence
         .map((String item) => '- $item')
         .join('\n');
     return CreatorDraftPreview._fromPlannerOption(
       option,
       createdAt: (createdAt ?? DateTime.now()).toUtc(),
-      guidanceContext:
-          'Why this plan: ${response.recommendationReason}\n\nEvidence reviewed:\n$evidence',
+      isSpanish: response.isSpanish,
+      guidanceContext: copy.draftGuidance(
+        response.recommendationReason,
+        evidence,
+      ),
     );
   }
 
@@ -48,13 +53,14 @@ final class CreatorDraftPreview {
     PlannerOption option, {
     required DateTime createdAt,
     String? guidanceContext,
+    bool isSpanish = false,
   }) {
+    final copy = CreatorCopy(isSpanish);
     return CreatorDraftPreview(
       id: 'planner-draft-${createdAt.microsecondsSinceEpoch}',
       title: option.title,
       description:
-          '${option.description}\n\nEstimated effort: ${option.estimatedMinutes} minutes. '
-          'Planner tradeoff: ${option.tradeoff}'
+          '${option.description}\n\n${copy.draftEffort(option.estimatedMinutes, option.tradeoff)}'
           '${guidanceContext == null ? '' : '\n\n$guidanceContext'}',
       estimatedMinutes: option.estimatedMinutes,
       sourceOption: option.kind,

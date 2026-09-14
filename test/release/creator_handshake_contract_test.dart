@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -14,10 +15,19 @@ void main() {
       'lib/domain/entities/creator_handshake.dart',
     ).readAsStringSync();
 
-    expect(screen, contains('REVIEW CHANGES'));
-    expect(screen, contains('CONFIRM SELECTED'));
-    expect(screen, contains('Undo creation'));
-    expect(screen, contains('Nothing is saved until you confirm'));
+    // Visible copy is localized; the screen must still expose each safeguard.
+    const copy = CreatorCopy(false);
+    expect(copy.reviewChanges, 'REVIEW CHANGES');
+    expect(copy.confirmSelected, 'CONFIRM SELECTED');
+    expect(copy.undo, 'Undo creation');
+    expect(
+      copy.confirmBoundary,
+      startsWith('Nothing is saved until you confirm'),
+    );
+    expect(screen, contains('submitLabel: copy.reviewChanges'));
+    expect(screen, contains('copy.confirmSelected'));
+    expect(screen, contains('Text(copy.undo)'));
+    expect(screen, contains('copy.confirmBoundary'));
     expect(screen, isNot(contains('creatorActionsProvider).createTask')));
     expect(screen, isNot(contains('taskActionsProvider).createTask')));
     expect(screen, isNot(contains('createTaskUseCaseProvider')));

@@ -106,6 +106,13 @@ void main() {
     await tester.pumpWidget(previewApp(const Locale('es')));
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('MÁS ADECUADO · 20 min'), findsOneWidget);
+    expect(find.text('Creador'), findsOneWidget);
+    expect(find.text('Gestionar Ritmos Diarios'), findsOneWidget);
+    expect(find.text('VISTA PREVIA DEL BORRADOR'), findsOneWidget);
+    expect(find.text('REVISAR CAMBIOS'), findsOneWidget);
+    expect(find.text('META ACTIVA'), findsOneWidget);
+    expect(find.text('DURACIÓN ESTIMADA'), findsOneWidget);
+    expect(find.text('Manage Daily Rhythms'), findsNothing);
     expect(repository.saveCalls, 0);
     await tester.pumpWidget(previewApp(const Locale('en')));
     await tester.pump(const Duration(milliseconds: 200));
@@ -124,6 +131,30 @@ void main() {
     );
     expect(repository.saveCalls, 0);
     final confirm = find.byKey(const Key('creator-confirm-selected'));
+    final bindingBeforeLocaleChange = container
+        .read(creatorHandshakeProvider)
+        .token;
+    await tester.pumpWidget(previewApp(const Locale('es', 'MX')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('CONFIRMAR CAMBIOS DEL CREADOR'), findsOneWidget);
+    expect(find.text('CONFIRMAR SELECCIÓN'), findsOneWidget);
+    expect(
+      find.textContaining('Duración estimada: No existe → 20 minutos'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Título: No existe → Twenty minute Planner task'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Revisa el cambio seleccionado. Aún no se ha guardado nada.'),
+      findsOneWidget,
+    );
+    expect(
+      container.read(creatorHandshakeProvider).token,
+      same(bindingBeforeLocaleChange),
+    );
+    expect(repository.saveCalls, 0);
     await tester.ensureVisible(confirm);
     await tester.tap(confirm);
     await tester.pump();
@@ -133,6 +164,27 @@ void main() {
       const Duration(minutes: 20),
     );
     expect(repository.saveCalls, 1);
+    expect(repository.tasks.values.single.title, 'Twenty minute Planner task');
+    expect(find.text('CREACIÓN GUARDADA'), findsOneWidget);
+    expect(
+      find.text('Se guardó una sola vez a partir de tu confirmación.'),
+      findsOneWidget,
+    );
+    expect(find.text('1 cambio guardado.'), findsOneWidget);
+    final undo = find.byKey(const Key('creator-undo-confirmed'));
+    await tester.ensureVisible(undo);
+    await tester.tap(undo);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(repository.deleteCalls, 1);
+    expect(find.text('CREACIÓN DESHECHA'), findsOneWidget);
+    expect(find.text('1 cambio deshecho.'), findsOneWidget);
+    expect(
+      find.text(
+        'Creación deshecha. Repetir esta solicitud no volverá a modificar los datos.',
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

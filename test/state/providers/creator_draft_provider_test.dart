@@ -7,6 +7,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'Spanish draft boilerplate follows response language without rewriting content',
+    () {
+      final response = _response().copyWith(languageCode: 'es-MX');
+      final draft = CreatorDraftPreview.fromPlannerResponse(response);
+      expect(draft.title, response.recommendedOption.title);
+      expect(
+        draft.description,
+        contains(response.recommendedOption.description),
+      );
+      expect(draft.description, contains('Esfuerzo estimado: 20 minutos.'));
+      expect(draft.description, contains('Lo que implica el plan:'));
+      expect(draft.description, contains('Por qué este plan:'));
+      expect(draft.description, contains('Evidencia revisada:'));
+      expect(draft.description, isNot(contains('Estimated effort:')));
+      expect(draft.description, isNot(contains('Why this plan:')));
+      expect(draft.description, contains(response.recommendationReason));
+      expect(draft.estimatedMinutes, 20);
+    },
+  );
+
   test('accepted guidance stages an ephemeral Creator preview', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
@@ -29,6 +30,8 @@ class ChronoSparkLocalizations {
   PlannerRoutineCopy get plannerRoutine => PlannerRoutineCopy(isSpanish);
 
   SIRoutineCopy get siRoutine => SIRoutineCopy(isSpanish);
+
+  CreatorCopy get creator => CreatorCopy(isSpanish);
 
   String text(ChronoSparkString key) =>
       (isSpanish ? _es : _en)[key] ?? _en[key] ?? key.name;
