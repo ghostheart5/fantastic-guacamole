@@ -35,6 +35,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'smart_planner_query_controller.support.dart';
 part 'smart_planner_query_controller.intent.dart';
+part 'smart_planner_query_controller.person_context.dart';
 
 const String _defaultPlanningPrompt =
     'Give me a practical planning check-in for my current energy and emotional state.';

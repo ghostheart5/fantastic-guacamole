@@ -25,9 +25,10 @@ void main() {
   });
 
   test('durable memory UI requires consent and exposes receipts', () {
-    final String planner = File(
+    final String planner = <String>[
       'lib/features/home/ui/smart_planner_screen.dart',
-    ).readAsStringSync();
+      'lib/features/home/ui/smart_planner_screen.consent_copy.dart',
+    ].map((String path) => File(path).readAsStringSync()).join('\n');
     final String settings = File(
       'lib/features/settings/ui/settings_screen.governance_sections.dart',
     ).readAsStringSync();

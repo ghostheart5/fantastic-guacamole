@@ -10,14 +10,20 @@ void main() {
     ].map((String path) => File(path).readAsStringSync()).join('\n');
 
     expect(source, contains('label: routine.planningContextLabel'));
-    expect(source, contains("label: 'Current energy'"));
+    expect(source, contains('label: copy.currentEnergy'));
     expect(source, contains('label: routine.guidanceReady'));
-    expect(source, contains("label: 'Follow-up failed. \$errorText'"));
-    expect(source, contains("labelText: 'Follow-up question'"));
+    expect(source, contains('label: copy.followUpFailed(errorText!)'));
+    expect(source, contains('labelText: copy.followUpQuestion'));
     expect(source, contains('liveRegion: true'));
     expect(
       source,
-      contains('? null\n                          : _getPlanningGuidance'),
+      contains(
+        RegExp(
+          r'onPressed:\s*!plannerAvailable\s*\|\|\s*'
+          r'_gettingPlanningGuidance\s*\|\|\s*_sendingFollowUp\s*'
+          r'\?\s*null\s*:\s*_getPlanningGuidance',
+        ),
+      ),
     );
     expect(source, isNot(contains('TextScaler.noScaling')));
   });
