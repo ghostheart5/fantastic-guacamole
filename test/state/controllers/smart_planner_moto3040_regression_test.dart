@@ -56,6 +56,12 @@ void main() {
         object: 'email',
       ),
       (
+        language: 'en',
+        input:
+            'I have ten minutes before leaving to draft a school pickup email. Use only what I wrote here, not saved notes. Do not send anything.',
+        object: 'email',
+      ),
+      (
         language: 'es',
         input:
             'Tengo diez minutos después de desayunar para redactar un correo a mi gerente. No envíes nada.',
@@ -65,6 +71,12 @@ void main() {
         language: 'es',
         input:
             'Tengo diez minutos antes de cenar para redactar un correo escolar. No envíes nada.',
+        object: 'correo',
+      ),
+      (
+        language: 'es',
+        input:
+            'Tengo diez minutos antes de salir para redactar un correo escolar. Usa solo lo que escribí aquí, no uses notas guardadas. No envíes nada.',
         object: 'correo',
       ),
     ]) {

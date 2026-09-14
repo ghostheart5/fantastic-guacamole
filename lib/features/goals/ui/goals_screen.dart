@@ -45,7 +45,7 @@ class GoalsScreen extends ConsumerWidget {
                   eyebrow: journeyText(
                     context,
                     '${goals.length} active',
-                    '${goals.length} activas',
+                    '${goals.length} ${goals.length == 1 ? 'activa' : 'activas'}',
                   ),
                   backTooltip: es ? 'Atrás' : 'Back',
                   accent: AppColors.memoryAmber,

@@ -710,8 +710,8 @@ bool _plannerHasActionPosition(String prefix) {
   return RegExp(
     r"\b(?:please|help me|can you|could you|would you|(?:i|we)\s+(?:(?:need|want|have|am trying|are trying) to|must|should|can)|i am|we are|i['’]m|we['’]re|need to|want to|have to|must|i|we|first|next|then|now|necesito|quiero|debo|puedo|yo|ay[uú]dame a|por favor|primero|ahora|mientras)\s*$"
     r'|\b(?:minutes?|mins?|hours?|step|task|session|plan)\s+(?:available\s+)?to\s*$'
-    r'|\b(?:i|we)\s+(?:only\s+)?have\s+\S+(?:\s+\S+)?\s+(?:minutes?|mins?|hours?)\s+(?:after|before)\s+(?:(?:my|our|the)\s+)?(?:breakfast|lunch|dinner|work|school|school pickup|school run|meeting|appointment)\s+to\s*$'
-    r'|\btengo\s+\S+(?:\s+\S+)?\s+(?:minutos?|horas?)\s+(?:despu[eé]s de|antes de)\s+(?:(?:mi|el|la)\s+)?(?:desayunar|almorzar|cenar|desayuno|almuerzo|cena|trabajo|escuela|reuni[oó]n|cita)\s+para\s*$'
+    r'|\b(?:i|we)\s+(?:only\s+)?have\s+\S+(?:\s+\S+)?\s+(?:minutes?|mins?|hours?)\s+(?:after|before)\s+(?:(?:my|our|the)\s+)?(?:breakfast|lunch|dinner|work|school|school pickup|school run|meeting|appointment|leaving|departing)\s+to\s*$'
+    r'|\btengo\s+\S+(?:\s+\S+)?\s+(?:minutos?|horas?)\s+(?:despu[eé]s de|antes de)\s+(?:(?:mi|el|la)\s+)?(?:desayunar|almorzar|cenar|desayuno|almuerzo|cena|trabajo|escuela|reuni[oó]n|cita|salir)\s+para\s*$'
     r'|\b(?:minutos?|horas?|paso)\s+(?:disponibles?\s+)?para\s*$',
     caseSensitive: false,
   ).hasMatch(clean);
