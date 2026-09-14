@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'timeline_screen.widgets.dart';
+part 'timeline_screen.event_copy.dart';
 
 enum _TimelineWindow { today, week, month, year, all }
 
