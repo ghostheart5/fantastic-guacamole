@@ -1,5 +1,7 @@
 # Smart Planner Audit
 
+> Historical audit of the July implementation. Its topic, persistence and PASS claims do not describe the current Planner V2 path. Use [Smart Planner response contract](SMART_PLANNER_RESPONSE_CONTRACT.md) for the current repair requirements and validation boundaries. The September 13 build-3039 device audit found material response-quality failures despite earlier structural test passes.
+
 Audit date: 2026-07-11
 Scope: Smart Planner intent coverage, response quality, context grounding, follow-up behavior, persistence, and fallback resilience.
 

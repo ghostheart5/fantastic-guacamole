@@ -604,11 +604,119 @@ final class PlannerRoutineCopy {
       ? 'La solicitud de orientación agotó el tiempo. Pulsa OBTENER ORIENTACIÓN otra vez o acorta el texto para recibir una respuesta más rápida.'
       : 'Guidance request timed out. Tap GET GUIDANCE again or shorten your input for a faster response.';
   String get followUpTimeout => isSpanish
-      ? 'La pregunta de seguimiento agotó el tiempo. Reintenta con una indicación más corta.'
-      : 'Follow-up timed out. Retry with a shorter prompt.';
+      ? 'El seguimiento agotó el tiempo. Tu mensaje sigue aquí; puedes editarlo o pulsar Reintentar seguimiento.'
+      : 'Follow-up timed out. Your message is still here; edit it or tap Retry follow-up.';
   String get followUpTransmitFailed => isSpanish
-      ? 'No se pudo enviar el seguimiento. Pulsa REINTENTAR ENLACE.'
-      : 'Follow-up transmit failed. Tap Retry Link.';
+      ? 'No se pudo enviar el seguimiento. Tu mensaje sigue aquí. Pulsa Reintentar seguimiento.'
+      : 'Follow-up could not be sent. Your message is still here. Tap Retry follow-up.';
+  String get plannerPanelTitle => isSpanish ? 'TU PLAN' : 'YOUR PLAN';
+  String get plannerLocalSource => isSpanish
+      ? 'Planificación local a partir de tu contexto'
+      : 'Local planning from your context';
+  String get plannerExternalSource => isSpanish
+      ? 'Orientación generada con IA externa'
+      : 'Guidance generated with external AI';
+  String get yourNextStep => isSpanish ? 'SIGUIENTE PASO' : 'NEXT STEP';
+  String get oneQuestion => isSpanish ? 'PARA ACLARARLO' : 'ONE QUESTION';
+  String get whyThis => isSpanish ? 'Por qué este plan' : 'Why this';
+  String get mattersMost =>
+      isSpanish ? 'LO MÁS IMPORTANTE' : 'WHAT MATTERS MOST';
+  String get evidence => isSpanish ? 'Evidencia' : 'Evidence';
+  String get useThisPlan => isSpanish ? 'Usar este plan' : 'Use this plan';
+  String get makeSmaller => isSpanish ? 'Hacer más pequeño' : 'Make smaller';
+  String get differentApproach =>
+      isSpanish ? 'Otro enfoque' : 'Different approach';
+  String get rememberPreference =>
+      isSpanish ? 'Recordar una preferencia' : 'Remember a preference';
+  String get alternativeOptions =>
+      isSpanish ? 'Comparar tiempo y esfuerzo' : 'Compare time and effort';
+  String get fullResponse =>
+      isSpanish ? 'Ver respuesta completa' : 'View full response';
+  String tradeoff(String value) =>
+      isSpanish ? 'Lo que implica: $value' : 'Tradeoff: $value';
+  String optionKind(String kind) => switch (kind) {
+    'minimum' => isSpanish ? 'MÍNIMO' : 'MINIMUM',
+    'stretch' => isSpanish ? 'MÁS ESFUERZO' : 'STRETCH',
+    _ => isSpanish ? 'MÁS ADECUADO' : 'BEST-FIT',
+  };
+  String optionSemantic(String label) =>
+      isSpanish ? 'Plan $label' : '$label plan';
+  String get followUpQuestion =>
+      isSpanish ? 'Pregunta de seguimiento' : 'Follow-up question';
+  String get followUpHint => isSpanish
+      ? '¿Qué necesitas cambiar o aclarar?'
+      : 'What needs changing or clarifying?';
+  String get retryFollowUp =>
+      isSpanish ? 'Reintentar seguimiento' : 'Retry follow-up';
+  String followUpFailed(String error) =>
+      isSpanish ? 'Falló el seguimiento. $error' : 'Follow-up failed. $error';
+  String sendMessage({required bool sending}) => isSpanish
+      ? sending
+            ? 'Enviando mensaje'
+            : 'Enviar mensaje'
+      : sending
+      ? 'Sending message'
+      : 'Send message';
+  String get differentApproachQuestion => isSpanish
+      ? '¿Qué dificulta este enfoque: los pasos, el horario, las interrupciones u otra cosa?'
+      : 'What makes this approach difficult: the steps, timing, interruptions, or something else?';
+  String get minimumReachedStatus => isSpanish
+      ? 'El plan ya está en su paso más pequeño. Puedes pedir otro enfoque.'
+      : 'The plan is already at its smallest step. You can ask for a different approach.';
+  String get externalExplanationTitle => isSpanish
+      ? 'EXPLICACIÓN CON IA EXTERNA · OPCIONAL · SOLO LECTURA'
+      : 'EXTERNAL AI EXPLANATION · OPTIONAL · READ-ONLY';
+  String get externalExplanationBody => isSpanish
+      ? 'El Planificador V2 sigue siendo quien determina el plan. Esta explicación separada no puede cambiarlo ni guardarlo.'
+      : 'Planner V2 remains the decision authority. This separate explanation cannot change or save your plan.';
+  String get explanationRequesting =>
+      isSpanish ? 'SOLICITANDO...' : 'REQUESTING...';
+  String get explanationRetry =>
+      isSpanish ? 'Reintentar la misma solicitud' : 'Retry same request';
+  String get explainPlan =>
+      isSpanish ? 'Explicar este plan' : 'Explain this plan';
+  String get anotherExplanation =>
+      isSpanish ? 'Solicitar otra explicación' : 'Request another explanation';
+  String get explanationReady => isSpanish
+      ? 'La explicación opcional con IA externa está lista'
+      : 'Optional external AI explanation ready';
+  String explanationReceipt(int credits) => isSpanish
+      ? '$credits créditos de IA · sin cambios en el plan'
+      : '$credits AI credits · no plan changes';
+  String get currentEnergy => isSpanish ? 'Energía actual' : 'Current energy';
+  String get notSet => isSpanish ? 'Sin indicar' : 'Not set';
+  String energyPercent(int value) =>
+      isSpanish ? '$value por ciento' : '$value percent';
+  String emotionName(String name) => !isSpanish
+      ? name
+      : switch (name) {
+          'neutral' => 'neutral',
+          'positive' => 'positivo',
+          'negative' => 'negativo',
+          'energized' => 'con energía',
+          'fatigued' => 'con cansancio',
+          'engaged' => 'con interés',
+          'scattered' => 'disperso',
+          'anxious' => 'con ansiedad',
+          'calm' => 'en calma',
+          _ => name,
+        };
+  String emotionalSelection(String? name) => isSpanish
+      ? name == null
+            ? 'Estado emocional. Sin indicar.'
+            : 'Estado emocional. ${emotionName(name)} seleccionado.'
+      : name == null
+      ? 'Emotional state. Not set.'
+      : 'Emotional state. $name selected.';
+  String selectEmotion(String name) => isSpanish
+      ? 'Seleccionar estado emocional ${emotionName(name)}'
+      : 'Select $name emotional state';
+  String get planningSafetyLabel => isSpanish
+      ? 'Información de seguridad de la orientación de planificación'
+      : 'Planning guidance safety information';
+  String get planningSafetyBody => isSpanish
+      ? 'Esto ayuda a planificar, no sustituye la atención médica, nutricional, de ejercicio o de salud mental. Si los síntomas son urgentes o empeoran, contacta con un profesional cualificado o el servicio de emergencias local.'
+      : 'This supports planning, not medical, nutrition, exercise, or mental-health care. For urgent or worsening symptoms, contact a qualified professional or local emergency service.';
   String get smallerStatus => isSpanish
       ? 'El plan ahora es más pequeño. No se guardó nada.'
       : 'The plan is smaller. Nothing has been saved.';

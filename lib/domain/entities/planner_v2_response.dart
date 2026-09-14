@@ -9,6 +9,53 @@ enum PlannerResponseDisposition { guidance, clarification }
 
 enum PlannerOptionKind { minimum, bestFit, stretch }
 
+enum PlannerAdjustmentKind { smaller, rejectedApproach }
+
+/// A UI adjustment is conversation context, not a user-authored life fact.
+final class PlannerAdjustment {
+  const PlannerAdjustment({
+    required this.kind,
+    required this.description,
+    this.previousMinutes,
+    this.currentMinutes,
+  });
+
+  final PlannerAdjustmentKind kind;
+  final String description;
+  final int? previousMinutes;
+  final int? currentMinutes;
+}
+
+/// Only facts supplied by the user, retained independently of display history.
+/// Generated recommendations and button descriptions do not belong here.
+final class PlannerUserContext {
+  PlannerUserContext({
+    required this.objective,
+    List<String> corrections = const <String>[],
+    this.savedContextDeclined = false,
+    this.timeLimitMinutes,
+  }) : corrections = List<String>.unmodifiable(corrections);
+
+  final String objective;
+  final List<String> corrections;
+  final bool savedContextDeclined;
+  final int? timeLimitMinutes;
+}
+
+final class PlannerConversationSnapshot {
+  PlannerConversationSnapshot({
+    required this.originalObjective,
+    required this.currentPlan,
+    this.userContext,
+    List<PlannerAdjustment> adjustments = const <PlannerAdjustment>[],
+  }) : adjustments = List<PlannerAdjustment>.unmodifiable(adjustments);
+
+  final String originalObjective;
+  final PlannerV2Response currentPlan;
+  final PlannerUserContext? userContext;
+  final List<PlannerAdjustment> adjustments;
+}
+
 enum PlannerActionControl {
   useThisPlan,
   makeSmaller,
@@ -89,6 +136,8 @@ final class PlannerV2Response {
     this.usefulQuestion,
     required this.adaptationReceipt,
     required this.origin,
+    this.languageCode = 'en',
+    this.userContext,
     this.disposition = PlannerResponseDisposition.guidance,
     List<PlannerActionControl> controls = PlannerActionControl.values,
   }) : verifiedEvidence = List<String>.unmodifiable(verifiedEvidence),
@@ -107,6 +156,8 @@ final class PlannerV2Response {
   final String? usefulQuestion;
   final PlannerAdaptationReceipt adaptationReceipt;
   final PlannerResponseOrigin origin;
+  final String languageCode;
+  final PlannerUserContext? userContext;
   final PlannerResponseDisposition disposition;
   final List<PlannerActionControl> controls;
 
@@ -133,8 +184,11 @@ final class PlannerV2Response {
     String? recommendationReason,
     String? nextStep,
     String? usefulQuestion,
+    bool clearUsefulQuestion = false,
     PlannerAdaptationReceipt? adaptationReceipt,
     PlannerResponseOrigin? origin,
+    String? languageCode,
+    PlannerUserContext? userContext,
     PlannerResponseDisposition? disposition,
     List<PlannerActionControl>? controls,
   }) => PlannerV2Response(
@@ -145,9 +199,13 @@ final class PlannerV2Response {
     recommendedKind: recommendedKind ?? this.recommendedKind,
     recommendationReason: recommendationReason ?? this.recommendationReason,
     nextStep: nextStep ?? this.nextStep,
-    usefulQuestion: usefulQuestion ?? this.usefulQuestion,
+    usefulQuestion: clearUsefulQuestion
+        ? null
+        : usefulQuestion ?? this.usefulQuestion,
     adaptationReceipt: adaptationReceipt ?? this.adaptationReceipt,
     origin: origin ?? this.origin,
+    languageCode: languageCode ?? this.languageCode,
+    userContext: userContext ?? this.userContext,
     disposition: disposition ?? this.disposition,
     controls: controls ?? this.controls,
   );
@@ -159,6 +217,8 @@ final class PlannerV2Response {
     required String question,
     required PlannerAdaptationReceipt adaptationReceipt,
     required PlannerResponseOrigin origin,
+    String languageCode = 'en',
+    PlannerUserContext? userContext,
   }) {
     return PlannerV2Response(
       whatIHeard: whatIHeard,
@@ -171,6 +231,8 @@ final class PlannerV2Response {
       usefulQuestion: question,
       adaptationReceipt: adaptationReceipt,
       origin: origin,
+      languageCode: languageCode,
+      userContext: userContext,
       disposition: PlannerResponseDisposition.clarification,
       controls: const <PlannerActionControl>[],
     );
@@ -188,27 +250,76 @@ final class PlannerV2Response {
     );
   }
 
+  bool get isSpanish =>
+      languageCode.toLowerCase().split(RegExp('[-_]')).first == 'es';
+
+  String _text(String english, String spanish) => isSpanish ? spanish : english;
+
+  String _duration(int minutes) => isSpanish
+      ? '$minutes ${minutes == 1 ? 'minuto' : 'minutos'}'
+      : '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
+
+  /// The visible conversation answers the person without replaying every option.
+  String toConversationText() {
+    final List<String> paragraphs = <String>[whatIHeard.trim()];
+    if (!isClarification) {
+      paragraphs.add(
+        '$nextStep ${_text('Allow up to', 'Dedica como máximo')} ${_duration(recommendedOption.estimatedMinutes)}.',
+      );
+      paragraphs.add(recommendationReason.trim());
+    }
+    final String question = usefulQuestion?.trim() ?? '';
+    if (question.isNotEmpty) paragraphs.add(question);
+    return paragraphs
+        .where((String value) => value.isNotEmpty)
+        .toSet()
+        .join('\n\n');
+  }
+
+  /// Summary speech uses only the current action, duration and reason.
+  String toSpokenSummary() {
+    if (isClarification) return toConversationText();
+    return <String>[
+      nextStep.trim(),
+      '${_text('Allow up to', 'Dedica como máximo')} ${_duration(recommendedOption.estimatedMinutes)}.',
+      recommendationReason.trim(),
+    ].where((String value) => value.isNotEmpty).toSet().join(' ');
+  }
+
+  /// The complete, inspectable version includes the same costs as the cards.
   String toAccessibleText() {
     final StringBuffer buffer = StringBuffer()
-      ..writeln('What I heard: $whatIHeard')
-      ..writeln('What matters most: $mattersMost');
+      ..writeln('${_text('What I heard', 'Lo que entendí')}: $whatIHeard')
+      ..writeln(
+        '${_text('What matters most', 'Lo más importante')}: $mattersMost',
+      );
     if (isClarification) {
-      buffer.writeln('Clarifying question: ${usefulQuestion!.trim()}');
+      buffer.writeln(
+        '${_text('Clarifying question', 'Para aclararlo')}: ${usefulQuestion!.trim()}',
+      );
       return buffer.toString().trim();
     }
-    buffer.writeln('Plan spectrum:');
+    buffer.writeln(_text('Plan options:', 'Opciones del plan:'));
     for (final PlannerOption option in options) {
       buffer.writeln(
-        '${_kindLabel(option.kind)}: ${option.title}. ${option.description}',
+        '${_kindLabel(option.kind)}: ${option.title}. ${_duration(option.estimatedMinutes)}. ${option.description} ${_text('Tradeoff', 'Lo que implica')}: ${option.tradeoff}',
       );
     }
     buffer
-      ..writeln('Recommended: ${recommendedOption.title}')
-      ..writeln('Why: $recommendationReason')
-      ..writeln('Next step: $nextStep');
+      ..writeln(
+        '${_text('Recommended', 'Recomendado')}: ${recommendedOption.title}',
+      )
+      ..writeln('${_text('Why', 'Por qué')}: $recommendationReason')
+      ..writeln('${_text('Next step', 'Siguiente paso')}: $nextStep');
     final String question = usefulQuestion?.trim() ?? '';
     if (question.isNotEmpty) {
-      buffer.writeln('Useful question: $question');
+      buffer.writeln(
+        '${_text('Useful question', 'Una pregunta útil')}: $question',
+      );
+    }
+    buffer.writeln(_text('Evidence:', 'Evidencia:'));
+    for (final String item in verifiedEvidence) {
+      buffer.writeln('• $item');
     }
     return buffer.toString().trim();
   }
@@ -269,9 +380,9 @@ final class PlannerV2Response {
     }
   }
 
-  static String _kindLabel(PlannerOptionKind kind) => switch (kind) {
-    PlannerOptionKind.minimum => 'Minimum',
-    PlannerOptionKind.bestFit => 'Best-fit',
-    PlannerOptionKind.stretch => 'Stretch',
+  String _kindLabel(PlannerOptionKind kind) => switch (kind) {
+    PlannerOptionKind.minimum => _text('Minimum', 'Mínimo'),
+    PlannerOptionKind.bestFit => _text('Best-fit', 'Más adecuado'),
+    PlannerOptionKind.stretch => _text('Stretch', 'Más esfuerzo'),
   };
 }

@@ -16,6 +16,7 @@ final class _PlannerConversationContext {
     required this.priorTimeLimitMinutes,
     required this.historyTurnsUsed,
     required this.isFollowUp,
+    required this.corrections,
   });
 
   factory _PlannerConversationContext.resolve({
@@ -23,89 +24,94 @@ final class _PlannerConversationContext {
     required List<Map<String, String>> history,
     String? reflection,
     required bool isFollowUp,
+    PlannerUserContext? currentUserContext,
+    bool respondingToPlanQuestion = false,
   }) {
-    // The generated request is an instruction to Planner, not a user-authored
-    // planning target. Keep it out of options and subsequent conversation turns.
     final String normalizedInput = input.trim() == _defaultPlanningPrompt
         ? ''
         : input.trim();
     bool awaitingSavedChoice = false;
-    bool savedContextDeclined = false;
+    bool savedContextDeclined =
+        currentUserContext?.savedContextDeclined ?? false;
+    final priorUserTurns = <String>[
+      if (currentUserContext != null) currentUserContext.objective,
+      ...?currentUserContext?.corrections,
+    ];
+    final normalizedReflection = reflection?.trim() ?? '';
+    if (currentUserContext == null &&
+        normalizedReflection.isNotEmpty &&
+        normalizedReflection != _defaultPlanningPrompt) {
+      priorUserTurns.add(normalizedReflection);
+    }
     for (final turn in history) {
       final content = turn['content']?.trim() ?? '';
       if (turn['role'] == 'assistant') {
-        awaitingSavedChoice = content.contains(_savedContextQuestion);
-      } else if (turn['role'] == 'user' && awaitingSavedChoice) {
-        savedContextDeclined = _declinesSavedChoice(content);
+        awaitingSavedChoice =
+            content.contains(_savedContextQuestion) ||
+            content.contains(_savedContextQuestionEs);
+      } else if (currentUserContext == null &&
+          turn['role'] == 'user' &&
+          content.isNotEmpty &&
+          content != _defaultPlanningPrompt) {
+        if (_declinesSavedChoice(content)) {
+          savedContextDeclined = true;
+        }
+        if (_optsIntoSavedContext(content)) {
+          savedContextDeclined = false;
+        }
+        if (!priorUserTurns.contains(content)) {
+          priorUserTurns.add(content);
+        }
         awaitingSavedChoice = false;
       }
     }
-    final bool declinesCurrentChoice =
-        isFollowUp &&
-        awaitingSavedChoice &&
-        _declinesSavedChoice(normalizedInput);
+    final declinesCurrentChoice =
+        isFollowUp && _declinesSavedChoice(normalizedInput);
     savedContextDeclined = savedContextDeclined || declinesCurrentChoice;
-    // An explicit request to use saved evidence opts back in for this turn.
-    if (RegExp(
-      r'\b(saved (task|goal)|saved planning recommendation)\b',
-      caseSensitive: false,
-    ).hasMatch(normalizedInput)) {
+    final declineOnly =
+        declinesCurrentChoice && _extractPlannerAction(normalizedInput) == null;
+    if (_optsIntoSavedContext(normalizedInput)) {
       savedContextDeclined = false;
     }
-    final List<String> priorUserTurns = history
-        .where((Map<String, String> turn) => turn['role'] == 'user')
-        .map((Map<String, String> turn) => turn['content']?.trim() ?? '')
-        .where(
-          (String content) =>
-              content.isNotEmpty &&
-              content != _defaultPlanningPrompt &&
-              !_declinesSavedChoice(content),
-        )
-        .map(
-          (String content) =>
-              SmartPlannerQueryController._condense(content, maxLength: 180),
-        )
-        .toList(growable: true);
-    final String normalizedReflection = reflection?.trim() ?? '';
-    if (normalizedReflection.isNotEmpty &&
-        normalizedReflection != _defaultPlanningPrompt &&
-        !priorUserTurns.contains(normalizedReflection) &&
-        normalizedReflection != normalizedInput) {
-      priorUserTurns.insert(
-        0,
-        SmartPlannerQueryController._condense(
-          normalizedReflection,
-          maxLength: 180,
-        ),
-      );
-    }
-    final List<String> boundedPrior = priorUserTurns.length > 4
-        ? priorUserTurns.sublist(priorUserTurns.length - 4)
+    // Keep complete semantic turns. Display truncation must never discard an
+    // objective or exclusion. The envelope/UI already bound input lengths.
+    final boundedPrior = currentUserContext == null && priorUserTurns.length > 8
+        ? priorUserTurns.sublist(priorUserTurns.length - 8)
         : priorUserTurns;
-    String priorSubjectText = '';
-    int? priorTimeLimitMinutes;
-    for (final turn in boundedPrior) {
-      if (priorSubjectText.isEmpty || !_referencesPriorPlannerSubject(turn)) {
-        priorSubjectText = turn;
-        priorTimeLimitMinutes = _explicitPlanningTimeLimit(turn);
-      } else {
-        priorTimeLimitMinutes =
-            _explicitPlanningTimeLimit(turn) ?? priorTimeLimitMinutes;
+    // Typed state is already classified user input. Replaying its corrections
+    // as new turns could replace the objective with a non-pronoun obstacle.
+    String priorSubject = currentUserContext?.objective ?? '';
+    final retainedConstraints = <String>[...?currentUserContext?.corrections];
+    int? priorTimeLimitMinutes = currentUserContext?.timeLimitMinutes;
+    if (currentUserContext == null) {
+      for (final turn in boundedPrior) {
+        if (_declinesSavedChoice(turn) && _extractPlannerAction(turn) == null) {
+          continue;
+        }
+        if (priorSubject.isEmpty || !_continuesPlannerObjective(turn)) {
+          priorSubject = turn;
+          retainedConstraints.clear();
+          priorTimeLimitMinutes = _explicitPlanningTimeLimit(turn);
+        } else {
+          retainedConstraints.add(turn);
+          priorTimeLimitMinutes =
+              _explicitPlanningTimeLimit(turn) ?? priorTimeLimitMinutes;
+        }
       }
     }
-    final String priorSubject = SmartPlannerQueryController._condense(
-      priorSubjectText,
-      maxLength: 72,
-    );
-    final bool continuesPriorSubject =
+    final continuesPriorSubject =
         isFollowUp &&
-        (declinesCurrentChoice ||
-            _referencesPriorPlannerSubject(normalizedInput));
-    final String subject = continuesPriorSubject && priorSubject.isNotEmpty
-        ? priorSubject
-        : normalizedInput.isEmpty || declinesCurrentChoice
-        ? 'one task you choose for today'
-        : SmartPlannerQueryController._condense(normalizedInput, maxLength: 72);
+        priorSubject.isNotEmpty &&
+        (declineOnly ||
+            _continuesPlannerObjective(normalizedInput) ||
+            respondingToPlanQuestion &&
+                _extractPlannerAction(normalizedInput) == null &&
+                !RegExp(
+                  r'\b(?:I meant|me refiero a|quer[ií]a decir)\b',
+                  caseSensitive: false,
+                ).hasMatch(normalizedInput));
+    final subject = continuesPriorSubject ? priorSubject : normalizedInput;
+
     return _PlannerConversationContext(
       input: normalizedInput,
       searchText: <String>[
@@ -113,9 +119,9 @@ final class _PlannerConversationContext {
         normalizedInput,
       ].where((String value) => value.isNotEmpty).join(' '),
       evidenceSearchText: <String>[
-        if (continuesPriorSubject) priorSubject,
-        if (!declinesCurrentChoice) normalizedInput,
-      ].where((value) => value.isNotEmpty).join(' '),
+        if (continuesPriorSubject) ...[priorSubject, ...retainedConstraints],
+        if (!declineOnly) normalizedInput,
+      ].where((value) => value.isNotEmpty).join('. '),
       savedContextDeclined: savedContextDeclined,
       answeredSavedContextQuestion:
           isFollowUp && awaitingSavedChoice && normalizedInput.isNotEmpty,
@@ -125,6 +131,12 @@ final class _PlannerConversationContext {
       priorTimeLimitMinutes: priorTimeLimitMinutes,
       historyTurnsUsed: boundedPrior.length,
       isFollowUp: isFollowUp,
+      corrections: continuesPriorSubject
+          ? [
+              ...retainedConstraints,
+              if (!declineOnly && normalizedInput.isNotEmpty) normalizedInput,
+            ]
+          : const [],
     );
   }
 
@@ -139,64 +151,84 @@ final class _PlannerConversationContext {
   final int? priorTimeLimitMinutes;
   final int historyTurnsUsed;
   final bool isFollowUp;
+  final List<String> corrections;
+
+  PlannerUserContext get userContext => PlannerUserContext(
+    objective: subject,
+    corrections: corrections,
+    savedContextDeclined: savedContextDeclined,
+    timeLimitMinutes: explicitTimeLimitMinutes,
+  );
 
   // A concrete new request starts a new time budget. A referential follow-up
   // can retain its subject's budget, but an explicit current limit wins.
   int? get explicitTimeLimitMinutes =>
-      _explicitPlanningTimeLimit(input) ??
-      (continuesPriorSubject ? priorTimeLimitMinutes : null);
+      _rejectsPlannerTimeBudget(input) &&
+          _explicitPlanningTimeLimit(input) == null
+      ? null
+      : _explicitPlanningTimeLimit(input) ??
+            (continuesPriorSubject ? priorTimeLimitMinutes : null);
 
-  String whatIHeard({
+  String evidenceSummary({
     required bool contextWasProvided,
-    required _PlannerEvidence evidence,
+    String languageCode = 'en',
   }) {
-    final String? focus = evidence.focusSubject;
-    if (isFollowUp && continuesPriorSubject && !savedContextDeclined) {
-      final String followUp = SmartPlannerQueryController._condense(
-        input,
-        maxLength: 72,
-      );
-      final String connectedTo =
-          focus ??
-          (priorSubject.isEmpty ? 'your earlier plan' : '"$priorSubject"');
-      return 'You are following up on $connectedTo: $followUp.';
-    }
-    if (focus != null) {
-      return 'You want a workable next move for $focus.';
-    }
-    return contextWasProvided
-        ? 'You want a workable way forward on: $subject.'
-        : 'You want a practical check-in that fits your current capacity.';
-  }
-
-  String clarificationSummary({required bool contextWasProvided}) {
-    if (isFollowUp) {
-      return 'You are clarifying what kind of support would fit: ${SmartPlannerQueryController._condense(input, maxLength: 96)}.';
-    }
-    return contextWasProvided
-        ? 'You want support with: ${SmartPlannerQueryController._condense(subject, maxLength: 96)}.'
-        : 'You want a practical check-in, but the right planning target is not clear yet.';
-  }
-
-  String evidenceSummary({required bool contextWasProvided}) {
     if (historyTurnsUsed > 0) {
-      return 'Used $historyTurnsUsed prior user conversation turn(s) for this response only; Planner did not save them.';
+      return _plannerEvidenceText(
+        languageCode,
+        'Used $historyTurnsUsed prior user conversation turn(s) for this response only; Planner did not save them.',
+        'Se usaron $historyTurnsUsed mensajes anteriores tuyos únicamente para esta respuesta; el Planificador no los guardó.',
+      );
     }
     return contextWasProvided
-        ? 'Planning context was supplied for this check-in; it was not saved as a reflection or memory.'
-        : 'No planning context or prior user turn was supplied.';
+        ? _plannerEvidenceText(
+            languageCode,
+            'Planning context was supplied for this check-in; it was not saved as a reflection or memory.',
+            'Aportaste contexto de planificación para este registro; no se guardó como reflexión ni como memoria.',
+          )
+        : _plannerEvidenceText(
+            languageCode,
+            'No planning context or prior user turn was supplied.',
+            'No se aportó contexto de planificación ni un mensaje anterior del usuario.',
+          );
   }
 }
 
 const String _savedContextQuestion =
     'Which saved task or goal, if any, should this plan support?';
 
-bool _referencesPriorPlannerSubject(String input) => RegExp(
-  r'\b(it|that|this|those|these|earlier|previous)\b|^can you make the\b',
-  caseSensitive: false,
-).hasMatch(input);
+const String _savedContextQuestionEs =
+    '¿Qué tarea u objetivo guardado, si lo hay, debe apoyar este plan?';
+
+bool _optsIntoSavedContext(String input) =>
+    RegExp(
+      r'\b(?:use|choose|attach|usar|usa|elige)\b.{0,30}\b(?:saved (?:task|goal)|saved planning recommendation|tarea guardada|objetivo guardado)\b',
+      caseSensitive: false,
+    ).hasMatch(input) &&
+    !_negatedPlannerClause(input);
+
+bool _continuesPlannerObjective(String input) {
+  // A named new action wins over a loose pronoun such as "this evening".
+  if (_extractPlannerAction(input) != null ||
+      RegExp(
+        r'\b(?:I meant|me refiero a|quer[ií]a decir)\b',
+        caseSensitive: false,
+      ).hasMatch(input)) {
+    return false;
+  }
+  return _declinesSavedChoice(input) ||
+      _explicitPlanningTimeLimit(input) != null ||
+      _negatedPlannerClause(input) ||
+      RegExp(
+        r'\b(it|that|those|these|earlier|previous|smaller|shorter|instead|tomorrow|interruptions|interrupciones|eso|anterior|menos|mañana)\b|^why\b|^por qu[eé]\b|^can you make\b|^make this\b|^this (?:one|plan)\b',
+        caseSensitive: false,
+      ).hasMatch(input);
+}
 
 int? _explicitPlanningTimeLimit(String input) {
+  if (_plannerDepartureUnresolved(input)) {
+    return null;
+  }
   // Recognize explicit numeric work windows, not arbitrary numbers in titles
   // or durations reported as past activity. This does not infer capacity.
   const numbers = <String, int>{
@@ -214,9 +246,15 @@ int? _explicitPlanningTimeLimit(String input) {
     'twenty': 20,
     'thirty': 30,
     'sixty': 60,
+    'uno': 1,
+    'un': 1,
+    'dos': 2,
+    'tres': 3,
+    'cuatro': 4,
     'cinco': 5,
     'diez': 10,
     'quince': 15,
+    'veinte': 20,
     'treinta': 30,
   };
   final normalized = input.replaceAllMapped(
@@ -224,7 +262,7 @@ int? _explicitPlanningTimeLimit(String input) {
     (match) => '${numbers[match.group(0)!.toLowerCase()]}',
   );
   final windowPattern = RegExp(
-    r"\b(?:in|within|for|only|(?:i|we|and)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than|(?:today(?:'s)?\s+)?(?:time\s+)?limit\s*:|en|dentro de|durante|(?:solo\s+)?(?:tengo|tenemos)(?:\s+solo)?|como máximo|no más de)\s+"
+    r"\b(?:within|for|only|(?:i|we|and)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than|(?:today(?:'s)?\s+)?(?:time\s+)?limit\s*:|dentro de|durante|(?:solo\s+)?(?:tengo|tenemos)(?:\s+solo)?|como máximo|no más de)\s+"
     r'(\d+(?:\.\d+)?)\s*(?:quiet\s+|spare\s+)?(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
     caseSensitive: false,
   );
@@ -244,25 +282,41 @@ int? _explicitPlanningTimeLimit(String input) {
     r'(\d+(?:\.\d+)?)\s*(?:quiet\s+|spare\s+)?(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
     caseSensitive: false,
   );
+  final actionWindowPattern = RegExp(
+    r'\b(?:help me|please|can you help me|ay[uú]dame a)\s+[^.!?;]+?\s+(?:in|en)\s+'
+    r'(\d+(?:\.\d+)?)\s*(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
+    caseSensitive: false,
+  );
+  final directActionWindowPattern = RegExp(
+    '(?:^|[.!?]\\s*|\\b(?:i|we)\\s+(?:need|want|have) to\\s+)(?:$_plannerActionVerbs)\\b[^.!?;]+?\\s+(?:in|en)\\s+'
+    r'(\d+(?:\.\d+)?)\s*(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
+    caseSensitive: false,
+  );
   final matches = <RegExpMatch>[
     ...windowPattern.allMatches(normalized),
     ...stepPattern.allMatches(normalized),
     ...compoundWindowPattern.allMatches(normalized),
+    ...actionWindowPattern.allMatches(normalized),
+    ...directActionWindowPattern.allMatches(normalized),
   ];
   int? limit;
   for (final match in matches) {
     final double? amount = double.tryParse(match.group(1)!);
-    if (amount == null || !amount.isFinite || amount <= 0) continue;
+    if (amount == null || !amount.isFinite || amount <= 0) {
+      continue;
+    }
     final bool hours = match.group(2)!.toLowerCase().startsWith('h');
     final int minutes = (amount * (hours ? 60 : 1)).floor();
-    if (minutes < 1 || minutes > 1440) continue;
+    if (minutes < 1 || minutes > 1440) {
+      continue;
+    }
     limit = limit == null ? minutes : math.min(limit, minutes);
   }
   return limit;
 }
 
 bool _declinesSavedChoice(String input) => RegExp(
-  r'^(none|neither|no|no thanks|none of them|not now)[.!]?$',
+  r'^(?:none|neither|no thanks|none of them|not now|ningun[oa]|ninguno|ninguna de ellas|no gracias)(?:[.!;,]|$)|^no[.!]?$|\b(?:new situation|new problem|use only what I|without saved|situación nueva|problema nuevo|solo lo que|sin tareas guardadas)\b',
   caseSensitive: false,
 ).hasMatch(input.trim());
 
@@ -345,13 +399,33 @@ final class _PlannerEvidence {
       ),
     );
     final bool explicitlyUsesNote = RegExp(
-      r'\b(?:selected|this|that) note\b',
+      r'\b(?:selected|this|that) note\b|\b(?:esta nota|nota seleccionada)\b',
       caseSensitive: false,
     ).hasMatch(searchText);
+    if (selectedNote != null && !explicitlyUsesNote) {
+      final noteTerms = _plannerTerms(
+        '${selectedNote.title} ${selectedNote.body ?? ''}',
+      );
+      final linkedTaskMatches = activeTasks.any(
+        (task) =>
+            task.id == selectedNote?.taskId &&
+            _taskTextMatch(task, requestTerms) > 0,
+      );
+      final linkedGoalMatches = activeGoals.any(
+        (goal) =>
+            goal.id == selectedNote?.goalId &&
+            _goalTextMatch(goal, requestTerms) > 0,
+      );
+      if (!linkedTaskMatches &&
+          !linkedGoalMatches &&
+          noteTerms.intersection(requestTerms).isEmpty) {
+        selectedNote = null;
+      }
+    }
     final bool requestMatchesSavedWork =
         activeTasks.any((task) => _taskTextMatch(task, requestTerms) > 0) ||
         activeGoals.any((goal) => _goalTextMatch(goal, requestTerms) > 0);
-    // A retained note can ground an unspecified request, but its longer body
+    // Only a relevant retained note may supply instructions. Its longer body
     // must not outvote the user's current named task or goal. Explicit requests
     // to use that note keep its linked evidence in the ranking.
     final Set<String> terms = requestMatchesSavedWork && !explicitlyUsesNote
@@ -425,7 +499,9 @@ final class _PlannerEvidence {
       int bestContextMatch = 0;
       for (final TaskEntity task in activeTasks) {
         final int match = _taskTextMatch(task, contextTerms);
-        if (match <= bestContextMatch) continue;
+        if (match <= bestContextMatch) {
+          continue;
+        }
         bestContextMatch = match;
         focusTask = task;
       }
@@ -462,6 +538,16 @@ final class _PlannerEvidence {
     if (focusRhythm != null) {
       focusTask = null;
       focusGoal = null;
+    }
+    if (selectedNote != null &&
+        !explicitlyUsesNote &&
+        ((selectedNote.taskId != null &&
+                focusTask != null &&
+                selectedNote.taskId != focusTask.id) ||
+            (selectedNote.goalId != null &&
+                focusGoal != null &&
+                selectedNote.goalId != focusGoal.id))) {
+      selectedNote = null;
     }
     final DateTime? focusTime = focusTask?.dueDate ?? focusTask?.scheduledFor;
     return _PlannerEvidence(
@@ -514,19 +600,45 @@ final class _PlannerEvidence {
       : _explicitPlanningTimeLimit(
           '${selectedNote!.title} ${selectedNote!.body ?? ''}',
         );
-  List<String> get supplementaryEvidence => [
+  List<String> get supplementaryEvidence => supplementaryEvidenceFor();
+
+  List<String> supplementaryEvidenceFor({String languageCode = 'en'}) => [
     if (!rhythmReadSucceeded)
-      'Daily Rhythm outcomes were unavailable; remaining rhythm work was not assumed.',
+      _plannerEvidenceText(
+        languageCode,
+        'Daily Rhythm outcomes were unavailable; remaining rhythm work was not assumed.',
+        'Los resultados de Ritmo diario no estaban disponibles; no se supuso que quedara trabajo por hacer.',
+      ),
     if (rhythmReadSucceeded && rhythms.isNotEmpty)
-      'Daily Rhythms: ${rhythms.where((entry) => entry.needsAttention).length} current-period targets have no recorded outcome. Individual repetitions and session durations are unknown.',
+      _plannerEvidenceText(
+        languageCode,
+        'Daily Rhythms: ${rhythms.where((entry) => entry.needsAttention).length} current-period targets have no recorded outcome. Individual repetitions and session durations are unknown.',
+        'Ritmos diarios: ${rhythms.where((entry) => entry.needsAttention).length} objetivos del período actual no tienen un resultado registrado. Se desconocen las repeticiones individuales y la duración de las sesiones.',
+      ),
     if (focusRhythm != null)
-      'Focused Daily Rhythm: "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"; ${focusRhythm!.habit.targetCount} per ${focusRhythm!.habit.cadence.name}; period ${focusRhythm!.periodKey}; ${focusRhythm!.status.name}.',
+      _plannerEvidenceText(
+        languageCode,
+        'Focused Daily Rhythm: "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"; ${focusRhythm!.habit.targetCount} per ${focusRhythm!.habit.cadence.name}; period ${focusRhythm!.periodKey}; ${focusRhythm!.status.name}.',
+        'Ritmo diario elegido: "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"; ${focusRhythm!.habit.targetCount} por ${_plannerEvidenceLabel(focusRhythm!.habit.cadence.name)}; período ${focusRhythm!.periodKey}; ${_plannerEvidenceLabel(focusRhythm!.status.name)}.',
+      ),
     if (!noteReadSucceeded)
-      'The selected note could not be read; its contents were not used.',
+      _plannerEvidenceText(
+        languageCode,
+        'The selected note could not be read; its contents were not used.',
+        'No se pudo leer la nota seleccionada; no se usó su contenido.',
+      ),
     if (selectedNote != null)
-      'Used note "${SmartPlannerQueryController._safeEvidenceTitle(selectedNote!.title)}" only because you explicitly selected it for this temporary planning session. No emotion was inferred from it.',
+      _plannerEvidenceText(
+        languageCode,
+        'Read note "${SmartPlannerQueryController._safeEvidenceTitle(selectedNote!.title)}" because you explicitly selected it. Applied actions and limits are listed separately; no emotion was inferred from it.',
+        'Se leyó la nota "${SmartPlannerQueryController._safeEvidenceTitle(selectedNote!.title)}" porque la seleccionaste explícitamente. Las acciones y los límites aplicados se indican por separado; no se dedujo ninguna emoción de la nota.',
+      ),
     if (noteTimeLimitMinutes != null)
-      'Applied the selected note\'s explicit $noteTimeLimitMinutes-minute limit to every option.',
+      _plannerEvidenceText(
+        languageCode,
+        'Applied the selected note\'s explicit $noteTimeLimitMinutes-minute limit to every option.',
+        'Se aplicó a todas las opciones el límite explícito de $noteTimeLimitMinutes minutos de la nota seleccionada.',
+      ),
   ];
 
   bool get hasStoredEvidence =>
@@ -557,33 +669,69 @@ final class _PlannerEvidence {
       hasAvailableGroundingEvidence &&
       !hasPositiveGrounding;
 
-  String get domainAdaptationSummary {
+  String get domainAdaptationSummary => domainAdaptationSummaryFor();
+
+  String domainAdaptationSummaryFor({String languageCode = 'en'}) {
     if (focusRhythm != null) {
-      return 'Used the matched Daily Rhythm and its current period outcome.';
+      return _plannerEvidenceText(
+        languageCode,
+        'Used the matched Daily Rhythm and its current period outcome.',
+        'Se usó el Ritmo diario coincidente y su resultado del período actual.',
+      );
     }
     if (selectedNote != null) {
-      return 'Used only the note explicitly selected for this planning session, plus relevant saved evidence.';
+      return _plannerEvidenceText(
+        languageCode,
+        'Used only the note explicitly selected for this planning session, plus relevant saved evidence.',
+        'Se usó únicamente la nota seleccionada explícitamente para esta sesión, junto con la información guardada pertinente.',
+      );
     }
     if (savedContextDeclined) {
-      return 'You chose to plan independently; saved tasks, goals, and recommendations were not attached. Consented capacity limits still apply.';
+      return _plannerEvidenceText(
+        languageCode,
+        'You chose to plan independently; saved tasks, goals, and recommendations were not attached. Consented capacity limits still apply.',
+        'Elegiste planificar de forma independiente; no se añadieron tareas, metas ni recomendaciones guardadas. Siguen aplicándose los límites de capacidad que autorizaste.',
+      );
     }
     if (hasMatchedStoredEvidence) {
-      return 'Used only saved task or goal evidence with a positive text relevance match.';
+      return _plannerEvidenceText(
+        languageCode,
+        'Used only saved task or goal evidence with a positive text relevance match.',
+        'Solo se usaron tareas o metas guardadas cuyo texto coincide de forma pertinente con la solicitud.',
+      );
     }
     if (personContext.planningFocus != null) {
-      return 'Used only consented, fresh Person Context with typed or positive-text relevance to this planning request.';
+      return _plannerEvidenceText(
+        languageCode,
+        'Used only consented, fresh Person Context with typed or positive-text relevance to this planning request.',
+        'Solo se usó Contexto Personal vigente y autorizado, pertinente por su categoría o por una coincidencia de texto con esta solicitud.',
+      );
     }
     if (hasStoredEvidence) {
-      return 'Active saved tasks or goals were present, but none had positive relevance to this check-in.';
+      return _plannerEvidenceText(
+        languageCode,
+        'Active saved tasks or goals were present, but none had positive relevance to this check-in.',
+        'Había tareas o metas guardadas activas, pero ninguna era pertinente para este registro.',
+      );
     }
     if (!taskReadSucceeded || !goalReadSucceeded) {
-      return 'Saved task or goal evidence was unavailable; the missing data was not treated as an empty account.';
+      return _plannerEvidenceText(
+        languageCode,
+        'Saved task or goal evidence was unavailable; the missing data was not treated as an empty account.',
+        'La información de tareas o metas guardadas no estaba disponible; la falta de datos no se interpretó como una cuenta vacía.',
+      );
     }
-    return 'No active saved task or goal was available to ground this check-in.';
+    return _plannerEvidenceText(
+      languageCode,
+      'No active saved task or goal was available to ground this check-in.',
+      'No había una tarea o meta guardada activa disponible para fundamentar este registro.',
+    );
   }
 
   String? get focusSubject {
-    if (savedContextDeclined) return null;
+    if (savedContextDeclined) {
+      return null;
+    }
     if (focusRhythm != null) {
       return 'Daily Rhythm "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"';
     }
@@ -604,8 +752,32 @@ final class _PlannerEvidence {
         : personContext.planningFocus?.subject;
   }
 
-  String? get mattersMost {
+  String? focusSubjectFor({String languageCode = 'en'}) {
+    if (languageCode.toLowerCase().split(RegExp('[-_]')).first != 'es') {
+      return focusSubject;
+    }
     if (savedContextDeclined) return null;
+    if (focusRhythm != null) {
+      return 'el Ritmo diario "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"';
+    }
+    if (focusTask != null) {
+      return 'la tarea guardada "${SmartPlannerQueryController._safeEvidenceTitle(focusTask!.title)}"';
+    }
+    if (focusGoal != null) {
+      return 'la meta guardada "${SmartPlannerQueryController._safeEvidenceTitle(focusGoal!.title)}"';
+    }
+    if (operatingReceipt.focus != null) {
+      return 'la recomendación de planificación guardada "${SmartPlannerQueryController._safeEvidenceTitle(operatingReceipt.focus!.recommendedAction)}"';
+    }
+    return selectedNote != null
+        ? 'la nota seleccionada "${SmartPlannerQueryController._safeEvidenceTitle(selectedNote!.title)}"'
+        : personContext.planningFocus?.subjectFor(languageCode: languageCode);
+  }
+
+  String? get mattersMost {
+    if (savedContextDeclined) {
+      return null;
+    }
     if (focusRhythm != null) {
       return 'Planning only rhythm work that is still needed in the current period.';
     }
@@ -625,6 +797,31 @@ final class _PlannerEvidence {
       );
     }
     return personContext.planningFocus?.mattersMost;
+  }
+
+  String? mattersMostFor({String languageCode = 'en'}) {
+    if (languageCode.toLowerCase().split(RegExp('[-_]')).first != 'es') {
+      return mattersMost;
+    }
+    if (savedContextDeclined) return null;
+    if (focusRhythm != null) {
+      return 'Planificar únicamente lo que aún falta del ritmo en el período actual.';
+    }
+    if (focusTask != null) {
+      return 'Dar un siguiente paso realista en la tarea guardada "${SmartPlannerQueryController._safeEvidenceTitle(focusTask!.title)}" sin superar la capacidad que indicaste.';
+    }
+    if (focusGoal != null) {
+      return 'Avanzar de forma observable en la meta guardada "${SmartPlannerQueryController._safeEvidenceTitle(focusGoal!.title)}".';
+    }
+    if (operatingReceipt.focus != null) {
+      return SmartPlannerQueryController._condense(
+        operatingReceipt.focus!.whyItMatters,
+        maxLength: 180,
+      );
+    }
+    return personContext.planningFocus?.mattersMostFor(
+      languageCode: languageCode,
+    );
   }
 
   Map<String, Object?> get requestContext => <String, Object?>{
@@ -656,70 +853,122 @@ final class _PlannerEvidence {
     ...personContext.requestContext,
   };
 
-  List<String> verifiedEvidence(DateTime observedAt) {
+  List<String> verifiedEvidence(
+    DateTime observedAt, {
+    String languageCode = 'en',
+  }) {
     if (savedContextDeclined) {
       return <String>[
-        domainAdaptationSummary,
-        ...plannerMemory.verifiedEvidence(),
-        ...personContext.verifiedEvidence(),
+        domainAdaptationSummaryFor(languageCode: languageCode),
+        ...plannerMemory.verifiedEvidence(languageCode: languageCode),
+        ...personContext.verifiedEvidence(languageCode: languageCode),
       ];
     }
     final List<String> evidence = <String>[];
     if (!taskReadSucceeded || !goalReadSucceeded) {
       evidence.add(
-        'Saved planning evidence was only partially available for this check-in.',
+        _plannerEvidenceText(
+          languageCode,
+          'Saved planning evidence was only partially available for this check-in.',
+          'La información de planificación guardada solo estaba parcialmente disponible para este registro.',
+        ),
       );
     }
     if (!hasStoredEvidence) {
       evidence.add(
         taskReadSucceeded && goalReadSucceeded
-            ? 'Saved planning evidence checked: no active tasks or goals were found for this account.'
-            : 'No readable active task or goal was available, so guidance used check-in context only.',
+            ? _plannerEvidenceText(
+                languageCode,
+                'Saved planning evidence checked: no active tasks or goals were found for this account.',
+                'Se comprobó la información de planificación guardada: no se encontraron tareas ni metas activas en esta cuenta.',
+              )
+            : _plannerEvidenceText(
+                languageCode,
+                'No readable active task or goal was available, so guidance used check-in context only.',
+                'No se pudo leer ninguna tarea o meta activa, así que la orientación solo usó el contexto de este registro.',
+              ),
       );
     } else if (!hasMatchedStoredEvidence) {
       evidence.add(
-        'Saved planning evidence checked: ${activeTasks.length} active task(s) and ${activeGoals.length} active goal(s), with no positive relevance match to this check-in.',
+        _plannerEvidenceText(
+          languageCode,
+          'Saved planning evidence checked: ${activeTasks.length} active task(s) and ${activeGoals.length} active goal(s), with no positive relevance match to this check-in.',
+          'Se comprobó la información de planificación guardada: ${activeTasks.length} tarea(s) activa(s) y ${activeGoals.length} meta(s) activa(s), sin coincidencias pertinentes para este registro.',
+        ),
       );
     } else {
       evidence.add(
-        'Saved planning evidence read at ${observedAt.toIso8601String()}: ${activeTasks.length} active task(s), ${activeGoals.length} active goal(s).',
+        _plannerEvidenceText(
+          languageCode,
+          'Saved planning evidence read at ${observedAt.toIso8601String()}: ${activeTasks.length} active task(s), ${activeGoals.length} active goal(s).',
+          'Información de planificación guardada leída a las ${observedAt.toIso8601String()}: ${activeTasks.length} tarea(s) activa(s), ${activeGoals.length} meta(s) activa(s).',
+        ),
       );
       final TaskEntity? task = focusTask;
       if (task != null) {
         final DateTime? relevantDate = task.dueDate ?? task.scheduledFor;
         final String timing = relevantDate == null
-            ? 'no saved due or scheduled time'
-            : '${task.dueDate != null ? 'due' : 'scheduled'} ${_dateLabel(relevantDate)}';
+            ? _plannerEvidenceText(
+                languageCode,
+                'no saved due or scheduled time',
+                'sin fecha límite ni horario guardado',
+              )
+            : '${task.dueDate != null ? _plannerEvidenceText(languageCode, 'due', 'fecha límite') : _plannerEvidenceText(languageCode, 'scheduled', 'programada para')} ${_dateLabel(relevantDate)}';
         evidence.add(
-          'Focused saved task: "${SmartPlannerQueryController._safeEvidenceTitle(task.title)}"; priority ${task.priority}/5; energy ${task.energyRequired}/5; $timing.',
+          _plannerEvidenceText(
+            languageCode,
+            'Focused saved task: "${SmartPlannerQueryController._safeEvidenceTitle(task.title)}"; priority ${task.priority}/5; energy ${task.energyRequired}/5; $timing.',
+            'Tarea guardada elegida: "${SmartPlannerQueryController._safeEvidenceTitle(task.title)}"; prioridad ${task.priority}/5; energía ${task.energyRequired}/5; $timing.',
+          ),
         );
       }
       final GoalEntity? goal = focusGoal;
       if (goal != null) {
         evidence.add(
-          'Focused saved goal: "${SmartPlannerQueryController._safeEvidenceTitle(goal.title)}"; ${goal.targetDate == null ? 'no target date' : 'target ${_dateLabel(goal.targetDate!)}'}.',
+          _plannerEvidenceText(
+            languageCode,
+            'Focused saved goal: "${SmartPlannerQueryController._safeEvidenceTitle(goal.title)}"; ${goal.targetDate == null ? 'no target date' : 'target ${_dateLabel(goal.targetDate!)}'}.',
+            'Meta guardada elegida: "${SmartPlannerQueryController._safeEvidenceTitle(goal.title)}"; ${goal.targetDate == null ? 'sin fecha objetivo' : 'fecha objetivo ${_dateLabel(goal.targetDate!)}'}.',
+          ),
         );
       }
     }
-    evidence.addAll(operatingReceipt.verifiedEvidence());
-    evidence.addAll(plannerMemory.verifiedEvidence());
-    evidence.addAll(personContext.verifiedEvidence());
-    evidence.addAll(supplementaryEvidence);
+    evidence.addAll(
+      operatingReceipt.verifiedEvidence(languageCode: languageCode),
+    );
+    evidence.addAll(plannerMemory.verifiedEvidence(languageCode: languageCode));
+    evidence.addAll(personContext.verifiedEvidence(languageCode: languageCode));
+    evidence.addAll(supplementaryEvidenceFor(languageCode: languageCode));
     return evidence;
   }
 
-  List<String> clarificationEvidence(DateTime observedAt) {
+  List<String> clarificationEvidence(
+    DateTime observedAt, {
+    String languageCode = 'en',
+  }) {
     final List<String> evidence = <String>[
       if (!taskReadSucceeded || !goalReadSucceeded)
-        'Saved planning evidence was only partially available for this check-in.'
+        _plannerEvidenceText(
+          languageCode,
+          'Saved planning evidence was only partially available for this check-in.',
+          'La información de planificación guardada solo estaba parcialmente disponible para este registro.',
+        )
       else if (hasStoredEvidence)
-        'Saved planning evidence checked at ${observedAt.toIso8601String()}: ${activeTasks.length} active task(s), ${activeGoals.length} active goal(s); none was attached without positive relevance.'
+        _plannerEvidenceText(
+          languageCode,
+          'Saved planning evidence checked at ${observedAt.toIso8601String()}: ${activeTasks.length} active task(s), ${activeGoals.length} active goal(s); none was attached without positive relevance.',
+          'Información de planificación guardada comprobada a las ${observedAt.toIso8601String()}: ${activeTasks.length} tarea(s) activa(s), ${activeGoals.length} meta(s) activa(s); no se añadió ninguna sin una coincidencia pertinente.',
+        )
       else
-        'Saved planning evidence checked: no active tasks or goals were found for this account.',
-      ...operatingReceipt.clarificationEvidence(),
-      ...plannerMemory.verifiedEvidence(),
-      ...personContext.verifiedEvidence(),
-      ...supplementaryEvidence,
+        _plannerEvidenceText(
+          languageCode,
+          'Saved planning evidence checked: no active tasks or goals were found for this account.',
+          'Se comprobó la información de planificación guardada: no se encontraron tareas ni metas activas en esta cuenta.',
+        ),
+      ...operatingReceipt.clarificationEvidence(languageCode: languageCode),
+      ...plannerMemory.verifiedEvidence(languageCode: languageCode),
+      ...personContext.verifiedEvidence(languageCode: languageCode),
+      ...supplementaryEvidenceFor(languageCode: languageCode),
     ];
     return evidence;
   }
@@ -775,15 +1024,29 @@ final class _PlannerOperatingReceiptEvidence {
       status == _PlannerOperatingReceiptStatus.matched ||
       status == _PlannerOperatingReceiptStatus.unmatched;
 
-  String get adaptationSummary => switch (status) {
-    _PlannerOperatingReceiptStatus.matched =>
+  String get adaptationSummary => adaptationSummaryFor();
+
+  String adaptationSummaryFor({String languageCode = 'en'}) => switch (status) {
+    _PlannerOperatingReceiptStatus.matched => _plannerEvidenceText(
+      languageCode,
       'Used a recent saved planning recommendation only after a positive relevance match.',
-    _PlannerOperatingReceiptStatus.unmatched =>
+      'Solo se usó una recomendación de planificación guardada reciente después de comprobar que era pertinente.',
+    ),
+    _PlannerOperatingReceiptStatus.unmatched => _plannerEvidenceText(
+      languageCode,
       'A recent saved planning recommendation was available but not used because it did not match this check-in.',
-    _PlannerOperatingReceiptStatus.expired =>
+      'Había una recomendación de planificación guardada reciente, pero no se usó porque no coincidía con este registro.',
+    ),
+    _PlannerOperatingReceiptStatus.expired => _plannerEvidenceText(
+      languageCode,
       'The saved planning recommendation had expired and was not used.',
-    _PlannerOperatingReceiptStatus.unavailable =>
+      'La recomendación de planificación guardada había caducado y no se usó.',
+    ),
+    _PlannerOperatingReceiptStatus.unavailable => _plannerEvidenceText(
+      languageCode,
       'No recent saved planning recommendation was available.',
+      'No había ninguna recomendación de planificación guardada reciente disponible.',
+    ),
   };
 
   Map<String, Object?> get requestContext => <String, Object?>{
@@ -792,31 +1055,63 @@ final class _PlannerOperatingReceiptEvidence {
     'operatingReceiptId': focus?.decisionId,
   };
 
-  List<String> verifiedEvidence() => switch (status) {
+  List<String> verifiedEvidence({
+    String languageCode = 'en',
+  }) => switch (status) {
     _PlannerOperatingReceiptStatus.matched => <String>[
-      'A saved planning recommendation matched this check-in: "${SmartPlannerQueryController._safeEvidenceTitle(receipt!.recommendedAction)}"; generated ${receipt!.generatedAt.toUtc().toIso8601String()}; expires ${receipt!.expiresAt.toUtc().toIso8601String()}.',
+      _plannerEvidenceText(
+        languageCode,
+        'A saved planning recommendation matched this check-in: "${SmartPlannerQueryController._safeEvidenceTitle(receipt!.recommendedAction)}"; generated ${receipt!.generatedAt.toUtc().toIso8601String()}; expires ${receipt!.expiresAt.toUtc().toIso8601String()}.',
+        'Una recomendación de planificación guardada coincidió con este registro: "${SmartPlannerQueryController._safeEvidenceTitle(receipt!.recommendedAction)}"; creada ${receipt!.generatedAt.toUtc().toIso8601String()}; caduca ${receipt!.expiresAt.toUtc().toIso8601String()}.',
+      ),
     ],
-    _PlannerOperatingReceiptStatus.unmatched => const <String>[
-      'A recent saved planning recommendation was checked but not attached because it had no positive relevance match.',
+    _PlannerOperatingReceiptStatus.unmatched => <String>[
+      _plannerEvidenceText(
+        languageCode,
+        'A recent saved planning recommendation was checked but not attached because it had no positive relevance match.',
+        'Se comprobó una recomendación de planificación guardada reciente, pero no se añadió porque no tenía una coincidencia pertinente.',
+      ),
     ],
-    _PlannerOperatingReceiptStatus.expired => const <String>[
-      'The available saved planning recommendation had expired and was not used.',
+    _PlannerOperatingReceiptStatus.expired => <String>[
+      _plannerEvidenceText(
+        languageCode,
+        'The available saved planning recommendation had expired and was not used.',
+        'La recomendación de planificación guardada disponible había caducado y no se usó.',
+      ),
     ],
-    _PlannerOperatingReceiptStatus.unavailable => const <String>[
-      'No recent saved planning recommendation was available for this check-in.',
+    _PlannerOperatingReceiptStatus.unavailable => <String>[
+      _plannerEvidenceText(
+        languageCode,
+        'No recent saved planning recommendation was available for this check-in.',
+        'No había ninguna recomendación de planificación guardada reciente para este registro.',
+      ),
     ],
   };
 
-  List<String> clarificationEvidence() => switch (status) {
+  List<String> clarificationEvidence({
+    String languageCode = 'en',
+  }) => switch (status) {
     _PlannerOperatingReceiptStatus.matched ||
-    _PlannerOperatingReceiptStatus.unmatched => const <String>[
-      'A recent saved planning recommendation was checked and was not attached while clarification is needed.',
+    _PlannerOperatingReceiptStatus.unmatched => <String>[
+      _plannerEvidenceText(
+        languageCode,
+        'A recent saved planning recommendation was checked and was not attached while clarification is needed.',
+        'Se comprobó una recomendación de planificación guardada reciente; no se añadió porque aún hace falta una aclaración.',
+      ),
     ],
-    _PlannerOperatingReceiptStatus.expired => const <String>[
-      'The available saved planning recommendation had expired and was not used.',
+    _PlannerOperatingReceiptStatus.expired => <String>[
+      _plannerEvidenceText(
+        languageCode,
+        'The available saved planning recommendation had expired and was not used.',
+        'La recomendación de planificación guardada disponible había caducado y no se usó.',
+      ),
     ],
-    _PlannerOperatingReceiptStatus.unavailable => const <String>[
-      'No recent saved planning recommendation was available for this check-in.',
+    _PlannerOperatingReceiptStatus.unavailable => <String>[
+      _plannerEvidenceText(
+        languageCode,
+        'No recent saved planning recommendation was available for this check-in.',
+        'No había ninguna recomendación de planificación guardada reciente para este registro.',
+      ),
     ],
   };
 }
@@ -850,25 +1145,42 @@ final class _PlannerMemoryEvidence {
 
   final List<MemoryEntity> memories;
 
-  String get adaptationSummary => memories.isEmpty
-      ? 'No governed Smart Planner preference was recalled.'
-      : 'Recalled ${memories.length} consented Smart Planner guidance preference(s) through the exact surface and purpose boundary.';
+  String get adaptationSummary => adaptationSummaryFor();
+
+  String adaptationSummaryFor({String languageCode = 'en'}) => memories.isEmpty
+      ? _plannerEvidenceText(
+          languageCode,
+          'No governed Smart Planner preference was recalled.',
+          'No se recuperó ninguna preferencia guardada con consentimiento del Planificador Inteligente.',
+        )
+      : _plannerEvidenceText(
+          languageCode,
+          'Recalled ${memories.length} consented Smart Planner guidance preference(s) through the exact surface and purpose boundary.',
+          'Se recuperaron ${memories.length} preferencias autorizadas de orientación del Planificador Inteligente, respetando el ámbito y la finalidad exactos.',
+        );
 
   Map<String, Object?> get requestContext => <String, Object?>{
     'plannerMemoryPurpose': MemoryPurpose.guidancePreference.name,
     'plannerMemorySignalsUsed': memories.length,
   };
 
-  List<String> verifiedEvidence() {
+  List<String> verifiedEvidence({String languageCode = 'en'}) {
     if (memories.isEmpty) {
-      return const <String>[
-        'No authorized governed Smart Planner preference was recalled.',
+      return <String>[
+        _plannerEvidenceText(
+          languageCode,
+          'No authorized governed Smart Planner preference was recalled.',
+          'No se recuperó ninguna preferencia guardada autorizada del Planificador Inteligente.',
+        ),
       ];
     }
     return memories
         .map(
-          (MemoryEntity memory) =>
-              'Governed Smart Planner preference recalled for ${memory.purpose.name}: "${SmartPlannerQueryController._condense(memory.text.replaceAll('"', "'"), maxLength: 120)}". It remained bounded to Smart Planner.',
+          (MemoryEntity memory) => _plannerEvidenceText(
+            languageCode,
+            'Governed Smart Planner preference recalled for ${memory.purpose.name}: "${SmartPlannerQueryController._condense(memory.text.replaceAll('"', "'"), maxLength: 120)}". It remained bounded to Smart Planner.',
+            'Preferencia guardada autorizada del Planificador Inteligente recuperada para ${_plannerEvidenceLabel(memory.purpose.name)}: "${SmartPlannerQueryController._condense(memory.text.replaceAll('"', "'"), maxLength: 120)}". Su uso siguió limitado al Planificador Inteligente.',
+          ),
         )
         .toList(growable: false);
   }
@@ -947,7 +1259,9 @@ final class _PlannerPersonContextEvidence {
         PersonContextRelevanceRule.confirmedOutcome =>
           PersonContextRelevanceBasis.typedConfirmedOutcome,
       };
-      if (basis != null) relevance[signal.id] = basis;
+      if (basis != null) {
+        relevance[signal.id] = basis;
+      }
     }
     final PersonContextBehaviorTrace evaluated =
         PersonContextBehaviorPolicy.evaluate(
@@ -1071,7 +1385,9 @@ final class _PlannerPersonContextEvidence {
 
   _PlannerPersonContextSignal? get planningFocus {
     for (final _PlannerPersonContextSignal signal in signals) {
-      if (signal.canGroundPlanning && _hasAppliedEffect(signal)) return signal;
+      if (signal.canGroundPlanning && _hasAppliedEffect(signal)) {
+        return signal;
+      }
     }
     return null;
   }
@@ -1102,7 +1418,9 @@ final class _PlannerPersonContextEvidence {
       final int? minutes = value is int
           ? value
           : int.tryParse(match?.group(1) ?? '');
-      if (minutes != null && minutes > 0) return minutes;
+      if (minutes != null && minutes > 0) {
+        return minutes;
+      }
     }
     return null;
   }
@@ -1110,7 +1428,9 @@ final class _PlannerPersonContextEvidence {
   bool _hasAppliedEffect(_PlannerPersonContextSignal signal) {
     final PersonContextBehaviorField permittedField =
         PersonContextBehaviorPolicy.ruleFor(signal.kind).permittedField;
-    if (!appliedOutput.containsKey(permittedField)) return false;
+    if (!appliedOutput.containsKey(permittedField)) {
+      return false;
+    }
     return trace?.appliedDeltas.any(
           (PersonContextBehaviorDelta delta) =>
               delta.signalId == signal.id &&
@@ -1120,13 +1440,24 @@ final class _PlannerPersonContextEvidence {
         false;
   }
 
-  String get adaptationSummary => switch (status) {
-    _PlannerPersonContextStatus.unavailable =>
+  String get adaptationSummary => adaptationSummaryFor();
+
+  String adaptationSummaryFor({String languageCode = 'en'}) => switch (status) {
+    _PlannerPersonContextStatus.unavailable => _plannerEvidenceText(
+      languageCode,
       'Person context was unavailable and was not used.',
-    _PlannerPersonContextStatus.knownEmpty =>
+      'El Contexto Personal no estaba disponible y no se usó.',
+    ),
+    _PlannerPersonContextStatus.knownEmpty => _plannerEvidenceText(
+      languageCode,
       'Person context was checked and known-empty for Smart Planner.',
-    _PlannerPersonContextStatus.available =>
+      'Se comprobó que no había Contexto Personal disponible para el Planificador Inteligente.',
+    ),
+    _PlannerPersonContextStatus.available => _plannerEvidenceText(
+      languageCode,
       'Used ${signals.length} consented fresh person-context signal(s), bounded to $_maxPlannerPersonContextSignals; treated them as user-provided evidence, not inferred identity.',
+      'Se usaron ${signals.length} datos vigentes y autorizados del Contexto Personal, con un máximo de $_maxPlannerPersonContextSignals; se trataron como información aportada por ti, sin deducir tu identidad.',
+    ),
   };
 
   List<String> get changedFieldNames {
@@ -1157,16 +1488,33 @@ final class _PlannerPersonContextEvidence {
     if (trace != null) 'personContextDecisionTrace': trace!.toJson(),
   };
 
-  List<String> verifiedEvidence() => switch (status) {
-    _PlannerPersonContextStatus.unavailable => const <String>[
-      'Person context was unavailable for Smart Planner and was not used.',
+  List<String> verifiedEvidence({
+    String languageCode = 'en',
+  }) => switch (status) {
+    _PlannerPersonContextStatus.unavailable => <String>[
+      _plannerEvidenceText(
+        languageCode,
+        'Person context was unavailable for Smart Planner and was not used.',
+        'El Contexto Personal no estaba disponible para el Planificador Inteligente y no se usó.',
+      ),
     ],
-    _PlannerPersonContextStatus.knownEmpty => const <String>[
-      'Person context checked for Smart Planner: no consented fresh signals were available.',
+    _PlannerPersonContextStatus.knownEmpty => <String>[
+      _plannerEvidenceText(
+        languageCode,
+        'Person context checked for Smart Planner: no consented fresh signals were available.',
+        'Se comprobó el Contexto Personal para el Planificador Inteligente: no había datos vigentes con consentimiento.',
+      ),
     ],
     _PlannerPersonContextStatus.available => <String>[
-      'Person context checked for Smart Planner: $availableSignalCount consented fresh signal(s) available; ${signals.length} used with a limit of $_maxPlannerPersonContextSignals.',
-      ...signals.map((_PlannerPersonContextSignal signal) => signal.evidence),
+      _plannerEvidenceText(
+        languageCode,
+        'Person context checked for Smart Planner: $availableSignalCount consented fresh signal(s) available; ${signals.length} used with a limit of $_maxPlannerPersonContextSignals.',
+        'Se comprobó el Contexto Personal para el Planificador Inteligente: $availableSignalCount datos vigentes con consentimiento disponibles; se usaron ${signals.length}, con un máximo de $_maxPlannerPersonContextSignals.',
+      ),
+      ...signals.map(
+        (_PlannerPersonContextSignal signal) =>
+            signal.evidenceFor(languageCode: languageCode),
+      ),
     ],
   };
 }
@@ -1232,12 +1580,68 @@ final class _PlannerPersonContextSignal {
 
   String get subject => '$sourceLabel $label "$value"';
 
+  String subjectFor({String languageCode = 'en'}) => _plannerEvidenceText(
+    languageCode,
+    subject,
+    '${_plannerEvidenceLabel(kind.name)} (${_plannerEvidenceLabel(source.name)}) "$value"',
+  );
+
   String get mattersMost =>
       'Respecting the $label you explicitly provided: "$value".';
 
+  String mattersMostFor({String languageCode = 'en'}) => _plannerEvidenceText(
+    languageCode,
+    mattersMost,
+    'Respetar lo que indicaste explícitamente sobre ${_plannerEvidenceLabel(kind.name)}: "$value".',
+  );
+
   String get evidence =>
       'Verified person-context evidence: $sourceLabel $label for ${purpose.name}, "$value". This is a consented saved statement, not an inferred trait or identity.';
+
+  String evidenceFor({String languageCode = 'en'}) => _plannerEvidenceText(
+    languageCode,
+    evidence,
+    'Información verificada del Contexto Personal: ${_plannerEvidenceLabel(source.name)}, ${_plannerEvidenceLabel(kind.name)} para ${_plannerEvidenceLabel(purpose.name)}, "$value". Es una declaración guardada con consentimiento, no un rasgo o una identidad deducidos.',
+  );
 }
+
+String _plannerEvidenceText(
+  String languageCode,
+  String english,
+  String spanish,
+) => languageCode.toLowerCase().split(RegExp('[-_]')).first == 'es'
+    ? spanish
+    : english;
+
+String _plannerEvidenceLabel(String code) => switch (code) {
+  'daily' => 'día',
+  'weekly' => 'semana',
+  'monthly' => 'mes',
+  'unrecorded' => 'sin registrar',
+  'completed' => 'completado',
+  'skipped' => 'omitido',
+  'paused' => 'en pausa',
+  'role' => 'rol',
+  'value' => 'valor',
+  'currentPriority' => 'prioridad actual',
+  'lifeArea' => 'área de vida',
+  'presentCapacity' => 'capacidad actual',
+  'preferredSupportStyle' => 'estilo de apoyo preferido',
+  'boundary' => 'límite',
+  'importantRelationship' => 'relación importante',
+  'commitment' => 'compromiso',
+  'outcomeHistory' => 'historial de resultados confirmados',
+  'userAuthored' => 'aportada por ti',
+  'confirmedOutcome' => 'resultado confirmado',
+  'planningGuidance' => 'orientación de planificación',
+  'decisionSupport' => 'apoyo para decisiones',
+  'reflection' => 'reflexión',
+  'outcomeLearning' => 'aprendizaje de resultados',
+  'guidancePreference' => 'preferencia de orientación',
+  'userNote' => 'nota del usuario',
+  'unknown' => 'finalidad desconocida',
+  _ => code,
+};
 
 const Set<String> _plannerStopWords = <String>{
   // Request scaffolding and constraint language do not identify a saved
@@ -1269,9 +1673,11 @@ const Set<String> _plannerStopWords = <String>{
   'what',
   'with',
   'would',
+  'para', 'antes', 'después', 'solo', 'tengo', 'necesito', 'quiero', 'minutos',
+  'tarea', 'tareas', 'objetivo', 'objetivos', 'nota', 'seleccionada', 'ayúdame',
 };
 
-Set<String> _plannerTerms(String input) => RegExp(r'[a-z0-9]+')
+Set<String> _plannerTerms(String input) => RegExp(r'[a-záéíóúüñ0-9]+')
     .allMatches(input.toLowerCase())
     .map((RegExpMatch match) => match.group(0)!)
     .where(
@@ -1280,7 +1686,9 @@ Set<String> _plannerTerms(String input) => RegExp(r'[a-z0-9]+')
     .toSet();
 
 int _taskTextMatch(TaskEntity task, Set<String> terms) {
-  if (terms.isEmpty) return 0;
+  if (terms.isEmpty) {
+    return 0;
+  }
   final Set<String> titleTerms = _plannerTerms(task.title);
   final Set<String> descriptionTerms = _plannerTerms(task.description ?? '');
   return terms.where(titleTerms.contains).length * 4 +
@@ -1288,7 +1696,9 @@ int _taskTextMatch(TaskEntity task, Set<String> terms) {
 }
 
 int _goalTextMatch(GoalEntity goal, Set<String> terms) {
-  if (terms.isEmpty) return 0;
+  if (terms.isEmpty) {
+    return 0;
+  }
   final Set<String> titleTerms = _plannerTerms(goal.title);
   final Set<String> descriptionTerms = _plannerTerms(goal.description ?? '');
   return terms.where(titleTerms.contains).length * 4 +
@@ -1312,10 +1722,18 @@ int _compareTasks(
 int _taskPriorityScore(TaskEntity task, DateTime now) {
   int score = task.priority.clamp(1, 5) * 20;
   final DateTime? relevant = task.dueDate ?? task.scheduledFor;
-  if (relevant == null) return score;
-  if (!relevant.isAfter(now)) return score + 300;
-  if (!relevant.isAfter(now.add(const Duration(days: 1)))) return score + 220;
-  if (!relevant.isAfter(now.add(const Duration(days: 7)))) return score + 100;
+  if (relevant == null) {
+    return score;
+  }
+  if (!relevant.isAfter(now)) {
+    return score + 300;
+  }
+  if (!relevant.isAfter(now.add(const Duration(days: 1)))) {
+    return score + 220;
+  }
+  if (!relevant.isAfter(now.add(const Duration(days: 7)))) {
+    return score + 100;
+  }
   return score + 20;
 }
 
@@ -1335,10 +1753,18 @@ int _compareGoals(
 
 int _goalUrgencyScore(GoalEntity goal, DateTime now) {
   final DateTime? target = goal.targetDate;
-  if (target == null) return 0;
-  if (!target.isAfter(now)) return 200;
-  if (!target.isAfter(now.add(const Duration(days: 7)))) return 100;
-  if (!target.isAfter(now.add(const Duration(days: 30)))) return 40;
+  if (target == null) {
+    return 0;
+  }
+  if (!target.isAfter(now)) {
+    return 200;
+  }
+  if (!target.isAfter(now.add(const Duration(days: 7)))) {
+    return 100;
+  }
+  if (!target.isAfter(now.add(const Duration(days: 30)))) {
+    return 40;
+  }
   return 10;
 }
 
@@ -1384,28 +1810,6 @@ final class _EffortProfile {
     math.min(bestFitMinutes, maximumMinutes),
     math.min(stretchMinutes, maximumMinutes),
   );
-}
-
-final class _PlannerStrategy {
-  const _PlannerStrategy({
-    required this.minimumTitle,
-    required this.bestFitTitle,
-    required this.stretchTitle,
-    required this.mattersMost,
-    required this.minimumAction,
-    required this.bestFitAction,
-    required this.stretchAction,
-    required this.question,
-  });
-
-  final String minimumTitle;
-  final String bestFitTitle;
-  final String stretchTitle;
-  final String mattersMost;
-  final String Function(String subject) minimumAction;
-  final String Function(String subject) bestFitAction;
-  final String Function(String subject) stretchAction;
-  final String question;
 }
 
 PlannerV2Response _compatibilityPlannerResponse({

@@ -105,7 +105,7 @@ void main() {
           10000,
           (index) => TaskEntity(
             id: 'load-$index',
-            title: 'Load target $index',
+            title: 'Review Load target $index',
             createdAt: DateTime.utc(2026, 9, 11),
             estimatedDuration: const Duration(minutes: 25),
           ),
@@ -277,7 +277,7 @@ void main() {
   });
 
   test(
-    'ordinary family follow-up stays routine and respects spelled-out time',
+    'ordinary family follow-up asks for a missing task without inventing work',
     () async {
       final container = plannerContainer();
       addTearDown(container.dispose);
@@ -290,7 +290,8 @@ void main() {
         reflection: '',
         history: const [],
       );
-      expect(result.plannerResponse.isClarification, isFalse);
+      expect(result.plannerResponse.isClarification, isTrue);
+      expect(result.plannerResponse.options, isEmpty);
       expect(
         result.plannerResponse.options.every(
           (option) => option.estimatedMinutes <= 5,
@@ -400,10 +401,7 @@ void main() {
           status != RhythmPeriodStatus.unrecorded,
         );
         if (status == RhythmPeriodStatus.unrecorded) {
-          expect(
-            result.plannerResponse.nextStep,
-            contains('one remaining session'),
-          );
+          expect(result.plannerResponse.nextStep, contains('Morning walk'));
           expect(
             result.plannerResponse.verifiedEvidence.join(' '),
             contains(
@@ -445,7 +443,7 @@ void main() {
           .requestPlanningGuidance(
             energy: .9,
             emotion: EmotionalState.engaged,
-            notes: 'Help me choose a step',
+            notes: 'Use the selected note to review the Release checklist',
             history: const [],
             previousSavedNotes: null,
           );
@@ -506,7 +504,7 @@ void main() {
         .requestPlanningGuidance(
           energy: .9,
           emotion: null,
-          notes: 'Help me choose a step',
+          notes: 'Usa la nota seleccionada. Necesito doblar una camisa.',
           history: const [],
           previousSavedNotes: null,
         );
@@ -621,7 +619,7 @@ void main() {
     expect(response.recommendedOption.kind, PlannerOptionKind.bestFit);
     expect(response.recommendationReason, isNotEmpty);
     expect(response.nextStep, isNotEmpty);
-    expect(response.usefulQuestion, isNotEmpty);
+    expect(response.usefulQuestion, isNull);
     expect(response.adaptationReceipt.energyPercent, 61);
     expect(response.adaptationReceipt.userSelectedEmotion, EmotionalState.calm);
     expect(response.controls, containsAll(PlannerActionControl.values));
@@ -1083,7 +1081,7 @@ void main() {
           .requestPlanningGuidance(
             energy: 0.9,
             emotion: EmotionalState.engaged,
-            notes: 'Choose a practical next step.',
+            notes: 'I need to write a work email.',
             history: const <Map<String, String>>[],
             previousSavedNotes: null,
           );
@@ -1115,7 +1113,8 @@ void main() {
           .requestPlanningGuidance(
             energy: 0.31,
             emotion: EmotionalState.anxious,
-            notes: 'My work deadline feels overloaded',
+            notes:
+                'My work deadline feels overloaded. I need to write an email.',
             history: const <Map<String, String>>[],
             previousSavedNotes: null,
           );
@@ -1127,9 +1126,12 @@ void main() {
           'Used only your selected emotion; no emotion was inferred from your text.',
         ),
       );
-      expect(result.message, contains('Minimum:'));
-      expect(result.message, contains('Best-fit:'));
-      expect(result.message, contains('Stretch:'));
+      expect(result.message, result.plannerResponse.toConversationText());
+      expect(result.plannerResponse.options, hasLength(3));
+      expect(
+        result.message,
+        isNot(contains('Stretch:')),
+      ); // Alternatives are expandable.
     },
   );
 
@@ -1188,7 +1190,7 @@ void main() {
       );
       expect(response.isClarification, isFalse);
       expect(response.recommendedKind, PlannerOptionKind.minimum);
-      expect(response.recommendedOption.description, contains('quiet break'));
+      expect(response.recommendedOption.description, contains('pause'));
       expect(
         response.options.every((option) => option.estimatedMinutes <= 5),
         isTrue,
@@ -1214,15 +1216,9 @@ void main() {
     );
 
     expect(response.recommendedKind, PlannerOptionKind.minimum);
-    expect(response.recommendedOption.title, 'Protect your energy');
-    expect(
-      response.recommendedOption.tradeoff,
-      'This may delay one low-priority task, but it protects your energy right now.',
-    );
-    expect(
-      response.nextStep,
-      'Within 3 minutes total, choose one nonessential task to postpone and take a quiet break. Stop when the timer ends.',
-    );
+    expect(response.nextStep.toLowerCase(), contains('pause'));
+    expect(response.nextStep, isNot(contains('choose one nonessential task')));
+    expect(response.recommendedOption.estimatedMinutes, 3);
     expect(response.nextStep, isNot(contains('im tired')));
   });
 
@@ -1257,21 +1253,10 @@ void main() {
       expect(result.plannerResponse.isClarification, isFalse);
       final option = result.plannerResponse.options.first;
       expect(option.estimatedMinutes, lessThanOrEqualTo(limit));
-      if (option.estimatedMinutes == 1) {
-        expect(option.description, contains('entire 1-minute block'));
-        expect(option.description, isNot(contains('setup')));
-      } else {
-        final work = RegExp(
-          r'Use (\d+) minutes?\b',
-        ).firstMatch(option.description)!;
-        final rest = RegExp(
-          r'a (\d+)-minute quiet break',
-        ).firstMatch(option.description)!;
-        expect(
-          int.parse(work[1]!) + int.parse(rest[1]!),
-          option.estimatedMinutes,
-        );
-      }
+      // A minimum recovery step no longer spends the user's scarce time
+      // setting up work; duration is separate from the immutable instruction.
+      expect(option.description.toLowerCase(), contains('pause'));
+      expect(option.description, isNot(contains('setup')));
       expect(
         result.plannerResponse.options.every(
           (o) => o.estimatedMinutes <= limit,
@@ -1310,9 +1295,7 @@ void main() {
                 history: const [],
               );
           expect(response.plannerResponse.isClarification, isFalse);
-          final descriptions = response.plannerResponse.options
-              .map((o) => o.description)
-              .join(' ');
+          final descriptions = response.plannerResponse.toAccessibleText();
           expect(descriptions, isNot(matches(RegExp(r'\b1 minutes\b'))));
           expect(descriptions, contains(limit == 1 ? '1 minute' : '5 minutes'));
           expect(
@@ -1390,7 +1373,14 @@ void main() {
             isFalse,
             reason: input,
           );
-          expect(result.plannerResponse.nextStep, contains(task.title));
+          expect(
+            result.plannerResponse.nextStep.toLowerCase(),
+            contains('receipt'),
+          );
+          expect(
+            result.plannerResponse.nextStep,
+            isNot(contains('Daily Rhythm')),
+          );
           expect(
             result.plannerResponse.options.every(
               (o) => o.estimatedMinutes <= 7,
@@ -1415,7 +1405,7 @@ void main() {
         (await controller.requestPlanningGuidance(
           energy: 0.9,
           emotion: EmotionalState.engaged,
-          notes: 'Advance the next goal milestone',
+          notes: 'Write the next goal milestone in my notebook',
           history: const <Map<String, String>>[],
           previousSavedNotes: null,
         )).plannerResponse;
@@ -1474,7 +1464,7 @@ void main() {
       expect(
         result.plannerResponse.options.every(
           (PlannerOption option) =>
-              option.description.contains('Finish Play release checklist'),
+              option.description.contains('Play release checklist'),
         ),
         isTrue,
       );
@@ -1543,7 +1533,7 @@ void main() {
       expect(
         result.plannerResponse.options.every(
           (PlannerOption option) =>
-              option.description.contains('Prepare release evidence'),
+              option.description.toLowerCase().contains('release evidence'),
         ),
         isTrue,
       );
@@ -1635,13 +1625,9 @@ void main() {
           previousSavedNotes: null,
         );
 
-    expect(
-      result.plannerResponse.options.every(
-        (PlannerOption option) =>
-            option.description.contains('Finish the GhostHeart album'),
-      ),
-      isTrue,
-    );
+    expect(result.plannerResponse.isClarification, isTrue);
+    expect(result.plannerResponse.whatIHeard, contains('GhostHeart album'));
+    expect(result.plannerResponse.usefulQuestion, isNotEmpty);
     expect(result.request.context['focusedEvidenceKind'], 'goal');
     expect(
       result.plannerResponse.verifiedEvidence,
@@ -1761,10 +1747,7 @@ void main() {
         result.plannerResponse.verifiedEvidence,
         contains(contains('saved planning recommendation matched')),
       );
-      expect(
-        result.plannerResponse.whatIHeard,
-        contains('saved planning recommendation "Prepare release evidence"'),
-      );
+      expect(result.plannerResponse.whatIHeard, contains('release evidence'));
       expect(
         <String>[
           result.message,
@@ -1777,7 +1760,7 @@ void main() {
       expect(
         result.plannerResponse.options.every(
           (PlannerOption option) =>
-              option.description.contains('Prepare release evidence'),
+              option.description.toLowerCase().contains('release evidence'),
         ),
         isTrue,
       );
@@ -1870,12 +1853,12 @@ void main() {
     expect(result.plannerResponse.origin, PlannerResponseOrigin.deterministic);
     expect(
       result.plannerResponse.whatIHeard,
-      contains('Finish Play release checklist'),
+      contains('Play release checklist'),
     );
     expect(
       result.plannerResponse.options.every(
         (PlannerOption option) =>
-            option.description.contains('Finish Play release checklist'),
+            option.description.contains('Play release checklist'),
       ),
       isTrue,
     );
@@ -1914,10 +1897,7 @@ void main() {
           ],
         );
 
-    expect(
-      result.plannerResponse.whatIHeard,
-      contains('Focus on preparing the release notes.'),
-    );
+    expect(result.plannerResponse.whatIHeard, contains('release notes'));
   });
 
   test(
@@ -2010,10 +1990,8 @@ void main() {
         }
         expect(response.nextStep, isNot(contains('Give me a practical')));
       }
-      expect(
-        initial.plannerResponse.nextStep,
-        contains('one task you choose for today'),
-      );
+      expect(initial.plannerResponse.isClarification, isTrue);
+      expect(initial.plannerResponse.options, isEmpty);
     },
   );
 
@@ -2055,14 +2033,11 @@ void main() {
         );
         expect(
           declined.plannerResponse.isClarification,
-          isFalse,
+          isTrue,
           reason: answer,
         );
-        expect(declined.plannerResponse.options, hasLength(3));
-        expect(
-          declined.plannerResponse.nextStep,
-          contains('one task you choose for today'),
-        );
+        expect(declined.plannerResponse.options, isEmpty);
+        expect(declined.plannerResponse.nextStep, isEmpty);
         history.addAll([
           {'role': 'user', 'content': answer},
           {'role': 'assistant', 'content': declined.message},
@@ -2075,7 +2050,10 @@ void main() {
           history: history,
         );
         expect(explicit.plannerResponse.isClarification, isFalse);
-        expect(explicit.plannerResponse.nextStep, contains('organize my desk'));
+        expect(
+          explicit.plannerResponse.nextStep,
+          contains('Organize your desk'),
+        );
         expect(explicit.message, isNot(contains('Prepare release evidence')));
         expect(explicit.request.context['storedEvidenceUsed'], isFalse);
       }
@@ -2103,7 +2081,7 @@ void main() {
           ],
         );
     expect(result.plannerResponse.isClarification, isFalse);
-    expect(result.plannerResponse.nextStep, contains('organize my desk'));
+    expect(result.plannerResponse.nextStep, contains('Organize your desk'));
     expect(result.request.context['operatingReceiptUsed'], isFalse);
     expect(
       result.message,
@@ -2286,9 +2264,16 @@ void main() {
           );
           expect(
             response.adaptationReceipt.adjustments,
-            contains(contains('requested time limit of 5 minutes')),
+            contains(
+              contains(
+                response.languageCode == 'es'
+                    ? 'límite solicitado de 5 minutos'
+                    : 'requested time limit of 5 minutes',
+              ),
+            ),
             reason: input,
           );
+          expect(response.userContext!.timeLimitMinutes, 5, reason: input);
           expect(response.recommendedKind, PlannerOptionKind.minimum);
         }
       },
@@ -2315,14 +2300,28 @@ void main() {
           emotion: null,
           contextWasProvided: true,
         );
-        expect(
-          response.options.map((o) => o.estimatedMinutes),
-          contains(greaterThan(5)),
-          reason: input,
-        );
+        if (input.startsWith('I do not have') || input.startsWith('No tengo')) {
+          expect(response.isClarification, isTrue, reason: input);
+          expect(response.options, isEmpty, reason: input);
+        } else {
+          expect(
+            response.options.map((o) => o.estimatedMinutes),
+            contains(greaterThan(5)),
+            reason: input,
+          );
+        }
+        expect(response.userContext!.timeLimitMinutes, isNull, reason: input);
         expect(
           response.adaptationReceipt.adjustments,
-          isNot(contains(contains('requested time limit'))),
+          isNot(
+            contains(
+              contains(
+                response.languageCode == 'es'
+                    ? 'límite solicitado'
+                    : 'requested time limit',
+              ),
+            ),
+          ),
           reason: input,
         );
       }
@@ -2366,16 +2365,16 @@ void main() {
       );
       expect(
         response(
-          'I spent 5 minutes on my desk yesterday',
+          'I need to write a letter. I spent 5 minutes on my desk yesterday',
         ).recommendedOption.estimatedMinutes,
         greaterThan(5),
       );
-      expect(
-        response(
-          'I do not have 10 minutes available',
-        ).recommendedOption.estimatedMinutes,
-        greaterThan(10),
-      );
+      final rejectedBudget = response('I do not have 10 minutes available');
+      expect(rejectedBudget.isClarification, isTrue);
+      expect(rejectedBudget.whatIHeard.toLowerCase(), contains('desk'));
+      expect(rejectedBudget.options, isEmpty);
+      expect(rejectedBudget.usefulQuestion, contains('How much time'));
+      expect(rejectedBudget.userContext!.timeLimitMinutes, isNull);
     },
   );
 
@@ -2401,7 +2400,7 @@ void main() {
               {'role': 'assistant', 'content': 'Use the smallest step.'},
             ],
           );
-      expect(response.nextStep, contains('Organize my desk'));
+      expect(response.nextStep, contains('Organize your desk'));
       expect(
         response.options.map((o) => o.estimatedMinutes),
         everyElement(lessThanOrEqualTo(5)),
@@ -2514,6 +2513,522 @@ void main() {
       expect(result.request.context['storedEvidenceUsed'], isFalse);
     },
   );
+
+  group('audited constraints and selected-note actions', () {
+    test(
+      'selected-note prerequisite precedes an explicitly requested wash',
+      () async {
+        final container = plannerContainer(
+          selectedNote: NoteEntity(
+            id: 'care',
+            title: 'Laundry instructions',
+            body:
+                'Check the care labels before washing. Write the pickup list. No ironing.',
+            createdAt: DateTime.utc(2026, 8, 29),
+          ),
+        );
+        addTearDown(container.dispose);
+        final response =
+            (await container
+                    .read(smartPlannerQueryControllerProvider)
+                    .requestPlanningGuidance(
+                      energy: null,
+                      emotion: null,
+                      notes:
+                          'Help me wash my laundry. Use the selected note. I have two minutes.',
+                      history: const [],
+                      previousSavedNotes: null,
+                    ))
+                .plannerResponse;
+        expect(response.isClarification, isFalse);
+        expect(
+          response.nextStep.toLowerCase(),
+          startsWith('check the care labels'),
+        );
+        expect(response.nextStep, isNot(contains('pickup list')));
+        expect(response.nextStep, isNot(startsWith('Wash')));
+        expect(
+          response.options.map((o) => o.estimatedMinutes),
+          everyElement(lessThanOrEqualTo(2)),
+        );
+      },
+    );
+
+    test(
+      'rejected method keeps uniform objective and asks about the locked bag',
+      () {
+        final container = plannerContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(smartPlannerQueryControllerProvider);
+        const original =
+            'I need to pack my uniform in my bag. I have five minutes.';
+        final first = controller.buildPlannerResponse(
+          input: original,
+          energy: null,
+          emotion: null,
+          contextWasProvided: true,
+        );
+        for (final obstacle in [
+          'The bag is locked in my car.',
+          'It is locked in my car.',
+        ]) {
+          final response = controller.buildPlannerResponse(
+            input: obstacle,
+            energy: null,
+            emotion: null,
+            contextWasProvided: true,
+            isFollowUp: true,
+            currentPlan: PlannerConversationSnapshot(
+              originalObjective: original,
+              currentPlan: first,
+              userContext: first.userContext,
+              adjustments: const [
+                PlannerAdjustment(
+                  kind: PlannerAdjustmentKind.rejectedApproach,
+                  description: 'The user asked for a different approach.',
+                ),
+              ],
+            ),
+          );
+          expect(response.isClarification, isTrue);
+          expect(response.whatIHeard.toLowerCase(), contains('uniform'));
+          expect(response.whatIHeard.toLowerCase(), contains('locked'));
+          expect(response.usefulQuestion!.toLowerCase(), contains('bag'));
+          expect(response.options, isEmpty);
+          expect(response.userContext!.objective, original);
+
+          final alternateBag = controller.buildPlannerResponse(
+            input: 'I have another bag.',
+            energy: null,
+            emotion: null,
+            contextWasProvided: true,
+            isFollowUp: true,
+            currentPlan: PlannerConversationSnapshot(
+              originalObjective: original,
+              currentPlan: response,
+              userContext: response.userContext,
+              adjustments: const [],
+            ),
+          );
+          expect(alternateBag.whatIHeard.toLowerCase(), contains('uniform'));
+          expect(alternateBag.nextStep.toLowerCase(), contains('uniform'));
+          expect(alternateBag.userContext!.objective, original);
+          expect(
+            alternateBag.userContext!.corrections,
+            containsAll([obstacle, 'I have another bag.']),
+          );
+        }
+      },
+    );
+
+    test(
+      'rejected uninterrupted method uses the supplied interruption reason',
+      () {
+        final container = plannerContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(smartPlannerQueryControllerProvider);
+        const original = 'I need to sort receipts. I have five minutes.';
+        final first = controller.buildPlannerResponse(
+          input: original,
+          energy: null,
+          emotion: null,
+          contextWasProvided: true,
+        );
+        final response = controller.buildPlannerResponse(
+          input: 'Too many interruptions from coworkers.',
+          energy: null,
+          emotion: null,
+          contextWasProvided: true,
+          isFollowUp: true,
+          currentPlan: PlannerConversationSnapshot(
+            originalObjective: original,
+            currentPlan: first,
+            userContext: first.userContext,
+            adjustments: const [
+              PlannerAdjustment(
+                kind: PlannerAdjustmentKind.rejectedApproach,
+                description: 'The user asked for a different approach.',
+              ),
+            ],
+          ),
+        );
+        expect(response.isClarification, isFalse);
+        expect(response.nextStep.toLowerCase(), contains('receipt'));
+        expect(response.nextStep.toLowerCase(), contains('pause'));
+        expect(response.nextStep, isNot(first.nextStep));
+        expect(response.recommendationReason, isNot(contains('in your care')));
+      },
+    );
+
+    test(
+      'vague new situation cannot inherit an unrelated retained note or its cap',
+      () async {
+        final container = plannerContainer(
+          selectedNote: NoteEntity(
+            id: 'old-note',
+            title: 'Laundry',
+            body: 'Fold one shirt. I have two minutes.',
+            createdAt: DateTime.utc(2026, 8, 29),
+          ),
+        );
+        addTearDown(container.dispose);
+        final response =
+            (await container
+                    .read(smartPlannerQueryControllerProvider)
+                    .requestPlanningGuidance(
+                      energy: null,
+                      emotion: null,
+                      notes: 'Help me with a new situation at the office.',
+                      history: const [],
+                      previousSavedNotes: null,
+                    ))
+                .plannerResponse;
+        expect(response.isClarification, isTrue);
+        expect(response.whatIHeard.toLowerCase(), isNot(contains('laundry')));
+        expect(
+          response.verifiedEvidence.join(' '),
+          isNot(contains("note's explicit 2-minute")),
+        );
+      },
+    );
+    test('bare not and sending morphology preserve a draft-only request', () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final response = container
+          .read(smartPlannerQueryControllerProvider)
+          .buildPlannerResponse(
+            input:
+                'Help me write an email draft, not send it. I have five minutes.',
+            energy: null,
+            emotion: null,
+            contextWasProvided: true,
+          );
+      expect(response.isClarification, isFalse);
+      expect(response.nextStep.toLowerCase(), contains('draft'));
+      expect(response.nextStep.toLowerCase(), isNot(contains('sending')));
+      expect(response.nextStep.toLowerCase(), isNot(contains('send it')));
+    });
+    test(
+      'ride arrival is a deadline, with a bounded first step and departure question',
+      () {
+        final container = plannerContainer();
+        addTearDown(container.dispose);
+        final response = container
+            .read(smartPlannerQueryControllerProvider)
+            .buildPlannerResponse(
+              input:
+                  'My ride arrives in five minutes. Help me pack my uniform.',
+              energy: null,
+              emotion: null,
+              contextWasProvided: true,
+            );
+        expect(
+          response.options.map((o) => o.estimatedMinutes),
+          everyElement(1),
+        );
+        expect(response.usefulQuestion, contains('leave'));
+        expect(
+          response.recommendationReason,
+          isNot(contains('available 5 minutes')),
+        );
+      },
+    );
+    test(
+      'solo work remains English and office interruptions do not imply dependents',
+      () {
+        final container = plannerContainer();
+        addTearDown(container.dispose);
+        final response = container
+            .read(smartPlannerQueryControllerProvider)
+            .buildPlannerResponse(
+              input:
+                  'I need to write a solo report. Office interruptions are unavoidable.',
+              energy: null,
+              emotion: null,
+              contextWasProvided: true,
+            );
+        expect(response.languageCode, 'en');
+        expect(response.recommendationReason, isNot(contains('in your care')));
+        expect(response.recommendationReason, contains('interruptions'));
+      },
+    );
+    test(
+      'selected note contributes actual sequence and exclusions without writes',
+      () async {
+        final tasks = _MemoryTaskRepository([
+          TaskEntity(
+            id: 'laundry',
+            title: 'Prepare laundry',
+            createdAt: DateTime.utc(2026, 8, 29),
+          ),
+        ]);
+        final container = plannerContainer(
+          tasks: tasks,
+          selectedNote: NoteEntity(
+            id: 'laundry-note',
+            title: 'Laundry plan',
+            taskId: 'laundry',
+            body:
+                'Check the care labels before washing. Write the pickup list. No ironing. I have five minutes.',
+            createdAt: DateTime.utc(2026, 8, 29),
+          ),
+        );
+        addTearDown(container.dispose);
+        final result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: .5,
+              emotion: null,
+              notes: 'Use the selected note to help with laundry.',
+              history: const [],
+              previousSavedNotes: null,
+            );
+        expect(result.plannerResponse.isClarification, isFalse);
+        expect(result.plannerResponse.nextStep, contains('care labels'));
+        expect(result.plannerResponse.nextStep, contains('pickup list'));
+        expect(result.plannerResponse.nextStep, contains('Leave ironing out'));
+        expect(
+          result.plannerResponse.verifiedEvidence.join(' '),
+          contains('Applied selected-note action'),
+        );
+        expect(
+          result.plannerResponse.options.map((o) => o.estimatedMinutes),
+          everyElement(lessThanOrEqualTo(5)),
+        );
+        expect(tasks.writeCalls, 0);
+      },
+    );
+
+    test(
+      'explicit recovery acknowledges current need ahead of selected saved work',
+      () async {
+        final container = plannerContainer(
+          tasks: _MemoryTaskRepository([
+            TaskEntity(
+              id: 'laundry',
+              title: 'Prepare laundry',
+              createdAt: DateTime.utc(2026, 8, 29),
+            ),
+          ]),
+          selectedNote: NoteEntity(
+            id: 'laundry-note',
+            title: 'Laundry',
+            taskId: 'laundry',
+            body: 'Check the care labels. Write the pickup list.',
+            createdAt: DateTime.utc(2026, 8, 29),
+          ),
+        );
+        addTearDown(container.dispose);
+        final response =
+            (await container
+                    .read(smartPlannerQueryControllerProvider)
+                    .requestPlanningGuidance(
+                      energy: .4,
+                      emotion: null,
+                      notes:
+                          'I need a recovery break, not a laundry work session. I have two minutes.',
+                      history: const [],
+                      previousSavedNotes: null,
+                    ))
+                .plannerResponse;
+        expect(response.isClarification, isFalse);
+        expect(response.whatIHeard.toLowerCase(), contains('recovery'));
+        expect(response.nextStep.toLowerCase(), isNot(contains('laundry')));
+        expect(response.nextStep.toLowerCase(), isNot(contains('care labels')));
+      },
+    );
+
+    test('final action cannot reintroduce excluded email method', () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final response = container
+          .read(smartPlannerQueryControllerProvider)
+          .buildPlannerResponse(
+            input: 'I need to send an email. Do not write an email for me.',
+            energy: null,
+            emotion: null,
+            contextWasProvided: true,
+          );
+      expect(response.isClarification, isTrue);
+      expect(response.options, isEmpty);
+    });
+
+    test(
+      'unknown saved work is named honestly and not invented as a work cycle',
+      () async {
+        final container = plannerContainer(
+          tasks: _MemoryTaskRepository([
+            TaskEntity(
+              id: 'unknown',
+              title: 'Reconcile the Acme records',
+              createdAt: DateTime.utc(2026, 8, 29),
+            ),
+          ]),
+        );
+        addTearDown(container.dispose);
+        final response =
+            (await container
+                    .read(smartPlannerQueryControllerProvider)
+                    .requestPlanningGuidance(
+                      energy: .5,
+                      emotion: null,
+                      notes: 'Help me with the Acme records.',
+                      history: const [],
+                      previousSavedNotes: null,
+                    ))
+                .plannerResponse;
+        expect(response.isClarification, isTrue);
+        expect(response.whatIHeard, contains('Acme records'));
+        expect(response.usefulQuestion, isNot(contains('saved task or goal')));
+      },
+    );
+
+    test('corrected user objective survives nine short follow-ups', () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      const initial = 'I need to email my manager. I have ten minutes.';
+      var response = controller.buildPlannerResponse(
+        input: initial,
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+      );
+      response = controller.buildPlannerResponse(
+        input:
+            'The email is done. I need to pack my uniform. I only have two minutes.',
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+        isFollowUp: true,
+        currentPlan: PlannerConversationSnapshot(
+          originalObjective: initial,
+          currentPlan: response,
+          userContext: response.userContext,
+        ),
+      );
+      for (var i = 0; i < 9; i++) {
+        response = controller.buildPlannerResponse(
+          input: 'Make that easier.',
+          energy: null,
+          emotion: null,
+          contextWasProvided: true,
+          isFollowUp: true,
+          history: const [
+            {'role': 'user', 'content': 'Make that easier.'},
+            {'role': 'assistant', 'content': 'An older displayed answer.'},
+          ],
+          currentPlan: PlannerConversationSnapshot(
+            originalObjective: initial,
+            currentPlan: response,
+            userContext: response.userContext,
+          ),
+        );
+        expect(response.nextStep.toLowerCase(), contains('uniform'));
+        expect(response.nextStep.toLowerCase(), isNot(contains('manager')));
+        expect(
+          response.options.map((option) => option.estimatedMinutes),
+          everyElement(lessThanOrEqualTo(2)),
+        );
+        expect(response.userContext!.objective, contains('pack my uniform'));
+        expect(
+          response.userContext!.corrections.join(' '),
+          isNot(contains('older displayed answer')),
+        );
+      }
+    });
+
+    test('work duration stays separate from atomic action after shrinking', () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      final response = controller.buildPlannerResponse(
+        input: 'Organize my desk in 10 minutes',
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+      );
+      expect(
+        response.options.map((option) => option.estimatedMinutes),
+        everyElement(lessThanOrEqualTo(10)),
+      );
+      expect(
+        response.options.map((option) => option.description).join(' '),
+        isNot(contains('10 minutes')),
+      );
+      final shrunk = response.copyWith(
+        options: response.options
+            .map((option) => option.copyWith(estimatedMinutes: 1))
+            .toList(),
+      );
+      final followUp = controller.buildPlannerResponse(
+        input: 'Make that easier.',
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+        isFollowUp: true,
+        currentPlan: PlannerConversationSnapshot(
+          originalObjective: 'Organize my desk in 10 minutes',
+          currentPlan: shrunk,
+          userContext: shrunk.userContext,
+          adjustments: const [
+            PlannerAdjustment(
+              kind: PlannerAdjustmentKind.smaller,
+              description: 'Selected shorter step',
+              previousMinutes: 5,
+              currentMinutes: 1,
+            ),
+          ],
+        ),
+      );
+      expect(
+        followUp.options.map((option) => option.estimatedMinutes),
+        everyElement(1),
+      );
+      expect(followUp.nextStep, isNot(contains('10 minutes')));
+      expect(followUp.userContext!.timeLimitMinutes, 10);
+    });
+
+    test('displayed smaller snapshot is the source of a why follow-up', () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      final first = controller.buildPlannerResponse(
+        input: 'I need to fold one shirt. I have ten minutes.',
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+      );
+      final adjusted = first.copyWith(
+        options: first.options
+            .map((option) => option.copyWith(estimatedMinutes: 1))
+            .toList(),
+        recommendationReason: 'You chose a one-minute version.',
+      );
+      final result = controller.buildPlannerResponse(
+        input: 'Why this one?',
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+        isFollowUp: true,
+        currentPlan: PlannerConversationSnapshot(
+          originalObjective: 'I need to fold one shirt. I have ten minutes.',
+          currentPlan: adjusted,
+          adjustments: const [
+            PlannerAdjustment(
+              kind: PlannerAdjustmentKind.smaller,
+              description: 'Selected smaller step',
+              previousMinutes: 5,
+              currentMinutes: 1,
+            ),
+          ],
+        ),
+      );
+      expect(result.nextStep, adjusted.nextStep);
+      expect(result.recommendedOption.estimatedMinutes, 1);
+      expect(result.recommendationReason, adjusted.recommendationReason);
+    });
+  });
 
   test('direct crisis request cannot enter ordinary planning', () async {
     final ProviderContainer container = ProviderContainer();
