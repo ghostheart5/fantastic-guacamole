@@ -125,15 +125,15 @@ tags:
 - runFlow:
     file: ../subflows/enter-planner-request.yaml
     env:
-      REQUEST: "Finish the Priority 8 release evidence today"
+      REQUEST: "Fold one shirt. I have five minutes."
 - scrollUntilVisible:
     element:
-      text: "Finish the Priority 8 release evidence today"
+      text: "Fold one shirt. I have five minutes."
     direction: DOWN
     visibilityPercentage: 100
     timeout: 15000
 - assertVisible:
-    text: "Finish the Priority 8 release evidence today"
+    text: "Fold one shirt. I have five minutes."
 - scrollUntilVisible:
     element:
       text: "GET GUIDANCE"
@@ -144,6 +144,11 @@ tags:
     visible: "(?s)Planning guidance ready.*"
     timeout: 30000
 - runFlow: ../subflows/answer-planner-saved-context.yaml
+- scrollUntilVisible:
+    element:
+      text: "Use this plan"
+    direction: DOWN
+    timeout: 15000
 - assertVisible: "Use this plan"
 - tapOn: "Use this plan"
 
@@ -210,10 +215,10 @@ tags:
 - extendedWaitUntil:
     visible: "TIMELINE"
     timeout: 10000
-# The fresh QA Planner's best-fit title is deterministic. Require its scheduled
+# The concrete Planner action must keep its title through Creator. Require its scheduled
 # row and completion so the earlier seed outcome cannot satisfy this handoff.
 - extendedWaitUntil:
-    visible: "(?s).*Complete one useful cycle.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
+    visible: "(?s).*Fold one shirt.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 15000
 - scrollUntilVisible:
     element:
@@ -222,7 +227,7 @@ tags:
     timeout: 10000
 - tapOn: "Complete"
 - extendedWaitUntil:
-    visible: "(?s).*Task Completed.*Complete one useful cycle marked complete.*"
+    visible: "(?s).*Task Completed.*Fold one shirt marked complete.*"
     timeout: 20000
 - scrollUntilVisible:
     element:
