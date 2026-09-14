@@ -4,6 +4,7 @@ class CreatorCopy {
   final bool isSpanish;
 
   String get title => isSpanish ? 'Creador' : 'Creator';
+  String get back => isSpanish ? 'Volver a Nexus' : 'Back';
   String get subtitle => isSpanish
       ? 'Convierte una intención en una acción conectada.'
       : 'Turn intention into connected action.';

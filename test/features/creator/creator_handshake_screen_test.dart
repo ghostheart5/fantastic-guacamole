@@ -107,6 +107,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('MÁS ADECUADO · 20 min'), findsOneWidget);
     expect(find.text('Creador'), findsOneWidget);
+    expect(find.byTooltip('Volver a Nexus'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
     expect(find.text('Gestionar Ritmos Diarios'), findsOneWidget);
     expect(find.text('VISTA PREVIA DEL BORRADOR'), findsOneWidget);
     expect(find.text('REVISAR CAMBIOS'), findsOneWidget);

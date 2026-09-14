@@ -57,6 +57,7 @@ class CreatorScreen extends ConsumerWidget {
                   title: copy.title,
                   subtitle: copy.subtitle,
                   eyebrow: copy.eyebrow,
+                  backTooltip: copy.back,
                   onBack: () => goToAppView(context, ref, AppView.nexus),
                 ),
                 const SizedBox(height: 18),
