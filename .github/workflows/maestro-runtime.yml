@@ -43,6 +43,7 @@ on:
         options:
           - qa-smoke
           - qa-journeys
+          - qa-16k-native
       run_monkey:
         description: Run the five bounded Monkey variants on the disposable QA emulator
         required: false
@@ -95,10 +96,16 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$QA_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
-          case "$QA_SUITE" in qa-smoke|qa-journeys) ;; *) exit 1 ;; esac
+          case "$QA_SUITE" in qa-smoke|qa-journeys|qa-16k-native) ;; *) exit 1 ;; esac
           case "$QA_GUEST_API" in 35|36) ;; *) exit 1 ;; esac
           case "$QA_GUEST_PAGES" in 4k|16k) ;; *) exit 1 ;; esac
           if [ "$QA_GUEST_PAGES" = 16k ]; then test "$QA_GUEST_API" = 35; fi
+          if [ "$QA_SUITE" = qa-16k-native ]; then
+            test "$QA_GUEST_API" = 35
+            test "$QA_GUEST_PAGES" = 16k
+            test "$QA_MONKEY" = false
+            test "$QA_MONKEY_ONLY" = false
+          fi
           if [ "$QA_MONKEY_ONLY" = true ]; then test "$QA_MONKEY" = true; fi
 
       - name: Checkout exact source
@@ -153,6 +160,14 @@ jobs:
       - name: Test source-bound Monkey seed preparation
         if: inputs.run_monkey
         run: python3 -m unittest discover -s test-results/monkey-tooling/scripts -p test_prepare_monkey_seed_flows.py -v
+
+      - name: Checkout exact native smoke tooling separately from application source
+        if: inputs.suite == 'qa-16k-native'
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: test-results/native-tooling
+          persist-credentials: false
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -211,6 +226,7 @@ jobs:
           test -z "$(git status --porcelain)"
 
       - name: Install checksum-verified Maestro CLI
+        if: inputs.suite != 'qa-16k-native'
         timeout-minutes: 5
         env:
           MAESTRO_VERSION: '2.10.0'
@@ -292,7 +308,9 @@ jobs:
           }
           trap capture_system EXIT
           python3 test-results/maestro-prewarm/prepare_guest.py
-          if [ "$QA_MONKEY_ONLY" != true ]; then
+          if [ "$QA_SUITE" = qa-16k-native ]; then
+            python3 test-results/native-tooling/scripts/run_16k_adb_smoke.py
+          elif [ "$QA_MONKEY_ONLY" != true ]; then
             pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite "$QA_SUITE" -ExecutionTimeoutSeconds "$QA_TIMEOUT_SECONDS" -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -ArtifactsRoot artifacts/maestro-ci
           else
             # Recreate the same final data lifecycle as the full journey suite.
@@ -335,7 +353,7 @@ jobs:
             bash test-results/maestro-prewarm/run-suite.sh
 
       - name: Verify source-bound Maestro evidence
-        if: always() && !inputs.monkey_only
+        if: always() && !inputs.monkey_only && inputs.suite != 'qa-16k-native'
         env:
           EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
           EXPECTED_SUITE: ${{ inputs.suite || 'qa-smoke' }}
@@ -376,6 +394,37 @@ jobs:
           if (junit.get('failures') != 0 or junit.get('errors') != 0 or
                   junit.get('skipped') != 0 or junit.get('status') != 'passed'):
               raise SystemExit('::error::Maestro JUnit evidence is not a complete passing run.')
+          PY
+
+      - name: Verify source-bound native 16 KB launch evidence
+        if: always() && inputs.suite == 'qa-16k-native'
+        env:
+          EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
+          EXPECTED_TOOLING: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          receipt_path = Path('test-results/native-16k-ci/manifest.json')
+          if not receipt_path.is_file():
+              raise SystemExit('::error::Native 16 KB manifest is missing.')
+          receipt = json.loads(receipt_path.read_text())
+          script = Path('test-results/native-tooling/scripts/run_16k_adb_smoke.py')
+          compilation = json.loads(Path('test-results/maestro-prewarm/completion.json').read_text())
+          readiness = json.loads(Path('test-results/maestro-prewarm/guest-readiness.json').read_text())
+          assert receipt['status'] == 'passed'
+          assert receipt['sourceSha'] == os.environ['EXPECTED_COMMIT']
+          assert receipt['workflowToolingSha'] == os.environ['EXPECTED_TOOLING']
+          assert receipt['toolScriptSha256'].lower() == hashlib.sha256(script.read_bytes()).hexdigest()
+          assert receipt['apkSha256'].lower() == compilation['precompiledApkSha256'].lower()
+          assert receipt['installedVersionCode'] == '2026083053'
+          assert receipt['pageSize'] == 16384 and readiness['pageSizeBytes'] == 16384
+          assert receipt['serial'] == 'emulator-5554'
+          assert len(receipt['launches']) == 5 and receipt['appFatalCount'] == 0
+          for launch in receipt['launches']:
+              image = Path(f"test-results/native-16k-ci/launch-{launch['number']}.png")
+              assert hashlib.sha256(image.read_bytes()).hexdigest() == launch['screenshotSha256']
+              assert 'com.ghostheart5.chronospark' in launch['focus']
           PY
 
       - name: Verify optional Monkey evidence
@@ -438,6 +487,7 @@ jobs:
           include-hidden-files: true
           path: |
             artifacts/maestro-ci/**
+            test-results/native-16k-ci/**
             test-results/maestro-prewarm/**
             test-results/monkey-ci/**
             test-results/monkey-seed-ci/**
