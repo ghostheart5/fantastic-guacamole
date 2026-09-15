@@ -424,7 +424,10 @@ jobs:
           for launch in receipt['launches']:
               image = Path(f"test-results/native-16k-ci/launch-{launch['number']}.png")
               assert hashlib.sha256(image.read_bytes()).hexdigest() == launch['screenshotSha256']
-              assert 'com.ghostheart5.chronospark' in launch['focus']
+              activities = ('com.ghostheart5.chronospark/.MainActivity',
+                            'com.ghostheart5.chronospark/com.ghostheart5.chronospark.MainActivity')
+              assert any(activity in launch['focus'] for activity in activities)
+              assert any(activity in launch['resumedActivity'] for activity in activities)
           PY
 
       - name: Verify optional Monkey evidence

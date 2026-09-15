@@ -1,6 +1,47 @@
 import unittest
 
-from run_16k_adb_smoke import app_fatals
+from run_16k_adb_smoke import (
+    app_fatals,
+    focused_window,
+    is_chronospark_activity,
+    resumed_activity,
+)
+
+
+class ForegroundAttributionTests(unittest.TestCase):
+    def test_input_focus_and_resumed_activity_identify_the_app(self):
+        input_dump = """  FocusedApplications:
+    displayId=0, name='ActivityRecord{42 u0 com.ghostheart5.chronospark/.MainActivity}'
+  FocusedWindows:
+    displayId=0, name='7d1eca com.ghostheart5.chronospark/com.ghostheart5.chronospark.MainActivity'
+  FocusRequests:
+    displayId=0, name='old com.android.launcher/com.android.launcher.Home' result='OK'
+"""
+        activity_dump = """topResumedActivity=ActivityRecord{42 u0 com.ghostheart5.chronospark/.MainActivity}
+ResumedActivity: ActivityRecord{42 u0 com.ghostheart5.chronospark/.MainActivity}
+"""
+        self.assertTrue(is_chronospark_activity(focused_window(input_dump)))
+        self.assertTrue(is_chronospark_activity(resumed_activity(activity_dump)))
+
+    def test_stale_app_window_does_not_override_launcher_focus(self):
+        input_dump = """  FocusedWindows:
+    displayId=0, name='home com.android.launcher/com.android.launcher.Home'
+  FocusRequests:
+    displayId=0, name='old com.ghostheart5.chronospark/.MainActivity' result='OK'
+"""
+        activity_dump = """topResumedActivity=ActivityRecord{44 u0 com.android.launcher/.Home}
+Activities=[ActivityRecord{42 u0 com.ghostheart5.chronospark/.MainActivity}]
+"""
+        self.assertFalse(is_chronospark_activity(focused_window(input_dump)))
+        self.assertFalse(is_chronospark_activity(resumed_activity(activity_dump)))
+
+    def test_conflicting_display_zero_focus_fails_closed(self):
+        input_dump = """  FocusedWindows:
+    displayId=0, name='first com.ghostheart5.chronospark/.MainActivity'
+    displayId=0, name='second com.android.launcher/.Home'
+  FocusRequests:
+"""
+        self.assertEqual(focused_window(input_dump), "")
 
 
 class AppFatalAttributionTests(unittest.TestCase):

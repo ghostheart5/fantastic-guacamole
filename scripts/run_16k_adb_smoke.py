@@ -38,12 +38,48 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def focus() -> str:
-    window = shell("dumpsys", "window", "windows", timeout=20)
-    for line in window.splitlines():
-        if "mCurrentFocus=" in line:
-            return line.strip()
-    return ""
+def focused_window(input_dump: str) -> str:
+    """Read display 0's actual input focus, excluding stale window records."""
+    focused: set[str] = set()
+    in_windows = False
+    for line in input_dump.splitlines():
+        if line.strip() == "FocusedWindows:":
+            in_windows = True
+            continue
+        if in_windows and line.startswith("  ") and not line.startswith("    "):
+            in_windows = False
+        if in_windows:
+            match = re.fullmatch(r"\s*displayId=0, name='([^']+)'\s*", line)
+            if match:
+                focused.add(match.group(1))
+    return next(iter(focused)) if len(focused) == 1 else ""
+
+
+def resumed_activity(activity_dump: str) -> str:
+    """Read the top resumed activity rather than any historic task entry."""
+    matches = [
+        line.strip()
+        for line in activity_dump.splitlines()
+        if "topResumedActivity=" in line
+    ]
+    if not matches:
+        matches = [
+            line.strip()
+            for line in activity_dump.splitlines()
+            if line.strip().startswith("ResumedActivity:")
+        ]
+    return matches[0] if len(set(matches)) == 1 and matches else ""
+
+
+def is_chronospark_activity(value: str) -> bool:
+    return f"{PACKAGE}/.MainActivity" in value or f"{PACKAGE}/{PACKAGE}.MainActivity" in value
+
+
+def focus() -> tuple[str, str]:
+    return (
+        focused_window(shell("dumpsys", "input", timeout=20)),
+        resumed_activity(shell("dumpsys", "activity", "activities", timeout=20)),
+    )
 
 
 def app_fatals(log: str) -> list[str]:
@@ -99,18 +135,19 @@ def main() -> int:
             launch = shell("am", "start", "-W", "-n", ACTIVITY, timeout=45)
             assert "Status: ok" in launch, f"launch {number}: {launch}"
             current_focus = ""
+            current_resumed = ""
             pid = ""
             for _ in range(15):
-                current_focus = focus()
+                current_focus, current_resumed = focus()
                 try:
                     pid = shell("pidof", PACKAGE, timeout=10)
                 except subprocess.CalledProcessError:
                     pid = ""
-                if PACKAGE in current_focus and pid:
+                if is_chronospark_activity(current_focus) and is_chronospark_activity(current_resumed) and pid:
                     break
                 time.sleep(1)
-            assert PACKAGE in current_focus and pid, (
-                f"launch {number}: focus={current_focus}, pid={pid}"
+            assert is_chronospark_activity(current_focus) and is_chronospark_activity(current_resumed) and pid, (
+                f"launch {number}: focus={current_focus}, resumed={current_resumed}, pid={pid}"
             )
             screenshot = ROOT / f"launch-{number}.png"
             screenshot.write_bytes(run("exec-out", "screencap", "-p", timeout=30, binary=True))
@@ -120,6 +157,7 @@ def main() -> int:
                     "number": number,
                     "pid": pid,
                     "focus": current_focus,
+                    "resumedActivity": current_resumed,
                     "screenshotSha256": sha256(screenshot),
                     "screenshotBytes": screenshot.stat().st_size,
                 }
