@@ -1,6 +1,6 @@
 # Ficha de Google Play: Español (Latinoamérica)
 
-Borrador para la versión privada 4.1.0+2026083052. Revisar en el teléfono la interfaz en español y las capturas de esta misma versión antes de guardar o enviar esta ficha en Play Console. El texto describe las funciones disponibles para una cuenta común; las compras y las acciones de IA externa siguen limitadas a las cuentas autorizadas de prueba.
+Borrador para la versión privada 4.1.0+2026083053. Revisar en el teléfono la interfaz en español y las capturas de esta misma versión antes de guardar o enviar esta ficha en Play Console. El texto describe las funciones disponibles para una cuenta común; las compras y las acciones de IA externa siguen limitadas a las cuentas autorizadas de prueba.
 
 ## Nombre de la app
 

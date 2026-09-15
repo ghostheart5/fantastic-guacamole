@@ -256,11 +256,16 @@ function Wait-ForPackageFocus {
         if (-not $ownsFocus -and $pidReady -and $null -ne $windowResult -and
             $windowResult.ExitCode -eq 0 -and -not $windowResult.TimedOut -and
             $RecoverSystemDialogs -and $dialogDismissals -lt 2 -and
-            $lastFocus -match '^\s*mCurrentFocus=Window\{\S+ u0 SystemUIDialog\}\s*$') {
+            $lastFocus -match '^\s*mCurrentFocus=Window\{\S+ u0 (?:SystemUIDialog|VoiceInteractionSession)\}\s*$') {
             $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
             if ($remainingMilliseconds -gt 0) {
-                $sample.systemDialogRecovery = Restore-MonkeySystemDialog -Serial $Serial `
-                    -ExpectedFocus $lastFocus -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
+                $sample.systemDialogRecovery = if ($lastFocus -match ' u0 VoiceInteractionSession\}') {
+                    Restore-MonkeyVoiceSession -Serial $Serial -ExpectedFocus $lastFocus `
+                        -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
+                } else {
+                    Restore-MonkeySystemDialog -Serial $Serial -ExpectedFocus $lastFocus `
+                        -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
+                }
                 $dialogDismissals++
                 # A SystemUI dialog can disappear between the ownership and focus
                 # readbacks. No key was sent in that case; keep probing and require
@@ -355,6 +360,52 @@ function Restore-MonkeySystemDialog {
     # BACK cancels the verified Android-owned modal; never tap an approval.
     $back = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
     $receipt.Commands += [pscustomobject]@{ Command = 'cancel system dialog'; ExitCode = $back.ExitCode; TimedOut = $back.TimedOut }
+    $receipt.BackSent = $true
+    $receipt.Passed = $back.ExitCode -eq 0 -and -not $back.TimedOut -and $timer.Elapsed.TotalMilliseconds -lt $TimeoutMilliseconds
+    $receipt.Reason = 'App focus still requires independent stable probes after recovery.'
+    return [pscustomobject]$receipt
+}
+
+function Restore-MonkeyVoiceSession {
+    param(
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$ExpectedFocus,
+        [ValidateRange(1, 5000)][int]$TimeoutMilliseconds = 5000
+    )
+    if ($Serial -notmatch '^emulator-\d+$') {
+        throw 'Voice-session recovery is restricted to the selected disposable emulator.'
+    }
+    $receipt = [ordered]@{ Passed = $false; BeforeFocus = $ExpectedFocus.Trim(); Windows = ''; BackSent = $false; Reason = ''; Commands = @() }
+    if ($ExpectedFocus -notmatch '^\s*mCurrentFocus=(Window\{\S+ u0 VoiceInteractionSession\})\s*$') {
+        $receipt.Reason = 'Focus is not the exact Android voice-interaction window.'
+        return [pscustomobject]$receipt
+    }
+    $token = $Matches[1]
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $windows = Invoke-Adb -TimeoutMilliseconds $TimeoutMilliseconds -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'windows')
+    $receipt.Windows = $windows.Output -join "`n"
+    $receipt.Commands += [pscustomobject]@{ Command = 'voice-window ownership'; ExitCode = $windows.ExitCode; TimedOut = $windows.TimedOut }
+    $block = [regex]::Match($receipt.Windows, '(?ms)^\s*Window #\d+ ' + [regex]::Escape($token) + ':.*?(?=^\s*Window #\d+ |\z)').Value
+    # The Google-API guest's assistant owns this Android system overlay. Never
+    # dismiss an app window, a permission prompt, or a similarly named window.
+    if ($windows.ExitCode -ne 0 -or $windows.TimedOut -or
+        $block -notmatch '(?m)\bpackage=com\.google\.android\.googlequicksearchbox(?:\s|$)') {
+        $receipt.Reason = 'Focused assistant ownership was not verified.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $focusReadback = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $receipt.Commands += [pscustomobject]@{ Command = 'voice focus readback'; ExitCode = $focusReadback.ExitCode; TimedOut = $focusReadback.TimedOut }
+    $focus = @($focusReadback.Output | Where-Object { $_ -match 'mCurrentFocus=' }) -join "`n"
+    if ($focusReadback.ExitCode -ne 0 -or $focusReadback.TimedOut -or $focus.Trim() -cne $ExpectedFocus.Trim()) {
+        $receipt.Reason = 'Focus changed before recovery; no key was sent.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $back = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
+    $receipt.Commands += [pscustomobject]@{ Command = 'cancel assistant overlay'; ExitCode = $back.ExitCode; TimedOut = $back.TimedOut }
     $receipt.BackSent = $true
     $receipt.Passed = $back.ExitCode -eq 0 -and -not $back.TimedOut -and $timer.Elapsed.TotalMilliseconds -lt $TimeoutMilliseconds
     $receipt.Reason = 'App focus still requires independent stable probes after recovery.'

@@ -769,7 +769,18 @@ class _EmotionStateControl extends StatelessWidget {
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           const double spacing = 8;
-          final double chipWidth = (constraints.maxWidth - (spacing * 2)) / 3;
+          final double scaledLabelSize = MediaQuery.textScalerOf(
+            context,
+          ).scale(11);
+          final bool singleColumn =
+              scaledLabelSize >= 18 || constraints.maxWidth < 260;
+          final int columns = singleColumn
+              ? 1
+              : copy.isSpanish || constraints.maxWidth < 330
+              ? 2
+              : 3;
+          final double chipWidth =
+              (constraints.maxWidth - (spacing * (columns - 1))) / columns;
           return Wrap(
             spacing: spacing,
             runSpacing: spacing,
@@ -778,20 +789,22 @@ class _EmotionStateControl extends StatelessWidget {
                   final bool isSelected = selected == state;
                   return SizedBox(
                     width: chipWidth,
-                    height: 48,
+                    height: scaledLabelSize >= 18 ? 72 : 48,
                     child: Semantics(
                       label: copy.selectEmotion(state.name),
                       button: true,
                       selected: isSelected,
                       child: ExcludeSemantics(
                         child: ChoiceChip(
-                          label: SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              copy.emotionName(state.name).toUpperCase(),
-                              textAlign: TextAlign.center,
-                            ),
+                          label: Text(
+                            copy.emotionName(state.name).toUpperCase(),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            softWrap: true,
+                            overflow: TextOverflow.visible,
                           ),
+                          padding: EdgeInsets.zero,
+                          labelPadding: EdgeInsets.zero,
                           selected: isSelected,
                           showCheckmark: false,
                           onSelected: (_) => onSelect(state),

@@ -29,8 +29,9 @@ function Invoke-Adb {
   \$output = @(); \$exit = 0; \$timedOut = \$false
   if (\$command -match 'pidof') { \$output = @('9717') }
   elseif (\$command -match 'dumpsys window windows') {
-    \$owner = if (\$script:case.owner) { \$script:case.owner } else { 'com.android.systemui' }
-    \$output = @("  Window #0 Window{abc u0 SystemUIDialog}:`n    mOwnerUid=1000 package=\$owner appop=NONE`n  Window #1 Window{other u0 StatusBar}:`n    package=com.android.systemui appop=NONE")
+    \$owner = if (\$script:case.owner) { \$script:case.owner } elseif (\$script:case.voice) { 'com.google.android.googlequicksearchbox' } else { 'com.android.systemui' }
+    \$title = if (\$script:case.voice) { 'VoiceInteractionSession' } else { 'SystemUIDialog' }
+    \$output = @("  Window #0 Window{abc u0 \$title}:`n    mOwnerUid=1000 package=\$owner appop=NONE`n  Window #1 Window{other u0 StatusBar}:`n    package=com.android.systemui appop=NONE")
     \$exit = [int]\$script:case.windowExit
     \$timedOut = [bool]\$script:case.windowTimeout
   }
@@ -53,7 +54,7 @@ function Invoke-Adb {
 \$serial = if (\$script:case.serial) { \$script:case.serial } else { 'emulator-5554' }
 \$receipt = \$null; \$rejected = \$false
 try {
-  ${probe ? r'$receipt = Wait-ForPackageFocus -Serial $serial -PackageName com.ghostheart5.chronospark -TimeoutSeconds 2 -PollMilliseconds 100 -RecoverSystemDialogs' : r'$receipt = Restore-MonkeySystemDialog -Serial $serial -ExpectedFocus $script:case.focus'}
+  ${probe ? r'$receipt = Wait-ForPackageFocus -Serial $serial -PackageName com.ghostheart5.chronospark -TimeoutSeconds 2 -PollMilliseconds 100 -RecoverSystemDialogs' : r'$receipt = if ($script:case.voice) { Restore-MonkeyVoiceSession -Serial $serial -ExpectedFocus $script:case.focus } else { Restore-MonkeySystemDialog -Serial $serial -ExpectedFocus $script:case.focus }'}
 } catch { \$rejected = \$true }
 [ordered]@{receipt=\$receipt;rejected=\$rejected;backCount=\$script:backCount;focusReadsAfterBack=\$script:focusReadsAfterBack;commands=\$script:commands} | ConvertTo-Json -Depth 12 -Compress
 ''');
@@ -73,6 +74,7 @@ try {
   }
 
   const dialog = 'mCurrentFocus=Window{abc u0 SystemUIDialog}';
+  const voice = 'mCurrentFocus=Window{abc u0 VoiceInteractionSession}';
   test('cancels verified Android dialog and records ownership evidence', () {
     final data = run({'focus': dialog});
     expect(data['backCount'], 1);
@@ -82,6 +84,47 @@ try {
       contains('package=com.android.systemui'),
     );
     expect((data['receipt'] as Map<String, dynamic>)['Commands'], hasLength(3));
+  });
+  test(
+    'cancels a verified Android assistant overlay then probes app focus',
+    () {
+      final data = run({'focus': voice, 'voice': true}, probe: true);
+      expect(data['backCount'], 1);
+      final receipt = data['receipt'] as Map<String, dynamic>;
+      expect(receipt['Ready'], isTrue);
+      final samples = (receipt['ProbeSamples'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      expect(samples.last['stableSamples'], 2);
+      expect(samples.last['validFocus'], isTrue);
+      expect(
+        (samples.firstWhere(
+              (s) => s['systemDialogRecovery'] != null,
+            )['systemDialogRecovery']
+            as Map<String, dynamic>)['Windows'],
+        contains('package=com.google.android.googlequicksearchbox'),
+      );
+    },
+  );
+  test('assistant lookalikes never receive BACK', () {
+    for (final owner in <String>[
+      'com.ghostheart5.chronospark',
+      'com.google.android.googlequicksearchbox.fake',
+    ]) {
+      final data = run({'focus': voice, 'voice': true, 'owner': owner});
+      expect(data['backCount'], 0);
+      expect((data['receipt'] as Map<String, dynamic>)['Passed'], isFalse);
+    }
+  });
+  test('assistant focus change sends no key and needs stable app probes', () {
+    final data = run({
+      'focus': voice,
+      'voice': true,
+      'focusChangesDuringRecovery': true,
+    }, probe: true);
+    expect(data['backCount'], 0);
+    final receipt = data['receipt'] as Map<String, dynamic>;
+    expect(receipt['Ready'], isTrue);
+    expect((receipt['ProbeSamples'] as List<dynamic>).last['stableSamples'], 2);
   });
   for (final entry in <String, Map<String, Object>>{
     'app-owned lookalike': {

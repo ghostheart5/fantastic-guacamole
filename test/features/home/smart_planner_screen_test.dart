@@ -26,6 +26,7 @@ import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -609,6 +610,50 @@ void main() {
       semantics.dispose();
     }
   });
+
+  for (final scenario in <({double width, double textScale})>[
+    (width: 390, textScale: 1),
+    (width: 320, textScale: 2),
+  ]) {
+    testWidgets(
+      'Spanish emotion choices stay fully visible at ${scenario.width}dp and ${scenario.textScale}x text',
+      (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(Size(scenario.width, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final ProviderContainer container = _container();
+        addTearDown(container.dispose);
+        await _pumpPlanner(
+          tester,
+          container,
+          locale: const Locale('es'),
+          textScale: scenario.textScale,
+        );
+        for (final label in <String>['CON CANSANCIO', 'CON ANSIEDAD']) {
+          final Finder choice = find.text(label);
+          await _scrollTo(tester, choice);
+          expect(choice, findsOneWidget);
+          final RenderParagraph paragraph = tester
+              .renderObject<RenderParagraph>(choice);
+          final ChoiceChip chip = tester.widget<ChoiceChip>(
+            find.ancestor(of: choice, matching: find.byType(ChoiceChip)).first,
+          );
+          final Text visibleLabel = chip.label as Text;
+          expect(visibleLabel.overflow, TextOverflow.visible);
+          if (scenario.textScale == 1) {
+            expect(
+              paragraph.size.width,
+              greaterThanOrEqualTo(
+                paragraph.getMaxIntrinsicWidth(double.infinity),
+              ),
+              reason: '$label must fit on one line at ${scenario.width}dp',
+            );
+          }
+          expect(paragraph.didExceedMaxLines, isFalse);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('starts with an ephemeral input boundary and no write controls', (
     WidgetTester tester,
