@@ -262,7 +262,11 @@ function Wait-ForPackageFocus {
                 $sample.systemDialogRecovery = Restore-MonkeySystemDialog -Serial $Serial `
                     -ExpectedFocus $lastFocus -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
                 $dialogDismissals++
-                $dialogRecoveryFailed = -not $sample.systemDialogRecovery.Passed
+                # A SystemUI dialog can disappear between the ownership and focus
+                # readbacks. No key was sent in that case; keep probing and require
+                # stable app focus rather than treating the race as an app failure.
+                $dialogRecoveryFailed = -not $sample.systemDialogRecovery.Passed -and
+                    $sample.systemDialogRecovery.Reason -ne 'Focus changed before recovery; no key was sent.'
             }
         }
         if ($ownsFocus) {

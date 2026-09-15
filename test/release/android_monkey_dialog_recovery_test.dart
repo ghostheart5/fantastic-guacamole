@@ -38,6 +38,8 @@ function Invoke-Adb {
     \$script:totalFocusReads++
     if (\$script:case.late -and \$script:totalFocusReads -eq 1) {
       \$output = @('mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}')
+    } elseif (\$script:case.focusChangesDuringRecovery -and \$script:totalFocusReads -gt 1) {
+      \$output = @('mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}')
     } elseif (\$script:backCount -gt 0 -and -not \$script:case.persistent) {
       \$script:focusReadsAfterBack++
       \$output = @('mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}')
@@ -117,6 +119,30 @@ try {
     final data = run({'focus': dialog, 'backExit': 1}, probe: true);
     expect(data['backCount'], 1);
     expect((data['receipt'] as Map<String, dynamic>)['Ready'], isFalse);
+  });
+  test('disappearing SystemUI dialog requires two stable app probes', () {
+    final data = run({
+      'focus': dialog,
+      'focusChangesDuringRecovery': true,
+    }, probe: true);
+    expect((data['receipt'] as Map<String, dynamic>)['Ready'], isTrue);
+    expect(data['backCount'], 0);
+    final samples =
+        ((data['receipt'] as Map<String, dynamic>)['ProbeSamples']
+                as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+    final recovery =
+        samples.firstWhere(
+              (sample) => sample['systemDialogRecovery'] != null,
+            )['systemDialogRecovery']
+            as Map<String, dynamic>;
+    expect(recovery['Passed'], isFalse);
+    expect(
+      recovery['Reason'],
+      'Focus changed before recovery; no key was sent.',
+    );
+    expect(samples.last['stableSamples'], 2);
+    expect(samples.last['validFocus'], isTrue);
   });
   test('late system dialog recovery still requires two stable app probes', () {
     final data = run({'focus': dialog, 'late': true}, probe: true);
