@@ -327,6 +327,7 @@ class _PersonalizationSection extends ConsumerWidget {
     final PersonalizationDecision decision = ref.watch(
       personalizationDecisionProvider('settings'),
     );
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
 
     return _Section(
       label: 'PLANNING PERSONALIZATION',
@@ -426,10 +427,13 @@ class _PersonalizationSection extends ConsumerWidget {
               ),
             )
           else
-            const _NeonStatusTile(
-              title: 'External AI assistance',
-              subtitle:
-                  'Unavailable while privacy, safety, and cost gates are completed.',
+            _NeonStatusTile(
+              title: isSpanish
+                  ? 'Asistencia de IA externa'
+                  : 'External AI assistance',
+              subtitle: isSpanish
+                  ? 'La asistencia de IA externa no está habilitada para esta cuenta. Tu trabajo de planificación guardado permanece disponible.'
+                  : 'External AI assistance is not enabled for this account. Your saved planning work remains available.',
             ),
           if (ref.watch(internalCreditTestEnabledProvider))
             const InternalCreditTestPanel(),

@@ -476,7 +476,7 @@ void main() {
     expect(find.text('External AI assistance'), findsOneWidget);
     expect(
       find.text(
-        'Unavailable while privacy, safety, and cost gates are completed.',
+        'External AI assistance is not enabled for this account. Your saved planning work remains available.',
       ),
       findsOneWidget,
     );
@@ -489,6 +489,45 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Spanish external-AI disclosure matches the account gate', (
+    WidgetTester tester,
+  ) async {
+    useTallSurface(tester);
+    final ProviderContainer container = createContainer();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: SettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('Planning & guidance'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.scrollUntilVisible(
+      find.text('Asistencia de IA externa'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(
+      find.text(
+        'La asistencia de IA externa no está habilitada para esta cuenta. Tu trabajo de planificación guardado permanece disponible.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Allow external AI assistance'), findsNothing);
   });
 
   testWidgets('Context entry opens its governance controls directly', (
