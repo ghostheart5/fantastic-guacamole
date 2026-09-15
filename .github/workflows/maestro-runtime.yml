@@ -99,9 +99,7 @@ jobs:
           case "$QA_SUITE" in qa-smoke|qa-journeys|qa-16k-native) ;; *) exit 1 ;; esac
           case "$QA_GUEST_API" in 35|36) ;; *) exit 1 ;; esac
           case "$QA_GUEST_PAGES" in 4k|16k) ;; *) exit 1 ;; esac
-          if [ "$QA_GUEST_PAGES" = 16k ]; then test "$QA_GUEST_API" = 35; fi
           if [ "$QA_SUITE" = qa-16k-native ]; then
-            test "$QA_GUEST_API" = 35
             test "$QA_GUEST_PAGES" = 16k
             test "$QA_MONKEY" = false
             test "$QA_MONKEY_ONLY" = false
@@ -401,6 +399,7 @@ jobs:
         env:
           EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
           EXPECTED_TOOLING: ${{ github.sha }}
+          EXPECTED_API: ${{ inputs.guest_api || '35' }}
         run: |
           python3 - <<'PY'
           import hashlib, json, os
@@ -418,6 +417,7 @@ jobs:
           assert receipt['toolScriptSha256'].lower() == hashlib.sha256(script.read_bytes()).hexdigest()
           assert receipt['apkSha256'].lower() == compilation['precompiledApkSha256'].lower()
           assert receipt['installedVersionCode'] == '2026083053'
+          assert receipt['androidApi'] == readiness['androidApi'] == os.environ['EXPECTED_API']
           assert receipt['pageSize'] == 16384 and readiness['pageSizeBytes'] == 16384
           assert receipt['serial'] == 'emulator-5554'
           assert len(receipt['launches']) == 5 and receipt['appFatalCount'] == 0

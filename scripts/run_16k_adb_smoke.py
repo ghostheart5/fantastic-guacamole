@@ -103,6 +103,7 @@ def main() -> int:
     ROOT.mkdir(parents=True, exist_ok=True)
     source = os.environ["QA_SOURCE_SHA"]
     tooling = os.environ["GITHUB_SHA"]
+    expected_api = os.environ["QA_GUEST_API"]
     script_hash = sha256(Path(__file__))
     receipt: dict[str, object] = {
         "schemaVersion": 1,
@@ -118,8 +119,11 @@ def main() -> int:
     try:
         assert re.fullmatch(r"[0-9a-f]{40}", source)
         assert re.fullmatch(r"[0-9a-f]{40}", tooling)
+        assert expected_api in {"35", "36"}
         assert shell("getprop", "ro.kernel.qemu") == "1"
-        assert shell("getprop", "ro.build.version.sdk") == "35"
+        actual_api = shell("getprop", "ro.build.version.sdk")
+        assert actual_api == expected_api
+        receipt["androidApi"] = actual_api
         assert shell("getconf", "PAGE_SIZE") == "16384"
         receipt["pageSize"] = 16384
         assert APK.is_file()
