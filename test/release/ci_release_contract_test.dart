@@ -768,7 +768,16 @@ void main() {
     );
     expect(runtimeUpload['if'], 'always()');
     expect((runtimeUpload['with'] as YamlMap)['if-no-files-found'], 'error');
-    expect(maestro['timeout-minutes'], 85);
+    expect(maestro['timeout-minutes'], 100);
+    final YamlMap runtimeSuite = namedStep(
+      maestro,
+      'Build, install, and execute exact-source QA suite',
+    );
+    expect(runtimeSuite['timeout-minutes'], 70);
+    expect(
+      (runtimeSuite['env'] as YamlMap)['QA_TIMEOUT_SECONDS'],
+      contains("'3600' || '1800'"),
+    );
     expect(runtimeUpload['timeout-minutes'], 5);
     expect(
       steps(
