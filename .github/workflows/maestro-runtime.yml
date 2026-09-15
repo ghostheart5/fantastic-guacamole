@@ -63,7 +63,7 @@ jobs:
   runtime:
     name: Exact-build QA runtime
     runs-on: ubuntu-24.04
-    timeout-minutes: 85
+    timeout-minutes: 100
     steps:
       - name: Validate immutable QA inputs before checkout
         run: |
@@ -274,9 +274,12 @@ jobs:
           SH
 
       - name: Build, install, and execute exact-source QA suite
-        timeout-minutes: 58
+        timeout-minutes: 70
         env:
-          QA_TIMEOUT_SECONDS: ${{ inputs.suite == 'qa-journeys' && '2400' || '900' }}
+          # The expanded Creator journey alone takes about eight minutes on the
+          # two-core hosted emulator. Keep a bounded budget with enough room for
+          # all five smoke flows or all eleven journey flows plus evidence flush.
+          QA_TIMEOUT_SECONDS: ${{ inputs.suite == 'qa-journeys' && '3600' || '1800' }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 35
