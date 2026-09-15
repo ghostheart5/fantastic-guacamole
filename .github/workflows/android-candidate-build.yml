@@ -95,13 +95,35 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           node scripts/verify_internal_billing_backend.mjs > "$RUNNER_TEMP/internal-billing-preflight.json"
+          python3 - <<'PY' > "$RUNNER_TEMP/internal-policy-fingerprint.json"
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from scripts.android_candidate_build import COHORT_KEY, POLICY_PATH, strict_json, validate_internal_policy
+
+          policy = strict_json(Path(POLICY_PATH).read_text(encoding="utf-8"))
+          if policy.get(COHORT_KEY) != "":
+              raise ValueError("Reviewed policy must leave its private cohort empty")
+          policy[COHORT_KEY] = os.environ["CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"]
+          policy = validate_internal_policy(policy)
+          canonical = json.dumps(policy, sort_keys=True, separators=(",", ":"))
+          print(json.dumps({
+              "reviewedEffectivePolicySha256": hashlib.sha256(canonical.encode()).hexdigest(),
+              "privateCohortCount": len(policy[COHORT_KEY].split(",")),
+              "sourceSha": os.environ["CANDIDATE_SHA"],
+          }))
+          PY
           cat "$RUNNER_TEMP/internal-billing-preflight.json" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/internal-policy-fingerprint.json" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save configuration verification evidence
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: internal-billing-preflight-${{ env.CANDIDATE_SHA }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/internal-billing-preflight.json
+          path: |
+            ${{ runner.temp }}/internal-billing-preflight.json
+            ${{ runner.temp }}/internal-policy-fingerprint.json
           if-no-files-found: error
           retention-days: 7
 
