@@ -466,6 +466,16 @@ void main() {
         find.byKey(const Key('timeline-task-title-field')),
         '  Renamed task  ',
       );
+      await tester.enterText(
+        find.byKey(const Key('timeline-task-description-field')),
+        'Updated context',
+      );
+      await tester.tap(find.byKey(const Key('timeline-task-priority-field')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('5 · highest').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -473,6 +483,8 @@ void main() {
       expect(actions.updateCalls, 1);
       expect(actions.updatedId, 'task-managed');
       expect(actions.updatedTitle, 'Renamed task');
+      expect(actions.updatedDescription, 'Updated context');
+      expect(actions.updatedPriority, 5);
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
       expect(
         tester
@@ -556,6 +568,60 @@ void main() {
     expect(find.text('Task deleted.'), findsOneWidget);
   });
 
+  testWidgets('Move Tomorrow updates the projected goal itself', (
+    tester,
+  ) async {
+    GoalEntity? updatedGoal;
+    final goal = GoalEntity(
+      id: 'aged-goal',
+      title: 'Recover the course plan',
+      createdAt: _timelineNow.subtract(const Duration(days: 30)),
+      targetDate: _timelineNow.subtract(const Duration(days: 1)),
+    );
+    final container = _buildContainer(
+      tasksLoader: (_) async => const <Task>[],
+      goals: <GoalEntity>[goal],
+      onGoalUpdate: (value) => updatedGoal = value,
+    );
+    addTearDown(container.dispose);
+    await _pumpTimelineShell(tester, container);
+    await tester.tap(find.text('Find & filter'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const Key('timeline-filter-field')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Overdue').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text(goal.title), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Move Tomorrow'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(updatedGoal?.id, goal.id);
+    expect(updatedGoal?.targetDate, DateTime(2026, 9, 1));
+  });
+
+  testWidgets('planned task can be postponed without being skipped', (
+    tester,
+  ) async {
+    late _RecordingTaskActions actions;
+    final task = _managedTask.copyWith(dueDate: DateTime(2026, 8, 31, 17, 30));
+    final container = _buildContainer(
+      task: task,
+      onActionsBuilt: (value) => actions = value,
+    );
+    addTearDown(container.dispose);
+    await _pumpTimeline(tester, container);
+    await tester.tap(
+      find.widgetWithText(OutlinedButton, 'Postpone to Tomorrow'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(actions.updateCalls, 1);
+    expect(actions.updatedDueDate, DateTime(2026, 9, 1, 17, 30));
+  });
+
   testWidgets('edit failure leaves a clear accessible error', (
     WidgetTester tester,
   ) async {
@@ -601,10 +667,13 @@ ProviderContainer _buildContainer({
   Set<String> expectedTutorialTaskIds = const <String>{},
   void Function(_TimelineNotifier value)? onTimelineNotifierBuilt,
   void Function(_RecordingTaskActions value)? onActionsBuilt,
+  void Function(GoalEntity value)? onGoalUpdate,
   Completer<void>? updateCompleter,
   Error? updateError,
   DateTime Function()? clock,
 }) {
+  final Future<List<Task>> Function(Ref ref) loader =
+      tasksLoader ?? (Ref ref) async => <Task>[task ?? _managedTask];
   final ProviderContainer container = ProviderContainer(
     overrides: [
       timelineClockProvider.overrideWithValue(clock ?? () => _timelineNow),
@@ -616,13 +685,14 @@ ProviderContainer _buildContainer({
       timelinePersistenceCorruptedProvider.overrideWith(
         (Ref ref) => persistenceCorrupted,
       ),
-      goalsProvider.overrideWith(() => _EmptyGoalsNotifier(goals)),
+      goalsProvider.overrideWith(
+        () => _EmptyGoalsNotifier(goals, onGoalUpdate),
+      ),
       adaptiveGuidanceProvider.overrideWith(
         () => _ExpectedGuidanceNotifier(expectedTutorialTaskIds),
       ),
-      tasksProvider.overrideWith(
-        tasksLoader ?? (Ref ref) async => <Task>[task ?? _managedTask],
-      ),
+      allTasksProvider.overrideWith(loader),
+      tasksProvider.overrideWith(loader),
       taskActionsProvider.overrideWith((Ref ref) {
         final _RecordingTaskActions actions = _RecordingTaskActions(
           ref,
@@ -721,6 +791,10 @@ class _RecordingTaskActions extends TaskActions {
   int deleteCalls = 0;
   String? updatedId;
   String? updatedTitle;
+  String? updatedDescription;
+  int? updatedPriority;
+  DateTime? updatedDueDate;
+  DateTime? updatedScheduledFor;
   String? deletedId;
 
   @override
@@ -739,6 +813,7 @@ class _RecordingTaskActions extends TaskActions {
     required String id,
     required String title,
     String? description,
+    int? priority,
     Duration? estimatedDuration,
     DateTime? scheduledFor,
     DateTime? dueDate,
@@ -748,7 +823,13 @@ class _RecordingTaskActions extends TaskActions {
     bool clearScheduledFor = false,
     bool clearDueDate = false,
     bool clearGoalId = false,
-  }) => updateTask(id: id, title: title);
+  }) async {
+    updatedDescription = description;
+    updatedPriority = priority;
+    updatedDueDate = dueDate;
+    updatedScheduledFor = scheduledFor;
+    await updateTask(id: id, title: title);
+  }
 
   @override
   Future<void> deleteTask(String id) async {
@@ -758,10 +839,17 @@ class _RecordingTaskActions extends TaskActions {
 }
 
 class _EmptyGoalsNotifier extends GoalsNotifier {
-  _EmptyGoalsNotifier(this.goals);
+  _EmptyGoalsNotifier(this.goals, [this.onUpdate]);
   final List<GoalEntity> goals;
+  final void Function(GoalEntity value)? onUpdate;
   @override
   List<GoalEntity> build() => goals;
+
+  @override
+  Future<GoalMutationResult> update(GoalEntity updated) async {
+    onUpdate?.call(updated);
+    return const GoalMutationResult();
+  }
 }
 
 class _TimelineNotifier extends TimelineNotifier {

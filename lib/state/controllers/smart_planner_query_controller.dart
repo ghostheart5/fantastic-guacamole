@@ -546,6 +546,7 @@ class SmartPlannerQueryController
     final int? capacityLimitMinutes =
         evidence.personContext.capacityLimitMinutes;
     final int? requestTimeLimitMinutes = conversation.explicitTimeLimitMinutes;
+    final int? requestTimeLimitSeconds = conversation.explicitTimeLimitSeconds;
     final List<int> limits = <int>[
       ?capacityLimitMinutes,
       ?requestTimeLimitMinutes,
@@ -800,7 +801,14 @@ class SmartPlannerQueryController
       energy: planningEnergy,
       evidence: evidence,
     );
-    final List<PlannerOption> options = intent.options(effort);
+    final List<PlannerOption> options = intent
+        .options(effort)
+        .map(
+          (option) => requestTimeLimitSeconds != null
+              ? option.copyWith(estimatedSeconds: requestTimeLimitSeconds)
+              : option,
+        )
+        .toList(growable: false);
     final PlannerOption selected = options.singleWhere(
       (PlannerOption option) => option.kind == recommendation,
     );
@@ -812,7 +820,10 @@ class SmartPlannerQueryController
           ? evidence.personContext.planningFocus!.mattersMostFor(
               languageCode: intent.languageCode,
             )
-          : intent.reason(requestTimeLimitMinutes),
+          : intent.reason(
+              requestTimeLimitMinutes,
+              limitSeconds: requestTimeLimitSeconds,
+            ),
       verifiedEvidence: <String>[
         if (boundedEnergy != null)
           copy(
@@ -851,11 +862,14 @@ class SmartPlannerQueryController
       options: options,
       recommendedKind: recommendation,
       recommendationReason: boundedEnergy == 0
-          ? '${intent.spanish ? 'Has indicado un 0% de energía.' : 'You reported 0% energy.'} ${intent.reason(requestTimeLimitMinutes)}'
+          ? '${intent.spanish ? 'Has indicado un 0% de energía.' : 'You reported 0% energy.'} ${intent.reason(requestTimeLimitMinutes, limitSeconds: requestTimeLimitSeconds)}'
           : recommendation == PlannerOptionKind.minimum &&
                 (boundedEnergy != null || emotion != null)
-          ? '${intent.spanish ? 'Tu estado actual favorece un primer paso más pequeño.' : 'Your current check-in favors a smaller reversible start.'} ${intent.reason(requestTimeLimitMinutes)}'
-          : intent.reason(requestTimeLimitMinutes),
+          ? '${intent.spanish ? 'Tu estado actual favorece un primer paso más pequeño.' : 'Your current check-in favors a smaller reversible start.'} ${intent.reason(requestTimeLimitMinutes, limitSeconds: requestTimeLimitSeconds)}'
+          : intent.reason(
+              requestTimeLimitMinutes,
+              limitSeconds: requestTimeLimitSeconds,
+            ),
       nextStep: selected.description,
       usefulQuestion:
           intent.usefulQuestion ??

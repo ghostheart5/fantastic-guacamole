@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/state/providers/account_operation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
@@ -149,6 +150,39 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
       throw StateError('Daily Rhythm outcomes require a verified account.');
     }
     final HabitOccurrenceResult result = await coordinator.skip(id);
+    ref.invalidate(habitOccurrencesProvider);
+    ref.invalidate(decisionOutcomesProvider);
+    await ref.read(decisionOutcomeActionsProvider).reconcileRetention();
+    return result;
+  }
+
+  Future<HabitOccurrenceResult> correctHabit(
+    String id,
+    HabitOccurrenceOutcome outcome,
+  ) async {
+    final coordinator = ref.read(habitOccurrenceCoordinatorProvider);
+    if (coordinator == null) {
+      throw StateError('Daily Rhythm outcomes require a verified account.');
+    }
+    final result = await coordinator.correct(id, outcome);
+    ref.invalidate(habitOccurrencesProvider);
+    ref.invalidate(decisionOutcomesProvider);
+    await ref.read(decisionOutcomeActionsProvider).reconcileRetention();
+    return result;
+  }
+
+  Future<HabitOccurrenceResult> recordHabitAt(
+    String id,
+    DateTime period, {
+    required bool completed,
+  }) async {
+    final coordinator = ref.read(habitOccurrenceCoordinatorProvider);
+    if (coordinator == null) {
+      throw StateError('Daily Rhythm outcomes require a verified account.');
+    }
+    final result = completed
+        ? await coordinator.completeAt(id, period)
+        : await coordinator.skipAt(id, period);
     ref.invalidate(habitOccurrencesProvider);
     ref.invalidate(decisionOutcomesProvider);
     await ref.read(decisionOutcomeActionsProvider).reconcileRetention();

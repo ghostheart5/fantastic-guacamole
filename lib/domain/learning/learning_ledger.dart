@@ -194,7 +194,6 @@ class _PatternAccumulator {
     weight += decayedWeight;
     final bool positive =
         outcome.recommendationHelped == true ||
-        outcome.kind == DecisionOutcomeKind.accepted ||
         outcome.kind == DecisionOutcomeKind.completed;
     final bool negative =
         outcome.recommendationHelped == false ||
@@ -203,11 +202,13 @@ class _PatternAccumulator {
     if (positive) helpful += decayedWeight;
     final String? option = outcome.optionChosen?.trim();
     if (option != null && option.isNotEmpty) {
-      optionScores.update(
-        option,
-        (double value) => value + (negative ? -decayedWeight : decayedWeight),
-        ifAbsent: () => negative ? -decayedWeight : decayedWeight,
-      );
+      if (positive || negative) {
+        optionScores.update(
+          option,
+          (double value) => value + (negative ? -decayedWeight : decayedWeight),
+          ifAbsent: () => negative ? -decayedWeight : decayedWeight,
+        );
+      }
     }
   }
 

@@ -314,8 +314,13 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
           .updateTaskDetails(
             id: task.id,
             title: draft.title,
+            description: draft.description,
+            clearDescription: draft.description == null,
+            priority: draft.priority,
             estimatedDuration: draft.estimatedDuration,
             clearEstimatedDuration: draft.estimatedDuration == null,
+            scheduledFor: draft.scheduledFor,
+            clearScheduledFor: draft.scheduledFor == null,
             dueDate: draft.dueDate,
             clearDueDate: draft.dueDate == null,
             goalId: draft.goalId,
@@ -347,12 +352,12 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
             .read(decisionOutcomeActionsProvider)
             .record(
               receipt: decision,
-              kind: DecisionOutcomeKind.accepted,
+              kind: DecisionOutcomeKind.shown,
               surface: 'nexus',
               detail: 'Opened Smart Planner from the selected time block.',
               situation: 'selected time block',
               optionChosen: 'review in Smart Planner',
-              recommendationHelped: true,
+              recommendationHelped: null,
             ),
       );
     }

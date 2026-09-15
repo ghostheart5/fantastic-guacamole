@@ -650,22 +650,14 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
 
       stopwatch.stop();
 
-      final Map<String, dynamic> generatedResponse = await siEngineService
-          .generateResponse(
-            conversation: conversation,
-            input: input ?? '',
-            message: recommendation.message,
-            emotion: recommendation.emotion ?? 'balanced',
-            confidence: recommendation.confidence ?? 0.5,
-            taskId: recommendation.task?.id,
-            context: <String, dynamic>{
-              'reasoning': recommendation.reasoning ?? '',
-            },
-          );
-      final String responseHash =
-          generatedResponse['responseHash']?.toString() ?? '';
-      final String responseSummary =
-          generatedResponse['responseSummary']?.toString() ?? '';
+      // The compatibility engine can generate different prose. Hash and save
+      // the response that is actually emitted so deduplication and audit
+      // receipts always describe the same user-visible message.
+      final String responseHash = responseHashFor(recommendation.message);
+      final String responseSummary = responseSummaryFor(
+        recommendation.message,
+        maxWords: 20,
+      );
       final String actionKey = recommendation.task?.id ?? responseHash;
       final bool persistFullHistory =
           conversationContext['persistFullHistory'] == true;

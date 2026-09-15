@@ -1,5 +1,14 @@
 part of 'si_console_screen.dart';
 
+final Expando<String> _siDictationDraftBase = Expando<String>(
+  'siDictationDraftBase',
+);
+
+String _mergeDictationDraft(String base, String recognized) => <String>[
+  if (base.trim().isNotEmpty) base.trim(),
+  if (recognized.trim().isNotEmpty) recognized.trim(),
+].join(' ').trim();
+
 class _ContextStatusBanner extends StatelessWidget {
   const _ContextStatusBanner({
     required this.availabilityLoading,
@@ -397,7 +406,12 @@ class _BubbleTile extends ConsumerWidget {
                             : 'Read response aloud',
                         child: TextButton.icon(
                           onPressed: () => unawaited(
-                            ref.read(voiceServiceProvider).speak(msg.text),
+                            ref
+                                .read(voiceServiceProvider)
+                                .speakLocalized(
+                                  msg.text,
+                                  languageCode: isSpanish ? 'es' : 'en',
+                                ),
                           ),
                           icon: const Icon(Icons.volume_up_rounded, size: 16),
                           label: Text(isSpanish ? 'ESCUCHAR' : 'SPEAK'),
@@ -543,7 +557,9 @@ class _SIV2ResponseCard extends StatelessWidget {
                   response.evidenceLinks
                       .map(
                         (SIV2EvidenceLink item) =>
-                            '${item.label} — ${item.uri}',
+                            ChronoSparkLocalizations.of(context).isSpanish
+                            ? 'Referencia de registro: ${item.label} (${item.uri})'
+                            : 'Record reference: ${item.label} (${item.uri})',
                       )
                       .toList(),
                   bottomPadding: 0,
@@ -947,9 +963,16 @@ class _InputBar extends ConsumerWidget {
           (previous?.isListening ?? false) && !next.isListening;
       if ((next.isListening || stoppedListening) &&
           next.recognizedText.trim().isNotEmpty) {
-        controller.text = next.recognizedText.trim();
+        final combined = _mergeDictationDraft(
+          _siDictationDraftBase[controller] ?? '',
+          next.recognizedText,
+        );
+        controller
+          ..text = combined
+          ..selection = TextSelection.collapsed(offset: combined.length);
       }
       if (stoppedListening) {
+        _siDictationDraftBase[controller] = '';
         ref.read(voiceControllerProvider.notifier).clearRecognizedText();
       }
     });
@@ -1361,6 +1384,8 @@ class _InputBar extends ConsumerWidget {
                             final VoiceController controller = ref.read(
                               voiceControllerProvider.notifier,
                             );
+                            _siDictationDraftBase[this.controller] =
+                                this.controller.text;
                             final int lifecycleRevision =
                                 controller.lifecycleRevision;
                             await startVoiceInputWithConsent(

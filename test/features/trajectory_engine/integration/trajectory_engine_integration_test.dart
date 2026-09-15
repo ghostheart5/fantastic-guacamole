@@ -75,7 +75,10 @@ void main() {
       expect(find.text('CURRENT TRAJECTORY BASELINE'), findsNothing);
       expect(find.text('FORECAST MONITORING'), findsNothing);
       expect(find.text('ASSUMPTIONS FOR THIS RESULT'), findsWidgets);
-      expect(find.text('Correct assumptions'), findsOneWidget);
+      expect(
+        find.text('Exclude this forecast from monitoring'),
+        findsOneWidget,
+      );
 
       await tester.scrollUntilVisible(
         find.text('Full impact and evidence'),
@@ -155,18 +158,18 @@ void main() {
       await tester.pump();
 
       await tester.scrollUntilVisible(
-        find.text('Correct assumptions'),
+        find.text('Exclude this forecast from monitoring'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Correct assumptions'));
+      await tester.tap(find.text('Exclude this forecast from monitoring'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
       final List<TrajectoryForecastReceipt> receipts = await repository.load();
       expect(receipts, hasLength(1));
       expect(receipts.single.hasAssumptionCorrection, isTrue);
-      expect(find.textContaining('Correction saved locally'), findsOneWidget);
+      expect(find.textContaining('Forecast excluded locally'), findsOneWidget);
     });
 
     testWidgets('error state does not render a false stable trajectory', (

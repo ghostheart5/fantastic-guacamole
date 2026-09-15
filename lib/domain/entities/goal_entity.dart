@@ -30,7 +30,9 @@ class GoalEntity {
   GoalEntity copyWith({
     String? title,
     String? description,
+    bool clearDescription = false,
     DateTime? targetDate,
+    bool clearTargetDate = false,
     int? colorHex,
     DateTime? completedAt,
     bool clearCompletedAt = false,
@@ -38,8 +40,8 @@ class GoalEntity {
     id: id,
     title: title ?? this.title,
     createdAt: createdAt,
-    description: description ?? this.description,
-    targetDate: targetDate ?? this.targetDate,
+    description: clearDescription ? null : (description ?? this.description),
+    targetDate: clearTargetDate ? null : (targetDate ?? this.targetDate),
     colorHex: colorHex ?? this.colorHex,
     completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
   );

@@ -7,6 +7,7 @@ class NeuralEntry {
     required this.quality,
     required this.timestamp,
     this.completed,
+    this.durationSource = 'unknown',
   });
 
   final String task;
@@ -20,6 +21,9 @@ class NeuralEntry {
   /// represent completed tasks only.
   final bool? completed;
 
+  /// `measured`, `estimated`, or `unknown` for legacy/imported records.
+  final String durationSource;
+
   bool get observedCompleted =>
       completed ?? reasoning.toLowerCase().contains('completed task');
 
@@ -32,6 +36,7 @@ class NeuralEntry {
       'quality': quality,
       'timestamp': timestamp.toIso8601String(),
       if (completed != null) 'completed': completed,
+      'durationSource': durationSource,
     };
   }
 
@@ -46,6 +51,11 @@ class NeuralEntry {
           DateTime.tryParse((json['timestamp'] ?? '').toString()) ??
           DateTime.now(),
       completed: json['completed'] as bool?,
+      durationSource: switch (json['durationSource']?.toString()) {
+        'measured' => 'measured',
+        'estimated' => 'estimated',
+        _ => 'unknown',
+      },
     );
   }
 }

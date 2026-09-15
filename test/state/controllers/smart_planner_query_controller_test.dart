@@ -2515,6 +2515,103 @@ void main() {
   );
 
   group('audited constraints and selected-note actions', () {
+    test('latest 30-second correction replaces the earlier time limit', () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      final first = controller.buildPlannerResponse(
+        input: 'Draft a message before my meeting. I have 90 seconds.',
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+      );
+      final corrected = controller.buildPlannerResponse(
+        input: 'I have only 30 seconds now.',
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+        isFollowUp: true,
+        currentPlan: PlannerConversationSnapshot(
+          originalObjective: 'Draft a message before my meeting.',
+          currentPlan: first,
+          userContext: first.userContext,
+        ),
+      );
+      expect(corrected.userContext?.timeLimitSeconds, 30);
+      expect(
+        corrected.options.map((option) => option.estimatedSeconds),
+        everyElement(lessThanOrEqualTo(30)),
+      );
+      expect(corrected.toConversationText(), isNot(contains('1 minute')));
+    });
+
+    test('remote meeting correction removes the travel question', () {
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      final first = controller.buildPlannerResponse(
+        input: 'Draft a message before my meeting. I have five minutes.',
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+      );
+      final corrected = controller.buildPlannerResponse(
+        input: 'It is a video meeting and I am already at my desk.',
+        energy: null,
+        emotion: null,
+        contextWasProvided: true,
+        isFollowUp: true,
+        currentPlan: PlannerConversationSnapshot(
+          originalObjective: 'Draft a message before my meeting.',
+          currentPlan: first,
+          userContext: first.userContext,
+        ),
+      );
+      expect(corrected.usefulQuestion?.toLowerCase(), isNot(contains('leave')));
+      expect(
+        corrected.usefulQuestion?.toLowerCase(),
+        isNot(contains('travel')),
+      );
+    });
+
+    test(
+      'Spanish selected pickup note keeps preparation and future timing',
+      () async {
+        final container = plannerContainer(
+          selectedNote: NoteEntity(
+            id: 'pickup',
+            title: 'Recogida de Lucia',
+            body:
+                'El jueves debo recoger a Lucia a las 16:30. Llevar el formulario firmado y confirmar el contacto con la escuela.',
+            createdAt: DateTime.utc(2026, 9, 14),
+          ),
+        );
+        addTearDown(container.dispose);
+        final response =
+            (await container
+                    .read(smartPlannerQueryControllerProvider)
+                    .requestPlanningGuidance(
+                      energy: .6,
+                      emotion: null,
+                      notes:
+                          'Tengo 10 minutos. Usa la nota para ayudarme a preparar la recogida de Lucia. No envies ningun mensaje.',
+                      history: const [],
+                      previousSavedNotes: null,
+                    ))
+                .plannerResponse;
+        final text = response.toConversationText().toLowerCase();
+        expect(response.languageCode, 'es');
+        expect(text, contains('jueves'));
+        expect(text, contains('16:30'));
+        expect(response.nextStep.toLowerCase(), contains('formulario'));
+        expect(
+          response.nextStep.toLowerCase(),
+          isNot(startsWith('recoge a lucia')),
+        );
+        expect(text, isNot(contains('envía')));
+      },
+    );
+
     test(
       'selected-note prerequisite precedes an explicitly requested wash',
       () async {

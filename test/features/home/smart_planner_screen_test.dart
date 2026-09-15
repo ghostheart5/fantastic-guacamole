@@ -453,13 +453,13 @@ void main() {
 
       await _scrollTo(tester, find.text('RESUMEN'));
       await tester.tap(find.text('RESUMEN'));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(voice.summaries.single, contains(first.nextStep));
       expect(voice.summaries.single, contains('5 minutos'));
       expect(voice.summaries.single, isNot(contains('Plan options')));
       await _scrollTo(tester, find.text('LEER EN VOZ ALTA'));
       await tester.tap(find.text('LEER EN VOZ ALTA'));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(voice.fullResponses.single, contains('Opciones del plan'));
       expect(voice.fullResponses.single, contains(first.nextStep));
       expect(
@@ -1203,7 +1203,7 @@ void main() {
 
     await _scrollTo(tester, find.text('READ ALOUD'));
     await tester.tap(find.text('READ ALOUD'));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(voiceService.speakCheckedCalls, 1);
     expect(find.text('READING'), findsOneWidget);
@@ -1230,6 +1230,7 @@ void main() {
     await _scrollTo(tester, find.text('READ ALOUD'));
     await tester.tap(find.text('READ ALOUD'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(
@@ -2081,7 +2082,22 @@ class _CapturedPlannerVoiceService extends VoiceService {
   Future<void> speak(String text) async => summaries.add(text);
 
   @override
+  Future<void> speakLocalized(
+    String text, {
+    required String languageCode,
+  }) async => summaries.add(text);
+
+  @override
   Future<bool> speakChecked(String text) async {
+    fullResponses.add(text);
+    return true;
+  }
+
+  @override
+  Future<bool> speakCheckedLocalized(
+    String text, {
+    required String languageCode,
+  }) async {
     fullResponses.add(text);
     return true;
   }
@@ -2100,6 +2116,12 @@ class _ControlledVoiceService extends VoiceService {
     return _playback.future;
   }
 
+  @override
+  Future<bool> speakCheckedLocalized(
+    String text, {
+    required String languageCode,
+  }) => speakChecked(text);
+
   void completePlayback(bool result) {
     _playback.complete(result);
   }
@@ -2111,6 +2133,12 @@ class _ControlledVoiceService extends VoiceService {
 class _UnavailableVoiceService extends VoiceService {
   @override
   Future<bool> speakChecked(String text) async => false;
+
+  @override
+  Future<bool> speakCheckedLocalized(
+    String text, {
+    required String languageCode,
+  }) async => false;
 
   @override
   Future<void> stop() async {}

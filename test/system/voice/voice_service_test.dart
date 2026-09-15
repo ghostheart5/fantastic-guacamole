@@ -71,6 +71,29 @@ void main() {
       expect(service.isSpeaking, isFalse);
     });
 
+    test('Spanish playback sets es-ES before speaking', () async {
+      final List<MethodCall> calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ttsChannel, (MethodCall call) async {
+            calls.add(call);
+            return null;
+          });
+
+      expect(
+        await service.speakCheckedLocalized(
+          '¿Qué debería hacer después?',
+          languageCode: 'es',
+        ),
+        isTrue,
+      );
+      final language = calls.firstWhere((call) => call.method == 'setLanguage');
+      expect(language.arguments, 'es-ES');
+      expect(
+        calls.map((call) => call.method),
+        containsAllInOrder(<String>['setLanguage', 'stop', 'speak']),
+      );
+    });
+
     test('stop completes without throwing', () async {
       await service.stop();
       expect(service.isSpeaking, isFalse);

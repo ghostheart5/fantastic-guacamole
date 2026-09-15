@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -320,8 +321,16 @@ class _TrajectoryEngineScreenState
       SnackBar(
         content: Text(
           stored
-              ? 'Correction saved locally. This result will not count as monitoring evidence.'
-              : 'Sign in to save an account-scoped assumption correction.',
+              ? journeyText(
+                  context,
+                  'Forecast excluded locally. Its assumptions and projection remain visible, but it will not count as monitoring evidence.',
+                  'Previsión excluida localmente. Sus supuestos y proyección siguen visibles, pero no contará como evidencia de seguimiento.',
+                )
+              : journeyText(
+                  context,
+                  'Sign in to exclude this account-scoped forecast.',
+                  'Inicia sesión para excluir esta previsión de la cuenta.',
+                ),
         ),
       ),
     );
@@ -330,8 +339,8 @@ class _TrajectoryEngineScreenState
   void _openScenarioDestination(TrajectoryIntervention intervention) {
     switch (intervention.type) {
       case TrajectoryInterventionType.applySmartPlanner:
-      case TrajectoryInterventionType.maintainCourse:
         goToAppView(context, ref, AppView.smartPlanner);
+      case TrajectoryInterventionType.maintainCourse:
       case TrajectoryInterventionType.completeTask:
       case TrajectoryInterventionType.delayTask:
       case TrajectoryInterventionType.reduceScope:

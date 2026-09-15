@@ -273,7 +273,7 @@ void main() {
     expect(find.text('On device', skipOffstage: false), findsOneWidget);
     expect(
       find.textContaining(
-        'SI V2 read-only evidence revision',
+        'Read-only on-device response based on the selected records.',
         skipOffstage: false,
       ),
       findsOneWidget,

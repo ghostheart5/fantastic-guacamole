@@ -24,6 +24,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'timeline_screen.widgets.dart';
 part 'timeline_screen.event_copy.dart';
+part 'timeline_screen.filters.dart';
 
 enum _TimelineWindow { today, week, month, year, all }
 
@@ -90,9 +91,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     _searchController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final AsyncValue<List<Task>> initial = ref.read(tasksProvider);
+      final AsyncValue<List<Task>> initial = ref.read(allTasksProvider);
       _tasksSubscription = ref.listenManual<AsyncValue<List<Task>>>(
-        tasksProvider,
+        allTasksProvider,
         (AsyncValue<List<Task>>? previous, AsyncValue<List<Task>> next) {
           if (!mounted) return;
           setState(() => _tasksState = next);
@@ -159,12 +160,18 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       _cachedCombinedDay = today;
     }
 
-    final List<TimelineEventEntity> windowEvents = combined
-        .where((TimelineEventEntity event) {
-          final DateTime moment = _eventMoment(event);
-          return _inWindow(moment: moment, now: now, window: _window);
-        })
-        .toList(growable: false);
+    // Overdue is an account-wide recovery view. Date windows continue to
+    // scope every other filter, but must not hide an older open commitment.
+    final Iterable<TimelineEventEntity> windowSource =
+        _filter == _TimelineFilter.overdue
+        ? combined
+        : combined.where((event) {
+            final DateTime moment = _eventMoment(event);
+            return _inWindow(moment: moment, now: now, window: _window);
+          });
+    final List<TimelineEventEntity> windowEvents = windowSource.toList(
+      growable: false,
+    );
 
     final List<TimelineEventEntity> filtered = windowEvents
         .where((TimelineEventEntity event) {
@@ -401,6 +408,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       _tasksState = const AsyncLoading<List<Task>>();
       _cachedCombined = null;
     });
+    ref.invalidate(allTasksProvider);
     ref.invalidate(tasksProvider);
   }
 

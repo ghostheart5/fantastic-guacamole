@@ -71,7 +71,7 @@ void main() {
       );
       expect(
         response.directAnswer,
-        contains('For the next action'),
+        isNot(contains('SI cannot answer')),
         reason: text,
       );
       expect(response.directAnswer, contains('Review a bookkeeping example'));

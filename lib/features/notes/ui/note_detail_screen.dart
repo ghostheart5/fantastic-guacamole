@@ -16,7 +16,9 @@ class NoteDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final bool es = Localizations.localeOf(context).languageCode == 'es';
     final notes = ref.watch(notesProvider);
+    final bool readCorrupted = ref.watch(noteReadCorruptedProvider);
     final note = notes.isLoading || notes.hasError
         ? null
         : notes.asData?.value
@@ -31,21 +33,41 @@ class NoteDetailScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             children: [
               TemporalScreenHeader(
-                title: 'NOTE',
-                eyebrow: 'Saved context',
+                title: es ? 'NOTA' : 'NOTE',
+                eyebrow: es ? 'Contexto guardado' : 'Saved context',
                 onBack: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 20),
+              if (readCorrupted) ...[
+                TemporalGlassSurface(
+                  accent: AppColors.recallRed,
+                  child: Text(
+                    es
+                        ? 'Parte de las notas guardadas no se pudo leer. Las notas legibles siguen disponibles y no se borró ningún dato. Puedes reintentar o eliminar una nota dañada desde la biblioteca.'
+                        : 'Part of the saved note collection could not be read. Readable notes remain available and no stored data was deleted. You can retry or remove a damaged note from the library.',
+                    style: const TextStyle(color: Colors.white, height: 1.45),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (notes.isLoading)
                 const Center(child: CircularProgressIndicator())
               else if (notes.hasError) ...[
-                const Text('This note could not be loaded.'),
+                Text(
+                  es
+                      ? 'No se pudo cargar esta nota.'
+                      : 'This note could not be loaded.',
+                ),
                 TextButton(
                   onPressed: () => ref.invalidate(notesProvider),
-                  child: const Text('Retry'),
+                  child: Text(es ? 'Reintentar' : 'Retry'),
                 ),
               ] else if (note == null)
-                const Text('This note is no longer available in this account.')
+                Text(
+                  es
+                      ? 'Esta nota ya no está disponible en esta cuenta.'
+                      : 'This note is no longer available in this account.',
+                )
               else
                 TemporalGlassSurface(
                   accent: AppColors.memoryAmber,
@@ -64,7 +86,9 @@ class NoteDetailScreen extends ConsumerWidget {
                       SelectableText(
                         note.body?.trim().isNotEmpty == true
                             ? note.body!
-                            : 'No additional details.',
+                            : (es
+                                  ? 'Sin detalles adicionales.'
+                                  : 'No additional details.'),
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 16,

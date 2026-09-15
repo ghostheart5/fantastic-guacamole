@@ -15,8 +15,10 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/subscription_status_refresh_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
@@ -143,6 +145,19 @@ class _PaywallCopy {
   String get inactive => _select(
     'Subscription access is inactive.',
     'El acceso de la suscripción está inactivo.',
+  );
+
+  String get manageInGooglePlay =>
+      _select('Manage in Google Play', 'Administrar en Google Play');
+
+  String get reviewAccessNoSubscription => _select(
+    'Review access is complimentary and has no paid subscription to manage.',
+    'El acceso de revisión es gratuito y no tiene una suscripción de pago que administrar.',
+  );
+
+  String get couldNotOpenGooglePlay => _select(
+    'Google Play could not be opened. Open Play Store and choose Payments & subscriptions.',
+    'No se pudo abrir Google Play. Abre Play Store y elige Pagos y suscripciones.',
   );
 
   String get restorePending => _select(
@@ -668,6 +683,18 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     if (wallet) ref.invalidate(aiCreditWalletProvider);
   }
 
+  Future<void> _manageSubscription() async {
+    final bool opened = await ref
+        .read(externalUrlServiceProvider)
+        .open(Uri.parse(AppUrls.googlePlaySubscriptions));
+    if (!mounted || opened) return;
+    setState(() {
+      _statusMessage = _PaywallCopy(
+        ChronoSparkLocalizations.of(context),
+      ).couldNotOpenGooglePlay;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(subscriptionStatusRefreshProvider);
@@ -887,6 +914,25 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     ),
                   ),
                 ),
+                if (subscription?.status == 'review_access') ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    copy.reviewAccessNoSubscription,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ] else if (subscription?.isActive == true) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const Key('manage-subscription-in-play'),
+                      onPressed: _manageSubscription,
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: Text(copy.manageInGooglePlay),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
               ],
               ...(_showAllPlans ? config.plans : prioritizedPlans).map(

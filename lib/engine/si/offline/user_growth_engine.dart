@@ -29,18 +29,15 @@ class UserGrowthEngine {
     required int streak,
     required double consistency,
   }) {
+    // Growth is derived from canonical totals so provider refreshes are stable
+    // and do not double-apply an increment.
+    final _ = current;
     final double taskBoost = (completedTasks / 100.0).clamp(0.0, 1.0);
     final double streakBoost = (streak / 30.0).clamp(0.0, 1.0);
     return UserGrowthState(
-      skillProgress: (current.skillProgress + taskBoost * 0.02).clamp(0.0, 1.0),
-      adaptationRate: (current.adaptationRate + consistency * 0.01).clamp(
-        0.0,
-        1.0,
-      ),
-      growthVelocity: (current.growthVelocity + streakBoost * 0.015).clamp(
-        0.0,
-        1.0,
-      ),
+      skillProgress: taskBoost,
+      adaptationRate: consistency.clamp(0.0, 1.0),
+      growthVelocity: streakBoost,
     );
   }
 

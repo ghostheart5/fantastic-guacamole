@@ -8,7 +8,7 @@ import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 
-class MemoryRepository implements IMemoryRepository {
+class MemoryRepository implements IMemoryRepository, MemoryReadHealth {
   MemoryRepository(this._store, this._scope, {DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
 
@@ -21,6 +21,10 @@ class MemoryRepository implements IMemoryRepository {
   final AccountStorageScope _scope;
   final DateTime Function() _clock;
   Future<void> _writeQueue = Future<void>.value();
+  bool _lastReadCorrupted = false;
+
+  @override
+  bool get lastReadCorrupted => _lastReadCorrupted;
 
   String? get storageKey {
     final String? namespace = _scope.v2Namespace;
@@ -33,10 +37,12 @@ class MemoryRepository implements IMemoryRepository {
     final String? key = storageKey;
     final String? accountScopeId = _scope.v2Namespace;
     if (key == null || accountScopeId == null) {
+      _lastReadCorrupted = false;
       return const <MemoryEntity>[];
     }
     final String? raw = _store.load(key);
     if (raw == null || raw.trim().isEmpty) {
+      _lastReadCorrupted = false;
       return const <MemoryEntity>[];
     }
     try {
@@ -65,6 +71,7 @@ class MemoryRepository implements IMemoryRepository {
       memories.sort(
         (MemoryEntity a, MemoryEntity b) => b.date.compareTo(a.date),
       );
+      _lastReadCorrupted = false;
       return memories;
     } catch (error, stackTrace) {
       Logger.errorCategory(
@@ -73,6 +80,7 @@ class MemoryRepository implements IMemoryRepository {
         error,
         stackTrace,
       );
+      _lastReadCorrupted = true;
       return const <MemoryEntity>[];
     }
   }
@@ -158,6 +166,7 @@ class MemoryRepository implements IMemoryRepository {
       key,
       jsonEncode(active.map((MemoryEntity memory) => memory.toJson()).toList()),
     );
+    _lastReadCorrupted = false;
   }
 
   @override
@@ -175,6 +184,7 @@ class MemoryRepository implements IMemoryRepository {
   Future<void> deleteAllMemories() async {
     final String key = _ensureWritable();
     await _serializeWrite(() => _store.delete(key));
+    _lastReadCorrupted = false;
   }
 
   String _ensureWritable() {

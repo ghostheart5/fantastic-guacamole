@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/core/extensions/date_extensions.dart';
 import 'package:fantastic_guacamole/core/extensions/string_extensions.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
@@ -15,7 +14,17 @@ class NotificationsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final List<NotificationEntity> items = ref.watch(notificationProvider);
-    final int unreadCount = items.where((item) => !item.isRead).length;
+    final DateTime now = DateTime.now();
+    final int scheduledCount = items
+        .where((item) => item.isEnabled && item.scheduledAt.isAfter(now))
+        .length;
+    final int unreadCount = items
+        .where(
+          (item) =>
+              !item.isRead &&
+              (!item.isEnabled || !item.scheduledAt.isAfter(now)),
+        )
+        .length;
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgTimelineThreads,
@@ -30,6 +39,7 @@ class NotificationsPage extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
                 child: _Header(
                   unreadCount: unreadCount,
+                  scheduledCount: scheduledCount,
                   totalCount: items.length,
                   onBack: () => Navigator.of(context).pop(),
                 ),
@@ -69,21 +79,26 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.onBack,
     required this.unreadCount,
+    required this.scheduledCount,
     required this.totalCount,
   });
 
   final VoidCallback onBack;
   final int unreadCount;
+  final int scheduledCount;
   final int totalCount;
 
   @override
   Widget build(BuildContext context) {
+    final bool es = Localizations.localeOf(context).languageCode == 'es';
     return TemporalScreenHeader(
-      title: 'NOTIFICATIONS',
-      subtitle: 'Signals that may change your next move.',
-      eyebrow: unreadCount == 0
-          ? '$totalCount signals · all read'
-          : '$unreadCount unread · $totalCount total',
+      title: es ? 'NOTIFICACIONES' : 'NOTIFICATIONS',
+      subtitle: es
+          ? 'Actividad y recordatorios programados.'
+          : 'Activity and scheduled reminders.',
+      eyebrow: es
+          ? '$unreadCount nuevas · $scheduledCount programadas · $totalCount en total'
+          : '$unreadCount new · $scheduledCount scheduled · $totalCount total',
       onBack: onBack,
       trailing: Icon(
         unreadCount == 0
@@ -108,9 +123,15 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool es = Localizations.localeOf(context).languageCode == 'es';
+    final DateTime now = DateTime.now();
+    final bool futureSchedule = item.isEnabled && item.scheduledAt.isAfter(now);
+    final bool newActivity = !futureSchedule && !item.isRead;
+    final String title = _localizedTitle(item.title, es);
+    final String message = _localizedMessage(item.message, es);
     final Color accent = !item.isEnabled
         ? AppColors.memoryAmber
-        : item.isRead
+        : !newActivity
         ? AppColors.neonViolet
         : AppColors.neonCyan;
     return Dismissible(
@@ -136,15 +157,17 @@ class _NotificationTile extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 12),
         child: Semantics(
           button: true,
-          label: item.isRead
-              ? item.title.capitalize
-              : 'Unread notification: ${item.title.capitalize}',
+          label: futureSchedule
+              ? '${es ? 'Recordatorio programado' : 'Scheduled reminder'}: $title'
+              : item.isRead
+              ? title
+              : '${es ? 'Actividad nueva' : 'New activity'}: $title',
           child: InkWell(
             onTap: onMarkRead,
             borderRadius: BorderRadius.circular(8),
             child: TemporalGlassSurface(
               accent: accent,
-              opacity: item.isRead ? 0.86 : 0.93,
+              opacity: newActivity ? 0.93 : 0.86,
               padding: const EdgeInsets.all(16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,8 +184,8 @@ class _NotificationTile extends StatelessWidget {
                       ),
                       child: Icon(
                         !item.isEnabled
-                            ? Icons.notifications_off_outlined
-                            : item.isRead
+                            ? Icons.history_rounded
+                            : !newActivity
                             ? Icons.notifications_none_rounded
                             : Icons.notifications_active_outlined,
                         color: accent,
@@ -179,20 +202,20 @@ class _NotificationTile extends StatelessWidget {
                           children: <Widget>[
                             Expanded(
                               child: Text(
-                                item.title.capitalize,
+                                title,
                                 style: TextStyle(
-                                  color: item.isRead
-                                      ? Colors.white70
-                                      : Colors.white,
+                                  color: newActivity
+                                      ? Colors.white
+                                      : Colors.white70,
                                   fontSize: 15,
-                                  fontWeight: item.isRead
-                                      ? FontWeight.w600
-                                      : FontWeight.w800,
+                                  fontWeight: newActivity
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
                                   letterSpacing: 0,
                                 ),
                               ),
                             ),
-                            if (!item.isRead)
+                            if (newActivity)
                               Container(
                                 width: 8,
                                 height: 8,
@@ -210,10 +233,10 @@ class _NotificationTile extends StatelessWidget {
                               ),
                           ],
                         ),
-                        if (item.message.isNotEmpty) ...<Widget>[
+                        if (message.isNotEmpty) ...<Widget>[
                           const SizedBox(height: 6),
                           Text(
-                            item.message,
+                            message,
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
@@ -231,27 +254,17 @@ class _NotificationTile extends StatelessWidget {
                               color: accent,
                             ),
                             const SizedBox(width: 6),
-                            Text(
-                              item.scheduledAt.short,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: accent,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                            if (!item.isEnabled) ...<Widget>[
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Disabled',
+                            Expanded(
+                              child: Text(
+                                '${futureSchedule ? (es ? 'Programado' : 'Scheduled') : (item.isEnabled ? (es ? 'Hora prevista' : 'Scheduled time') : (es ? 'Actividad en la app' : 'In-app activity'))} · ${MaterialLocalizations.of(context).formatCompactDate(item.scheduledAt.toLocal())}',
                                 style: TextStyle(
-                                  color: AppColors.memoryAmber,
                                   fontSize: 11,
+                                  color: accent,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0,
                                 ),
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ],
@@ -272,6 +285,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool es = Localizations.localeOf(context).languageCode == 'es';
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
       child: Center(
@@ -288,9 +302,9 @@ class _EmptyState extends StatelessWidget {
                   color: AppColors.neonCyan.withValues(alpha: 0.75),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'NO ALERTS',
-                  style: TextStyle(
+                Text(
+                  es ? 'SIN AVISOS' : 'NO ALERTS',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
                     letterSpacing: 0,
@@ -298,10 +312,12 @@ class _EmptyState extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'All clear. There are no pending notifications.',
+                Text(
+                  es
+                      ? 'No hay actividad ni recordatorios programados.'
+                      : 'There is no activity or scheduled reminder.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
                     height: 1.45,
@@ -315,4 +331,34 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+String _localizedTitle(String raw, bool es) {
+  if (!es) return raw.capitalize;
+  return switch (raw.trim().toLowerCase()) {
+    'goal reminder' => 'Recordatorio de meta',
+    'decision alert' => 'Decisión actual',
+    'completion' => 'Finalización',
+    'task skipped' => 'Tarea omitida',
+    _ => raw.capitalize,
+  };
+}
+
+String _localizedMessage(String raw, bool es) {
+  if (!es) return raw;
+  return raw
+      .replaceFirst('Target date is near for', 'Se acerca la fecha de')
+      .replaceFirst('Selected ', 'Se seleccionó ')
+      .replaceFirst(
+        ' as the current execution target.',
+        ' como la tarea actual.',
+      )
+      .replaceFirst(
+        ' completed. Recomputing next move.',
+        ' se completó. Se está actualizando el próximo paso.',
+      )
+      .replaceFirst(
+        ' skipped and adaptation triggered.',
+        ' se omitió y se actualizó la adaptación.',
+      );
 }

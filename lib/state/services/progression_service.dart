@@ -12,6 +12,12 @@ class ProgressionService {
       streak: profile.streak,
       longestStreak: profile.longestStreak,
     );
-    return ProgressionState(progress: progress, loading: false);
+    return ProgressionState(
+      progress: progress,
+      loading: profile.readStatus == ProfileReadStatus.loading,
+      error: profile.readStatus == ProfileReadStatus.unavailable
+          ? 'profile_unavailable'
+          : null,
+    );
   }
 }

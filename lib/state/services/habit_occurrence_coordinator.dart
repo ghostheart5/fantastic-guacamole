@@ -13,10 +13,12 @@ class HabitOccurrenceResult {
   const HabitOccurrenceResult({
     required this.mutation,
     required this.occurrence,
+    this.learningPending = false,
   });
 
   final HabitOccurrenceMutation mutation;
   final HabitOccurrenceEntity occurrence;
+  final bool learningPending;
 }
 
 /// Records Daily Rhythm outcomes without changing whether the rhythm is active.
@@ -48,6 +50,9 @@ class HabitOccurrenceCoordinator {
     operationId: operationId,
   );
 
+  Future<HabitOccurrenceResult> completeAt(String habitId, DateTime period) =>
+      _record(habitId, HabitOccurrenceOutcome.completed, recordedFor: period);
+
   Future<HabitOccurrenceResult> skip(String habitId, {String? operationId}) =>
       _record(
         habitId,
@@ -55,10 +60,85 @@ class HabitOccurrenceCoordinator {
         operationId: operationId,
       );
 
+  Future<HabitOccurrenceResult> skipAt(String habitId, DateTime period) =>
+      _record(habitId, HabitOccurrenceOutcome.skipped, recordedFor: period);
+
+  /// Corrects the current cadence-slot outcome while retaining an explicit
+  /// correction receipt in learning history.
+  Future<HabitOccurrenceResult> correct(
+    String habitId,
+    HabitOccurrenceOutcome outcome,
+  ) {
+    final Future<HabitOccurrenceResult> operation = _tail.then((_) async {
+      if (!scope.isWritable || scope.v2Namespace == null) {
+        throw StateError('Daily Rhythm corrections require an account.');
+      }
+      final habits = await habitRepository.getHabits();
+      final habit = habits.where((value) => value.id == habitId).firstOrNull;
+      if (habit == null) throw StateError('Daily Rhythm not found.');
+      final DateTime now = _clock();
+      final String key = occurrenceKeyFor(habit.cadence, now);
+      final current = await occurrenceRepository.load();
+      final index = current.indexWhere(
+        (value) => value.habitId == habitId && value.occurrenceKey == key,
+      );
+      if (index < 0) {
+        throw StateError('No current outcome is available to correct.');
+      }
+      final previous = current[index];
+      if (previous.outcome == outcome) {
+        return HabitOccurrenceResult(
+          mutation: HabitOccurrenceMutation.idempotent,
+          occurrence: previous,
+        );
+      }
+      final corrected = HabitOccurrenceEntity(
+        habitId: habitId,
+        occurrenceKey: key,
+        operationId:
+            '${previous.operationId}:corrected:${now.toUtc().microsecondsSinceEpoch}',
+        outcome: outcome,
+        recordedAt: now.toUtc(),
+      );
+      final next = List<HabitOccurrenceEntity>.from(current)
+        ..[index] = corrected;
+      await occurrenceRepository.replaceSnapshot(next);
+      bool learningPending = false;
+      try {
+        if (!await _learningPaused()) {
+          await outcomeRepository.record(
+            DecisionOutcomeEntity(
+              decisionId: 'habit:$habitId:$key',
+              kind: DecisionOutcomeKind.corrected,
+              surface: 'daily-rhythm',
+              recordedAt: now.toUtc(),
+              modelVersion: 'domain-occurrence-v1',
+              recommendationConfidence: 1,
+              subjectId: habitId,
+              correction: '${previous.outcome.name} -> ${outcome.name}',
+              correctedOutcomeKind: outcome.name,
+              recommendationHelped: null,
+            ),
+          );
+        }
+      } on Object {
+        learningPending = true;
+      }
+      return HabitOccurrenceResult(
+        mutation: HabitOccurrenceMutation.applied,
+        occurrence: corrected,
+        learningPending: learningPending,
+      );
+    });
+    _tail = operation.then<void>((_) {}).catchError((Object _) {});
+    return operation;
+  }
+
   Future<HabitOccurrenceResult> _record(
     String habitId,
     HabitOccurrenceOutcome outcome, {
     String? operationId,
+    DateTime? recordedFor,
   }) {
     final Future<HabitOccurrenceResult> operation = _tail.then((_) async {
       if (!scope.isWritable || scope.v2Namespace == null) {
@@ -79,7 +159,7 @@ class HabitOccurrenceCoordinator {
         throw StateError('Paused Daily Rhythms cannot record outcomes.');
       }
 
-      final DateTime now = _clock();
+      final DateTime now = recordedFor ?? _clock();
       final String occurrenceKey = occurrenceKeyFor(habit.cadence, now);
       final String resolvedOperationId = operationId?.trim().isNotEmpty == true
           ? operationId!.trim()
@@ -102,22 +182,36 @@ class HabitOccurrenceCoordinator {
       }
       if (existing != null) {
         final bool sameOutcome = existing.outcome == outcome;
+        bool learningPending = false;
         if (sameOutcome) {
-          await _ensureLearningOutcome(existing);
+          try {
+            await _ensureLearningOutcome(existing);
+          } on Object {
+            learningPending = true;
+          }
         }
         return HabitOccurrenceResult(
           mutation: sameOutcome
               ? HabitOccurrenceMutation.idempotent
               : HabitOccurrenceMutation.conflict,
           occurrence: existing,
+          learningPending: learningPending,
         );
       }
 
       await occurrenceRepository.save(candidate);
-      await _ensureLearningOutcome(candidate);
+      bool learningPending = false;
+      try {
+        await _ensureLearningOutcome(candidate);
+      } on Object {
+        // The canonical outcome is already durable. Surface this as pending
+        // supporting work instead of falsely reporting that recording failed.
+        learningPending = true;
+      }
       return HabitOccurrenceResult(
         mutation: HabitOccurrenceMutation.applied,
         occurrence: candidate,
+        learningPending: learningPending,
       );
     });
     _tail = operation.then<void>((_) {}).catchError((Object _) {});

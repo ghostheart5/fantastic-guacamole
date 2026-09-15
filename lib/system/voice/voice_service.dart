@@ -28,6 +28,22 @@ class VoiceService {
     await speakChecked(text);
   }
 
+  Future<void> speakLocalized(
+    String text, {
+    required String languageCode,
+  }) async {
+    await setLanguage(_speechLocale(languageCode));
+    await speak(text);
+  }
+
+  Future<bool> speakCheckedLocalized(
+    String text, {
+    required String languageCode,
+  }) async {
+    await setLanguage(_speechLocale(languageCode));
+    return speakChecked(text);
+  }
+
   Future<bool> speakChecked(String text) async {
     final String value = text.trim();
     if (value.isEmpty) {
@@ -68,6 +84,13 @@ class VoiceService {
     } finally {
       if (generation == _generation) _playback.value = false;
     }
+  }
+
+  String _speechLocale(String languageCode) {
+    final normalized = languageCode.trim().toLowerCase();
+    return normalized == 'es' || normalized.startsWith('es-')
+        ? 'es-ES'
+        : 'en-US';
   }
 
   Iterable<String> _speechChunks(String text) sync* {

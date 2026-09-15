@@ -351,6 +351,10 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
       widget.event.relatedId != null &&
       widget.event.id.startsWith('timeline-projected-task-');
 
+  bool get _isProjectedGoal =>
+      widget.event.relatedId != null &&
+      widget.event.id.startsWith('timeline-projected-goal-');
+
   bool get _canComplete =>
       widget.event.status != TimelineEventStatus.completed &&
       widget.event.status != TimelineEventStatus.canceled &&
@@ -365,9 +369,21 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
           widget.event.type == TimelineEventType.deadline);
 
   bool get _canMove =>
-      !_isProjectedTask &&
+      (_isProjectedTask ||
+          _isProjectedGoal ||
+          !widget.event.id.startsWith('timeline-projected-')) &&
       (widget.event.status == TimelineEventStatus.overdue ||
-          widget.event.status == TimelineEventStatus.skipped);
+          widget.event.status == TimelineEventStatus.skipped ||
+          (_isProjectedTask &&
+              widget.event.status == TimelineEventStatus.planned &&
+              _isDueToday));
+
+  bool get _isDueToday {
+    final due = widget.event.dueAt?.toLocal();
+    if (due == null) return false;
+    final now = ref.read(timelineClockProvider)().toLocal();
+    return due.year == now.year && due.month == now.month && due.day == now.day;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -404,6 +420,12 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
                           context,
                           'Recover Tomorrow',
                           'Retomar mañana',
+                        )
+                      : _isProjectedTask
+                      ? journeyText(
+                          context,
+                          'Postpone to Tomorrow',
+                          'Aplazar hasta mañana',
                         )
                       : journeyText(context, 'Move Tomorrow', 'Mover a mañana'),
                 ),
@@ -492,7 +514,7 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
     if (taskId == null) return;
     TaskEntity? existing;
     final List<Task> visibleTasks =
-        ref.read(tasksProvider).asData?.value ?? const <Task>[];
+        ref.read(allTasksProvider).asData?.value ?? const <Task>[];
     for (final Task task in visibleTasks) {
       if (task.id == taskId) {
         existing = task;
@@ -533,8 +555,13 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
           .updateTaskDetails(
             id: taskId,
             title: next.title,
+            description: next.description,
+            clearDescription: next.description == null,
+            priority: next.priority,
             estimatedDuration: next.estimatedDuration,
             clearEstimatedDuration: next.estimatedDuration == null,
+            scheduledFor: next.scheduledFor,
+            clearScheduledFor: next.scheduledFor == null,
             dueDate: next.dueDate,
             clearDueDate: next.dueDate == null,
             goalId: next.goalId,
@@ -650,8 +677,60 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
     return ref.read(timelineActionsProvider).skip(widget.event.id);
   }
 
-  Future<void> _moveTomorrow() {
-    final DateTime nextDue = DateTime.now().add(const Duration(days: 1));
+  Future<void> _moveTomorrow() async {
+    final now = ref.read(timelineClockProvider)().toLocal();
+    final DateTime nextDue = DateTime(now.year, now.month, now.day + 1);
+    if (_isProjectedGoal) {
+      final goalId = widget.event.relatedId;
+      final goals = ref.read(goalsProvider);
+      final matches = goals.where((goal) => goal.id == goalId).toList();
+      if (matches.isEmpty) {
+        throw StateError('Goal not found. Refresh and try again.');
+      }
+      await ref
+          .read(goalsProvider.notifier)
+          .update(matches.first.copyWith(targetDate: nextDue));
+      return;
+    }
+    if (_isProjectedTask) {
+      final taskId = widget.event.relatedId;
+      final tasks = await ref.read(allTasksProvider.future);
+      final matches = tasks.where((task) => task.id == taskId).toList();
+      if (matches.isEmpty) {
+        throw StateError('Task not found. Refresh and try again.');
+      }
+      final task = matches.single;
+      DateTime tomorrowAt(DateTime? original) => original == null
+          ? nextDue
+          : DateTime(
+              nextDue.year,
+              nextDue.month,
+              nextDue.day,
+              original.toLocal().hour,
+              original.toLocal().minute,
+              original.toLocal().second,
+            );
+      await ref
+          .read(taskActionsProvider)
+          .updateTaskDetails(
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            clearDescription: task.description == null,
+            priority: task.priority,
+            estimatedDuration: task.estimatedDuration,
+            scheduledFor: task.dueDate == null
+                ? tomorrowAt(task.scheduledFor)
+                : task.scheduledFor,
+            clearScheduledFor:
+                task.dueDate != null && task.scheduledFor == null,
+            dueDate: task.dueDate == null ? null : tomorrowAt(task.dueDate),
+            clearDueDate: task.dueDate == null,
+            goalId: task.goalId,
+            clearGoalId: task.goalId == null,
+          );
+      return;
+    }
     return ref.read(timelineActionsProvider).recover(widget.event.id, nextDue);
   }
 }
@@ -1077,6 +1156,7 @@ class _TimelineControls extends StatelessWidget {
                   const SizedBox(height: 9),
                   DropdownRouteKeyboardGuard(
                     child: DropdownButtonFormField<_TimelineFilter>(
+                      key: const Key('timeline-filter-field'),
                       initialValue: filter,
                       isExpanded: true,
                       decoration: InputDecoration(
@@ -1483,84 +1563,4 @@ class _TimelineSourceNotice extends StatelessWidget {
       ),
     );
   }
-}
-
-DateTime _eventMoment(TimelineEventEntity event) =>
-    (event.dueAt ?? event.timestamp).toLocal();
-
-bool _isOpenDeadline(TimelineEventEntity event) {
-  final bool hasDeadlineSemantics = switch (event.type) {
-    TimelineEventType.deadline ||
-    TimelineEventType.goal ||
-    TimelineEventType.milestone => true,
-    _ => false,
-  };
-  return hasDeadlineSemantics &&
-      event.status != TimelineEventStatus.completed &&
-      event.status != TimelineEventStatus.canceled &&
-      event.status != TimelineEventStatus.skipped;
-}
-
-bool _inWindow({
-  required DateTime moment,
-  required DateTime now,
-  required _TimelineWindow window,
-}) {
-  switch (window) {
-    case _TimelineWindow.today:
-      return moment.year == now.year &&
-          moment.month == now.month &&
-          moment.day == now.day;
-    case _TimelineWindow.week:
-      final DateTime start = DateTime(now.year, now.month, now.day);
-      final DateTime end = DateTime(start.year, start.month, start.day + 7);
-      return !moment.isBefore(start) && moment.isBefore(end);
-    case _TimelineWindow.month:
-      return moment.year == now.year && moment.month == now.month;
-    case _TimelineWindow.year:
-      return moment.year == now.year;
-    case _TimelineWindow.all:
-      return true;
-  }
-}
-
-String _windowLabel(_TimelineWindow value) {
-  return switch (value) {
-    _TimelineWindow.today => 'Today',
-    _TimelineWindow.week => 'Week',
-    _TimelineWindow.month => 'Month',
-    _TimelineWindow.year => 'Year',
-    _TimelineWindow.all => 'All',
-  };
-}
-
-String _filterLabel(_TimelineFilter value) {
-  return switch (value) {
-    _TimelineFilter.all => 'All',
-    _TimelineFilter.overdue => 'Overdue',
-    _TimelineFilter.upcoming => 'Upcoming',
-    _TimelineFilter.milestones => 'Milestones',
-    _TimelineFilter.risks => 'Risks',
-    _TimelineFilter.recommendations => 'Recommendations',
-  };
-}
-
-TimelineEventEntity? _nearestUpcoming(
-  List<TimelineEventEntity> events,
-  DateTime now,
-) {
-  final List<TimelineEventEntity> candidates =
-      events
-          .where((TimelineEventEntity event) {
-            final DateTime? due = event.dueAt;
-            return due != null &&
-                _isOpenDeadline(event) &&
-                due.isAfter(now) &&
-                !event.isOverdue;
-          })
-          .toList(growable: false)
-        ..sort(
-          (a, b) => (a.dueAt ?? a.timestamp).compareTo(b.dueAt ?? b.timestamp),
-        );
-  return candidates.isEmpty ? null : candidates.first;
 }

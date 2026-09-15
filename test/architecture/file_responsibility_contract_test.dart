@@ -49,6 +49,7 @@ void main() {
     'lib/features/timeline/ui/timeline_screen.dart': <String>[
       'timeline_screen.widgets.dart',
       'timeline_screen.event_copy.dart',
+      'timeline_screen.filters.dart',
     ],
   };
 

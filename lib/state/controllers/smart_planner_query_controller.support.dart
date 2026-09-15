@@ -14,6 +14,7 @@ final class _PlannerConversationContext {
     required this.subject,
     required this.priorSubject,
     required this.priorTimeLimitMinutes,
+    required this.priorTimeLimitSeconds,
     required this.historyTurnsUsed,
     required this.isFollowUp,
     required this.corrections,
@@ -82,16 +83,20 @@ final class _PlannerConversationContext {
     String priorSubject = currentUserContext?.objective ?? '';
     final retainedConstraints = <String>[...?currentUserContext?.corrections];
     int? priorTimeLimitMinutes = currentUserContext?.timeLimitMinutes;
+    int? priorTimeLimitSeconds = currentUserContext?.timeLimitSeconds;
     if (currentUserContext == null) {
       for (final turn in boundedPrior) {
         if (priorSubject.isEmpty || !_continuesPlannerObjective(turn)) {
           priorSubject = turn;
           retainedConstraints.clear();
           priorTimeLimitMinutes = _explicitPlanningTimeLimit(turn);
+          priorTimeLimitSeconds = _explicitPlanningTimeLimitSeconds(turn);
         } else {
           retainedConstraints.add(turn);
           priorTimeLimitMinutes =
               _explicitPlanningTimeLimit(turn) ?? priorTimeLimitMinutes;
+          priorTimeLimitSeconds =
+              _explicitPlanningTimeLimitSeconds(turn) ?? priorTimeLimitSeconds;
         }
       }
     }
@@ -127,6 +132,7 @@ final class _PlannerConversationContext {
       subject: subject,
       priorSubject: priorSubject,
       priorTimeLimitMinutes: priorTimeLimitMinutes,
+      priorTimeLimitSeconds: priorTimeLimitSeconds,
       historyTurnsUsed: boundedPrior.length,
       isFollowUp: isFollowUp,
       corrections: continuesPriorSubject
@@ -147,6 +153,7 @@ final class _PlannerConversationContext {
   final String subject;
   final String priorSubject;
   final int? priorTimeLimitMinutes;
+  final int? priorTimeLimitSeconds;
   final int historyTurnsUsed;
   final bool isFollowUp;
   final List<String> corrections;
@@ -156,6 +163,7 @@ final class _PlannerConversationContext {
     corrections: corrections,
     savedContextDeclined: savedContextDeclined,
     timeLimitMinutes: explicitTimeLimitMinutes,
+    timeLimitSeconds: explicitTimeLimitSeconds,
   );
 
   // A concrete new request starts a new time budget. A referential follow-up
@@ -166,6 +174,13 @@ final class _PlannerConversationContext {
       ? null
       : _explicitPlanningTimeLimit(input) ??
             (continuesPriorSubject ? priorTimeLimitMinutes : null);
+
+  int? get explicitTimeLimitSeconds =>
+      _rejectsPlannerTimeBudget(input) &&
+          _explicitPlanningTimeLimitSeconds(input) == null
+      ? null
+      : _explicitPlanningTimeLimitSeconds(input) ??
+            (continuesPriorSubject ? priorTimeLimitSeconds : null);
 
   String evidenceSummary({
     required bool contextWasProvided,
@@ -237,6 +252,8 @@ bool _repeatsPlannerObjective(String input, String priorSubject) {
 }
 
 int? _explicitPlanningTimeLimit(String input) {
+  final int? exactSeconds = _explicitPlanningTimeLimitSeconds(input);
+  if (exactSeconds != null && exactSeconds < 60) return 1;
   if (_plannerDepartureUnresolved(input)) {
     return null;
   }
@@ -328,6 +345,24 @@ int? _explicitPlanningTimeLimit(String input) {
       continue;
     }
     limit = limit == null ? minutes : math.min(limit, minutes);
+  }
+  return limit;
+}
+
+int? _explicitPlanningTimeLimitSeconds(String input) {
+  if (_plannerDepartureUnresolved(input)) return null;
+  final normalized = input.toLowerCase();
+  final pattern = RegExp(
+    r'\b(?:within|for|only|(?:i|we)\s+(?:only\s+)?have(?:\s+only)?|at most|no more than|dentro de|durante|(?:solo\s+)?(?:tengo|tenemos)(?:\s+solo)?|como máximo|no más de)\s+(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|segundos?)\b',
+    caseSensitive: false,
+  );
+  int? limit;
+  for (final match in pattern.allMatches(normalized)) {
+    final double? amount = double.tryParse(match.group(1)!);
+    if (amount == null || !amount.isFinite || amount <= 0) continue;
+    final int seconds = amount.floor();
+    if (seconds < 1 || seconds >= 60) continue;
+    limit = limit == null ? seconds : math.min(limit, seconds);
   }
   return limit;
 }

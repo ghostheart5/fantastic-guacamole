@@ -119,6 +119,7 @@ void main() {
     expect(event.status, TimelineEventStatus.planned);
     expect(event.isOverdue, isFalse);
     expect(event.detail, isNot(contains('missed')));
+    expect(event.detail, contains('Planned work time'));
   });
 
   test('a past schedule-only task stays open without becoming overdue', () {

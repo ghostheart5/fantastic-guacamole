@@ -53,6 +53,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   late final Future<void> Function() _stopVoice;
   final _notesController = TextEditingController();
   final _followUpController = TextEditingController();
+  String _followUpDictationBase = '';
   final ScrollController _scroll = ScrollController();
   final GlobalKey _plannerResponseKey = GlobalKey();
 
@@ -630,7 +631,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       optionChosen: response.recommendedKind.name,
       optionSizeMinutes:
           response.optionByKind[response.recommendedKind]?.estimatedMinutes,
-      recommendationHelped: true,
+      recommendationHelped: null,
     );
     ref.read(creatorHandshakeProvider.notifier).clearResult();
     ref.read(creatorDraftPreviewProvider.notifier).stage(draft);
@@ -1527,12 +1528,30 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          _VoiceButton(message: effectivePlannerMessage),
-                          _VoiceSummaryButton(summary: plannerSpokenSummary),
+                          _VoiceButton(
+                            message: effectivePlannerMessage,
+                            languageCode: routine.isSpanish ? 'es' : 'en',
+                          ),
+                          _VoiceSummaryButton(
+                            summary: plannerSpokenSummary,
+                            languageCode: routine.isSpanish ? 'es' : 'en',
+                          ),
                           const _VoiceAccessibilityButton(),
                           _MicButton(
-                            onRecognized: (String text) =>
-                                _followUpController.text = text,
+                            onStart: () => _followUpDictationBase =
+                                _followUpController.text.trim(),
+                            onRecognized: (String text) {
+                              final combined = <String>[
+                                if (_followUpDictationBase.isNotEmpty)
+                                  _followUpDictationBase,
+                                text.trim(),
+                              ].join(' ').trim();
+                              _followUpController
+                                ..text = combined
+                                ..selection = TextSelection.collapsed(
+                                  offset: combined.length,
+                                );
+                            },
                           ),
                         ],
                       ),
@@ -1576,18 +1595,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
               )
             : null,
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
-    final PlannerRoutineCopy routine = l10n.plannerRoutine;
-    return TemporalScreenHeader(
-      title: l10n.text(ChronoSparkString.smartPlanner),
-      subtitle: routine.subtitle,
-      eyebrow: routine.eyebrow,
-      backTooltip: MaterialLocalizations.of(context).backButtonTooltip,
-      onBack: () => goToAppView(context, ref, AppView.nexus),
     );
   }
 }

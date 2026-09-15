@@ -115,12 +115,32 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     operation.requireCurrent(ref);
     await ref.read(updateGoalUseCaseProvider).call(updated);
     if (!operation.isCurrent(ref)) return const GoalMutationResult.stale();
-    state = state.map((g) => g.id == updated.id ? updated : g).toList();
+    final bool wasVisible = state.any((goal) => goal.id == updated.id);
+    state = updated.isCompleted
+        ? state.where((goal) => goal.id != updated.id).toList(growable: false)
+        : wasVisible
+        ? state.map((g) => g.id == updated.id ? updated : g).toList()
+        : <GoalEntity>[updated, ...state];
     return _afterSave(operation, updated, _GoalAction.updated);
   }
 
   Future<void> remove(String id) async {
     await complete(id);
+  }
+
+  Future<GoalMutationResult> reopen(GoalEntity goal) async {
+    return update(goal.reopen());
+  }
+
+  Future<void> deletePermanently(String id) async {
+    final operation = _GoalAccountOperation.capture(ref);
+    operation.requireCurrent(ref);
+    await ref.read(deleteGoalUseCaseProvider).call(id);
+    if (!operation.isCurrent(ref)) return;
+    state = state.where((goal) => goal.id != id).toList(growable: false);
+    ref.invalidate(goalsReadProvider);
+    ref.invalidate(goalProgressProvider);
+    ref.invalidate(signalsBundleProvider);
   }
 
   Future<GoalMutationResult> complete(String id) async {

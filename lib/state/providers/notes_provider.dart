@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_read_health.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -12,6 +13,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final notesProvider = AsyncNotifierProvider<NotesNotifier, List<NoteEntity>>(
   NotesNotifier.new,
 );
+
+/// Lets UI distinguish a valid empty collection from a damaged local payload.
+/// Readable records stay usable while the recovery warning remains visible.
+final noteReadCorruptedProvider = Provider<bool>((Ref ref) {
+  ref.watch(notesProvider);
+  final repository = ref.watch(domainNoteRepositoryProvider);
+  return repository is NoteReadHealth &&
+      (repository as NoteReadHealth).lastReadCorrupted;
+});
 
 class NotesNotifier extends AsyncNotifier<List<NoteEntity>> {
   @override
@@ -134,6 +144,28 @@ class NotesNotifier extends AsyncNotifier<List<NoteEntity>> {
     if (archived != null) {
       await _project(archived, NoteTimelineMutation.archived);
     }
+  }
+
+  Future<void> restoreNote(String id) async {
+    final owner = AccountOperation.capture(ref);
+    owner.check();
+    final repository = ref.read(domainNoteRepositoryProvider);
+    final notes = await repository.getNotes();
+    final NoteEntity? current = notes
+        .where((note) => note.id == id)
+        .firstOrNull;
+    if (current == null || !current.isArchived || !owner.isCurrent) return;
+    final restored = current.copyWith(
+      isArchived: false,
+      updatedAt: DateTime.now(),
+    );
+    await repository.saveNote(restored);
+    if (!owner.isCurrent) return;
+    state = AsyncData(<NoteEntity>[
+      restored,
+      ..._current.where((note) => note.id != id),
+    ]);
+    await _project(restored, NoteTimelineMutation.updated);
   }
 
   Future<void> _project(NoteEntity note, NoteTimelineMutation mutation) async {

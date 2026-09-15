@@ -191,14 +191,17 @@ class _MemoryGovernanceSection extends ConsumerWidget {
     WidgetRef ref,
     int count,
   ) async {
-    if (count == 0) return;
+    final bool unreadable = ref.read(memoryReadCorruptedProvider);
+    if (count == 0 && !unreadable) return;
     final bool confirmed =
         await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
             title: const Text('Delete all durable memories?'),
             content: Text(
-              'This permanently removes $count consented memory receipt${count == 1 ? '' : 's'}. Tasks, goals, and Timeline data are unchanged.',
+              unreadable
+                  ? 'Stored durable memory is unreadable. This permanently removes the unreadable account-scoped payload. Tasks, goals, and Timeline data are unchanged.'
+                  : 'This permanently removes $count consented memory receipt${count == 1 ? '' : 's'}. Tasks, goals, and Timeline data are unchanged.',
             ),
             actions: <Widget>[
               TextButton(
@@ -263,6 +266,7 @@ class _MemoryGovernanceSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final List<MemoryEntity> memories = ref.watch(memoriesProvider);
+    final bool unreadable = ref.watch(memoryReadCorruptedProvider);
     return _Section(
       label: 'MEMORY GOVERNANCE',
       accentColor: AppColors.memoryAmber,
@@ -282,8 +286,9 @@ class _MemoryGovernanceSection extends ConsumerWidget {
           ),
           _NeonStatusTile(
             title: 'Active memory receipts',
-            subtitle:
-                '${memories.length} · account-scoped · surface-scoped · expiring',
+            subtitle: unreadable
+                ? 'Unreadable retained data detected · review or delete it'
+                : '${memories.length} · account-scoped · surface-scoped · expiring',
           ),
           const _NeonStatusTile(
             title: 'SI Console durable memory',
@@ -302,8 +307,9 @@ class _MemoryGovernanceSection extends ConsumerWidget {
           ),
           _NeonNavTile(
             title: 'Delete all durable memories',
-            subtitle:
-                'Permanently removes all ${memories.length} active receipts.',
+            subtitle: unreadable
+                ? 'Permanently removes the unreadable account-scoped payload.'
+                : 'Permanently removes all ${memories.length} active receipts.',
             onTap: () => unawaited(_deleteAll(context, ref, memories.length)),
           ),
           _NeonNavTile(

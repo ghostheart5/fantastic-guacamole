@@ -22,13 +22,15 @@ class SIInputModule {
         .clamp(0.0, 1.0)
         .toDouble();
 
-    final double fatigue = (0.2 + hesitation * 0.5 + confusion * 0.3)
-        .clamp(0.0, 1.0)
-        .toDouble();
+    final Object? recordedFatigue = packet.metadata['fatigue'];
+    final double fatigue = recordedFatigue is num
+        ? recordedFatigue.toDouble().clamp(0.0, 1.0)
+        : (0.2 + hesitation * 0.5 + confusion * 0.3).clamp(0.0, 1.0).toDouble();
 
-    final double motivation = (excitement * 0.6 + confidence * 0.4)
-        .clamp(0.0, 1.0)
-        .toDouble();
+    final Object? recordedEnergy = packet.metadata['energy'];
+    final double motivation = recordedEnergy is num
+        ? recordedEnergy.toDouble().clamp(0.0, 1.0)
+        : (excitement * 0.6 + confidence * 0.4).clamp(0.0, 1.0).toDouble();
 
     final double cognitiveLoad = (stress * 0.6 + fatigue * 0.4)
         .clamp(0.0, 1.0)

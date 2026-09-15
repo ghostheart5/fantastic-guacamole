@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/state/models/profile_view_state.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
@@ -537,11 +538,15 @@ class _IdentityCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             LaunchContainment.inferredIdentityEnabled
-                ? 'IDENTITY SIGNAL'
-                : 'RECORDED PROGRESS',
-            style: TextStyle(
+                ? journeyText(context, 'IDENTITY SIGNAL', 'SEÑAL DE IDENTIDAD')
+                : journeyText(
+                    context,
+                    'RECORDED PROGRESS',
+                    'PROGRESO REGISTRADO',
+                  ),
+            style: const TextStyle(
               fontSize: 10,
               letterSpacing: 0,
               color: AppColors.neonViolet,
@@ -565,13 +570,22 @@ class _IdentityCard extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               !LaunchContainment.inferredIdentityEnabled
-                  ? '$completedTasks completed ${completedTasks == 1 ? 'task' : 'tasks'}. '
-                        'Your level and XP reflect recorded activity. '
-                        'Identity patterns are not available in this version.'
+                  ? journeyText(
+                      context,
+                      '$completedTasks completed ${completedTasks == 1 ? 'task' : 'tasks'}. Your level and XP reflect recorded activity. Identity patterns are not available in this version.',
+                      '$completedTasks ${completedTasks == 1 ? 'tarea completada' : 'tareas completadas'}. Tu nivel y XP reflejan actividad registrada. Los patrones de identidad no están disponibles en esta versión.',
+                    )
                   : completedTasks < 3
-                  ? 'Complete a few tasks to reveal patterns grounded in your activity.'
-                  : 'Your completions are recorded. More varied activity is needed '
-                        'before an identity pattern can be supported.',
+                  ? journeyText(
+                      context,
+                      'Complete a few tasks to reveal patterns grounded in your activity.',
+                      'Completa algunas tareas para revelar patrones basados en tu actividad.',
+                    )
+                  : journeyText(
+                      context,
+                      'Your completions are recorded. More varied activity is needed before an identity pattern can be supported.',
+                      'Tus tareas completadas están registradas. Se necesita actividad más variada antes de respaldar un patrón de identidad.',
+                    ),
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
@@ -581,19 +595,19 @@ class _IdentityCard extends ConsumerWidget {
           ] else ...<Widget>[
             const SizedBox(height: 14),
             _IdentityBar(
-              label: 'Discipline',
+              label: journeyText(context, 'Discipline', 'Disciplina'),
               value: identity.disciplineIdentity,
               color: AppColors.memoryAmber,
             ),
             const SizedBox(height: 8),
             _IdentityBar(
-              label: 'Execution',
+              label: journeyText(context, 'Execution', 'Ejecución'),
               value: identity.executionIdentity,
               color: AppColors.neonCyan,
             ),
             const SizedBox(height: 8),
             _IdentityBar(
-              label: 'Growth',
+              label: journeyText(context, 'Growth', 'Crecimiento'),
               value: identity.growthIdentity,
               color: AppColors.neonViolet,
             ),

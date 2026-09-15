@@ -1073,6 +1073,7 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     for (final CreatorEntityKind kind in kinds) {
       switch (kind) {
         case CreatorEntityKind.task:
+          ref.invalidate(allTasksProvider);
           ref.invalidate(tasksProvider);
           ref.invalidate(goalProgressProvider);
           break;

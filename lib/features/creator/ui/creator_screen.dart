@@ -2,8 +2,10 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
+import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/l10n/creator_copy.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
@@ -62,14 +64,35 @@ class CreatorScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 18),
                 if (!guidedFirstTask && !handshake.isReviewing) ...[
-                  OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DailyRhythmsScreen(),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const RecordLibraryScreen(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.library_books_outlined),
+                        label: Text(
+                          journeyText(
+                            context,
+                            'Browse records',
+                            'Ver registros',
+                          ),
+                        ),
                       ),
-                    ),
-                    icon: const Icon(Icons.repeat_rounded),
-                    label: Text(copy.manageRhythms),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const DailyRhythmsScreen(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.repeat_rounded),
+                        label: Text(copy.manageRhythms),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -447,7 +470,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _operationDiffs(operation, copy),
+                      children: _operationDiffs(operation, copy, context),
                     ),
                   ),
                 ),
@@ -497,7 +520,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
                 label: Text(
                   state.phase == CreatorHandshakePhase.confirming
                       ? copy.confirming
-                      : copy.confirmSelected,
+                      : _confirmationLabel(preview, copy),
                 ),
               ),
             ),
@@ -514,11 +537,11 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
     );
   }
 
-  static Widget _diff(String field, String before, String after) {
+  static Widget _summary(String field, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
       child: Text(
-        '$field: $before → $after',
+        '$field: $value',
         style: const TextStyle(
           color: Colors.white60,
           fontSize: 11,
@@ -531,6 +554,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
   List<Widget> _operationDiffs(
     CreatorMutationOperation operation,
     CreatorCopy copy,
+    BuildContext context,
   ) {
     final CreatorEntityMutation mutation = operation.mutation;
     final List<({String label, String value})> fields =
@@ -556,11 +580,25 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
           ),
           (
             label: 'Schedule',
-            value: task.scheduledFor?.toLocal().toString() ?? copy.unscheduled,
+            value: task.scheduledFor == null
+                ? copy.unscheduled
+                : _formatDateTime(
+                    context,
+                    task.scheduledFor!,
+                    includeTime: true,
+                  ),
           ),
           (
             label: 'Deadline',
-            value: task.dueDate?.toLocal().toString() ?? copy.noDeadline,
+            value: task.dueDate == null
+                ? copy.noDeadline
+                : _formatDateTime(
+                    context,
+                    task.dueDate!,
+                    includeTime:
+                        task.dueDate!.toLocal().hour != 0 ||
+                        task.dueDate!.toLocal().minute != 0,
+                  ),
           ),
         ]);
         if (task.description?.isNotEmpty ?? false) {
@@ -569,7 +607,9 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
       case final CreatorGoalMutation goal:
         fields.add((
           label: 'Target date',
-          value: goal.targetDate?.toLocal().toString() ?? copy.noTargetDate,
+          value: goal.targetDate == null
+              ? copy.noTargetDate
+              : _formatDateTime(context, goal.targetDate!),
         ));
         if (goal.description?.isNotEmpty ?? false) {
           fields.add((label: 'Description', value: goal.description!));
@@ -599,9 +639,32 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
     return fields
         .map(
           (({String label, String value}) field) =>
-              _diff(copy.field(field.label), copy.notPresent, field.value),
+              _summary(copy.field(field.label), field.value),
         )
         .toList(growable: false);
+  }
+
+  String _confirmationLabel(CreatorHandshakePreview preview, CreatorCopy copy) {
+    final selected = preview.operations
+        .where(
+          (operation) =>
+              preview.selectedOperationIds.contains(operation.operationId),
+        )
+        .toList(growable: false);
+    return selected.length == 1
+        ? copy.createAction(selected.single.entityKind.name)
+        : copy.confirmSelected;
+  }
+
+  String _formatDateTime(
+    BuildContext context,
+    DateTime value, {
+    bool includeTime = false,
+  }) {
+    final local = value.toLocal();
+    final date = MaterialLocalizations.of(context).formatMediumDate(local);
+    if (!includeTime) return date;
+    return '$date, ${TimeOfDay.fromDateTime(local).format(context)}';
   }
 }
 

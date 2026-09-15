@@ -17,16 +17,39 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final ({double momentum, int completed, String expectedTrajectory})
+  for (final ({
+        double momentum,
+        int completed,
+        String expectedTrajectory,
+        String expectedGrowth,
+      })
       fixture
-      in <({double momentum, int completed, String expectedTrajectory})>[
-        (momentum: .8, completed: 24, expectedTrajectory: 'On track'),
+      in <
+        ({
+          double momentum,
+          int completed,
+          String expectedTrajectory,
+          String expectedGrowth,
+        })
+      >[
+        (
+          momentum: .8,
+          completed: 24,
+          expectedTrajectory: 'On track',
+          expectedGrowth: 'Builder',
+        ),
         (
           momentum: .5,
           completed: 8,
           expectedTrajectory: 'Slightly inconsistent',
+          expectedGrowth: 'Beginner',
         ),
-        (momentum: .2, completed: 1, expectedTrajectory: 'Rebuilding'),
+        (
+          momentum: .2,
+          completed: 1,
+          expectedTrajectory: 'Rebuilding',
+          expectedGrowth: 'Beginner',
+        ),
       ]) {
     test('growth and narrative derive from momentum ${fixture.momentum}', () {
       final ProviderContainer container = ProviderContainer(
@@ -49,7 +72,7 @@ void main() {
       final growth = container.read(userGrowthProvider);
       expect(growth.skillProgress, greaterThanOrEqualTo(0));
       expect(growth.adaptationRate, greaterThan(0));
-      expect(container.read(userGrowthTitleProvider), 'Beginner');
+      expect(container.read(userGrowthTitleProvider), fixture.expectedGrowth);
       expect(container.read(progressSignalsProvider).momentum, isNotEmpty);
       expect(
         container.read(narrativeProvider).trajectory,

@@ -34,12 +34,17 @@ final class PlannerUserContext {
     List<String> corrections = const <String>[],
     this.savedContextDeclined = false,
     this.timeLimitMinutes,
+    this.timeLimitSeconds,
   }) : corrections = List<String>.unmodifiable(corrections);
 
   final String objective;
   final List<String> corrections;
   final bool savedContextDeclined;
   final int? timeLimitMinutes;
+
+  /// Exact user-authored limit when the window is shorter than a minute.
+  /// [timeLimitMinutes] remains available for ranking compatibility.
+  final int? timeLimitSeconds;
 }
 
 final class PlannerConversationSnapshot {
@@ -70,6 +75,7 @@ final class PlannerOption {
     required this.title,
     required this.description,
     required this.estimatedMinutes,
+    this.estimatedSeconds,
     required this.tradeoff,
   });
 
@@ -77,6 +83,9 @@ final class PlannerOption {
   final String title;
   final String description;
   final int estimatedMinutes;
+
+  /// Exact display/voice duration for sub-minute plans.
+  final int? estimatedSeconds;
   final String tradeoff;
 
   PlannerOption copyWith({
@@ -84,12 +93,17 @@ final class PlannerOption {
     String? title,
     String? description,
     int? estimatedMinutes,
+    int? estimatedSeconds,
+    bool clearEstimatedSeconds = false,
     String? tradeoff,
   }) => PlannerOption(
     kind: kind ?? this.kind,
     title: title ?? this.title,
     description: description ?? this.description,
     estimatedMinutes: estimatedMinutes ?? this.estimatedMinutes,
+    estimatedSeconds: clearEstimatedSeconds
+        ? null
+        : estimatedSeconds ?? this.estimatedSeconds,
     tradeoff: tradeoff ?? this.tradeoff,
   );
 }
@@ -259,12 +273,22 @@ final class PlannerV2Response {
       ? '$minutes ${minutes == 1 ? 'minuto' : 'minutos'}'
       : '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
 
+  String _optionDuration(PlannerOption option) {
+    final int? seconds = option.estimatedSeconds;
+    if (seconds != null && seconds < 60) {
+      return isSpanish
+          ? '$seconds ${seconds == 1 ? 'segundo' : 'segundos'}'
+          : '$seconds ${seconds == 1 ? 'second' : 'seconds'}';
+    }
+    return _duration(option.estimatedMinutes);
+  }
+
   /// The visible conversation answers the person without replaying every option.
   String toConversationText() {
     final List<String> paragraphs = <String>[whatIHeard.trim()];
     if (!isClarification) {
       paragraphs.add(
-        '$nextStep ${_text('Allow up to', 'Dedica como máximo')} ${_duration(recommendedOption.estimatedMinutes)}.',
+        '$nextStep ${_text('Allow up to', 'Dedica como máximo')} ${_optionDuration(recommendedOption)}.',
       );
       paragraphs.add(recommendationReason.trim());
     }
@@ -281,7 +305,7 @@ final class PlannerV2Response {
     if (isClarification) return toConversationText();
     return <String>[
       nextStep.trim(),
-      '${_text('Allow up to', 'Dedica como máximo')} ${_duration(recommendedOption.estimatedMinutes)}.',
+      '${_text('Allow up to', 'Dedica como máximo')} ${_optionDuration(recommendedOption)}.',
       recommendationReason.trim(),
     ].where((String value) => value.isNotEmpty).toSet().join(' ');
   }
@@ -302,7 +326,7 @@ final class PlannerV2Response {
     buffer.writeln(_text('Plan options:', 'Opciones del plan:'));
     for (final PlannerOption option in options) {
       buffer.writeln(
-        '${_kindLabel(option.kind)}: ${option.title}. ${_duration(option.estimatedMinutes)}. ${option.description} ${_text('Tradeoff', 'Lo que implica')}: ${option.tradeoff}',
+        '${_kindLabel(option.kind)}: ${option.title}. ${_optionDuration(option)}. ${option.description} ${_text('Tradeoff', 'Lo que implica')}: ${option.tradeoff}',
       );
     }
     buffer

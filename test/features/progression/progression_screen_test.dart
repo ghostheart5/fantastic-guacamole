@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/state/models/progression_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/logs_state.dart';
@@ -54,6 +55,7 @@ void main() {
           LegacyScopeOwnership.provenNotOwned,
         ),
         trajectorySummaryProvider.overrideWithValue(trajectory),
+        progressionProvider.overrideWithValue(ProgressionState.initial()),
         logsProvider.overrideWith(() => _SavedLogs(savedLogs)),
         progressionReviewProvider.overrideWith(
           reviewOverride ??
@@ -259,6 +261,7 @@ void main() {
             LegacyScopeOwnership.provenNotOwned,
           ),
           trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
+          progressionProvider.overrideWithValue(ProgressionState.initial()),
           progressionReviewProvider.overrideWith(
             (Ref ref) async => throw Exception('summary failed'),
           ),

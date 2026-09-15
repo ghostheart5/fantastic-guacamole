@@ -1,5 +1,19 @@
 part of 'smart_planner_screen.dart';
 
+extension on _SmartPlannerScreenState {
+  Widget _buildHeader() {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final PlannerRoutineCopy routine = l10n.plannerRoutine;
+    return TemporalScreenHeader(
+      title: l10n.text(ChronoSparkString.smartPlanner),
+      subtitle: routine.subtitle,
+      eyebrow: routine.eyebrow,
+      backTooltip: MaterialLocalizations.of(context).backButtonTooltip,
+      onBack: () => goToAppView(context, ref, AppView.nexus),
+    );
+  }
+}
+
 class _Exchange {
   const _Exchange({required this.question, required this.answer});
   final String question;
@@ -813,8 +827,9 @@ class _EmotionStateControl extends StatelessWidget {
 }
 
 class _VoiceButton extends ConsumerStatefulWidget {
-  const _VoiceButton({required this.message});
+  const _VoiceButton({required this.message, required this.languageCode});
   final String message;
+  final String languageCode;
 
   @override
   ConsumerState<_VoiceButton> createState() => _VoiceButtonState();
@@ -828,7 +843,10 @@ class _VoiceButtonState extends ConsumerState<_VoiceButton> {
     setState(() => _reading = true);
     final bool played = await ref
         .read(voiceServiceProvider)
-        .speakChecked(widget.message);
+        .speakCheckedLocalized(
+          widget.message,
+          languageCode: widget.languageCode,
+        );
     if (!mounted) return;
     setState(() => _reading = false);
     if (!played) {
@@ -886,9 +904,13 @@ class _VoiceButtonState extends ConsumerState<_VoiceButton> {
 }
 
 class _VoiceSummaryButton extends ConsumerWidget {
-  const _VoiceSummaryButton({required this.summary});
+  const _VoiceSummaryButton({
+    required this.summary,
+    required this.languageCode,
+  });
 
   final String summary;
+  final String languageCode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -897,7 +919,11 @@ class _VoiceSummaryButton extends ConsumerWidget {
     ).plannerRoutine;
     return SmartPressable(
       semanticLabel: copy.voiceSummaryLabel,
-      onTap: () => unawaited(ref.read(voiceServiceProvider).speak(summary)),
+      onTap: () => unawaited(
+        ref
+            .read(voiceServiceProvider)
+            .speakLocalized(summary, languageCode: languageCode),
+      ),
       child: Container(
         constraints: const BoxConstraints(minHeight: 48),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -1027,9 +1053,10 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
 }
 
 class _MicButton extends ConsumerWidget {
-  const _MicButton({required this.onRecognized});
+  const _MicButton({required this.onRecognized, required this.onStart});
 
   final ValueChanged<String> onRecognized;
+  final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1075,6 +1102,7 @@ class _MicButton extends ConsumerWidget {
           final VoiceController controller = ref.read(
             voiceControllerProvider.notifier,
           );
+          onStart();
           final int lifecycleRevision = controller.lifecycleRevision;
           await startVoiceInputWithConsent(
             context: context,

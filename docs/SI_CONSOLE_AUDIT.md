@@ -1,35 +1,18 @@
-# SI Console Audit
+# SI Console acceptance checklist
 
-## System Questions
+The current Console is accepted only when executed responses establish all of the following:
 
-The SI Console should answer system questions like:
+- Exact task, goal, or milestone questions keep one resolved subject across the direct answer, recommendation, scenarios, and evidence links.
+- Explicit exclusions never become recommendations.
+- Priority requests rank priority before date; overdue lookup is distinct from comparison.
+- Scheduled and due timestamps remain separate and use the person's local calendar.
+- Capacity and requested scenario duration are honored or explicitly reported unsupported.
+- English and Spanish welcome questions, ordinary questions, corrections, negation, and follow-ups have equivalent intent and fully localized generated output.
+- Missing records, unavailable sources, and empty relevant evidence produce different confidence wording.
+- Unsupported questions contain no unrelated calculations, inferences, scenarios, or actions and offer a supported next question.
+- Shared decision receipts are rejected when subject identity or displayed labels disagree.
+- The screen remains read-only and does not imply that a recommendation changed stored data.
 
-1. What should I do next?
-2. Show my goals.
-3. What is overdue?
-4. Analyze my progress.
-5. What am I forgetting?
-6. Am I on track?
-7. What is my biggest risk?
-8. Show my timeline.
+Current direct evidence sources are tasks, goals, milestones, Timeline, and permitted Person Context. Notes, Daily Rhythms, durable chat memory, external-model reasoning, and calibrated real-world prediction are outside the current Console contract.
 
-## Required SI Systems
-
-1. Goal Analysis
-2. Task Analysis
-3. Habit Analysis
-4. Timeline Analysis
-5. Priority Engine
-6. Recommendation Engine
-7. Risk Engine
-8. Forecast Engine
-9. Memory Recall
-
-## Audit Questions
-
-1. ✅ Does SI Console query real app data?
-2. ✅ Can it access tasks/goals/habits?
-3. ✅ Can it rank priorities?
-4. ✅ Can it identify overdue items?
-5. ✅ Can it explain why something matters?
-6. ✅ Does it generate next best action?
+Structural `validate()` success is necessary but does not establish semantic correctness. Acceptance requires composed-service and UI assertions over the displayed response in addition to engine unit tests.

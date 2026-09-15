@@ -16,15 +16,20 @@ List<TimelineEventEntity> projectTimelineEvents({
     }
     final DateTime? deadline = task.dueDate;
     if (deadline != null) {
-      final bool overdue = deadline.isBefore(now);
+      final bool overdue = task.isOverdueAt(now);
+      final DateTime? scheduled = task.scheduledFor?.toLocal();
+      final String scheduleContext = scheduled == null
+          ? ''
+          : ' Planned work time: ${scheduled.year}-${scheduled.month.toString().padLeft(2, '0')}-${scheduled.day.toString().padLeft(2, '0')} '
+                '${scheduled.hour.toString().padLeft(2, '0')}:${scheduled.minute.toString().padLeft(2, '0')}.';
       events.add(
         TimelineEventEntity(
           id: 'timeline-projected-task-${task.id}',
           type: TimelineEventType.deadline,
           title: task.title,
           detail: overdue
-              ? 'Task deadline missed. Re-plan this task immediately.'
-              : 'Task deadline is upcoming.',
+              ? 'Task deadline missed. Re-plan this task immediately.$scheduleContext'
+              : 'Task deadline is upcoming.$scheduleContext',
           timestamp: now,
           status: overdue
               ? TimelineEventStatus.overdue

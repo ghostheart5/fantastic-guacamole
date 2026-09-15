@@ -68,6 +68,9 @@ final class _PlannerIntent {
               .toList(growable: false)
         : const <String>[];
     String? action = requestedAction;
+    if (action != null && noteText.isNotEmpty) {
+      action = _plannerAttachRelevantTimeContext(action, noteText);
+    }
     if (action == null && !recovery) {
       action = _plannerReferencesSelectedNote(source)
           ? noteActions.firstOrNull ??
@@ -247,7 +250,7 @@ final class _PlannerIntent {
       ? '¿Qué necesitas hacer exactamente y qué parte te está bloqueando?'
       : 'What exactly do you need to do, and which part is getting in the way?';
 
-  String reason(int? limit) {
+  String reason(int? limit, {int? limitSeconds}) {
     if (recovery) {
       return spanish
           ? 'La prioridad ahora es cuidar tu capacidad, sin añadir trabajo.'
@@ -263,6 +266,11 @@ final class _PlannerIntent {
           : 'This step can pause and resume around interruptions.';
     }
     if (limit != null) {
+      if (limitSeconds != null && limitSeconds < 60) {
+        return spanish
+            ? 'Mantén este único paso dentro de los $limitSeconds segundos disponibles.'
+            : 'Keep this one step within your available $limitSeconds seconds.';
+      }
       return spanish
           ? limit == 1
                 ? 'Mantén este único paso dentro del minuto disponible.'
@@ -374,7 +382,7 @@ String _plannerLanguage(String text) =>
 
 bool _plannerReferencesSelectedNote(String text) => RegExp(
   r'\b(?:selected|this|that)(?:\s+[a-záéíóúüñ-]+){0,3}\s+note\b'
-  r'|\b(?:esta|esa)\s+nota\b|\bnota(?:\s+[a-záéíóúüñ-]+){0,2}\s+seleccionada\b',
+  r'|\bthe\s+note\b|\b(?:la|esta|esa)\s+nota\b|\bnota(?:\s+[a-záéíóúüñ-]+){0,2}\s+seleccionada\b',
   caseSensitive: false,
 ).hasMatch(text);
 
@@ -698,7 +706,7 @@ bool _declinesPlannerRecovery(String text) =>
     _plannerRecoveryPreference(text) == false;
 
 const _plannerActionVerbs =
-    r'draft|redactar|redacta|record|fill|preparing|reviewing|writing|working on|work(?: solo| alone)? on|pack|gather|fold|sort|send|write|reply|email|call|tell|review|read|check|wash|prepare|finish|complete|pay|open|put|list|compare|book|schedule|clean|cook|start|practise|practice|walk|drink|collect|organize|organise|look at|guarda|guardar|preparar|prepara|recoger|recoge|doblar|dobla|ordenar|ordena|ordeno|enviar|env[ií]a|escribir|escribe|revisar|revisa|reviso|leer|lee|llamar|llama|lavar|lava|terminar|termina|hacer|limpiar|limpia|abrir|abre';
+    r'draft|redactar|redacta|record|fill|preparing|reviewing|writing|working on|work(?: solo| alone)? on|pack|gather|fold|sort|send|write|reply|email|call|tell|review|read|check|wash|prepare|finish|complete|pay|open|put|list|compare|book|schedule|clean|cook|start|practise|practice|walk|drink|collect|organize|organise|look at|guarda|guardar|preparar|prepara|recoger|recoge|llevar|lleva|confirmar|confirma|avisar|avisa|doblar|dobla|ordenar|ordena|ordeno|enviar|env[ií]a|escribir|escribe|revisar|revisa|reviso|leer|lee|llamar|llama|lavar|lava|terminar|termina|hacer|limpiar|limpia|abrir|abre';
 
 bool _plannerHasActionPosition(String prefix) {
   final clean = prefix.trim();
@@ -708,7 +716,7 @@ bool _plannerHasActionPosition(String prefix) {
   // An action needs an imperative, an explicit request, or a present-tense
   // subject. "a clean tote" and "the care-label check" are noun phrases.
   return RegExp(
-    r"\b(?:please|help me|can you|could you|would you|(?:i|we)\s+(?:(?:need|want|have|am trying|are trying) to|must|should|can)|i am|we are|i['’]m|we['’]re|need to|want to|have to|must|i|we|first|next|then|now|necesito|quiero|debo|puedo|yo|ay[uú]dame a|por favor|primero|ahora|mientras)\s*$"
+    r"\b(?:please|help me|can you|could you|would you|(?:i|we)\s+(?:(?:need|want|have|am trying|are trying) to|must|should|can)|i am|we are|i['’]m|we['’]re|need to|want to|have to|must|i|we|first|next|then|now|necesito|quiero|debo|puedo|yo|ay[uú]dame a|usa la nota para ayudarme a|use the note to help me|por favor|primero|ahora|mientras)\s*$"
     r'|\b(?:minutes?|mins?|hours?|step|task|session|plan)\s+(?:available\s+)?to\s*$'
     r'|\b(?:i|we)\s+(?:only\s+)?have\s+\S+(?:\s+\S+)?\s+(?:minutes?|mins?|hours?)\s+(?:after|before)\s+(?:(?:my|our|the)\s+)?(?:breakfast|lunch|dinner|work|school|school pickup|school run|meeting|appointment|leaving|departing)\s+to\s*$'
     r'|\btengo\s+\S+(?:\s+\S+)?\s+(?:minutos?|horas?)\s+(?:despu[eé]s de|antes de)\s+(?:(?:mi|el|la)\s+)?(?:desayunar|almorzar|cenar|desayuno|almuerzo|cena|trabajo|escuela|reuni[oó]n|cita|salir)\s+para\s*$'
@@ -788,11 +796,10 @@ List<String> _plannerActionCandidates(String source) {
     if (RegExp(r'^(?:give|tell) me\b', caseSensitive: false).hasMatch(action)) {
       continue;
     }
-    if (_plannerReferencesSelectedNote(action) ||
-        RegExp(
-          r'\bsaved (?:task|goal)\b',
-          caseSensitive: false,
-        ).hasMatch(action)) {
+    if (RegExp(
+      r'\bsaved (?:task|goal)\b',
+      caseSensitive: false,
+    ).hasMatch(action)) {
       continue;
     }
     // Pronouns and ordering adverbs do not identify a new action object.
@@ -886,6 +893,26 @@ String? _savedPlannerAction(String title) {
     return 'Prepare for one session of "$title" if it is still needed';
   }
   return null;
+}
+
+String _plannerAttachRelevantTimeContext(String action, String noteText) {
+  if (!RegExp(
+    r'^(?:preparar|prepara|prepare)\b.*\b(?:recogida|pickup)\b',
+    caseSensitive: false,
+  ).hasMatch(action)) {
+    return action;
+  }
+  final match = RegExp(
+    r'\b(el\s+(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo))\b[^.!?;]{0,80}?\b(?:a\s+las\s+)?(\d{1,2}:\d{2})\b',
+    caseSensitive: false,
+  ).firstMatch(noteText);
+  if (match == null) return action;
+  final String lower = action.toLowerCase();
+  if (lower.contains(match.group(1)!.toLowerCase()) ||
+      lower.contains(match.group(2)!.toLowerCase())) {
+    return action;
+  }
+  return '$action ${match.group(1)} a las ${match.group(2)}';
 }
 
 String _concretePlannerStep(
@@ -1013,6 +1040,16 @@ String _plannerActionForDisplay(String action, {required bool spanish}) =>
     );
 
 bool _plannerDepartureUnresolved(String source) {
+  if (RegExp(
+        r'\b(?:video|virtual|remote|online|videollamada|virtual|remota|en l[ií]nea)\s+(?:meeting|reuni[oó]n|appointment|cita)\b',
+        caseSensitive: false,
+      ).hasMatch(source) &&
+      RegExp(
+        r'\b(?:already at (?:my |the )?(?:desk|destination|office|home)|no travel|do not need to (?:leave|travel)|ya estoy en (?:mi |el )?(?:escritorio|destino|oficina|casa)|no (?:tengo que|necesito) (?:salir|viajar))\b',
+        caseSensitive: false,
+      ).hasMatch(source)) {
+    return false;
+  }
   bool departureConfirmed = false;
   for (final clause in _plannerWithoutQuotedText(
     source,

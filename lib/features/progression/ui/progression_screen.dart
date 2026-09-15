@@ -208,6 +208,42 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     final progression = ref.watch(progressionProvider);
     final progress = progression.progress;
 
+    if (progression.loading) {
+      return const Scaffold(
+        body: SafeArea(child: Center(child: CircularProgressIndicator())),
+      );
+    }
+    if (progression.error != null) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    journeyText(
+                      context,
+                      'Your saved progress could not be loaded. No zero-value progress is being shown.',
+                      'No se pudo cargar tu progreso guardado. No se muestran valores cero como si fueran reales.',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () =>
+                        ref.read(profileProvider.notifier).retryLoad(),
+                    child: Text(journeyText(context, 'Retry', 'Reintentar')),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgProgressionAscension,
       child: Scaffold(

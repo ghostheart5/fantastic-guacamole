@@ -128,7 +128,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(
-      find.textContaining('Estimated duration: Not present → 20 minutes'),
+      find.textContaining('Estimated duration: 20 minutes'),
       findsOneWidget,
     );
     expect(repository.saveCalls, 0);
@@ -139,13 +139,19 @@ void main() {
     await tester.pumpWidget(previewApp(const Locale('es', 'MX')));
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('CONFIRMAR CAMBIOS DEL CREADOR'), findsOneWidget);
-    expect(find.text('CONFIRMAR SELECCIÓN'), findsOneWidget);
     expect(
-      find.textContaining('Duración estimada: No existe → 20 minutos'),
+      find.descendant(
+        of: find.byKey(const Key('creator-confirm-selected')),
+        matching: find.text('CREAR TAREA'),
+      ),
       findsOneWidget,
     );
     expect(
-      find.textContaining('Título: No existe → Twenty minute Planner task'),
+      find.textContaining('Duración estimada: 20 minutos'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Título: Twenty minute Planner task'),
       findsOneWidget,
     );
     expect(
@@ -261,14 +267,12 @@ void main() {
     expect(find.textContaining('Domain version'), findsNothing);
     expect(find.textContaining('Displayed diff'), findsNothing);
     expect(
-      find.textContaining(
-        'Active goal: Not present → Verify release workflows',
-      ),
+      find.textContaining('Active goal: Verify release workflows'),
       findsOneWidget,
     );
     expect(find.textContaining('internal-goal-identity'), findsNothing);
     expect(
-      find.textContaining('Title: Not present → Ship one verified change'),
+      find.textContaining('Title: Ship one verified change'),
       findsOneWidget,
     );
     expect(repository.saveCalls, 0);
@@ -527,11 +531,8 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('Type: Not present → Note'), findsOneWidget);
-    expect(
-      find.text('Body: Not present → This remains a note.'),
-      findsOneWidget,
-    );
+    expect(find.text('Type: Note'), findsOneWidget);
+    expect(find.text('Body: This remains a note.'), findsOneWidget);
     expect(find.textContaining('Priority: Not present'), findsNothing);
     expect(find.textContaining('Schedule: Not present'), findsNothing);
     expect(find.textContaining('Deadline: Not present'), findsNothing);

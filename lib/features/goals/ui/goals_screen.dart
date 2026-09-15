@@ -49,7 +49,13 @@ class GoalsScreen extends ConsumerWidget {
                   ),
                   backTooltip: es ? 'Atrás' : 'Back',
                   accent: AppColors.memoryAmber,
-                  onBack: () => goToAppView(context, ref, AppView.smartPlanner),
+                  onBack: () {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    } else {
+                      goToAppView(context, ref, AppView.nexus);
+                    }
+                  },
                   trailing: IconButton(
                     tooltip: journeyText(context, 'Add goal', 'Añadir meta'),
                     padding: EdgeInsets.zero,
@@ -462,6 +468,92 @@ class _GoalCard extends ConsumerStatefulWidget {
 class _GoalCardState extends ConsumerState<_GoalCard> {
   bool _expanded = false;
 
+  Future<void> _editGoal() async {
+    final title = TextEditingController(text: widget.goal.title);
+    final description = TextEditingController(
+      text: widget.goal.description ?? '',
+    );
+    final bool? save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(journeyText(context, 'Edit goal', 'Editar meta')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            TextField(
+              key: const Key('edit-goal-title'),
+              controller: title,
+              decoration: InputDecoration(
+                labelText: journeyText(context, 'Title', 'Título'),
+              ),
+            ),
+            TextField(
+              key: const Key('edit-goal-description'),
+              controller: description,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: journeyText(context, 'Description', 'Descripción'),
+              ),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(journeyText(context, 'Cancel', 'Cancelar')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(journeyText(context, 'Save', 'Guardar')),
+          ),
+        ],
+      ),
+    );
+    final String nextTitle = title.text.trim();
+    final String nextDescription = description.text.trim();
+    title.dispose();
+    description.dispose();
+    if (save != true || nextTitle.isEmpty || !mounted) return;
+    await ref
+        .read(goalsProvider.notifier)
+        .update(
+          widget.goal.copyWith(
+            title: nextTitle,
+            description: nextDescription.isEmpty ? null : nextDescription,
+            clearDescription: nextDescription.isEmpty,
+          ),
+        );
+  }
+
+  Future<void> _deleteGoal() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(journeyText(context, 'Delete goal?', '¿Eliminar meta?')),
+        content: Text(
+          journeyText(
+            context,
+            'This permanently removes the goal. Linked tasks remain available.',
+            'Esto elimina la meta permanentemente. Las tareas vinculadas permanecen disponibles.',
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(journeyText(context, 'Cancel', 'Cancelar')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(journeyText(context, 'Delete', 'Eliminar')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await ref.read(goalsProvider.notifier).deletePermanently(widget.goal.id);
+    }
+  }
+
   Future<void> _shareGoal(GoalProgressView goalProgress) async {
     final GoalEntity goal = widget.goal;
     final int total = goalProgress.totalCount;
@@ -541,9 +633,16 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
     final int completed = goalProgress.completedCount;
     final double progress = goalProgress.fraction;
 
-    final now = DateTime.now();
+    final now = DateTime.now().toLocal();
     final targetDate = widget.goal.targetDate;
-    final isOverdue = targetDate != null && targetDate.isBefore(now);
+    final localTarget = targetDate?.toLocal();
+    final isOverdue =
+        localTarget != null &&
+        DateTime(
+          localTarget.year,
+          localTarget.month,
+          localTarget.day,
+        ).isBefore(DateTime(now.year, now.month, now.day));
     final dateColor = isOverdue ? AppColors.recallRed : AppColors.neonCyan;
     final goalColor = Color(widget.goal.colorHex);
 
@@ -636,6 +735,39 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                               height: 1.35,
                             ),
                           ),
+                        ),
+                        PopupMenuButton<String>(
+                          tooltip: journeyText(
+                            context,
+                            'Manage goal',
+                            'Administrar meta',
+                          ),
+                          onSelected: (value) async {
+                            if (value == 'edit') await _editGoal();
+                            if (value == 'delete') await _deleteGoal();
+                          },
+                          itemBuilder: (_) => <PopupMenuEntry<String>>[
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Text(
+                                journeyText(
+                                  context,
+                                  'Edit goal',
+                                  'Editar meta',
+                                ),
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text(
+                                journeyText(
+                                  context,
+                                  'Delete goal',
+                                  'Eliminar meta',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         IconButton(
                           tooltip: journeyText(
@@ -765,6 +897,20 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                           ),
                         ],
                       ),
+                    if (!progressRead.isLoading &&
+                        !progressRead.hasError &&
+                        total > 0 &&
+                        completed == total) ...<Widget>[
+                      const SizedBox(height: 8),
+                      Text(
+                        journeyText(
+                          context,
+                          'All linked actions are complete. This goal stays active until you mark the goal complete.',
+                          'Todas las acciones vinculadas están completas. La meta sigue activa hasta que la marques como completada.',
+                        ),
+                        style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.35),
+                      ),
+                    ],
                     if (!progressRead.isLoading &&
                         !progressRead.hasError &&
                         (goalProgress.recurringCompletedCount > 0 ||

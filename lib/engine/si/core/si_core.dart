@@ -106,6 +106,8 @@ class SICore {
       history: input.history,
       metadata: <String, dynamic>{
         ...input.metadata,
+        'energy': energy.clamp(0.0, 1.0),
+        'fatigue': fatigue.clamp(0.0, 1.0),
         'completed': completed,
         'skipped': skipped,
         if (task != null) 'taskId': task.id,

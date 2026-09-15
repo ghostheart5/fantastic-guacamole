@@ -52,6 +52,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Derived providers are invalidated transitively by these canonical roots.
 void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(stateBootstrapProvider);
+  ref.invalidate(allTasksProvider);
   ref.invalidate(tasksProvider);
   ref.invalidate(goalsReadProvider);
   ref.invalidate(goalsProvider);

@@ -210,7 +210,10 @@ void main() {
       expect(persisted.single.isRead, isFalse);
       expect(persisted.single.title, changed.title);
       expect(persisted.single.message, changed.message);
-      expect(persisted.single.scheduledAt, changed.scheduledAt);
+      expect(
+        persisted.single.scheduledAt.isAtSameMomentAs(changed.scheduledAt),
+        isTrue,
+      );
     });
   }
 

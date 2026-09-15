@@ -644,8 +644,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 )
                 ? 'cautious'
                 : 'focused',
-            rationale:
-                'SI V2 read-only evidence revision ${response.snapshotRevision.substring(0, 16)}',
+            rationale: ChronoSparkLocalizations.of(context).isSpanish
+                ? 'Respuesta local de solo lectura basada en los datos seleccionados.'
+                : 'Read-only on-device response based on the selected records.',
             processingMode: AIProcessingMode.onDevice,
             siV2: response,
           ),

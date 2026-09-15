@@ -7,13 +7,19 @@ import 'package:flutter/material.dart';
 class TaskEditDraft {
   const TaskEditDraft({
     required this.title,
+    required this.description,
+    required this.priority,
     required this.estimatedDuration,
+    required this.scheduledFor,
     required this.dueDate,
     required this.goalId,
   });
 
   final String title;
+  final String? description;
+  final int priority;
   final Duration? estimatedDuration;
+  final DateTime? scheduledFor;
   final DateTime? dueDate;
   final String? goalId;
 }
@@ -25,12 +31,15 @@ Future<TaskEditDraft?> showTaskEditDialog({
   required List<GoalEntity> goals,
 }) {
   String draftTitle = editable.title;
+  String descriptionText = editable.description ?? '';
+  int priority = editable.priority;
   String durationText = editable.estimatedDuration?.inMinutes.toString() ?? '';
   String? selectedGoalId =
       goals.any((GoalEntity goal) => goal.id == editable.goalId)
       ? editable.goalId
       : null;
   DateTime? dueDate = editable.dueDate;
+  DateTime? scheduledFor = editable.scheduledFor;
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   return showDialog<TaskEditDraft>(
     context: context,
@@ -64,6 +73,47 @@ Future<TaskEditDraft?> showTaskEditDialog({
                         )
                       : null,
                   onChanged: (String value) => draftTitle = value,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('timeline-task-description-field'),
+                  initialValue: descriptionText,
+                  minLines: 2,
+                  maxLines: 4,
+                  maxLength: 1000,
+                  decoration: InputDecoration(
+                    labelText: journeyText(
+                      context,
+                      'Description',
+                      'Descripción',
+                    ),
+                  ),
+                  onChanged: (String value) => descriptionText = value,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  key: const Key('timeline-task-priority-field'),
+                  initialValue: priority,
+                  decoration: InputDecoration(
+                    labelText: journeyText(context, 'Priority', 'Prioridad'),
+                  ),
+                  items: <int>[1, 2, 3, 4, 5]
+                      .map(
+                        (value) => DropdownMenuItem<int>(
+                          value: value,
+                          child: Text(
+                            '$value · ${value == 1
+                                ? journeyText(context, 'lowest', 'mínima')
+                                : value == 5
+                                ? journeyText(context, 'highest', 'máxima')
+                                : journeyText(context, 'normal', 'normal')}',
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (int? value) {
+                    if (value != null) setDialogState(() => priority = value);
+                  },
                 ),
                 const SizedBox(height: 12),
                 DropdownRouteKeyboardGuard(
@@ -177,6 +227,68 @@ Future<TaskEditDraft?> showTaskEditDialog({
                     ),
                   ],
                 ),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        scheduledFor == null
+                            ? journeyText(
+                                context,
+                                'No scheduled time',
+                                'Sin horario programado',
+                              )
+                            : '${journeyText(context, 'Scheduled', 'Programada')}: ${MaterialLocalizations.of(context).formatMediumDate(scheduledFor!)} · ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(scheduledFor!))}',
+                      ),
+                    ),
+                    if (scheduledFor != null)
+                      IconButton(
+                        tooltip: journeyText(
+                          context,
+                          'Clear scheduled time',
+                          'Quitar horario',
+                        ),
+                        onPressed: () =>
+                            setDialogState(() => scheduledFor = null),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    IconButton(
+                      key: const Key('timeline-task-schedule-field'),
+                      tooltip: journeyText(
+                        context,
+                        'Choose scheduled time',
+                        'Elegir horario',
+                      ),
+                      onPressed: () async {
+                        final DateTime now = DateTime.now();
+                        final DateTime? day = await showDatePicker(
+                          context: dialogContext,
+                          initialDate: scheduledFor ?? now,
+                          firstDate: DateTime(now.year - 1),
+                          lastDate: DateTime(now.year + 10),
+                        );
+                        if (day == null || !dialogContext.mounted) return;
+                        final TimeOfDay? time = await showTimePicker(
+                          context: dialogContext,
+                          initialTime: TimeOfDay.fromDateTime(
+                            scheduledFor ?? now,
+                          ),
+                        );
+                        if (time != null) {
+                          setDialogState(
+                            () => scheduledFor = DateTime(
+                              day.year,
+                              day.month,
+                              day.day,
+                              time.hour,
+                              time.minute,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.schedule_rounded),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -193,9 +305,14 @@ Future<TaskEditDraft?> showTaskEditDialog({
               Navigator.of(dialogContext).pop(
                 TaskEditDraft(
                   title: draftTitle.trim(),
+                  description: descriptionText.trim().isEmpty
+                      ? null
+                      : descriptionText.trim(),
+                  priority: priority,
                   estimatedDuration: normalizedDuration.isEmpty
                       ? null
                       : Duration(minutes: int.parse(normalizedDuration)),
+                  scheduledFor: scheduledFor,
                   dueDate: dueDate,
                   goalId: selectedGoalId,
                 ),
