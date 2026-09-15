@@ -52,7 +52,8 @@ $body
       'focus': 'mCurrentFocus=Window{6d8f6c u0 NotificationShade}',
       'passed': true,
       'collapsed': true,
-      'calls': 2,
+      'calls': 5,
+      'ownershipVerified': true,
     },
     'leaves app focus unchanged': {
       'focus':
@@ -87,11 +88,34 @@ $body
       'collapseExit': 1,
       'passed': false,
       'collapsed': false,
-      'calls': 2,
+      'calls': 4,
     },
     'fails a timed out collapse': {
       'focus': 'mCurrentFocus=Window{6d8f6c u0 NotificationShade}',
       'collapseTimeout': true,
+      'passed': false,
+      'collapsed': false,
+      'calls': 4,
+    },
+    'verified shade that persists after collapse receives bounded BACK': {
+      'focus': 'mCurrentFocus=Window{6d8f6c u0 NotificationShade}',
+      'shadeCollapseSticks': true,
+      'passed': true,
+      'collapsed': true,
+      'ownershipVerified': true,
+      'backCount': 1,
+      'calls': 6,
+    },
+    'app-owned shade lookalike never receives recovery commands': {
+      'focus': 'mCurrentFocus=Window{6d8f6c u0 NotificationShade}',
+      'owner': 'com.ghostheart5.chronospark',
+      'passed': false,
+      'collapsed': false,
+      'calls': 2,
+    },
+    'prefix-owner shade lookalike never receives recovery commands': {
+      'focus': 'mCurrentFocus=Window{6d8f6c u0 NotificationShade}',
+      'owner': 'com.android.systemui.fake',
       'passed': false,
       'collapsed': false,
       'calls': 2,
@@ -111,15 +135,29 @@ $body
         r'''
 $script:scenario = __SCENARIO__ | ConvertFrom-Json
 $script:calls = 0
+$script:collapseCount = 0
+$script:backCount = 0
 function Invoke-Adb {
-    param([string[]]$Arguments)
+    param([string[]]$Arguments, [int]$TimeoutMilliseconds)
     $script:calls++
     $command = $Arguments -join ' '
     if ($command -match 'dumpsys window displays') {
-        return [pscustomobject]@{Output=@($script:scenario.focus);ExitCode=[int]$script:scenario.windowExit;TimedOut=[bool]$script:scenario.windowTimeout}
+        $focus = if ($script:collapseCount -gt 0 -and -not $script:scenario.shadeCollapseSticks) {
+            'mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}'
+        } else { $script:scenario.focus }
+        return [pscustomobject]@{Output=@($focus);ExitCode=[int]$script:scenario.windowExit;TimedOut=[bool]$script:scenario.windowTimeout}
+    }
+    if ($command -match 'dumpsys window windows') {
+        $owner = if ($script:scenario.owner) { $script:scenario.owner } else { 'com.android.systemui' }
+        return [pscustomobject]@{Output=@("Window #0 Window{6d8f6c u0 NotificationShade}:`n  package=$owner appop=NONE");ExitCode=0;TimedOut=$false}
     }
     if ($command -match 'cmd statusbar collapse') {
+        $script:collapseCount++
         return [pscustomobject]@{Output=@();ExitCode=[int]$script:scenario.collapseExit;TimedOut=[bool]$script:scenario.collapseTimeout}
+    }
+    if ($command -match 'input keyevent KEYCODE_BACK') {
+        $script:backCount++
+        return [pscustomobject]@{Output=@();ExitCode=0;TimedOut=$false}
     }
     throw "Unexpected command: $command"
 }
@@ -127,7 +165,7 @@ $serial = if ($script:scenario.serial) { $script:scenario.serial } else { 'emula
 $receipt = $null
 $rejected = $false
 try { $receipt = Restore-MonkeySystemPanel -Serial $serial } catch { $rejected = $true }
-[ordered]@{receipt=$receipt;rejected=$rejected;calls=$script:calls;sourceRoot=$projectRoot} | ConvertTo-Json -Depth 6 -Compress
+[ordered]@{receipt=$receipt;rejected=$rejected;calls=$script:calls;backCount=$script:backCount;sourceRoot=$projectRoot} | ConvertTo-Json -Depth 6 -Compress
 '''
             .replaceAll('__SCENARIO__', psLiteral(jsonEncode(scenario))),
       );
@@ -135,10 +173,14 @@ try { $receipt = Restore-MonkeySystemPanel -Serial $serial } catch { $rejected =
       expect(data['sourceRoot'], temporaryDirectory.path);
       expect(data['rejected'], scenario['rejected'] ?? false);
       expect(data['calls'], scenario['calls']);
+      expect(data['backCount'], scenario['backCount'] ?? 0);
       if (scenario['rejected'] != true) {
         final receipt = data['receipt'] as Map<String, dynamic>;
         expect(receipt['Passed'], scenario['passed']);
         expect(receipt['Collapsed'], scenario['collapsed']);
+        if (scenario.containsKey('ownershipVerified')) {
+          expect(receipt['OwnershipVerified'], scenario['ownershipVerified']);
+        }
       }
     });
   }
