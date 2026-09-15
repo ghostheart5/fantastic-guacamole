@@ -908,7 +908,11 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                           'All linked actions are complete. This goal stays active until you mark the goal complete.',
                           'Todas las acciones vinculadas están completas. La meta sigue activa hasta que la marques como completada.',
                         ),
-                        style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.35),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
                       ),
                     ],
                     if (!progressRead.isLoading &&
