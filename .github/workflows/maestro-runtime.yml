@@ -19,6 +19,10 @@ on:
         required: false
         type: boolean
         default: false
+      guest_api:
+        required: false
+        type: string
+        default: '35'
   push:
     branches: ["main"]
   workflow_dispatch:
@@ -45,6 +49,14 @@ on:
         required: false
         type: boolean
         default: false
+      guest_api:
+        description: Android API level for the disposable QA guest
+        required: false
+        type: choice
+        default: '35'
+        options:
+          - '35'
+          - '36'
 
 permissions:
   contents: read
@@ -58,6 +70,7 @@ env:
   QA_SUITE: ${{ inputs.suite || 'qa-smoke' }}
   QA_MONKEY: ${{ inputs.run_monkey && 'true' || 'false' }}
   QA_MONKEY_ONLY: ${{ inputs.monkey_only && 'true' || 'false' }}
+  QA_GUEST_API: ${{ inputs.guest_api || '35' }}
 
 jobs:
   runtime:
@@ -70,6 +83,7 @@ jobs:
           set -euo pipefail
           [[ "$QA_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
           case "$QA_SUITE" in qa-smoke|qa-journeys) ;; *) exit 1 ;; esac
+          case "$QA_GUEST_API" in 35|36) ;; *) exit 1 ;; esac
           if [ "$QA_MONKEY_ONLY" = true ]; then test "$QA_MONKEY" = true; fi
 
       - name: Checkout exact source
@@ -101,6 +115,7 @@ jobs:
               'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'],
               'suite': os.environ['QA_SUITE'],
               'monkeyOnly': os.environ['QA_MONKEY_ONLY'] == 'true',
+              'guestApiRequested': os.environ['QA_GUEST_API'],
               'boundary': 'QA source and workflow tooling have separate identities; not a signed release build.'
           }, indent=2) + '\n')
           PY
@@ -282,7 +297,7 @@ jobs:
           QA_TIMEOUT_SECONDS: ${{ inputs.suite == 'qa-journeys' && '3600' || '1800' }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
-          api-level: 35
+          api-level: ${{ inputs.guest_api || '35' }}
           target: google_apis
           arch: x86_64
           profile: pixel_6
