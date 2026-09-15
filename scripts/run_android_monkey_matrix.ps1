@@ -192,6 +192,7 @@ function Wait-ForPackageFocus {
     $probeSamples = [System.Collections.Generic.List[object]]::new()
     $budgetMilliseconds = $TimeoutSeconds * 1000
     $dialogDismissals = 0
+    $panelRecoveries = 0
     $dialogRecoveryFailed = $false
 
     do {
@@ -208,6 +209,7 @@ function Wait-ForPackageFocus {
             elapsedMilliseconds = 0
             deadlineExceeded = $false
             systemDialogRecovery = $null
+            systemPanelRecovery = $null
         }
         $probeTimeout = [math]::Min(5000, $remainingMilliseconds)
         $probeTimer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -252,6 +254,20 @@ function Wait-ForPackageFocus {
             -not $windowResult.TimedOut -and
             $timer.Elapsed.TotalMilliseconds -lt $budgetMilliseconds -and
             $lastFocus -match $focusPattern
+
+        if (-not $ownsFocus -and $pidReady -and $null -ne $windowResult -and
+            $windowResult.ExitCode -eq 0 -and -not $windowResult.TimedOut -and
+            $RecoverSystemDialogs -and $panelRecoveries -lt 2 -and
+            $lastFocus -match '^\s*mCurrentFocus=Window\{\S+ u0 NotificationShade\}\s*$') {
+            $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
+            if ($remainingMilliseconds -gt 0) {
+                $sample.systemPanelRecovery = Restore-MonkeySystemPanel -Serial $Serial `
+                    -ExpectedFocus $lastFocus -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
+                $panelRecoveries++
+                $dialogRecoveryFailed = -not $sample.systemPanelRecovery.Passed -and
+                    $sample.systemPanelRecovery.Reason -ne 'Focus changed before recovery; no command was sent.'
+            }
+        }
 
         if (-not $ownsFocus -and $pidReady -and $null -ne $windowResult -and
             $windowResult.ExitCode -eq 0 -and -not $windowResult.TimedOut -and
@@ -413,31 +429,105 @@ function Restore-MonkeyAssistantWindow {
 }
 
 function Restore-MonkeySystemPanel {
-    param([Parameter(Mandatory)][string]$Serial)
+    param(
+        [Parameter(Mandatory)][string]$Serial,
+        [string]$ExpectedFocus = '',
+        [ValidateRange(1, 5000)][int]$TimeoutMilliseconds = 5000
+    )
     if ($Serial -notmatch '^emulator-\d+$') {
         throw 'System-panel recovery is restricted to the selected disposable emulator.'
     }
-    $window = Invoke-Adb -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
-    $focus = @($window.Output | Where-Object { $_ -match 'mCurrentFocus=' }) -join "`n"
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $window = Invoke-Adb -TimeoutMilliseconds $TimeoutMilliseconds -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $focus = @($window.Output | Where-Object { $_ -match 'mCurrentFocus=' } | Select-Object -Last 1) -join ''
     $receipt = [ordered]@{
         Passed = $window.ExitCode -eq 0 -and -not $window.TimedOut
         BeforeFocus = $focus.Trim()
         WindowExitCode = $window.ExitCode
         WindowTimedOut = $window.TimedOut
+        Windows = ''
+        OwnershipVerified = $false
         Collapsed = $false
         CollapseExitCode = $null
         CollapseTimedOut = $null
+        AfterCollapseFocus = ''
+        BackSent = $false
+        BackExitCode = $null
+        BackTimedOut = $null
+        Reason = ''
     }
     # A random swipe can leave SystemUI above an otherwise healthy application.
     # Close only the notification panel, after preserving the stress evidence.
     # App errors, ANR dialogs and the app's own UI are never dismissed here.
-    if ($receipt.Passed -and $focus -match 'mCurrentFocus=Window\{[^}]* u0 NotificationShade\}') {
-        $collapse = Invoke-Adb -Arguments @('-s', $Serial, 'shell', 'cmd', 'statusbar', 'collapse')
-        $receipt.CollapseExitCode = $collapse.ExitCode
-        $receipt.CollapseTimedOut = $collapse.TimedOut
-        $receipt.Collapsed = $collapse.ExitCode -eq 0 -and -not $collapse.TimedOut
-        $receipt.Passed = $receipt.Collapsed
+    if (-not $receipt.Passed) {
+        $receipt.Reason = 'Focused-window read failed.'
+        return [pscustomobject]$receipt
     }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedFocus) -and $focus.Trim() -cne $ExpectedFocus.Trim()) {
+        $receipt.Passed = $false
+        $receipt.Reason = 'Focus changed before recovery; no command was sent.'
+        return [pscustomobject]$receipt
+    }
+    $shade = [regex]::Match($focus, '^\s*mCurrentFocus=Window\{(?<token>\S+) u0 NotificationShade\}\s*$')
+    if (-not $shade.Success) {
+        $receipt.Reason = 'No exact notification shade is focused.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $windows = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'windows')
+    $receipt.Windows = $windows.Output -join "`n"
+    $block = [regex]::Match($receipt.Windows, '(?ms)^\s*Window #\d+ Window\{' +
+        [regex]::Escape($shade.Groups['token'].Value) +
+        ' u0 NotificationShade\}:.*?(?=^\s*Window #\d+ |\z)').Value
+    $receipt.OwnershipVerified = $windows.ExitCode -eq 0 -and -not $windows.TimedOut -and
+        $block -match '(?m)\bpackage=com\.android\.systemui(?:\s|$)'
+    if (-not $receipt.OwnershipVerified) {
+        $receipt.Passed = $false
+        $receipt.Reason = 'Focused notification shade ownership was not verified.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $readback = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $currentFocus = @($readback.Output | Where-Object { $_ -match 'mCurrentFocus=' } | Select-Object -Last 1) -join ''
+    if ($readback.ExitCode -ne 0 -or $readback.TimedOut -or $currentFocus.Trim() -cne $focus.Trim()) {
+        $receipt.Passed = $false
+        $receipt.Reason = 'Focus changed before recovery; no command was sent.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $collapse = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'cmd', 'statusbar', 'collapse')
+    $receipt.CollapseExitCode = $collapse.ExitCode
+    $receipt.CollapseTimedOut = $collapse.TimedOut
+    $receipt.Collapsed = $collapse.ExitCode -eq 0 -and -not $collapse.TimedOut
+    $receipt.Passed = $receipt.Collapsed
+    if (-not $receipt.Collapsed) { $receipt.Reason = 'Notification panel collapse command failed.'; return [pscustomobject]$receipt }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $afterCollapse = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $receipt.AfterCollapseFocus = (@($afterCollapse.Output | Where-Object { $_ -match 'mCurrentFocus=' } | Select-Object -Last 1) -join '').Trim()
+    if ($afterCollapse.ExitCode -ne 0 -or $afterCollapse.TimedOut) {
+        $receipt.Passed = $false
+        $receipt.Reason = 'Focus readback after collapse failed.'
+        return [pscustomobject]$receipt
+    }
+    if ($receipt.AfterCollapseFocus -cne $focus.Trim()) {
+        $receipt.Reason = 'Panel focus changed; app focus still requires stable probes.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    # The same verified SystemUI shade still owns focus. BACK closes only that
+    # guest-owned panel; an app screen or permission prompt never receives it.
+    $back = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
+    $receipt.BackSent = $true
+    $receipt.BackExitCode = $back.ExitCode
+    $receipt.BackTimedOut = $back.TimedOut
+    $receipt.Passed = $back.ExitCode -eq 0 -and -not $back.TimedOut -and
+        $timer.Elapsed.TotalMilliseconds -lt $TimeoutMilliseconds
+    $receipt.Reason = 'App focus still requires independent stable probes after panel recovery.'
     return [pscustomobject]$receipt
 }
 

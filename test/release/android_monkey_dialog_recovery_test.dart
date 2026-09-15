@@ -19,6 +19,7 @@ void main() {
 . ${literal(File('scripts/run_android_monkey_matrix.ps1').absolute.path)}
 \$script:case = ${literal(jsonEncode(scenario))} | ConvertFrom-Json
 \$script:backCount = 0
+\$script:collapseCount = 0
 \$script:focusReadsAfterBack = 0
 \$script:totalFocusReads = 0
 \$script:commands = @()
@@ -32,7 +33,7 @@ function Invoke-Adb {
     \$owner = if (\$script:case.owner) { \$script:case.owner } elseif (\$script:case.voice) { 'com.google.android.googlequicksearchbox' } else { 'com.android.systemui' }
     \$title = if (\$script:case.assistantActivity -or (\$script:case.assistantActivityAfterVoice -and \$script:backCount -gt 0)) {
       'com.google.android.googlequicksearchbox/com.google.android.apps.search.assistant.surfaces.voice.ui.host.activity.defaultactivity.FragmentHostDefaultActivity'
-    } elseif (\$script:case.voice) { 'VoiceInteractionSession' } else { 'SystemUIDialog' }
+    } elseif (\$script:case.voice) { 'VoiceInteractionSession' } elseif (\$script:case.shade) { 'NotificationShade' } else { 'SystemUIDialog' }
     \$output = @("  Window #0 Window{abc u0 \$title}:`n    mOwnerUid=1000 package=\$owner appop=NONE`n  Window #1 Window{other u0 StatusBar}:`n    package=com.android.systemui appop=NONE")
     \$exit = [int]\$script:case.windowExit
     \$timedOut = [bool]\$script:case.windowTimeout
@@ -43,6 +44,8 @@ function Invoke-Adb {
       \$output = @('mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}')
     } elseif (\$script:case.focusChangesDuringRecovery -and \$script:totalFocusReads -gt 1) {
       \$output = @('mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}')
+    } elseif (\$script:case.shade -and \$script:collapseCount -gt 0 -and -not \$script:case.shadeCollapseSticks) {
+      \$output = @('mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}')
     } elseif (\$script:case.assistantActivityAfterVoice -and \$script:backCount -eq 1) {
       \$output = @('mCurrentFocus=Window{abc u0 com.google.android.googlequicksearchbox/com.google.android.apps.search.assistant.surfaces.voice.ui.host.activity.defaultactivity.FragmentHostDefaultActivity}')
     } elseif (\$script:backCount -gt 0 -and -not \$script:case.persistent) {
@@ -52,15 +55,16 @@ function Invoke-Adb {
     else { \$output = @(\$script:case.focus) }
   }
   elseif (\$command -match 'input keyevent KEYCODE_BACK') { \$script:backCount++; \$exit = [int]\$script:case.backExit }
+  elseif (\$command -match 'cmd statusbar collapse') { \$script:collapseCount++; \$exit = [int]\$script:case.collapseExit }
   else { throw "Unexpected command: \$command" }
   [pscustomobject]@{Output=\$output;ExitCode=\$exit;TimedOut=\$timedOut}
 }
 \$serial = if (\$script:case.serial) { \$script:case.serial } else { 'emulator-5554' }
 \$receipt = \$null; \$rejected = \$false
 try {
-  ${probe ? r'$receipt = Wait-ForPackageFocus -Serial $serial -PackageName com.ghostheart5.chronospark -TimeoutSeconds 2 -PollMilliseconds 100 -RecoverSystemDialogs' : r'$receipt = if ($script:case.voice) { Restore-MonkeyAssistantWindow -Serial $serial -ExpectedFocus $script:case.focus } else { Restore-MonkeySystemDialog -Serial $serial -ExpectedFocus $script:case.focus }'}
+  ${probe ? r'$receipt = Wait-ForPackageFocus -Serial $serial -PackageName com.ghostheart5.chronospark -TimeoutSeconds 2 -PollMilliseconds 100 -RecoverSystemDialogs' : r'$receipt = if ($script:case.shade) { Restore-MonkeySystemPanel -Serial $serial -ExpectedFocus $script:case.focus } elseif ($script:case.voice) { Restore-MonkeyAssistantWindow -Serial $serial -ExpectedFocus $script:case.focus } else { Restore-MonkeySystemDialog -Serial $serial -ExpectedFocus $script:case.focus }'}
 } catch { \$rejected = \$true }
-[ordered]@{receipt=\$receipt;rejected=\$rejected;backCount=\$script:backCount;focusReadsAfterBack=\$script:focusReadsAfterBack;commands=\$script:commands} | ConvertTo-Json -Depth 12 -Compress
+[ordered]@{receipt=\$receipt;rejected=\$rejected;backCount=\$script:backCount;collapseCount=\$script:collapseCount;focusReadsAfterBack=\$script:focusReadsAfterBack;commands=\$script:commands} | ConvertTo-Json -Depth 12 -Compress
 ''');
     final result = Process.runSync(
       Platform.isWindows ? 'powershell.exe' : 'pwsh',
@@ -81,6 +85,78 @@ try {
   const voice = 'mCurrentFocus=Window{abc u0 VoiceInteractionSession}';
   const assistantActivity =
       'mCurrentFocus=Window{abc u0 com.google.android.googlequicksearchbox/com.google.android.apps.search.assistant.surfaces.voice.ui.host.activity.defaultactivity.FragmentHostDefaultActivity}';
+  const shade = 'mCurrentFocus=Window{abc u0 NotificationShade}';
+  test('persistent verified shade is canceled before two app-focus samples', () {
+    final data = run({
+      'focus': shade,
+      'shade': true,
+      'shadeCollapseSticks': true,
+    }, probe: true);
+    expect(data['collapseCount'], 1);
+    expect(data['backCount'], 1);
+    final receipt = data['receipt'] as Map<String, dynamic>;
+    expect(receipt['Ready'], isTrue);
+    final samples = (receipt['ProbeSamples'] as List<dynamic>)
+        .cast<Map<String, dynamic>>();
+    expect(samples.last['stableSamples'], 2);
+    expect(samples.last['validFocus'], isTrue);
+  });
+  test('shade collapse that restores app focus sends no BACK', () {
+    final data = run({'focus': shade, 'shade': true}, probe: true);
+    expect(data['collapseCount'], 1);
+    expect(data['backCount'], 0);
+    expect((data['receipt'] as Map<String, dynamic>)['Ready'], isTrue);
+  });
+  test('app-owned NotificationShade lookalike is never collapsed', () {
+    final data = run({
+      'focus': shade,
+      'shade': true,
+      'owner': 'com.ghostheart5.chronospark',
+    }, probe: true);
+    expect(data['collapseCount'], 0);
+    expect(data['backCount'], 0);
+    expect((data['receipt'] as Map<String, dynamic>)['Ready'], isFalse);
+  });
+  test('package-prefix shade lookalike is never collapsed', () {
+    final data = run({
+      'focus': shade,
+      'shade': true,
+      'owner': 'com.android.systemui.fake',
+    }, probe: true);
+    expect(data['collapseCount'], 0);
+    expect(data['backCount'], 0);
+    expect((data['receipt'] as Map<String, dynamic>)['Ready'], isFalse);
+  });
+  test('persisting shade has a bounded recovery limit and cannot pass', () {
+    final data = run({
+      'focus': shade,
+      'shade': true,
+      'shadeCollapseSticks': true,
+      'persistent': true,
+    }, probe: true);
+    expect(data['collapseCount'], 2);
+    expect(data['backCount'], 2);
+    expect((data['receipt'] as Map<String, dynamic>)['Ready'], isFalse);
+  });
+  test('failed shade collapse is reported and never sends BACK', () {
+    final data = run({
+      'focus': shade,
+      'shade': true,
+      'collapseExit': 1,
+    }, probe: true);
+    expect(data['collapseCount'], 1);
+    expect(data['backCount'], 0);
+    expect((data['receipt'] as Map<String, dynamic>)['Ready'], isFalse);
+  });
+  test('shade recovery refuses physical phone before any ADB call', () {
+    final data = run({
+      'focus': shade,
+      'shade': true,
+      'serial': '192.168.1.174:37567',
+    });
+    expect(data['rejected'], isTrue);
+    expect(data['commands'], isEmpty);
+  });
   test('cancels verified Android dialog and records ownership evidence', () {
     final data = run({'focus': dialog});
     expect(data['backCount'], 1);
