@@ -5,14 +5,6 @@ abstract interface class NoteReadHealth {
   bool get lastReadCorrupted;
 }
 
-class NoteReadUnavailable implements Exception {
-  const NoteReadUnavailable();
-
-  @override
-  String toString() =>
-      'Stored notes are partly or wholly unreadable; existing bytes were preserved.';
-}
-
 abstract class INoteRepository {
   Future<List<NoteEntity>> getNotes();
   Future<void> saveNote(NoteEntity note);
