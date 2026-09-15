@@ -428,6 +428,11 @@ jobs:
                             'com.ghostheart5.chronospark/com.ghostheart5.chronospark.MainActivity')
               assert any(activity in launch['focus'] for activity in activities)
               assert any(activity in launch['resumedActivity'] for activity in activities)
+              assert launch['uiReadyMarker'] in {'CONTINUE TO LOGIN', 'START LOGIN',
+                                                 'SKIP FOR NOW', 'TESTER ACCESS',
+                                                 'ENTER SYSTEM', 'NEXUS'}
+              assert launch['uiNodeCount'] > 0 and launch['uiWaitSeconds'] >= 5
+              assert len(launch['uiTreeSha256']) == 64
           PY
 
       - name: Verify optional Monkey evidence

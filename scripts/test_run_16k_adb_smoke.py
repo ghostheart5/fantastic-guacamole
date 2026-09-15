@@ -2,6 +2,7 @@ import unittest
 
 from run_16k_adb_smoke import (
     app_fatals,
+    app_ui_marker,
     focused_window,
     is_chronospark_activity,
     resumed_activity,
@@ -9,6 +10,20 @@ from run_16k_adb_smoke import (
 
 
 class ForegroundAttributionTests(unittest.TestCase):
+    def test_app_owned_ready_marker_excludes_loading_spinner(self):
+        ready = b'<hierarchy><node package="com.ghostheart5.chronospark" content-desc="ENTER SYSTEM"/></hierarchy>'
+        spinner = b'<hierarchy><node package="com.ghostheart5.chronospark" content-desc="Loading"/></hierarchy>'
+        self.assertEqual(app_ui_marker(ready), ("ENTER SYSTEM", 1))
+        self.assertEqual(app_ui_marker(spinner), ("", 1))
+        self.assertEqual(app_ui_marker(b"<hierarchy><node"), ("", 0))
+
+    def test_other_package_and_substring_cannot_supply_ui_readiness(self):
+        xml = b'''<hierarchy>
+          <node package="com.android.launcher" content-desc="NEXUS"/>
+          <node package="com.ghostheart5.chronospark" content-desc="NEXUSLIKE"/>
+        </hierarchy>'''
+        self.assertEqual(app_ui_marker(xml), ("", 1))
+
     def test_input_focus_and_resumed_activity_identify_the_app(self):
         input_dump = """  FocusedApplications:
     displayId=0, name='ActivityRecord{42 u0 com.ghostheart5.chronospark/.MainActivity}'

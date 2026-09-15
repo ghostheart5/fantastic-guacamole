@@ -1,4 +1,4 @@
-"""Bounded, source-bound 16 KiB QA launch probe without an on-device test agent."""
+"""Bounded, source-bound 16 KiB QA probe without a third-party device agent."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 SERIAL = "emulator-5554"
@@ -17,6 +18,14 @@ ACTIVITY = f"{PACKAGE}/.MainActivity"
 EXPECTED_VERSION = "2026083053"
 ROOT = Path("test-results/native-16k-ci")
 APK = Path("build/app/outputs/flutter-apk/app-debug.apk")
+UI_MARKERS = (
+    "CONTINUE TO LOGIN",
+    "START LOGIN",
+    "SKIP FOR NOW",
+    "TESTER ACCESS",
+    "ENTER SYSTEM",
+    "NEXUS",
+)
 
 
 def run(*args: str, timeout: int = 30, binary: bool = False) -> str | bytes:
@@ -80,6 +89,36 @@ def focus() -> tuple[str, str]:
         focused_window(shell("dumpsys", "input", timeout=20)),
         resumed_activity(shell("dumpsys", "activity", "activities", timeout=20)),
     )
+
+
+def app_ui_marker(xml_bytes: bytes) -> tuple[str, int]:
+    """Require a visible app-owned navigation/authentication control."""
+    try:
+        hierarchy = ET.fromstring(xml_bytes)
+    except ET.ParseError:
+        return "", 0
+    app_nodes = [node for node in hierarchy.iter("node") if node.attrib.get("package") == PACKAGE]
+    for node in app_nodes:
+        label = " ".join((node.attrib.get("content-desc", ""), node.attrib.get("text", ""))).upper()
+        for marker in UI_MARKERS:
+            if re.search(rf"(?<!\w){re.escape(marker)}(?!\w)", label):
+                return marker, len(app_nodes)
+    return "", len(app_nodes)
+
+
+def read_ui(number: int) -> bytes:
+    guest_path = f"/sdcard/chronospark-native-16k-ui-{number}.xml"
+    try:
+        shell("uiautomator", "dump", guest_path, timeout=30)
+        data = run("exec-out", "cat", guest_path, timeout=20, binary=True)
+        assert isinstance(data, bytes)
+        return data
+    finally:
+        # This is a disposable guest, and the temporary tree is never uploaded.
+        try:
+            shell("rm", guest_path, timeout=10)
+        except subprocess.CalledProcessError:
+            pass
 
 
 def app_fatals(log: str) -> list[str]:
@@ -153,6 +192,28 @@ def main() -> int:
             assert is_chronospark_activity(current_focus) and is_chronospark_activity(current_resumed) and pid, (
                 f"launch {number}: focus={current_focus}, resumed={current_resumed}, pid={pid}"
             )
+            ui_marker = ""
+            ui_nodes = 0
+            ui_hash = ""
+            ui_start = time.monotonic()
+            for _ in range(8):
+                time.sleep(5)
+                ui_bytes = read_ui(number)
+                ui_marker, ui_nodes = app_ui_marker(ui_bytes)
+                ui_hash = hashlib.sha256(ui_bytes).hexdigest()
+                if ui_marker:
+                    break
+            if not ui_marker:
+                unready = ROOT / f"unready-launch-{number}.png"
+                unready.write_bytes(run("exec-out", "screencap", "-p", timeout=30, binary=True))
+                receipt["unreadyCapture"] = {"number": number, "screenshotSha256": sha256(unready),
+                                             "uiNodeCount": ui_nodes, "uiTreeSha256": ui_hash}
+                raise AssertionError(f"launch {number}: app UI did not become ready in 8 bounded checks; app nodes={ui_nodes}")
+            current_focus, current_resumed = focus()
+            current_pid = shell("pidof", PACKAGE, timeout=10)
+            assert is_chronospark_activity(current_focus) and is_chronospark_activity(current_resumed) and current_pid == pid, (
+                f"launch {number}: app lost foreground or restarted during UI wait"
+            )
             screenshot = ROOT / f"launch-{number}.png"
             screenshot.write_bytes(run("exec-out", "screencap", "-p", timeout=30, binary=True))
             assert screenshot.stat().st_size > 1000
@@ -162,6 +223,10 @@ def main() -> int:
                     "pid": pid,
                     "focus": current_focus,
                     "resumedActivity": current_resumed,
+                    "uiReadyMarker": ui_marker,
+                    "uiNodeCount": ui_nodes,
+                    "uiTreeSha256": ui_hash,
+                    "uiWaitSeconds": round(time.monotonic() - ui_start, 2),
                     "screenshotSha256": sha256(screenshot),
                     "screenshotBytes": screenshot.stat().st_size,
                 }
@@ -174,7 +239,7 @@ def main() -> int:
         assert not fatals, f"app fatal markers: {fatals[:3]}"
         assert len(receipt["launches"]) == 5
         receipt["status"] = "passed"
-    except (AssertionError, KeyError, OSError, subprocess.SubprocessError) as error:
+    except (AssertionError, KeyError, OSError, subprocess.SubprocessError, ET.ParseError) as error:
         receipt["error"] = f"{type(error).__name__}: {error}"
     finally:
         (ROOT / "manifest.json").write_text(
