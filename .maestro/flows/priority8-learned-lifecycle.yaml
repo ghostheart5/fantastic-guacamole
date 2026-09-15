@@ -76,10 +76,10 @@ tags:
     timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "CONFIRM SELECTED"
+      text: "^CREATE TASK$"
     direction: DOWN
     timeout: 10000
-- tapOn: "CONFIRM SELECTED"
+- tapOn: "^CREATE TASK$"
 - extendedWaitUntil:
     visible: "(?s).*Priority 8 journey seed.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 15000
@@ -192,10 +192,10 @@ tags:
     timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "CONFIRM SELECTED"
+      text: "^CREATE TASK$"
     direction: DOWN
     timeout: 10000
-- tapOn: "CONFIRM SELECTED"
+- tapOn: "^CREATE TASK$"
 - scrollUntilVisible:
     element:
       text: "CREATION SAVED"

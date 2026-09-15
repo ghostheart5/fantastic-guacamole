@@ -21,7 +21,7 @@ appId: com.ghostheart5.chronospark
     commands:
       - runFlow:
           when:
-            notVisible: "CONFIRM SELECTED"
+            notVisible: "Review the exact selected change. Nothing has been saved yet."
           commands:
             - swipe:
                 start: "95%, 45%"
@@ -29,4 +29,4 @@ appId: com.ghostheart5.chronospark
                 duration: 500
             - waitForAnimationToEnd:
                 timeout: 3000
-- assertVisible: "CONFIRM SELECTED"
+- assertVisible: "Review the exact selected change. Nothing has been saved yet."

@@ -53,10 +53,10 @@ appId: com.ghostheart5.chronospark
     timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "CONFIRM SELECTED"
+      text: "^CREATE TASK$"
     direction: DOWN
     timeout: 10000
-- tapOn: "CONFIRM SELECTED"
+- tapOn: "^CREATE TASK$"
 - extendedWaitUntil:
     visible: "(?s).*${TASK_TITLE}.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 20000
