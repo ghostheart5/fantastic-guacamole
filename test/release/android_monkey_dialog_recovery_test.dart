@@ -86,21 +86,24 @@ try {
   const assistantActivity =
       'mCurrentFocus=Window{abc u0 com.google.android.googlequicksearchbox/com.google.android.apps.search.assistant.surfaces.voice.ui.host.activity.defaultactivity.FragmentHostDefaultActivity}';
   const shade = 'mCurrentFocus=Window{abc u0 NotificationShade}';
-  test('persistent verified shade is canceled before two app-focus samples', () {
-    final data = run({
-      'focus': shade,
-      'shade': true,
-      'shadeCollapseSticks': true,
-    }, probe: true);
-    expect(data['collapseCount'], 1);
-    expect(data['backCount'], 1);
-    final receipt = data['receipt'] as Map<String, dynamic>;
-    expect(receipt['Ready'], isTrue);
-    final samples = (receipt['ProbeSamples'] as List<dynamic>)
-        .cast<Map<String, dynamic>>();
-    expect(samples.last['stableSamples'], 2);
-    expect(samples.last['validFocus'], isTrue);
-  });
+  test(
+    'persistent verified shade is canceled before two app-focus samples',
+    () {
+      final data = run({
+        'focus': shade,
+        'shade': true,
+        'shadeCollapseSticks': true,
+      }, probe: true);
+      expect(data['collapseCount'], 1);
+      expect(data['backCount'], 1);
+      final receipt = data['receipt'] as Map<String, dynamic>;
+      expect(receipt['Ready'], isTrue);
+      final samples = (receipt['ProbeSamples'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      expect(samples.last['stableSamples'], 2);
+      expect(samples.last['validFocus'], isTrue);
+    },
+  );
   test('shade collapse that restores app focus sends no BACK', () {
     final data = run({'focus': shade, 'shade': true}, probe: true);
     expect(data['collapseCount'], 1);
