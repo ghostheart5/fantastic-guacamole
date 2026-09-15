@@ -23,6 +23,10 @@ on:
         required: false
         type: string
         default: '35'
+      guest_pages:
+        required: false
+        type: string
+        default: '4k'
   push:
     branches: ["main"]
   workflow_dispatch:
@@ -57,6 +61,14 @@ on:
         options:
           - '35'
           - '36'
+      guest_pages:
+        description: Memory page size for the disposable QA guest
+        required: false
+        type: choice
+        default: '4k'
+        options:
+          - '4k'
+          - '16k'
 
 permissions:
   contents: read
@@ -71,6 +83,7 @@ env:
   QA_MONKEY: ${{ inputs.run_monkey && 'true' || 'false' }}
   QA_MONKEY_ONLY: ${{ inputs.monkey_only && 'true' || 'false' }}
   QA_GUEST_API: ${{ inputs.guest_api || '35' }}
+  QA_GUEST_PAGES: ${{ inputs.guest_pages || '4k' }}
 
 jobs:
   runtime:
@@ -84,6 +97,8 @@ jobs:
           [[ "$QA_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
           case "$QA_SUITE" in qa-smoke|qa-journeys) ;; *) exit 1 ;; esac
           case "$QA_GUEST_API" in 35|36) ;; *) exit 1 ;; esac
+          case "$QA_GUEST_PAGES" in 4k|16k) ;; *) exit 1 ;; esac
+          if [ "$QA_GUEST_PAGES" = 16k ]; then test "$QA_GUEST_API" = 35; fi
           if [ "$QA_MONKEY_ONLY" = true ]; then test "$QA_MONKEY" = true; fi
 
       - name: Checkout exact source
@@ -116,6 +131,7 @@ jobs:
               'suite': os.environ['QA_SUITE'],
               'monkeyOnly': os.environ['QA_MONKEY_ONLY'] == 'true',
               'guestApiRequested': os.environ['QA_GUEST_API'],
+              'guestPagesRequested': os.environ['QA_GUEST_PAGES'],
               'boundary': 'QA source and workflow tooling have separate identities; not a signed release build.'
           }, indent=2) + '\n')
           PY
@@ -235,7 +251,11 @@ jobs:
               return subprocess.check_output(adb + ['shell', *args], timeout=20).decode('utf-8').strip()
           assert shell('getprop', 'ro.kernel.qemu') == '1', 'Only an owned hosted emulator is allowed'
           assert shell('am', 'get-current-user') == '0'
-          receipt = {'passed': False, 'samples': [], 'applicationTestsExecuted': 0}
+          page_size = int(shell('getconf', 'PAGE_SIZE'))
+          expected_page_size = 16384 if os.environ['QA_GUEST_PAGES'] == '16k' else 4096
+          assert page_size == expected_page_size, f'Unexpected guest page size: {page_size}'
+          receipt = {'passed': False, 'samples': [], 'applicationTestsExecuted': 0,
+                     'pageSizeBytes': page_size, 'androidApi': shell('getprop', 'ro.build.version.sdk')}
           try:
               # Boot completion precedes first-boot package and launcher work.
               # Observe one bounded settling window; never dismiss or retry ANRs.
@@ -298,7 +318,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: ${{ inputs.guest_api || '35' }}
-          target: google_apis
+          target: ${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}
           arch: x86_64
           profile: pixel_6
           cores: 2

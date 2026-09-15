@@ -708,6 +708,10 @@ void main() {
       isFalse,
     );
     expect(
+      (emulatorStep['with'] as YamlMap)['target'],
+      r"${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}",
+    );
+    expect(
       runtimeScript.trim(),
       'bash test-results/maestro-prewarm/run-suite.sh',
     );
@@ -716,6 +720,8 @@ void main() {
       'Prepare bounded fresh-guest readiness and system diagnostics',
     )['run'].toString();
     expect(preparation, contains('run-suite.sh'));
+    expect(preparation, contains("shell('getconf', 'PAGE_SIZE')"));
+    expect(preparation, contains('pageSizeBytes'));
     expect(preparation, contains('run_maestro_android_evidence.ps1'));
     expect(preparation, contains('-DeviceSerial emulator-5554'));
     expect(preparation, contains(r'-ExpectedCommit "$QA_SOURCE_SHA"'));
