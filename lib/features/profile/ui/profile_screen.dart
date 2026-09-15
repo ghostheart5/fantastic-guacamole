@@ -72,8 +72,14 @@ class _ProfileBody extends ConsumerWidget {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Share sheet unavailable. Invite copied to clipboard.'),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Share sheet unavailable. Invite copied to clipboard.',
+            'No se pudo abrir el menú para compartir. La invitación se copió al portapapeles.',
+          ),
+        ),
       ),
     );
   }

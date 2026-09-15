@@ -562,8 +562,14 @@ Future<void> _importBackupRecoveryKey(
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Recovery key saved. You can now restore your backup.'),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Recovery key saved. You can now restore your backup.',
+            'Clave de recuperación guardada. Ya puedes restaurar tu copia de seguridad.',
+          ),
+        ),
       ),
     );
   } on FormatException {
@@ -571,7 +577,15 @@ Future<void> _importBackupRecoveryKey(
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('That recovery key is not valid.')),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'That recovery key is not valid.',
+            'Esa clave de recuperación no es válida.',
+          ),
+        ),
+      ),
     );
   }
 }

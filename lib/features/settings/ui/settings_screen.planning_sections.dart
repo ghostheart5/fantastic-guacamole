@@ -312,7 +312,15 @@ class _PersonalizationSection extends ConsumerWidget {
     await ref.read(personalizationProfileProvider.notifier).update(next);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Planning preferences updated.')),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Planning preferences updated.',
+            'Preferencias de planificación actualizadas.',
+          ),
+        ),
+      ),
     );
   }
 
@@ -557,23 +565,45 @@ class _LearningLedgerSection extends ConsumerWidget {
                   style: const TextStyle(color: Colors.white60, fontSize: 12),
                 ),
                 trailing: PopupMenuButton<String>(
-                  tooltip: 'Correct or remove this observation',
+                  tooltip: journeyText(
+                    context,
+                    'Correct or remove this observation',
+                    'Corregir o eliminar esta observación',
+                  ),
                   onSelected: (String value) => unawaited(
                     _applyLearningLedgerAction(context, ref, outcome, value),
                   ),
                   itemBuilder: (BuildContext context) =>
-                      const <PopupMenuEntry<String>>[
+                      <PopupMenuEntry<String>>[
                         PopupMenuItem<String>(
                           value: 'helped',
-                          child: Text('Correct: it helped'),
+                          child: Text(
+                            journeyText(
+                              context,
+                              'Correct: it helped',
+                              'Corregir: sí ayudó',
+                            ),
+                          ),
                         ),
                         PopupMenuItem<String>(
                           value: 'not_helpful',
-                          child: Text('Correct: not helpful'),
+                          child: Text(
+                            journeyText(
+                              context,
+                              'Correct: not helpful',
+                              'Corregir: no ayudó',
+                            ),
+                          ),
                         ),
                         PopupMenuItem<String>(
                           value: 'remove',
-                          child: Text('Undo / remove'),
+                          child: Text(
+                            journeyText(
+                              context,
+                              'Undo / remove',
+                              'Deshacer / eliminar',
+                            ),
+                          ),
                         ),
                       ],
                 ),

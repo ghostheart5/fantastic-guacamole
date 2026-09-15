@@ -261,7 +261,15 @@ class _TrajectoryEngineScreenState
         break;
       case NexusActionDestination.unsupported:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('This action is not available.')),
+          SnackBar(
+            content: Text(
+              journeyText(
+                context,
+                'This action is not available.',
+                'Esta acción no está disponible.',
+              ),
+            ),
+          ),
         );
     }
   }

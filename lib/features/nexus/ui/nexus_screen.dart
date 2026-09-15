@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
@@ -330,13 +331,25 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
           ref.read(authSessionBoundaryProvider).generation != generation) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Task updated.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            journeyText(context, 'Task updated.', 'Tarea actualizada.'),
+          ),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Task could not be updated. Try again.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Task could not be updated. Try again.',
+              'No se pudo actualizar la tarea. Inténtalo de nuevo.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -375,8 +388,14 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         .read(personContextDecisionIgnoredSignalsProvider.notifier)
         .ignoreForNow(decision.personContextAppliedSignalIds);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('This Person Context is ignored for the current use.'),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'This Person Context is ignored for the current use.',
+            'Este Contexto Personal se omite en el uso actual.',
+          ),
+        ),
         behavior: SnackBarBehavior.floating,
       ),
     );

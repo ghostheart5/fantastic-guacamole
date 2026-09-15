@@ -1289,18 +1289,19 @@ class SettingsScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     try {
       final DiagnosticsContext diagnostics =
           await DiagnosticsContextService.collect();
-      final String body = _buildSupportEmailBody(diagnostics);
+      final String body = _buildSupportEmailBody(isSpanish, diagnostics);
+      final String subject = isSpanish
+          ? 'Solicitud de ayuda de ChronoSpark'
+          : 'ChronoSpark support request';
 
       final Uri mail = Uri(
         scheme: 'mailto',
         path: Env.supportEmail,
-        queryParameters: <String, String>{
-          'subject': 'ChronoSpark support request',
-          'body': body,
-        },
+        queryParameters: <String, String>{'subject': subject, 'body': body},
       );
 
       final bool opened = await ref.read(externalUrlServiceProvider).open(mail);
@@ -1309,17 +1310,20 @@ class SettingsScreen extends ConsumerWidget {
       }
       await Clipboard.setData(
         ClipboardData(
-          text:
-              'To: ${Env.supportEmail}\nSubject: ChronoSpark support request\n\n$body',
+          text: 'To: ${Env.supportEmail}\nSubject: $subject\n\n$body',
         ),
       );
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'No email app found. Support email template copied to clipboard.',
+            journeyText(
+              context,
+              'No email app found. Support email template copied to clipboard.',
+              'No se encontró una aplicación de correo. La plantilla de ayuda se copió al portapapeles.',
+            ),
           ),
         ),
       );
@@ -1328,8 +1332,14 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to gather diagnostics for support.'),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Failed to gather diagnostics for support.',
+              'No se pudieron recopilar los datos de diagnóstico para solicitar ayuda.',
+            ),
+          ),
         ),
       );
     }
@@ -1345,16 +1355,28 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Diagnostics copied to clipboard.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Diagnostics copied to clipboard.',
+              'Datos de diagnóstico copiados al portapapeles.',
+            ),
+          ),
+        ),
       );
     } catch (_) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Could not copy diagnostics. Try Contact Support instead.',
+            journeyText(
+              context,
+              'Could not copy diagnostics. Try Contact Support instead.',
+              'No se pudieron copiar los datos de diagnóstico. Prueba la opción Contactar con ayuda.',
+            ),
           ),
         ),
       );
@@ -1362,19 +1384,29 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _copySupportEmailTemplate(BuildContext context) async {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     try {
       final DiagnosticsContext diagnostics =
           await DiagnosticsContextService.collect();
-      final String body = _buildSupportEmailBody(diagnostics);
+      final String body = _buildSupportEmailBody(isSpanish, diagnostics);
+      final String subject = isSpanish
+          ? 'Solicitud de ayuda de ChronoSpark'
+          : 'ChronoSpark support request';
       final String payload =
-          'To: ${Env.supportEmail}\nSubject: ChronoSpark support request\n\n$body';
+          'To: ${Env.supportEmail}\nSubject: $subject\n\n$body';
       await Clipboard.setData(ClipboardData(text: payload));
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Support email template copied to clipboard.'),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Support email template copied to clipboard.',
+              'Plantilla de ayuda copiada al portapapeles.',
+            ),
+          ),
         ),
       );
     } catch (_) {
@@ -1382,17 +1414,27 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not copy support email template.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Could not copy support email template.',
+              'No se pudo copiar la plantilla de ayuda.',
+            ),
+          ),
+        ),
       );
     }
   }
 
-  String _buildSupportEmailBody(DiagnosticsContext diagnostics) {
-    return 'Issue summary:\n'
-        '- What happened:\n'
-        '- What I expected:\n'
-        '- Steps to reproduce:\n\n'
-        '${_buildDiagnosticsPayload(diagnostics)}';
+  String _buildSupportEmailBody(
+    bool isSpanish,
+    DiagnosticsContext diagnostics,
+  ) {
+    return (isSpanish
+            ? 'Resumen del problema:\n- Qué sucedió:\n- Qué esperaba:\n- Pasos para reproducirlo:\n\n'
+            : 'Issue summary:\n- What happened:\n- What I expected:\n- Steps to reproduce:\n\n') +
+        _buildDiagnosticsPayload(diagnostics);
   }
 
   String _buildDiagnosticsPayload(DiagnosticsContext diagnostics) {

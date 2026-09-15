@@ -623,7 +623,13 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
                         ),
                       ),
                 icon: const Icon(Icons.alt_route_rounded),
-                label: Text('Compare ${widget.horizonDays}-day path'),
+                label: Text(
+                  journeyText(
+                    context,
+                    'Compare ${widget.horizonDays}-day path',
+                    'Comparar trayectoria de ${widget.horizonDays} días',
+                  ),
+                ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, AppSizes.touchTarget),
                   shape: RoundedRectangleBorder(

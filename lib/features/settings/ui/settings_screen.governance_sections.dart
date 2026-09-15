@@ -16,9 +16,17 @@ class _MemoryGovernanceSection extends ConsumerWidget {
       ClipboardData(text: const JsonEncoder.withIndent('  ').convert(export)),
     );
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Memory receipts copied.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Memory receipts copied.',
+            'Comprobantes de memoria copiados.',
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _correct(
@@ -622,14 +630,30 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
       }
       context.go(ref.read(routeSurfaceProvider).nexus);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Adaptive guide restarted.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Adaptive guide restarted.',
+              'Guía adaptativa reiniciada.',
+            ),
+          ),
+        ),
       );
     } catch (_) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Adaptive guide could not restart.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Adaptive guide could not restart.',
+              'No se pudo reiniciar la guía adaptativa.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -642,7 +666,15 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('First setup could not restart.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'First setup could not restart.',
+              'No se pudo reiniciar la configuración inicial.',
+            ),
+          ),
+        ),
       );
     }
   }
