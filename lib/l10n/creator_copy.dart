@@ -57,6 +57,8 @@ class CreatorCopy {
   String get undo => isSpanish ? 'Deshacer creación' : 'Undo creation';
   String get openTimeline =>
       isSpanish ? 'Abrir Línea de Tiempo' : 'Open Timeline';
+  String get browseSavedTasks =>
+      isSpanish ? 'Ver tareas guardadas' : 'Browse saved tasks';
   String get newItem => isSpanish ? 'Nuevo elemento' : 'New item';
   String get create => isSpanish ? 'CREAR' : 'CREATE';
   String get titleHint => isSpanish ? 'Título *' : 'Title *';

@@ -174,6 +174,7 @@ void main() {
     expect(repository.saveCalls, 1);
     expect(repository.tasks.values.single.title, 'Twenty minute Planner task');
     expect(find.text('CREACIÓN GUARDADA'), findsOneWidget);
+    expect(find.text('Ver tareas guardadas'), findsOneWidget);
     expect(
       find.text('Se guardó una sola vez a partir de tu confirmación.'),
       findsOneWidget,
@@ -290,6 +291,20 @@ void main() {
     expect(find.textContaining('Result version:'), findsNothing);
     expect(find.textContaining('Saved exactly once'), findsOneWidget);
     expect(find.text('Undo creation'), findsOneWidget);
+    // This task has no date: the result must open the account Library, where
+    // the actual saved record appears, rather than an empty Timeline window.
+    expect(find.text('Browse saved tasks'), findsOneWidget);
+    final Finder savedResult = find.byKey(
+      const Key('creator-open-saved-result'),
+    );
+    await tester.ensureVisible(savedResult);
+    await tester.tap(savedResult);
+    await tester.pumpAndSettle();
+    expect(find.text('Library'), findsOneWidget);
+    expect(find.text('Ship one verified change'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     final Finder undo = find.byKey(const Key('creator-undo-confirmed'));
     await tester.ensureVisible(undo);
@@ -299,6 +314,24 @@ void main() {
 
     expect(repository.deleteCalls, 1);
     expect(find.text('CREATION UNDONE'), findsOneWidget);
+    container.read(creatorHandshakeProvider.notifier).clearResult();
+    await container
+        .read(creatorHandshakeProvider.notifier)
+        .stage(
+          data: CreatorFormData(
+            title: 'Dated next move',
+            type: 'Task',
+            priority: 3,
+            scheduledFor: DateTime.utc(2026, 8, 21, 9),
+          ),
+        );
+    await tester.pump();
+    await tester.ensureVisible(confirm);
+    await tester.tap(confirm);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Open Timeline'), findsOneWidget);
+    expect(find.text('Browse saved tasks'), findsNothing);
     container
         .read(creatorDraftPreviewProvider.notifier)
         .stage(
@@ -316,7 +349,7 @@ void main() {
     expect(find.text('PLANNER DRAFT PREVIEW'), findsOneWidget);
     expect(find.byKey(const Key('creator-handshake-result')), findsNothing);
     expect(find.text('Undo creation'), findsNothing);
-    expect(repository.saveCalls, 1);
+    expect(repository.saveCalls, 2);
   });
 
   testWidgets('operation can be deselected and confirmation becomes disabled', (

@@ -179,6 +179,11 @@ class CreatorScreen extends ConsumerWidget {
                         : null,
                     onTimeline: () =>
                         goToAppView(context, ref, AppView.timeline),
+                    onBrowseTasks: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const RecordLibraryScreen(),
+                      ),
+                    ),
                     onNewItem: () => ref
                         .read(creatorHandshakeProvider.notifier)
                         .clearResult(),
@@ -673,12 +678,14 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
     required this.state,
     required this.onUndo,
     required this.onTimeline,
+    required this.onBrowseTasks,
     required this.onNewItem,
   });
 
   final CreatorHandshakeState state;
   final Future<void> Function()? onUndo;
   final VoidCallback onTimeline;
+  final VoidCallback onBrowseTasks;
   final VoidCallback onNewItem;
 
   @override
@@ -686,6 +693,16 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
     final copy = ChronoSparkLocalizations.of(context).creator;
     final CreatorHandshakeReceipt receipt = state.receipt!;
     final bool undone = state.phase == CreatorHandshakePhase.undone;
+    // An undated task belongs in the Library; Timeline projects tasks only
+    // when they have a scheduled time or deadline.
+    final bool onlyUndatedTasks =
+        state.preview?.selectedOperations.isNotEmpty == true &&
+        state.preview!.selectedOperations.every(
+          (CreatorMutationOperation operation) =>
+              operation.taskMutation != null &&
+              operation.taskMutation!.scheduledFor == null &&
+              operation.taskMutation!.dueDate == null,
+        );
     final Color accent = undone ? AppColors.memoryAmber : AppColors.neonCyan;
     return TemporalGlassSurface(
       key: const Key('creator-handshake-result'),
@@ -742,9 +759,19 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
                 SizedBox(
                   height: 48,
                   child: FilledButton.icon(
-                    onPressed: onTimeline,
-                    icon: const Icon(Icons.timeline_rounded, size: 18),
-                    label: Text(copy.openTimeline),
+                    key: const Key('creator-open-saved-result'),
+                    onPressed: onlyUndatedTasks ? onBrowseTasks : onTimeline,
+                    icon: Icon(
+                      onlyUndatedTasks
+                          ? Icons.library_books_outlined
+                          : Icons.timeline_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      onlyUndatedTasks
+                          ? copy.browseSavedTasks
+                          : copy.openTimeline,
+                    ),
                   ),
                 ),
               SizedBox(
