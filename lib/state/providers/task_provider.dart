@@ -799,22 +799,7 @@ final class _TaskAccountOperation {
 }
 
 Task _taskFromEntity(TaskEntity task) {
-  return Task(
-    id: task.id,
-    title: task.title,
-    priority: task.priority,
-    difficulty: task.difficulty,
-    energyRequired: task.energyRequired,
-    scheduledFor: task.scheduledFor,
-    dueDate: task.dueDate,
-    estimatedDuration: task.estimatedDuration ?? const Duration(minutes: 30),
-    isCompleted: task.isCompleted,
-    isCanceled: task.isCanceled,
-    completedAt: task.completedAt,
-    goalId: task.goalId,
-    subtasks: task.subtasks,
-    recurrenceRule: task.recurrenceRule,
-  );
+  return Task.fromEntity(task);
 }
 
 String _appendNeuralDumpEntry(Map<String, dynamic> payload) {

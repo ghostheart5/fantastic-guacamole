@@ -124,6 +124,31 @@ void main() {
     expect(tasks.single.title, 'Launch prep');
   });
 
+  test('Nexus task projection retains a saved description for editing', () async {
+    final _MemoryTaskRepository repository = _MemoryTaskRepository();
+    final TaskEntity saved = TaskEntity(
+      id: 'grocery-list',
+      title: 'Plan the household grocery list',
+      description:
+          'Check the pantry, compare the weekly food budget, and write a list before shopping.',
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      priority: 3,
+      difficulty: 3,
+      energyRequired: 3,
+      estimatedDuration: const Duration(minutes: 30),
+    );
+    await repository.saveTask(saved);
+    final ProviderContainer container = _buildTaskContainer(repository);
+    addTearDown(container.dispose);
+
+    final List<Task> active = await container.read(allTasksProvider.future);
+    final List<Task> ranked = await container.read(tasksProvider.future);
+    expect(active, hasLength(1));
+    expect(ranked, hasLength(1));
+    expect(active.single.description, saved.description);
+    expect(ranked.single.description, saved.description);
+  });
+
   test('complete task removes task from ranked incomplete list', () async {
     final _MemoryTaskRepository repository = _MemoryTaskRepository();
     final TaskEntity seed = TaskEntity(
