@@ -75,3 +75,114 @@ final class _SmartPlannerConsentCopy {
       ? 'No se pudo guardar la preferencia. No se creó memoria duradera. Inténtalo de nuevo.'
       : 'The preference could not be saved. No durable memory was created. Retry.';
 }
+
+extension _PlannerExplanationQuoteConsent on _SmartPlannerScreenState {
+  Future<bool> _confirmPlannerExplanationQuote(
+    PlannerExplanationQuote quote,
+  ) async {
+    final bool? approved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text(
+          journeyText(
+            context,
+            'External AI explanation',
+            'Explicación de IA externa',
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                journeyText(
+                  context,
+                  'Your deterministic Planner V2 result remains the authority. This optional service can explain the visible plan but cannot change, save, schedule, or create anything.',
+                  'El resultado determinista del Planificador V2 sigue siendo la referencia. Este servicio opcional puede explicar el plan visible, pero no puede cambiar, guardar, programar ni crear nada.',
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                journeyText(
+                  context,
+                  'Provider: ${quote.provider}',
+                  'Proveedor: ${quote.provider}',
+                ),
+              ),
+              Text(
+                journeyText(
+                  context,
+                  'Model: ${quote.modelLabel}',
+                  'Modelo: ${quote.modelLabel}',
+                ),
+              ),
+              Text(
+                journeyText(
+                  context,
+                  'Expected cost: ${quote.expectedCredits} AI credits',
+                  'Costo previsto: ${quote.expectedCredits} créditos de IA',
+                ),
+              ),
+              Text(
+                journeyText(
+                  context,
+                  'First-party replay window: ${quote.replayWindowSeconds} seconds',
+                  'Tiempo para repetir desde ChronoSpark: ${quote.replayWindowSeconds} segundos',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                journeyText(
+                  context,
+                  'Data sent after confirmation:',
+                  'Datos enviados después de confirmar:',
+                ),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              ...quote.transmittedDataCategories.map(
+                (String category) => Text('• $category'),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                journeyText(
+                  context,
+                  'The quote used this minimized packet only with ChronoSpark\'s first-party function. Nothing has been sent to Anthropic yet.',
+                  'La cotización usó este paquete mínimo solo con la función propia de ChronoSpark. Aún no se ha enviado nada a Anthropic.',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                journeyText(
+                  context,
+                  'ChronoSpark keeps response content only for the short replay window, then retains billing metadata. This quote is available only after the first-party service reports the provider-retention and qualified safety-review gates approved. Independent release evidence is still required before this feature can be enabled.',
+                  'ChronoSpark conserva la respuesta solo durante el breve periodo para repetirla y luego mantiene los datos de facturación. Esta cotización aparece solo cuando el servicio propio confirma la retención del proveedor y la revisión de seguridad aprobada. Antes de habilitar la función aún se necesita evidencia independiente del lanzamiento.',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('planner-explanation-cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(journeyText(context, 'Cancel', 'Cancelar')),
+          ),
+          FilledButton(
+            key: const Key('planner-explanation-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              journeyText(
+                context,
+                'Send and spend ${quote.expectedCredits}',
+                'Enviar y gastar ${quote.expectedCredits}',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return approved ?? false;
+  }
+}

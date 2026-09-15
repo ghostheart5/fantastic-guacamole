@@ -96,13 +96,23 @@ class _ProfileBody extends ConsumerWidget {
           if (readStatus == ProfileReadStatus.loading)
             const Center(child: CircularProgressIndicator())
           else ...[
-            const Text(
-              'Your saved profile could not be loaded. Your stored progress has been preserved. Edits are paused until it can be read.',
+            Text(
+              journeyText(
+                context,
+                'Your saved profile could not be loaded. Your stored progress has been preserved. Edits are paused until it can be read.',
+                'No se pudo cargar tu perfil guardado. Tu progreso se conserva. Las modificaciones quedan en pausa hasta que pueda leerse.',
+              ),
             ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () => ref.read(profileProvider.notifier).retryLoad(),
-              child: const Text('Retry loading profile'),
+              child: Text(
+                journeyText(
+                  context,
+                  'Retry loading profile',
+                  'Reintentar carga del perfil',
+                ),
+              ),
             ),
           ],
         ],
@@ -873,7 +883,13 @@ class _NameEditorState extends State<_NameEditor> {
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Update Identity'),
+                  : Text(
+                      journeyText(
+                        context,
+                        'Update Identity',
+                        'Actualizar identidad',
+                      ),
+                    ),
             ),
           ),
         ],

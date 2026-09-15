@@ -15,6 +15,7 @@ import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/home/ui/first_use_context_offer_card.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_input_consent.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
@@ -1188,65 +1189,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     } on Object {
       return false;
     }
-  }
-
-  Future<bool> _confirmPlannerExplanationQuote(
-    PlannerExplanationQuote quote,
-  ) async {
-    final bool? approved = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('External AI explanation'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                'Your deterministic Planner V2 result remains the authority. This optional service can explain the visible plan but cannot change, save, schedule, or create anything.',
-              ),
-              const SizedBox(height: 14),
-              Text('Provider: ${quote.provider}'),
-              Text('Model: ${quote.modelLabel}'),
-              Text('Expected cost: ${quote.expectedCredits} AI credits'),
-              Text(
-                'First-party replay window: ${quote.replayWindowSeconds} seconds',
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Data sent after confirmation:',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              ...quote.transmittedDataCategories.map(
-                (String category) => Text('• $category'),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'The quote used this minimized packet only with ChronoSpark\'s first-party function. Nothing has been sent to Anthropic yet.',
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'ChronoSpark keeps response content only for the short replay window, then retains billing metadata. This quote is available only after the first-party service reports the provider-retention and qualified safety-review gates approved. Independent release evidence is still required before this feature can be enabled.',
-              ),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            key: const Key('planner-explanation-cancel'),
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('planner-explanation-confirm'),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Send and spend ${quote.expectedCredits}'),
-          ),
-        ],
-      ),
-    );
-    return approved ?? false;
   }
 
   List<Map<String, String>> _conversationHistory() {

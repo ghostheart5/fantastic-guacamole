@@ -21,6 +21,7 @@ import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt
 import 'package:fantastic_guacamole/features/permissions/voice_consent_reset_button.dart';
 import 'package:fantastic_guacamole/features/settings/widgets/internal_credit_test_panel.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -782,7 +783,15 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not log out. Please try again.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Could not log out. Please try again.',
+              'No se pudo cerrar sesión. Inténtalo de nuevo.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -794,20 +803,30 @@ class SettingsScreen extends ConsumerWidget {
           context: context,
           builder: (BuildContext dialogContext) {
             return AlertDialog(
-              title: const Text('Clear tester data?'),
-              content: const Text(
-                'This permanently removes local tasks, goals, memories, '
-                'timeline history, profile progress, recovery data, logs, '
-                'SI state, and tester settings on this device.',
+              title: Text(
+                journeyText(
+                  context,
+                  'Clear tester data?',
+                  '¿Borrar datos de prueba?',
+                ),
+              ),
+              content: Text(
+                journeyText(
+                  context,
+                  'This permanently removes local tasks, goals, memories, timeline history, profile progress, recovery data, logs, SI state, and tester settings on this device.',
+                  'Esto elimina permanentemente las tareas, metas, recuerdos, historial de Línea de Tiempo, progreso del perfil, datos de recuperación, registros, estado SI y ajustes de prueba locales de este dispositivo.',
+                ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Cancel'),
+                  child: Text(journeyText(context, 'Cancel', 'Cancelar')),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Clear Data'),
+                  child: Text(
+                    journeyText(context, 'Clear Data', 'Borrar datos'),
+                  ),
                 ),
               ],
             );
@@ -819,7 +838,15 @@ class SettingsScreen extends ConsumerWidget {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Purging local tester runtime data...')),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Purging local tester runtime data...',
+            'Borrando datos locales de prueba...',
+          ),
+        ),
+      ),
     );
 
     try {

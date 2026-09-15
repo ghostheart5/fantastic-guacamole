@@ -596,13 +596,19 @@ class _LearningLedgerSection extends ConsumerWidget {
                           await Clipboard.setData(ClipboardData(text: export));
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Learning ledger copied as JSON.'),
+                            SnackBar(
+                              content: Text(
+                                journeyText(
+                                  context,
+                                  'Learning ledger copied as JSON.',
+                                  'Registro de aprendizaje copiado como JSON.',
+                                ),
+                              ),
                             ),
                           );
                         },
                   icon: const Icon(Icons.download_outlined),
-                  label: const Text('Export'),
+                  label: Text(journeyText(context, 'Export', 'Exportar')),
                 ),
                 OutlinedButton.icon(
                   onPressed: outcomes.isEmpty
@@ -611,7 +617,9 @@ class _LearningLedgerSection extends ConsumerWidget {
                           _confirmClearLearningLedger(context, ref),
                         ),
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Delete all'),
+                  label: Text(
+                    journeyText(context, 'Delete all', 'Eliminar todo'),
+                  ),
                 ),
               ],
             ),
@@ -672,8 +680,16 @@ Future<void> _applyLearningLedgerAction(
     SnackBar(
       content: Text(
         action == 'remove'
-            ? 'Observation removed and its learning undone.'
-            : 'Observation corrected. The learned preference was updated.',
+            ? journeyText(
+                context,
+                'Observation removed and its learning undone.',
+                'Observación eliminada y su aprendizaje revertido.',
+              )
+            : journeyText(
+                context,
+                'Observation corrected. The learned preference was updated.',
+                'Observación corregida. Se actualizó la preferencia aprendida.',
+              ),
       ),
     ),
   );
@@ -687,19 +703,31 @@ Future<void> _confirmClearLearningLedger(
       await showDialog<bool>(
         context: context,
         builder: (BuildContext dialogContext) => AlertDialog(
-          title: const Text('Delete all learning observations?'),
-          content: const Text(
-            'This permanently removes the decision-outcome ledger and reverses the preference learning created from it. Tasks, goals, Person Context, and user-authored facts are not changed.',
+          title: Text(
+            journeyText(
+              context,
+              'Delete all learning observations?',
+              '¿Eliminar todas las observaciones de aprendizaje?',
+            ),
+          ),
+          content: Text(
+            journeyText(
+              context,
+              'This permanently removes the decision-outcome ledger and reverses the preference learning created from it. Tasks, goals, Person Context, and user-authored facts are not changed.',
+              'Esto elimina permanentemente el registro de resultados de decisiones y revierte las preferencias aprendidas. Las tareas, metas, el Contexto Personal y los datos escritos por ti no cambian.',
+            ),
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(journeyText(context, 'Cancel', 'Cancelar')),
             ),
             FilledButton(
               key: const Key('confirm-delete-learning-ledger'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Delete ledger'),
+              child: Text(
+                journeyText(context, 'Delete ledger', 'Eliminar registro'),
+              ),
             ),
           ],
         ),
@@ -708,7 +736,15 @@ Future<void> _confirmClearLearningLedger(
   if (!confirmed) return;
   await ref.read(decisionOutcomeActionsProvider).clear();
   if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const SnackBar(content: Text('Learning ledger deleted.')));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        journeyText(
+          context,
+          'Learning ledger deleted.',
+          'Registro de aprendizaje eliminado.',
+        ),
+      ),
+    ),
+  );
 }

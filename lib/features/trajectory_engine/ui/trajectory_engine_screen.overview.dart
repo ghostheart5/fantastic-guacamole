@@ -558,21 +558,21 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
           ),
           const SizedBox(height: 10),
           SegmentedButton<TrajectoryCustomAdjustment>(
-            segments: const <ButtonSegment<TrajectoryCustomAdjustment>>[
+            segments: <ButtonSegment<TrajectoryCustomAdjustment>>[
               ButtonSegment<TrajectoryCustomAdjustment>(
                 value: TrajectoryCustomAdjustment.complete,
-                label: Text('Complete'),
-                icon: Icon(Icons.check_rounded),
+                label: Text(journeyText(context, 'Complete', 'Completar')),
+                icon: const Icon(Icons.check_rounded),
               ),
               ButtonSegment<TrajectoryCustomAdjustment>(
                 value: TrajectoryCustomAdjustment.delay,
-                label: Text('Delay'),
-                icon: Icon(Icons.schedule_rounded),
+                label: Text(journeyText(context, 'Delay', 'Aplazar')),
+                icon: const Icon(Icons.schedule_rounded),
               ),
               ButtonSegment<TrajectoryCustomAdjustment>(
                 value: TrajectoryCustomAdjustment.reduceScope,
-                label: Text('Remove'),
-                icon: Icon(Icons.remove_circle_outline_rounded),
+                label: Text(journeyText(context, 'Remove', 'Quitar')),
+                icon: const Icon(Icons.remove_circle_outline_rounded),
               ),
             ],
             selected: <TrajectoryCustomAdjustment>{_adjustment},
@@ -639,7 +639,13 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text('Clear my scenario'),
+                child: Text(
+                  journeyText(
+                    context,
+                    'Clear my scenario',
+                    'Borrar mi escenario',
+                  ),
+                ),
               ),
             ],
           ),
