@@ -99,7 +99,10 @@ def validate_internal_policy(policy):
     for key, expected in POLICY_FIXED.items():
         require(type(policy[key]) is type(expected) and policy[key] == expected,
                 "Internal policy violates stage, safety, memory, or containment requirements")
-    raw = policy[COHORT_KEY]
+    return {**policy, COHORT_KEY: validate_private_cohort(policy[COHORT_KEY])}
+
+
+def validate_private_cohort(raw):
     require(type(raw) is str and bool(raw), "Verified internal account cohort is required")
     digests = raw.split(",")
     excluded = {hashlib.sha256(value.encode()).hexdigest()
@@ -108,34 +111,53 @@ def validate_internal_policy(policy):
             "Internal account cohort must contain 1-100 unique digests")
     require(all(re.fullmatch(r"[a-f0-9]{64}", value) and value not in excluded
                 for value in digests), "Internal account cohort contains an invalid or unsafe digest")
-    return {**policy, COHORT_KEY: ",".join(sorted(digests))}
+    return ",".join(sorted(digests))
 
 
-def assemble_candidate_defines(settings, policy_text, verified_cohort, billing_test=False):
+def merge_assistant_internal_cohort(testers, reviewer):
+    tester_cohort = validate_private_cohort(testers)
+    require(type(reviewer) is str and re.fullmatch(r"[a-f0-9]{64}", reviewer),
+            "Verified reviewer digest is required")
+    require(reviewer not in tester_cohort.split(","),
+            "Reviewer must be separate from billing-test accounts")
+    return validate_private_cohort(tester_cohort + "," + reviewer)
+
+
+def assemble_candidate_defines(settings, policy_text, verified_cohort, billing_test=False,
+                               billing_verified_cohort=None):
     require(type(billing_test) is bool, "Billing profile must be explicitly true or false")
     policy = strict_json(policy_text)
     require(type(policy) is dict and policy.get(COHORT_KEY) == "",
             "Reviewed policy must use the private verified cohort input")
     policy[COHORT_KEY] = verified_cohort
     policy = validate_internal_policy(policy)
+    billing_cohort = validate_private_cohort(billing_verified_cohort) if billing_test else ""
+    if billing_test:
+        require(set(billing_cohort.split(",")).issubset(set(policy[COHORT_KEY].split(","))),
+                "Billing-test accounts must be inside the assistant cohort")
     for name in SETTINGS:
         require(type(settings.get(name)) is str and bool(settings[name].strip()),
                 f"Missing setting: {name}")
     return {**FLAGS, **{name: settings[name] for name in SETTINGS},
             "CHRONOSPARK_INTERNAL_BILLING_TEST": "true" if billing_test else "false",
-            "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": policy[COHORT_KEY] if billing_test else "",
+            "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": billing_cohort,
             "CHRONOSPARK_REMOTE_CONFIG_JSON": json.dumps(policy, sort_keys=True, separators=(",", ":"))}
 
 
-def validate_candidate_defines(defines, expected_policy_sha256, billing_test=False):
+def validate_candidate_defines(defines, expected_policy_sha256, billing_test=False,
+                               billing_verified_cohort=None):
     require(type(billing_test) is bool, "Billing profile must be explicitly true or false")
     require(type(defines) is dict and set(defines) ==
             set(FLAGS) | set(SETTINGS) | {"CHRONOSPARK_REMOTE_CONFIG_JSON"},
             "Final candidate defines contain missing or unknown settings")
     policy = validate_internal_policy(strict_json(defines["CHRONOSPARK_REMOTE_CONFIG_JSON"]))
+    billing_cohort = validate_private_cohort(billing_verified_cohort) if billing_test else ""
+    if billing_test:
+        require(set(billing_cohort.split(",")).issubset(set(policy[COHORT_KEY].split(","))),
+                "Billing-test accounts must be inside the assistant cohort")
     expected_flags = {**FLAGS,
         "CHRONOSPARK_INTERNAL_BILLING_TEST": "true" if billing_test else "false",
-        "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": policy[COHORT_KEY] if billing_test else ""}
+        "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": billing_cohort}
     require(all(type(defines[key]) is str and defines[key] == value
                 for key, value in expected_flags.items()), "Final candidate flags violate production containment")
     require(all(type(defines[key]) is str and bool(defines[key].strip()) for key in SETTINGS),
@@ -148,6 +170,7 @@ def validate_candidate_defines(defines, expected_policy_sha256, billing_test=Fal
             expected_policy_sha256 == digest, "Reviewed effective policy digest mismatch")
     return {"sha256": digest, "stage": "internal",
             "cohortCount": len(policy[COHORT_KEY].split(",")),
+            "billingCohortCount": len(billing_cohort.split(",")) if billing_test else 0,
             "enabledLocalCapabilities": ["smartPlannerV2", "siConsoleV2", "governedMemory", "safetyCritic"],
             "rolledBackCapabilities": ["plannerExplanation"],
             "consentRequired": True, "runtimeFlagsEnabled": False,
@@ -316,12 +339,17 @@ def build(root, bundletool):
     require(not any(p.exists() for p in (key, props, defines)), "Temporary signing path already exists")
     os.umask(0o077)
     try:
+        tester_cohort = os.environ.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS", "")
+        assistant_cohort = merge_assistant_internal_cohort(
+            tester_cohort, os.environ.get("CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST", ""))
         assembled = assemble_candidate_defines(os.environ, (root / POLICY_PATH).read_text(encoding="utf-8"),
-                                              os.environ.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS", ""), billing_test)
+                                              assistant_cohort, billing_test,
+                                              billing_verified_cohort=tester_cohort if billing_test else None)
         defines.write_text(json.dumps(assembled), encoding="utf-8")
         # Read back and validate exactly the file passed to Flutter, before touching keys.
         policy_receipt = validate_candidate_defines(strict_json(defines.read_text(encoding="utf-8")),
-                                                   os.environ.get("CANDIDATE_POLICY_SHA256", ""), billing_test)
+                                                   os.environ.get("CANDIDATE_POLICY_SHA256", ""), billing_test,
+                                                   billing_verified_cohort=tester_cohort if billing_test else None)
         command(["dart", "run", "scripts/validate_production_config.dart", "--platform=android",
                  "--google-services=android/app/google-services.json", "--defines=" + str(defines)], root)
         require(strict_json(defines.read_text(encoding="utf-8")) == assembled,

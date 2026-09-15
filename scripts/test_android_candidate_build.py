@@ -16,6 +16,7 @@ from android_candidate_build import (elf_alignment, manifest_identity, signing_e
                                      POLICY_FIXED, COHORT_KEY, FLAGS, strict_json,
                                      assemble_candidate_defines, validate_candidate_defines,
                                      validate_internal_policy, validate_ci_evidence,
+                                     merge_assistant_internal_cohort,
                                      validate_billing_preflight, MINIMUM_VERSION_CODE, build)
 
 
@@ -53,18 +54,29 @@ class InternalPolicyTests(unittest.TestCase):
                 with self.subTest(key=key, wrong=wrong), self.assertRaises(ValueError):
                     validate_billing_preflight({**receipt, "backendRepairGate": {**repair, key: wrong}})
 
-    def test_billing_profile_requires_explicit_selection_and_matching_private_cohort(self):
+    def test_billing_profile_keeps_reviewer_out_of_purchase_cohort(self):
+        assistant_cohort = merge_assistant_internal_cohort("a" * 64, "b" * 64)
         defines = assemble_candidate_defines({name: "synthetic-setting" for name in SETTINGS},
-            json.dumps(policy_template()), "a" * 64, billing_test=True)
-        receipt = validate_candidate_defines(defines, policy_hash(defines), billing_test=True)
+            json.dumps(policy_template()), assistant_cohort, billing_test=True,
+            billing_verified_cohort="a" * 64)
+        receipt = validate_candidate_defines(defines, policy_hash(defines), billing_test=True,
+                                             billing_verified_cohort="a" * 64)
         self.assertTrue(receipt["billingRequiresVerifiedTestPurchase"])
+        self.assertEqual(receipt["cohortCount"], 2)
+        self.assertEqual(receipt["billingCohortCount"], 1)
+        self.assertEqual(defines["CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"], "a" * 64)
+        self.assertNotIn("b" * 64, defines["CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"])
         self.assertNotIn("a" * 64, json.dumps(receipt))
+        self.assertNotIn("b" * 64, json.dumps(receipt))
         self.assertEqual(defines["CHRONOSPARK_PAYWALL_DISABLED"], "false")
         with self.assertRaises(ValueError):
             validate_candidate_defines(defines, policy_hash(defines))
         defines["CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"] = "b" * 64
         with self.assertRaises(ValueError):
-            validate_candidate_defines(defines, policy_hash(defines), billing_test=True)
+            validate_candidate_defines(defines, policy_hash(defines), billing_test=True,
+                                       billing_verified_cohort="a" * 64)
+        with self.assertRaises(ValueError):
+            merge_assistant_internal_cohort("a" * 64, "a" * 64)
 
     def test_candidate_contains_enabled_local_policy_and_only_private_cohort_receipt(self):
         defines = assembled()
@@ -159,8 +171,13 @@ class InternalPolicyTests(unittest.TestCase):
                 "\n".join(f"static const bool {feature} = false;" for feature in features))
             env = {"GITHUB_ACTIONS": "true", "GITHUB_SHA": tooling_sha, "CANDIDATE_SHA": source_sha,
                    "CANDIDATE_CI_RUN": "42", "GITHUB_REPOSITORY": "ghostheart5/fantastic-guacamole",
-                   "CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS": "a" * 64, "RUNNER_TEMP": folder,
-                   "CANDIDATE_POLICY_SHA256": policy_hash(assembled()),
+                   "CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS": "a" * 64,
+                   "CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST": "b" * 64,
+                   "RUNNER_TEMP": folder,
+                   "CANDIDATE_POLICY_SHA256": policy_hash(assemble_candidate_defines(
+                       {name: "synthetic-setting" for name in SETTINGS},
+                       json.dumps(policy_template()),
+                       merge_assistant_internal_cohort("a" * 64, "b" * 64))),
                    "ANDROID_GOOGLE_SERVICES_JSON_BASE64": "e30=",
                    **{name: "synthetic-setting" for name in SETTINGS},
                    **{name: "synthetic-signing-value" for name in
@@ -194,7 +211,9 @@ class InternalPolicyTests(unittest.TestCase):
             with patch.dict(os.environ, env, clear=True), patch.object(candidate, "command", side_effect=fake_command):
                 with self.assertRaisesRegex(RuntimeError, "preflight reached"):
                     build(root, Path(folder) / "bundletool.jar")
-            self.assertEqual(observed, [assembled()])
+            expected = assemble_candidate_defines({name: "synthetic-setting" for name in SETTINGS},
+                json.dumps(policy_template()), merge_assistant_internal_cohort("a" * 64, "b" * 64))
+            self.assertEqual(observed, [expected])
             self.assertFalse((Path(folder) / "chronospark-candidate-defines.json").exists())
             # The real build entrypoint must reject the older successful
             # receipt before it can materialize a signing input or a define file.
@@ -203,7 +222,7 @@ class InternalPolicyTests(unittest.TestCase):
                  patch.object(candidate, "command", side_effect=fake_command):
                 with self.assertRaisesRegex(ValueError, "backend repair verification"):
                     build(root, Path(folder) / "bundletool.jar")
-            self.assertEqual(observed, [assembled()])
+            self.assertEqual(observed, [expected])
             self.assertFalse((root / "android/app/upload-keystore.jks").exists())
             self.assertFalse((root / "android/key.properties").exists())
             self.assertFalse((Path(folder) / "chronospark-candidate-defines.json").exists())

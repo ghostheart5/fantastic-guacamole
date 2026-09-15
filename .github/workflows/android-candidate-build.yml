@@ -83,6 +83,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: ${{ secrets.CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS }}
+          CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST: ${{ secrets.CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
@@ -100,17 +101,22 @@ jobs:
           import json
           import os
           from pathlib import Path
-          from scripts.android_candidate_build import COHORT_KEY, POLICY_PATH, strict_json, validate_internal_policy
+          from scripts.android_candidate_build import (COHORT_KEY, POLICY_PATH,
+              strict_json, validate_internal_policy, validate_private_cohort,
+              merge_assistant_internal_cohort)
 
           policy = strict_json(Path(POLICY_PATH).read_text(encoding="utf-8"))
           if policy.get(COHORT_KEY) != "":
               raise ValueError("Reviewed policy must leave its private cohort empty")
-          policy[COHORT_KEY] = os.environ["CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"]
+          billing_cohort = validate_private_cohort(os.environ["CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"])
+          policy[COHORT_KEY] = merge_assistant_internal_cohort(
+              billing_cohort, os.environ["CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST"])
           policy = validate_internal_policy(policy)
           canonical = json.dumps(policy, sort_keys=True, separators=(",", ":"))
           print(json.dumps({
               "reviewedEffectivePolicySha256": hashlib.sha256(canonical.encode()).hexdigest(),
               "privateCohortCount": len(policy[COHORT_KEY].split(",")),
+              "billingCohortCount": len(billing_cohort.split(",")),
               "sourceSha": os.environ["CANDIDATE_SHA"],
           }))
           PY
@@ -171,6 +177,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: ${{ secrets.CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS }}
+          CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST: ${{ secrets.CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
