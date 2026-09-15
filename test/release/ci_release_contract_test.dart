@@ -668,6 +668,10 @@ void main() {
     expect(goldens['runs-on'], r'${{ matrix.runner }}');
     expect(maestro['runs-on'], 'ubuntu-24.04');
     final YamlMap runtimeWorkflow = workflow('maestro-runtime.yml');
+    expect(
+      (runtimeWorkflow['concurrency'] as YamlMap)['group'].toString(),
+      contains("inputs.guest_pages || '4k'"),
+    );
     final YamlMap runtimeTriggers = runtimeWorkflow['on'] as YamlMap;
     expect(runtimeTriggers.containsKey('workflow_call'), isTrue);
     expect(

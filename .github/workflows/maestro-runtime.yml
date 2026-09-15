@@ -74,7 +74,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: maestro-runtime-${{ github.workflow }}-${{ github.ref }}-${{ inputs.suite || 'qa-smoke' }}
+  group: maestro-runtime-${{ github.workflow }}-${{ github.ref }}-${{ inputs.suite || 'qa-smoke' }}-${{ inputs.guest_api || '35' }}-${{ inputs.guest_pages || '4k' }}
   cancel-in-progress: true
 
 env:
