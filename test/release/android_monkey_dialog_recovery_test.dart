@@ -30,7 +30,9 @@ function Invoke-Adb {
   if (\$command -match 'pidof') { \$output = @('9717') }
   elseif (\$command -match 'dumpsys window windows') {
     \$owner = if (\$script:case.owner) { \$script:case.owner } elseif (\$script:case.voice) { 'com.google.android.googlequicksearchbox' } else { 'com.android.systemui' }
-    \$title = if (\$script:case.voice) { 'VoiceInteractionSession' } else { 'SystemUIDialog' }
+    \$title = if (\$script:case.assistantActivity -or (\$script:case.assistantActivityAfterVoice -and \$script:backCount -gt 0)) {
+      'com.google.android.googlequicksearchbox/com.google.android.apps.search.assistant.surfaces.voice.ui.host.activity.defaultactivity.FragmentHostDefaultActivity'
+    } elseif (\$script:case.voice) { 'VoiceInteractionSession' } else { 'SystemUIDialog' }
     \$output = @("  Window #0 Window{abc u0 \$title}:`n    mOwnerUid=1000 package=\$owner appop=NONE`n  Window #1 Window{other u0 StatusBar}:`n    package=com.android.systemui appop=NONE")
     \$exit = [int]\$script:case.windowExit
     \$timedOut = [bool]\$script:case.windowTimeout
@@ -41,6 +43,8 @@ function Invoke-Adb {
       \$output = @('mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}')
     } elseif (\$script:case.focusChangesDuringRecovery -and \$script:totalFocusReads -gt 1) {
       \$output = @('mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}')
+    } elseif (\$script:case.assistantActivityAfterVoice -and \$script:backCount -eq 1) {
+      \$output = @('mCurrentFocus=Window{abc u0 com.google.android.googlequicksearchbox/com.google.android.apps.search.assistant.surfaces.voice.ui.host.activity.defaultactivity.FragmentHostDefaultActivity}')
     } elseif (\$script:backCount -gt 0 -and -not \$script:case.persistent) {
       \$script:focusReadsAfterBack++
       \$output = @('mCurrentFocus=Window{app u0 com.ghostheart5.chronospark/.MainActivity}')
@@ -54,7 +58,7 @@ function Invoke-Adb {
 \$serial = if (\$script:case.serial) { \$script:case.serial } else { 'emulator-5554' }
 \$receipt = \$null; \$rejected = \$false
 try {
-  ${probe ? r'$receipt = Wait-ForPackageFocus -Serial $serial -PackageName com.ghostheart5.chronospark -TimeoutSeconds 2 -PollMilliseconds 100 -RecoverSystemDialogs' : r'$receipt = if ($script:case.voice) { Restore-MonkeyVoiceSession -Serial $serial -ExpectedFocus $script:case.focus } else { Restore-MonkeySystemDialog -Serial $serial -ExpectedFocus $script:case.focus }'}
+  ${probe ? r'$receipt = Wait-ForPackageFocus -Serial $serial -PackageName com.ghostheart5.chronospark -TimeoutSeconds 2 -PollMilliseconds 100 -RecoverSystemDialogs' : r'$receipt = if ($script:case.voice) { Restore-MonkeyAssistantWindow -Serial $serial -ExpectedFocus $script:case.focus } else { Restore-MonkeySystemDialog -Serial $serial -ExpectedFocus $script:case.focus }'}
 } catch { \$rejected = \$true }
 [ordered]@{receipt=\$receipt;rejected=\$rejected;backCount=\$script:backCount;focusReadsAfterBack=\$script:focusReadsAfterBack;commands=\$script:commands} | ConvertTo-Json -Depth 12 -Compress
 ''');
@@ -75,6 +79,8 @@ try {
 
   const dialog = 'mCurrentFocus=Window{abc u0 SystemUIDialog}';
   const voice = 'mCurrentFocus=Window{abc u0 VoiceInteractionSession}';
+  const assistantActivity =
+      'mCurrentFocus=Window{abc u0 com.google.android.googlequicksearchbox/com.google.android.apps.search.assistant.surfaces.voice.ui.host.activity.defaultactivity.FragmentHostDefaultActivity}';
   test('cancels verified Android dialog and records ownership evidence', () {
     final data = run({'focus': dialog});
     expect(data['backCount'], 1);
@@ -105,6 +111,49 @@ try {
       );
     },
   );
+  test(
+    'closes voice session and exact Assistant activity before app probes',
+    () {
+      final data = run({
+        'focus': voice,
+        'voice': true,
+        'assistantActivityAfterVoice': true,
+      }, probe: true);
+      expect(data['backCount'], 2);
+      final receipt = data['receipt'] as Map<String, dynamic>;
+      expect(receipt['Ready'], isTrue);
+      final samples = (receipt['ProbeSamples'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      expect(
+        samples.where((s) => s['systemDialogRecovery'] != null),
+        hasLength(2),
+      );
+      expect(samples.last['stableSamples'], 2);
+      expect(samples.last['validFocus'], isTrue);
+    },
+  );
+  test('Assistant activity and owner must both match exactly', () {
+    final valid = run({
+      'focus': assistantActivity,
+      'voice': true,
+      'assistantActivity': true,
+    }, probe: true);
+    expect(valid['backCount'], 1);
+    expect((valid['receipt'] as Map<String, dynamic>)['Ready'], isTrue);
+    for (final owner in <String>[
+      'com.ghostheart5.chronospark',
+      'com.google.android.googlequicksearchbox.fake',
+    ]) {
+      final rejected = run({
+        'focus': assistantActivity,
+        'voice': true,
+        'assistantActivity': true,
+        'owner': owner,
+      });
+      expect(rejected['backCount'], 0);
+      expect((rejected['receipt'] as Map<String, dynamic>)['Passed'], isFalse);
+    }
+  });
   test('assistant lookalikes never receive BACK', () {
     for (final owner in <String>[
       'com.ghostheart5.chronospark',

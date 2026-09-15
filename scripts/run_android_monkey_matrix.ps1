@@ -256,11 +256,11 @@ function Wait-ForPackageFocus {
         if (-not $ownsFocus -and $pidReady -and $null -ne $windowResult -and
             $windowResult.ExitCode -eq 0 -and -not $windowResult.TimedOut -and
             $RecoverSystemDialogs -and $dialogDismissals -lt 2 -and
-            $lastFocus -match '^\s*mCurrentFocus=Window\{\S+ u0 (?:SystemUIDialog|VoiceInteractionSession)\}\s*$') {
+            $lastFocus -match '^\s*mCurrentFocus=Window\{\S+ u0 (?:SystemUIDialog|VoiceInteractionSession|com\.google\.android\.googlequicksearchbox/com\.google\.android\.apps\.search\.assistant\.surfaces\.voice\.ui\.host\.activity\.defaultactivity\.FragmentHostDefaultActivity)\}\s*$') {
             $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
             if ($remainingMilliseconds -gt 0) {
-                $sample.systemDialogRecovery = if ($lastFocus -match ' u0 VoiceInteractionSession\}') {
-                    Restore-MonkeyVoiceSession -Serial $Serial -ExpectedFocus $lastFocus `
+                $sample.systemDialogRecovery = if ($lastFocus -match ' u0 (?:VoiceInteractionSession|com\.google\.android\.googlequicksearchbox/)') {
+                    Restore-MonkeyAssistantWindow -Serial $Serial -ExpectedFocus $lastFocus `
                         -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
                 } else {
                     Restore-MonkeySystemDialog -Serial $Serial -ExpectedFocus $lastFocus `
@@ -366,18 +366,18 @@ function Restore-MonkeySystemDialog {
     return [pscustomobject]$receipt
 }
 
-function Restore-MonkeyVoiceSession {
+function Restore-MonkeyAssistantWindow {
     param(
         [Parameter(Mandatory)][string]$Serial,
         [Parameter(Mandatory)][string]$ExpectedFocus,
         [ValidateRange(1, 5000)][int]$TimeoutMilliseconds = 5000
     )
     if ($Serial -notmatch '^emulator-\d+$') {
-        throw 'Voice-session recovery is restricted to the selected disposable emulator.'
+        throw 'Assistant-window recovery is restricted to the selected disposable emulator.'
     }
     $receipt = [ordered]@{ Passed = $false; BeforeFocus = $ExpectedFocus.Trim(); Windows = ''; BackSent = $false; Reason = ''; Commands = @() }
-    if ($ExpectedFocus -notmatch '^\s*mCurrentFocus=(Window\{\S+ u0 VoiceInteractionSession\})\s*$') {
-        $receipt.Reason = 'Focus is not the exact Android voice-interaction window.'
+    if ($ExpectedFocus -notmatch '^\s*mCurrentFocus=(Window\{\S+ u0 (?:VoiceInteractionSession|com\.google\.android\.googlequicksearchbox/com\.google\.android\.apps\.search\.assistant\.surfaces\.voice\.ui\.host\.activity\.defaultactivity\.FragmentHostDefaultActivity)\})\s*$') {
+        $receipt.Reason = 'Focus is not the exact Android assistant window.'
         return [pscustomobject]$receipt
     }
     $token = $Matches[1]
@@ -386,7 +386,7 @@ function Restore-MonkeyVoiceSession {
     $receipt.Windows = $windows.Output -join "`n"
     $receipt.Commands += [pscustomobject]@{ Command = 'voice-window ownership'; ExitCode = $windows.ExitCode; TimedOut = $windows.TimedOut }
     $block = [regex]::Match($receipt.Windows, '(?ms)^\s*Window #\d+ ' + [regex]::Escape($token) + ':.*?(?=^\s*Window #\d+ |\z)').Value
-    # The Google-API guest's assistant owns this Android system overlay. Never
+    # The Google-API guest's assistant owns these Android assistant windows. Never
     # dismiss an app window, a permission prompt, or a similarly named window.
     if ($windows.ExitCode -ne 0 -or $windows.TimedOut -or
         $block -notmatch '(?m)\bpackage=com\.google\.android\.googlequicksearchbox(?:\s|$)') {
