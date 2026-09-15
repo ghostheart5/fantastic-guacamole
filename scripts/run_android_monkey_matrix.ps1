@@ -5,6 +5,8 @@ param(
     [string]$RepositoryRoot,
     [string]$ApkPath,
     [string]$ExpectedApkSha256,
+    [ValidateSet('35', '36')]
+    [string]$ExpectedAndroidApi,
     [switch]$AllowConnectedDevice,
     [switch]$AllowDirtyTree,
     [ValidateRange(1, 300)]
@@ -592,7 +594,11 @@ $avdName = ($avdResult.Output -join '').Trim()
 if ($apiResult.ExitCode -ne 0 -or $modelResult.ExitCode -ne 0) {
     throw 'Unable to identify the selected emulator.'
 }
-$expectedApi = [string]$configData.expectedAndroidApi
+$expectedApi = if ($ExpectedAndroidApi) {
+    $ExpectedAndroidApi
+} else {
+    [string]$configData.expectedAndroidApi
+}
 if ($expectedApi -and $api -ne $expectedApi) {
     throw "Expected Android API $expectedApi but selected target reports API $api."
 }

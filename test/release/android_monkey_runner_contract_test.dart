@@ -9,6 +9,13 @@ void main() {
     runner = File('scripts/run_android_monkey_matrix.ps1').readAsStringSync();
   });
 
+  test('checks the selected emulator against a bounded guest API', () {
+    expect(runner, contains("[ValidateSet('35', '36')]"));
+    expect(runner, contains(r'[string]$ExpectedAndroidApi'));
+    expect(runner, contains(r'$expectedApi = if ($ExpectedAndroidApi)'));
+    expect(runner, contains('selected target reports API'));
+  });
+
   test('waits for stable ChronoSpark focus before stress input', () {
     expect(runner, contains('function Wait-ForPackageFocus'));
     expect(runner, contains("'shell', 'pidof', \$PackageName"));

@@ -727,6 +727,7 @@ void main() {
     expect(preparation, contains("shell('getconf', 'PAGE_SIZE')"));
     expect(preparation, contains('pageSizeBytes'));
     expect(preparation, contains('run_maestro_android_evidence.ps1'));
+    expect(preparation, contains(r'-ExpectedAndroidApi "$QA_GUEST_API"'));
     expect(preparation, contains('-DeviceSerial emulator-5554'));
     expect(preparation, contains(r'-ExpectedCommit "$QA_SOURCE_SHA"'));
     expect(

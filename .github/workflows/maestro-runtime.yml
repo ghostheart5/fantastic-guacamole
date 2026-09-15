@@ -304,7 +304,7 @@ jobs:
             done
           fi
           if [ "$QA_MONKEY" = true ]; then
-            pwsh -NoProfile -File ./test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1 -RepositoryRoot "$GITHUB_WORKSPACE" -Config "$GITHUB_WORKSPACE/test-orchestrator.json" -DeviceSerial emulator-5554 -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot test-results/monkey-ci
+            pwsh -NoProfile -File ./test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1 -RepositoryRoot "$GITHUB_WORKSPACE" -Config "$GITHUB_WORKSPACE/test-orchestrator.json" -DeviceSerial emulator-5554 -ExpectedAndroidApi "$QA_GUEST_API" -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot test-results/monkey-ci
           fi
           SH
 
