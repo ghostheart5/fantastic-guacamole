@@ -124,7 +124,9 @@ try {
     expect(data['backCount'], 0);
     final receipt = data['receipt'] as Map<String, dynamic>;
     expect(receipt['Ready'], isTrue);
-    expect((receipt['ProbeSamples'] as List<dynamic>).last['stableSamples'], 2);
+    final samples = (receipt['ProbeSamples'] as List<dynamic>)
+        .cast<Map<String, dynamic>>();
+    expect(samples.last['stableSamples'], 2);
   });
   for (final entry in <String, Map<String, Object>>{
     'app-owned lookalike': {
