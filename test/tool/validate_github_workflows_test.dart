@@ -96,8 +96,16 @@ void main() {
         '-DeviceSerial moto',
       ],
       'verifier runs only on success': [
-        'if: always() && !inputs.monkey_only',
-        'if: success() && !inputs.monkey_only',
+        "if: always() && !inputs.monkey_only && inputs.suite != 'qa-16k-native'",
+        "if: success() && !inputs.monkey_only && inputs.suite != 'qa-16k-native'",
+      ],
+      'native alternative loses its failure gate': [
+        "if: always() && inputs.suite == 'qa-16k-native'",
+        "if: success() && inputs.suite == 'qa-16k-native'",
+      ],
+      'native alternative skips version binding': [
+        "receipt['installedVersionCode'] == receipt['sourceVersionCode']",
+        "receipt['installedVersionCode'] == 'any'",
       ],
       'monkey-only bypasses all verification': [
         'if: always() && inputs.run_monkey',

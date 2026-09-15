@@ -402,7 +402,7 @@ jobs:
           EXPECTED_API: ${{ inputs.guest_api || '35' }}
         run: |
           python3 - <<'PY'
-          import hashlib, json, os
+          import hashlib, json, os, re
           from pathlib import Path
           receipt_path = Path('test-results/native-16k-ci/manifest.json')
           if not receipt_path.is_file():
@@ -416,7 +416,12 @@ jobs:
           assert receipt['workflowToolingSha'] == os.environ['EXPECTED_TOOLING']
           assert receipt['toolScriptSha256'].lower() == hashlib.sha256(script.read_bytes()).hexdigest()
           assert receipt['apkSha256'].lower() == compilation['precompiledApkSha256'].lower()
-          assert receipt['installedVersionCode'] == '2026083053'
+          pubspec_version = re.search(r'(?m)^version:\s*\d+\.\d+\.\d+\+(\d+)\s*$',
+                                       Path('pubspec.yaml').read_text())
+          android_version = re.search(r'(?m)^CHRONOSPARK_VERSION_CODE=(\d+)\s*$',
+                                       Path('android/gradle.properties').read_text())
+          assert pubspec_version and android_version
+          assert receipt['installedVersionCode'] == receipt['sourceVersionCode'] == pubspec_version.group(1) == android_version.group(1)
           assert receipt['androidApi'] == readiness['androidApi'] == os.environ['EXPECTED_API']
           assert receipt['pageSize'] == 16384 and readiness['pageSizeBytes'] == 16384
           assert receipt['serial'] == 'emulator-5554'

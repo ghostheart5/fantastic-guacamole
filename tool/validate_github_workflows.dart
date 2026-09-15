@@ -1036,6 +1036,11 @@ void _validateMaestroRuntimeDocument(YamlMap document, List<String> failures) {
     (step) => step?['name'] == 'Verify optional Monkey evidence',
     orElse: () => null,
   );
+  final nativeVerification = steps.cast<YamlMap?>().firstWhere(
+    (step) =>
+        step?['name'] == 'Verify source-bound native 16 KB launch evidence',
+    orElse: () => null,
+  );
   final inputCheck =
       steps
           .cast<YamlMap?>()
@@ -1046,13 +1051,35 @@ void _validateMaestroRuntimeDocument(YamlMap document, List<String> failures) {
           )?['run']
           ?.toString() ??
       '';
+  final nativeRun = nativeVerification?['run']?.toString() ?? '';
+  final validNativeAlternative =
+      nativeVerification?['if'] ==
+          "always() && inputs.suite == 'qa-16k-native'" &&
+      inputCheck.contains('test "\$QA_GUEST_PAGES" = 16k') &&
+      nativeRun.contains(
+        "receipt['sourceSha'] == os.environ['EXPECTED_COMMIT']",
+      ) &&
+      nativeRun.contains(
+        "receipt['apkSha256'].lower() == compilation['precompiledApkSha256'].lower()",
+      ) &&
+      nativeRun.contains(
+        "receipt['installedVersionCode'] == receipt['sourceVersionCode']",
+      ) &&
+      nativeRun.contains("receipt['pageSize'] == 16384") &&
+      nativeRun.contains(
+        "len(receipt['launches']) == 5 and receipt['appFatalCount'] == 0",
+      ) &&
+      nativeRun.contains("launch['uiReadyMarker']");
   final validEvidenceCondition =
       evidenceCondition == 'always()' ||
-      (evidenceCondition == 'always() && !inputs.monkey_only' &&
-          monkeyVerification?['if'] == 'always() && inputs.run_monkey' &&
+      (monkeyVerification?['if'] == 'always() && inputs.run_monkey' &&
           inputCheck.contains(
             r'if [ "$QA_MONKEY_ONLY" = true ]; then test "$QA_MONKEY" = true; fi',
-          ));
+          ) &&
+          (evidenceCondition == 'always() && !inputs.monkey_only' ||
+              (evidenceCondition ==
+                      "always() && !inputs.monkey_only && inputs.suite != 'qa-16k-native'" &&
+                  validNativeAlternative)));
   if (evidenceStep == null ||
       !validEvidenceCondition ||
       !(evidenceStep['run']?.toString() ?? '').contains(

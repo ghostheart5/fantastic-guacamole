@@ -750,7 +750,21 @@ void main() {
       maestro,
       'Verify source-bound Maestro evidence',
     );
-    expect(runtimeEvidence['if'], 'always() && !inputs.monkey_only');
+    expect(
+      runtimeEvidence['if'],
+      "always() && !inputs.monkey_only && inputs.suite != 'qa-16k-native'",
+    );
+    final nativeEvidence = namedStep(
+      maestro,
+      'Verify source-bound native 16 KB launch evidence',
+    );
+    expect(nativeEvidence['if'], "always() && inputs.suite == 'qa-16k-native'");
+    expect(
+      nativeEvidence['run'],
+      contains(
+        "receipt['installedVersionCode'] == receipt['sourceVersionCode']",
+      ),
+    );
     final monkeyEvidence = namedStep(
       maestro,
       'Verify optional Monkey evidence',

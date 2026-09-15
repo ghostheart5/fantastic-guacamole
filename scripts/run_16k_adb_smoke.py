@@ -15,7 +15,6 @@ from pathlib import Path
 SERIAL = "emulator-5554"
 PACKAGE = "com.ghostheart5.chronospark"
 ACTIVITY = f"{PACKAGE}/.MainActivity"
-EXPECTED_VERSION = "2026083053"
 ROOT = Path("test-results/native-16k-ci")
 APK = Path("build/app/outputs/flutter-apk/app-debug.apk")
 UI_MARKERS = (
@@ -45,6 +44,15 @@ def shell(*args: str, timeout: int = 30) -> str:
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def source_version_code(pubspec: Path = Path("pubspec.yaml"),
+                        gradle: Path = Path("android/gradle.properties")) -> str:
+    """Bind the installed QA package to the selected source's version guards."""
+    published = re.search(r"(?m)^version:\s*\d+\.\d+\.\d+\+(\d+)\s*$", pubspec.read_text())
+    android = re.search(r"(?m)^CHRONOSPARK_VERSION_CODE=(\d+)\s*$", gradle.read_text())
+    assert published and android and published.group(1) == android.group(1)
+    return published.group(1)
 
 
 def focused_window(input_dump: str) -> str:
@@ -167,10 +175,11 @@ def main() -> int:
         receipt["pageSize"] = 16384
         assert APK.is_file()
         receipt["apkSha256"] = sha256(APK)
+        receipt["sourceVersionCode"] = source_version_code()
         run("install", "-r", str(APK.resolve()), timeout=120)
         package_info = shell("dumpsys", "package", PACKAGE, timeout=30)
         version_match = re.search(r"versionCode=(\d+)", package_info)
-        assert version_match and version_match.group(1) == EXPECTED_VERSION
+        assert version_match and version_match.group(1) == receipt["sourceVersionCode"]
         receipt["installedVersionCode"] = version_match.group(1)
         run("logcat", "-c", timeout=20)
         for number in range(1, 6):

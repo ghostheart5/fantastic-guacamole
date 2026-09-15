@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from run_16k_adb_smoke import (
     app_fatals,
@@ -6,10 +8,22 @@ from run_16k_adb_smoke import (
     focused_window,
     is_chronospark_activity,
     resumed_activity,
+    source_version_code,
 )
 
 
 class ForegroundAttributionTests(unittest.TestCase):
+    def test_installed_version_is_bound_to_matching_source_guards(self):
+        with TemporaryDirectory() as folder:
+            pubspec = Path(folder) / "pubspec.yaml"
+            gradle = Path(folder) / "gradle.properties"
+            pubspec.write_text("version: 4.1.0+2026083054\n")
+            gradle.write_text("CHRONOSPARK_VERSION_CODE=2026083054\n")
+            self.assertEqual(source_version_code(pubspec, gradle), "2026083054")
+            gradle.write_text("CHRONOSPARK_VERSION_CODE=2026083053\n")
+            with self.assertRaises(AssertionError):
+                source_version_code(pubspec, gradle)
+
     def test_app_owned_ready_marker_excludes_loading_spinner(self):
         ready = b'<hierarchy><node package="com.ghostheart5.chronospark" content-desc="ENTER SYSTEM"/></hierarchy>'
         spinner = b'<hierarchy><node package="com.ghostheart5.chronospark" content-desc="Loading"/></hierarchy>'
