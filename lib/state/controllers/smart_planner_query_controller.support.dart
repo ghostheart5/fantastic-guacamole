@@ -315,6 +315,13 @@ int? _explicitPlanningTimeLimit(String input) {
     r'(\d+(?:\.\d+)?)\s*(?:quiet\s+|spare\s+)?(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
     caseSensitive: false,
   );
+  // Money and a current work window can share "I have": the first number is
+  // a budget, while the duration after "and" limits every proposed option.
+  final budgetWindowPattern = RegExp(
+    r'\b(?:(?:i|we)\s+have\s+\d+(?:\.\d+)?\s*(?:dollars?|usd)\b[^.!?;]{0,90}?\band\s+|(?:tengo|tenemos)\s+\d+(?:\.\d+)?\s*d[oó]lares\b[^.!?;]{0,90}?\by\s+)'
+    r'(\d+(?:\.\d+)?)\s*(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
+    caseSensitive: false,
+  );
   final actionWindowPattern = RegExp(
     r'\b(?:help me|please|can you help me|ay[uú]dame a)\s+[^.!?;]+?\s+(?:in|en)\s+'
     r'(\d+(?:\.\d+)?)\s*(minutes?|minutos?|mins?|hours?|horas?|hrs?)\b',
@@ -330,6 +337,7 @@ int? _explicitPlanningTimeLimit(String input) {
     ...stepPattern.allMatches(normalized),
     ...spanishRestWindowPattern.allMatches(normalized),
     ...compoundWindowPattern.allMatches(normalized),
+    ...budgetWindowPattern.allMatches(normalized),
     ...actionWindowPattern.allMatches(normalized),
     ...directActionWindowPattern.allMatches(normalized),
   ];

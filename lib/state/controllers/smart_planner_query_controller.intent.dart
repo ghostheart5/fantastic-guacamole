@@ -15,6 +15,7 @@ final class _PlannerIntent {
     required this.deadlineNeedsDeparture,
     required this.timeNeedsClarification,
     required this.recoveryConflict,
+    this.groceryConstraintStep,
     this.action,
     this.availableContainer,
   });
@@ -30,6 +31,12 @@ final class _PlannerIntent {
         ? 'es'
         : 'en';
     final requestedAction = _extractPlannerAction(source);
+    final blockedNamedWork =
+        evidence.focusTask != null &&
+        RegExp(
+          r'\b(?:keep|keeps|keeping)\s+(?:avoiding|putting off)\b|\b(?:sigo|seguimos)\s+(?:posponiendo|evitando)\b',
+          caseSensitive: false,
+        ).hasMatch(conversation.input);
     final currentRecovery =
         _explicitRecoveryRequest(conversation.input) ||
         requestedAction == null &&
@@ -37,7 +44,8 @@ final class _PlannerIntent {
               r"\bi(?: am|'m|m)?\s+(?:tired|exhausted|fatigued)\b|\bestoy cansad[oa]\b",
               caseSensitive: false,
             ).hasMatch(conversation.input) &&
-            !_negatedPlannerClause(conversation.input);
+            !_negatedPlannerClause(conversation.input) &&
+            !blockedNamedWork;
     // A retained note can explain the matched commitment; unrelated notes cannot
     // silently add instructions to a newly named objective.
     final note = evidence.selectedNote;
@@ -136,6 +144,17 @@ final class _PlannerIntent {
       objective: conversation.subject,
       action: action,
       availableContainer: _plannerAvailableContainer(source),
+      groceryConstraintStep:
+          action != null &&
+              RegExp(
+                r'\b(?:grocer(?:y|ies)|comida|compras)\b',
+                caseSensitive: false,
+              ).hasMatch(action)
+          ? _plannerGroceryConstraintStep(
+              conversation.input,
+              spanish: language == 'es',
+            )
+          : null,
       languageCode: language,
       constraints: constraints,
       // Matching an object can justify a prerequisite, not every other task
@@ -171,6 +190,7 @@ final class _PlannerIntent {
   final String objective;
   final String? action;
   final String? availableContainer;
+  final String? groceryConstraintStep;
   final String languageCode;
   final List<String> constraints;
   final List<String> noteActions;
@@ -313,6 +333,7 @@ final class _PlannerIntent {
             spanish: spanish,
             constraints: constraints,
             availableContainer: availableContainer,
+            groceryConstraintStep: groceryConstraintStep,
           );
     final noteSteps = noteActions
         .where((value) => value.toLowerCase() != action?.toLowerCase())
@@ -885,6 +906,12 @@ String? _extractPlannerAction(String source) {
 }
 
 String? _savedPlannerAction(String title) {
+  if (RegExp(
+    r'^\s*(?:plan|planear|planificar)\b[^.!?;]{0,80}\b(?:grocer(?:y|ies)|compras|comida)\b',
+    caseSensitive: false,
+  ).hasMatch(title)) {
+    return title.trim();
+  }
   final action = _extractPlannerAction(title);
   if (action != null) {
     return action;
@@ -920,8 +947,18 @@ String _concretePlannerStep(
   required bool spanish,
   List<String> constraints = const [],
   String? availableContainer,
+  String? groceryConstraintStep,
 }) {
   final lower = action.toLowerCase();
+  if (RegExp(
+    r'\b(?:plan|planear|planificar|write|list|hacer)\b.*\b(?:grocer(?:y|ies)|compras|comida)\b',
+    caseSensitive: false,
+  ).hasMatch(lower)) {
+    return groceryConstraintStep ??
+        (spanish
+            ? 'Escribe una lista corta de compras esenciales. Deja lo opcional para después y comprueba los precios antes de comprar.'
+            : 'Write a short list of essential groceries. Leave optional items for later and check prices before buying.');
+  }
   if (RegExp(
     r'\b(?:pack|preparar|prepara|guardar|guarda)\b.*\b(?:uniform|uniforme)\b',
   ).hasMatch(lower)) {
@@ -1000,6 +1037,22 @@ String _concretePlannerStep(
     );
   }
   return _sentence(imperative);
+}
+
+String? _plannerGroceryConstraintStep(String source, {required bool spanish}) {
+  final clean = _plannerWithoutQuotedText(source);
+  final match = RegExp(
+    spanish
+        ? r'\b(?:tengo|tenemos)\s+(\d+(?:\.\d+)?)\s*d[oó]lares\b[^.!?;]{0,45}?\b(?:compras|comida|alimentos)\b[^.!?;]{0,30}?\bpara\s+(\d+|una?|dos|tres|cuatro|cinco)\s+personas\b'
+        : r'\b(?:i|we)\s+have\s+(\d+(?:\.\d+)?)\s*(?:dollars?|usd)\b[^.!?;]{0,45}?\b(?:grocer(?:y|ies)|food)\b[^.!?;]{0,30}?\bfor\s+(\d+|one|two|three|four|five)\s+people\b',
+    caseSensitive: false,
+  ).firstMatch(clean);
+  if (match == null) return null;
+  final amount = match.group(1)!;
+  final people = match.group(2)!;
+  return spanish
+      ? 'Escribe los alimentos esenciales para $people personas y estima cada precio frente al límite de $amount dólares que indicaste. Los precios reales son desconocidos; deja lo opcional para después.'
+      : 'Write essential grocery items for $people people, then estimate each price against the $amount-dollar limit you gave. Actual store prices are unknown; leave optional items for later.';
 }
 
 String? _plannerAvailableContainer(String source) {

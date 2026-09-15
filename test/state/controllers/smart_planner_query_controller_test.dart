@@ -98,6 +98,145 @@ void main() {
   );
 
   test(
+    'tired grocery planning keeps the named task and a real time ceiling',
+    () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'grocery-list',
+          title: 'Plan the household grocery list',
+          createdAt: DateTime.utc(2026, 8, 29),
+          priority: 2,
+        ),
+        TaskEntity(
+          id: 'unrelated',
+          title: 'Review a school form',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+      ]);
+      final container = plannerContainer(tasks: tasks);
+      addTearDown(container.dispose);
+      final result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes:
+                'I have 75 dollars for groceries for four people and 30 minutes tonight I am tired and keep avoiding the household grocery list due tomorrow morning What should I do first and what can wait',
+            history: const [],
+            previousSavedNotes: null,
+          );
+      final response = result.plannerResponse;
+      expect(response.nextStep.toLowerCase(), contains('grocery'));
+      expect(response.nextStep, contains('75-dollar limit'));
+      expect(response.nextStep, contains('four people'));
+      expect(response.nextStep, contains('prices are unknown'));
+      expect(
+        response.nextStep.toLowerCase(),
+        isNot(contains('make room for recovery')),
+      );
+      expect(response.options, hasLength(3));
+      expect(
+        response.options.every(
+          (option) =>
+              option.estimatedMinutes > 0 && option.estimatedMinutes <= 30,
+        ),
+        isTrue,
+      );
+      expect(tasks.writeCalls, 0);
+    },
+  );
+
+  test(
+    'an explicit grocery exclusion does not become a saved-work action',
+    () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'grocery-list',
+          title: 'Plan the household grocery list',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+      ]);
+      final container = plannerContainer(tasks: tasks);
+      addTearDown(container.dispose);
+      final response =
+          (await container
+                  .read(smartPlannerQueryControllerProvider)
+                  .requestPlanningGuidance(
+                    energy: null,
+                    emotion: null,
+                    notes:
+                        'Avoid groceries entirely today. What else should I do?',
+                    history: const [],
+                    previousSavedNotes: null,
+                  ))
+              .plannerResponse;
+      expect(response.nextStep.toLowerCase(), isNot(contains('grocery')));
+      expect(tasks.writeCalls, 0);
+    },
+  );
+
+  test('a past budget and duration cannot cap a current grocery plan', () async {
+    final container = plannerContainer(
+      tasks: _MemoryTaskRepository([
+        TaskEntity(
+          id: 'grocery-list',
+          title: 'Plan the household grocery list',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+      ]),
+    );
+    addTearDown(container.dispose);
+    final response =
+        (await container
+                .read(smartPlannerQueryControllerProvider)
+                .requestPlanningGuidance(
+                  energy: null,
+                  emotion: null,
+                  notes:
+                      'Yesterday I had 75 dollars for groceries for four people and 30 minutes. Plan the grocery list now.',
+                  history: const [],
+                  previousSavedNotes: null,
+                ))
+            .plannerResponse;
+    expect(response.nextStep.toLowerCase(), contains('grocer'));
+    expect(response.nextStep, isNot(contains('75-dollar')));
+    expect(response.options.any((o) => o.estimatedMinutes > 30), isTrue);
+  });
+
+  test(
+    'Spanish grocery context respects money and time without inventing prices',
+    () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'compras',
+          title: 'Planificar compras de la casa',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+      ]);
+      final container = plannerContainer(tasks: tasks);
+      addTearDown(container.dispose);
+      final response =
+          (await container
+                  .read(smartPlannerQueryControllerProvider)
+                  .requestPlanningGuidance(
+                    energy: null,
+                    emotion: null,
+                    notes:
+                        'Tengo 75 dólares para comida para cuatro personas y 30 minutos esta noche. Estoy cansada y sigo posponiendo las compras. ¿Qué hago primero?',
+                    history: const [],
+                    previousSavedNotes: null,
+                  ))
+              .plannerResponse;
+      expect(response.nextStep.toLowerCase(), contains('alimentos'));
+      expect(response.nextStep, contains('75 dólares'));
+      expect(response.nextStep, contains('cuatro personas'));
+      expect(response.nextStep, contains('precios reales son desconocidos'));
+      expect(response.options.every((o) => o.estimatedMinutes <= 30), isTrue);
+      expect(tasks.writeCalls, 0);
+    },
+  );
+
+  test(
     'Planner resolves a named target among 10000 saved tasks without writes',
     () async {
       final tasks = _MemoryTaskRepository(

@@ -43,6 +43,43 @@ void main() {
     scheduledFor: scheduledFor,
   );
 
+  test(
+    'explanation distinguishes a user deadline from an undated saved task',
+    () {
+      final response = ask(
+        'My household grocery list is due tomorrow. Which saved task should I do now and why?',
+        tasks: <SIV2TaskEvidence>[
+          task('groceries', 'Plan the household grocery list', priority: 2),
+        ],
+      );
+      expect(
+        response.directAnswer,
+        contains('Plan the household grocery list'),
+      );
+      expect(response.directAnswer, contains('priority is 2/5'));
+      expect(response.directAnswer, contains('no saved due or scheduled time'));
+      expect(response.directAnswer, isNot(contains('recorded due date')));
+      response.validate();
+    },
+  );
+
+  test('explanation uses an actual saved date when one exists', () {
+    final response = ask(
+      'Why does the grocery-list task rank here?',
+      tasks: <SIV2TaskEvidence>[
+        task(
+          'groceries',
+          'Plan the household grocery list',
+          priority: 2,
+          dueDate: now.add(const Duration(days: 2)),
+        ),
+      ],
+    );
+    expect(response.directAnswer, contains('saved timing'));
+    expect(response.directAnswer, isNot(contains('no saved due')));
+    response.validate();
+  });
+
   test('an explicit exclusion can never become the recommendation', () {
     final response = ask(
       'What should I do next, not Submit tax return?',

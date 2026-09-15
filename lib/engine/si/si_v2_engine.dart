@@ -1057,7 +1057,15 @@ final class SIV2Engine {
           return '${conflict.summary} That recorded conflict is the clearest evidence-backed explanation for the risk in your question.';
         }
         if (focusTask != null) {
-          return '"${focusTask.title}" ranks where it does because its saved title matches the question, then SI considers recorded due date and priority ${focusTask.priority}/5. No causal explanation beyond those fields is stored.';
+          final DateTime? savedTime =
+              focusTask.dueDate ?? focusTask.scheduledFor;
+          final timing = savedTime == null
+              ? 'no saved due or scheduled time is available for this task'
+              : 'its saved timing is ${_timingLabel(savedTime, now)}';
+          final userDateLimit = savedTime == null
+              ? ' A date supplied only in your question is not a saved task date.'
+              : '';
+          return '"${focusTask.title}" ranks where it does because its saved title matches the question and its recorded priority is ${focusTask.priority}/5; $timing.$userDateLimit No causal explanation beyond those fields is stored.';
         }
         return 'The current evidence contains no recorded conflict or causal field that can explain why this happened.';
       case _SIV2QuestionFocus.forecast:
