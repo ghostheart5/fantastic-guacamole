@@ -1658,15 +1658,10 @@ final class _SIV2Question {
   bool matchesNamedTask(String title) {
     final phrase = namedTaskPhrase;
     if (phrase == null) return true;
-    final Set<String> requested = _questionTerms(phrase)
-        .where(
-          (term) => !<String>{'one', 'before', 'after', 'saved'}.contains(term),
-        )
-        .toSet();
+    final Set<String> requested = _questionTerms(phrase);
     final Set<String> titleTerms = _questionTerms(_normalizeQuestion(title));
     if (requested.length < 2) return true;
-    final int matched = requested.intersection(titleTerms).length;
-    return matched >= 2 && matched * 5 >= requested.length * 3;
+    return requested.difference(titleTerms).isEmpty;
   }
 
   static String? _namedTaskPhrase(String input) {

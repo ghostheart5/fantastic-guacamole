@@ -86,12 +86,17 @@ void main() {
       tasks: <SIV2TaskEvidence>[
         task('budget', 'Review household budget this week'),
         task('grocery', 'Plan the household grocery list'),
+        task('pickup', 'Review school pickup details'),
       ],
     );
 
     expect(response.directAnswer, contains('could not find a saved task'));
     expect(response.directAnswer, contains('bookkeeping example'));
     expect(response.directAnswer, isNot(contains('Review household budget')));
+    expect(
+      response.directAnswer,
+      isNot(contains('Review school pickup details')),
+    );
     expect(response.directAnswer, isNot(contains('saved timing')));
     expect(response.inferences, isEmpty);
     expect(response.scenarios, isEmpty);
