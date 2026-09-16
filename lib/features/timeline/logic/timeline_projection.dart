@@ -35,6 +35,7 @@ List<TimelineEventEntity> projectTimelineEvents({
               ? TimelineEventStatus.overdue
               : TimelineEventStatus.planned,
           dueAt: deadline,
+          dateOnly: task.hasDateOnlyDeadline,
           phase: 'task',
           relatedId: task.id,
         ),
@@ -74,7 +75,7 @@ List<TimelineEventEntity> projectTimelineEvents({
       continue;
     }
     // Goal targets come from a date picker: the whole local day is available.
-    // Task deadlines above retain their precise time semantics.
+    // Task deadlines above distinguish date-only choices from precise times.
     final localTarget = target.toLocal();
     final localNow = now.toLocal();
     final targetDay = DateTime(
@@ -99,6 +100,7 @@ List<TimelineEventEntity> projectTimelineEvents({
             ? TimelineEventStatus.overdue
             : TimelineEventStatus.active,
         dueAt: target,
+        dateOnly: true,
         phase: 'goal',
         relatedId: goal.id,
       ),

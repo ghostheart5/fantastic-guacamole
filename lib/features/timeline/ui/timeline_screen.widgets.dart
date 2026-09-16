@@ -32,7 +32,7 @@ class _TimelineEventTile extends StatelessWidget {
       event.type == TimelineEventType.task && event.dueAt != null;
 
   String _timingLabel(BuildContext context) {
-    final DateTime date = event.dueAt!.toLocal();
+    final DateTime date = _eventMoment(event);
     final label = DateFormat.yMMMd(
       Localizations.localeOf(context).toLanguageTag(),
     ).format(date);
@@ -255,7 +255,9 @@ class _TimelineEventTile extends StatelessWidget {
                         ),
                         const Spacer(),
                         Text(
-                          ChronoSparkLocalizations.of(context).isSpanish
+                          event.dateOnly
+                              ? journeyText(context, 'NO TIME SET', 'SIN HORA')
+                              : ChronoSparkLocalizations.of(context).isSpanish
                               ? DateFormat.jm('es').format(_eventMoment(event))
                               : DateTimeFormats.timelineTime(
                                   _eventMoment(event),

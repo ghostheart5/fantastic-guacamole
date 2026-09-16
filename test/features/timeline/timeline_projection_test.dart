@@ -122,6 +122,52 @@ void main() {
     expect(event.detail, contains('Planned work time'));
   });
 
+  test('a Creator date-only deadline remains upcoming throughout its day', () {
+    final date = DateTime(2026, 9, 16);
+    final afternoon = DateTime(2026, 9, 16, 18, 30);
+    final event = projectTimelineEvents(
+      now: afternoon,
+      tasks: [_task('grocery', dueDate: date)],
+      goals: const [],
+    ).single;
+
+    expect(event.dateOnly, isTrue);
+    expect(event.dueAt, date);
+    expect(event.status, TimelineEventStatus.planned);
+    expect(event.isUpcomingAt(afternoon), isTrue);
+
+    final nextDay = DateTime(2026, 9, 17);
+    final expired = projectTimelineEvents(
+      now: nextDay,
+      tasks: [_task('grocery', dueDate: date)],
+      goals: const [],
+    ).single;
+    expect(expired.isOverdue, isTrue);
+    expect(expired.isUpcomingAt(nextDay), isFalse);
+  });
+
+  test(
+    'a task with an explicit deadline time keeps precise time semantics',
+    () {
+      final due = DateTime(2026, 9, 16, 16);
+      final before = DateTime(2026, 9, 16, 15, 59);
+      final event = projectTimelineEvents(
+        now: before,
+        tasks: [_task('call', dueDate: due)],
+        goals: const [],
+      ).single;
+
+      expect(event.dateOnly, isFalse);
+      expect(event.isUpcomingAt(before), isTrue);
+      final late = projectTimelineEvents(
+        now: DateTime(2026, 9, 16, 16, 1),
+        tasks: [_task('call', dueDate: due)],
+        goals: const [],
+      ).single;
+      expect(late.isOverdue, isTrue);
+    },
+  );
+
   test('a past schedule-only task stays open without becoming overdue', () {
     final DateTime scheduled = now.subtract(const Duration(hours: 2));
 

@@ -436,6 +436,23 @@ void main() {
     expect(find.text('Nothing needs action now'), findsOneWidget);
   });
 
+  testWidgets('date-only task deadline does not invent a midnight time', (
+    tester,
+  ) async {
+    final dateOnly = _managedTask.copyWith(
+      title: 'Grocery list for tomorrow',
+      dueDate: DateTime(2026, 9, 1),
+    );
+    final container = _buildContainer(task: dateOnly);
+    addTearDown(container.dispose);
+    await _pumpTimeline(tester, container, taskTitle: dateOnly.title);
+
+    expect(find.text('NO TIME SET'), findsOneWidget);
+    expect(find.text('12:00 AM'), findsNothing);
+    expect(find.textContaining('DUE Sep 1, 2026'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'edit validates title, prevents duplicate actions, and reports success',
     (WidgetTester tester) async {

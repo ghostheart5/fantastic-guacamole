@@ -1,7 +1,11 @@
 part of 'timeline_screen.dart';
 
-DateTime _eventMoment(TimelineEventEntity event) =>
-    (event.dueAt ?? event.timestamp).toLocal();
+DateTime _eventMoment(TimelineEventEntity event) {
+  final moment = event.dueAt ?? event.timestamp;
+  return event.dateOnly
+      ? DateTime(moment.year, moment.month, moment.day)
+      : moment.toLocal();
+}
 
 bool _isOpenDeadline(TimelineEventEntity event) {
   final bool hasDeadlineSemantics = switch (event.type) {

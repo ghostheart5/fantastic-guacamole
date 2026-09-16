@@ -40,6 +40,7 @@ class TimelineEventEntity {
     required this.timestamp,
     this.status = TimelineEventStatus.info,
     this.dueAt,
+    this.dateOnly = false,
     this.phase,
     this.relatedId,
     this.sourceFeature,
@@ -54,6 +55,9 @@ class TimelineEventEntity {
   final DateTime timestamp;
   final TimelineEventStatus status;
   final DateTime? dueAt;
+
+  /// The displayed calendar day has no user-selected clock time.
+  final bool dateOnly;
   final String? phase;
   final String? relatedId;
 
@@ -91,8 +95,10 @@ class TimelineEventEntity {
     if (due == null || isTerminal || isOverdue) {
       return false;
     }
-    if (type == TimelineEventType.goal) {
-      final localDue = due.toLocal();
+    if (dateOnly || type == TimelineEventType.goal) {
+      final localDue = dateOnly
+          ? DateTime(due.year, due.month, due.day)
+          : due.toLocal();
       final localReference = reference.toLocal();
       // Compare calendar dates without shortening a day across DST changes.
       final days = DateTime.utc(localDue.year, localDue.month, localDue.day)
