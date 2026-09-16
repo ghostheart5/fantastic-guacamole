@@ -15,14 +15,19 @@ class StableBackButtonDispatcher extends RootBackButtonDispatcher {
   @override
   Future<bool> didPopRoute() {
     final Completer<bool> result = Completer<bool>();
-    _previousRequest = _previousRequest.then((_) async {
-      try {
-        result.complete(await _dispatchAfterFrame());
-      } catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
-      }
-    });
+    _previousRequest = _previousRequest.then<void>(
+      (_) => _completeRequest(result),
+      onError: (_, _) => _completeRequest(result),
+    );
     return result.future;
+  }
+
+  Future<void> _completeRequest(Completer<bool> result) async {
+    try {
+      result.complete(await _dispatchAfterFrame());
+    } catch (error, stackTrace) {
+      result.completeError(error, stackTrace);
+    }
   }
 
   Future<bool> _dispatchAfterFrame() async {
