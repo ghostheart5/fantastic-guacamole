@@ -345,6 +345,12 @@ def build(root, bundletool):
         assembled = assemble_candidate_defines(os.environ, (root / POLICY_PATH).read_text(encoding="utf-8"),
                                               assistant_cohort, billing_test,
                                               billing_verified_cohort=tester_cohort if billing_test else None)
+        # The cohort values are SHA-256 digests of random Supabase UUID account
+        # namespaces, not credentials or raw account identifiers. Flutter must
+        # read this one build-input file in clear text. The process umask above
+        # creates it as owner-only (0600), and the finally block deletes it even
+        # when validation or signing fails.
+        # codeql[py/clear-text-storage-sensitive-data]
         defines.write_text(json.dumps(assembled), encoding="utf-8")
         # Read back and validate exactly the file passed to Flutter, before touching keys.
         policy_receipt = validate_candidate_defines(strict_json(defines.read_text(encoding="utf-8")),

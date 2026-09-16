@@ -202,6 +202,8 @@ class InternalPolicyTests(unittest.TestCase):
                     return json.dumps(billing_receipt)
                 if args[0] == "dart":
                     path = Path(next(value[10:] for value in args if value.startswith("--defines=")))
+                    if os.name != "nt":
+                        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
                     observed.append(strict_json(path.read_text()))
                     self.assertFalse((root / "android/app/upload-keystore.jks").exists())
                     self.assertFalse((root / "android/key.properties").exists())
