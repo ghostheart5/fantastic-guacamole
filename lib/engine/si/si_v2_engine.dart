@@ -193,8 +193,15 @@ final class SIV2Engine {
       now: observedNow,
       linkById: linkById,
     );
-    SIV2TaskEvidence? focusTask = _selectFocusTask(tasks, question);
-    SIV2GoalEvidence? focusGoal = _selectFocusGoal(goals, question);
+    final bool namedTaskMissing =
+        question.namedTaskPhrase != null &&
+        !tasks.any((task) => question.matchesNamedTask(task.title));
+    SIV2TaskEvidence? focusTask = namedTaskMissing
+        ? null
+        : _selectFocusTask(tasks, question);
+    SIV2GoalEvidence? focusGoal = namedTaskMissing
+        ? null
+        : _selectFocusGoal(goals, question);
     final int taskQuestionScore = focusTask == null
         ? 0
         : question.titleScore(focusTask.title);
@@ -202,6 +209,7 @@ final class SIV2Engine {
         ? 0
         : question.titleScore(focusGoal.title);
     final bool questionLeadsWithGoal =
+        question.namedTaskPhrase == null &&
         focusGoal != null &&
         (goalQuestionScore > taskQuestionScore ||
             (question.sourceHint == SIV2Source.goals &&
@@ -217,10 +225,9 @@ final class SIV2Engine {
           .where((SIV2GoalEvidence goal) => goal.id == focusTask!.goalId)
           .firstOrNull;
     }
-    final SIV2MilestoneEvidence? focusMilestone = _selectFocusMilestone(
-      milestones,
-      question,
-    );
+    final SIV2MilestoneEvidence? focusMilestone = namedTaskMissing
+        ? null
+        : _selectFocusMilestone(milestones, question);
     if (focusMilestone?.goalId != null &&
         question.titleScore(focusMilestone!.title) >
             (focusGoal == null ? 0 : question.titleScore(focusGoal.title))) {
@@ -228,11 +235,9 @@ final class SIV2Engine {
           .where((goal) => goal.id == focusMilestone.goalId)
           .firstOrNull;
     }
-    final SIV2TimelineEvidence? focusTimeline = _selectFocusTimeline(
-      timeline,
-      question,
-      observedNow,
-    );
+    final SIV2TimelineEvidence? focusTimeline = namedTaskMissing
+        ? null
+        : _selectFocusTimeline(timeline, question, observedNow);
     final List<SIV2Scenario> scenarios = _buildScenarios(
       task: focusTask,
       goals: goals,
@@ -252,6 +257,10 @@ final class SIV2Engine {
       ...query.assumptions,
     ];
     final List<String> missing = <String>[
+      if (namedTaskMissing)
+        question.isSpanish
+            ? 'No se encontró una tarea guardada que coincida con "${question.namedTaskPhrase}" en los datos seleccionados.'
+            : 'No saved task matching "${question.namedTaskPhrase}" was found in the selected evidence lens.',
       for (final SIV2Source source in query.sources)
         if (snapshot.unavailableSources.contains(source))
           question.isSpanish
@@ -339,34 +348,45 @@ final class SIV2Engine {
         ),
     ];
 
-    final String groundedAnswer = _directAnswer(
-      question: question,
-      focusTask: focusTask,
-      focusGoal: focusGoal,
-      focusMilestone: focusMilestone,
-      focusTimeline: focusTimeline,
-      tasks: tasks,
-      goals: goals,
-      milestones: milestones,
-      timeline: timeline,
-      conflicts: conflicts,
-      scenarios: scenarios,
-      now: observedNow,
-      missingInformation: missing,
-      totalMatched:
-          tasks.length + goals.length + milestones.length + timeline.length,
-    );
-    final String directAnswer = userReportedEvidence.isEmpty
+    final String groundedAnswer = namedTaskMissing
+        ? question.isSpanish
+              ? 'No encuentro una tarea guardada que coincida con "${question.namedTaskPhrase}" en los datos seleccionados. No puedo explicar su posición ni afirmar que tenga una fecha guardada. Comprueba el título o amplía el filtro.'
+              : 'I could not find a saved task matching "${question.namedTaskPhrase}" in the selected evidence lens. I cannot explain its rank or claim a saved date. Check the title or widen the filter.'
+        : _directAnswer(
+            question: question,
+            focusTask: focusTask,
+            focusGoal: focusGoal,
+            focusMilestone: focusMilestone,
+            focusTimeline: focusTimeline,
+            tasks: tasks,
+            goals: goals,
+            milestones: milestones,
+            timeline: timeline,
+            conflicts: conflicts,
+            scenarios: scenarios,
+            now: observedNow,
+            missingInformation: missing,
+            totalMatched:
+                tasks.length +
+                goals.length +
+                milestones.length +
+                timeline.length,
+          );
+    final String directAnswer = namedTaskMissing || userReportedEvidence.isEmpty
         ? groundedAnswer
         : '$groundedAnswer ${userReportedEvidence.length} relevant user-reported context ${userReportedEvidence.length == 1 ? 'item is' : 'items are'} cited separately and not independently verified.';
-    final String recommendation = _recommendation(
-      question: question,
-      focusTask: focusTask,
-      focusGoal: focusGoal,
-      focusMilestone: focusMilestone,
-      focusTimeline: focusTimeline,
-      conflicts: conflicts,
-    );
+    final String recommendation = namedTaskMissing
+        ? question.isSpanish
+              ? 'Comprueba el título exacto de la tarea o amplía el filtro antes de decidir. SI no cambió datos guardados.'
+              : 'Check the exact task title or widen the evidence lens before deciding. SI has not changed saved data.'
+        : _recommendation(
+            question: question,
+            focusTask: focusTask,
+            focusGoal: focusGoal,
+            focusMilestone: focusMilestone,
+            focusTimeline: focusTimeline,
+            conflicts: conflicts,
+          );
 
     final int requiredSignals = query.sources.length;
     final int coveredSignals = <SIV2Source>[
@@ -383,8 +403,9 @@ final class SIV2Engine {
         : age <= const Duration(hours: 24)
         ? SIV2Freshness.aging
         : SIV2Freshness.stale;
-    final SIV2EvidenceStrength strength =
-        coveredSignals > 0 && coveredSignals == requiredSignals
+    final SIV2EvidenceStrength strength = namedTaskMissing
+        ? SIV2EvidenceStrength.limited
+        : coveredSignals > 0 && coveredSignals == requiredSignals
         ? (conflicts.length <= 1
               ? SIV2EvidenceStrength.strong
               : SIV2EvidenceStrength.moderate)
@@ -392,7 +413,8 @@ final class SIV2Engine {
         ? SIV2EvidenceStrength.moderate
         : SIV2EvidenceStrength.limited;
 
-    final bool refusal = question.focus == _SIV2QuestionFocus.unsupported;
+    final bool refusal =
+        question.focus == _SIV2QuestionFocus.unsupported || namedTaskMissing;
     final SIV2Response response = SIV2Response(
       query: query,
       snapshotRevision: snapshot.revision,
@@ -401,7 +423,7 @@ final class SIV2Engine {
       userReportedEvidence: userReportedEvidence,
       calculations: refusal ? const <SIV2Statement>[] : calculations,
       inferences: refusal ? const <SIV2Statement>[] : inferences,
-      missingInformation: refusal
+      missingInformation: question.focus == _SIV2QuestionFocus.unsupported
           ? <String>[
               question.isSpanish
                   ? 'La pregunta no corresponde a una decisión de planificación que pueda responderse con estos datos.'
@@ -431,6 +453,12 @@ final class SIV2Engine {
     SIV2Response source, {
     required _SIV2Question question,
   }) {
+    if (question.namedTaskPhrase != null &&
+        source.missingInformation.any(
+          (item) => item.startsWith('No se encontró una tarea guardada'),
+        )) {
+      return source;
+    }
     final entityLinks = source.evidenceLinks
         .where((link) => link.entityId != 'collection')
         .toList(growable: false);
@@ -1198,31 +1226,40 @@ final class SIV2Engine {
     _SIV2Question question,
   ) {
     if (tasks.isEmpty) return null;
-    final List<SIV2TaskEvidence> ranked = List<SIV2TaskEvidence>.of(tasks)
-      ..sort((SIV2TaskEvidence left, SIV2TaskEvidence right) {
-        final int relevanceOrder = question
-            .titleScore(right.title)
-            .compareTo(question.titleScore(left.title));
-        if (relevanceOrder != 0) return relevanceOrder;
-        if (question.ranksByPriority) {
-          final int priorityOrder = right.priority.compareTo(left.priority);
-          if (priorityOrder != 0) return priorityOrder;
-        }
-        final DateTime leftDate =
-            left.dueDate ??
-            left.scheduledFor ??
-            DateTime.fromMillisecondsSinceEpoch(8640000000000000, isUtc: true);
-        final DateTime rightDate =
-            right.dueDate ??
-            right.scheduledFor ??
-            DateTime.fromMillisecondsSinceEpoch(8640000000000000, isUtc: true);
-        final int dateOrder = leftDate.compareTo(rightDate);
-        if (dateOrder != 0) return dateOrder;
-        final int priorityOrder = right.priority.compareTo(left.priority);
-        if (priorityOrder != 0) return priorityOrder;
-        return left.title.toLowerCase().compareTo(right.title.toLowerCase());
-      });
-    return ranked.first;
+    final List<SIV2TaskEvidence> ranked =
+        tasks.where((task) => question.matchesNamedTask(task.title)).toList()
+          ..sort((SIV2TaskEvidence left, SIV2TaskEvidence right) {
+            final int relevanceOrder = question
+                .titleScore(right.title)
+                .compareTo(question.titleScore(left.title));
+            if (relevanceOrder != 0) return relevanceOrder;
+            if (question.ranksByPriority) {
+              final int priorityOrder = right.priority.compareTo(left.priority);
+              if (priorityOrder != 0) return priorityOrder;
+            }
+            final DateTime leftDate =
+                left.dueDate ??
+                left.scheduledFor ??
+                DateTime.fromMillisecondsSinceEpoch(
+                  8640000000000000,
+                  isUtc: true,
+                );
+            final DateTime rightDate =
+                right.dueDate ??
+                right.scheduledFor ??
+                DateTime.fromMillisecondsSinceEpoch(
+                  8640000000000000,
+                  isUtc: true,
+                );
+            final int dateOrder = leftDate.compareTo(rightDate);
+            if (dateOrder != 0) return dateOrder;
+            final int priorityOrder = right.priority.compareTo(left.priority);
+            if (priorityOrder != 0) return priorityOrder;
+            return left.title.toLowerCase().compareTo(
+              right.title.toLowerCase(),
+            );
+          });
+    return ranked.firstOrNull;
   }
 
   SIV2GoalEvidence? _selectFocusGoal(
@@ -1583,6 +1620,7 @@ final class _SIV2Question {
     required this.priorTerms,
     required this.hasPriorContext,
     required this.requestsListing,
+    required this.namedTaskPhrase,
   });
 
   factory _SIV2Question.parse(SIV2Query query) {
@@ -1591,6 +1629,9 @@ final class _SIV2Question {
         ? _normalizeQuestion(query.priorUserTurns.join(' '))
         : '';
     final String filter = _normalizeQuestion(query.entityFilter ?? '');
+    final String? namedTaskPhrase = query.requestsListing
+        ? null
+        : _namedTaskPhrase(current);
     return _SIV2Question(
       focus: query.requestsListing
           ? _SIV2QuestionFocus.overview
@@ -1601,6 +1642,7 @@ final class _SIV2Question {
       priorTerms: _questionTerms(prior),
       hasPriorContext: query.usesPriorDecisionContext,
       requestsListing: query.requestsListing,
+      namedTaskPhrase: namedTaskPhrase,
     );
   }
 
@@ -1611,6 +1653,32 @@ final class _SIV2Question {
   final Set<String> priorTerms;
   final bool hasPriorContext;
   final bool requestsListing;
+  final String? namedTaskPhrase;
+
+  bool matchesNamedTask(String title) {
+    final phrase = namedTaskPhrase;
+    if (phrase == null) return true;
+    final Set<String> requested = _questionTerms(phrase)
+        .where(
+          (term) => !<String>{'one', 'before', 'after', 'saved'}.contains(term),
+        )
+        .toSet();
+    final Set<String> titleTerms = _questionTerms(_normalizeQuestion(title));
+    if (requested.length < 2) return true;
+    final int matched = requested.intersection(titleTerms).length;
+    return matched >= 2 && matched * 5 >= requested.length * 3;
+  }
+
+  static String? _namedTaskPhrase(String input) {
+    final match = RegExp(
+      r'^(?:why does|why is|how does|por que)\s+(.+?)\s+(?:rank(?:s)?(?: here)?|se prioriza|tiene prioridad|ocupa este lugar)\b',
+    ).firstMatch(input);
+    if (match == null) return null;
+    final phrase = match
+        .group(1)!
+        .replaceFirst(RegExp(r'^(?:the|my|a|la|el|mi|una?)\s+'), '');
+    return _questionTerms(phrase).length >= 2 ? phrase : null;
+  }
 
   bool get isSpanish => RegExp(
     r'\b(que|cual|cuales|deberia|hacer|despues|necesita|atencion|meta|metas|tarea|tareas|hito|hitos|hoy|manana|posponer|retrasar|conflicto|explica)\b',

@@ -146,10 +146,15 @@ final class _PlannerIntent {
       availableContainer: _plannerAvailableContainer(source),
       groceryConstraintStep:
           action != null &&
-              RegExp(
-                r'\b(?:grocer(?:y|ies)|comida|compras)\b',
-                caseSensitive: false,
-              ).hasMatch(action)
+              (RegExp(
+                    r'\b(?:grocer(?:y|ies)|comida|compras)\b',
+                    caseSensitive: false,
+                  ).hasMatch(action) ||
+                  (RegExp(
+                        r'\b(?:list|write|make|plan|escribir|hacer)\b.*\b(?:essentials?|esenciales)\b',
+                        caseSensitive: false,
+                      ).hasMatch(action) &&
+                      _plannerCurrentGroceryContext(conversation.input)))
           ? _plannerGroceryConstraintStep(
               conversation.input,
               spanish: language == 'es',
@@ -950,6 +955,13 @@ String _concretePlannerStep(
   String? groceryConstraintStep,
 }) {
   final lower = action.toLowerCase();
+  if (groceryConstraintStep != null &&
+      RegExp(
+        r'\b(?:grocer(?:y|ies)|comida|compras|essentials?|esenciales)\b',
+        caseSensitive: false,
+      ).hasMatch(action)) {
+    return groceryConstraintStep;
+  }
   if (RegExp(
     r'\b(?:plan|planear|planificar|write|list|hacer)\b.*\b(?:grocer(?:y|ies)|compras|comida)\b',
     caseSensitive: false,
@@ -1040,19 +1052,76 @@ String _concretePlannerStep(
 }
 
 String? _plannerGroceryConstraintStep(String source, {required bool spanish}) {
-  final clean = _plannerWithoutQuotedText(source);
-  final match = RegExp(
+  String? amount;
+  String? people;
+  for (final clause in source.split(RegExp(r'[.!?;\n]+'))) {
+    final clean = _plannerWithoutQuotedText(clause);
+    if (_plannerHistoricalOrUncertain(clean) ||
+        !_plannerCurrentGroceryContext(clean)) {
+      continue;
+    }
+    final moneyFirst = RegExp(
+      spanish
+          ? r'\b(?:tengo|tenemos)\s+(\d+(?:\.\d+)?)\s*d[oó]lares\b[^.!?;]{0,45}?\b(?:compras|comida|alimentos)\b[^.!?;]{0,30}?\bpara\s+(\d+|una?|dos|tres|cuatro|cinco)\s+personas\b'
+          : r'\b(?:i|we)\s+have\s+(\d+(?:\.\d+)?)\s*(?:dollars?|usd)\b[^.!?;]{0,45}?\b(?:grocer(?:y|ies)|food)\b[^.!?;]{0,30}?\bfor\s+(\d+|one|two|three|four|five)\s+people\b',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (moneyFirst != null) {
+      amount = moneyFirst.group(1);
+      people = moneyFirst.group(2);
+      break;
+    }
+    final peopleFirst = RegExp(
+      spanish
+          ? r'\b(?:compras|comida|alimentos)\b[^.!?;]{0,45}?\bpara\s+(\d+|una?|dos|tres|cuatro|cinco)\s+personas\b[^.!?;]{0,45}?\b(?:por menos de|menos de|hasta)\s+(\d+(?:\.\d+)?)\s*d[oó]lares\b'
+          : r'\b(?:grocer(?:y|ies)|food)\b[^.!?;]{0,45}?\bfor\s+(\d+|one|two|three|four|five)\s+people\b[^.!?;]{0,45}?\b(?:under|below|within|up to)\s+(\d+(?:\.\d+)?)\s*(?:dollars?|usd)\b',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (peopleFirst != null) {
+      people = peopleFirst.group(1);
+      amount = peopleFirst.group(2);
+      break;
+    }
+  }
+  if (amount == null || people == null) return null;
+  final asksForFiveMinuteStart = RegExp(
     spanish
-        ? r'\b(?:tengo|tenemos)\s+(\d+(?:\.\d+)?)\s*d[oó]lares\b[^.!?;]{0,45}?\b(?:compras|comida|alimentos)\b[^.!?;]{0,30}?\bpara\s+(\d+|una?|dos|tres|cuatro|cinco)\s+personas\b'
-        : r'\b(?:i|we)\s+have\s+(\d+(?:\.\d+)?)\s*(?:dollars?|usd)\b[^.!?;]{0,45}?\b(?:grocer(?:y|ies)|food)\b[^.!?;]{0,30}?\bfor\s+(\d+|one|two|three|four|five)\s+people\b',
+        ? r'\b(?:cinco|5)\s+minutos\b[^.!?;]{0,25}?\b(?:primer|primero|paso)\b'
+        : r'\b(?:five|5)[ -]minute\s+(?:first\s+)?step\b',
     caseSensitive: false,
-  ).firstMatch(clean);
-  if (match == null) return null;
-  final amount = match.group(1)!;
-  final people = match.group(2)!;
+  ).hasMatch(source);
+  if (asksForFiveMinuteStart) {
+    return spanish
+        ? 'En los primeros cinco minutos, revisa qué alimentos ya tienes y anota cinco compras esenciales que faltan para $people personas. Antes de comprar, comprueba los precios reales frente al límite de $amount dólares; deja lo opcional para después. Los precios son desconocidos hasta comprobarlos.'
+        : 'In the first five minutes, check what food you already have and write five missing essentials for $people people. Before buying, check actual store prices against your $amount-dollar limit; leave optional items for later. Prices are unknown until checked.';
+  }
   return spanish
       ? 'Escribe los alimentos esenciales para $people personas y estima cada precio frente al límite de $amount dólares que indicaste. Los precios reales son desconocidos; deja lo opcional para después.'
       : 'Write essential grocery items for $people people, then estimate each price against the $amount-dollar limit you gave. Actual store prices are unknown; leave optional items for later.';
+}
+
+bool _plannerCurrentGroceryContext(String source) {
+  for (final clause in source.split(RegExp(r'[.!?;\n]+'))) {
+    final current = _plannerWithoutQuotedText(clause);
+    if (_plannerHistoricalOrUncertain(current) ||
+        RegExp(
+          r'\b(?:avoid|skip|exclude|do not|don.t|no)\s+(?:the\s+)?(?:grocer(?:y|ies)|compras|comida|alimentos)\b',
+          caseSensitive: false,
+        ).hasMatch(current)) {
+      continue;
+    }
+    if (RegExp(
+          r'\b(?:grocer(?:y|ies)|food|compras|comida|alimentos)\b',
+          caseSensitive: false,
+        ).hasMatch(current) &&
+        RegExp(
+          r'\b(?:need|want|plan|planning|write|list|shop|buy|have|necesit\w*|planific\w*|compr\w*|tengo|tenemos)\b',
+          caseSensitive: false,
+        ).hasMatch(current)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 String? _plannerAvailableContainer(String source) {

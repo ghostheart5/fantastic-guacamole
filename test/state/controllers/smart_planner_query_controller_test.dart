@@ -175,6 +175,53 @@ void main() {
     },
   );
 
+  test('Moto grocery phrasing makes an actual five-minute first step', () async {
+    final tasks = _MemoryTaskRepository([
+      TaskEntity(
+        id: 'five-essentials',
+        title: 'List five essentials for four people under 75 dollars',
+        createdAt: DateTime.utc(2026, 9, 15),
+        priority: 3,
+        estimatedDuration: const Duration(minutes: 30),
+      ),
+      TaskEntity(
+        id: 'other',
+        title: 'Review household budget this week',
+        createdAt: DateTime.utc(2026, 9, 15),
+      ),
+    ]);
+    final container = plannerContainer(tasks: tasks);
+    addTearDown(container.dispose);
+    final response =
+        (await container
+                .read(smartPlannerQueryControllerProvider)
+                .requestPlanningGuidance(
+                  energy: null,
+                  emotion: null,
+                  notes:
+                      'Tonight I am tired and have 30 minutes. I need groceries for four people under 75 dollars. Use my saved task about five essentials. Give me a five minute first step. Do not guess prices.',
+                  history: const [],
+                  previousSavedNotes: null,
+                ))
+            .plannerResponse;
+    expect(response.nextStep, contains('In the first five minutes'));
+    expect(
+      response.nextStep,
+      contains('five missing essentials for four people'),
+    );
+    expect(response.nextStep, contains('75-dollar limit'));
+    expect(response.nextStep, contains('Prices are unknown'));
+    expect(
+      response.nextStep,
+      isNot(contains('List five essentials for four people under 75 dollars.')),
+    );
+    expect(
+      response.options.every((option) => option.estimatedMinutes <= 30),
+      isTrue,
+    );
+    expect(tasks.writeCalls, 0);
+  });
+
   test('a past budget and duration cannot cap a current grocery plan', () async {
     final container = plannerContainer(
       tasks: _MemoryTaskRepository([

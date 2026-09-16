@@ -80,6 +80,58 @@ void main() {
     response.validate();
   });
 
+  test('named task absent from Review lens cannot become a different task', () {
+    final response = ask(
+      'Why does Review one bookkeeping example before school pickup rank here? Does that saved task actually have a date or deadline?',
+      tasks: <SIV2TaskEvidence>[
+        task('budget', 'Review household budget this week'),
+        task('grocery', 'Plan the household grocery list'),
+      ],
+    );
+
+    expect(response.directAnswer, contains('could not find a saved task'));
+    expect(response.directAnswer, contains('bookkeeping example'));
+    expect(response.directAnswer, isNot(contains('Review household budget')));
+    expect(response.directAnswer, isNot(contains('saved timing')));
+    expect(response.inferences, isEmpty);
+    expect(response.scenarios, isEmpty);
+    expect(response.confidence.strength, SIV2EvidenceStrength.limited);
+    response.validate();
+  });
+
+  test('a real named task keeps its own saved date evidence', () {
+    final response = ask(
+      'Why does Review one bookkeeping example before school pickup rank here? Does that saved task actually have a date or deadline?',
+      tasks: <SIV2TaskEvidence>[
+        task('budget', 'Review household budget this week'),
+        task(
+          'bookkeeping',
+          'Review one bookkeeping example before school pickup',
+          dueDate: now.add(const Duration(days: 1)),
+        ),
+      ],
+    );
+
+    expect(response.directAnswer, contains('bookkeeping example'));
+    expect(response.directAnswer, contains('saved timing'));
+    expect(response.directAnswer, isNot(contains('Review household budget')));
+    response.validate();
+  });
+
+  test('Spanish absent named task remains an honest Spanish answer', () {
+    final response = ask(
+      '¿Por qué Revisar un ejemplo de contabilidad antes de recoger a los niños se prioriza?',
+      tasks: <SIV2TaskEvidence>[
+        task('other', 'Revisar el presupuesto familiar esta semana'),
+      ],
+    );
+
+    expect(response.directAnswer, contains('No encuentro una tarea guardada'));
+    expect(response.directAnswer, contains('contabilidad'));
+    expect(response.directAnswer, isNot(contains('presupuesto familiar')));
+    response.validate();
+  });
+
   test('an explicit exclusion can never become the recommendation', () {
     final response = ask(
       'What should I do next, not Submit tax return?',
