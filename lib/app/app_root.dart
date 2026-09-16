@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/config/auth_callback.dart';
 import 'package:fantastic_guacamole/app/startup/startup_notice_layout.dart';
 
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/app/router/stable_back_button_dispatcher.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
@@ -248,6 +249,9 @@ class AppRoot extends ConsumerStatefulWidget {
 
 class _AppRootState extends ConsumerState<AppRoot> {
   GoRouter? _router;
+  RouterConfig<RouteMatchList>? _routerConfig;
+  final StableBackButtonDispatcher _backButtonDispatcher =
+      StableBackButtonDispatcher();
   final DeepLinkEventDeduplicator _deepLinkEvents = DeepLinkEventDeduplicator();
 
   @override
@@ -297,7 +301,15 @@ class _AppRootState extends ConsumerState<AppRoot> {
     );
     final GoRouter router = ref.watch(appRouterProvider);
     final voiceService = ref.watch(voiceServiceProvider);
-    _router = router;
+    if (!identical(_router, router)) {
+      _router = router;
+      _routerConfig = RouterConfig<RouteMatchList>(
+        routeInformationProvider: router.routeInformationProvider,
+        routeInformationParser: router.routeInformationParser,
+        routerDelegate: router.routerDelegate,
+        backButtonDispatcher: _backButtonDispatcher,
+      );
+    }
 
     ref.listen<AsyncValue<DeepLinkState>>(deepLinkStateProvider, (
       AsyncValue<DeepLinkState>? _,
@@ -324,7 +336,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
         GlobalCupertinoLocalizations.delegate,
       ],
       theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
-      routerConfig: router,
+      routerConfig: _routerConfig,
       builder: (context, child) {
         final Widget appChild = Stack(
           fit: StackFit.expand,
